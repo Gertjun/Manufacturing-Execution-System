@@ -1,0 +1,10 @@
+{
+  "name": "Batch-invoer",
+  "short_name": "Invoer",
+  "start_url": "/invoer/",
+  "scope": "/invoer/",
+  "display": "standalone",
+  "background_color": "#e6e9ec",
+  "theme_color": "#1b2430",
+  "icons": [{ "src": "/invoer/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

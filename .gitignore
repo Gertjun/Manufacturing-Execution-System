@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+instellingen.json
+.env
+e2e/shots/
+__pycache__/

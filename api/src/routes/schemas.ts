@@ -1,0 +1,105 @@
+import { Type } from "@fastify/type-provider-typebox";
+
+const Tijd = Type.String({ format: "date-time" });
+const OptTijd = Type.Union([Tijd, Type.Null()]);
+const OptGetal = Type.Union([Type.Null(), Type.Number()]);
+const OptTekst = Type.Union([Type.Null(), Type.String()]);
+
+export const Markering = Type.Union([Type.Literal("ok"), Type.Literal("buiten_tolerantie"), Type.Literal("buiten_grens")]);
+
+export const Fout = Type.Object({ fout: Type.String() });
+
+export const BatchNummer = Type.String({ pattern: "^B-[0-9]{4}-[0-9]{4}$", examples: ["B-2026-0161"] });
+export const LotNummer = Type.String({ pattern: "^L-[0-9]{4}-[0-9]{4}$", examples: ["L-2026-0042"] });
+export const StapCode = Type.String({ pattern: "^PS[0-9]+$", examples: ["PS3"] });
+
+export const RegistratieKort = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  stapcode: Type.String(),
+  stapnaam: Type.String(),
+  niveau: Type.String(),
+  batchnummer: OptTekst,
+  lotnummer: OptTekst,
+  poging: Type.Integer(),
+  herbewerking_start: Type.Boolean(),
+  reden: OptTekst,
+  status: Type.Union([Type.Literal("open"), Type.Literal("afgerond"), Type.Literal("afgebroken")]),
+  operator: Type.String(),
+  pc: Type.String(),
+  gestart_op: Tijd,
+  afgerond_op: OptTijd,
+});
+
+export const VeldMetWaarde = Type.Object({
+  code: Type.String(),
+  naam: Type.String(),
+  soort: Type.String(),
+  eenheid: OptTekst,
+  grens_min: OptGetal,
+  grens_max: OptGetal,
+  tolerantie: OptGetal,
+  tolerantie_soort: Type.String(),
+  verplicht: Type.Boolean(),
+  waarde: Type.Union([
+    Type.Object({
+      id: Type.String({ format: "uuid" }),
+      setting: OptGetal,
+      gemeten: Type.Number(),
+      markering: Markering,
+      gecorrigeerd: Type.Boolean(),
+      ingevoerd_op: Tijd,
+    }),
+    Type.Null(),
+  ]),
+});
+
+export const RegistratieDetail = Type.Intersect([RegistratieKort, Type.Object({ velden: Type.Array(VeldMetWaarde) })]);
+
+export const Batch = Type.Object({
+  batchnummer: Type.String(),
+  status: Type.String(),
+  bron: Type.String(),
+  lotnummer: OptTekst,
+  aangemaakt_op: Tijd,
+  laatst_afgeronde_stap: OptTekst,
+  open_stap: OptTekst,
+});
+
+export const Besluit = Type.Object({
+  besluit: Type.String(),
+  reden: Type.String(),
+  besloten_door: Type.String(),
+  besloten_op: Tijd,
+});
+
+export const PaspoortRegel = Type.Object({
+  batch_of_lot: Type.String(),
+  stap: Type.String(),
+  poging: Type.Integer(),
+  herbewerking_reden: OptTekst,
+  veld: Type.String(),
+  veldnaam: Type.String(),
+  eenheid: OptTekst,
+  setting: OptGetal,
+  gemeten: Type.Number(),
+  grens_min: OptGetal,
+  grens_max: OptGetal,
+  tolerantie: OptGetal,
+  tolerantie_soort: OptTekst,
+  markering: Markering,
+  gecorrigeerd: Type.Boolean(),
+  operator: Type.String(),
+  pc: Type.String(),
+  afgerond_op: OptTijd,
+});
+
+export const REGISTRATIE_SQL = `
+  SELECT r.id, s.code AS stapcode, s.naam AS stapnaam, s.niveau, b.batchnummer, l.lotnummer,
+         r.poging, r.herbewerking_start, r.reden, r.status, o.naam AS operator, p.naam AS pc,
+         r.gestart_op, r.afgerond_op
+    FROM stapregistratie r
+    JOIN processtap s ON s.id = r.processtap_id
+    LEFT JOIN batch b ON b.id = r.batch_id
+    LEFT JOIN lot l ON l.id = r.lot_id
+    JOIN operator o ON o.id = r.operator_id
+    JOIN pc p ON p.id = r.pc_id`;
