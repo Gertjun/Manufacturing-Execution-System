@@ -11,7 +11,7 @@
 import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import readline from "node:readline/promises";
-import { argumenten, leesInstellingen, logOnderhoud, pg, pgProgramma, ROOT, sqlBestand, stop, tijdstempel, verbind, verbindingArgs, voerUit } from "./lib.mjs";
+import { argumenten, controleerPgVersie, leesInstellingen, logOnderhoud, pg, pgProgramma, ROOT, sqlBestand, stop, tijdstempel, verbind, verbindingArgs, voerUit } from "./lib.mjs";
 
 const { opties, los } = argumenten();
 const inst = leesInstellingen(opties);
@@ -38,6 +38,8 @@ if (!existsSync(bestand)) stop(`Bestand niet gevonden: ${bestand}`);
   closeSync(fd);
   if (kop.toString("latin1") !== "PGDMP") stop(`${basename(bestand)} is geen back-up van tools/backup.mjs (pg_dump, eigen formaat). Er is niets veranderd.`);
 }
+
+await controleerPgVersie(inst, pgProgramma(inst, "pg_restore"), DB);
 
 async function zetTerug(database) {
   const beheer = await verbind(DB, "postgres");

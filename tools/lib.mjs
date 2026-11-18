@@ -115,3 +115,19 @@ export function tijdstempel(d = new Date()) {
 export function sqlBestand(pad) {
   return readFileSync(pad, "utf8").split(/\r?\n/).filter((r) => !r.startsWith("\\")).join("\n");
 }
+
+/**
+ * pg_restore moet dezelfde hoofdversie hebben als de server (of ouder): een nieuwere zet
+ * instellingen in de back-up die een oudere server niet kent. Stopt met uitleg als dat niet klopt.
+ */
+export async function controleerPgVersie(inst, programma, conf) {
+  const r = await voerUit(programma, ["--version"], conf);
+  const client = Number(/(\d+)(\.\d+)?/.exec(r.uitvoer)?.[1]);
+  const c = await verbind(conf, "postgres");
+  const server = Math.floor(Number((await c.query("SHOW server_version_num")).rows[0].server_version_num) / 10000);
+  await c.end();
+  if (client && server && client > server) {
+    stop(`${programma} is versie ${client}, de database-server versie ${server}. Gebruik de programma's van de server zelf: zet pgBin in de instellingen op de bin-map van PostgreSQL ${server}.`);
+  }
+}
+

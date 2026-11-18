@@ -75,7 +75,7 @@ Alleen de beheerders en het serviceaccount mogen `C:\batchgui\instellingen.json`
 
 ## Ubuntu Server (in het kort)
 
-- Pakket uitpakken naar `/opt/batchgui/0.6.0`, `ln -sfn /opt/batchgui/0.6.0 /opt/batchgui/huidig`, instellingen in `/etc/batchgui/instellingen.json` (eigenaar root, groep batchgui, rechten 640). `pgBin` weglaten.
+- Pakket uitpakken naar `/opt/batchgui/0.6.0`, `ln -sfn /opt/batchgui/0.6.0 /opt/batchgui/huidig`, instellingen in `/etc/batchgui/instellingen.json` (eigenaar root, groep batchgui, rechten 640). `pgBin` is alleen nodig als er meer PostgreSQL-versies op de server staan; zet hem dan op `/usr/lib/postgresql/18/bin`.
 - Gebruiker: `useradd --system batchgui`. Database: `BATCHGUI_INSTELLINGEN=/etc/batchgui/instellingen.json node tools/migreer.mjs`.
 - Service: `service/batchgui.service` naar `/etc/systemd/system/`, dan `systemctl enable --now batchgui`.
 - Back-ups via cron, bijvoorbeeld `/etc/cron.d/batchgui`:
@@ -129,6 +129,8 @@ C:\batchgui\batchgui-service.exe start
 | `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden) | taakplanner, elk uur |
 | `node tools/herstel.mjs --controle` | hersteltest in een tijdelijke database | taakplanner, elke maand |
 | `node tools/herstel.mjs <bestand>` | echte herstel | IT, bij een storing |
+
+De back-up- en hersteltools moeten dezelfde PostgreSQL-versie gebruiken als de server; `herstel.mjs` controleert dat en stopt met uitleg als `pg_restore` nieuwer is.
 
 Alle tools lezen `instellingen.json` (of het bestand in `BATCHGUI_INSTELLINGEN`, of `--instellingen <pad>`). Het resultaat van back-ups, hersteltests, herstel en updates staat in **Beheer → Server**.
 

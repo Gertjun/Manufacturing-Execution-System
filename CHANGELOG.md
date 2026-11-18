@@ -13,7 +13,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECIS
 - Verbeterd: de applicatie werkt in de database met een eigen gebruiker die gegevens kan invoeren maar niets kan verwijderen of de opbouw kan wijzigen.
 - Verbeterd: `/gezondheid` meldt ook of de database bereikbaar is (503 als dat niet zo is).
 - Verbeterd: het laptoppakket werkt een bestaande database bij een nieuwe versie zelf bij; je gegevens blijven staan. Aanbevolen: Node.js 26 LTS en PostgreSQL 18.
-- Technisch: de tests op GitHub draaien op Node.js 22 en 26, met de beperkte databasegebruiker, en controleren de database-updates en de beheertools.
+- Verbeterd: `herstel.mjs` controleert vooraf of `pg_restore` bij de versie van de server past, en legt uit wat te doen als dat niet zo is.
+- Technisch: de tests op GitHub draaien op PostgreSQL 18 en Node.js 22 en 26, met de beperkte databasegebruiker, en controleren de database-updates en de beheertools.
 
 ## 0.5.1 — 18 november 2026
 - Technisch: werkafspraken overgenomen uit de andere projecten: `CLAUDE.md`, `NOTES.md`, `DECISIONS.md` (D1–D20) en `WISHLIST.md`.
