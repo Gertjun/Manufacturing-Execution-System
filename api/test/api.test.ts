@@ -8,9 +8,12 @@ import { bouwApp, type App } from "../src/app.js";
 import { maakPool, type Db } from "../src/db.js";
 
 const DB_URL = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+// De applicatie zelf draait als batchgui_app (beperkte rechten, zie db/rechten.sql) als deze is gezet.
+const APP_DB_URL = process.env.TEST_APP_DATABASE_URL ?? DB_URL;
 
 let app: App;
-let db: Db;
+let beheerDb: Db; // schema laden en testgegevens klaarzetten
+let db: Db; // de verbinding van de applicatie
 
 type Antwoord = { status: number; body: any };
 
@@ -65,15 +68,18 @@ async function doorloop(token: string, nummer: string, soort: "batch" | "lot", v
 }
 
 before(async () => {
-  db = maakPool(DB_URL);
-  await db.query(readFileSync(new URL("../../db/schema.sql", import.meta.url), "utf8"));
-  await db.query(readFileSync(new URL("../../db/seed_config.sql", import.meta.url), "utf8"));
+  beheerDb = maakPool(DB_URL);
+  await beheerDb.query(readFileSync(new URL("../../db/schema.sql", import.meta.url), "utf8"));
+  await beheerDb.query(readFileSync(new URL("../../db/seed_config.sql", import.meta.url), "utf8"));
+  await beheerDb.query(readFileSync(new URL("../../db/rechten.sql", import.meta.url), "utf8"));
+  db = APP_DB_URL === DB_URL ? beheerDb : maakPool(APP_DB_URL);
   app = await bouwApp({ db, jwtGeheim: "test-geheim-dat-lang-genoeg-is-0123456789" });
 });
 
 after(async () => {
   await app.close();
-  await db.end();
+  if (db !== beheerDb) await db.end();
+  await beheerDb.end();
 });
 
 describe("inloggen en rollen", () => {
@@ -419,5 +425,45 @@ describe("documentatie", () => {
     for (const pad of ["/auth/login", "/registraties/{id}/waarden", "/lots/{lotnummer}/paspoort", "/beheer/velden"]) {
       assert.ok(spec.paths[pad], `ontbreekt: ${pad}`);
     }
+  });
+});
+
+describe("server en onderhoud", () => {
+  test("gezondheid meldt versie en database", async () => {
+    const r = await verzoek("GET", "/gezondheid");
+    assert.equal(r.status, 200);
+    assert.equal(r.body.database, "ok");
+    assert.match(r.body.versie, /^\d+\.\d+\.\d+$/);
+  });
+  test("serveroverzicht alleen voor beheerders", async () => {
+    assert.equal((await verzoek("GET", "/beheer/server", await login("kwaliteit1"))).status, 403);
+  });
+  test("zonder back-up staat er een waarschuwing", async () => {
+    await beheerDb.query("DELETE FROM fabriek.onderhoud_log");
+    const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.schema.nummer, 2);
+    assert.equal(r.body.laatsteBackup, null);
+    assert.ok(r.body.waarschuwingen.some((w: any) => w.niveau === "fout" && /nooit een back-up/.test(w.tekst)));
+  });
+  test("recente back-up en hersteltest: geen waarschuwingen", async () => {
+    await beheerDb.query(`INSERT INTO fabriek.onderhoud_log (soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes, melding) VALUES
+      ('backup', now() - interval '3 hours', now() - interval '3 hours', true, 'oud.dump', 1000, null),
+      ('backup', now() - interval '20 minutes', now() - interval '19 minutes', true, 'nieuw.dump', 2000, null),
+      ('hersteltest', now() - interval '3 days', now() - interval '3 days', true, 'nieuw.dump', 2000, '10 batches')`);
+    const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
+    assert.equal(r.body.laatsteBackup.bestand, "nieuw.dump");
+    assert.equal(r.body.laatsteHersteltest.melding, "10 batches");
+    assert.deepEqual(r.body.waarschuwingen, []);
+  });
+  test("mislukte back-up geeft een fout", async () => {
+    await beheerDb.query("INSERT INTO fabriek.onderhoud_log (soort, gestart_op, gelukt, melding) VALUES ('backup', now(), false, 'schijf vol')");
+    const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
+    assert.ok(r.body.waarschuwingen.some((w: any) => /mislukt/.test(w.tekst)));
+  });
+  test("de applicatie kan geen gegevens verwijderen of het logboek wijzigen", { skip: APP_DB_URL === DB_URL }, async () => {
+    await assert.rejects(db.query("DELETE FROM fabriek.waarde"), /permission denied/);
+    await assert.rejects(db.query("DELETE FROM fabriek.onderhoud_log"), /permission denied/);
+    await assert.rejects(db.query("INSERT INTO fabriek.onderhoud_log (soort, gestart_op, gelukt) VALUES ('backup', now(), true)"), /permission denied/);
   });
 });

@@ -1,0 +1,23 @@
+{
+  "db": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "batchgui",
+    "user": "batchgui_app",
+    "password": "VUL-IN-wachtwoord-van-batchgui_app"
+  },
+  "beheerDb": {
+    "user": "postgres",
+    "password": "VUL-IN-wachtwoord-van-postgres"
+  },
+  "pgBin": "C:\\Program Files\\PostgreSQL\\18\\bin",
+  "backupMap": "D:\\batchgui-backup",
+  "poort": 443,
+  "adres": "0.0.0.0",
+  "https": {
+    "pfx": "C:\\batchgui\\certificaat\\batchgui.pfx",
+    "wachtwoord": "VUL-IN-wachtwoord-van-het-pfx-bestand"
+  },
+  "jwtGeheim": "VUL-IN-minstens-32-willekeurige-tekens",
+  "logniveau": "info"
+}

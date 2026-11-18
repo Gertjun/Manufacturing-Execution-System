@@ -1,4 +1,5 @@
 import { VERSIE } from "./versie.js";
+import type { FastifyInstance } from "fastify";
 import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -25,6 +26,8 @@ export interface AppOpties {
   invoerMap?: string;
   /** Map met de gebouwde portalen-app; wordt op /portaal/ aangeboden. */
   portaalMap?: string;
+  /** https: certificaat en sleutel (PEM) of een .pfx met wachtwoord. Zonder: gewoon http. */
+  https?: { key?: Buffer; cert?: Buffer; pfx?: Buffer; passphrase?: string };
 }
 
 declare module "fastify" {
@@ -33,9 +36,12 @@ declare module "fastify" {
   }
 }
 
-export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaalMap }: AppOpties) {
+export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaalMap, https }: AppOpties) {
   // Strikt: onbekende eigenschappen geven een fout in plaats van stil te verdwijnen.
-  const app = Fastify({ logger, ajv: { customOptions: { removeAdditional: false } } }).withTypeProvider<TypeBoxTypeProvider>();
+  // Met https is het type van de onderliggende server anders; voor de routes maakt dat niet uit.
+  const app = (
+    Fastify({ logger, ajv: { customOptions: { removeAdditional: false } }, ...(https ? { https } : {}) }) as unknown as FastifyInstance
+  ).withTypeProvider<TypeBoxTypeProvider>();
   app.decorate("db", db);
   app.setErrorHandler(foutAfhandeling);
 
@@ -74,9 +80,14 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     await app.register(fastifyStatic, { root: portaalMap, prefix: "/portaal/", index: "index.html", decorateReply: false });
   }
 
-  app.get("/gezondheid", { schema: { tags: ["systeem"], security: [] } }, async () => {
-    await db.query("SELECT 1");
-    return { status: "ok", versie: VERSIE };
+  // Voor de monitoring van IT: 200 als applicatie en database werken, anders 503.
+  app.get("/gezondheid", { schema: { tags: ["systeem"], security: [] } }, async (_req, reply) => {
+    try {
+      await db.query("SELECT 1");
+      return { status: "ok", versie: VERSIE, database: "ok" };
+    } catch {
+      return reply.code(503).send({ status: "fout", versie: VERSIE, database: "niet bereikbaar" });
+    }
   });
 
   return app;

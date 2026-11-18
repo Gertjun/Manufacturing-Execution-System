@@ -137,6 +137,26 @@ try {
   check("Logboek: pc-koppeling", log.includes("PC-01: PS3") && log.includes("Stap toegevoegd aan de pc"));
   check("Logboek toont geen wachtwoord-hash", !log.includes("$2a$") && !log.includes("hash"));
 
+  console.log("\nServer");
+  await q("DELETE FROM fabriek.onderhoud_log");
+  await page.getByRole("link", { name: "Server" }).click();
+  await page.getByRole("heading", { name: "Server", exact: true }).waitFor();
+  await page.locator(".tegels").waitFor();
+  check("Server: waarschuwing zonder back-up", await page.getByText("Er is nog nooit een back-up gemaakt.").isVisible());
+  await q(`INSERT INTO fabriek.onderhoud_log (soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes, melding) VALUES
+    ('migratie', now() - interval '2 days', now() - interval '2 days', true, null, null, 'Nieuwe database aangemaakt op schemaversie 2'),
+    ('hersteltest', now() - interval '6 days', now() - interval '6 days', true, 'batchgui_2026-11-12_0300_v0.6.0.dump', 1310000, '543 batches, 135 lots, 18093 waarden teruggezet'),
+    ('backup', now() - interval '62 minutes', now() - interval '61 minutes', true, 'batchgui_2026-11-18_2000_v0.6.0.dump', 1312000, null),
+    ('backup', now() - interval '2 minutes', now() - interval '1 minutes', true, 'batchgui_2026-11-18_2100_v0.6.0.dump', 1313000, '1 oude back-up(s) opgeruimd')`);
+  await page.reload();
+  await page.locator(".serverstatus-ok").waitFor();
+  await page.waitForTimeout(300);
+  await shot("06-server");
+  const srv = await page.locator("main, body").first().innerText();
+  check("Server: in orde na recente back-up en hersteltest", srv.includes("In orde") && srv.includes("1 min geleden"));
+  check("Server: versie en schemaversie zichtbaar", /schemaversie 2/.test(srv));
+  check("Server: onderhoudstabel met hersteltest", srv.includes("Hersteltest") && srv.includes("543 batches"));
+
   console.log("\nDoorwerking op het invoerscherm");
   const invoer = await context.newPage();
   await invoer.goto(`${BASIS}/invoer/`);

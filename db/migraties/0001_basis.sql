@@ -1,0 +1,749 @@
+-- Migratie 0001: het schema zoals het was in versie 0.5.1 (basis). Wordt nooit opnieuw uitgevoerd
+-- op een bestaande database; dient als startpunt en voor de controle dat schema.sql klopt.
+-- =====================================================================
+-- Batch input GUI — datamodel v1 (PostgreSQL 16)
+-- Alle namen en waarden zijn fictief.
+-- Uitgangspunt: niets wordt overschreven of verwijderd; correcties,
+-- herbewerkingen en besluiten zijn nieuwe regels.
+-- =====================================================================
+
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;  -- wachtwoord-hashes
+
+DROP SCHEMA IF EXISTS fabriek CASCADE;
+CREATE SCHEMA fabriek;
+SET search_path = fabriek;
+
+-- ---------------------------------------------------------------------
+-- Gebruikers, operators, pc's
+-- ---------------------------------------------------------------------
+
+-- Persoonlijke accounts (ploegleider, beheerder, analist, planner) en
+-- het ene gedeelde operator-account.
+CREATE TABLE gebruiker (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    gebruikersnaam  text NOT NULL UNIQUE,
+    rol             text NOT NULL CHECK (rol IN ('operator','ploegleider','kwaliteit','beheerder','analist','planner')),
+    wachtwoord_hash text,                      -- bcrypt via pgcrypto
+    actief          boolean NOT NULL DEFAULT true
+);
+
+-- Controleert een login; geeft id en rol terug, of niets.
+CREATE FUNCTION controleer_login(p_naam text, p_wachtwoord text)
+RETURNS TABLE (id uuid, rol text) LANGUAGE sql STABLE AS $$
+    SELECT g.id, g.rol FROM fabriek.gebruiker g
+     WHERE g.gebruikersnaam = p_naam AND g.actief
+       AND g.wachtwoord_hash = public.crypt(p_wachtwoord, g.wachtwoord_hash)
+$$;
+
+-- Namenlijst waaruit operators na het inloggen kiezen.
+CREATE TABLE operator (
+    id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    naam    text NOT NULL UNIQUE,
+    actief  boolean NOT NULL DEFAULT true
+);
+
+CREATE TABLE pc (
+    id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    naam      text NOT NULL UNIQUE,          -- bv. PC-07
+    locatie   text,
+    actief    boolean NOT NULL DEFAULT true
+);
+
+-- ---------------------------------------------------------------------
+-- Configuratie: processtappen en velden
+-- ---------------------------------------------------------------------
+
+CREATE TABLE processtap (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code         text NOT NULL UNIQUE,         -- PS1 .. PS18
+    naam         text NOT NULL,                -- Process Step 1 ..
+    volgorde     int  NOT NULL UNIQUE CHECK (volgorde > 0),
+    niveau       text NOT NULL CHECK (niveau IN ('batch','lot')),
+    is_lot_stap  boolean NOT NULL DEFAULT false,
+    actief       boolean NOT NULL DEFAULT true,
+    CHECK (NOT is_lot_stap OR niveau = 'lot')
+);
+-- Precies één (actieve) lot-stap.
+CREATE UNIQUE INDEX processtap_een_lot_stap ON processtap (is_lot_stap) WHERE is_lot_stap AND actief;
+
+-- Optioneel: welke stappen in de keuzelijst van een pc staan.
+CREATE TABLE pc_stap (
+    pc_id          uuid NOT NULL REFERENCES pc(id),
+    processtap_id  uuid NOT NULL REFERENCES processtap(id),
+    PRIMARY KEY (pc_id, processtap_id)
+);
+
+CREATE TABLE veld (
+    id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    processtap_id     uuid NOT NULL REFERENCES processtap(id),
+    code              text NOT NULL UNIQUE,     -- S3.2; nooit hergebruikt
+    naam              text NOT NULL,
+    soort             text NOT NULL CHECK (soort IN ('procesparameter','gewicht','overig')),
+    eenheid           text,
+    grens_min         numeric,
+    grens_max         numeric,
+    tolerantie        numeric CHECK (tolerantie IS NULL OR tolerantie >= 0),
+    tolerantie_soort  text NOT NULL DEFAULT 'absoluut' CHECK (tolerantie_soort IN ('absoluut','procent')),
+    volgnummer        int  NOT NULL,
+    verplicht         boolean NOT NULL DEFAULT true,
+    actief            boolean NOT NULL DEFAULT true,
+    UNIQUE (processtap_id, volgnummer),
+    CHECK (grens_min IS NULL OR grens_max IS NULL OR grens_min <= grens_max),
+    CHECK (tolerantie IS NULL OR soort = 'procesparameter')
+);
+
+-- Wijzigingslogboek voor configuratie.
+CREATE TABLE config_log (
+    id          bigserial PRIMARY KEY,
+    tabel       text NOT NULL,
+    record_id   uuid NOT NULL,
+    actie       text NOT NULL,
+    oud         jsonb,
+    nieuw       jsonb,
+    gewijzigd_door text NOT NULL DEFAULT coalesce(current_setting('fabriek.gebruiker', true), 'onbekend'),
+    gewijzigd_op   timestamptz NOT NULL DEFAULT now()
+);
+
+-- Logt elke wijziging in de configuratie: stappen, velden, accounts, operators,
+-- pc's en welke stappen een pc bedient. Wachtwoord-hashes komen nooit in het logboek.
+CREATE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_oud   jsonb;
+    v_nieuw jsonb;
+BEGIN
+    IF TG_OP = 'DELETE' AND TG_TABLE_NAME <> 'pc_stap' THEN
+        RAISE EXCEPTION 'Configuratie wordt niet verwijderd; zet % op inactief', TG_TABLE_NAME;
+    END IF;
+    IF TG_OP <> 'INSERT' THEN v_oud := to_jsonb(OLD) - 'wachtwoord_hash'; END IF;
+    IF TG_OP <> 'DELETE' THEN v_nieuw := to_jsonb(NEW) - 'wachtwoord_hash'; END IF;
+    IF TG_TABLE_NAME = 'gebruiker' AND TG_OP = 'UPDATE' THEN
+        IF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash THEN
+            v_nieuw := v_nieuw || '{"wachtwoord": "gewijzigd"}';
+        END IF;
+    END IF;
+    INSERT INTO config_log (tabel, record_id, actie, oud, nieuw, gewijzigd_door)
+    VALUES (TG_TABLE_NAME,
+            coalesce((coalesce(v_nieuw, v_oud) ->> 'id')::uuid, (coalesce(v_nieuw, v_oud) ->> 'pc_id')::uuid),
+            TG_OP, v_oud, v_nieuw,
+            coalesce(current_setting('fabriek.gebruiker', true), 'onbekend'));
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+END $$;
+
+CREATE TRIGGER processtap_log BEFORE INSERT OR UPDATE OR DELETE ON processtap
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER veld_log BEFORE INSERT OR UPDATE OR DELETE ON veld
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER gebruiker_log BEFORE INSERT OR UPDATE OR DELETE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER operator_log BEFORE INSERT OR UPDATE OR DELETE ON operator
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER pc_log BEFORE INSERT OR UPDATE OR DELETE ON pc
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER pc_stap_log BEFORE INSERT OR DELETE ON pc_stap
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Er blijft altijd minstens één actieve beheerder over.
+CREATE FUNCTION bewaak_beheerder() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF OLD.rol = 'beheerder' AND OLD.actief AND (NEW.rol <> 'beheerder' OR NOT NEW.actief)
+       AND NOT EXISTS (SELECT 1 FROM gebruiker WHERE rol = 'beheerder' AND actief AND id <> OLD.id) THEN
+        RAISE EXCEPTION 'Er moet minstens één actieve beheerder overblijven';
+    END IF;
+    IF NEW.gebruikersnaam <> OLD.gebruikersnaam THEN
+        RAISE EXCEPTION 'Een gebruikersnaam verandert niet; maak een nieuw account';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER gebruiker_beheerder BEFORE UPDATE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION bewaak_beheerder();
+
+-- Codes zijn vast: een veld of stap krijgt nooit een andere code.
+CREATE FUNCTION code_vast() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.code <> OLD.code THEN
+        RAISE EXCEPTION 'Code % mag niet veranderen', OLD.code;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER processtap_code_vast BEFORE UPDATE ON processtap FOR EACH ROW EXECUTE FUNCTION code_vast();
+CREATE TRIGGER veld_code_vast       BEFORE UPDATE ON veld       FOR EACH ROW EXECUTE FUNCTION code_vast();
+
+-- ---------------------------------------------------------------------
+-- Productie: batches en lots
+-- ---------------------------------------------------------------------
+
+CREATE TABLE lot (
+    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    lotnummer      text NOT NULL UNIQUE CHECK (lotnummer ~ '^L-[0-9]{4}-[0-9]{4}$'),
+    status         text NOT NULL DEFAULT 'in_productie' CHECK (status IN ('in_productie','gereed','geblokkeerd')),
+    aangemaakt_op  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE batch (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    batchnummer      text NOT NULL UNIQUE CHECK (batchnummer ~ '^B-[0-9]{4}-[0-9]{4}$'),
+    bron             text NOT NULL DEFAULT 'operator' CHECK (bron IN ('operator','planner')),
+    status           text NOT NULL DEFAULT 'in_productie'
+                     CHECK (status IN ('gepland','in_productie','in_beoordeling','in_lot','afgekeurd')),
+    lot_id           uuid REFERENCES lot(id),
+    aangemaakt_op    timestamptz NOT NULL DEFAULT now(),
+    aangemaakt_door  uuid REFERENCES operator(id),
+    CHECK ((status = 'in_lot') = (lot_id IS NOT NULL))
+);
+CREATE INDEX batch_lot ON batch (lot_id);
+CREATE INDEX batch_status ON batch (status);
+
+-- Besluiten over een batch:
+--   in_beoordeling – ploegleider of kwaliteit; de batch kan dan niet verder
+--   vrijgegeven    – keurresultaat OK, alleen kwaliteit; door naar de volgende stap
+--   afgekeurd      – keurresultaat NOK, alleen kwaliteit; batch wordt afgevoerd
+CREATE TABLE batch_besluit (
+    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id       uuid NOT NULL REFERENCES batch(id),
+    besluit        text NOT NULL CHECK (besluit IN ('in_beoordeling','vrijgegeven','afgekeurd')),
+    reden          text NOT NULL CHECK (length(trim(reden)) > 0),
+    besloten_door  uuid NOT NULL REFERENCES gebruiker(id),
+    besloten_op    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE FUNCTION verwerk_batch_besluit() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_rol    text;
+    v_status text;
+BEGIN
+    SELECT rol INTO v_rol FROM gebruiker WHERE id = NEW.besloten_door AND actief;
+    IF NEW.besluit = 'in_beoordeling' AND (v_rol IS NULL OR v_rol NOT IN ('ploegleider','kwaliteit')) THEN
+        RAISE EXCEPTION 'Alleen een ploegleider of Kwaliteit mag een batch in beoordeling zetten';
+    END IF;
+    IF NEW.besluit IN ('vrijgegeven','afgekeurd') AND (v_rol IS NULL OR v_rol <> 'kwaliteit') THEN
+        RAISE EXCEPTION 'Alleen Kwaliteit mag het keurresultaat (OK/NOK) invoeren';
+    END IF;
+
+    SELECT status INTO v_status FROM batch WHERE id = NEW.batch_id FOR UPDATE;
+    IF v_status IN ('in_lot','afgekeurd') THEN
+        RAISE EXCEPTION 'Batch heeft status %; geen besluit meer mogelijk', v_status;
+    END IF;
+    IF NEW.besluit = 'in_beoordeling' AND v_status <> 'in_productie' THEN
+        RAISE EXCEPTION 'Alleen een batch in productie kan in beoordeling (nu: %)', v_status;
+    END IF;
+    IF NEW.besluit IN ('vrijgegeven','afgekeurd') AND v_status <> 'in_beoordeling' THEN
+        RAISE EXCEPTION 'Een keurresultaat kan alleen na "in beoordeling" (nu: %)', v_status;
+    END IF;
+
+    UPDATE batch SET status = CASE NEW.besluit
+        WHEN 'in_beoordeling' THEN 'in_beoordeling'
+        WHEN 'vrijgegeven'    THEN 'in_productie'
+        WHEN 'afgekeurd'      THEN 'afgekeurd' END
+    WHERE id = NEW.batch_id;
+
+    -- NOK: een stap die nog open stond wordt afgebroken, met de reden erbij.
+    IF NEW.besluit = 'afgekeurd' THEN
+        UPDATE stapregistratie
+           SET status = 'afgebroken', afgerond_op = clock_timestamp(),
+               reden = 'Batch afgekeurd: ' || NEW.reden
+         WHERE batch_id = NEW.batch_id AND status = 'open';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER batch_besluit_verwerk BEFORE INSERT ON batch_besluit
+    FOR EACH ROW EXECUTE FUNCTION verwerk_batch_besluit();
+
+-- ---------------------------------------------------------------------
+-- Stapregistraties
+-- ---------------------------------------------------------------------
+
+CREATE TABLE stapregistratie (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    processtap_id       uuid NOT NULL REFERENCES processtap(id),
+    batch_id            uuid REFERENCES batch(id),
+    lot_id              uuid REFERENCES lot(id),
+    poging              int  NOT NULL CHECK (poging >= 1),
+    herbewerking_start  boolean NOT NULL DEFAULT false,
+    reden               text,
+    pc_id               uuid NOT NULL REFERENCES pc(id),
+    operator_id         uuid NOT NULL REFERENCES operator(id),
+    gestart_op          timestamptz NOT NULL DEFAULT clock_timestamp(),
+    afgerond_op         timestamptz,
+    -- afgebroken: de batch werd afgekeurd terwijl deze stap open stond
+    status              text NOT NULL DEFAULT 'open' CHECK (status IN ('open','afgerond','afgebroken')),
+    CHECK ((batch_id IS NULL) <> (lot_id IS NULL)),
+    CHECK (NOT herbewerking_start OR length(trim(coalesce(reden,''))) > 0),
+    CHECK ((status <> 'open') = (afgerond_op IS NOT NULL))
+);
+CREATE UNIQUE INDEX stapreg_uniek_batch ON stapregistratie (processtap_id, batch_id, poging) WHERE batch_id IS NOT NULL;
+CREATE UNIQUE INDEX stapreg_uniek_lot   ON stapregistratie (processtap_id, lot_id, poging)   WHERE lot_id IS NOT NULL;
+-- Voor de geschiedenis van een batch of lot, de werkvoorraad en de doorlooptijden.
+CREATE INDEX stapreg_batch ON stapregistratie (batch_id, afgerond_op) WHERE batch_id IS NOT NULL;
+CREATE INDEX stapreg_lot   ON stapregistratie (lot_id, afgerond_op)   WHERE lot_id IS NOT NULL;
+CREATE INDEX stapreg_open  ON stapregistratie (processtap_id)         WHERE status = 'open';
+CREATE INDEX stapreg_afgerond ON stapregistratie (afgerond_op);
+
+-- Controleert niveau, status van batch/lot en de volgorde van stappen.
+CREATE FUNCTION controleer_stapregistratie() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_stap        processtap%ROWTYPE;
+    v_vorige      processtap%ROWTYPE;
+    v_status      text;
+    v_vorige_reg  stapregistratie%ROWTYPE;
+    v_deze_laatst stapregistratie%ROWTYPE;
+    v_max_poging  int;
+BEGIN
+    SELECT * INTO v_stap FROM processtap WHERE id = NEW.processtap_id;
+    IF NOT v_stap.actief THEN
+        RAISE EXCEPTION 'Stap % is inactief', v_stap.code;
+    END IF;
+
+    -- Niveau moet kloppen.
+    IF v_stap.niveau = 'batch' AND NEW.batch_id IS NULL THEN
+        RAISE EXCEPTION 'Stap % wordt per batch geregistreerd', v_stap.code;
+    END IF;
+    IF v_stap.niveau = 'lot' AND NEW.lot_id IS NULL THEN
+        RAISE EXCEPTION 'Stap % wordt per lot geregistreerd', v_stap.code;
+    END IF;
+
+    -- Batchstatus.
+    IF NEW.batch_id IS NOT NULL THEN
+        SELECT status INTO v_status FROM batch WHERE id = NEW.batch_id;
+        IF v_status <> 'in_productie' THEN
+            RAISE EXCEPTION 'Batch heeft status % en kan niet verder', v_status;
+        END IF;
+    END IF;
+
+    -- De lot-stap wordt alleen via maak_lot() aangemaakt (poging 1).
+    IF v_stap.is_lot_stap AND NEW.poging = 1 AND current_setting('fabriek.maak_lot', true) IS DISTINCT FROM 'aan' THEN
+        RAISE EXCEPTION 'Gebruik maak_lot() om een lot samen te stellen';
+    END IF;
+
+    -- Volgnummer van de poging.
+    IF NEW.batch_id IS NOT NULL THEN
+        SELECT max(poging) INTO v_max_poging FROM stapregistratie
+         WHERE processtap_id = NEW.processtap_id AND batch_id = NEW.batch_id;
+    ELSE
+        SELECT max(poging) INTO v_max_poging FROM stapregistratie
+         WHERE processtap_id = NEW.processtap_id AND lot_id = NEW.lot_id;
+    END IF;
+    IF NEW.poging <> coalesce(v_max_poging, 0) + 1 THEN
+        RAISE EXCEPTION 'Poging moet % zijn', coalesce(v_max_poging, 0) + 1;
+    END IF;
+
+    -- Herbewerking: alleen voor lots, en alleen een stap die al eens doorlopen is.
+    IF NEW.herbewerking_start THEN
+        IF NEW.lot_id IS NULL THEN
+            RAISE EXCEPTION 'Herbewerking geldt alleen voor lots';
+        END IF;
+        IF v_max_poging IS NULL THEN
+            RAISE EXCEPTION 'Stap % is voor dit lot nog niet doorlopen; geen herbewerking mogelijk', v_stap.code;
+        END IF;
+        IF EXISTS (SELECT 1 FROM stapregistratie WHERE lot_id = NEW.lot_id AND status = 'open') THEN
+            RAISE EXCEPTION 'Lot heeft nog een open stap; rond die eerst af';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    -- Niets openzetten als dezelfde stap nog open staat.
+    IF EXISTS (SELECT 1 FROM stapregistratie
+                WHERE processtap_id = NEW.processtap_id
+                  AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id) AND status = 'open') THEN
+        RAISE EXCEPTION 'Stap % staat nog open', v_stap.code;
+    END IF;
+
+    -- Volgorde: de vorige actieve stap van hetzelfde niveau moet afgerond
+    -- zijn, en nieuwer zijn dan de laatste registratie van deze stap
+    -- (zo moet een lot na herbewerking alle volgende stappen opnieuw doen).
+    SELECT * INTO v_vorige FROM processtap
+     WHERE actief AND volgorde < v_stap.volgorde AND niveau = v_stap.niveau
+     ORDER BY volgorde DESC LIMIT 1;
+
+    IF FOUND THEN
+        SELECT * INTO v_vorige_reg FROM stapregistratie
+         WHERE processtap_id = v_vorige.id
+           AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id)
+         ORDER BY poging DESC LIMIT 1;
+        IF NOT FOUND OR v_vorige_reg.status <> 'afgerond' THEN
+            RAISE EXCEPTION 'Stap % moet eerst afgerond zijn', v_vorige.code;
+        END IF;
+
+        SELECT * INTO v_deze_laatst FROM stapregistratie
+         WHERE processtap_id = NEW.processtap_id
+           AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id)
+         ORDER BY poging DESC LIMIT 1;
+        IF FOUND AND v_vorige_reg.afgerond_op <= v_deze_laatst.gestart_op THEN
+            RAISE EXCEPTION 'Stap % is al doorlopen; herhalen kan alleen via herbewerking', v_stap.code;
+        END IF;
+    ELSIF v_max_poging IS NOT NULL THEN
+        -- Eerste stap van dit niveau: herhalen kan alleen via herbewerking.
+        RAISE EXCEPTION 'Stap % is al doorlopen; herhalen kan alleen via herbewerking', v_stap.code;
+    END IF;
+
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_controle BEFORE INSERT ON stapregistratie
+    FOR EACH ROW EXECUTE FUNCTION controleer_stapregistratie();
+
+-- Registraties worden niet verwijderd en alleen afgerond.
+CREATE FUNCTION bewaak_stapregistratie() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'Stapregistraties worden niet verwijderd';
+    END IF;
+    IF OLD.status <> 'open' THEN
+        RAISE EXCEPTION 'Een afgeronde of afgebroken stap kan niet meer veranderen';
+    END IF;
+    IF (NEW.processtap_id, NEW.batch_id, NEW.lot_id, NEW.poging) IS DISTINCT FROM
+       (OLD.processtap_id, OLD.batch_id, OLD.lot_id, OLD.poging) THEN
+        RAISE EXCEPTION 'Alleen afronden is toegestaan';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_bewaak BEFORE UPDATE OR DELETE ON stapregistratie
+    FOR EACH ROW EXECUTE FUNCTION bewaak_stapregistratie();
+
+-- Lotstatus volgt de registraties: gereed zodra de laatste lotstap is
+-- afgerond, terug in productie zodra een herbewerking start.
+CREATE FUNCTION werk_lotstatus_bij() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_laatste uuid;
+BEGIN
+    IF NEW.lot_id IS NULL THEN RETURN NEW; END IF;
+    IF TG_OP = 'INSERT' AND NEW.herbewerking_start THEN
+        UPDATE lot SET status = 'in_productie' WHERE id = NEW.lot_id AND status = 'gereed';
+    ELSIF TG_OP = 'UPDATE' AND NEW.status = 'afgerond' AND OLD.status = 'open' THEN
+        SELECT id INTO v_laatste FROM processtap WHERE actief AND niveau = 'lot' ORDER BY volgorde DESC LIMIT 1;
+        IF NEW.processtap_id = v_laatste THEN
+            UPDATE lot SET status = 'gereed' WHERE id = NEW.lot_id;
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_lotstatus AFTER INSERT OR UPDATE ON stapregistratie
+    FOR EACH ROW EXECUTE FUNCTION werk_lotstatus_bij();
+
+-- ---------------------------------------------------------------------
+-- Waarden
+-- ---------------------------------------------------------------------
+
+CREATE TABLE waarde (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    stapregistratie_id  uuid NOT NULL REFERENCES stapregistratie(id),
+    veld_id             uuid NOT NULL REFERENCES veld(id),
+    setting             numeric,
+    gemeten             numeric NOT NULL,
+    -- Kopie van de grenzen op het moment van invoer:
+    grens_min           numeric,
+    grens_max           numeric,
+    tolerantie          numeric,
+    tolerantie_soort    text,
+    markering           text NOT NULL CHECK (markering IN ('ok','buiten_tolerantie','buiten_grens')),
+    vervangt_waarde_id  uuid UNIQUE REFERENCES waarde(id),
+    correctie_reden     text,
+    ingevoerd_door      uuid REFERENCES operator(id),
+    gecorrigeerd_door   uuid REFERENCES gebruiker(id),
+    ingevoerd_op        timestamptz NOT NULL DEFAULT now(),
+    CHECK ((vervangt_waarde_id IS NULL) = (gecorrigeerd_door IS NULL)),
+    CHECK (vervangt_waarde_id IS NULL OR length(trim(coalesce(correctie_reden,''))) > 0),
+    CHECK (vervangt_waarde_id IS NOT NULL OR ingevoerd_door IS NOT NULL)
+);
+-- Per registratie en veld maar één oorspronkelijke waarde.
+CREATE UNIQUE INDEX waarde_een_origineel ON waarde (stapregistratie_id, veld_id) WHERE vervangt_waarde_id IS NULL;
+CREATE INDEX waarde_tijd ON waarde (ingevoerd_op);
+CREATE INDEX waarde_veld ON waarde (veld_id, ingevoerd_op);
+
+CREATE FUNCTION bereken_markering(p_setting numeric, p_gemeten numeric, p_min numeric, p_max numeric,
+                                  p_tol numeric, p_tol_soort text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE
+        WHEN (p_min IS NOT NULL AND p_gemeten < p_min) OR (p_max IS NOT NULL AND p_gemeten > p_max)
+            THEN 'buiten_grens'
+        WHEN p_tol IS NOT NULL AND p_setting IS NOT NULL AND
+             abs(p_gemeten - p_setting) > CASE WHEN p_tol_soort = 'procent'
+                                               THEN abs(p_setting) * p_tol / 100 ELSE p_tol END
+            THEN 'buiten_tolerantie'
+        ELSE 'ok' END
+$$;
+
+CREATE FUNCTION verwerk_waarde() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_veld  veld%ROWTYPE;
+    v_reg   stapregistratie%ROWTYPE;
+    v_oud   waarde%ROWTYPE;
+    v_rol   text;
+BEGIN
+    SELECT * INTO v_veld FROM veld WHERE id = NEW.veld_id;
+    SELECT * INTO v_reg  FROM stapregistratie WHERE id = NEW.stapregistratie_id;
+
+    IF v_veld.processtap_id <> v_reg.processtap_id THEN
+        RAISE EXCEPTION 'Veld % hoort niet bij deze stap', v_veld.code;
+    END IF;
+    IF v_veld.soort = 'procesparameter' AND NEW.setting IS NULL THEN
+        RAISE EXCEPTION 'Veld % is een procesparameter: setting is verplicht', v_veld.code;
+    END IF;
+    IF v_veld.soort <> 'procesparameter' AND NEW.setting IS NOT NULL THEN
+        RAISE EXCEPTION 'Veld % heeft geen setting', v_veld.code;
+    END IF;
+
+    IF NEW.vervangt_waarde_id IS NULL THEN
+        -- Gewone invoer: alleen in een open stap, met actief veld.
+        IF v_reg.status <> 'open' THEN
+            RAISE EXCEPTION 'Stap is al afgerond; wijzigen kan alleen als correctie door een ploegleider';
+        END IF;
+        IF NOT v_veld.actief THEN
+            RAISE EXCEPTION 'Veld % is inactief', v_veld.code;
+        END IF;
+        -- Grenzen kopiëren zoals ze nu gelden.
+        NEW.grens_min := v_veld.grens_min;  NEW.grens_max := v_veld.grens_max;
+        NEW.tolerantie := v_veld.tolerantie; NEW.tolerantie_soort := v_veld.tolerantie_soort;
+    ELSE
+        -- Correctie: ploegleider of hoger, zelfde registratie en veld,
+        -- alleen de nieuwste waarde kan vervangen worden.
+        SELECT rol INTO v_rol FROM gebruiker WHERE id = NEW.gecorrigeerd_door AND actief;
+        IF v_rol IS NULL OR v_rol NOT IN ('ploegleider','beheerder') THEN
+            RAISE EXCEPTION 'Alleen een ploegleider of hogere functie mag corrigeren';
+        END IF;
+        SELECT * INTO v_oud FROM waarde WHERE id = NEW.vervangt_waarde_id;
+        IF v_oud.stapregistratie_id <> NEW.stapregistratie_id OR v_oud.veld_id <> NEW.veld_id THEN
+            RAISE EXCEPTION 'Een correctie hoort bij dezelfde registratie en hetzelfde veld';
+        END IF;
+        -- Grenzen van de oorspronkelijke meting blijven gelden.
+        NEW.grens_min := v_oud.grens_min;  NEW.grens_max := v_oud.grens_max;
+        NEW.tolerantie := v_oud.tolerantie; NEW.tolerantie_soort := v_oud.tolerantie_soort;
+    END IF;
+
+    NEW.markering := bereken_markering(NEW.setting, NEW.gemeten, NEW.grens_min, NEW.grens_max,
+                                       NEW.tolerantie, NEW.tolerantie_soort);
+    RETURN NEW;
+END $$;
+CREATE TRIGGER waarde_verwerk BEFORE INSERT ON waarde
+    FOR EACH ROW EXECUTE FUNCTION verwerk_waarde();
+
+CREATE FUNCTION waarde_onveranderlijk() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'Waarden worden niet gewijzigd of verwijderd; leg een correctie vast';
+END $$;
+CREATE TRIGGER waarde_vast BEFORE UPDATE OR DELETE ON waarde
+    FOR EACH ROW EXECUTE FUNCTION waarde_onveranderlijk();
+
+-- Actuele waarde = de waarde die door niets vervangen is.
+CREATE VIEW waarde_actueel AS
+SELECT w.* FROM waarde w
+WHERE NOT EXISTS (SELECT 1 FROM waarde c WHERE c.vervangt_waarde_id = w.id);
+
+-- ---------------------------------------------------------------------
+-- Acties
+-- ---------------------------------------------------------------------
+
+-- Een stap afronden: alle verplichte actieve velden moeten ingevuld zijn.
+CREATE FUNCTION rond_stap_af(p_registratie uuid) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+    v_ontbreekt text;
+    v_status    text;
+BEGIN
+    SELECT status INTO v_status FROM stapregistratie WHERE id = p_registratie FOR UPDATE;
+    IF v_status IS NULL THEN
+        RAISE EXCEPTION 'Registratie bestaat niet';
+    ELSIF v_status <> 'open' THEN
+        RAISE EXCEPTION 'Deze stap is al afgerond of afgebroken';
+    END IF;
+    SELECT string_agg(v.code, ', ' ORDER BY v.volgnummer) INTO v_ontbreekt
+      FROM stapregistratie r
+      JOIN veld v ON v.processtap_id = r.processtap_id AND v.actief AND v.verplicht
+     WHERE r.id = p_registratie
+       AND NOT EXISTS (SELECT 1 FROM waarde w WHERE w.stapregistratie_id = r.id AND w.veld_id = v.id);
+    IF v_ontbreekt IS NOT NULL THEN
+        RAISE EXCEPTION 'Nog niet ingevuld: %', v_ontbreekt;
+    END IF;
+    UPDATE stapregistratie SET status = 'afgerond', afgerond_op = clock_timestamp()
+     WHERE id = p_registratie AND status = 'open';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Registratie bestaat niet of is al afgerond';
+    END IF;
+END $$;
+
+-- Stel een lot samen uit precies 4 batches en open de lot-stap.
+CREATE FUNCTION maak_lot(p_lotnummer text, p_batches uuid[], p_pc uuid, p_operator uuid,
+                         p_lot_id uuid DEFAULT NULL, p_registratie_id uuid DEFAULT NULL)
+RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE
+    v_lot       uuid;
+    v_lotstap   processtap%ROWTYPE;
+    v_probleem  text;
+BEGIN
+    IF cardinality(p_batches) <> 4 OR (SELECT count(DISTINCT b) FROM unnest(p_batches) b) <> 4 THEN
+        RAISE EXCEPTION 'Een lot bestaat uit precies 4 verschillende batches';
+    END IF;
+
+    SELECT * INTO v_lotstap FROM processtap WHERE is_lot_stap AND actief;
+
+    -- Lock de batches zodat ze niet tegelijk in twee lots komen.
+    PERFORM 1 FROM batch WHERE id = ANY(p_batches) FOR UPDATE;
+
+    -- Elke batch: in productie, en alle actieve batchstappen afgerond.
+    SELECT string_agg(probleem, '; ') INTO v_probleem FROM (
+        SELECT b.batchnummer || ' heeft status ' || b.status AS probleem
+          FROM batch b WHERE b.id = ANY(p_batches) AND b.status <> 'in_productie'
+        UNION ALL
+        SELECT b.batchnummer || ': ' || s.code || ' niet afgerond'
+          FROM batch b
+          CROSS JOIN processtap s
+         WHERE b.id = ANY(p_batches) AND s.actief AND s.niveau = 'batch'
+           AND NOT EXISTS (SELECT 1 FROM stapregistratie r
+                            WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond')
+        UNION ALL
+        SELECT 'onbekende batch ' || x::text FROM unnest(p_batches) x
+         WHERE NOT EXISTS (SELECT 1 FROM batch WHERE id = x)
+    ) p;
+    IF v_probleem IS NOT NULL THEN
+        RAISE EXCEPTION 'Lot kan niet worden aangemaakt: %', v_probleem;
+    END IF;
+
+    INSERT INTO lot (id, lotnummer) VALUES (coalesce(p_lot_id, gen_random_uuid()), p_lotnummer) RETURNING id INTO v_lot;
+    UPDATE batch SET status = 'in_lot', lot_id = v_lot WHERE id = ANY(p_batches);
+
+    PERFORM set_config('fabriek.maak_lot', 'aan', true);
+    INSERT INTO stapregistratie (id, processtap_id, lot_id, poging, pc_id, operator_id)
+    VALUES (coalesce(p_registratie_id, gen_random_uuid()), v_lotstap.id, v_lot, 1, p_pc, p_operator);
+    PERFORM set_config('fabriek.maak_lot', 'uit', true);
+
+    RETURN v_lot;
+END $$;
+
+-- Een lot terug laten gaan naar een eerdere lot-stap.
+CREATE FUNCTION start_herbewerking(p_lot uuid, p_stapcode text, p_reden text, p_pc uuid, p_operator uuid,
+                                   p_id uuid DEFAULT NULL)
+RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE
+    v_stap  processtap%ROWTYPE;
+    v_reg   uuid;
+BEGIN
+    SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
+    IF NOT FOUND OR v_stap.niveau <> 'lot' THEN
+        RAISE EXCEPTION 'Herbewerking kan alleen naar een actieve lot-stap';
+    END IF;
+    INSERT INTO stapregistratie (id, processtap_id, lot_id, poging, herbewerking_start, reden, pc_id, operator_id)
+    VALUES (coalesce(p_id, gen_random_uuid()), v_stap.id, p_lot,
+            (SELECT coalesce(max(poging),0) + 1 FROM stapregistratie WHERE processtap_id = v_stap.id AND lot_id = p_lot),
+            true, p_reden, p_pc, p_operator)
+    RETURNING id INTO v_reg;
+    RETURN v_reg;
+END $$;
+
+-- Een stap starten voor een batch of lot; poging wordt bepaald.
+CREATE FUNCTION start_stap(p_stapcode text, p_batch uuid, p_lot uuid, p_pc uuid, p_operator uuid,
+                           p_id uuid DEFAULT NULL)
+RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE
+    v_stap  uuid;
+    v_reg   uuid;
+BEGIN
+    SELECT id INTO v_stap FROM processtap WHERE code = p_stapcode;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stap %', p_stapcode; END IF;
+    INSERT INTO stapregistratie (id, processtap_id, batch_id, lot_id, poging, pc_id, operator_id)
+    VALUES (coalesce(p_id, gen_random_uuid()), v_stap, p_batch, p_lot,
+            (SELECT coalesce(max(poging),0) + 1 FROM stapregistratie
+              WHERE processtap_id = v_stap AND (batch_id = p_batch OR lot_id = p_lot)),
+            p_pc, p_operator)
+    RETURNING id INTO v_reg;
+    RETURN v_reg;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- Werkvoorraad: welke batches of lots klaar staan voor een stap
+-- ---------------------------------------------------------------------
+
+CREATE FUNCTION werkvoorraad(p_stapcode text)
+RETURNS TABLE (soort text, nummer text, sinds timestamptz) LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    v_stap    processtap%ROWTYPE;
+    v_vorige  processtap%ROWTYPE;
+BEGIN
+    SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
+    IF NOT FOUND THEN RETURN; END IF;
+    SELECT * INTO v_vorige FROM processtap
+     WHERE actief AND niveau = v_stap.niveau AND volgorde < v_stap.volgorde
+     ORDER BY volgorde DESC LIMIT 1;
+
+    IF v_stap.is_lot_stap THEN
+        -- Batches die alle batchstappen afrondden en in productie zijn.
+        RETURN QUERY
+        SELECT 'batch', b.batchnummer,
+               (SELECT max(r.afgerond_op) FROM stapregistratie r WHERE r.batch_id = b.id)
+          FROM batch b
+         WHERE b.status = 'in_productie'
+           AND NOT EXISTS (SELECT 1 FROM processtap s WHERE s.actief AND s.niveau = 'batch'
+                             AND NOT EXISTS (SELECT 1 FROM stapregistratie r
+                                              WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond'))
+         ORDER BY 3;
+    ELSIF v_stap.niveau = 'batch' THEN
+        RETURN QUERY
+        SELECT 'batch', b.batchnummer,
+               coalesce((SELECT max(r.afgerond_op) FROM stapregistratie r
+                          WHERE r.batch_id = b.id AND r.processtap_id = v_vorige.id), b.aangemaakt_op)
+          FROM batch b
+         WHERE b.status = 'in_productie'
+           AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = v_stap.id)
+           AND (v_vorige.id IS NULL OR EXISTS (SELECT 1 FROM stapregistratie r
+                 WHERE r.batch_id = b.id AND r.processtap_id = v_vorige.id AND r.status = 'afgerond'))
+         ORDER BY 3;
+    ELSE
+        -- Lotstap na de lot-stap: vorige stap (laatste poging) afgerond en
+        -- deze stap sindsdien nog niet gestart.
+        RETURN QUERY
+        SELECT 'lot', l.lotnummer, vr.afgerond_op
+          FROM lot l
+          JOIN LATERAL (SELECT r.* FROM stapregistratie r WHERE r.lot_id = l.id AND r.processtap_id = v_vorige.id
+                         ORDER BY r.poging DESC LIMIT 1) vr ON vr.status = 'afgerond'
+          LEFT JOIN LATERAL (SELECT r.* FROM stapregistratie r WHERE r.lot_id = l.id AND r.processtap_id = v_stap.id
+                              ORDER BY r.poging DESC LIMIT 1) dr ON true
+         WHERE dr.id IS NULL OR dr.gestart_op < vr.afgerond_op
+         ORDER BY 3;
+    END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- Lotpaspoort: alle actuele waarden van een lot en zijn 4 batches
+-- ---------------------------------------------------------------------
+
+CREATE VIEW lotpaspoort AS
+SELECT l.lotnummer,
+       coalesce(b.batchnummer, l.lotnummer)  AS batch_of_lot,
+       s.code      AS stap,
+       s.volgorde,
+       r.poging,
+       r.herbewerking_start,
+       r.reden     AS herbewerking_reden,
+       v.code      AS veld,
+       v.naam      AS veldnaam,
+       v.eenheid,
+       w.setting,
+       w.gemeten,
+       w.grens_min, w.grens_max, w.tolerantie, w.tolerantie_soort,
+       w.markering,
+       (w.vervangt_waarde_id IS NOT NULL) AS gecorrigeerd,
+       o.naam      AS operator,
+       p.naam      AS pc,
+       r.afgerond_op
+FROM lot l
+JOIN stapregistratie r
+  ON r.lot_id = l.id
+  OR r.batch_id IN (SELECT id FROM batch WHERE lot_id = l.id)
+LEFT JOIN batch b ON b.id = r.batch_id
+JOIN processtap s ON s.id = r.processtap_id
+JOIN waarde_actueel w ON w.stapregistratie_id = r.id
+JOIN veld v ON v.id = w.veld_id
+JOIN operator o ON o.id = r.operator_id
+JOIN pc p ON p.id = r.pc_id;
+
+-- ---------------------------------------------------------------------
+-- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE f record;
+BEGIN
+    FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'fabriek' LOOP
+        EXECUTE format('ALTER FUNCTION %s SET search_path = fabriek, public', f.sig);
+    END LOOP;
+END $$;
+
+COMMIT;

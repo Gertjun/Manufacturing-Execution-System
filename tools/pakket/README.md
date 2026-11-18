@@ -6,8 +6,8 @@ Dit pakket draait het hele platform op één laptop: invoerscherm, portalen Kwal
 
 Je hebt twee programma's nodig. Op een bedrijfslaptop heb je daar soms beheerdersrechten voor nodig; vraag dan IT.
 
-1. **Node.js 22 LTS**: download de *Windows Installer (.msi)* van https://nodejs.org en installeer met de standaardkeuzes.
-2. **PostgreSQL 17** (16 kan ook): download de installer van https://www.postgresql.org/download/windows/ (EDB-installer).
+1. **Node.js 26 LTS** (22 of 24 werkt ook): download de *Windows Installer (.msi)* van https://nodejs.org en installeer met de standaardkeuzes.
+2. **PostgreSQL 18** (16 of 17 kan ook): download de installer van https://www.postgresql.org/download/windows/ (EDB-installer).
    - Kies een wachtwoord voor de gebruiker `postgres` en **onthoud het**; het opstartscript vraagt erom.
    - Laat de poort op 5432 staan. Stack Builder aan het eind is niet nodig.
 3. **Pak deze zip uit** naar een vaste map, bijvoorbeeld `C:\batch-gui`. Start niet vanuit het zip-venster zelf.
@@ -23,6 +23,8 @@ Dubbelklik op **START.bat**.
 Krijg je een blauwe Windows-melding ("Windows heeft uw pc beschermd")? Kies *Meer informatie* → *Toch uitvoeren*.
 
 **Stoppen:** sluit het zwarte venster. De gegevens blijven bewaard; de volgende keer start het direct.
+
+**Nieuwe versie:** pak de nieuwe zip uit naar een nieuwe map en kopieer `instellingen.json` uit de oude map mee. Bij het starten wordt je database automatisch bijgewerkt naar de nieuwe versie; je ingevoerde gegevens blijven staan.
 
 ## Testaccounts
 
@@ -42,7 +44,7 @@ Wachtwoord is steeds `demo`.
 - **Offline:** zet tijdens het invoeren de server uit (venster sluiten). Het invoerscherm blijft werken en verstuurt alles zodra je START.bat weer start.
 - **Kwaliteit:** de twee batches die op een keurresultaat wachten, de trend van S5.1 die langzaam oploopt, het lotpaspoort.
 - **Productie:** werkvoorraad, doorlooptijden en de zes correcties.
-- **Beheer:** wijzig een grens of koppel een stap aan een pc en kijk wat er in het invoerscherm en het logboek verandert.
+- **Beheer:** wijzig een grens of koppel een stap aan een pc en kijk wat er in het invoerscherm en het logboek verandert. Onder **Server** zie je de versie; de melding dat er geen back-ups zijn klopt op een laptop, back-ups horen bij de fabrieksserver.
 
 ## Opnieuw beginnen
 
@@ -63,13 +65,13 @@ Let op: offline werken van het invoerscherm kan de browser alleen toestaan op `l
 | Melding | Oplossing |
 | --- | --- |
 | Node.js is niet gevonden | Installeer Node.js en start de laptop opnieuw op, of open START.bat opnieuw |
-| PostgreSQL is niet bereikbaar | Controleer in *Services* dat `postgresql-x64-17` draait |
+| PostgreSQL is niet bereikbaar | Controleer in *Services* dat `postgresql-x64-18` (of jouw versie) draait |
 | Het wachtwoord klopt niet | Verwijder `instellingen.json` en start opnieuw |
 | Poort 3000 is al in gebruik | De applicatie draait al in een ander venster, of kies een andere `"poort"` in `instellingen.json` |
 
 ## Mac of Linux
 
-Installeer Node.js en PostgreSQL (bijvoorbeeld met Homebrew: `brew install node postgresql@17`) en start met `./start.sh` in deze map.
+Installeer Node.js en PostgreSQL (bijvoorbeeld met Homebrew: `brew install node postgresql@18`) en start met `./start.sh` in deze map.
 
 ## Wat zit erin
 

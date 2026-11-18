@@ -190,6 +190,19 @@ node e2e/beheer.mjs           # test Beheer in Chrome (database met verse config
 De testdata in het pakket (`tools/pakket/testdata.sql`) maak je opnieuw met de generator en
 `pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500`.
 
+## Fabrieksserver
+
+Het draaiboek voor IT staat in `docs/SERVER.md`; het advies in het document "Advies fabrieksserver". `tools/maak_serverpakket.sh` bouwt `batch-gui-server-<versie>.zip`.
+
+| Opdracht | Wat |
+| --- | --- |
+| `node tools/start-server.mjs` | applicatie starten met `instellingen.json` (controleert eerst de schemaversie) |
+| `node tools/migreer.mjs [--status]` | database aanmaken of bijwerken met `db/migraties/`, rechten uit `db/rechten.sql` |
+| `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden) |
+| `node tools/herstel.mjs --controle` / `<bestand>` | hersteltest of echt herstel |
+
+Alle tools lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of `--instellingen <pad>`. Een databasewijziging = een nieuwe migratie plus dezelfde wijziging in `db/schema.sql` (zie D23); `tests/test_migraties.sh` controleert dat.
+
 ## Browserdemo
 
 `demo/` draait het hele platform in de browser, zonder server: dezelfde API-routes (`api/src/routes`) en hetzelfde databaseschema, met PostgreSQL in de browser (PGlite) en de fictieve testdata. Invoerscherm en portalen draaien ongewijzigd in een frame; hun API-verzoeken gaan naar de nagebootste server. Alleen voor demonstratie.

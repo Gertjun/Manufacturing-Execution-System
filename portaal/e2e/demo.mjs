@@ -78,6 +78,14 @@ await port.getByRole("link", { name: "Overzicht" }).click();
 await p.waitForTimeout(1500);
 await p.screenshot({ path: `${SHOTS}/03-naast-elkaar.png` });
 
+// Serveroverzicht in de demo (fictieve back-ups)
+const srv = await p.evaluate(async () => {
+  const api = window.demoApi;
+  const l = JSON.parse((await api({ methode: "POST", url: "/auth/login", headers: {}, body: JSON.stringify({ gebruikersnaam: "beheerder1", wachtwoord: "demo" }) })).body);
+  return JSON.parse((await api({ methode: "GET", url: "/beheer/server", headers: { authorization: "Bearer " + l.token } })).body);
+});
+check(srv.schema?.nummer === 2 && srv.laatsteBackup && srv.waarschuwingen.length === 0, `serveroverzicht in de demo zonder waarschuwingen (${JSON.stringify(srv.waarschuwingen)})`);
+
 // herladen: gegevens bewaard
 await p.reload();
 await p.waitForFunction(() => document.getElementById("laden").style.display === "none", null, { timeout: 60000 });

@@ -99,6 +99,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "operators", naam: "Operators" },
       { pad: "pcs", naam: "Pc's" },
       { pad: "logboek", naam: "Logboek" },
+      { pad: "server", naam: "Server" },
     ],
   },
 ];

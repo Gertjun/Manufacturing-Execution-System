@@ -20,7 +20,9 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
   - Een download of pakket draagt het versienummer in de bestandsnaam (`batch-gui-laptop-0.5.1.zip`).
 - **Oudere invoerschermen blijven werken.** Een pc kan offline zijn en een wachtrij hebben uit een oudere versie. Een wijziging aan de API moet die oudere invoer nog accepteren, of het is een MAJOR-versie met de melding "werk alle pc's bij" (D18).
 - **Regels horen in de database**, niet in de schermen (D9).
-- **Testen vóór elke push:** databaseregels (`tests/test_regels.py`), API (`api: npm test`), en de schermtests in Chrome (`invoer/e2e`, `portaal/e2e`) voor wat je hebt veranderd. Daarna rechtstreeks naar `main` (geen force-push, geschiedenis niet herschrijven). Gaat er iets mis: `git revert` en pushen.
+- **Databasewijziging = migratie** (D23): nieuw bestand `db/migraties/NNNN_naam.sql`, dezelfde wijziging in `db/schema.sql` plus de regel in `schema_versie`, en `tests/test_migraties.sh` moet slagen. Migraties nooit achteraf aanpassen.
+- **Beperkte databasegebruiker** (D24): de applicatie draait als `batchgui_app`. Heeft een nieuwe functie extra rechten nodig, pas dan `db/rechten.sql` aan; de API-tests draaien met die gebruiker.
+- **Testen vóór elke push:** databaseregels (`tests/test_regels.py`), API (`api: npm test`, met `TEST_APP_DATABASE_URL` voor `batchgui_app`), migraties (`tests/test_migraties.sh`), beheertools (`tests/test_tools.sh`), opruimschema (`node --test tests/rotatie.test.mjs`), en de schermtests in Chrome (`invoer/e2e`, `portaal/e2e`) voor wat je hebt veranderd. Daarna rechtstreeks naar `main` (geen force-push, geschiedenis niet herschrijven). Gaat er iets mis: `git revert` en pushen.
 - **Groen op GitHub is niet alles.** De automatische tests bewijzen niet dat offline werken, een echte Windows-pc of het netwerk in de fabriek werkt. Noem praktijktests die niet zijn uitgevoerd altijd expliciet.
 - **Release-tags worden nooit achteraf gewijzigd.** Tags en GitHub Releases maakt de workflow `release.yml` automatisch voor elke nieuwe versie op `main`.
 - Ga je in tegen een besluit uit `DECISIONS.md`? Zeg dat en vraag het eerst.

@@ -203,3 +203,16 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
 .vraag small { display: block; margin-top: 2px; }
 .knop:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 900px) { .beheer-indeling { grid-template-columns: 1fr; } .stappenlijst { position: static; } }
+
+/* Server (Portaal Beheer) */
+.tegel-extra { color: var(--inkt-zacht); font-size: .875rem; }
+.serverstatus { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
+.serverstatus li { display: flex; align-items: center; gap: 10px; background: var(--vlak); border: 1px solid var(--lijn); border-left: 6px solid; border-radius: 8px; padding: 12px 14px; }
+.serverstatus .status-fout { border-left-color: var(--status-kritiek); }
+.serverstatus .status-let_op { border-left-color: var(--status-waarschuwing); }
+.status-teken { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: #fff; font-weight: 700; font-size: .85rem; }
+.status-fout .status-teken { background: var(--status-kritiek); }
+.status-let_op .status-teken { background: var(--status-waarschuwing); border-radius: 4px; color: var(--inkt); }
+.serverstatus-ok { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
+h2:not(:first-child) { margin-top: 28px; }
+.server-tegels .tegel-getal { font-size: 1.6rem; }

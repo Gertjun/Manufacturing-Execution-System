@@ -119,6 +119,7 @@ async function route() {
       case "operators": return beheer.operators();
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
+      case "server": return beheer.server();
       default: return void (location.hash = "#/beheer");
     }
   }

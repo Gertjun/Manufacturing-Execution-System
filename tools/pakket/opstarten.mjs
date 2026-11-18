@@ -21,7 +21,7 @@ const INSTELLINGEN = join(MAP, "instellingen.json");
 const args = new Set(process.argv.slice(2));
 
 const major = Number(process.versions.node.split(".")[0]);
-if (major < 20) stop(`Node.js ${process.versions.node} is te oud. Installeer Node.js 22 LTS (nodejs.org).`);
+if (major < 20) stop(`Node.js ${process.versions.node} is te oud. Installeer Node.js 26 LTS (nodejs.org).`);
 
 const require = createRequire(join(MAP, "server", "package.json"));
 const pg = require("pg");
@@ -150,6 +150,14 @@ async function verschuifNaarNu(d) {
 
 const opnieuw = args.has("--opnieuw") || args.has("--leeg");
 if (opnieuw || !(await bestaatDatabase())) await bouwDatabase(!args.has("--leeg"));
+
+// Bestaande database van een eerdere versie bijwerken (database-updates uit db/migraties).
+{
+  const { spawnSync } = await import("node:child_process");
+  const r = spawnSync(process.execPath, [join(MAP, "tools", "migreer.mjs"), "--instellingen", INSTELLINGEN], { encoding: "utf8" });
+  if (r.status !== 0) stop(`Database bijwerken mislukt:\n${r.stdout}${r.stderr}`);
+  for (const x of r.stdout.split(/\r?\n/)) if (/^Migratie|uitgevoerd/.test(x)) console.log(x);
+}
 
 // ---------- 3. Server starten ----------
 process.env.DATABASE_URL =

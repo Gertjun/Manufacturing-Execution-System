@@ -1,0 +1,23 @@
+<!-- Windows-service voor de Batch input GUI met WinSW (https://github.com/winsw/winsw).
+     Zet WinSW-x64.exe naast dit bestand als batchgui-service.exe; zie docs/SERVER.md. -->
+<service>
+  <id>batchgui</id>
+  <name>Batch input GUI</name>
+  <description>Batch input GUI: applicatieserver voor invoerscherm en portalen.</description>
+  <executable>C:\Program Files\nodejs\node.exe</executable>
+  <arguments>C:\batchgui\huidig\tools\start-server.mjs</arguments>
+  <workingdirectory>C:\batchgui\huidig</workingdirectory>
+  <env name="BATCHGUI_INSTELLINGEN" value="C:\batchgui\instellingen.json"/>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <depend>postgresql-x64-18</depend>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <logpath>C:\batchgui\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

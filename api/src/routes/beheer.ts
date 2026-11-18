@@ -5,6 +5,7 @@ import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { Veld } from "./config.js";
 import { StapCode } from "./schemas.js";
+import { VERSIE } from "../versie.js";
 
 const OptGetal = Type.Optional(Type.Union([Type.Null(), Type.Number()]));
 
@@ -331,6 +332,86 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       });
       const [pc] = await lees(app.db, `${PC_SQL} WHERE p.naam = $1 GROUP BY p.id`, [req.params.naam]);
       return pc as never;
+    },
+  );
+
+  // Serveroverzicht: versie, database, back-ups en hersteltests (versie 0.6.0).
+  const Onderhoud = Type.Object({
+    soort: Type.String(),
+    gestart_op: Type.String({ format: "date-time" }),
+    klaar_op: Type.String({ format: "date-time" }),
+    gelukt: Type.Boolean(),
+    bestand: Type.Union([Type.Null(), Type.String()]),
+    grootte_bytes: Type.Union([Type.Null(), Type.Number()]),
+    versie: Type.Union([Type.Null(), Type.String()]),
+    melding: Type.Union([Type.Null(), Type.String()]),
+  });
+  app.get(
+    "/server",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        description:
+          "Stand van de server: applicatie- en schemaversie, database, laatste back-up en hersteltest, en waarschuwingen (back-up ouder dan 2 uur of mislukt, hersteltest ouder dan 35 dagen of mislukt).",
+        response: {
+          200: Type.Object({
+            versie: Type.String(),
+            node: Type.String(),
+            servertijd: Type.String({ format: "date-time" }),
+            schema: Type.Union([Type.Null(), Type.Object({ nummer: Type.Integer(), naam: Type.String(), uitgevoerd_op: Type.String({ format: "date-time" }) })]),
+            database: Type.Object({ naam: Type.String(), grootte_bytes: Type.Number(), postgres: Type.String() }),
+            laatsteBackup: Type.Union([Type.Null(), Onderhoud]),
+            laatsteHersteltest: Type.Union([Type.Null(), Onderhoud]),
+            recent: Type.Array(Onderhoud),
+            waarschuwingen: Type.Array(Type.Object({ niveau: Type.Union([Type.Literal("let_op"), Type.Literal("fout")]), tekst: Type.String() })),
+          }),
+        },
+      },
+    },
+    async () => {
+      const [db] = await lees<{ naam: string; grootte_bytes: number; postgres: string }>(
+        app.db,
+        "SELECT current_database() AS naam, pg_database_size(current_database())::float8 AS grootte_bytes, current_setting('server_version') AS postgres",
+      );
+      const [schema] = await lees<{ nummer: number; naam: string; uitgevoerd_op: Date }>(
+        app.db,
+        "SELECT nummer, naam, uitgevoerd_op FROM schema_versie ORDER BY nummer DESC LIMIT 1",
+      );
+      const recent = await lees<Record<string, unknown> & { soort: string; gelukt: boolean; klaar_op: Date }>(
+        app.db,
+        "SELECT soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes::float8 AS grootte_bytes, versie, melding FROM onderhoud_log ORDER BY klaar_op DESC, id DESC LIMIT 15",
+      );
+      const [laatsteBackup] = await lees<{ gelukt: boolean; klaar_op: Date }>(
+        app.db,
+        "SELECT soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes::float8 AS grootte_bytes, versie, melding FROM onderhoud_log WHERE soort = 'backup' ORDER BY klaar_op DESC, id DESC LIMIT 1",
+      );
+      const [laatsteHersteltest] = await lees<{ gelukt: boolean; klaar_op: Date }>(
+        app.db,
+        "SELECT soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes::float8 AS grootte_bytes, versie, melding FROM onderhoud_log WHERE soort = 'hersteltest' ORDER BY klaar_op DESC, id DESC LIMIT 1",
+      );
+      const nu = Date.now();
+      const uren = (d: Date) => (nu - new Date(d).getTime()) / 3600e3;
+      const waarschuwingen: { niveau: "let_op" | "fout"; tekst: string }[] = [];
+      if (!laatsteBackup) waarschuwingen.push({ niveau: "fout", tekst: "Er is nog nooit een back-up gemaakt." });
+      else if (!laatsteBackup.gelukt) waarschuwingen.push({ niveau: "fout", tekst: "De laatste back-up is mislukt." });
+      else if (uren(laatsteBackup.klaar_op) > 2)
+        waarschuwingen.push({ niveau: "fout", tekst: `De laatste back-up is ${Math.floor(uren(laatsteBackup.klaar_op))} uur oud; verwacht elk uur.` });
+      if (!laatsteHersteltest) waarschuwingen.push({ niveau: "let_op", tekst: "Er is nog geen hersteltest gedaan." });
+      else if (!laatsteHersteltest.gelukt) waarschuwingen.push({ niveau: "fout", tekst: "De laatste hersteltest is mislukt." });
+      else if (uren(laatsteHersteltest.klaar_op) > 35 * 24)
+        waarschuwingen.push({ niveau: "let_op", tekst: `De laatste hersteltest is ${Math.floor(uren(laatsteHersteltest.klaar_op) / 24)} dagen oud; verwacht elke maand.` });
+      return {
+        versie: VERSIE,
+        node: typeof process !== "undefined" && process.version ? process.version : "browser (demo)",
+        servertijd: new Date().toISOString(),
+        schema: schema ?? null,
+        database: db,
+        laatsteBackup: laatsteBackup ?? null,
+        laatsteHersteltest: laatsteHersteltest ?? null,
+        recent,
+        waarschuwingen,
+      } as never;
     },
   );
 };

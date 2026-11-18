@@ -1,5 +1,7 @@
 -- =====================================================================
--- Batch input GUI — datamodel v1 (PostgreSQL 16)
+-- Batch input GUI — volledig schema (PostgreSQL 16 of nieuwer)
+-- Dit is altijd het schema na de laatste migratie in db/migraties/. Wijzig je het schema,
+-- voeg dan ook een migratie toe; de test controleert dat beide hetzelfde opleveren.
 -- Alle namen en waarden zijn fictief.
 -- Uitgangspunt: niets wordt overschreven of verwijderd; correcties,
 -- herbewerkingen en besluiten zijn nieuwe regels.
@@ -732,6 +734,33 @@ JOIN waarde_actueel w ON w.stapregistratie_id = r.id
 JOIN veld v ON v.id = w.veld_id
 JOIN operator o ON o.id = r.operator_id
 JOIN pc p ON p.id = r.pc_id;
+
+-- ---------------------------------------------------------------------
+-- Onderhoud (sinds migratie 0002, versie 0.6.0)
+-- ---------------------------------------------------------------------
+-- Welke migraties zijn uitgevoerd. Wordt bijgewerkt door tools/migreer.mjs.
+CREATE TABLE IF NOT EXISTS schema_versie (
+  nummer        integer PRIMARY KEY,
+  naam          text NOT NULL,
+  uitgevoerd_op timestamptz NOT NULL DEFAULT now()
+);
+
+-- Back-ups, hersteltests en migraties, geschreven door de beheertools in tools/.
+CREATE TABLE IF NOT EXISTS onderhoud_log (
+  id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  soort         text NOT NULL CHECK (soort IN ('backup', 'hersteltest', 'herstel', 'migratie')),
+  gestart_op    timestamptz NOT NULL,
+  klaar_op      timestamptz NOT NULL DEFAULT now(),
+  gelukt        boolean NOT NULL,
+  bestand       text,
+  grootte_bytes bigint,
+  versie        text,
+  melding       text
+);
+CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
+
+-- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

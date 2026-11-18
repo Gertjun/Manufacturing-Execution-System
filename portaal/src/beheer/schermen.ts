@@ -328,3 +328,62 @@ export async function logboek() {
       : h("p", { class: "leeg" }, "Nog geen wijzigingen."),
   );
 }
+
+// ---------- Server ----------
+interface Onderhoud { soort: string; gestart_op: string; klaar_op: string; gelukt: boolean; bestand: string | null; grootte_bytes: number | null; versie: string | null; melding: string | null }
+interface ServerStand {
+  versie: string; node: string; servertijd: string;
+  schema: { nummer: number; naam: string; uitgevoerd_op: string } | null;
+  database: { naam: string; grootte_bytes: number; postgres: string };
+  laatsteBackup: Onderhoud | null; laatsteHersteltest: Onderhoud | null; recent: Onderhoud[];
+  waarschuwingen: { niveau: "let_op" | "fout"; tekst: string }[];
+}
+const SOORT_ONDERHOUD: Record<string, string> = { backup: "Back-up", hersteltest: "Hersteltest", herstel: "Herstel", migratie: "Database-update" };
+const grootte = (b: number | null) => (b === null ? "" : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} kB` : `${(b / 1024 / 1024).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} MB`);
+function geleden(iso: string, nu: number) {
+  const min = Math.max(0, Math.round((nu - new Date(iso).getTime()) / 60000));
+  if (min < 60) return `${min} min geleden`;
+  if (min < 48 * 60) return `${Math.round(min / 60)} uur geleden`;
+  return `${Math.round(min / 1440)} dagen geleden`;
+}
+const resultaat = (o: Onderhoud) => h("span", { class: o.gelukt ? "label label-ok" : "label label-buiten_grens" }, o.gelukt ? "Gelukt" : "Mislukt");
+
+export async function server() {
+  const actueel = vastHouden();
+  toon(kop("Server"), laden());
+  let s: ServerStand;
+  try { s = await haal<ServerStand>("/beheer/server"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const nu = new Date(s.servertijd).getTime();
+  const tegel = (getal: string, tekst: string, extra?: string, nadruk = false) =>
+    h("div", { class: nadruk ? "tegel nadruk" : "tegel" }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst), extra ? h("span", { class: "tegel-extra" }, extra) : null);
+  const b = s.laatsteBackup, t = s.laatsteHersteltest;
+  const meldingen = s.waarschuwingen.length
+    ? h("ul", { class: "serverstatus" }, s.waarschuwingen.map((w) =>
+        h("li", { class: `status-${w.niveau}` }, h("span", { class: "status-teken", "aria-hidden": "true" }, w.niveau === "fout" ? "!" : "i"), h("strong", {}, w.niveau === "fout" ? "Actie nodig: " : "Let op: "), w.tekst)))
+    : h("p", { class: "serverstatus-ok" }, h("span", { class: "label label-ok" }, "In orde"), " Back-ups en hersteltests lopen volgens schema.");
+  toon(
+    kop("Server", "Versie, database, back-ups en hersteltests. De back-ups en hersteltests maakt de server zelf volgens het schema van IT."),
+    meldingen,
+    h("div", { class: "tegels server-tegels" },
+      tegel(s.versie, "versie van de applicatie", s.schema ? `database: schemaversie ${s.schema.nummer}` : "database: schemaversie onbekend"),
+      tegel(b ? geleden(b.klaar_op, nu) : "Nooit", "laatste back-up", b ? `${b.gelukt ? grootte(b.grootte_bytes) : "mislukt"} · ${datum(b.klaar_op)}` : undefined, !b || !b.gelukt),
+      tegel(t ? geleden(t.klaar_op, nu) : "Nooit", "laatste hersteltest", t ? (t.gelukt ? t.melding ?? "gelukt" : "mislukt") : undefined),
+      tegel(grootte(s.database.grootte_bytes), "grootte van de database", s.database.naam),
+    ),
+    h("h2", {}, "Laatste onderhoud"),
+    s.recent.length
+      ? tabel(["Wanneer", "Wat", "Resultaat", "Bestand", "Grootte", "Toelichting"], s.recent.map((o) => [
+          datum(o.klaar_op), SOORT_ONDERHOUD[o.soort] ?? o.soort, resultaat(o), o.bestand ?? "", grootte(o.grootte_bytes), o.melding ?? "",
+        ]), "compact")
+      : h("p", { class: "leeg" }, "Nog geen back-ups, hersteltests of database-updates."),
+    h("h2", {}, "Details"),
+    tabel(["Onderdeel", "Waarde"], [
+      ["Applicatie", s.versie],
+      ["Database", `${s.database.naam}, schemaversie ${s.schema ? `${s.schema.nummer} (${s.schema.naam}, ${datum(s.schema.uitgevoerd_op)})` : "onbekend"}`],
+      ["PostgreSQL", s.database.postgres],
+      ["Node.js", s.node],
+      ["Tijd op de server", datum(s.servertijd)],
+    ], "compact"),
+  );
+}
