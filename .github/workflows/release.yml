@@ -1,0 +1,46 @@
+name: Release
+
+# Maakt voor elke versie uit CHANGELOG.md die nog geen tag heeft een tag v<versie> en een
+# GitHub Release, op de laatste commit waarin VERSIE die versie had. Bestaande tags en
+# releases worden nooit gewijzigd (D19). Draait pas nadat de tests op main zijn geslaagd.
+
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository ophalen (volledige geschiedenis)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Node.js instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Tags en releases maken voor nieuwe versies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --tags --force
+          node tools/release.mjs ontbrekend > /tmp/nieuw.txt
+          if [ ! -s /tmp/nieuw.txt ]; then echo "Geen nieuwe versies."; exit 0; fi
+          while read -r versie commit; do
+            echo "Versie $versie op $commit"
+            node tools/release.mjs notities "$versie" > "/tmp/notities-$versie.md"
+            gh release create "v$versie" --target "$commit" --title "Versie $versie" --notes-file "/tmp/notities-$versie.md"
+          done < /tmp/nieuw.txt

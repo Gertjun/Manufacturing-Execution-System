@@ -15,5 +15,11 @@ cp -r "$ROOT/invoer/dist" "$DOEL/web/invoer"
 cp -r "$ROOT/portaal/dist" "$DOEL/web/portaal"
 cp "$ROOT/db/schema.sql" "$ROOT/db/seed_config.sql" "$ROOT/tools/pakket/testdata.sql" "$DOEL/db/"
 cp "$ROOT/tools/pakket/opstarten.mjs" "$ROOT/tools/pakket/START.bat" "$ROOT/tools/pakket/TESTDATA OPNIEUW.bat" \
-   "$ROOT/tools/pakket/start.sh" "$ROOT/tools/pakket/LEESMIJ.md" "$DOEL/"
+   "$ROOT/tools/pakket/start.sh" "$ROOT/tools/pakket/README.md" "$DOEL/"
 echo "Pakket klaar in $DOEL"
+# Zip met het versienummer in de naam
+V="$(cat "$ROOT/VERSIE")"
+if command -v zip >/dev/null; then
+  (cd "$(dirname "$DOEL")" && rm -f "batch-gui-laptop-$V.zip" && zip -qr "batch-gui-laptop-$V.zip" "$(basename "$DOEL")")
+  echo "Zip: $(dirname "$DOEL")/batch-gui-laptop-$V.zip"
+fi

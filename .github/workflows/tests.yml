@@ -1,0 +1,62 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Databaseregels, API en schermen
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: batchgui
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Node.js instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Versienummer overal gelijk
+        run: |
+          V="$(cat VERSIE)"
+          for p in api invoer portaal demo; do
+            [ "$(node -p "require('./$p/package.json').version")" = "$V" ] || { echo "$p/package.json heeft niet versie $V"; exit 1; }
+          done
+          grep -q "\"$V\"" api/src/versie.ts && grep -q "\"$V\"" gedeeld/versie.ts
+          grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
+      - name: Databaseregels
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          python3 tests/test_regels.py "host=localhost port=5432 user=postgres dbname=batchgui"
+      - name: API
+        working-directory: api
+        env:
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+      - name: Invoerscherm controleren en bouwen
+        working-directory: invoer
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Portalen controleren en bouwen
+        working-directory: portaal
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build

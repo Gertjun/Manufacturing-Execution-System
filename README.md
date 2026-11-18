@@ -185,7 +185,7 @@ node e2e/beheer.mjs           # test Beheer in Chrome (database met verse config
 
 ## Testen op een laptop
 
-`tools/maak_laptoppakket.sh <doelmap>` bouwt een pakket met voorgebouwde server en schermen. Op de laptop zijn dan alleen Node.js en PostgreSQL nodig; `START.bat` (Windows) of `start.sh` maakt de database aan, laadt 90 dagen fictieve testdata, verschoven naar vandaag, en start alles op http://localhost:3000/. Zie `tools/pakket/LEESMIJ.md`.
+`tools/maak_laptoppakket.sh <doelmap>` bouwt een pakket met voorgebouwde server en schermen. Op de laptop zijn dan alleen Node.js en PostgreSQL nodig; `START.bat` (Windows) of `start.sh` maakt de database aan, laadt 90 dagen fictieve testdata, verschoven naar vandaag, en start alles op http://localhost:3000/. Zie `tools/pakket/README.md`. Het script maakt ook `batch-gui-laptop-<versie>.zip`.
 
 De testdata in het pakket (`tools/pakket/testdata.sql`) maak je opnieuw met de generator en
 `pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500`.
