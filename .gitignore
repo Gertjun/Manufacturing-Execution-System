@@ -5,3 +5,4 @@ instellingen.json
 .env
 e2e/shots/
 __pycache__/
+demo/public/batchgui.tar.gz

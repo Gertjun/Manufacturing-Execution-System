@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Batch input GUI – demo</title>
+  <style>
+    :root { --rand: #d5dbe1; --inkt: #1d2733; --zacht: #52606d; --blauw: #2a78d6; --balk: #1c2533; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { font: 15px/1.45 system-ui, "Segoe UI", sans-serif; color: var(--inkt); background: #e7ebef; display: flex; flex-direction: column; }
+    header { background: var(--balk); color: #fff; display: flex; align-items: center; gap: 20px; padding: 0 16px; min-height: 52px; flex-wrap: wrap; }
+    header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+    header .sub { color: #a9b4c0; font-size: 13px; }
+    nav { display: flex; gap: 4px; }
+    nav button { font: inherit; color: #d6dde5; background: none; border: 0; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    nav button[aria-pressed="true"] { background: #33415a; color: #fff; }
+    nav button:focus-visible, .knop:focus-visible { outline: 2px solid #7fb2ee; outline-offset: 1px; }
+    .rechts { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+    .knop { font: inherit; font-size: 13px; color: #d6dde5; background: none; border: 1px solid #45526a; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+    .knop:hover { border-color: #8a98ad; color: #fff; }
+    main { flex: 1; display: flex; gap: 12px; padding: 12px; min-height: 0; }
+    .paneel { flex: 1; display: none; flex-direction: column; min-width: 0; background: #fff; border: 1px solid var(--rand); border-radius: 8px; overflow: hidden; }
+    .paneel.zichtbaar { display: flex; }
+    .paneel > div { font-size: 12px; color: var(--zacht); padding: 6px 12px; border-bottom: 1px solid var(--rand); background: #f6f8fa; }
+    iframe { flex: 1; width: 100%; border: 0; }
+    main.naast #paneel-invoer { flex: 0 0 440px; }
+    #laden { position: fixed; inset: 52px 0 0 0; display: grid; place-items: center; background: #e7ebef; }
+    #laden div { max-width: 460px; text-align: center; }
+    #laden p { color: var(--zacht); }
+    .balk { height: 6px; background: var(--rand); border-radius: 3px; overflow: hidden; margin: 16px auto 0; width: 260px; }
+    .balk span { display: block; height: 100%; width: 40%; background: var(--blauw); border-radius: 3px; animation: schuif 1.2s ease-in-out infinite; }
+    @keyframes schuif { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (prefers-reduced-motion: reduce) { .balk span { animation: none; width: 100%; } }
+    dialog { border: 1px solid var(--rand); border-radius: 10px; max-width: 520px; padding: 20px 24px; color: var(--inkt); }
+    dialog::backdrop { background: rgba(20, 28, 40, .45); }
+    dialog h2 { margin: 0 0 8px; font-size: 18px; }
+    dialog table { border-collapse: collapse; font-size: 14px; margin: 6px 0 10px; }
+    dialog td { padding: 2px 14px 2px 0; }
+    dialog .knoppen { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    dialog button { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--rand); background: #fff; cursor: pointer; }
+    dialog button.hoofd { background: var(--blauw); border-color: var(--blauw); color: #fff; }
+    @media (max-width: 900px) { main.naast { flex-direction: column; } main.naast #paneel-invoer { flex: 1; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Batch input GUI <span class="sub">demo · versie <span id="versie"></span> · fictieve gegevens</span></h1>
+    <nav aria-label="Weergave">
+      <button data-weergave="invoer" aria-pressed="false">Invoerscherm</button>
+      <button data-weergave="portaal" aria-pressed="true">Portalen</button>
+      <button data-weergave="naast" aria-pressed="false">Naast elkaar</button>
+    </nav>
+    <div class="rechts">
+      <button class="knop" id="uitleg-knop">Uitleg en accounts</button>
+      <button class="knop" id="reset-knop">Opnieuw beginnen</button>
+    </div>
+  </header>
+  <main id="werk">
+    <section class="paneel" id="paneel-invoer"><div>Invoerscherm — zoals op een pc in de fabriek</div><iframe title="Invoerscherm" id="if-invoer"></iframe></section>
+    <section class="paneel zichtbaar" id="paneel-portaal"><div>Portalen — Kwaliteit, Productie, Beheer</div><iframe title="Portalen" id="if-portaal"></iframe></section>
+  </main>
+  <div id="laden" role="status"><div><strong>Demo opstarten</strong><p id="laden-tekst">Even geduld …</p><div class="balk"><span></span></div></div></div>
+
+  <dialog id="uitleg">
+    <h2>Over deze demo</h2>
+    <p>Het hele platform draait hier in je browser, ook de database. Er is geen server en niets verlaat je computer. Alle gegevens zijn fictief: 90 dagen productie, lopend tot nu.</p>
+    <p>Testaccounts, wachtwoord steeds <b>demo</b>:</p>
+    <table>
+      <tr><td>operator</td><td>Invoerscherm (kies daarna een pc en je naam)</td></tr>
+      <tr><td>ploegleider1</td><td>Invoerscherm en Portaal Productie</td></tr>
+      <tr><td>kwaliteit1</td><td>Portaal Kwaliteit</td></tr>
+      <tr><td>beheerder1</td><td>Portaal Beheer</td></tr>
+      <tr><td>analist1</td><td>Portalen, alleen lezen</td></tr>
+    </table>
+    <p id="opslag-tekst"></p>
+    <p>Tip: kies <b>Naast elkaar</b>, voer links een stap in en bekijk rechts de werkvoorraad in Portaal Productie.</p>
+    <div class="knoppen"><button class="hoofd" id="uitleg-sluit">Sluiten</button></div>
+  </dialog>
+  <dialog id="reset">
+    <h2>Opnieuw beginnen?</h2>
+    <p>Alles wat je in de demo hebt ingevoerd of gewijzigd verdwijnt. De fictieve testdata wordt opnieuw geladen.</p>
+    <div class="knoppen"><button id="reset-nee">Annuleren</button><button class="hoofd" id="reset-ja">Opnieuw beginnen</button></div>
+  </dialog>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

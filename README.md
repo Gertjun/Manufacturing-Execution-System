@@ -190,6 +190,19 @@ node e2e/beheer.mjs           # test Beheer in Chrome (database met verse config
 De testdata in het pakket (`tools/pakket/testdata.sql`) maak je opnieuw met de generator en
 `pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500`.
 
+## Browserdemo
+
+`demo/` draait het hele platform in de browser, zonder server: dezelfde API-routes (`api/src/routes`) en hetzelfde databaseschema, met PostgreSQL in de browser (PGlite) en de fictieve testdata. Invoerscherm en portalen draaien ongewijzigd in een frame; hun API-verzoeken gaan naar de nagebootste server. Alleen voor demonstratie.
+
+```
+cd demo && npm install && ./bouw.sh     # bouwt demo/dist
+node ../portaal/e2e/demo.mjs            # test (demo/dist via een statische server op poort 4173)
+```
+
+## Versies
+
+Eén versienummer voor het hele platform, in `VERSIE`; zetten met `tools/zet_versie.sh 0.6.0`. Zie `CHANGELOG.md`. Elke versie krijgt een Git-tag (`v0.5.0`).
+
 ## Portaal Beheer
 
 Ook op `/portaal/` (testaccount `beheerder1`, wachtwoord `demo`; een beheerder start hier).
