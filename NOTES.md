@@ -15,6 +15,8 @@ Bijgewerkt: 19 november 2026 · versie **0.22.0**
 ## Laatste testronde – 0.22.0, 19 november 2026
 Geslaagd: databaseregels (94), API (71), migraties (tot en met 13), beheertools (met back-up vóór database-update), opruimschema, laptoppakket, en alle schermtests in Chrome via `tests/test_schermen.sh` (invoer, 11 portaaltests, sjabloon, browserdemo). Bij 0.14.0 en 0.15.0 faalde de laptoppakkettest op GitHub, maar ze kregen wel een release: niet gebruiken.
 
+**Releases op GitHub haperen sinds 0.21.1:** de tests zijn groen, maar `release.yml` krijgt "HTTP 403: Resource not accessible by integration" bij het maken van de release (de workflow heeft `contents: write`). Daardoor hebben 0.21.1 en 0.22.0 nog geen tag en release. Waarschijnlijk een instelling op GitHub (regels voor tags of de rechten van workflows); Geert kijkt ernaar. Daarna maakt de workflow de ontbrekende releases vanzelf (handmatig starten mag ook).
+
 ## Valkuilen voor de volgende sessie
 - `tools/pakket/testdata.sql` opnieuw maken: `schema_versie`, `onderhoud_log` en `inlogpoging` niet meenemen in de dump (zie README, "Testdata").
 - De schermtests in Chrome draaien op GitHub (`tests/test_schermen.sh`, ongeveer 4 minuten). Een losse portaaltest vraagt verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar.
