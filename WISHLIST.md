@@ -2,14 +2,13 @@
 
 Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
 
-Laatst bijgewerkt: versie 0.14.0, 19 november 2026
+Laatst bijgewerkt: versie 0.15.0, 19 november 2026
 
 ## Gepland
 - #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
 - #10 **Fabrieksserver installeren met IT** (middel, na de proof of concept, D26) — IT richt de server in volgens het advies en `docs/SERVER.md`; eerste keer samen doorlopen op een testmachine, inclusief een proef met een pc die offline gaat.
 - #2 **Echte velden per stap** (middel) — Geert levert per processtap de echte invoervelden aan (setting, gemeten waarde, gewichten, grenzen). Nodig voor de pilot.
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0: eerste stappen in de fabriek met echte batches.
-- #5 **Etiketten en barcodes** (middel, 0.15.0) — Etiket met barcode bij het plannen; batch- en lotnummers scannen in plaats van typen.
 - #6 **Koppeling met Exact** (groot) — Gegevens uitwisselen met Exact.
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
 - #21 **Meldingen per mail of Teams** (klein, te besluiten) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
@@ -24,6 +23,7 @@ Laatst bijgewerkt: versie 0.14.0, 19 november 2026
 - #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
 
 ## Gerealiseerd
+- #5 **Etiketten en barcodes** — versie 0.15.0; Code 128 op etiketprinter of A4-vel, scannen met een handscanner in het invoerscherm.
 - #16 **Storingen en stilstand** — versie 0.14.0; melden en beëindigen in de invoer (offline), melding bij storing, wandscherm, Productie → Stilstand met beschikbaarheid en kwaliteit, oorzaken in Beheer.
 - #15 **Meldingen** — versie 0.13.0; door de database bij grenswaarden, beoordeling, keurresultaat en afwijkend lot; in de portalen en voor de ploegleider in het invoerscherm.
 - #14 **Ploegoverdracht** — versie 0.12.0; cijfers per ploeg, overdracht schrijven in het invoerscherm (ook offline), vorige ploeg bovenaan, overzicht in Productie, ploegtijden in Beheer.

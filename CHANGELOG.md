@@ -2,6 +2,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.15.0 — 19 november 2026
+- Nieuw: etiketten met barcode (Code 128). In Portaal Planning staat bij elke dag "Etiketten" voor de geplande batches. In het lotpaspoort staat "Etiket" voor het lot. In het invoerscherm staat in elke registratie "Etiket printen".
+- Twee formaten: een etiketprinter (100 × 50 mm, één etiket per pagina) of een A4-vel met 3 × 7 etiketten (63,5 × 38,1 mm). Afdrukken gaat via de browser, zonder extra software. Het invoerscherm onthoudt per pc welk formaat je gebruikt.
+- Nieuw: scannen met een gewone handscanner (die werkt als toetsenbord). In een stap opent een scan de batch als die al bezig is, of start hem als hij klaarstaat. In de lot-stap vinkt een scan de batch aan. Op andere schermen zoekt een scan de batch of het lot op. Ook een partijnummer van een grondstof kun je in het invoerveld scannen.
+- Verbeterd: een fout in de schermtest van het invoerscherm (0.14.0) is hersteld.
+
 ## 0.14.0 — 19 november 2026
 - Nieuw: stilstand melden. In het invoerscherm staat bij elke stap "Stilstand melden": kies de oorzaak (storing, wachten, gepland of overig) en eventueel een toelichting. Een rode balk laat zien dat de stap stilligt, tot iemand op "Stilstand beëindigen" drukt. Dat werkt ook zonder verbinding.
 - Bij een storing krijgt de ploegleider een melding. Op het wandscherm wordt de stap rood met ⛔.

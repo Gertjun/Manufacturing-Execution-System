@@ -1,7 +1,7 @@
 // Test van het Portaal Planning in Chrome.
 // Zet de database opnieuw klaar (schema.sql + seed_config.sql + seed_accounts_demo.sql) met fictieve gegevens.
 // Gebruik: node e2e/planning.mjs (API op poort 3462).
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import pg from "pg";
@@ -74,6 +74,31 @@ try {
   await page.locator(".planrij.vervallen", { hasText: nummers[5] }).waitFor();
   check("Batch vervallen, met reden zichtbaar", (await page.locator(".planrij.vervallen").innerText()).includes("Order geannuleerd"));
   await shot("01-week");
+
+  console.log("\nEtiketten");
+  await page.locator(".dagkaart.vandaag").getByRole("link", { name: "Etiketten" }).click();
+  await page.getByRole("heading", { name: "5 etiketten" }).waitFor();
+  const eerste = page.locator(".etiket").first();
+  await eerste.screenshot({ path: `${SHOTS}/04-etiket.png`, scale: "device" });
+  const gelezen = execFileSync("python3", ["-c", `
+import sys
+from PIL import Image
+from pyzbar.pyzbar import decode
+img = Image.open(sys.argv[1]).convert("L")
+img = img.resize((img.width * 3, img.height * 3))
+print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`]).toString().trim();
+  check("Barcode op het etiket is leesbaar en klopt", gelezen === nummers[1], `${gelezen} / ${nummers[1]}`);
+  await page.getByLabel("Formaat").selectOption("a4");
+  await page.locator(".etiket-a4").first().waitFor();
+  await page.evaluate(() => { window.print = () => { window.__geprint = document.querySelectorAll("#print-etiketten .etiketten-vel-a4 .etiket").length; }; });
+  await page.getByRole("button", { name: "Afdrukken" }).click();
+  check("Afdrukken op A4: 5 etiketten op één vel", (await page.evaluate(() => window.__geprint)) === 5);
+  await page.emulateMedia({ media: "print" });
+  await shot("05-etiketten-print", false);
+  await page.emulateMedia({ media: "screen" });
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  await page.goto(`${BASIS}/portaal/#/planning/week`);
+  await page.getByRole("heading", { name: /^Week van/ }).waitFor();
 
   console.log("\nPer stap");
   await page.locator(".dagkaart.vandaag").getByRole("link", { name: "Per stap" }).click();

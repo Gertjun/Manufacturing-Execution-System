@@ -2,7 +2,7 @@
 
 De **actuele stand**: versie, open punten en sessielog. Werk dit bij aan het eind van elke sessie (zie `CLAUDE.md`). Besluiten staan in `DECISIONS.md`, wensen in `WISHLIST.md`.
 
-Laatst bijgewerkt: 19 november 2026 · versie **0.14.0**
+Laatst bijgewerkt: 19 november 2026 · versie **0.15.0**
 
 ---
 
@@ -44,6 +44,7 @@ Op GitHub draaien automatisch (Node.js 22 en 26): databaseregels, migraties, API
 - Let op bij het opnieuw maken van `tools/pakket/testdata.sql`: neem `schema_versie` en `onderhoud_log` niet mee in de dump (`--exclude-table`), anders botst het laden met `schema.sql`.
 
 ## Sessielog (nieuwste bovenaan)
+- **19 nov 2026 · 0.15.0** — Etiketten en barcodes (D35): Code 128, printer of A4, scannen in de invoer. Barcode gecontroleerd met een barcodelezer (zbar). Niet getest: een echte handscanner en etiketprinter.
 - **19 nov 2026 · 0.14.0** — Storingen en stilstand (D34): melden/beëindigen in de invoer, melding, wandscherm, Productie → Stilstand met beschikbaarheid, Beheer → Oorzaken.
 - **19 nov 2026 · 0.13.0** — Meldingen (D33): triggers in de database, gelezen per persoon, in portalen en voor de ploegleider in de invoer.
 - **19 nov 2026 · 0.12.0** — Ploegoverdracht (D32): ploegen, overdracht schrijven in de invoer (offline), vorige ploeg bovenaan, Productie → Ploegoverdracht, Beheer → Ploegen.

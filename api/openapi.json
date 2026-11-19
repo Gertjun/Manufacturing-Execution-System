@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.14.0",
+    "version": "0.15.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -9652,6 +9652,85 @@
                       "toelichting": {
                         "type": "string",
                         "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/etiketten": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Gegevens voor etiketten van batches of lots (in de gevraagde volgorde). Onbekende nummers worden overgeslagen.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "in": "query",
+            "name": "nummers",
+            "required": true,
+            "description": "Batch- of lotnummers, gescheiden door komma's"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "nummer",
+                      "soort",
+                      "product",
+                      "dag",
+                      "batches"
+                    ],
+                    "properties": {
+                      "nummer": {
+                        "type": "string"
+                      },
+                      "soort": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "batch"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "lot"
+                            ]
+                          }
+                        ]
+                      },
+                      "product": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "dag": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2026-11-20"
+                      },
+                      "batches": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     }
                   }

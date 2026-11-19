@@ -1,7 +1,8 @@
 // Het invulformulier van één stapregistratie. Het formulier wordt opgebouwd
 // uit de velden die bij de stap zijn ingesteld.
-import { GeenVerbinding } from "../api";
+import { GeenVerbinding, stuur } from "../api";
 import { berekenMarkering, leesGetal, markeringTekst, toonGetal } from "../markering";
+import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../../gedeeld/etiket";
 import { corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
 import type { Markering, Registratie, VeldMetWaarde } from "../types";
@@ -293,7 +294,8 @@ function teken(reg: Registratie) {
         reg.herbewerking_start ? h("p", { class: "waarschuwing" }, `Herbewerking: ${reg.reden}`) : null,
         reg.status === "afgebroken" ? h("p", { class: "waarschuwing" }, reg.reden ?? "Afgebroken") : null,
       ),
-      statusLabel,
+      h("div", { class: "kop-rechts" }, statusLabel,
+        h("button", { class: "knop knop-klein", onclick: () => etiketPrinten(reg.batchnummer ?? reg.lotnummer!, reg.niveau === "batch" ? "batch" : "lot") }, "Etiket printen")),
     ),
     h("div", { class: "formulier" }, velden),
     grondstoffen.length ? h("h2", { class: "tussenkop-invoer" }, "Grondstoffen") : null,
@@ -301,4 +303,22 @@ function teken(reg: Registratie) {
     reg.status === "open" && magInvoeren ? h("div", { class: "balk-onder" }, h("div", {}, hint, opslaan, afronden)) : null,
   );
   werkBij();
+}
+
+/** Etiket voor deze batch of dit lot. Met verbinding met product en dag; zonder alleen nummer en barcode. */
+async function etiketPrinten(nummer: string, soort: "batch" | "lot") {
+  let info: EtiketInfo = { nummer, soort, regels: [`Geprint ${new Date().toLocaleDateString("nl-NL")}`] };
+  try {
+    const [g] = await stuur<{ nummer: string; soort: "batch" | "lot"; product: string | null; dag: string | null; batches: string[] }[]>(
+      "GET", `/planning/etiketten?nummers=${encodeURIComponent(nummer)}`);
+    if (g) info = { nummer, soort: g.soort, regels: [g.soort === "lot" ? g.batches.join(" ") : g.product ?? "", g.dag ? new Date(`${g.dag}T12:00:00`).toLocaleDateString("nl-NL") : ""].filter(Boolean) };
+  } catch { /* zonder verbinding: eenvoudig etiket */ }
+  let vorige: Formaat = "printer";
+  try { if (localStorage.getItem("etiketformaat") === "a4") vorige = "a4"; } catch { /* */ }
+  const r = await vraag(`Etiket ${nummer}`, [{ naam: "formaat", label: "Waarop print je?", opties: FORMATEN.map((f): [string, string] => [f.id, f.naam]), waarde: vorige }],
+    "Printen", "Deze pc onthoudt je keuze. Kies in het afdrukvenster de juiste printer, marges 'geen' en schaal 100%.");
+  if (!r) return;
+  const formaat = r.formaat as Formaat;
+  try { localStorage.setItem("etiketformaat", formaat); } catch { /* */ }
+  drukEtikettenAf([info], formaat);
 }

@@ -4,6 +4,7 @@
 import { bevestig, h, laden, melding, toon, vastHouden, vraag } from "../../../gedeeld/ui";
 import { haal, sessie, stuur } from "../basis";
 import { fout, kop, tabel } from "../kwaliteit/schermen";
+import { etikettenLink } from "../etiketten";
 
 // ---------- Datums ----------
 /** Datum als JJJJ-MM-DD in de tijdzone van deze computer. */
@@ -149,7 +150,10 @@ export async function week(van?: string) {
         : h("p", { class: "sub" }, "Niets gepland."),
       h("div", { class: "knoppen-klein" },
         magPlannen() && d.dag >= vandaag ? h("button", { class: "knop knop-klein", onclick: () => plannen(d.dag) }, "Batches plannen") : null,
-        h("a", { class: "knop knop-klein knop-stil", href: `#/planning/dag/${d.dag}` }, "Per stap")));
+        h("a", { class: "knop knop-klein knop-stil", href: `#/planning/dag/${d.dag}` }, "Per stap"),
+        geplandeLijst.some((b) => b.status !== "vervallen")
+          ? h("a", { class: "knop knop-klein knop-stil", href: etikettenLink(geplandeLijst.filter((b) => b.status !== "vervallen").map((b) => b.batchnummer)) }, "Etiketten")
+          : null));
   };
 
   toon(

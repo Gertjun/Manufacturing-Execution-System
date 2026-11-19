@@ -8,6 +8,7 @@ import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import { stopWandscherm, wandscherm } from "./wandscherm";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
+import { etikettenScherm } from "./etiketten";
 
 // ---------- Menu ----------
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
@@ -100,6 +101,10 @@ async function route() {
     return wandscherm(onderdeel ? decodeURIComponent(onderdeel) : undefined);
   }
   stopWandscherm();
+  if (portaal === "etiketten") {
+    await tekenMenu("", "");
+    return etikettenScherm(onderdeel, arg);
+  }
   if (portaal === "meldingen" && heeftMeldingen()) {
     await tekenMenu("meldingen", "");
     return meldingenScherm(onderdeel === "alle");

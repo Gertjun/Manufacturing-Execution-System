@@ -241,6 +241,10 @@ Ook op `/portaal/` (testaccount `planner1`, wachtwoord `demo`; een planner start
 
 In het invoerscherm staat bovenaan elke stap "Gepland voor vandaag". In de eerste stap start de operator een geplande batch; een ongeplande batch aanmaken zit achter "Ongeplande batch aanmaken (uitzondering)".
 
+## Etiketten en barcodes
+
+Etiketten met een Code 128-barcode voor batches en lots: in Portaal Planning per dag, in het lotpaspoort, en in elke registratie in het invoerscherm. Formaat: etiketprinter 100 × 50 mm of A4-vel 3 × 7. Een handscanner (werkt als toetsenbord) opent of start in een stap de gescande batch, of zoekt hem op (D35).
+
 ## Meldingen
 
 De database maakt zelf meldingen bij een waarde buiten de grens, een batch in beoordeling, een keurresultaat en een lot dat afwijkt van het voorstel (D33). In de portalen staan ze bovenaan het menu; de ploegleider ziet ze ook in het invoerscherm.

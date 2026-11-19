@@ -8,6 +8,7 @@ import { registratieScherm } from "./schermen/registratie";
 import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
 import { overdrachtScherm } from "./schermen/overdracht";
 import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./schermen/meldingen";
+import { startScanner, wisScanActie } from "./scan";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -57,6 +58,7 @@ function tekenBalk() {
 // ---------- Navigatie ----------
 async function route() {
   nieuweRoute();
+  wisScanActie();
   const [, scherm, arg] = location.hash.split("/");
   tekenBalk();
 
@@ -93,6 +95,7 @@ opStatus((s) => {
 });
 startWachtrij();
 startMeldingen(tekenBalk);
+startScanner();
 void route();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

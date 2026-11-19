@@ -873,3 +873,16 @@ describe("Stilstand", () => {
     assert.equal((await verzoek("POST", "/stilstand/oorzaken", await login("planner1"), { code: "X", naam: "x", categorie: "overig" })).status, 403);
   });
 });
+
+describe("Etiketten", () => {
+  test("gegevens voor batch- en lotetiketten, in de gevraagde volgorde", async () => {
+    const t = await login("planner1");
+    const lot = await verzoek("GET", "/planning/etiketten?nummers=L-2026-0001", t);
+    const batch = lot.body[0].batches[0];
+    const r = await verzoek("GET", `/planning/etiketten?nummers=L-2026-0001, ${batch.toLowerCase()},B-2026-9999`, t);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.map((x: any) => [x.nummer, x.soort]), [["L-2026-0001", "lot"], [batch, "batch"]]);
+    assert.equal(r.body[0].batches.length, 4);
+    assert.match(r.body[1].dag, /^\d{4}-\d{2}-\d{2}$/);
+  });
+});

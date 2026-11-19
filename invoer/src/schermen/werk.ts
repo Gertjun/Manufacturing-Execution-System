@@ -6,6 +6,7 @@ import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
 import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 import { acties, voegToe } from "../wachtrij";
 import { vorigeOverdrachtBlok } from "./overdracht";
+import { zetScanActie } from "../scan";
 
 /** Wat er lokaal al gebeurd is maar nog niet in de werkvoorraad van de server staat. */
 async function lokaleAanpassingen() {
@@ -266,6 +267,23 @@ export async function stapScherm(code: string) {
     ].filter(Boolean) as Node[];
   }
   toon(kop, stil ? stilstandBlok(stil, s, opVloer, opnieuw) : null, planBlok(plan), ...bezig, ...klaar);
+
+  // Handscanner: een batch die bezig is openen, een batch die klaarstaat starten (of in de lot-stap aanvinken).
+  zetScanActie(async (code) => {
+    const open = w.open.find((r) => (r.batchnummer ?? r.lotnummer) === code);
+    if (open) { location.hash = `#/reg/${open.id}`; return; }
+    const x = w.wachtend.find((y) => y.nummer === code);
+    if (!x) { melding(`${code} staat niet klaar in ${s.naam}`, "fout"); return; }
+    if (!kanInvoeren) { melding(`${code} staat klaar in ${s.naam}`, "info"); return; }
+    if (s.is_lot_stap) {
+      const vink = document.querySelector<HTMLInputElement>(`input[type=checkbox][value="${CSS.escape(code)}"]`);
+      if (vink) { vink.checked = !vink.checked; vink.dispatchEvent(new Event("change")); melding(`${code} ${vink.checked ? "gekozen" : "niet meer gekozen"}`, "info"); }
+      return;
+    }
+    const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer });
+    melding(`${code} gestart`, "ok");
+    location.hash = `#/reg/${reg.id}`;
+  });
 }
 
 /** Met verbinding meteen controleren of een nummer al bestaat; zonder verbinding controleert de server later. */

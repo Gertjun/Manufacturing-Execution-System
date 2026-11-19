@@ -130,3 +130,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** stilstand wordt per stap gemeld (één tegelijk per stap), met een oorzaak uit een lijst in vier soorten: storing, wachten, gepland, overig. Een stilstand ligt vast; alleen het einde wordt één keer ingevuld. Tijden komen van het apparaat (offline), een tijdstip in de toekomst telt als nu. Beschikbaarheid per stap = (ploeguren in de periode − geplande stilstand − ongeplande stilstand) / (ploeguren − geplande stilstand). Kwaliteit = gestarte batches die niet zijn afgekeurd. De prestatie (OEE) volgt pas als er normtijden zijn (WISHLIST #22).
 - **Waarom:** zonder oorzaak is stilstand niet te verbeteren; door geplande stilstand apart te houden telt schoonmaken niet als verlies.
 
+### D35 – Etiketten en scannen zonder extra software (19 nov 2026, 0.15.0)
+- **Besluit:** barcodes in Code 128 (tekenset B), getekend in de browser (SVG) en afgedrukt via het afdrukvenster van de browser: etiketprinter 100 × 50 mm of A4-vel 3 × 7 (63,5 × 38,1 mm). Geen printerstuurprogramma of labelsoftware van het platform. Scannen met een handscanner die als toetsenbord werkt: snelle toetsen (< 50 ms ertussen) gevolgd door Enter buiten een invoerveld gelden als scan. Geen camera-scannen (nog).
+- **Waarom:** werkt op elke pc en offline, zonder installatie; handscanners zijn goedkoop en betrouwbaar.
+

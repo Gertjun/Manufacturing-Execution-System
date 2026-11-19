@@ -77,6 +77,29 @@ try {
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.locator(".plan-bezig", { hasText: "B-2026-0008" }).waitFor();
   check("Planning toont de batch als bezig", true);
+  // Handscanner: typt de code heel snel en drukt op Enter.
+  await page.locator("body").click({ position: { x: 5, y: 300 } });
+  await page.keyboard.type("B-2026-0007", { delay: 5 });
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { name: "B-2026-0007" }).waitFor();
+  check("Scannen van een geplande batch start hem", page.url().includes("#/reg/"));
+  await page.goto(`${BASIS}/invoer/#/stap/PS1`);
+  await page.locator(".plan-bezig", { hasText: "B-2026-0007" }).waitFor();
+  await page.locator("body").click({ position: { x: 5, y: 300 } });
+  await page.keyboard.type("B-2026-0007", { delay: 5 });
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { name: "B-2026-0007" }).waitFor();
+  check("Scannen van een batch die bezig is opent hem", true);
+  await page.evaluate(() => { window.print = () => { window.__geprint = document.querySelectorAll("#print-etiketten .etiket").length; }; });
+  await page.getByRole("button", { name: "Etiket printen" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Printen" }).click();
+  await page.waitForFunction(() => window.__geprint !== undefined);
+  check("Etiket printen maakt één etiket", (await page.evaluate(() => window.__geprint)) === 1);
+  await page.keyboard.type("b-2026-0005", { delay: 5 });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => location.hash.startsWith("#/zoek/B-2026-0005"));
+  check("Scannen buiten een stap zoekt de batch op", true);
+  await page.goto(`${BASIS}/invoer/#/stap/PS1`);
 
   console.log("\nNieuwe batch in PS1 met een afwijking");
   await page.getByText("Ongeplande batch aanmaken").click();
@@ -199,15 +222,15 @@ try {
   await page.getByRole("dialog").getByRole("button", { name: "Stilstand melden" }).click();
   await page.getByRole("heading", { name: "⛔ Stilstand: Machinestoring" }).waitFor();
   await page.waitForTimeout(1200);
-  const [st1] = await q("SELECT x.eind_op, o.code FROM fabriek.stilstand x JOIN fabriek.stilstand_oorzaak o ON o.id = x.oorzaak_id JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
-  check("Stilstand loopt in de database", st1?.code === "STOR-MACH" && st1.eind_op === null, JSON.stringify(st1));
+  const [stil1] = await q("SELECT x.eind_op, o.code FROM fabriek.stilstand x JOIN fabriek.stilstand_oorzaak o ON o.id = x.oorzaak_id JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
+  check("Stilstand loopt in de database", stil1?.code === "STOR-MACH" && stil1.eind_op === null, JSON.stringify(stil1));
   await shot("10b-stilstand");
   await page.getByRole("button", { name: "Stilstand beëindigen" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Beëindigen" }).click();
   await page.getByRole("button", { name: "Stilstand melden" }).waitFor();
   await page.waitForTimeout(1200);
-  const [st2] = await q("SELECT x.eind_op FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
-  check("Stilstand beëindigd", st2?.eind_op !== null);
+  const [stil2] = await q("SELECT x.eind_op FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
+  check("Stilstand beëindigd", stil2?.eind_op !== null);
 
   console.log("\nPloegoverdracht");
   await page.goto(`${BASIS}/invoer/#/overdracht`);

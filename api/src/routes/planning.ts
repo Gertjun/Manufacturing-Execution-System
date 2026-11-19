@@ -478,6 +478,40 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  // ---------- Etiketten ----------
+  app.get(
+    "/etiketten",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["planning"],
+        description: "Gegevens voor etiketten van batches of lots (in de gevraagde volgorde). Onbekende nummers worden overgeslagen.",
+        querystring: Type.Object({ nummers: Type.String({ description: "Batch- of lotnummers, gescheiden door komma's", maxLength: 2000 }) }),
+        response: {
+          200: Type.Array(Type.Object({
+            nummer: Type.String(), soort: Type.Union([Type.Literal("batch"), Type.Literal("lot")]),
+            product: OptTekst, dag: Type.Union([Type.Null(), Dag]), batches: Type.Array(Type.String()),
+          })),
+        },
+      },
+    },
+    async (req) => {
+      const nummers = [...new Set(req.query.nummers.split(",").map((n) => n.trim().toUpperCase()).filter(Boolean))].slice(0, 200);
+      const rijen = await lees<{ nummer: string }>(
+        app.db,
+        `SELECT b.batchnummer AS nummer, 'batch' AS soort, p.code || ' ' || p.naam AS product,
+                to_char(coalesce(b.geplande_dag, coalesce(b.gestart_op, b.aangemaakt_op)::date), 'YYYY-MM-DD') AS dag, '{}'::text[] AS batches
+           FROM batch b LEFT JOIN product p ON p.id = b.product_id WHERE b.batchnummer = ANY($1)
+         UNION ALL
+         SELECT l.lotnummer, 'lot', (SELECT string_agg(DISTINCT p.code || ' ' || p.naam, ', ') FROM batch x JOIN product p ON p.id = x.product_id WHERE x.lot_id = l.id),
+                to_char(l.aangemaakt_op, 'YYYY-MM-DD'), coalesce((SELECT array_agg(x.batchnummer ORDER BY x.batchnummer) FROM batch x WHERE x.lot_id = l.id), '{}')
+           FROM lot l WHERE l.lotnummer = ANY($1)`,
+        [nummers],
+      );
+      return nummers.map((n) => rijen.find((r) => r.nummer === n)).filter(Boolean) as never;
+    },
+  );
+
   // ---------- Lotvoorstellen ----------
   app.get(
     "/lotvoorstellen",
