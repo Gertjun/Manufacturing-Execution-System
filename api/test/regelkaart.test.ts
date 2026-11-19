@@ -30,3 +30,10 @@ test("Cpk", () => {
   assert.equal(cpk(10, 0.1, null, 10.3), 1);
   assert.equal(cpk(10, 0.1, null, null), null);
 });
+
+test("onder 20 metingen is de kaart voorlopig, vanaf 20 niet", () => {
+  const reeks = (n: number) => Array.from({ length: n }, (_, i) => 10 + ((i * 7) % 5) / 10);
+  assert.equal(regelkaart(reeks(19)).voorlopig, true);
+  assert.equal(regelkaart(reeks(20)).voorlopig, false);
+  assert.equal(regelkaart([]).voorlopig, true);
+});

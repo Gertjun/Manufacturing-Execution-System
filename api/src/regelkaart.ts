@@ -7,10 +7,15 @@
 //   4: 8 opeenvolgende punten aan dezelfde kant van het gemiddelde
 // Een signaal betekent: het proces verandert, ook als de waarden nog binnen de specificatie vallen.
 
+/** Onder dit aantal metingen zijn gemiddelde en spreiding nog te onzeker: de kaart is voorlopig en er komt geen Cpk. */
+export const MIN_PUNTEN = 20;
+
 export interface Punt { waarde: number }
 export interface Signaal { index: number; regel: 1 | 2 | 3 | 4 }
 export interface Kaart {
   n: number;
+  /** Minder dan MIN_PUNTEN metingen: grenzen en signalen zijn een eerste indruk. */
+  voorlopig: boolean;
   gemiddelde: number | null;
   sigma: number | null;
   bovengrens: number | null;
@@ -29,13 +34,14 @@ export const REGELS: Record<Signaal["regel"], string> = {
 
 export function regelkaart(waarden: number[]): Kaart {
   const n = waarden.length;
-  if (n < 2) return { n, gemiddelde: n ? waarden[0] : null, sigma: null, bovengrens: null, ondergrens: null, mr_gemiddeld: null, mr_bovengrens: null, signalen: [] };
+  const voorlopig = n < MIN_PUNTEN;
+  if (n < 2) return { n, voorlopig, gemiddelde: n ? waarden[0] : null, sigma: null, bovengrens: null, ondergrens: null, mr_gemiddeld: null, mr_bovengrens: null, signalen: [] };
   const gem = waarden.reduce((a, b) => a + b, 0) / n;
   const mr = waarden.slice(1).map((w, i) => Math.abs(w - waarden[i]));
   const mrGem = mr.reduce((a, b) => a + b, 0) / mr.length;
   const sigma = mrGem / 1.128;
   const kaart: Kaart = {
-    n, gemiddelde: gem, sigma, bovengrens: gem + 3 * sigma, ondergrens: gem - 3 * sigma,
+    n, voorlopig, gemiddelde: gem, sigma, bovengrens: gem + 3 * sigma, ondergrens: gem - 3 * sigma,
     mr_gemiddeld: mrGem, mr_bovengrens: 3.267 * mrGem, signalen: [],
   };
   if (sigma === 0) return kaart;

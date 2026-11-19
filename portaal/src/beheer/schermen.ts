@@ -4,7 +4,7 @@ import { bevestig, h, laden, melding, toon, vastHouden, vraag, type VraagVeld } 
 import { leesGetal, toonGetal } from "../../../gedeeld/markering";
 import type { Stap, Veld } from "../../../gedeeld/types";
 import { haal, qs, sessie, stuur } from "../basis";
-import { datum, fout, kop, tabel } from "../kwaliteit/schermen";
+import { datum, fout, kop, tabel, afgekapt } from "../kwaliteit/schermen";
 
 const ROLLEN: [string, string][] = [
   ["operator", "Operator (gedeeld invoeraccount)"],
@@ -484,6 +484,7 @@ export async function logboek() {
   toon(
     kop("Logboek", "Elke wijziging in de instellingen: wie, wat en wanneer. Wachtwoorden staan er nooit in, alleen dat ze opnieuw zijn ingesteld."),
     h("div", { class: "filters" }, h("label", { for: "f-onderdeel", class: "filter" }, "Onderdeel", sel)),
+    afgekapt(regels.length, 300, "wijzigingen", "Kies een onderdeel om alles daarvan te zien."),
     regels.length
       ? tabel(["Wanneer", "Door", "Onderdeel", "Wat", "Wijziging"], regels.map((r) => {
           const b = beschrijf(r);

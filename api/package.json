@@ -1,6 +1,6 @@
 {
   "name": "batch-gui-api",
-  "version": "0.20.1",
+  "version": "0.20.2",
   "description": "API voor de Batch input GUI (fictieve data)",
   "main": "dist/index.js",
   "scripts": {

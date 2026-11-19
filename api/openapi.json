@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.20.1",
+    "version": "0.20.2",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -8366,6 +8366,7 @@
                       "soort",
                       "eenheid",
                       "n",
+                      "voorlopig",
                       "signalen",
                       "laatste_signaal",
                       "cpk"
@@ -8389,6 +8390,10 @@
                       },
                       "n": {
                         "type": "integer"
+                      },
+                      "voorlopig": {
+                        "type": "boolean",
+                        "description": "Minder dan 20 metingen: nog geen betrouwbare grenzen, geen Cpk"
                       },
                       "signalen": {
                         "type": "integer"
@@ -8466,6 +8471,8 @@
                     "mr_gemiddeld",
                     "mr_bovengrens",
                     "cpk",
+                    "voorlopig",
+                    "min_metingen",
                     "regels"
                   ],
                   "properties": {
@@ -8578,6 +8585,13 @@
                     "cpk": {
                       "type": "number",
                       "nullable": true
+                    },
+                    "voorlopig": {
+                      "type": "boolean",
+                      "description": "Minder dan 20 metingen: nog geen betrouwbare grenzen, geen Cpk"
+                    },
+                    "min_metingen": {
+                      "type": "integer"
                     },
                     "regels": {
                       "type": "object",

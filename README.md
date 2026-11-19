@@ -53,7 +53,7 @@ Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoe
 | Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan, grondstofpartijen, afdrukbaar; met etiket en certificaat |
 | Certificaat | Analysecertificaat per lot: concept, uitgeven met volgnummer, afdrukken of pdf (D37) |
 | Grondstoffen terugzoeken | Op partijnummer: in welke batches en lots zit die partij |
-| Regelkaarten | Per veld een regelkaart met signalen en Cpk (D38) |
+| Regelkaarten | Per veld een regelkaart met signalen en Cpk (D38); onder 20 metingen voorlopig en zonder Cpk |
 | Afwijkingen | Alle metingen buiten tolerantie of grens, met filters |
 | Trend per veld | Eén veld door de tijd, met tolerantieband en grenzen |
 | Herbewerkingen en afkeur | Hoe vaak, in welke stap en met welke redenen |

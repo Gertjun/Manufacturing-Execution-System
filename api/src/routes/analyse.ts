@@ -5,7 +5,7 @@ import { lees } from "../db.js";
 import { niet } from "../fouten.js";
 import { Markering, StapCode } from "./schemas.js";
 import { Stilstand, STILSTAND_SQL } from "./stilstand.js";
-import { cpk, regelkaart, REGELS } from "../regelkaart.js";
+import { cpk, regelkaart, REGELS, MIN_PUNTEN } from "../regelkaart.js";
 
 // Analyses voor de portalen. Elke analyse is een eigen route, zodat een portaal
 // kan kiezen welke het toont.
@@ -246,9 +246,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if (!veld) throw niet("Veld");
       const punten = await lees(
         app.db,
-        `SELECT ingevoerd_op AS tijd, setting, gemeten, markering, batch_of_lot, operator
-           FROM (${WAARDEN_SQL}) x WHERE veld = $3 AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}
-          ORDER BY ingevoerd_op LIMIT 5000`,
+        `SELECT * FROM (
+           SELECT ingevoerd_op AS tijd, setting, gemeten, markering, batch_of_lot, operator
+             FROM (${WAARDEN_SQL}) x WHERE veld = $3 AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}
+            ORDER BY ingevoerd_op DESC LIMIT 5000) n
+          ORDER BY tijd`,
         [req.query.van ?? null, req.query.tot ?? null, req.query.veld],
       );
       return { veld, punten } as never;
@@ -724,7 +726,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         response: {
           200: Type.Array(Type.Object({
             veld: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst,
-            n: Type.Integer(), signalen: Type.Integer(), laatste_signaal: Type.Union([Type.Null(), Tijd]), cpk: OptGetal,
+            n: Type.Integer(), voorlopig: Type.Boolean({ description: "Minder dan 20 metingen: nog geen betrouwbare grenzen, geen Cpk" }),
+            signalen: Type.Integer(), laatste_signaal: Type.Union([Type.Null(), Tijd]), cpk: OptGetal,
           })),
         },
       },
@@ -743,8 +746,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         const k = regelkaart(p.map((x) => x.waarde));
         const laatste = k.signalen.at(-1);
         // Cpk alleen voor velden waar de gemeten waarde zelf getekend wordt (de specificatie gaat over de gemeten waarde).
-        const c = v.soort === "procesparameter" ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max);
-        return { veld: v.code, naam: v.naam, stap: v.stap, soort: v.soort, eenheid: v.eenheid, n: k.n, signalen: k.signalen.length,
+        // en pas vanaf MIN_PUNTEN metingen.
+        const c = v.soort === "procesparameter" || k.voorlopig ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max);
+        return { veld: v.code, naam: v.naam, stap: v.stap, soort: v.soort, eenheid: v.eenheid, n: k.n, voorlopig: k.voorlopig, signalen: k.signalen.length,
           laatste_signaal: laatste ? new Date(p[laatste.index].tijd).toISOString() : null, cpk: c };
       });
       uit.sort((a, b) => (b.signalen > 0 ? 1 : 0) - (a.signalen > 0 ? 1 : 0) || (b.laatste_signaal ?? "").localeCompare(a.laatste_signaal ?? ""));
@@ -767,6 +771,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             punten: Type.Array(Type.Object({ tijd: Tijd, nummer: Type.String(), waarde: Type.Number(), signaal: Type.Union([Type.Null(), Type.Integer()]) })),
             gemiddelde: OptGetal, sigma: OptGetal, bovengrens: OptGetal, ondergrens: OptGetal,
             mr_gemiddeld: OptGetal, mr_bovengrens: OptGetal, cpk: OptGetal,
+            voorlopig: Type.Boolean({ description: "Minder dan 20 metingen: nog geen betrouwbare grenzen, geen Cpk" }),
+            min_metingen: Type.Integer(),
             regels: Type.Record(Type.String(), Type.String()),
           }),
         },
@@ -789,7 +795,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         punten: p.map((x, i) => ({ tijd: new Date(x.tijd).toISOString(), nummer: x.nummer, waarde: x.waarde, signaal: sig.get(i) ?? null })),
         gemiddelde: k.gemiddelde, sigma: k.sigma, bovengrens: k.bovengrens, ondergrens: k.ondergrens,
         mr_gemiddeld: k.mr_gemiddeld, mr_bovengrens: k.mr_bovengrens,
-        cpk: v.soort === "procesparameter" ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max),
+        cpk: v.soort === "procesparameter" || k.voorlopig ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max),
+        voorlopig: k.voorlopig, min_metingen: MIN_PUNTEN,
         regels: REGELS,
       } as never;
     },

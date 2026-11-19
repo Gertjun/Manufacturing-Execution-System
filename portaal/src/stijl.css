@@ -417,3 +417,7 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 /* Naar Excel */
 .tabel-acties { display: flex; justify-content: flex-end; margin: 0 0 4px; }
 .excel-knop { min-height: 30px; font-size: .85rem; }
+
+/* Lijst op de maximale lengte (0.20.2) */
+.afgekapt { border-left: 6px solid var(--status-waarschuwing); background: var(--vlak, #fff); padding: 10px 14px; margin: 12px 0; }
+.voorlopig { padding: 12px 16px; }

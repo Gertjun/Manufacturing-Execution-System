@@ -5,6 +5,11 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.20.2 — 19 november 2026
+- Een regelkaart met minder dan 20 metingen staat als "voorlopig": de grenzen en signalen zijn dan een eerste indruk en er staat geen Cpk. In het overzicht staat "nog te weinig metingen" in plaats van een Cpk.
+- Lijsten die op hun maximale lengte zitten, zeggen dat nu: afwijkingen (500), trend per veld (5000), grondstoffen terugzoeken (1000), logboek (300) en meldingen (200). Ook in de Excel-export staan dan alleen die regels.
+- De trend per veld toont bij heel veel metingen de nieuwste 5000 (eerst waren het de oudste).
+
 ## 0.20.1 — 19 november 2026
 - De tijdzone staat vast op die van de fabriek (Europe/Amsterdam). Ploegen, "vandaag" en de weekindeling volgden de tijdzone van de computer waarop de database draait; op een server met UTC schoven de ploegen een of twee uur.
 - De nachtploeg rond de wisseling van zomer- en wintertijd klopt. In de nacht van de wintertijd duurt hij 9 uur (05:30 hoorde eerst bij geen enkele ploeg), in de nacht van de zomertijd 7 uur (eerst overlapte hij een uur met de ochtendploeg).

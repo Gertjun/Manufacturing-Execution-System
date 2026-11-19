@@ -2,7 +2,7 @@
 // De teller in het menu ververst elke minuut; een nieuwe melding verschijnt ook even onderin beeld.
 import { h, laden, melding as toast, toon, vastHouden } from "../../gedeeld/ui";
 import { haal, sessie, stuur } from "./basis";
-import { fout, kop } from "./kwaliteit/schermen";
+import { afgekapt, fout, kop } from "./kwaliteit/schermen";
 
 export interface Melding {
   id: string; soort: string; ernst: "info" | "let_op" | "kritiek"; tekst: string;
@@ -77,6 +77,7 @@ export async function meldingenScherm(alle = false) {
         r.ongelezen ? h("button", { class: "knop knop-hoofd", onclick: async () => {
           try { const x = await stuur<{ gelezen: number }>("POST", "/meldingen/alles-gelezen"); toast(`${x.gelezen} gelezen`, "ok"); opnieuw(); } catch (e) { toast((e as Error).message, "fout"); }
         } }, "Alles gelezen") : null)),
+    afgekapt(r.meldingen.length, 200, "meldingen", alle ? "Bekijk de ongelezen meldingen apart." : "Zet meldingen die je gezien hebt op gelezen."),
     r.meldingen.length
       ? h("ul", { class: "meldingen" }, r.meldingen.map((m) => {
           const l = link(m);

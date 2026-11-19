@@ -64,13 +64,19 @@ try {
   const ruitjes = await page.locator("svg.regelkaart .rk-signaal").count();
   check("Signalen op de kaart als ruitjes", ruitjes === signalen, `${ruitjes} / ${signalen}`);
   check("Tabel met signalen", (await page.locator("section", { hasText: "Signalen" }).locator("tbody tr").count()) === Math.min(50, signalen));
-  await page.locator("svg.regelkaart .raakvlak").nth(0).hover();
+  // Punten liggen soms dicht op elkaar; het raakvlak van de buurman mag erover liggen.
+  await page.locator("svg.regelkaart .raakvlak").nth(0).hover({ force: true });
   await page.screenshot({ path: `${SHOTS}/02-regelkaart.png`, fullPage: true });
   await page.goto(`${BASIS}/portaal/#/kwaliteit/regelkaarten/S18.3`);
   await page.getByRole("heading", { name: /^Regelkaart S18\.3/ }).waitFor();
   await page.locator("svg.regelkaart").waitFor();
   check("Vochtgehalte: specificatie en Cpk", (await page.locator(".tegel", { hasText: "Cpk" }).count()) === 1);
   await page.screenshot({ path: `${SHOTS}/03-vocht.png`, fullPage: true });
+  await page.getByLabel("Periode").selectOption("7");
+  await page.getByText(/^Voorlopig: nog maar \d+ metingen/).waitFor();
+  check("Weinig metingen (7 dagen): kaart is voorlopig en zonder Cpk", (await page.locator(".tegel", { hasText: "Cpk" }).count()) === 0);
+  await page.screenshot({ path: `${SHOTS}/04-voorlopig.png`, fullPage: true });
+  await page.getByLabel("Periode").selectOption("30");
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});
