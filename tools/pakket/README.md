@@ -1,34 +1,22 @@
-# Batch input GUI – testen op je laptop
+# Batch input GUI – proof of concept op je laptop
 
-Dit pakket draait het hele platform op één laptop: invoerscherm, portalen Kwaliteit, Productie en Beheer, en de server. Alle gegevens zijn fictief. Er is geen internet nodig zodra alles is geïnstalleerd.
+Dit pakket draait het hele platform op één Windows-laptop: invoerscherm, portalen Kwaliteit, Productie en Beheer, de server en de database. **Je hoeft niets te installeren en geen beheerdersrechten te hebben**: Node.js en PostgreSQL zitten in het pakket. Er is geen internet nodig.
 
-## Eenmalig installeren (Windows)
-
-Je hebt twee programma's nodig. Op een bedrijfslaptop heb je daar soms beheerdersrechten voor nodig; vraag dan IT.
-
-1. **Node.js 26 LTS** (22 of 24 werkt ook): download de *Windows Installer (.msi)* van https://nodejs.org en installeer met de standaardkeuzes.
-2. **PostgreSQL 18** (16 of 17 kan ook): download de installer van https://www.postgresql.org/download/windows/ (EDB-installer).
-   - Kies een wachtwoord voor de gebruiker `postgres` en **onthoud het**; het opstartscript vraagt erom.
-   - Laat de poort op 5432 staan. Stack Builder aan het eind is niet nodig.
-3. **Pak deze zip uit** naar een vaste map, bijvoorbeeld `C:\batch-gui`. Start niet vanuit het zip-venster zelf.
+Bij de start staan er 90 dagen fictieve productie in. Je kunt ook met een lege fabriek beginnen en zelf stappen en velden inrichten.
 
 ## Starten
 
-Dubbelklik op **START.bat**.
-
-- De eerste keer stelt het een paar vragen (Enter = standaard). Alleen het PostgreSQL-wachtwoord moet je invullen.
-- Daarna maakt het de database `batchgui` aan en laadt 90 dagen fictieve productie (ongeveer 540 batches). Dat duurt minder dan een minuut. De tijdstippen worden verschoven zodat de gegevens tot vandaag lopen.
-- De browser opent vanzelf op http://localhost:3000/ met links naar het invoerscherm, de portalen en de API-documentatie.
+1. **Pak de zip uit** naar een vaste map, bijvoorbeeld `C:\batch-gui`. Niet in OneDrive (Bureaublad en Documenten worden vaak gesynchroniseerd) en niet vanuit het zip-venster zelf starten.
+2. **Dubbelklik op `START.bat`.** De eerste keer maakt hij de database aan en laadt de testdata; dat duurt minder dan een minuut.
+3. De browser opent vanzelf op http://localhost:3000/ met links naar het invoerscherm, de portalen en de API-documentatie.
 
 Krijg je een blauwe Windows-melding ("Windows heeft uw pc beschermd")? Kies *Meer informatie* → *Toch uitvoeren*.
 
-**Stoppen:** sluit het zwarte venster. De gegevens blijven bewaard; de volgende keer start het direct.
-
-**Nieuwe versie:** pak de nieuwe zip uit naar een nieuwe map en kopieer `instellingen.json` uit de oude map mee. Bij het starten wordt je database automatisch bijgewerkt naar de nieuwe versie; je ingevoerde gegevens blijven staan.
+**Stoppen:** druk **Ctrl+C** in het zwarte venster en beantwoord de vraag "Batchtaak beëindigen (J/N)?" met **J** (of sluit gewoon het venster). De database wordt netjes afgesloten; je gegevens blijven bewaard en de volgende keer start alles direct.
 
 ## Testaccounts
 
-Wachtwoord is steeds `demo`.
+Wachtwoord is steeds `demo`. Wijzig of vervang ze in Portaal Beheer als je anderen laat meekijken.
 
 | Account | Komt in |
 | --- | --- |
@@ -41,45 +29,65 @@ Wachtwoord is steeds `demo`.
 ## Wat je kunt uitproberen
 
 - **Invoerscherm:** log in als `operator`, kies bijvoorbeeld PC-01 en een naam, start een stap voor een batch, vul waarden in (probeer een waarde buiten de grens) en rond af.
-- **Offline:** zet tijdens het invoeren de server uit (venster sluiten). Het invoerscherm blijft werken en verstuurt alles zodra je START.bat weer start.
-- **Kwaliteit:** de twee batches die op een keurresultaat wachten, de trend van S5.1 die langzaam oploopt, het lotpaspoort.
-- **Productie:** werkvoorraad, doorlooptijden en de zes correcties.
-- **Beheer:** wijzig een grens of koppel een stap aan een pc en kijk wat er in het invoerscherm en het logboek verandert. Onder **Server** zie je de versie; de melding dat er geen back-ups zijn klopt op een laptop, back-ups horen bij de fabrieksserver.
+- **Offline:** stop de applicatie terwijl het invoerscherm open is. Het invoerscherm blijft werken en verstuurt alles zodra je START.bat weer start.
+- **Kwaliteit:** de batches die op een keurresultaat wachten, de trend van S5.1 die langzaam oploopt, het lotpaspoort.
+- **Productie:** werkvoorraad, doorlooptijden en de correcties.
+- **Beheer:** wijzig een grens of koppel een stap aan een pc en kijk wat er in het invoerscherm en het logboek verandert. Onder **Server** zie je de versie en de laatste back-up.
+
+## Je eigen proces inrichten
+
+Dubbelklik op **`LEGE FABRIEK.bat`**: dan blijven alleen de stappen, velden, accounts, operators en pc's over, zonder batches. Pas in Portaal Beheer de stapnamen en velden aan je eigen proces aan en probeer het uit.
+
+Let op: dit is een proof of concept. Gebruik geen gegevens die vertrouwelijk zijn zolang de laptop niet daarvoor is ingericht.
+
+## Back-ups
+
+- Bij **elke start** maakt het pakket eerst een back-up van de database in `data\backups`. De laatste 5 blijven bewaard (samen ongeveer 400 MB).
+- **Terugzetten:** dubbelklik op **`BACKUP TERUGZETTEN.bat`** en kies een nummer. De database van daarvoor blijft bewaard in de map `data`.
+- Wil je de gegevens veilig stellen of meenemen? Stop de applicatie en kopieer de hele map `data` (bijvoorbeeld naar een USB-stick).
 
 ## Opnieuw beginnen
 
-- **TESTDATA OPNIEUW.bat**: maakt de database leeg en laadt verse testdata.
-- Lege fabriek, alleen de configuratie: open een opdrachtprompt in deze map en typ `node opstarten.mjs --leeg`.
+- **`TESTDATA OPNIEUW.bat`**: verse fictieve testdata (90 dagen).
+- **`LEGE FABRIEK.bat`**: alleen de configuratie, geen batches.
 
-## Testen vanaf een tablet of andere pc
+Bij beide wordt eerst een back-up gemaakt van wat er nu in staat.
 
-Standaard is alles alleen op de laptop zelf bereikbaar. Wil je vanaf een ander apparaat in hetzelfde netwerk testen:
-1. Open `instellingen.json` in Kladblok en verander `"adres": "127.0.0.1"` in `"adres": "0.0.0.0"`.
+## Nieuwe versie
+
+Pak de nieuwe zip uit naar een **nieuwe map** en kopieer uit de oude map de map **`data`** en het bestand **`instellingen.json`** mee. Bij het starten wordt de database automatisch bijgewerkt; je gegevens blijven staan. De oude map kun je daarna weggooien.
+
+## Laten meekijken vanaf een tablet of andere pc
+
+Standaard is alles alleen op de laptop zelf bereikbaar. Om in hetzelfde netwerk mee te laten kijken:
+
+1. Stop de applicatie. Open `instellingen.json` in Kladblok en verander `"adres": "127.0.0.1"` in `"adres": "0.0.0.0"`.
 2. Start opnieuw. Het venster toont het adres voor andere apparaten, bijvoorbeeld `http://192.168.1.23:3000/`.
-3. Windows vraagt of Node.js het netwerk mag gebruiken: kies alleen **Privénetwerken**.
+3. Windows vraagt of Node.js het netwerk mag gebruiken: kies alleen **Privénetwerken**. Mag dat op een bedrijfslaptop niet, dan blijft het bij de laptop zelf.
 
-Let op: offline werken van het invoerscherm kan de browser alleen toestaan op `localhost` of via een beveiligde verbinding (https). Vanaf een ander apparaat werkt het invoerscherm dus wel, maar niet offline. Voor de echte server in de fabriek regelen we https.
+Offline werken kan de browser alleen toestaan op de laptop zelf of via https. Op een ander apparaat werkt het invoerscherm dus wel, maar niet offline. Dat regelen we bij de echte server.
 
 ## Problemen
 
 | Melding | Oplossing |
 | --- | --- |
-| Node.js is niet gevonden | Installeer Node.js en start de laptop opnieuw op, of open START.bat opnieuw |
-| PostgreSQL is niet bereikbaar | Controleer in *Services* dat `postgresql-x64-18` (of jouw versie) draait |
-| Het wachtwoord klopt niet | Verwijder `instellingen.json` en start opnieuw |
-| Poort 3000 is al in gebruik | De applicatie draait al in een ander venster, of kies een andere `"poort"` in `instellingen.json` |
+| De ingebouwde database start niet | Draait de applicatie al in een ander venster? Sluit alle vensters en start opnieuw. Anders: poort 54329 is bezet; kies een andere `"port"` onder `"db"` in `instellingen.json`. |
+| Poort 3000 is al in gebruik | De applicatie draait al, of een ander programma gebruikt 3000; kies een andere `"poort"` in `instellingen.json`. |
+| De database reageert niet | Sluit alle vensters van de applicatie, wacht even en start opnieuw. |
+| Melding over OneDrive | Verplaats de map naar bijvoorbeeld `C:\batch-gui`. |
 
-## Mac of Linux
-
-Installeer Node.js en PostgreSQL (bijvoorbeeld met Homebrew: `brew install node postgresql@18`) en start met `./start.sh` in deze map.
+Lukt het niet, stuur dan de inhoud van `data\postgres.log` en een foto van het zwarte venster mee.
 
 ## Wat zit erin
 
 | Map of bestand | Inhoud |
 | --- | --- |
-| `START.bat`, `start.sh` | Starten |
-| `opstarten.mjs` | Maakt de database aan, laadt testdata en start de server |
-| `server/` | De voorgebouwde server (API) |
-| `web/` | Invoerscherm en portalen |
-| `db/` | Databaseschema, configuratie en fictieve testdata |
-| `instellingen.json` | Wordt bij de eerste start gemaakt; bevat het PostgreSQL-wachtwoord, dus niet delen |
+| `START.bat` | Starten |
+| `LEGE FABRIEK.bat`, `TESTDATA OPNIEUW.bat`, `BACKUP TERUGZETTEN.bat` | Opnieuw beginnen of terugzetten |
+| `opstarten.mjs` | Start de database, maakt back-ups, start de applicatie |
+| `runtime\` | Node.js 26 LTS (officiële versie) |
+| `postgres\` | PostgreSQL 18, alleen bereikbaar op deze laptop |
+| `server\`, `web\` | De applicatie: server, invoerscherm en portalen |
+| `db\`, `tools\` | Databaseschema, updates en fictieve testdata |
+| `data\` | Wordt bij de eerste start gemaakt: jouw database, back-ups en logboek |
+| `instellingen.json` | Wordt bij de eerste start gemaakt: poorten en een geheime sleutel voor het inloggen |

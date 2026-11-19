@@ -183,12 +183,12 @@ node e2e/productie.mjs        # test Productie in Chrome (database met verse tes
 node e2e/beheer.mjs           # test Beheer in Chrome (database met verse configuratie)
 ```
 
-## Testen op een laptop
+## Proof of concept op een laptop
 
-`tools/maak_laptoppakket.sh <doelmap>` bouwt een pakket met voorgebouwde server en schermen. Op de laptop zijn dan alleen Node.js en PostgreSQL nodig; `START.bat` (Windows) of `start.sh` maakt de database aan, laadt 90 dagen fictieve testdata, verschoven naar vandaag, en start alles op http://localhost:3000/. Zie `tools/pakket/README.md`. Het script maakt ook `batch-gui-laptop-<versie>.zip`.
+`tools/maak_laptoppakket.sh <doelmap> windows` bouwt `batch-gui-laptop-<versie>-windows.zip`: de applicatie plus Node.js 26 LTS, PostgreSQL 18 en de Visual C++-runtime, zodat er op de laptop niets geïnstalleerd hoeft te worden (D27). `START.bat` maakt bij de eerste start de database aan en laadt 90 dagen fictieve testdata (verschoven naar vandaag); bij elke volgende start eerst een back-up. Handleiding: `tools/pakket/README.md`. Met platform `linux` ontstaat dezelfde opzet voor Linux (voor `tests/test_laptoppakket.sh`), met `geen` de oude opzet met een geïnstalleerde PostgreSQL.
 
 De testdata in het pakket (`tools/pakket/testdata.sql`) maak je opnieuw met de generator en
-`pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500`.
+`pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500 --exclude-table=fabriek.schema_versie --exclude-table=fabriek.onderhoud_log`.
 
 ## Fabrieksserver
 

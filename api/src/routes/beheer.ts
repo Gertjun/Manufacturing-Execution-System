@@ -391,13 +391,28 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         "SELECT soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes::float8 AS grootte_bytes, versie, melding FROM onderhoud_log WHERE soort = 'hersteltest' ORDER BY klaar_op DESC, id DESC LIMIT 1",
       );
       const nu = Date.now();
+      // Op een laptop (proof of concept) is er een back-up bij elke start en geen maandelijkse hersteltest.
+      const laptop = typeof process !== "undefined" && process.env?.BATCHGUI_OMGEVING === "laptop";
+      const maxUren = laptop ? 7 * 24 : 2;
       const uren = (d: Date) => (nu - new Date(d).getTime()) / 3600e3;
       const waarschuwingen: { niveau: "let_op" | "fout"; tekst: string }[] = [];
-      if (!laatsteBackup) waarschuwingen.push({ niveau: "fout", tekst: "Er is nog nooit een back-up gemaakt." });
+      if (!laatsteBackup)
+        waarschuwingen.push(
+          laptop
+            ? { niveau: "let_op", tekst: "Er is nog geen back-up; de eerste wordt gemaakt bij de volgende start." }
+            : { niveau: "fout", tekst: "Er is nog nooit een back-up gemaakt." },
+        );
       else if (!laatsteBackup.gelukt) waarschuwingen.push({ niveau: "fout", tekst: "De laatste back-up is mislukt." });
-      else if (uren(laatsteBackup.klaar_op) > 2)
-        waarschuwingen.push({ niveau: "fout", tekst: `De laatste back-up is ${Math.floor(uren(laatsteBackup.klaar_op))} uur oud; verwacht elk uur.` });
-      if (!laatsteHersteltest) waarschuwingen.push({ niveau: "let_op", tekst: "Er is nog geen hersteltest gedaan." });
+      else if (uren(laatsteBackup.klaar_op) > maxUren)
+        waarschuwingen.push({
+          niveau: laptop ? "let_op" : "fout",
+          tekst: laptop
+            ? `De laatste back-up is ${Math.floor(uren(laatsteBackup.klaar_op) / 24)} dagen oud; start de applicatie opnieuw voor een nieuwe back-up.`
+            : `De laatste back-up is ${Math.floor(uren(laatsteBackup.klaar_op))} uur oud; verwacht elk uur.`,
+        });
+      if (laptop) {
+        // geen hersteltest op de laptop
+      } else if (!laatsteHersteltest) waarschuwingen.push({ niveau: "let_op", tekst: "Er is nog geen hersteltest gedaan." });
       else if (!laatsteHersteltest.gelukt) waarschuwingen.push({ niveau: "fout", tekst: "De laatste hersteltest is mislukt." });
       else if (uren(laatsteHersteltest.klaar_op) > 35 * 24)
         waarschuwingen.push({ niveau: "let_op", tekst: `De laatste hersteltest is ${Math.floor(uren(laatsteHersteltest.klaar_op) / 24)} dagen oud; verwacht elke maand.` });

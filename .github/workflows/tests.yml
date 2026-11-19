@@ -77,3 +77,6 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
+        if: matrix.node == 26
+        run: tests/test_laptoppakket.sh

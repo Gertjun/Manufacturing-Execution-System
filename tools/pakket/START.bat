@@ -2,13 +2,17 @@
 chcp 65001 >nul
 title Batch input GUI
 cd /d "%~dp0"
+set "NODE=node"
+if exist "runtime\node.exe" set "NODE=runtime\node.exe"
+if not "%NODE%"=="node" goto start
 where node >nul 2>nul
-if errorlevel 1 (
-  echo.
-  echo Node.js is niet gevonden. Installeer Node.js 26 LTS van https://nodejs.org en start dit bestand opnieuw.
-  echo.
-  pause
-  exit /b 1
-)
-node opstarten.mjs %*
+if not errorlevel 1 goto start
+echo.
+echo Node.js ontbreekt. Pak het pakket opnieuw uit, of installeer Node.js 26 LTS van https://nodejs.org.
+echo.
+pause
+exit /b 1
+:start
+"%NODE%" opstarten.mjs %*
+echo.
 pause

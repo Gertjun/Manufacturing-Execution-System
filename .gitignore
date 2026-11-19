@@ -6,3 +6,4 @@ instellingen.json
 e2e/shots/
 __pycache__/
 demo/public/batchgui.tar.gz
+tools/pakket/.cache/
