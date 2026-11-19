@@ -44,6 +44,7 @@ Op GitHub draaien automatisch (Node.js 22 en 26): databaseregels, migraties, API
 - Let op bij het opnieuw maken van `tools/pakket/testdata.sql`: neem `schema_versie` en `onderhoud_log` niet mee in de dump (`--exclude-table`), anders botst het laden met `schema.sql`.
 
 ## Sessielog (nieuwste bovenaan)
+- **19 nov 2026** — Skills opgenomen in de werkafspraken (D40, `CLAUDE.md`): coding-skills, data en claude-for-manufacturing. Geen nieuwe versie (alleen werkafspraken).
 - **19 nov 2026 · 0.19.0** — Export naar Excel (D39): knop boven elke tabel, .xlsx in de browser, getallen als getal. Eindcontrole: databaseregels 79/79, API 61 tests, migraties, beheertools, alle e2e-tests (portaal, productie, beheer, planning, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel, invoer, demo) en laptoppakket geslaagd. Browserdemo opnieuw gepubliceerd met verse demodatabase. CI: 0.14.0 en 0.15.0 hebben wel een tag, maar de laptoppakkettest faalde daar; gebruik 0.15.1 of nieuwer.
 - **19 nov 2026 · 0.18.0** — Regelkaarten (D38): I-kaart, Western Electric, Cpk, overzicht en detail in Kwaliteit.
 - **19 nov 2026 · 0.17.0** — Certificaat per lot (D37): kenmerken op het certificaat, uitgeven door Kwaliteit met volgnummer, bedrijfsgegevens.

@@ -29,6 +29,35 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
 - Het `README.md` heet altijd `README.md` (niet `LEESMIJ.md`).
 - Pin externe GitHub Actions op een vaste commit-SHA.
 
+## Skills (D40)
+Geert heeft in zijn account drie skillpakketten geïnstalleerd. Gebruik ze in dit project als het onderwerp erbij past; laad de skill vóór je aan dat onderdeel begint. Ook hier geldt: **alleen fictieve gegevens**, en de afspraken in dit bestand en `DECISIONS.md` gaan voor.
+
+**Bouwen en controleren (`coding-skills`)** – bij twijfel welke past: `coding-skills:start-here`.
+| Situatie in dit project | Skill |
+| --- | --- |
+| Nieuwe migratie die een bestaande kolom, tabel of API-antwoord verandert (oudere invoerschermen, D18/D23) | `expand-contract`, `hyrums-law` |
+| Ploegtijden, zomer-/wintertijd, tijdstempels van offline pc's, verschuiven van testdata | `clocks-and-time` |
+| Twee pc's of mensen tegelijk op dezelfde batch, lot of lotvoorstel | `isolation-anomalies` |
+| Offline wachtrij, dubbele invoer, taken in PostgreSQL | `database-queues` |
+| Meetwaarden, toleranties, gemiddelden, Cpk | `floating-point` |
+| Trage analyse of lange lijst (lotpaspoort, afwijkingen, logboek) | `query-plans`, `index-design`, `keyset-pagination` |
+| Databasegroei, back-ups, onderhoud op de fabrieksserver | `mvcc-and-bloat`, `connection-pooling` |
+| Invoer of bestanden van buiten (scanner, uploads, zoekvelden) | `algorithmic-complexity-attacks`, `unicode-pitfalls` |
+| Nieuwe npm-pakketten of GitHub Actions | `dependency-confusion` |
+| Tests beoordelen of uitbreiden (regelkaarten, rekenregels) | `mutation-testing`, `metamorphic-testing` |
+| Opbouw van de code, wat eerst opruimen | `module-depth`, `connascence`, `code-hotspots`, `cyclomatic-complexity` |
+
+**Analyses en grafieken (`data`)** – bij nieuwe analyses in de portalen en bij het controleren ervan: `data:statistical-analysis` (regelkaarten, trends, uitschieters), `data:sql-queries` en `data:write-query` (PostgreSQL), `data:explore-data` (testdata of later pilotdata bekijken), `data:validate-data` (een analyse controleren vóór Geert hem laat zien). Grafieken in de schermen volgen daarnaast de skill `dataviz`.
+
+**Fabrieksprocessen (`claude-for-manufacturing`)** – als **vakkennis en controlelijst** bij het ontwerpen van functies, niet als koppeling met echte systemen:
+| Onderwerp | Skill |
+| --- | --- |
+| OEE, stilstand, dagrapport (Portaal Productie, WISHLIST #22) | `daily-production-report`, `morning-plant-pulse`, `breakdown-diagnosis` |
+| Afwijking, afkeur, oorzaak en corrigerende maatregel (Portaal Kwaliteit) | `ncr-writeup`, `root-cause-capa`, `inspection-to-capa` |
+| Grondstofpartij die een probleem veroorzaakt | `supplier-escape-to-alternate-source` |
+| Koppeling met Exact of andere systemen (WISHLIST #6) | `custom-connector`, `data-consolidate` |
+Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijfsdocumenten. Draai `onboarding` en koppelingen met echte systemen **niet** zonder akkoord van Geert, en gebruik er nooit echte fabrieksgegevens mee in de repository. Offerte- en ontwerpskills (`rfq-to-quote`, `quote-build`, `customer-inquiry-intake`, `supplier-quote-request`, `design-space-explore`, `trade-study-report`) horen niet bij dit project.
+
 ## Aan het eind van een sessie (altijd)
 1. **`NOTES.md`**: versie en datum bovenaan, stand en open punten bijwerken, één of twee regels in het sessielog (nieuwste bovenaan).
 2. **`DECISIONS.md`**: een nieuw `D<n>`-besluit voor elke keuze die een volgende sessie moet kennen. Oude besluiten pas je niet aan; een nieuw besluit vervangt een oud ("vervangt D3").
