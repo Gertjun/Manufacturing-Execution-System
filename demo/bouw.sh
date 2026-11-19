@@ -2,7 +2,13 @@
 # Bouwt de browserdemo in demo/dist: shell + database, en invoerscherm en portalen met relatieve paden.
 set -e
 cd "$(dirname "$0")"
-[ -f public/batchgui.tar.gz ] || node maak_data.mjs
+# Database opnieuw maken als hij ontbreekt of ouder is dan het schema, de seeds, de generator of de data-opbouw.
+nieuw=0
+[ -f public/batchgui.tar.gz ] || nieuw=1
+for f in ../db/schema.sql ../db/seed_*.sql ../tools/genereer_testdata.py maak_data.mjs; do
+  [ "$f" -nt public/batchgui.tar.gz ] && nieuw=1
+done
+[ "$nieuw" = 1 ] && node maak_data.mjs
 rm -rf dist
 npx vite build
 (cd ../invoer && npx vite build --base ./ --outDir ../demo/dist/invoer --emptyOutDir)
