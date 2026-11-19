@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, LEIDING, invoerContext, vereist } from "../auth.js";
+import { IEDEREEN, INVOER, LEIDING, invoerContext, invoerTransactie, vereist } from "../auth.js";
 import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode } from "./schemas.js";
@@ -79,7 +79,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         }
       }
 
-      const nieuwId = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const nieuwId = await invoerTransactie(app.db, req, async (tx) => {
         let batchId: string | null = null;
         let lotId: string | null = null;
         if (batchnummer) {
@@ -160,7 +160,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const { operatorId } = invoerContext(req);
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         for (const w of req.body.waarden) {
           if (w.id) {
             const { rows } = await tx.query("SELECT stapregistratie_id FROM waarde WHERE id = $1", [w.id]);
@@ -199,7 +199,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     { preHandler: vereist(...INVOER), schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
     async (req) => {
       invoerContext(req);
-      await inTransactie(app.db, req.user.naam, (tx) => tx.query("SELECT rond_stap_af($1)", [req.params.id]));
+      await invoerTransactie(app.db, req, (tx) => tx.query("SELECT rond_stap_af($1)", [req.params.id]));
       return (await registratieDetail(app.db, req.params.id)) as never;
     },
   );
@@ -228,7 +228,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const { operatorId } = invoerContext(req);
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         for (const g of req.body.grondstoffen) {
           if (g.id) {
             const { rows } = await tx.query("SELECT stapregistratie_id FROM grondstof_gebruik WHERE id = $1", [g.id]);

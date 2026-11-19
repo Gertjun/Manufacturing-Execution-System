@@ -5,12 +5,10 @@
 
 Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
-Laatst bijgewerkt: 19 november 2026
+Laatst bijgewerkt: 19 november 2026 (versie 0.20.0)
 
 ## Vóór de pilot
 Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i).
-- #23 **Offline stappen krijgen het tijdstip van de pc** (middel) — Starten en afronden krijgen nu de tijd van versturen in plaats van invoeren. Tijdstip van het apparaat meesturen, met grenzen (niet in de toekomst, niet vóór de start, niet te oud); aankomsttijd apart bewaren. Oudere invoerschermen blijven werken (D18).
-- #24 **Wachtrij onthoudt wie iets invoerde** (middel) — Operator, pc en tijdstip bij elke wachtende actie bewaren en meesturen. Waarschuwen bij afmelden met wachtende acties. Vaste opslag in de browser aanvragen.
 - #25 **Tijdzone vast op Europe/Amsterdam** (klein) — Nu volgt de database de tijdzone van de computer; op een server met UTC schuiven de ploegen.
 - #26 **Nachtploeg rond zomer- en wintertijd** (klein) — `ploeg_van()` vindt op 25-10-2026 om 05:30 geen ploeg; in maart overlappen nacht- en ochtendploeg.
 - #27 **Schermtests in GitHub Actions** (klein, geen versie) — Verwachte aantallen uit de database lezen; `docs/SERVER.md` bijwerken tot database-update 10; `migreer.mjs` maakt eerst een back-up.
@@ -40,6 +38,8 @@ Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting e
 
 ## Gerealiseerd
 Details per versie staan in [`CHANGELOG.md`](CHANGELOG.md).
+- #23 Offline stappen krijgen het tijdstip van de pc — 0.20.0
+- #24 Wachtrij onthoudt wie iets invoerde — 0.20.0
 - #20 Export naar Excel — 0.19.0
 - #19 Regelkaarten — 0.18.0
 - #18 Certificaat per lot — 0.17.0

@@ -970,3 +970,75 @@ describe("Regelkaarten", () => {
     assert.equal((await verzoek("GET", "/analyse/regelkaart?veld=S99.9", kw)).status, 404);
   });
 });
+
+describe("Offline wachtrij: moment en operator (D43)", () => {
+  async function metKoppen(methode: string, pad: string, token: string, koppen: Record<string, string>, body?: unknown): Promise<Antwoord> {
+    const r = await app.inject({ method: methode as never, url: pad, headers: { authorization: `Bearer ${token}`, ...koppen }, payload: body as never });
+    return { status: r.statusCode, body: r.body ? JSON.parse(r.body) : null };
+  }
+
+  test("start, waarden en afronden krijgen het moment van invoer, gecorrigeerd voor de klok van de pc", async () => {
+    const tokenA = await kiesNaam(await login("operator", "PC-01"), "Operator A");
+    const ops = await verzoek("GET", "/auth/operators", tokenA);
+    const opB = ops.body.find((o: { naam: string }) => o.naam === "Operator B");
+    assert.ok(opB, "Operator B bestaat");
+    const nu = Date.now();
+    const klok = -60 * 60 * 1000; // klok van de pc loopt een uur achter
+    const koppen = (geleden: number) => ({
+      "x-batchgui-moment": new Date(nu - geleden + klok).toISOString(),
+      "x-batchgui-verzonden": new Date(Date.now() + klok).toISOString(),
+      "x-batchgui-operator": opB.id,
+    });
+    const nr = "B-2026-8001";
+    assert.equal((await metKoppen("POST", "/batches", tokenA, koppen(3 * 3600e3), { id: randomUUID(), batchnummer: nr })).status, 201);
+    const start = await metKoppen("POST", "/registraties", tokenA, koppen(3 * 3600e3), { id: randomUUID(), stapcode: "PS1", batchnummer: nr });
+    assert.equal(start.status, 201, JSON.stringify(start.body));
+    assert.equal(start.body.operator, "Operator B", "de operator van de wachtrij, niet die van het token");
+    const verschil = Math.abs(Date.parse(start.body.gestart_op) - (nu - 3 * 3600e3));
+    assert.ok(verschil < 60_000, `gestart_op wijkt ${verschil} ms af`);
+
+    const w = await metKoppen("POST", `/registraties/${start.body.id}/waarden`, tokenA, koppen(2 * 3600e3), { waarden: waardenVoor(start.body) });
+    assert.equal(w.status, 200, JSON.stringify(w.body));
+    const gs = start.body.grondstoffen.filter((g: any) => g.verplicht);
+    if (gs.length) {
+      const r = await metKoppen("POST", `/registraties/${start.body.id}/grondstoffen`, tokenA, koppen(2 * 3600e3), {
+        grondstoffen: gs.map((g: any) => ({ id: randomUUID(), code: g.code, partij: `LEV-${g.code}-TEST` })),
+      });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+    }
+    const af = await metKoppen("POST", `/registraties/${start.body.id}/afronden`, tokenA, koppen(1 * 3600e3));
+    assert.equal(af.status, 200, JSON.stringify(af.body));
+    assert.ok(Math.abs(Date.parse(af.body.afgerond_op) - (nu - 3600e3)) < 60_000, af.body.afgerond_op);
+
+    const [rij] = (
+      await beheerDb.query(
+        `SELECT r.gestart_ontvangen_op, (SELECT min(w.ingevoerd_op) FROM fabriek.waarde w WHERE w.stapregistratie_id = r.id) AS waarde_op,
+                (SELECT count(*) FROM fabriek.waarde w WHERE w.stapregistratie_id = r.id AND w.ingevoerd_door = $2) AS door_b
+           FROM fabriek.stapregistratie r WHERE r.id = $1`,
+        [start.body.id, opB.id],
+      )
+    ).rows;
+    assert.ok(Date.now() - Date.parse(rij.gestart_ontvangen_op) < 60_000, "aankomst = nu");
+    assert.ok(Math.abs(Date.parse(rij.waarde_op) - (nu - 2 * 3600e3)) < 60_000, "waarde = moment van invoer");
+    assert.ok(Number(rij.door_b) > 0, "waarden op naam van Operator B");
+  });
+
+  test("zonder koppen (oudere invoerschermen) blijft alles zoals het was", async () => {
+    const token = await kiesNaam(await login("operator", "PC-01"), "Operator A");
+    const nr = "B-2026-8002";
+    assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
+    const start = await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: nr });
+    assert.equal(start.status, 201);
+    assert.equal(start.body.operator, "Operator A");
+    assert.ok(Math.abs(Date.parse(start.body.gestart_op) - Date.now()) < 60_000);
+  });
+
+  test("een ongeldige operatorkop telt niet", async () => {
+    const token = await kiesNaam(await login("operator", "PC-01"), "Operator A");
+    const nr = "B-2026-8003";
+    assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
+    const start = await metKoppen("POST", "/registraties", token, { "x-batchgui-operator": "geen-uuid" }, { stapcode: "PS1", batchnummer: nr });
+    assert.equal(start.status, 201);
+    assert.equal(start.body.operator, "Operator A");
+  });
+});

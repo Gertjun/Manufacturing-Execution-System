@@ -291,6 +291,10 @@ CREATE TABLE stapregistratie (
     afgerond_op         timestamptz,
     -- afgebroken: de batch werd afgekeurd terwijl deze stap open stond
     status              text NOT NULL DEFAULT 'open' CHECK (status IN ('open','afgerond','afgebroken')),
+    -- Aankomst op de server (sinds migratie 0011; leeg bij oudere regels). gestart_op en afgerond_op
+    -- zijn het moment op het apparaat.
+    gestart_ontvangen_op  timestamptz DEFAULT clock_timestamp(),
+    afgerond_ontvangen_op timestamptz,
     CHECK ((batch_id IS NULL) <> (lot_id IS NULL)),
     CHECK (NOT herbewerking_start OR length(trim(coalesce(reden,''))) > 0),
     CHECK ((status <> 'open') = (afgerond_op IS NOT NULL))
@@ -464,6 +468,7 @@ CREATE TABLE waarde (
     ingevoerd_door      uuid REFERENCES operator(id),
     gecorrigeerd_door   uuid REFERENCES gebruiker(id),
     ingevoerd_op        timestamptz NOT NULL DEFAULT now(),
+    ontvangen_op        timestamptz DEFAULT clock_timestamp(),   -- sinds migratie 0011
     CHECK ((vervangt_waarde_id IS NULL) = (gecorrigeerd_door IS NULL)),
     CHECK (vervangt_waarde_id IS NULL OR length(trim(coalesce(correctie_reden,''))) > 0),
     CHECK (vervangt_waarde_id IS NOT NULL OR ingevoerd_door IS NOT NULL)
@@ -585,7 +590,7 @@ BEGIN
     IF v_ontbreekt IS NOT NULL THEN
         RAISE EXCEPTION 'Nog niet ingevuld: %', v_ontbreekt;
     END IF;
-    UPDATE stapregistratie SET status = 'afgerond', afgerond_op = clock_timestamp()
+    UPDATE stapregistratie SET status = 'afgerond', afgerond_op = apparaat_moment(gestart_op)
      WHERE id = p_registratie AND status = 'open';
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Registratie bestaat niet of is al afgerond';
@@ -1011,6 +1016,7 @@ CREATE TABLE grondstof_gebruik (
     ingevoerd_door      uuid REFERENCES operator(id),
     gecorrigeerd_door   uuid REFERENCES gebruiker(id),
     ingevoerd_op        timestamptz NOT NULL DEFAULT now(),
+    ontvangen_op        timestamptz DEFAULT clock_timestamp(),   -- sinds migratie 0011
     CHECK ((vervangt_id IS NULL) = (gecorrigeerd_door IS NULL)),
     CHECK (vervangt_id IS NULL OR length(trim(coalesce(correctie_reden,''))) > 0),
     CHECK (vervangt_id IS NOT NULL OR ingevoerd_door IS NOT NULL)
@@ -1342,6 +1348,88 @@ CREATE TRIGGER certificaat_controle BEFORE INSERT OR UPDATE OR DELETE ON certifi
     FOR EACH ROW EXECUTE FUNCTION controleer_certificaat();
 
 -- ---------------------------------------------------------------------
+-- Tijdstip van het apparaat (sinds migratie 0011, versie 0.20.0)
+-- ---------------------------------------------------------------------
+-- De API zet het moment van invoer op de pc in `fabriek.moment` (alleen binnen de transactie).
+-- Zonder dat moment (oudere invoerschermen, tools) geldt de servertijd.
+-- Het moment van het apparaat, begrensd. Zonder moment: de servertijd.
+CREATE FUNCTION apparaat_moment(p_ondergrens timestamptz DEFAULT NULL) RETURNS timestamptz LANGUAGE plpgsql VOLATILE AS $$
+DECLARE
+    v_nu    timestamptz := clock_timestamp();
+    v_tekst text := nullif(current_setting('fabriek.moment', true), '');
+    v_t     timestamptz;
+BEGIN
+    IF v_tekst IS NULL THEN
+        RETURN v_nu;
+    END IF;
+    BEGIN
+        v_t := v_tekst::timestamptz;
+    EXCEPTION WHEN others THEN
+        RETURN v_nu;
+    END;
+    -- Klok vooruit, of zo lang offline dat het moment niet meer te vertrouwen is: servertijd.
+    IF v_t > v_nu OR v_t < v_nu - interval '7 days' THEN
+        RETURN v_nu;
+    END IF;
+    IF p_ondergrens IS NOT NULL AND v_t < p_ondergrens THEN
+        v_t := least(p_ondergrens, v_nu);
+    END IF;
+    RETURN v_t;
+END $$;
+
+CREATE FUNCTION heeft_apparaat_moment() RETURNS boolean LANGUAGE sql STABLE AS $$
+    SELECT nullif(current_setting('fabriek.moment', true), '') IS NOT NULL
+$$;
+
+-- Starten: niet eerder dan de laatst afgeronde stap van dezelfde batch of hetzelfde lot
+-- (bij een lot ook de stappen van zijn batches).
+CREATE FUNCTION zet_moment_start() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_vorige timestamptz;
+BEGIN
+    IF heeft_apparaat_moment() THEN
+        SELECT max(r.afgerond_op) INTO v_vorige FROM stapregistratie r
+         WHERE (NEW.batch_id IS NOT NULL AND r.batch_id = NEW.batch_id)
+            OR (NEW.lot_id IS NOT NULL AND (r.lot_id = NEW.lot_id
+                                            OR r.batch_id IN (SELECT b.id FROM batch b WHERE b.lot_id = NEW.lot_id)));
+        NEW.gestart_op := apparaat_moment(v_vorige);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_0_moment BEFORE INSERT ON stapregistratie
+    FOR EACH ROW EXECUTE FUNCTION zet_moment_start();
+
+-- Afronden of afbreken: aankomst op de server vastleggen.
+CREATE FUNCTION zet_ontvangen_afronden() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.afgerond_op IS NOT NULL AND OLD.afgerond_op IS NULL THEN
+        NEW.afgerond_ontvangen_op := clock_timestamp();
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_ontvangen BEFORE UPDATE ON stapregistratie
+    FOR EACH ROW EXECUTE FUNCTION zet_ontvangen_afronden();
+
+-- Meetwaarde of grondstof: niet eerder dan het starten van de stap.
+CREATE FUNCTION zet_moment_invoer() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF heeft_apparaat_moment() THEN
+        NEW.ingevoerd_op := apparaat_moment((SELECT r.gestart_op FROM stapregistratie r WHERE r.id = NEW.stapregistratie_id));
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER waarde_0_moment BEFORE INSERT ON waarde
+    FOR EACH ROW EXECUTE FUNCTION zet_moment_invoer();
+CREATE TRIGGER grondstof_gebruik_0_moment BEFORE INSERT ON grondstof_gebruik
+    FOR EACH ROW EXECUTE FUNCTION zet_moment_invoer();
+
+ALTER FUNCTION apparaat_moment(timestamptz) SET search_path = fabriek, public;
+ALTER FUNCTION heeft_apparaat_moment() SET search_path = fabriek, public;
+ALTER FUNCTION zet_moment_start() SET search_path = fabriek, public;
+ALTER FUNCTION zet_ontvangen_afronden() SET search_path = fabriek, public;
+ALTER FUNCTION zet_moment_invoer() SET search_path = fabriek, public;
+
+-- ---------------------------------------------------------------------
 -- Onderhoud (sinds migratie 0002, versie 0.6.0)
 -- ---------------------------------------------------------------------
 -- Welke migraties zijn uitgevoerd. Wordt bijgewerkt door tools/migreer.mjs.
@@ -1366,7 +1454,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

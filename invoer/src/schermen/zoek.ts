@@ -190,7 +190,7 @@ export async function wachtrijScherm() {
     h(
       "li",
       { class: "rij" },
-      h("div", {}, h("div", { class: "rij-hoofd" }, a.omschrijving), h("div", { class: "rij-info" }, tijd(a.aangemaakt)),
+      h("div", {}, h("div", { class: "rij-hoofd" }, a.omschrijving), h("div", { class: "rij-info" }, tijd(a.aangemaakt), a.operatornaam ? ` · ${a.operatornaam}` : ""),
         a.fout ? h("div", { class: "label-buiten_grens", style: "font-weight:700" }, a.fout) : null),
       a.status === "fout"
         ? h("button", {

@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, IEDEREEN, vereist, type Rol } from "../auth.js";
+import { BEHEER, IEDEREEN, vereist, type Rol, operatorVan } from "../auth.js";
 import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { StapCode } from "./schemas.js";
@@ -91,7 +91,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             `INSERT INTO stilstand (id, processtap_id, oorzaak_id, toelichting, begin_op, pc_id, operator_id, gemeld_door)
              VALUES (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
             [req.body.id ?? null, s[0].id, o[0].id, req.body.toelichting?.trim() || null, tijdstip(req.body.begin_op),
-              req.user.pcId ?? null, req.user.operatorId ?? null, req.user.sub],
+              req.user.pcId ?? null, operatorVan(req) ?? null, req.user.sub],
           );
           return r.rows[0].id as string;
         } catch (e) {
@@ -122,7 +122,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if ((al as { eind_op: string | null }).eind_op) return al as never; // al beëindigd (opnieuw verstuurd)
       await inTransactie(app.db, req.user.naam, (tx) =>
         tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3 WHERE id = $1",
-          [req.params.id, tijdstip(req.body.eind_op), req.user.operatorId ?? null]));
+          [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null]));
       return (await eenStilstand(app.db, req.params.id)) as never;
     },
   );

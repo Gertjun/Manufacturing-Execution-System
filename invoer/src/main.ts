@@ -1,7 +1,7 @@
 import "./stijl.css";
 import { sessie } from "./sessie";
-import { h, nieuweRoute } from "./ui";
-import { opStatus, startWachtrij, type Status } from "./wachtrij";
+import { bevestig, h, nieuweRoute } from "./ui";
+import { acties, opStatus, startWachtrij, type Status } from "./wachtrij";
 import { loginScherm, naamScherm, pcScherm } from "./schermen/start";
 import { stapScherm, stappenScherm } from "./schermen/werk";
 import { registratieScherm } from "./schermen/registratie";
@@ -48,11 +48,23 @@ function tekenBalk() {
       ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
       : null,
     ingelogd
-      ? h("button", { class: "balk-wie", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden")
+      ? h("button", { class: "balk-wie", onclick: () => void afmelden() }, "Afmelden")
       : null,
     verbinding,
   ];
   balk.replaceChildren(...(delen.filter(Boolean) as Node[]));
+}
+
+/** Afmelden; waarschuw als er nog acties wachten (die gaan later mee met de naam van wie ze invoerde). */
+async function afmelden() {
+  const n = (await acties()).filter((a) => a.status === "wacht").length;
+  if (n > 0 && !(await bevestig(
+    "Toch afmelden?",
+    `Er ${n === 1 ? "staat nog 1 actie" : `staan nog ${n} acties`} klaar om te versturen. Ze blijven op deze pc bewaard en worden verstuurd zodra iemand weer inlogt, met de naam van wie ze invoerde. Verwijder de gegevens van de browser niet.`,
+    "Afmelden",
+  ))) return;
+  sessie.afmelden();
+  location.hash = "#/login";
 }
 
 // ---------- Navigatie ----------

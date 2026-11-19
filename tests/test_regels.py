@@ -6,6 +6,7 @@ Het script laadt schema.sql, seed_config.sql en seed_accounts_demo.sql opnieuw, 
 import pathlib
 import sys
 
+import datetime as dt
 import psycopg
 
 DSN = sys.argv[1] if len(sys.argv) > 1 else "host=/tmp port=5433 user=postgres dbname=batchgui"
@@ -313,6 +314,46 @@ def main():
     con.execute("UPDATE stilstand SET eind_op = begin_op + interval '20 minutes' WHERE id = %s", (sid,))
     faalt("Einde twee keer invullen kan niet", "UPDATE stilstand SET eind_op = now() WHERE id = %s", (sid,), "al beëindigd")
     faalt("Stilstand verwijderen kan niet", "DELETE FROM stilstand WHERE id = %s", (sid,), "niet verwijderd")
+
+    print("\nTijdstip van het apparaat (offline invoer)")
+    def met_moment(moment, sql, p=()):
+        """Voer sql uit zoals de API: in een transactie met fabriek.moment."""
+        with con.transaction():
+            con.execute("SELECT set_config('fabriek.moment', %s, true)", (moment,))
+            r = con.execute(sql, p)
+            return r.fetchone()[0] if r.description else None
+    nu = val("SELECT clock_timestamp()")
+    check("Zonder moment geldt de servertijd", abs((val("SELECT apparaat_moment()") - nu).total_seconds()) < 5)
+    bid = val("INSERT INTO batch (batchnummer, aangemaakt_door) VALUES ('B-2026-9001', %s) RETURNING id", (op,))
+    twee_uur = (nu - dt.timedelta(hours=2)).isoformat()
+    reg = met_moment(twee_uur, "SELECT start_stap('PS1', %s, NULL, %s, %s)", (bid, pc, op))
+    g, ontv = one("SELECT gestart_op, gestart_ontvangen_op FROM stapregistratie WHERE id = %s", (reg,))
+    check("Start krijgt het moment van de pc (2 uur geleden)", abs((g - (nu - dt.timedelta(hours=2))).total_seconds()) < 1, str(g))
+    check("Aankomst op de server apart bewaard", ontv - g > dt.timedelta(minutes=110), str(ontv))
+    een_uur = (nu - dt.timedelta(hours=1)).isoformat()
+    for code in sorted(c for c in veld if c.startswith("S1.")):
+        setting, gemeten = (80, 81.5) if code.endswith(".1") else (None, 410)
+        met_moment(een_uur, "INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
+                   (reg, veld[code], setting, gemeten, op))
+    if "PS1" in stap_gs:
+        met_moment(een_uur, "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'LEV-TEST-01',%s)",
+                   (reg, stap_gs["PS1"], op))
+    check("Meetwaarde krijgt het moment van de pc",
+          val("SELECT bool_and(abs(extract(epoch FROM ingevoerd_op - %s::timestamptz)) < 1) FROM waarde WHERE stapregistratie_id = %s", (een_uur, reg)))
+    met_moment((nu - dt.timedelta(hours=3)).isoformat(), "SELECT rond_stap_af(%s)", (reg,))
+    a_op, a_ontv = one("SELECT afgerond_op, afgerond_ontvangen_op FROM stapregistratie WHERE id = %s", (reg,))
+    check("Afronden vóór het starten wordt het starttijdstip", a_op == g, str(a_op))
+    check("Aankomst van het afronden bewaard", a_ontv is not None and a_ontv > a_op)
+    reg2 = met_moment((nu - dt.timedelta(hours=5)).isoformat(), "SELECT start_stap('PS2', %s, NULL, %s, %s)", (bid, pc, op))
+    check("Volgende stap start niet vóór het afronden van de vorige",
+          val("SELECT gestart_op FROM stapregistratie WHERE id = %s", (reg2,)) == a_op)
+    morgen = (nu + dt.timedelta(days=1)).isoformat()
+    check("Een moment in de toekomst (klok vooruit) wordt de servertijd",
+          abs((met_moment(morgen, "SELECT apparaat_moment()") - nu).total_seconds()) < 60)
+    check("Een moment van meer dan 7 dagen geleden wordt de servertijd",
+          abs((met_moment((nu - dt.timedelta(days=8)).isoformat(), "SELECT apparaat_moment()") - nu).total_seconds()) < 60)
+    check("Een onleesbaar moment wordt de servertijd",
+          abs((met_moment("gisteren", "SELECT apparaat_moment()") - nu).total_seconds()) < 60)
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

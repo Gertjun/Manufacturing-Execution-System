@@ -258,9 +258,14 @@ with con.transaction():
     con.execute("""UPDATE batch b SET gestart_op = r.t
                      FROM (SELECT batch_id, min(gestart_op) AS t FROM stapregistratie WHERE batch_id IS NOT NULL GROUP BY batch_id) r
                     WHERE r.batch_id = b.id""")
+    # Aankomst op de server = moment van invoer (testdata is niet offline ingevoerd).
+    con.execute("UPDATE stapregistratie SET gestart_ontvangen_op = gestart_op, afgerond_ontvangen_op = afgerond_op")
+    con.execute("UPDATE waarde SET ontvangen_op = ingevoerd_op")
+    con.execute("UPDATE grondstof_gebruik SET ontvangen_op = ingevoerd_op")
     # Afgebroken stappen (NOK tijdens een open stap) krijgen de tijd van het besluit.
     con.execute("""UPDATE stapregistratie r SET afgerond_op = d.besloten_op
                      FROM batch_besluit d WHERE d.batch_id = r.batch_id AND d.besluit = 'afgekeurd' AND r.status = 'afgebroken'""")
+    con.execute("UPDATE stapregistratie SET afgerond_ontvangen_op = afgerond_op WHERE status = 'afgebroken'")
 
 # Twee lopende batches wachten op een keurresultaat (voor "Te beoordelen").
 for (bid,) in con.execute("SELECT id FROM batch WHERE status = 'in_productie' ORDER BY aangemaakt_op LIMIT 2").fetchall():
@@ -283,7 +288,7 @@ for wid, setting, gemeten, op, naam in rnd.sample(kandidaten, min(6, len(kandida
     with con.transaction():
         con.execute("SET LOCAL session_replication_role = replica")
         moment = min(op + dt.timedelta(hours=rnd.uniform(1, 8)), eind.astimezone())  # nooit in de toekomst
-        con.execute("UPDATE waarde SET ingevoerd_op = %s WHERE id = %s", (moment, nid))
+        con.execute("UPDATE waarde SET ingevoerd_op = %s, ontvangen_op = %s WHERE id = %s", (moment, moment, nid))
     stats["correcties"] = stats.get("correcties", 0) + 1
 
 # ---------- Ploegoverdracht ----------

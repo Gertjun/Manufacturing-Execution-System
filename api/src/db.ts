@@ -14,13 +14,17 @@ export function maakPool(connectionString: string): Db {
 
 /**
  * Voert fn uit in één transactie, met schema `fabriek` en de naam van de
- * gebruiker in de sessie (voor het wijzigingslogboek).
+ * gebruiker in de sessie (voor het wijzigingslogboek). `moment` is het tijdstip
+ * van invoer op het apparaat (offline wachtrij); de database begrenst het (D43).
  */
-export async function inTransactie<T>(db: Db, gebruiker: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function inTransactie<T>(db: Db, gebruiker: string, fn: (tx: Tx) => Promise<T>, moment?: string | null): Promise<T> {
   const tx = await db.connect();
   try {
     await tx.query("BEGIN");
-    await tx.query("SELECT set_config('search_path', 'fabriek,public', true), set_config('fabriek.gebruiker', $1, true)", [gebruiker]);
+    await tx.query(
+      "SELECT set_config('search_path', 'fabriek,public', true), set_config('fabriek.gebruiker', $1, true), set_config('fabriek.moment', $2, true)",
+      [gebruiker, moment ?? ""],
+    );
     const resultaat = await fn(tx);
     await tx.query("COMMIT");
     return resultaat;

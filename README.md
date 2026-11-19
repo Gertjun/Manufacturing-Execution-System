@@ -43,7 +43,7 @@ Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoe
 - Stap 1: een geplande batch starten (een ongeplande batch is een uitzondering). Stap 16: 4 batches samenvoegen tot een lot, volgens het lotvoorstel of met een reden.
 - Grondstofpartijen invoeren, stilstand melden en beëindigen, ploegoverdracht schrijven, etiketten printen, scannen met een handscanner.
 - Ploegleiders corrigeren waarden en zetten een batch in beoordeling; ze zien ook de meldingen.
-- **Zonder verbinding** gaat de invoer door: alles wordt op de pc bewaard en daarna op volgorde verstuurd. De statusbalk toont hoeveel acties wachten. Correcties, besluiten, zoeken en inloggen vragen wel verbinding.
+- **Zonder verbinding** gaat de invoer door: alles wordt op de pc bewaard en daarna op volgorde verstuurd, met het moment van invoer en de naam van wie het invoerde (D43). De statusbalk toont hoeveel acties wachten; afmelden met wachtende acties vraagt eerst om bevestiging. Correcties, besluiten, zoeken en inloggen vragen wel verbinding.
 
 ### Portaal Kwaliteit
 | Onderdeel | Wat je ziet |
@@ -149,6 +149,7 @@ Alle regels zitten in de database (D9); de API vertaalt ze naar leesbare melding
 - Besluiten gaan via `batch_besluit`: in beoordeling zetten (ploegleider of Kwaliteit), OK of NOK (alleen Kwaliteit). Bij NOK wordt een open stap afgebroken.
 - Tolerantie is absoluut of een percentage van de setting. Nummers: `B-JJJJ-nnnn` en `L-JJJJ-nnnn`.
 - Apparaten sturen een eigen `id` (UUID) mee; opnieuw versturen maakt geen dubbele records.
+- De wachtrij stuurt het moment van invoer en de operator mee; de API zet dat moment in `fabriek.moment` en de database begrenst het (`apparaat_moment()`, D43). Starten, afronden, meetwaarden en grondstoffen gebruiken dat moment; de aankomst op de server staat in `gestart_ontvangen_op`, `afgerond_ontvangen_op` en `ontvangen_op`.
 
 ### API starten
 ```

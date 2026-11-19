@@ -181,6 +181,7 @@ try {
   await page.goto(`${BASIS}/invoer/#/wachtrij`).catch(() => {});
   await page.getByRole("heading", { name: "Verzenden" }).waitFor();
   await shot("09-wachtrij-scherm");
+  await page.waitForTimeout(3000); // een tijdje offline, zodat invoer en versturen duidelijk verschillen
 
   await context.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
@@ -189,6 +190,11 @@ try {
       FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id
       WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'`);
   check("Na herstel van de verbinding staat PS2 afgerond in de database", na?.status === "afgerond" && Number(na?.n) === 2, JSON.stringify(na));
+  const [tijden] = await q(`SELECT extract(epoch FROM r.gestart_ontvangen_op - r.gestart_op)::float AS start,
+                                   extract(epoch FROM r.afgerond_ontvangen_op - r.afgerond_op)::float AS af
+      FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id
+      WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'`);
+  check("Offline stap kreeg het moment van invoer, niet van versturen", tijden.start > 3 && tijden.af > 3, JSON.stringify(tijden));
 
   console.log("\nGeweigerde invoer");
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
@@ -256,12 +262,32 @@ try {
   const [n] = await q("SELECT count(*)::int AS n FROM fabriek.overdracht");
   check("Na herstel van de verbinding staan beide overdrachten in de database", n.n === 2, JSON.stringify(n));
 
-  console.log("\nPloegleider: correctie en besluit");
+  console.log("\nAfmelden met wachtende acties");
+  await page.goto(`${BASIS}/invoer/#/stap/PS3`);
+  await page.locator(".rij", { hasText: "B-2026-0100" }).waitFor();
+  await context.setOffline(true);
+  await page.locator(".rij", { hasText: "B-2026-0100" }).getByRole("button", { name: "Start" }).click();
+  await page.getByRole("heading", { name: "B-2026-0100" }).waitFor();
   await page.getByRole("button", { name: "Afmelden" }).click();
+  await page.getByRole("dialog").getByText("1 actie klaar om te versturen").waitFor();
+  check("Afmelden met een wachtende actie vraagt eerst om bevestiging", true);
+  await shot("10b-afmelden-met-wachtrij");
+  await page.getByRole("dialog").getByRole("button", { name: "Afmelden" }).click();
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+  console.log("\nPloegleider: correctie en besluit");
   await page.getByLabel("Gebruikersnaam").fill("ploegleider1");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
   await page.getByRole("button", { name: "Operator B" }).click();
+  await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
+  await page.waitForTimeout(1500);
+  const [ps3] = await q(`SELECT o.naam FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id
+      JOIN fabriek.batch b ON b.id = r.batch_id JOIN fabriek.operator o ON o.id = r.operator_id
+      WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS3'`);
+  check("Wachtende start na afmelden staat op naam van wie hem invoerde (Operator A)", ps3?.naam === "Operator A", JSON.stringify(ps3));
   await page.getByRole("link", { name: "Zoeken" }).click();
   await page.getByLabel("Batch- of lotnummer").fill("B-2026-0100");
   await page.getByRole("button", { name: "Zoeken" }).click();

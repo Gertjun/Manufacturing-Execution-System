@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, IEDEREEN, vereist, type Rol } from "../auth.js";
+import { BEHEER, IEDEREEN, vereist, type Rol, operatorVan } from "../auth.js";
 import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 
@@ -213,7 +213,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         const r = await tx.query(
           `INSERT INTO overdracht (id, dag, ploeg_id, hal, bijzonderheden, aandachtspunten, gebruiker_id, operator_id, pc_id, geschreven_op)
            VALUES (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-          [req.body.id ?? null, rows[0].dag, rows[0].ploeg_id, hal, bijz, aand, req.user.sub, req.user.operatorId ?? null, req.user.pcId ?? null, moment],
+          [req.body.id ?? null, rows[0].dag, rows[0].ploeg_id, hal, bijz, aand, req.user.sub, operatorVan(req) ?? null, req.user.pcId ?? null, moment],
         );
         return r.rows[0].id as string;
       });

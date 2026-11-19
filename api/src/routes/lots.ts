@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, invoerContext, vereist } from "../auth.js";
+import { IEDEREEN, INVOER, invoerContext, invoerTransactie, vereist } from "../auth.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
@@ -57,7 +57,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           return antwoord(200);
         }
       }
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT batchnummer, id FROM batch WHERE batchnummer = ANY($1)", [req.body.batchnummers]);
         const gevonden = new Map(rows.map((r) => [r.batchnummer as string, r.id as string]));
         const ontbreekt = req.body.batchnummers.filter((n) => !gevonden.has(n));
@@ -147,7 +147,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const { pcId, operatorId } = invoerContext(req);
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id FROM lot WHERE lotnummer = $1", [req.params.lotnummer]);
         if (!rows[0]) throw niet("Lot");
         const r = await tx.query("SELECT start_herbewerking($1, $2, $3, $4, $5, $6) AS id", [

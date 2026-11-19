@@ -14,8 +14,8 @@ export class GeenVerbinding extends Error {
   }
 }
 
-export async function stuur<T>(methode: string, pad: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = {};
+export async function stuur<T>(methode: string, pad: string, body?: unknown, extra?: Record<string, string>): Promise<T> {
+  const headers: Record<string, string> = { ...extra };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (sessie.token) headers.authorization = `Bearer ${sessie.token}`;
   let r: Response;

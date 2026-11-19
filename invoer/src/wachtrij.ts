@@ -3,6 +3,7 @@
 // dus opnieuw versturen na een haperende verbinding maakt nooit dubbele records.
 import { ApiFout, GeenVerbinding, stuur } from "./api";
 import { opslag } from "./opslag";
+import { sessie } from "./sessie";
 import type { Registratie } from "./types";
 
 export interface Actie {
@@ -15,7 +16,11 @@ export interface Actie {
   registratieId?: string;
   status: "wacht" | "fout";
   fout?: string;
+  /** Moment van invoer op dit apparaat; gaat mee naar de server (D43). */
   aangemaakt: string;
+  /** Operator die de actie invoerde. Acties van vóór 0.20.0 hebben dit niet. */
+  operatorId?: string;
+  operatornaam?: string;
 }
 
 export interface Status {
@@ -50,8 +55,14 @@ export async function acties(): Promise<Actie[]> {
   return opslag.alle<Actie>("wachtrij");
 }
 
-export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt">) {
-  await opslag.zet("wachtrij", { ...actie, status: "wacht", aangemaakt: new Date().toISOString() });
+export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam">) {
+  await opslag.zet("wachtrij", {
+    ...actie,
+    status: "wacht",
+    aangemaakt: new Date().toISOString(),
+    operatorId: sessie.inhoud()?.operatorId,
+    operatornaam: sessie.operatornaam ?? undefined,
+  });
   await tel();
   void verwerk();
 }
@@ -76,6 +87,22 @@ async function bewaarAntwoord(antwoord: unknown, volgnr: number) {
   }
 }
 
+/** Wie en wanneer: het moment van invoer en van versturen (zelfde klok), en de operator. */
+function koppen(a: Actie): Record<string, string> {
+  const k: Record<string, string> = { "x-batchgui-moment": a.aangemaakt, "x-batchgui-verzonden": new Date().toISOString() };
+  if (a.operatorId) k["x-batchgui-operator"] = a.operatorId;
+  return k;
+}
+
+/** Vraag de browser de wachtrij niet op te ruimen bij weinig schijfruimte. */
+export async function vasteOpslag(): Promise<boolean> {
+  try {
+    return (await navigator.storage?.persisted?.()) || ((await navigator.storage?.persist?.()) ?? false);
+  } catch {
+    return false;
+  }
+}
+
 export async function verwerk(): Promise<void> {
   if (bezig || status.inloggenNodig) return;
   bezig = true;
@@ -85,7 +112,7 @@ export async function verwerk(): Promise<void> {
       const volgende = alle.find((a) => a.status === "wacht");
       if (!volgende) break;
       try {
-        const antwoord = await stuur("POST", volgende.pad, volgende.body);
+        const antwoord = await stuur("POST", volgende.pad, volgende.body, koppen(volgende));
         meld({ verbonden: true });
         await bewaarAntwoord(antwoord, volgende.volgnr!);
         await opslag.weg("wachtrij", volgende.volgnr!);
@@ -132,4 +159,5 @@ export function startWachtrij() {
   clearInterval(opnieuw);
   opnieuw = window.setInterval(() => (status.wacht > 0 ? void verwerk() : void peil()), 10_000);
   void tel().then(peil);
+  void vasteOpslag();
 }

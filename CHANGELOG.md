@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.20.0 — 19 november 2026
+- Wat offline is ingevoerd, krijgt nu het moment van invoer op de pc in plaats van het moment van versturen. Dat geldt voor het starten en afronden van een stap, meetwaarden en grondstoffen. Doorlooptijden, wachttijden en ploegcijfers kloppen daardoor ook na een periode zonder verbinding.
+- Loopt de klok van een pc voor of achter, dan wordt dat gecorrigeerd. Een moment in de toekomst, of van meer dan 7 dagen geleden, wordt de servertijd. Een stap start nooit vóór het afronden van de vorige, en wordt nooit afgerond vóór hij gestart is.
+- De wachtrij onthoudt wie iets invoerde. Logt operator A uit terwijl er nog acties wachten en logt B in, dan blijft het werk van A op naam van A. Het wachtrijscherm toont per actie de naam.
+- Afmelden met wachtende acties vraagt eerst om bevestiging. De browser wordt gevraagd de wachtrij niet op te ruimen bij weinig schijfruimte.
+- Technisch: database-update 11 (`0011_apparaattijd`) wordt bij de start automatisch uitgevoerd. Het moment van aankomst op de server wordt apart bewaard (leeg bij oudere regels). Oudere invoerschermen blijven werken: zonder de nieuwe gegevens geldt de servertijd, zoals voorheen (D18, D43).
+
 ## Zonder nieuwe versie (na 0.19.0)
 - Werkafspraken: de skillpakketten coding-skills, data en claude-for-manufacturing horen bij het project (D40).
 - Documenten opnieuw ingedeeld: elk onderwerp op één plek (D41). README begint met "Waar vind je wat"; open punten en praktijktests staan alleen nog in de wishlist; de notities tonen alleen de stand van nu. De adviezen uit de doorlichting van 19-11-2026 staan als #23–#33 in de wishlist.
