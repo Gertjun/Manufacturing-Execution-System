@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.21.0 — 19 november 2026
+- Na 5 verkeerde wachtwoorden voor dezelfde gebruikersnaam binnen 15 minuten moet je 1 minuut wachten. Het scherm zegt hoe lang.
+- Elke inlogpoging wordt vastgelegd (gebruikersnaam, pc, gelukt of niet; nooit het wachtwoord). Beheer → Server waarschuwt bij 20 of meer mislukte pogingen in 24 uur.
+- Hoofdletters in de gebruikersnaam tellen niet meer mee: "Kwaliteit1" is hetzelfde account als "kwaliteit1".
+- Nieuwe en opnieuw ingestelde wachtwoorden worden sterker versleuteld. Bestaande wachtwoorden blijven werken.
+- De server stuurt beveiligingskoppen mee: pagina's laden alleen scripts en gegevens van de eigen server en kunnen niet in een andere site worden ingebed.
+- Technisch: database-update 13 (`0013_inloggen`) wordt bij de start automatisch uitgevoerd (D45).
+
 ## 0.20.2 — 19 november 2026
 - Een regelkaart met minder dan 20 metingen staat als "voorlopig": de grenzen en signalen zijn dan een eerste indruk en er staat geen Cpk. In het overzicht staat "nog te weinig metingen" in plaats van een Cpk.
 - Lijsten die op hun maximale lengte zitten, zeggen dat nu: afwijkingen (500), trend per veld (5000), grondstoffen terugzoeken (1000), logboek (300) en meldingen (200). Ook in de Excel-export staan dan alleen die regels.

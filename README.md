@@ -36,6 +36,8 @@ Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoe
 
 **Rollen:** operator (gedeeld account, daarna naam kiezen), ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
 
+**Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
+
 **Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator`, `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
 
 ### Invoerscherm
@@ -169,7 +171,7 @@ python3 tools/genereer_testdata.py "host=localhost user=postgres dbname=batchgui
 Ongeveer 540 batches en 130 lots, via dezelfde databaseregels als echte invoer, met ingebouwde afwijkingen (S5.1 loopt op, een operator weegt te zwaar, een natte week met herbewerkingen), planning, stilstand en overdrachten.
 
 De testdata in het laptoppakket (`tools/pakket/testdata.sql`) maak je daarna met
-`pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500 --exclude-table=fabriek.schema_versie --exclude-table=fabriek.onderhoud_log`.
+`pg_dump --data-only --schema=fabriek --inserts --rows-per-insert=500 --exclude-table=fabriek.schema_versie --exclude-table=fabriek.onderhoud_log --exclude-table=fabriek.inlogpoging`.
 
 ### Testen
 Vóór elke push (zie ook `CLAUDE.md`):

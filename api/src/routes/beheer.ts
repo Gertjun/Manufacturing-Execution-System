@@ -190,7 +190,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       const r = await inTransactie(app.db, req.user.naam, (tx) =>
         tx.query(
-          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, $2, public.crypt($3, public.gen_salt('bf'))) RETURNING gebruikersnaam, rol, actief",
+          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, $2, wachtwoord_hash($3)) RETURNING gebruikersnaam, rol, actief",
           [req.body.gebruikersnaam, req.body.rol, req.body.wachtwoord]));
       return reply.status(201).send(r.rows[0]);
     },
@@ -216,7 +216,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const r = await inTransactie(app.db, req.user.naam, (tx) =>
         tx.query(
           `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
-                  wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE public.crypt($4, public.gen_salt('bf')) END
+                  wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END
             WHERE gebruikersnaam = $1 RETURNING gebruikersnaam, rol, actief`,
           [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord ?? null]));
       if (!r.rows[0]) throw niet("Account");
@@ -506,6 +506,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       else if (!laatsteHersteltest.gelukt) waarschuwingen.push({ niveau: "fout", tekst: "De laatste hersteltest is mislukt." });
       else if (uren(laatsteHersteltest.klaar_op) > 35 * 24)
         waarschuwingen.push({ niveau: "let_op", tekst: `De laatste hersteltest is ${Math.floor(uren(laatsteHersteltest.klaar_op) / 24)} dagen oud; verwacht elke maand.` });
+      // Veel mislukte inlogpogingen: iemand probeert wachtwoorden, of een account zit vast (D45).
+      const [pogingen] = await lees<{ n: number; namen: string | null }>(
+        app.db,
+        `SELECT count(*)::int AS n, string_agg(DISTINCT gebruikersnaam, ', ') AS namen FROM inlogpoging
+          WHERE uitkomst <> 'gelukt' AND op > now() - interval '24 hours'`,
+      );
+      if (pogingen && pogingen.n >= 20)
+        waarschuwingen.push({ niveau: "let_op", tekst: `${pogingen.n} mislukte inlogpogingen in de laatste 24 uur (${(pogingen.namen ?? "").slice(0, 200)}).` });
       return {
         versie: VERSIE,
         node: typeof process !== "undefined" && process.version ? process.version : "browser (demo)",

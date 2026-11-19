@@ -27,6 +27,13 @@ BEGIN
     GRANT DELETE ON fabriek.stapplanning, fabriek.lot_voorstel_batch TO batchgui_app;
   END IF;
 END $$;
+-- Inlogpogingen alleen vastleggen, niet wijzigen.
+DO $$
+BEGIN
+  IF to_regclass('fabriek.inlogpoging') IS NOT NULL THEN
+    REVOKE UPDATE ON fabriek.inlogpoging FROM batchgui_app;
+  END IF;
+END $$;
 -- Het onderhoudslogboek en de schemaversie zijn alleen te lezen.
 REVOKE INSERT, UPDATE ON fabriek.onderhoud_log, fabriek.schema_versie FROM batchgui_app;
 

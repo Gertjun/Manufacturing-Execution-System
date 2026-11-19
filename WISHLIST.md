@@ -5,12 +5,13 @@
 
 Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
-Laatst bijgewerkt: 19 november 2026 (versie 0.20.2)
+Laatst bijgewerkt: 19 november 2026 (versie 0.21.0)
 
 ## Vóór de pilot
 Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i).
 - #27 **Schermtests in GitHub Actions** (klein, geen versie) — Verwachte aantallen uit de database lezen; `docs/SERVER.md` bijwerken tot database-update 10; `migreer.mjs` maakt eerst een back-up.
-- #28 **Inloggen beveiligen** (klein) — Foute pogingen beperken en loggen, bcrypt sterkte 11–12, hoofdletters in gebruikersnamen negeren, Content-Security-Policy.
+- #37 **Startpagina zonder testaccounts in een echte installatie** (klein) — De startpagina (`/`) noemt altijd "Testomgeving met fictieve gegevens" en de testaccounts, ook in een lege fabriek of op de server. Alleen tonen als de testaccounts echt bestaan.
+- #38 **Oude inlogpogingen opruimen** (klein) — Inlogpogingen ouder dan bijvoorbeeld 90 dagen laten opruimen door het nachtelijke onderhoud.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.19 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
 - #35 **Velden importeren uit een Excel-sjabloon** (klein) — Per stap een sjabloon met veld, eenheid, decimalen, setting, toleranties, grenzen en "op het certificaat"; inlezen in Beheer met een controle vooraf. Maakt het aanleveren van de echte velden (#2) makkelijker en minder foutgevoelig.
 - #36 **Training en handleiding** (klein) — Korte handleiding per rol (operator, ploegleider, Kwaliteit, planner, beheerder) en een trainingsmoment vóór de pilot, met de laptop of de server en fictieve data.
@@ -35,6 +36,7 @@ Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting e
 
 ## Gerealiseerd
 Details per versie staan in [`CHANGELOG.md`](CHANGELOG.md).
+- #28 Inloggen beveiligen — 0.21.0
 - #29 Regelkaart en lijsten eerlijk tonen — 0.20.2
 - #25 Tijdzone vast op Europe/Amsterdam — 0.20.1
 - #26 Nachtploeg rond zomer- en wintertijd — 0.20.1

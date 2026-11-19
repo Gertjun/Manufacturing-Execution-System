@@ -100,7 +100,7 @@ async function nieuweBeheerder(c, io, door) {
   }
   const w = await kiesWachtwoord(io);
   await metLogboek(c, door, () =>
-    c.query("INSERT INTO fabriek.gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, 'beheerder', public.crypt($2, public.gen_salt('bf')))", [naam, w]),
+    c.query("INSERT INTO fabriek.gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, 'beheerder', fabriek.wachtwoord_hash($2))", [naam, w]),
   );
   console.log(`\nBeheerder ${naam} is aangemaakt. Log in op Portaal Beheer met deze gebruikersnaam en dit wachtwoord.\n`);
   return naam;
@@ -130,7 +130,7 @@ export async function beheerderMenu(c, io) {
   console.log(`Nieuw wachtwoord voor ${g.gebruikersnaam}:`);
   const w = await kiesWachtwoord(io);
   await metLogboek(c, "noodsleutel (op de computer zelf)", () =>
-    c.query("UPDATE fabriek.gebruiker SET wachtwoord_hash = public.crypt($2, public.gen_salt('bf')), actief = true WHERE id = $1", [g.id, w]),
+    c.query("UPDATE fabriek.gebruiker SET wachtwoord_hash = fabriek.wachtwoord_hash($2), actief = true WHERE id = $1", [g.id, w]),
   );
   console.log(`\nHet wachtwoord van ${g.gebruikersnaam} is gewijzigd${g.actief ? "" : " en het account staat weer aan"}. Dit staat in het logboek.\n`);
 }

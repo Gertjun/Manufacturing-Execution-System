@@ -2,7 +2,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist, type Rol, type Sessie } from "../auth.js";
 import { ApiFout } from "../fouten.js";
-import { lees } from "../db.js";
+import { inTransactie, lees } from "../db.js";
 
 const TokenAntwoord = Type.Object({
   token: Type.String(),
@@ -28,11 +28,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const { gebruikersnaam, wachtwoord, pc } = req.body;
-      const [gebruiker] = await lees<{ id: string; rol: Rol }>(app.db, "SELECT * FROM controleer_login($1, $2)", [
-        gebruikersnaam,
-        wachtwoord,
-      ]);
-      if (!gebruiker) throw new ApiFout(401, "Onjuiste gebruikersnaam of wachtwoord");
+      // inloggen() legt elke poging vast en laat na 5 mislukte pogingen binnen 15 minuten 1 minuut wachten (D45).
+      const [uitkomst] = await inTransactie(app.db, "inloggen", async (tx) =>
+        (await tx.query<{ id: string | null; rol: Rol | null; gebruikersnaam: string | null; wacht_seconden: number | null }>(
+          "SELECT * FROM inloggen($1, $2, $3)", [gebruikersnaam, wachtwoord, pc ?? null])).rows);
+      if (uitkomst?.wacht_seconden) {
+        throw new ApiFout(429, `Te vaak een verkeerd wachtwoord. Wacht ${uitkomst.wacht_seconden} seconden en probeer het opnieuw.`);
+      }
+      if (!uitkomst?.id) throw new ApiFout(401, "Onjuiste gebruikersnaam of wachtwoord");
+      const gebruiker = { id: uitkomst.id, rol: uitkomst.rol as Rol, naam: uitkomst.gebruikersnaam as string };
 
       let pcId: string | undefined;
       if (pc) {
@@ -43,7 +47,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if (gebruiker.rol === "operator" && !pcId) {
         throw new ApiFout(400, "Operators loggen in vanaf een geregistreerde pc");
       }
-      const sessie: Sessie = { sub: gebruiker.id, naam: gebruikersnaam, rol: gebruiker.rol, pcId };
+      const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, pcId };
       // Een wandscherm blijft dagen aan staan: langer geldig token (het mag alleen het wandscherm lezen).
       const token = gebruiker.rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie);
       return { token, rol: gebruiker.rol, naamKiezen: gebruiker.rol === "operator" };

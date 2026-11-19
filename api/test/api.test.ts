@@ -1042,3 +1042,46 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     assert.equal(start.body.operator, "Operator A");
   });
 });
+
+describe("Inloggen beveiligen (D45)", () => {
+  test("hoofdletters in de gebruikersnaam tellen niet mee; het token krijgt de opgeslagen naam", async () => {
+    const r = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "Kwaliteit1", wachtwoord: "demo" });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const inhoud = JSON.parse(Buffer.from(r.body.token.split(".")[1], "base64url").toString());
+    assert.equal(inhoud.naam, "kwaliteit1");
+    const beheer = await login("beheerder1");
+    const dubbel = await verzoek("POST", "/beheer/gebruikers", beheer, { gebruikersnaam: "KWALITEIT1", rol: "kwaliteit", wachtwoord: "geheim-123" });
+    assert.equal(dubbel.status, 400, "nieuwe gebruikersnamen zijn altijd kleine letters");
+  });
+
+  test("na 5 foute wachtwoorden 1 minuut wachten, ook met het goede wachtwoord; pogingen vastgelegd", async () => {
+    for (let i = 0; i < 5; i++) {
+      assert.equal((await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "planner1", wachtwoord: "fout" })).status, 401);
+    }
+    const geblokt = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "Planner1", wachtwoord: "demo" });
+    assert.equal(geblokt.status, 429, JSON.stringify(geblokt.body));
+    assert.match(geblokt.body.fout, /Wacht \d+ seconden/);
+    const { rows } = await beheerDb.query(
+      "SELECT uitkomst, count(*)::int AS n FROM fabriek.inlogpoging WHERE lower(gebruikersnaam) = 'planner1' AND uitkomst <> 'gelukt' GROUP BY uitkomst ORDER BY uitkomst");
+    assert.deepEqual(rows, [{ uitkomst: "geblokkeerd", n: 1 }, { uitkomst: "mislukt", n: 5 }]);
+    // Na een minuut mag het weer: zet de pogingen terug in de tijd.
+    await beheerDb.query("ALTER TABLE fabriek.inlogpoging DISABLE TRIGGER inlogpoging_vast");
+    await beheerDb.query("UPDATE fabriek.inlogpoging SET op = op - interval '2 minutes' WHERE lower(gebruikersnaam) = 'planner1'");
+    await beheerDb.query("ALTER TABLE fabriek.inlogpoging ENABLE TRIGGER inlogpoging_vast");
+    assert.equal((await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "planner1", wachtwoord: "demo" })).status, 200);
+  });
+
+  test("nieuwe wachtwoorden met bcrypt sterkte 11", async () => {
+    const { rows } = await beheerDb.query("SELECT fabriek.wachtwoord_hash('x') AS h");
+    assert.match(rows[0].h, /^\$2a\$11\$/);
+  });
+
+  test("pagina's krijgen beveiligingskoppen; de API-documentatie geen CSP", async () => {
+    const start = await app.inject({ method: "GET", url: "/" });
+    assert.match(String(start.headers["content-security-policy"]), /default-src 'self'/);
+    assert.equal(start.headers["x-frame-options"], "DENY");
+    assert.equal(start.headers["x-content-type-options"], "nosniff");
+    const docs = await app.inject({ method: "GET", url: "/docs/" });
+    assert.equal(docs.headers["content-security-policy"], undefined);
+  });
+});

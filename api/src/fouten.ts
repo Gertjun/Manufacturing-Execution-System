@@ -13,6 +13,8 @@ const UNIEK: Record<string, string> = {
   lot_lotnummer_key: "Dit lotnummer bestaat al",
   veld_code_key: "Deze veldcode bestaat al",
   waarde_een_origineel: "Dit veld is al ingevuld; een ploegleider kan corrigeren",
+  gebruiker_gebruikersnaam_key: "Deze gebruikersnaam bestaat al",
+  gebruiker_naam_klein: "Deze gebruikersnaam bestaat al (hoofdletters tellen niet mee)",
 };
 
 interface PgFout {

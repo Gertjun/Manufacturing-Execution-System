@@ -51,6 +51,19 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   app.decorate("db", db);
   app.setErrorHandler(foutAfhandeling);
 
+  // Beveiligingskoppen (D45). Pagina's laden alleen scripts, stijlen en gegevens van deze server;
+  // de API-documentatie (/docs) gebruikt eigen scripts en krijgt daarom geen CSP.
+  app.addHook("onSend", async (req, reply, payload) => {
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("referrer-policy", "no-referrer");
+    const type = String(reply.getHeader("content-type") ?? "");
+    if (type.startsWith("text/html") && !req.url.startsWith("/docs")) {
+      reply.header("content-security-policy", CSP);
+      reply.header("x-frame-options", "DENY");
+    }
+    return payload;
+  });
+
   await app.register(swagger, {
     openapi: {
       info: {
@@ -106,6 +119,21 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
 }
 
 export type App = Awaited<ReturnType<typeof bouwApp>>;
+
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'", // schermen zetten soms een style-attribuut
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
 
 /** Eenvoudige startpagina met de twee applicaties van het platform. */
 const STARTPAGINA = `<!doctype html><html lang="nl"><head><meta charset="utf-8">
