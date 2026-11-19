@@ -5,6 +5,7 @@ import { leesGetal, toonGetal } from "../../../gedeeld/markering";
 import type { Stap, Veld } from "../../../gedeeld/types";
 import { haal, qs, sessie, stuur } from "../basis";
 import { datum, fout, kop, tabel, afgekapt } from "../kwaliteit/schermen";
+import { downloadXlsx, leesNlGetal, leesXlsx, vandaag, xlsx, type Cel } from "../excel";
 
 const ROLLEN: [string, string][] = [
   ["operator", "Operator (gedeeld invoeraccount)"],
@@ -115,7 +116,12 @@ export async function stappen(code?: string) {
   };
 
   toon(
-    kop("Stappen en velden", "Per stap de velden die operators invullen. Het invoerscherm bouwt zijn formulieren hieruit op."),
+    kop("Stappen en velden", "Per stap de velden die operators invullen. Het invoerscherm bouwt zijn formulieren hieruit op.",
+      h("div", { class: "knoppen-klein" },
+        h("button", { class: "knop", type: "button", onclick: () => sjabloonDownloaden(alle) }, "Sjabloon downloaden"),
+        h("label", { class: "knop", for: "sjabloon-bestand" }, "Sjabloon inlezen"),
+        h("input", { id: "sjabloon-bestand", type: "file", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", class: "verborgen",
+          onchange: (e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void sjabloonInlezen(f, s.code); } }))),
     h("div", { class: "beheer-indeling" },
       h("nav", { class: "stappenlijst", "aria-label": "Stappen" },
         h("div", { class: "lijstkop" }, "Per batch"),
@@ -144,6 +150,120 @@ export async function stappen(code?: string) {
             ]), "compact")
           : h("p", { class: "leeg" }, "Deze stap heeft nog geen velden.")),
     ),
+  );
+}
+
+// ---------- Velden via een Excel-sjabloon (0.22.0, D46) ----------
+const SJABLOON = ["Stap", "Code", "Naam", "Soort", "Eenheid", "Verplicht", "Tolerantie", "Tolerantie in", "Ondergrens", "Bovengrens", "Op certificaat", "Actief"];
+
+function sjabloonDownloaden(alle: Stap[]) {
+  const nl = (n: number | null) => (n === null ? "" : String(n).replace(".", ","));
+  const rijen = alle.flatMap((s) => s.velden.map((v) => [
+    s.code, v.code, v.naam, v.soort, v.eenheid ?? "", v.verplicht ? "ja" : "nee",
+    nl(v.tolerantie), v.soort === "procesparameter" ? v.tolerantie_soort : "", nl(v.grens_min), nl(v.grens_max),
+    v.op_certificaat ? "ja" : "nee", v.actief ? "ja" : "nee",
+  ]));
+  downloadXlsx(xlsx("Velden", SJABLOON, rijen), `Velden per stap ${vandaag()}.xlsx`);
+}
+
+interface ImportRegel {
+  regel: number; stapcode: string; code: string | null; naam: string; soort: string; eenheid: string | null; verplicht: boolean;
+  tolerantie: number | null; tolerantie_soort: string | null; grens_min: number | null; grens_max: number | null; op_certificaat: boolean; actief: boolean;
+}
+interface ImportUitkomst { regel: number; stapcode: string; code: string | null; naam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null }
+interface ImportAntwoord { uitgevoerd: boolean; nieuw: number; gewijzigd: number; gelijk: number; fouten: number; regels: ImportUitkomst[] }
+
+/** Zet de rijen van het blad om naar regels voor de server; fouten in het bestand zelf komen meteen terug. */
+function leesSjabloon(rijen: Cel[][]): { regels: ImportRegel[]; fouten: ImportUitkomst[] } {
+  const kop = (rijen[0] ?? []).map((c) => String(c ?? "").trim().toLowerCase());
+  const kolom = (naam: string) => kop.indexOf(naam.toLowerCase());
+  const ontbreekt = ["Stap", "Naam", "Soort"].filter((k) => kolom(k) < 0);
+  if (ontbreekt.length) throw new Error(`Kolom ${ontbreekt.join(", ")} ontbreekt. Gebruik het sjabloon dat je hier downloadt.`);
+  const regels: ImportRegel[] = [];
+  const fouten: ImportUitkomst[] = [];
+  for (let i = 1; i < rijen.length; i++) {
+    const r = rijen[i] ?? [];
+    const cel = (naam: string): Cel => (kolom(naam) >= 0 ? r[kolom(naam)] ?? null : null);
+    if (r.every((c) => c === null || c === "")) continue;
+    const tekst = (naam: string) => { const c = cel(naam); return c === null ? null : String(c).trim() || null; };
+    const problemen: string[] = [];
+    const getal = (naam: string): number | null => {
+      const c = cel(naam);
+      if (c === null || c === "") return null;
+      if (typeof c === "number") return c;
+      const n = leesNlGetal(String(c)) ?? leesGetal(String(c));
+      if (n === null) problemen.push(`${naam} "${c}" is geen getal`);
+      return n;
+    };
+    const jaNeeCel = (naam: string, standaard: boolean): boolean => {
+      const c = cel(naam);
+      if (c === null || c === "") return standaard;
+      if (typeof c === "boolean") return c;
+      const t = String(c).trim().toLowerCase();
+      if (["ja", "j", "yes", "y", "1", "waar", "true", "x"].includes(t)) return true;
+      if (["nee", "n", "no", "0", "onwaar", "false"].includes(t)) return false;
+      problemen.push(`${naam} "${c}" is geen ja of nee`);
+      return standaard;
+    };
+    const regel: ImportRegel = {
+      regel: i + 1, stapcode: tekst("Stap") ?? "", code: tekst("Code"), naam: tekst("Naam") ?? "", soort: (tekst("Soort") ?? "").toLowerCase(),
+      eenheid: tekst("Eenheid"), verplicht: jaNeeCel("Verplicht", true), tolerantie: getal("Tolerantie"),
+      tolerantie_soort: (tekst("Tolerantie in") ?? "absoluut").toLowerCase().replace("%", "procent"),
+      grens_min: getal("Ondergrens"), grens_max: getal("Bovengrens"), op_certificaat: jaNeeCel("Op certificaat", false), actief: jaNeeCel("Actief", true),
+    };
+    if (!regel.stapcode) problemen.push("Stap ontbreekt");
+    if (!regel.naam) problemen.push("Naam ontbreekt");
+    if (problemen.length) fouten.push({ regel: regel.regel, stapcode: regel.stapcode, code: regel.code, naam: regel.naam, actie: "fout", wijzigingen: [], fout: problemen.join("; ") });
+    else regels.push(regel);
+  }
+  return { regels, fouten };
+}
+
+async function sjabloonInlezen(bestand: File, terugNaar: string) {
+  const actueel = vastHouden();
+  toon(kop("Sjabloon inlezen"), laden());
+  let regels: ImportRegel[], fouten: ImportUitkomst[], antwoord: ImportAntwoord | null = null;
+  try {
+    ({ regels, fouten } = leesSjabloon(await leesXlsx(bestand)));
+    if (!fouten.length && regels.length) antwoord = await stuur<ImportAntwoord>("POST", "/beheer/velden/import", { uitvoeren: false, regels });
+  } catch (e) { return fout(e, "Sjabloon inlezen"); }
+  if (!actueel()) return;
+  const uitkomsten = antwoord?.regels ?? fouten;
+  const teOpslaan = antwoord ? antwoord.nieuw + antwoord.gewijzigd : 0;
+  const kanOpslaan = !!antwoord && antwoord.fouten === 0 && teOpslaan > 0;
+  const WAT: Record<ImportUitkomst["actie"], string> = { nieuw: "Nieuw veld", wijzigen: "Wijzigen", gelijk: "Ongewijzigd", fout: "Fout" };
+  const opslaan = async () => {
+    try {
+      const r = await stuur<ImportAntwoord>("POST", "/beheer/velden/import", { uitvoeren: true, regels });
+      if (!r.uitgevoerd) { melding(`Niet opgeslagen: ${r.fouten} ${r.fouten === 1 ? "regel" : "regels"} met een fout. Lees het bestand opnieuw in.`, "fout"); return; }
+      melding(`${r.nieuw} nieuw, ${r.gewijzigd} gewijzigd`, "ok");
+      location.hash = `#/beheer/stappen/${terugNaar}`;
+      void stappen(terugNaar);
+    } catch (e) { melding((e as Error).message, "fout"); }
+  };
+  const volgorde = { fout: 0, nieuw: 1, wijzigen: 2, gelijk: 3 };
+  toon(
+    h("p", { class: "terug" }, h("a", { href: `#/beheer/stappen/${terugNaar}` }, "Terug naar stappen en velden")),
+    kop("Sjabloon inlezen", `${bestand.name}. Dit is een controle: er is nog niets opgeslagen. Velden die niet in het bestand staan, blijven zoals ze zijn.`),
+    h("div", { class: "tegels" },
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.nieuw ?? 0), h("span", { class: "tegel-tekst" }, "nieuwe velden")),
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gewijzigd ?? 0), h("span", { class: "tegel-tekst" }, "velden gewijzigd")),
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gelijk ?? 0), h("span", { class: "tegel-tekst" }, "ongewijzigd")),
+      h("div", { class: `tegel${uitkomsten.some((x) => x.actie === "fout") ? " let-op" : ""}` },
+        h("span", { class: "tegel-getal" }, uitkomsten.filter((x) => x.actie === "fout").length), h("span", { class: "tegel-tekst" }, "regels met een fout"))),
+    uitkomsten.some((x) => x.actie === "fout")
+      ? h("p", { class: "afgekapt" }, "Er wordt niets opgeslagen zolang er een regel met een fout is. Pas het bestand aan en lees het opnieuw in.")
+      : !teOpslaan ? h("p", { class: "leeg" }, regels.length ? "Alles in het bestand is al zo ingesteld." : "Het bestand bevat geen velden.") : null,
+    h("div", { class: "knoppen", style: "justify-content:flex-start;margin-bottom:8px" },
+      kanOpslaan ? h("button", { class: "knop knop-hoofd", type: "button", onclick: opslaan }, `${teOpslaan} ${teOpslaan === 1 ? "wijziging" : "wijzigingen"} opslaan`) : null,
+      h("a", { class: "knop", href: `#/beheer/stappen/${terugNaar}` }, "Annuleren")),
+    uitkomsten.length
+      ? tabel(["Regel", "Stap", "Code", "Naam", "Wat", "Toelichting"], [...uitkomsten].sort((a, b) => volgorde[a.actie] - volgorde[b.actie] || a.regel - b.regel).map((x) => [
+          h("span", { class: "getal" }, x.regel), x.stapcode, x.code ?? "", x.naam,
+          h("span", { class: `label ${x.actie === "fout" ? "label-grens" : x.actie === "gelijk" ? "" : "label-ok"}` }, WAT[x.actie]),
+          x.fout ?? (x.actie === "nieuw" ? "Krijgt deze code bij opslaan" : x.wijzigingen.join("; ")),
+        ]), "compact")
+      : null,
   );
 }
 

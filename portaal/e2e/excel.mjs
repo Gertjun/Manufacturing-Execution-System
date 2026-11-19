@@ -76,7 +76,9 @@ try {
   await inloggen("kwaliteit1");
   await page.getByRole("heading", { name: "Kwaliteit", exact: true }).waitFor();
   await page.getByRole("link", { name: "Afwijkingen" }).click();
+  await page.getByRole("heading", { name: "Afwijkingen", exact: true }).waitFor();
   await page.locator("tbody tr").first().waitFor();
+  await page.waitForTimeout(300);
   const zichtbaar = await page.locator("tbody tr").count();
   const [dl2] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Naar Excel" }).first().click()]);
   const pad2 = `${SHOTS}/${dl2.suggestedFilename()}`;

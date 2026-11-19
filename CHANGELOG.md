@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.22.0 — 19 november 2026
+- Nieuw in Beheer → Stappen en velden: **Sjabloon downloaden** geeft een Excel-bestand met alle velden van alle stappen (ook uitgezette). Daarin kun je velden aanpassen en nieuwe velden toevoegen (Code leeg laten).
+- **Sjabloon inlezen** controleert het bestand eerst: per regel zie je of het een nieuw veld, een wijziging (met oud en nieuw) of ongewijzigd is, en welke regels een fout hebben. Er wordt pas iets opgeslagen als je op "wijzigingen opslaan" klikt, en alleen als geen enkele regel een fout heeft. Alles komt in het logboek.
+- Een veld verandert niet van stap of soort via het sjabloon, en velden die niet in het bestand staan blijven zoals ze zijn. Nieuwe velden krijgen de volgende vrije code, zoals altijd.
+- Technisch: geen database-update. De controle gebruikt de echte databaseregels in een transactie die wordt teruggedraaid (D46).
+
 ## 0.21.1 — 19 november 2026
 - Voor IT: `migreer.mjs` maakt vóór een database-update eerst een back-up (`batchgui_<datum_tijd>_voor-migratie-<nummer>.dump`) als er een back-upmap is ingesteld. Mislukt die back-up, dan verandert er niets.
 - Het draaiboek voor de fabrieksserver (`docs/SERVER.md`) is bijgewerkt tot deze versie, met de klok en tijdzone, de inlogbeveiliging en de beveiligingskoppen.

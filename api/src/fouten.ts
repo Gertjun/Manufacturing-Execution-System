@@ -37,7 +37,7 @@ export function foutAfhandeling(err: FastifyError | ApiFout | PgFout, req: Fasti
     case "P0001": // RAISE EXCEPTION uit een databaseregel
       return reply.status(422).send({ fout: err.message });
     case "23514": // CHECK
-      return reply.status(422).send({ fout: `Ongeldige invoer (${(err as PgFout).constraint ?? "controle"})` });
+      return reply.status(422).send({ fout: CONTROLE[(err as PgFout).constraint ?? ""] ?? `Ongeldige invoer (${(err as PgFout).constraint ?? "controle"})` });
     case "23505": { // UNIQUE
       const c = (err as PgFout).constraint ?? "";
       return reply.status(409).send({ fout: UNIEK[c] ?? `Bestaat al (${c || "uniek"})` });
@@ -59,3 +59,21 @@ export function foutAfhandeling(err: FastifyError | ApiFout | PgFout, req: Fasti
 }
 
 export const niet = (wat: string) => new ApiFout(404, `${wat} niet gevonden`);
+
+/** Leesbare controles die de database doet (CHECK), voor meldingen per regel. */
+const CONTROLE: Record<string, string> = {
+  veld_check: "De ondergrens is hoger dan de bovengrens",
+  veld_check1: "Alleen een procesparameter heeft een tolerantie",
+  veld_tolerantie_check: "De tolerantie kan niet negatief zijn",
+};
+
+/** Een fout als korte Nederlandse tekst (voor meldingen per regel, bijvoorbeeld bij een import). */
+export function leesbaar(e: unknown): string {
+  if (e instanceof ApiFout) return e.message;
+  const f = e as PgFout;
+  if (f.code === "P0001") return f.message;
+  if (f.code === "23514") return CONTROLE[f.constraint ?? ""] ?? `Ongeldige invoer (${f.constraint ?? "controle"})`;
+  if (f.code === "23505") return UNIEK[f.constraint ?? ""] ?? "Bestaat al";
+  if (f.code === "22P02" || f.code === "22003") return "Ongeldige waarde";
+  return (e as Error).message ?? "Onbekende fout";
+}

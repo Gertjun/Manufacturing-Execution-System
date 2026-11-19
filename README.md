@@ -83,7 +83,7 @@ Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoe
 ### Portaal Beheer
 | Onderdeel | Wat je kunt doen |
 | --- | --- |
-| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt |
+| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46) |
 | Accounts, operators, pc's | Aanmaken, wijzigen, uitzetten; per pc de stappen |
 | Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |
@@ -184,7 +184,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | Beheertools | `tests/test_tools.sh` | ja |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | ja |
 | Laptoppakket | `tests/test_laptoppakket.sh` (als gewone gebruiker) | ja |
-| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` | ja |
+| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
 
 ### Versies
 Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Elke versie krijgt automatisch een tag en release op GitHub. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).

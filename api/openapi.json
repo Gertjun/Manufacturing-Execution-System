@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.21.1",
+    "version": "0.22.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -5568,6 +5568,204 @@
                     },
                     "actief": {
                       "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beheer/velden/import": {
+      "post": {
+        "tags": [
+          "beheer"
+        ],
+        "description": "Velden toevoegen en wijzigen vanuit het Excel-sjabloon. uitvoeren=false is een proefronde (niets wordt opgeslagen).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "uitvoeren",
+                  "regels"
+                ],
+                "properties": {
+                  "uitvoeren": {
+                    "type": "boolean"
+                  },
+                  "regels": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "regel",
+                        "stapcode",
+                        "naam",
+                        "soort",
+                        "verplicht",
+                        "op_certificaat",
+                        "actief"
+                      ],
+                      "properties": {
+                        "regel": {
+                          "type": "integer",
+                          "description": "Regelnummer in het bestand, voor de meldingen"
+                        },
+                        "stapcode": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "naam": {
+                          "type": "string"
+                        },
+                        "soort": {
+                          "type": "string"
+                        },
+                        "eenheid": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "verplicht": {
+                          "type": "boolean"
+                        },
+                        "tolerantie": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "tolerantie_soort": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "grens_min": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "grens_max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "op_certificaat": {
+                          "type": "boolean"
+                        },
+                        "actief": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "maxItems": 2000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "uitgevoerd",
+                    "nieuw",
+                    "gewijzigd",
+                    "gelijk",
+                    "fouten",
+                    "regels"
+                  ],
+                  "properties": {
+                    "uitgevoerd": {
+                      "type": "boolean"
+                    },
+                    "nieuw": {
+                      "type": "integer"
+                    },
+                    "gewijzigd": {
+                      "type": "integer"
+                    },
+                    "gelijk": {
+                      "type": "integer"
+                    },
+                    "fouten": {
+                      "type": "integer"
+                    },
+                    "regels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "regel",
+                          "stapcode",
+                          "code",
+                          "naam",
+                          "actie",
+                          "wijzigingen",
+                          "fout"
+                        ],
+                        "properties": {
+                          "regel": {
+                            "type": "integer"
+                          },
+                          "stapcode": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "naam": {
+                            "type": "string"
+                          },
+                          "actie": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "nieuw"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "wijzigen"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "gelijk"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "fout"
+                                ]
+                              }
+                            ]
+                          },
+                          "wijzigingen": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "fout": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
                     }
                   }
                 }

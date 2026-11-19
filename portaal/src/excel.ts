@@ -137,6 +137,110 @@ ${rijen.map((r, i) => `<row r="${i + 2}">${r.map((v, c) => cel(i + 1, c, v)).joi
   ]);
 }
 
+/** Biedt een Excel-bestand aan als download. */
+export function downloadXlsx(data: Uint8Array, bestandsnaam: string) {
+  const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = bestandsnaam;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export const vandaag = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// ---------- xlsx lezen ----------
+export type Cel = string | number | boolean | null;
+
+/** Pakt de bestanden uit een zip (ongecomprimeerd of "deflate", zoals Excel en LibreOffice opslaan). */
+async function pakUit(buf: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+  const v = new DataView(buf);
+  let eind = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65_557); i--) {
+    if (v.getUint32(i, true) === 0x06054b50) { eind = i; break; }
+  }
+  if (eind < 0) throw new Error("Dit is geen Excel-bestand (.xlsx).");
+  const aantal = v.getUint16(eind + 10, true);
+  let p = v.getUint32(eind + 16, true);
+  const uit = new Map<string, Uint8Array>();
+  const dec = new TextDecoder();
+  for (let n = 0; n < aantal; n++) {
+    if (v.getUint32(p, true) !== 0x02014b50) throw new Error("Het Excel-bestand is beschadigd.");
+    const methode = v.getUint16(p + 10, true);
+    const grootte = v.getUint32(p + 20, true);
+    const naamLen = v.getUint16(p + 28, true), extraLen = v.getUint16(p + 30, true), notaLen = v.getUint16(p + 32, true);
+    const lokaal = v.getUint32(p + 42, true);
+    const naam = dec.decode(new Uint8Array(buf, p + 46, naamLen));
+    p += 46 + naamLen + extraLen + notaLen;
+    if (!/^(xl\/(workbook\.xml|_rels\/workbook\.xml\.rels|sharedStrings\.xml|worksheets\/[^/]+\.xml))$/.test(naam)) continue;
+    const start = lokaal + 30 + v.getUint16(lokaal + 26, true) + v.getUint16(lokaal + 28, true);
+    const data = new Uint8Array(buf, start, grootte);
+    if (methode === 0) uit.set(naam, data);
+    else if (methode === 8) {
+      const stroom = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      uit.set(naam, new Uint8Array(await new Response(stroom).arrayBuffer()));
+    } else throw new Error("Dit Excel-bestand gebruikt een onbekende compressie.");
+  }
+  return uit;
+}
+
+function kolomNummer(ref: string): number {
+  const letters = /^[A-Z]+/.exec(ref)?.[0] ?? "A";
+  let n = 0;
+  for (const c of letters) n = n * 26 + (c.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+/** Leest het eerste blad van een .xlsx als rijen met cellen (tekst, getal, ja/nee of leeg). */
+export async function leesXlsx(bestand: Blob): Promise<Cel[][]> {
+  const delen = await pakUit(await bestand.arrayBuffer());
+  const dec = new TextDecoder();
+  const xmlVan = (naam: string) => {
+    const d = delen.get(naam);
+    return d ? new DOMParser().parseFromString(dec.decode(d), "application/xml") : null;
+  };
+  // Eerste blad volgens workbook.xml en de relaties; anders sheet1.xml.
+  let bladPad = "xl/worksheets/sheet1.xml";
+  const wb = xmlVan("xl/workbook.xml"), rels = xmlVan("xl/_rels/workbook.xml.rels");
+  const eerste = wb?.getElementsByTagName("sheet")[0];
+  const rid = eerste?.getAttribute("r:id") ?? eerste?.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+  if (rid && rels) {
+    const rel = [...rels.getElementsByTagName("Relationship")].find((r) => r.getAttribute("Id") === rid);
+    const doel = rel?.getAttribute("Target");
+    if (doel) bladPad = doel.startsWith("/") ? doel.slice(1) : `xl/${doel.replace(/^\.\//, "")}`;
+  }
+  const blad = xmlVan(bladPad);
+  if (!blad) throw new Error("Geen werkblad gevonden in het Excel-bestand.");
+  const gedeeld = [...(xmlVan("xl/sharedStrings.xml")?.getElementsByTagName("si") ?? [])].map((si) =>
+    [...si.getElementsByTagName("t")].map((t) => t.textContent ?? "").join(""));
+  const rijen: Cel[][] = [];
+  for (const rij of blad.getElementsByTagName("row")) {
+    const nr = Number(rij.getAttribute("r") ?? rijen.length + 1) - 1;
+    const cellen: Cel[] = [];
+    for (const c of rij.getElementsByTagName("c")) {
+      const kol = kolomNummer(c.getAttribute("r") ?? "A");
+      const t = c.getAttribute("t");
+      const w = c.getElementsByTagName("v")[0]?.textContent ?? null;
+      let waarde: Cel = null;
+      if (t === "s") waarde = w === null ? null : gedeeld[Number(w)] ?? null;
+      else if (t === "inlineStr") waarde = [...c.getElementsByTagName("t")].map((x) => x.textContent ?? "").join("");
+      else if (t === "str" || t === "e") waarde = w;
+      else if (t === "b") waarde = w === "1";
+      else if (w !== null && w !== "") waarde = Number(w);
+      while (cellen.length < kol) cellen.push(null);
+      cellen[kol] = typeof waarde === "string" && waarde.trim() === "" ? null : waarde;
+    }
+    while (rijen.length < nr) rijen.push([]);
+    rijen[nr] = cellen;
+  }
+  return rijen;
+}
+
 /** Leest een tabel van het scherm (kop en zichtbare tekst per cel) en biedt hem aan als download. */
 export function tabelNaarExcel(tabel: HTMLTableElement, titel: string) {
   const koppen = [...tabel.querySelectorAll("thead th")].map((th) => (th.textContent ?? "").trim());
@@ -152,15 +256,5 @@ export function tabelNaarExcel(tabel: HTMLTableElement, titel: string) {
   const k2 = koppen.filter((_, i) => houden[i]).map((k, i) => k || `Kolom ${i + 1}`);
   const r2 = rijen.map((r) => r.filter((_, i) => houden[i]));
   const data = xlsx(titel, k2, r2);
-  const d = new Date();
-  const stempel = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const bestand = `${titel.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim()} ${stempel}.xlsx`;
-  const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = bestand;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  downloadXlsx(data, `${titel.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim()} ${vandaag()}.xlsx`);
 }

@@ -46,6 +46,7 @@ done
 # Beheer en planning zetten zelf hun database klaar.
 draai portaal beheer.mjs
 draai portaal planning.mjs
+draai portaal sjabloon.mjs
 
 # Browserdemo (PGlite in de browser, zonder server).
 (cd demo && ./bouw.sh >/dev/null 2>&1)

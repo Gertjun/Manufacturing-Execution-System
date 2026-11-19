@@ -1,8 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { BEHEER, vereist } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
-import { ApiFout, niet } from "../fouten.js";
+import { inTransactie, lees, type Tx } from "../db.js";
+import { ApiFout, leesbaar, niet } from "../fouten.js";
 import { Veld } from "./config.js";
 import { StapCode } from "./schemas.js";
 import { VERSIE } from "../versie.js";
@@ -96,6 +96,128 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if (!n) throw niet("Veld");
       const [veld] = await lees(app.db, "SELECT * FROM veld WHERE code = $1", [req.params.code]);
       return veld as never;
+    },
+  );
+
+  // Velden importeren uit het Excel-sjabloon (0.22.0, D46). Eerst altijd een proefronde: alles wordt in een
+  // transactie uitgevoerd (dus ook door de databaseregels gecontroleerd) en teruggedraaid. Pas met
+  // uitvoeren=true en zonder fouten blijft het staan. Velden die niet in het bestand staan, blijven ongewijzigd.
+  const ImportRegel = Type.Object({
+    regel: Type.Integer({ description: "Regelnummer in het bestand, voor de meldingen" }),
+    stapcode: Type.String(),
+    code: Type.Optional(Type.Union([Type.Null(), Type.String()])),
+    naam: Type.String(),
+    soort: Type.String(),
+    eenheid: Type.Optional(Type.Union([Type.Null(), Type.String()])),
+    verplicht: Type.Boolean(),
+    tolerantie: OptGetal,
+    tolerantie_soort: Type.Optional(Type.Union([Type.Null(), Type.String()])),
+    grens_min: OptGetal,
+    grens_max: OptGetal,
+    op_certificaat: Type.Boolean(),
+    actief: Type.Boolean(),
+  }, { additionalProperties: false });
+  const ImportUitkomst = Type.Object({
+    regel: Type.Integer(), stapcode: Type.String(), code: Type.Union([Type.Null(), Type.String()]), naam: Type.String(),
+    actie: Type.Union([Type.Literal("nieuw"), Type.Literal("wijzigen"), Type.Literal("gelijk"), Type.Literal("fout")]),
+    wijzigingen: Type.Array(Type.String()), fout: Type.Union([Type.Null(), Type.String()]),
+  });
+  type ImportRij = { regel: number; stapcode: string; code: string | null; naam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null };
+  class Terugdraaien extends Error { constructor(public rijen: ImportRij[]) { super("terugdraaien"); } }
+  const KOLOMMEN: [string, string][] = [
+    ["naam", "naam"], ["eenheid", "eenheid"], ["verplicht", "verplicht"], ["tolerantie", "tolerantie"], ["tolerantie_soort", "tolerantie in"],
+    ["grens_min", "ondergrens"], ["grens_max", "bovengrens"], ["op_certificaat", "op certificaat"], ["actief", "actief"],
+  ];
+  const toonWaarde = (w: unknown) => (w === null || w === undefined || w === "" ? "leeg" : typeof w === "boolean" ? (w ? "ja" : "nee") : String(w).replace(".", ","));
+
+  app.post(
+    "/velden/import",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        description: "Velden toevoegen en wijzigen vanuit het Excel-sjabloon. uitvoeren=false is een proefronde (niets wordt opgeslagen).",
+        body: Type.Object({ uitvoeren: Type.Boolean(), regels: Type.Array(ImportRegel, { maxItems: 2000 }) }, { additionalProperties: false }),
+        response: { 200: Type.Object({ uitgevoerd: Type.Boolean(), nieuw: Type.Integer(), gewijzigd: Type.Integer(), gelijk: Type.Integer(), fouten: Type.Integer(), regels: Type.Array(ImportUitkomst) }) },
+      },
+    },
+    async (req) => {
+      const { uitvoeren, regels } = req.body;
+      const verwerk = async (tx: Tx): Promise<ImportRij[]> => {
+        const uit: ImportRij[] = [];
+        const gezien = new Set<string>();
+        for (const r of regels) {
+          const rij: ImportRij = { regel: r.regel, stapcode: r.stapcode, code: r.code?.trim() || null, naam: r.naam, actie: "gelijk", wijzigingen: [], fout: null };
+          uit.push(rij);
+          await tx.query("SAVEPOINT rij");
+          try {
+            const soort = r.soort.trim().toLowerCase();
+            if (!["procesparameter", "gewicht", "overig"].includes(soort)) throw new ApiFout(422, `Onbekende soort "${r.soort}" (procesparameter, gewicht of overig)`);
+            const tsoort = (r.tolerantie_soort ?? "absoluut").trim().toLowerCase() || "absoluut";
+            if (!["absoluut", "procent"].includes(tsoort)) throw new ApiFout(422, `Tolerantie in "${r.tolerantie_soort}" is onbekend (absoluut of procent)`);
+            if (!r.naam.trim()) throw new ApiFout(422, "Naam ontbreekt");
+            const { rows: st } = await tx.query("SELECT id, volgorde FROM processtap WHERE code = $1 FOR UPDATE", [r.stapcode.trim().toUpperCase()]);
+            if (!st[0]) throw new ApiFout(422, `Onbekende stap "${r.stapcode}"`);
+            const nieuw = {
+              naam: r.naam.trim(), eenheid: r.eenheid?.trim() || null, verplicht: r.verplicht, tolerantie: r.tolerantie ?? null,
+              tolerantie_soort: tsoort, grens_min: r.grens_min ?? null, grens_max: r.grens_max ?? null, op_certificaat: r.op_certificaat, actief: r.actief,
+            };
+            if (rij.code) {
+              if (gezien.has(rij.code)) throw new ApiFout(422, `${rij.code} staat twee keer in het bestand`);
+              gezien.add(rij.code);
+              const { rows: v } = await tx.query(
+                `SELECT v.*, s.code AS stapcode FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.code = $1`, [rij.code]);
+              if (!v[0]) throw new ApiFout(422, `Veld ${rij.code} bestaat niet; laat de code leeg voor een nieuw veld`);
+              if (v[0].stapcode !== r.stapcode.trim().toUpperCase()) throw new ApiFout(422, `${rij.code} hoort bij ${v[0].stapcode}; een veld verhuist niet naar een andere stap`);
+              if (v[0].soort !== soort) throw new ApiFout(422, `De soort van ${rij.code} is ${v[0].soort}; die verandert niet (maak een nieuw veld)`);
+              const anders = KOLOMMEN.filter(([k]) => {
+                const a = (v[0] as Record<string, unknown>)[k], b = (nieuw as Record<string, unknown>)[k];
+                return typeof a === "number" || typeof b === "number" ? (a === null ? null : Number(a)) !== (b === null ? null : Number(b)) : (a ?? null) !== (b ?? null);
+              });
+              if (anders.length) {
+                rij.actie = "wijzigen";
+                rij.wijzigingen = anders.map(([k, label]) => `${label}: ${toonWaarde((v[0] as Record<string, unknown>)[k])} → ${toonWaarde((nieuw as Record<string, unknown>)[k])}`);
+                const set = anders.map(([k], i) => `${k} = $${i + 2}`).join(", ");
+                await tx.query(`UPDATE veld SET ${set} WHERE code = $1`, [rij.code, ...anders.map(([k]) => (nieuw as Record<string, unknown>)[k])]);
+              }
+            } else {
+              const { rows: m } = await tx.query(
+                `SELECT coalesce(max(split_part(code, '.', 2)::int), 0) + 1 AS nr, coalesce(max(volgnummer), 0) + 1 AS volg FROM veld WHERE processtap_id = $1`,
+                [st[0].id]);
+              rij.code = `S${st[0].volgorde}.${m[0].nr}`;
+              rij.actie = "nieuw";
+              await tx.query(
+                `INSERT INTO veld (processtap_id, code, naam, soort, eenheid, grens_min, grens_max, tolerantie, tolerantie_soort, volgnummer, verplicht, op_certificaat, actief)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                [st[0].id, rij.code, nieuw.naam, soort, nieuw.eenheid, nieuw.grens_min, nieuw.grens_max, nieuw.tolerantie, nieuw.tolerantie_soort,
+                  m[0].volg, nieuw.verplicht, nieuw.op_certificaat, nieuw.actief]);
+            }
+            await tx.query("RELEASE SAVEPOINT rij");
+          } catch (e) {
+            await tx.query("ROLLBACK TO SAVEPOINT rij");
+            rij.actie = "fout";
+            rij.wijzigingen = [];
+            rij.fout = leesbaar(e);
+          }
+        }
+        return uit;
+      };
+      let rijen: ImportRij[];
+      try {
+        rijen = await inTransactie(app.db, req.user.naam, async (tx) => {
+          const uit = await verwerk(tx);
+          if (!uitvoeren || uit.some((x) => x.actie === "fout")) throw new Terugdraaien(uit);
+          return uit;
+        });
+      } catch (e) {
+        if (!(e instanceof Terugdraaien)) throw e;
+        rijen = e.rijen;
+      }
+      const tel = (a: ImportRij["actie"]) => rijen.filter((x) => x.actie === a).length;
+      return {
+        uitgevoerd: uitvoeren && tel("fout") === 0,
+        nieuw: tel("nieuw"), gewijzigd: tel("wijzigen"), gelijk: tel("gelijk"), fouten: tel("fout"), regels: rijen,
+      } as never;
     },
   );
 

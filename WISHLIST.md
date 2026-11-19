@@ -5,19 +5,20 @@
 
 Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
-Laatst bijgewerkt: 19 november 2026 (versie 0.21.1)
+Laatst bijgewerkt: 19 november 2026 (versie 0.22.0)
 
 ## Vóór de pilot
 Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i).
 - #37 **Startpagina zonder testaccounts in een echte installatie** (klein) — De startpagina (`/`) noemt altijd "Testomgeving met fictieve gegevens" en de testaccounts, ook in een lege fabriek of op de server. Alleen tonen als de testaccounts echt bestaan.
 - #38 **Oude inlogpogingen opruimen** (klein) — Inlogpogingen ouder dan bijvoorbeeld 90 dagen laten opruimen door het nachtelijke onderhoud.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.19 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
-- #35 **Velden importeren uit een Excel-sjabloon** (klein) — Per stap een sjabloon met veld, eenheid, decimalen, setting, toleranties, grenzen en "op het certificaat"; inlezen in Beheer met een controle vooraf. Maakt het aanleveren van de echte velden (#2) makkelijker en minder foutgevoelig.
 - #36 **Training en handleiding** (klein) — Korte handleiding per rol (operator, ploegleider, Kwaliteit, planner, beheerder) en een trainingsmoment vóór de pilot, met de laptop of de server en fictieve data.
 - #11 **Proof of concept laten zien** (klein, Geert) — Laptoppakket 0.19.0 draaien en laten zien; bevindingen worden nieuwe punten op deze lijst.
-- #2 **Echte velden per stap** (middel, Geert) — Per processtap de echte invoervelden aanleveren: veld, eenheid, decimalen, setting, grenzen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand en grondstoffen. Nodig voor de pilot.
+- #2 **Echte velden per stap** (middel, Geert) — Per processtap de echte invoervelden aanleveren, het liefst in het sjabloon uit Beheer → Stappen en velden (sinds 0.22.0): veld, soort, eenheid, verplicht, tolerantie, grenzen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand en grondstoffen. Nodig voor de pilot.
 - #10 **Fabrieksserver installeren met IT** (middel, na de proof of concept, D26) — Geert bespreekt het advies met IT en beantwoordt de vier vragen onder "Nog te besluiten" in het advies. IT richt de server in volgens `docs/SERVER.md`; eerste keer samen op een testmachine, met een proef met een pc die offline gaat.
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0. Advies: één hal en een paar stappen, de eerste twee weken met de papieren registratie ernaast.
+
+- #39 **Aantal decimalen per veld** (klein) — Nu bepaalt het scherm hoe een waarde wordt afgerond. Een instelling per veld (ook in het sjabloon) voor invoer, certificaat en regelkaart. Uit de doorlichting.
 
 ## Na de start van de pilot
 - #30 **Afkeur met omvang, herhaling en maatregel** (middel) — Bij afkeur de geschonden grens tonen, verdachte batches (zelfde grondstofpartij, dag of lot) en eerdere afwijkingen van hetzelfde veld. Daarna een eenvoudige maatregel: wat, wie, wanneer klaar, na 30 dagen controleren of het hielp.
@@ -35,6 +36,7 @@ Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting e
 
 ## Gerealiseerd
 Details per versie staan in [`CHANGELOG.md`](CHANGELOG.md).
+- #35 Velden importeren uit een Excel-sjabloon — 0.22.0
 - #27 Schermtests op GitHub, draaiboek bijgewerkt, back-up vóór database-update — 0.21.1
 - #28 Inloggen beveiligen — 0.21.0
 - #29 Regelkaart en lijsten eerlijk tonen — 0.20.2

@@ -3,7 +3,7 @@
 > **Dit bestand:** de volgorde van het werk, de fasen, de poorten die we per fase moeten halen, en een globale planning.
 > **Niet hier:** wat een punt precies inhoudt → [`WISHLIST.md`](WISHLIST.md) (de nummers hieronder verwijzen daarheen); wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md).
 
-Bijgewerkt: 19 november 2026 · huidige versie 0.19.0
+Bijgewerkt: 19 november 2026 · huidige versie 0.22.0
 
 De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -67,6 +67,7 @@ De fouten uit de doorlichting oplossen die ongemerkt verkeerde tijden of namen o
 | 0.22.0 | #35 | Velden per stap importeren uit een Excel-sjabloon (maakt #2 makkelijker) |
 
 **Poort A:** alle punten gebouwd, alle tests groen op GitHub, nieuw laptoppakket bij Geert.
+**Stand 19-11-2026:** alle punten van fase A zijn gebouwd (0.20.0 tot en met 0.22.0), sneller dan gepland. De poort is gehaald zodra de tests op GitHub groen zijn en Geert het laptoppakket 0.22.0 heeft. Daarmee kunnen fase B (praktijk) en C (echte velden, nu via het sjabloon) eerder beginnen.
 
 ### B. Proof of concept en praktijk — december 2026
 Geert laat het laptoppakket zien (#11) en we testen wat nog nooit echt is getest (#33): handscanner, etiketprinter, tv, een fabrieks-pc die offline gaat, twee pc's op dezelfde stap, Windows. Bevindingen worden nieuwe wishlistpunten.

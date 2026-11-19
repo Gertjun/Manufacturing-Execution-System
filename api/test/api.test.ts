@@ -1085,3 +1085,60 @@ describe("Inloggen beveiligen (D45)", () => {
     assert.equal(docs.headers["content-security-policy"], undefined);
   });
 });
+
+describe("Velden importeren uit het Excel-sjabloon (D46)", () => {
+  const basis = { soort: "overig", verplicht: true, op_certificaat: false, actief: true };
+  test("proefronde wijzigt niets; met fouten wordt niets opgeslagen; daarna wel", async () => {
+    const bh = await login("beheerder1");
+    const regels = [
+      { regel: 2, stapcode: "PS3", code: "S3.1", naam: "Temperatuur menger", soort: "procesparameter", eenheid: "°C", verplicht: true,
+        tolerantie: 3, tolerantie_soort: "absoluut", grens_min: 60, grens_max: 95, op_certificaat: false, actief: true },
+      { regel: 3, stapcode: "ps3", code: null, naam: "Viscositeit", ...basis, eenheid: "mPa·s", grens_min: 100, grens_max: 400 },
+      { regel: 4, stapcode: "PS3", code: null, naam: "Fout veld", ...basis, grens_min: 10, grens_max: 5 },
+    ];
+    const proef = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: true, regels });
+    assert.equal(proef.status, 200, JSON.stringify(proef.body));
+    assert.equal(proef.body.uitgevoerd, false);
+    assert.equal(proef.body.fouten, 1);
+    assert.equal(proef.body.regels[2].fout, "De ondergrens is hoger dan de bovengrens");
+    assert.equal(proef.body.regels[0].actie, "wijzigen");
+    assert.ok(proef.body.regels[0].wijzigingen.some((w: string) => w.startsWith("naam:")), JSON.stringify(proef.body.regels[0]));
+    const voor = await beheerDb.query("SELECT naam FROM fabriek.veld WHERE code = 'S3.1'");
+    assert.notEqual(voor.rows[0].naam, "Temperatuur menger", "met een fout blijft alles zoals het was");
+
+    const goed = regels.slice(0, 2);
+    const droog = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: false, regels: goed });
+    assert.equal(droog.body.uitgevoerd, false);
+    assert.equal(droog.body.nieuw, 1);
+    assert.match(droog.body.regels[1].code, /^S3\.\d+$/);
+    assert.equal((await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.veld WHERE naam = 'Viscositeit'")).rows[0].n, 0, "proefronde slaat niets op");
+
+    const echt = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: true, regels: goed });
+    assert.equal(echt.body.uitgevoerd, true, JSON.stringify(echt.body));
+    assert.equal((await beheerDb.query("SELECT naam FROM fabriek.veld WHERE code = 'S3.1'")).rows[0].naam, "Temperatuur menger");
+    const [v] = (await beheerDb.query("SELECT code, eenheid FROM fabriek.veld WHERE naam = 'Viscositeit'")).rows;
+    assert.equal(v.code, droog.body.regels[1].code, "de proefronde toont de code die het veld echt krijgt");
+    const log = await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel = 'veld' AND gewijzigd_door = 'beheerder1' AND gewijzigd_op > now() - interval '1 minute'");
+    assert.ok(log.rows[0].n >= 2, "wijzigingen staan in het logboek");
+
+    const nogmaals = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: false, regels: [{ ...goed[0] }] });
+    assert.equal(nogmaals.body.gelijk, 1, "ongewijzigd veld telt als gelijk");
+  });
+
+  test("soort en stap van een bestaand veld veranderen niet; onbekende code; alleen de beheerder", async () => {
+    const bh = await login("beheerder1");
+    const r = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: false, regels: [
+      { regel: 2, stapcode: "PS3", code: "S3.2", naam: "x", ...basis },
+      { regel: 3, stapcode: "PS4", code: "S3.1", naam: "x", ...basis, soort: "procesparameter" },
+      { regel: 4, stapcode: "PS3", code: "S3.99", naam: "x", ...basis },
+      { regel: 5, stapcode: "PS99", code: null, naam: "x", ...basis },
+    ] });
+    assert.deepEqual(r.body.regels.map((x: any) => x.actie), ["fout", "fout", "fout", "fout"], JSON.stringify(r.body.regels));
+    assert.match(r.body.regels[0].fout, /soort/);
+    assert.match(r.body.regels[1].fout, /hoort bij PS3/);
+    assert.match(r.body.regels[2].fout, /bestaat niet/);
+    assert.match(r.body.regels[3].fout, /Onbekende stap/);
+    const kw = await login("kwaliteit1");
+    assert.equal((await verzoek("POST", "/beheer/velden/import", kw, { uitvoeren: false, regels: [] })).status, 403);
+  });
+});
