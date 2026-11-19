@@ -16,38 +16,38 @@ gantt
     axisFormat %d %b
     todayMarker on
 
-    section A. Pilotklaar maken
+    section A Software
     0.20 tijd en wachtrij (23 24 25 26)      :a1, 2026-11-23, 7d
     0.20 regelkaart en lijsten (29)          :a2, after a1, 3d
     0.21 inloggen beveiligen (28)            :a3, after a2, 4d
     Schermtests op GitHub, draaiboek (27)    :a4, after a1, 7d
     0.22 velden importeren uit Excel (35)    :a5, after a3, 5d
 
-    section B. Proof of concept en praktijk
+    section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
     Praktijktests (33)                       :b2, 2026-12-07, 28d
 
-    section C. Echte configuratie
+    section C Configuratie
     Echte velden aanleveren, Geert (2)       :c1, 2026-12-07, 35d
     Inrichten en controleren                 :c2, after c1, 7d
 
-    section D. Fabrieksserver
+    section D Server
     Advies bespreken, IT (10)                :d1, 2026-12-14, 14d
     Server inrichten en offline-proef, IT    :d2, 2027-01-11, 21d
 
-    section E. Pilot 1.0
+    section E Pilot
     Training en handleiding (36)             :e0, 2027-01-25, 10d
     Poort naar de pilot                      :milestone, m1, 2027-02-08, 0d
     Pilot hal 1, met papier ernaast          :e1, 2027-02-08, 14d
     Pilot hal 1, alleen systeem              :e2, after e1, 42d
     Evaluatie                                :milestone, m2, 2027-04-05, 0d
 
-    section F. Verbeteren tijdens de pilot
+    section F Verbeteren
     1.1 afkeur en maatregel (30)             :f1, 2027-02-22, 21d
     1.2 storing afsluiten, kwaliteit (31 32) :f2, after f1, 10d
     1.3 OEE compleet (22)                    :f3, after f2, 21d
 
-    section G. Uitbreiden na de pilot
+    section G Uitbreiden
     Uitrol alle hallen                       :g1, 2027-04-12, 42d
     Exact, mail of Teams, apps (6 21 7)      :g2, 2027-05-24, 60d
 ```
