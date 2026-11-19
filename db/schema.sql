@@ -24,7 +24,7 @@ SET search_path = fabriek;
 CREATE TABLE gebruiker (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     gebruikersnaam  text NOT NULL UNIQUE,
-    rol             text NOT NULL CHECK (rol IN ('operator','ploegleider','kwaliteit','beheerder','analist','planner')),
+    rol             text NOT NULL CHECK (rol IN ('operator','ploegleider','kwaliteit','beheerder','analist','planner','scherm')),
     wachtwoord_hash text,                      -- bcrypt via pgcrypto
     actief          boolean NOT NULL DEFAULT true
 );
@@ -988,7 +988,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

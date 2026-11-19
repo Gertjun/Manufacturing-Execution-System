@@ -44,7 +44,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         throw new ApiFout(400, "Operators loggen in vanaf een geregistreerde pc");
       }
       const sessie: Sessie = { sub: gebruiker.id, naam: gebruikersnaam, rol: gebruiker.rol, pcId };
-      return { token: app.jwt.sign(sessie), rol: gebruiker.rol, naamKiezen: gebruiker.rol === "operator" };
+      // Een wandscherm blijft dagen aan staan: langer geldig token (het mag alleen het wandscherm lezen).
+      const token = gebruiker.rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie);
+      return { token, rol: gebruiker.rol, naamKiezen: gebruiker.rol === "operator" };
     },
   );
 

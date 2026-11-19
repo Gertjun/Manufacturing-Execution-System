@@ -6,6 +6,7 @@ import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
+import { stopWandscherm, wandscherm } from "./wandscherm";
 
 // ---------- Menu ----------
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
@@ -32,6 +33,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
       h("div", {}, sessie.naam, h("span", { class: "sub" }, ` (${sessie.rol})`)),
       h("button", { class: "knop-link", onclick: () => { sessie.token = null; location.hash = "#/login"; } }, "Afmelden"),
       h("a", { href: "/invoer/" }, "Naar het invoerscherm"),
+      h("a", { href: "#/wandscherm" }, "Wandscherm"),
       h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
   );
 }
@@ -83,9 +85,16 @@ async function route() {
   nieuweRoute();
   const [, portaal = "", onderdeel = "", arg] = location.hash.split("/");
   if (!sessie.geldig()) {
+    stopWandscherm();
     await tekenMenu("", "");
     return loginScherm();
   }
+  // Wandscherm: volledig scherm, zonder menu. Een schermaccount ziet alleen dit.
+  if (portaal === "wandscherm" || sessie.rol === "scherm") {
+    if (portaal !== "wandscherm") return void (location.hash = "#/wandscherm");
+    return wandscherm(onderdeel ? decodeURIComponent(onderdeel) : undefined);
+  }
+  stopWandscherm();
   const toegestaan = portalenVoor(sessie.rol);
   if (!toegestaan.length) {
     await tekenMenu("", "");

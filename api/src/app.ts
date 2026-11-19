@@ -15,6 +15,7 @@ import lotRoutes from "./routes/lots.js";
 import beheerRoutes from "./routes/beheer.js";
 import analyseRoutes from "./routes/analyse.js";
 import planningRoutes from "./routes/planning.js";
+import wandschermRoutes from "./routes/wandscherm.js";
 import werkvoorraadRoutes from "./routes/werkvoorraad.js";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
@@ -72,6 +73,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(analyseRoutes, { prefix: "/analyse" });
   await app.register(werkvoorraadRoutes, { prefix: "/werkvoorraad" });
   await app.register(planningRoutes, { prefix: "/planning" });
+  await app.register(wandschermRoutes, { prefix: "/wandscherm" });
 
   // De invoerapplicatie (browser) op /invoer/.
   if (invoerMap && existsSync(invoerMap)) {

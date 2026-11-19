@@ -260,3 +260,52 @@ a.knop { display: inline-flex; align-items: center; text-decoration: none; }
 .vink { border-radius: 50%; }
 .voorstel-batches li.klaar .vink { border-radius: 50%; }
 .weekraster { align-items: start; }
+
+/* ---------- Wandscherm (tv in de hal) ----------
+   Donker vlak, grote letters, op 5 meter leesbaar. Kleur betekent altijd ook een teken:
+   ▶ bezig (blauw), ● klaar (wit), ○ gepland (grijs), gele rand en ⚠ = langer dan normaal. */
+body.wand { background: #10161f; }
+body.wand .indeling { display: block; background: #10161f; }
+body.wand #menu { display: none; }
+body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-size: clamp(14px, 1.05vw, 26px); min-height: 100vh; display: flex; flex-direction: column; gap: 1vw; }
+.wand-leeg { font-size: 2rem; color: #c7cfd8; padding: 20vh 0; text-align: center; }
+.wand-kop { display: grid; grid-template-columns: auto 1fr auto; gap: 2vw; align-items: center; }
+.wand-kop h1 { font-size: 2.3em; margin: 0; color: #fff; }
+.wand-datum { margin: 0; color: #aeb8c3; font-size: 1.2em; }
+.wand-datum::first-letter { text-transform: uppercase; }
+.wand-cijfers { display: flex; gap: 2.5vw; justify-content: center; }
+.wand-cijfer { display: grid; color: #aeb8c3; font-size: 1.05em; }
+.wand-getal { font-size: 2.4em; font-weight: 700; color: #fff; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.wand-cijfer.let-op .wand-getal { color: #ffcc33; }
+.wand-klok { display: grid; justify-items: end; color: #aeb8c3; }
+.wand-storing { color: #10161f; background: #ffcc33; font-weight: 700; padding: 2px 10px; border-radius: 6px; }
+.wand-raster { display: grid; grid-template-columns: repeat(6, 1fr); gap: .8vw; flex: 1; align-content: start; }
+.wand-stap { background: #1c2531; border: 2px solid #2c3746; border-radius: 12px; padding: .7em .8em; display: grid; grid-template-rows: auto 1fr; gap: .4em; min-height: 12em; }
+.wand-stap-actief { border-color: #3d82e0; }
+.wand-stap-leeg { opacity: .55; }
+.wand-stap-kop { display: flex; gap: .5em; align-items: baseline; }
+.wand-code { font-size: 1.8em; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.wand-naam { font-weight: 700; flex: 1; color: #dfe5eb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wand-voortgang { color: #8fdca9; font-weight: 700; white-space: nowrap; }
+.wand-niets { color: #8b96a3; margin: 0; }
+.wand-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: .3em; align-content: start; }
+.wr { display: grid; grid-template-columns: 1.2em auto 1fr; column-gap: .45em; align-items: baseline; padding: .25em .45em; border-radius: 7px; border: 2px solid transparent; }
+.wr-teken { font-size: .9em; }
+.wr-nr { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wr-plan { color: #aeb8c3; font-size: .85em; justify-self: start; }
+.wr-tijd { grid-column: 2 / -1; font-size: .85em; color: #c7cfd8; }
+.wr-opm { grid-column: 2 / -1; font-size: .85em; color: #ffe08a; }
+.wr-bezig { background: #2459a8; color: #fff; }
+.wr-bezig .wr-tijd, .wr-bezig .wr-plan { color: #dbe7fb; }
+.wr-klaar { background: #f3f5f7; color: #10161f; }
+.wr-klaar .wr-tijd, .wr-klaar .wr-plan { color: #3c4652; }
+.wr-gepland { color: #aeb8c3; border-color: #3a4554; border-style: dashed; }
+.wr-lang { border-color: #ffcc33; border-style: solid; box-shadow: inset 0 0 0 1px #ffcc33; }
+.wr-meer { color: #aeb8c3; display: block; }
+.wand-voet { display: flex; justify-content: space-between; gap: 2vw; flex-wrap: wrap; color: #aeb8c3; font-size: .9em; }
+.wand-uitleg { display: flex; gap: 1.6em; flex-wrap: wrap; }
+.wl-bezig { color: #8fb8f0; } .wl-klaar { color: #fff; } .wl-lang { color: #ffcc33; }
+.wand-hallen { display: flex; gap: 1em; }
+.wand-hallen a { color: #c7cfd8; }
+.wand-hallen a[aria-current="page"] { color: #fff; font-weight: 700; }
+@media (max-width: 1100px) { .wand-raster { grid-template-columns: repeat(3, 1fr); } .wand-kop { grid-template-columns: 1fr; } .wand-klok { justify-items: start; } }

@@ -2,6 +2,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.10.0 — 19 november 2026
+- Nieuw: wandscherm voor een tv in de hal (`/portaal/#/wandscherm`). Per stap zie je wat bezig is (▶ blauw), wat klaarstaat (● wit) en wat gepland is maar nog niet klaar (○ grijs), in de volgorde van de planner. Een gele rand met ⚠ betekent: wacht of loopt langer dan normaal (langer dan 90% van de keren in de laatste 30 dagen). Bovenaan: batches gestart tegenover gepland, lots gereed en batches in beoordeling.
+- Het wandscherm ververst elke 30 seconden. Valt de verbinding weg, dan blijft de laatste stand staan met de melding "Geen verbinding sinds …".
+- Per hal: `#/wandscherm/Hal 1` toont alleen de stappen van de pc's in die hal.
+- Nieuw: rol "Wandscherm" voor een account dat alleen het wandscherm mag zien (testaccount `scherm1`). De tv hoeft zo niet op naam van een persoon ingelogd te zijn. Het blijft 30 dagen ingelogd; zet je het account uit in Portaal Beheer, dan stopt het scherm meteen.
+- Iedereen met een persoonlijk account opent het wandscherm via de link onder in het menu.
+- Technisch: database-update 4 (`0004_wandscherm`): de nieuwe rol.
+
 ## 0.9.0 — 19 november 2026
 - Nieuw: Portaal Planning voor de planner (account `planner1` in de testdata).
   - Per week: batches plannen per dag, met product en opmerking. Het systeem geeft de batchnummers uit (doornummeren per jaar). Volgorde op de dag aanpassen, verschuiven naar een andere dag, of laten vervallen met een reden. Geplande batches die niet op tijd gestart zijn, staan bovenaan.

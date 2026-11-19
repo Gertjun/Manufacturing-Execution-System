@@ -14,6 +14,7 @@ FROM (VALUES ('operator',     'operator'),
              ('kwaliteit1',   'kwaliteit'),
              ('beheerder1',   'beheerder'),
              ('analist1',     'analist'),
-             ('planner1',     'planner')) v(naam, rol);
+             ('planner1',     'planner'),
+             ('scherm1',      'scherm')) v(naam, rol);
 
 COMMIT;

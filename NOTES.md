@@ -2,7 +2,7 @@
 
 De **actuele stand**: versie, open punten en sessielog. Werk dit bij aan het eind van elke sessie (zie `CLAUDE.md`). Besluiten staan in `DECISIONS.md`, wensen in `WISHLIST.md`.
 
-Laatst bijgewerkt: 19 november 2026 · versie **0.9.0**
+Laatst bijgewerkt: 19 november 2026 · versie **0.10.0**
 
 ---
 
@@ -27,7 +27,7 @@ Laatst bijgewerkt: 19 november 2026 · versie **0.9.0**
 | Beheertools | `tests/test_tools.sh` | geslaagd |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | 5/5 |
 | Invoerscherm in Chrome | `invoer/e2e/flow.mjs` | 28/28 |
-| Portalen in Chrome | `portaal/e2e/portaal.mjs`, `productie.mjs`, `beheer.mjs`, `planning.mjs` | alle geslaagd (planning 10/10) |
+| Portalen in Chrome | `portaal/e2e/portaal.mjs`, `productie.mjs`, `beheer.mjs`, `planning.mjs`, `wandscherm.mjs` | alle geslaagd (wandscherm 9/9) |
 | Browserdemo | `portaal/e2e/demo.mjs` | 12/12 |
 | Laptoppakket (ingebouwde PostgreSQL) | `tests/test_laptoppakket.sh` (Linux-variant, als gewone gebruiker): eerste start, stoppen, back-up, harde stop, terugzetten, lege fabriek | geslaagd |
 | Serverpakket | schone installatie op Linux met https, back-up en hersteltest | geslaagd |
@@ -44,6 +44,7 @@ Op GitHub draaien automatisch (Node.js 22 en 26): databaseregels, migraties, API
 - Let op bij het opnieuw maken van `tools/pakket/testdata.sql`: neem `schema_versie` en `onderhoud_log` niet mee in de dump (`--exclude-table`), anders botst het laden met `schema.sql`.
 
 ## Sessielog (nieuwste bovenaan)
+- **19 nov 2026 · 0.10.0** — Wandscherm voor een tv in de hal, rol `scherm` (D30). Geert wil daarna ook grondstoffen, ploegoverdracht, meldingen, stilstand, etiketten/barcodes, capaciteit, certificaat, regelkaarten en Excel-export, elk als eigen 0.x.0-versie.
 - **19 nov 2026 · 0.9.0** — Portaal Planning (D29): database-update 3 (producten, geplande batches met doornummeren, lotvoorstellen, dagplanning per stap), API `/planning`, vier schermen, planning in het invoerscherm (PS1 geplande batches, PS16 voorstellen met reden bij afwijken). Generator maakt planning; testdata eindigt nu echt op de laatste invoer (er stonden tijden in de toekomst), datums schuiven mee.
 - **19 nov 2026 · 0.8.0** — Geert draait de proof of concept op zijn laptop (0.7.1 werkt). Op zijn vraag: eerste beheerder bij een lege start, noodsleutel `BEHEERDER HERSTELLEN.bat` / `tools/beheerder.mjs`, lege fabriek zonder testaccounts (D28).
 - **19 nov 2026 · 0.7.1** — Eerste echte Windows-start hing na het starten van de database: `spawnSync` wachtte op uitvoer die `postgres.exe` openhield. `pg_ctl start` nu zonder opgevangen uitvoer. Les: op Windows nooit uitvoer opvangen van een programma dat een achtergrondproces start.

@@ -24,6 +24,7 @@ Met de fictieve testdata zijn er testaccounts; het wachtwoord is steeds `demo`. 
 | `ploegleider1` | Invoerscherm en Portaal Productie |
 | `kwaliteit1` | Portaal Kwaliteit |
 | `planner1` | Portaal Planning |
+| `scherm1` | Wandscherm (voor een tv in de hal) |
 | `beheerder1` | Portaal Beheer |
 | `analist1` | Portalen, alleen lezen |
 

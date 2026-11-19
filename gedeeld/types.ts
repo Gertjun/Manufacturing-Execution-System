@@ -1,7 +1,7 @@
 // Vormen zoals de API ze teruggeeft (zie openapi.json).
 
 export type Markering = "ok" | "buiten_tolerantie" | "buiten_grens";
-export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner";
+export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm";
 
 export interface Veld {
   code: string;

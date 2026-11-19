@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -4543,6 +4543,12 @@
                         "enum": [
                           "planner"
                         ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "scherm"
+                        ]
                       }
                     ]
                   },
@@ -4635,6 +4641,12 @@
                         "type": "string",
                         "enum": [
                           "planner"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "scherm"
                         ]
                       }
                     ]
@@ -8123,6 +8135,207 @@
         "responses": {
           "204": {
             "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/wandscherm/": {
+      "get": {
+        "tags": [
+          "wandscherm"
+        ],
+        "description": "Alles voor het wandscherm in één keer: per stap de planning van vandaag, wat bezig is en wat klaarstaat, en de kerncijfers van vandaag. Met hal alleen de stappen van de pc's in die hal.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "in": "query",
+            "name": "hal",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "tijd",
+                    "hal",
+                    "hallen",
+                    "kerncijfers",
+                    "stappen"
+                  ],
+                  "properties": {
+                    "tijd": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "hal": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hallen": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "kerncijfers": {
+                      "type": "object",
+                      "required": [
+                        "gepland_vandaag",
+                        "gestart_vandaag",
+                        "lots_gereed_vandaag",
+                        "in_beoordeling"
+                      ],
+                      "properties": {
+                        "gepland_vandaag": {
+                          "type": "integer"
+                        },
+                        "gestart_vandaag": {
+                          "type": "integer"
+                        },
+                        "lots_gereed_vandaag": {
+                          "type": "integer"
+                        },
+                        "in_beoordeling": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "stappen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "code",
+                          "naam",
+                          "niveau",
+                          "gepland",
+                          "bezig",
+                          "klaar"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "naam": {
+                            "type": "string"
+                          },
+                          "niveau": {
+                            "type": "string"
+                          },
+                          "gepland": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "nummer",
+                                "volgorde",
+                                "status",
+                                "opmerking"
+                              ],
+                              "properties": {
+                                "nummer": {
+                                  "type": "string"
+                                },
+                                "volgorde": {
+                                  "type": "integer"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "opmerking": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            }
+                          },
+                          "bezig": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "nummer",
+                                "sinds",
+                                "lang",
+                                "gepland",
+                                "opmerking"
+                              ],
+                              "properties": {
+                                "nummer": {
+                                  "type": "string"
+                                },
+                                "sinds": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "nullable": true
+                                },
+                                "lang": {
+                                  "type": "boolean",
+                                  "description": "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen"
+                                },
+                                "gepland": {
+                                  "description": "Plek in de dagplanning van deze stap",
+                                  "type": "integer",
+                                  "nullable": true
+                                },
+                                "opmerking": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            }
+                          },
+                          "klaar": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "nummer",
+                                "sinds",
+                                "lang",
+                                "gepland",
+                                "opmerking"
+                              ],
+                              "properties": {
+                                "nummer": {
+                                  "type": "string"
+                                },
+                                "sinds": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "nullable": true
+                                },
+                                "lang": {
+                                  "type": "boolean",
+                                  "description": "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen"
+                                },
+                                "gepland": {
+                                  "description": "Plek in de dagplanning van deze stap",
+                                  "type": "integer",
+                                  "nullable": true
+                                },
+                                "opmerking": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

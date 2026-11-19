@@ -82,7 +82,7 @@ npm start
 ```
 
 Daarna staat de interactieve documentatie op `http://<server>:3000/docs`.
-Testaccounts (wachtwoord `demo`): `operator`, `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`.
+Testaccounts (wachtwoord `demo`): `operator`, `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
 
 ### Inloggen
 
@@ -186,6 +186,7 @@ node e2e/portaal.mjs          # test Kwaliteit in Chrome (database met verse tes
 node e2e/productie.mjs        # test Productie in Chrome (database met verse testdata)
 node e2e/beheer.mjs           # test Beheer in Chrome (database met verse configuratie)
 node e2e/planning.mjs         # test Planning in Chrome (zet zelf een verse database klaar)
+node e2e/wandscherm.mjs       # test het wandscherm in Chrome (database met verse testdata)
 ```
 
 ## Proof of concept op een laptop
@@ -234,6 +235,10 @@ Ook op `/portaal/` (testaccount `planner1`, wachtwoord `demo`; een planner start
 | Producten | Producten of recepten toevoegen, hernoemen of uitzetten |
 
 In het invoerscherm staat bovenaan elke stap "Gepland voor vandaag". In de eerste stap start de operator een geplande batch; een ongeplande batch aanmaken zit achter "Ongeplande batch aanmaken (uitzondering)".
+
+## Wandscherm
+
+`/portaal/#/wandscherm` (of per hal `#/wandscherm/Hal 1`) is bedoeld voor een tv in de hal: per stap wat bezig is, wat klaarstaat en wat gepland is, met de kerncijfers van vandaag. Log op de tv in met een account met de rol Wandscherm (testaccount `scherm1`, wachtwoord `demo`); dat blijft 30 dagen ingelogd en ziet niets anders. Zet in de browser het scherm op volledig scherm (F11). Zie D30.
 
 ## Portaal Beheer
 

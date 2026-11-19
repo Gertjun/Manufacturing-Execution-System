@@ -2,7 +2,7 @@
 // LET OP: de database wordt leeggemaakt en opnieuw gevuld met fictieve configuratie.
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { bouwApp, type App } from "../src/app.js";
 import { maakPool, type Db } from "../src/db.js";
@@ -443,7 +443,7 @@ describe("server en onderhoud", () => {
     await beheerDb.query("DELETE FROM fabriek.onderhoud_log");
     const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.equal(r.body.schema.nummer, 3);
+    assert.equal(r.body.schema.nummer, readdirSync(new URL("../../db/migraties/", import.meta.url)).filter((f) => f.endsWith(".sql")).length);
     assert.equal(r.body.laatsteBackup, null);
     assert.ok(r.body.waarschuwingen.some((w: any) => w.niveau === "fout" && /nooit een back-up/.test(w.tekst)));
   });
@@ -648,5 +648,39 @@ describe("Portaal Planning: lotkandidaten", () => {
     assert.ok(r.body.length > 0);
     const eerste = r.body.findIndex((b: any) => !b.klaar_voor_lot);
     assert.ok(eerste === -1 || r.body.slice(eerste).every((b: any) => !b.klaar_voor_lot));
+  });
+});
+
+describe("Wandscherm", () => {
+  test("schermaccount leest alleen het wandscherm; uitgezet = geen toegang meer", async () => {
+    const t = await login("scherm1");
+    const r = await verzoek("GET", "/wandscherm", t);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.stappen.length, 18);
+    assert.ok(r.body.hallen.includes("Hal 1"));
+    assert.equal(typeof r.body.kerncijfers.gestart_vandaag, "number");
+    for (const pad of ["/analyse/afwijkingen", "/werkvoorraad", "/planning/week?van=2026-11-16", "/batches?gereedVoorLot=true"]) {
+      assert.equal((await verzoek("GET", pad, t)).status, 403, pad);
+    }
+    // Het token van een schermaccount is 30 dagen geldig.
+    const exp = JSON.parse(Buffer.from(t.split(".")[1], "base64url").toString()).exp;
+    assert.ok(exp - Date.now() / 1000 > 29 * 86400);
+    const hal = await verzoek("GET", "/wandscherm?hal=Hal%201", t);
+    assert.equal(hal.body.hal, "Hal 1");
+    assert.equal((await verzoek("GET", "/wandscherm?hal=Hal%209", t)).status, 404);
+    // Operators zien het wandscherm niet (die hebben het invoerscherm).
+    assert.equal((await verzoek("GET", "/wandscherm", await login("operator", "PC-01"))).status, 403);
+    await beheerDb.query("UPDATE fabriek.gebruiker SET actief = false WHERE gebruikersnaam = 'scherm1'");
+    assert.equal((await verzoek("GET", "/wandscherm", t)).status, 401);
+    await beheerDb.query("UPDATE fabriek.gebruiker SET actief = true WHERE gebruikersnaam = 'scherm1'");
+  });
+
+  test("planning, bezig en klaar per stap", async () => {
+    const t = await login("planner1");
+    const r = await verzoek("GET", "/wandscherm", t);
+    const ps16 = r.body.stappen.find((s: any) => s.code === "PS16");
+    assert.ok(Array.isArray(ps16.gepland) && Array.isArray(ps16.bezig) && Array.isArray(ps16.klaar));
+    const metPlan = r.body.stappen.flatMap((s: any) => s.klaar).filter((i: any) => i.gepland !== null);
+    assert.ok(metPlan.every((i: any) => Number.isInteger(i.gepland)));
   });
 });

@@ -14,6 +14,7 @@ import beheerRoutes from "../../api/src/routes/beheer";
 import analyseRoutes from "../../api/src/routes/analyse";
 import werkvoorraadRoutes from "../../api/src/routes/werkvoorraad";
 import planningRoutes from "../../api/src/routes/planning";
+import wandschermRoutes from "../../api/src/routes/wandscherm";
 import { VERSIE } from "../../api/src/versie";
 
 export const DB_NAAM = `batchgui-demo-${VERSIE}`;
@@ -197,6 +198,7 @@ export async function startServer(pg: PGlite) {
   await app.register(analyseRoutes, { prefix: "/analyse" });
   await app.register(werkvoorraadRoutes, { prefix: "/werkvoorraad" });
   await app.register(planningRoutes, { prefix: "/planning" });
+  await app.register(wandschermRoutes, { prefix: "/wandscherm" });
   app.get("/gezondheid", {}, async () => ({ status: "ok", versie: VERSIE, demo: true }));
   return verwerk;
 }

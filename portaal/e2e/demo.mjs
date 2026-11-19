@@ -85,7 +85,7 @@ const srv = await p.evaluate(async () => {
   const l = JSON.parse((await api({ methode: "POST", url: "/auth/login", headers: {}, body: JSON.stringify({ gebruikersnaam: "beheerder1", wachtwoord: "demo" }) })).body);
   return JSON.parse((await api({ methode: "GET", url: "/beheer/server", headers: { authorization: "Bearer " + l.token } })).body);
 });
-check(srv.schema?.nummer === 3 && srv.laatsteBackup && srv.waarschuwingen.length === 0, `serveroverzicht in de demo zonder waarschuwingen (${JSON.stringify(srv.waarschuwingen)})`);
+check(srv.schema?.nummer >= 4 && srv.laatsteBackup && srv.waarschuwingen.length === 0, `serveroverzicht in de demo zonder waarschuwingen (${JSON.stringify(srv.waarschuwingen)})`);
 
 // Planning: vandaag gepland en lotvoorstellen open
 const plan = await p.evaluate(async () => {

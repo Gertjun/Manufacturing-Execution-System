@@ -110,3 +110,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
   - Plannen mogen de rollen planner en beheerder; iedereen mag de planning lezen.
 - **Waarom:** antwoorden van Geert: "Systeem nummert door", "Planner stelt voor" en ongeplande batches "Ja, als uitzondering". De fabriek moet kunnen blijven draaien als de planning niet klopt.
 
+### D30 – Wandscherm en schermaccount (19 nov 2026, 0.10.0)
+- **Besluit:** het wandscherm is een pagina van de portalen (`#/wandscherm`), alleen om te kijken, zonder menu, verversend elke 30 seconden. Een nieuwe rol `scherm` mag alleen het wandscherm lezen; het token van zo'n account is 30 dagen geldig (anders 12 uur), en bij elke vraag controleert de server of het account nog actief is. "Langer dan normaal" = langer dan 90% van de wacht- of bewerkingstijden van die stap in de laatste 30 dagen (minimaal 15 minuten). Per hal: de stappen van de actieve pc's met die locatie (een pc zonder stappenkeuze telt voor alle stappen).
+- **Waarom:** Geerts vraag om een planningsdashboard waarop operators snel zien wat er te doen staat. Een tv mag niet op naam van een persoon ingelogd zijn, en moet dagen kunnen blijven staan.
+

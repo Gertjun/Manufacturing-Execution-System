@@ -13,6 +13,7 @@ const ROLLEN: [string, string][] = [
   ["beheerder", "Beheerder"],
   ["analist", "Analist (alleen lezen)"],
   ["planner", "Planner"],
+  ["scherm", "Wandscherm (alleen kijken, voor een tv in de hal)"],
 ];
 const rolNaam = (r: string) => ROLLEN.find(([k]) => k === r)?.[1].replace(/ \(.*\)/, "") ?? r;
 const SOORTEN: [string, string][] = [["procesparameter", "Procesparameter (setting en gemeten)"], ["gewicht", "Gewicht"], ["overig", "Overig (alleen gemeten)"]];

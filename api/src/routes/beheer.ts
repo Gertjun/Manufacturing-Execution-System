@@ -162,7 +162,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   // ---------- Accounts ----------
-  const Rol = Type.Union(["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner"].map((r) => Type.Literal(r)));
+  const Rol = Type.Union(["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "scherm"].map((r) => Type.Literal(r)));
   const Account = Type.Object({ gebruikersnaam: Type.String(), rol: Type.String(), actief: Type.Boolean() });
   const Wachtwoord = Type.String({ minLength: 8, description: "Minstens 8 tekens" });
 
