@@ -2,6 +2,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.17.0 — 19 november 2026
+- Nieuw: certificaat per lot (analysecertificaat voor de klant). In het lotpaspoort staat "Certificaat". Daar zie je per kenmerk de specificatie, het resultaat (bij batchkenmerken van laag tot hoog, met het gemiddelde over de 4 batches) en of het lot voldoet. Ook staan erop: de batches, het product en de grondstofpartijen, en de verklaring van het bedrijf.
+- Kwaliteit geeft het certificaat uit met "Uitgeven". Dat kan alleen als het lot gereed is, alle kenmerken gemeten zijn en binnen de specificatie vallen, en geen batch is afgekeurd. Het certificaat krijgt een volgnummer en wordt bewaard zoals het is uitgegeven, zodat een herdruk precies gelijk is. Tot het uitgeven staat er "CONCEPT" op.
+- Afdrukken of als pdf bewaren gaat via de browser; er komt alleen het certificaat op papier.
+- Nieuw in Portaal Beheer: bij elk veld kies je of het op het certificaat komt. Onder "Bedrijfsgegevens" stel je de bedrijfsnaam, het adres en de verklaring in. De fictieve configuratie zet druk (S3.3), toerental (S7.3), gewicht (S17.2, S18.2) en vochtgehalte (S18.3) op het certificaat.
+- Technisch: database-update 10 (`0010_certificaat`).
+
 ## 0.16.0 — 19 november 2026
 - Nieuw: capaciteit in de planning. In Portaal Planning → Capaciteit leg je per weekdag vast hoeveel batches de fabriek aankan. Daarnaast kun je afwijkende dagen vastleggen met een reden, zoals een feestdag of onderhoud.
 - In de weekplanning staat per dag hoe vol hij is ("4 / 6" met een balk). Een dag met meer batches dan de capaciteit wordt geel met ⚠. Bovenaan zie je hoeveel ruimte er deze week nog is.

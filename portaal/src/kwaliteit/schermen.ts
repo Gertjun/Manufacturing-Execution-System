@@ -200,6 +200,7 @@ async function toonLotpaspoort(nummer: string) {
       `${lotStatus[lot.status] ?? lot.status}, gemaakt ${datum(lot.aangemaakt_op)}`,
       h("div", { class: "knoppen-klein" },
         h("a", { class: "knop knop-stil", href: `#/etiketten/printer/${encodeURIComponent(lot.lotnummer)}` }, "Etiket"),
+        h("a", { class: "knop knop-stil", href: `#/kwaliteit/certificaat/${encodeURIComponent(lot.lotnummer)}` }, "Certificaat"),
         h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken"))),
     h("dl", { class: "feiten" },
       h("div", {}, h("dt", {}, "Batches"), h("dd", {}, lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)]))),

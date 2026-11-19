@@ -1,7 +1,7 @@
 // Draait in het invoerscherm en de portalen binnen de demo: API-verzoeken gaan naar de
 // nagebootste server in het bovenliggende venster in plaats van over het netwerk.
 (function () {
-  var API = ["/auth", "/config", "/batches", "/registraties", "/lots", "/werkvoorraad", "/planning", "/wandscherm", "/overdracht", "/meldingen", "/stilstand", "/beheer", "/analyse", "/gezondheid"];
+  var API = ["/auth", "/config", "/batches", "/registraties", "/lots", "/werkvoorraad", "/planning", "/wandscherm", "/overdracht", "/meldingen", "/stilstand", "/certificaten", "/beheer", "/analyse", "/gezondheid"];
   var echt = window.fetch.bind(window);
   function isApi(url) {
     return typeof url === "string" && url.charAt(0) === "/" &&

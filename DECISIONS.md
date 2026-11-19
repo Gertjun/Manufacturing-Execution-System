@@ -138,3 +138,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** capaciteit = het aantal batches dat op een dag kan worden gestart, per weekdag, met afwijkende dagen (met reden). Bezet = alle batches op die dag (gepland, of gestart als ze niet gepland waren), zonder vervallen. Boven de capaciteit plannen mag; de planner krijgt vooraf een vraag en daarna een waarschuwing. Capaciteit per stap of machine doen we (nog) niet.
 - **Waarom:** de planner moet kunnen kiezen (spoedorder, extra ploeg); het systeem moet het alleen zichtbaar maken. Batches per dag is wat de planner nu ook telt.
 
+### D37 – Certificaat per lot (19 nov 2026, 0.17.0)
+- **Besluit:** het certificaat toont de velden die de beheerder "op het certificaat" zet, met de grenzen als specificatie. Per batchkenmerk tonen we laag–hoog en het gemiddelde over de batches; per lotkenmerk de waarde. We gebruiken de laatste afgeronde meting per batch of lot, met correcties. Alleen Kwaliteit (of de beheerder) geeft uit, alleen voor een lot dat gereed is en volledig binnen de specificatie valt, zonder afgekeurde batch (databaseregel plus API). Een uitgegeven certificaat krijgt een volgnummer en de inhoud wordt bewaard (jsonb), zodat een herdruk gelijk blijft als de configuratie later verandert. Pdf maken gaat via het afdrukvenster van de browser.
+- **Waarom:** een klant moet een vast document met een nummer krijgen. Een certificaat met een afwijking hoort niet automatisch te ontstaan; dat is een besluit van Kwaliteit buiten het systeem.
+

@@ -58,6 +58,7 @@ export async function stappen(code?: string) {
           ]
         : []),
       { naam: "verplicht", label: "Verplicht om de stap af te ronden", opties: [["ja", "Ja"], ["nee", "Nee"]], waarde: v ? (v.verplicht ? "ja" : "nee") : "ja" },
+      { naam: "op_certificaat", label: "Op het certificaat per lot", opties: [["nee", "Nee"], ["ja", "Ja"]], waarde: v?.op_certificaat ? "ja" : "nee" },
     ];
   };
   const naarBody = (r: Record<string, string>, metTolerantie: boolean) => {
@@ -70,6 +71,7 @@ export async function stappen(code?: string) {
       grens_max: max,
       ...(metTolerantie ? { tolerantie: getalOfNull(r.tolerantie), tolerantie_soort: r.tolerantie_soort } : {}),
       verplicht: r.verplicht === "ja",
+      op_certificaat: r.op_certificaat === "ja",
     };
   };
 
@@ -128,13 +130,14 @@ export async function stappen(code?: string) {
             h("button", { class: "knop", onclick: hernoem }, "Naam wijzigen"),
             h("button", { class: "knop knop-hoofd", onclick: veldToevoegen }, "Veld toevoegen"))),
         s.velden.length
-          ? tabel(["Code", "Naam", "Soort", "Grenzen", "Tolerantie", "Verplicht", ""], s.velden.map((v) => [
+          ? tabel(["Code", "Naam", "Soort", "Grenzen", "Tolerantie", "Verplicht", "Certificaat", ""], s.velden.map((v) => [
               h("strong", { class: v.actief ? "" : "inactief" }, v.code),
               h("span", { class: v.actief ? "" : "inactief" }, v.naam, v.actief ? "" : " (uit)"),
               SOORTEN.find(([k]) => k === v.soort)?.[1].replace(/ \(.*\)/, "") ?? v.soort,
               grenzen(v),
               v.tolerantie !== null ? `±${toonGetal(v.tolerantie)}${v.tolerantie_soort === "procent" ? " %" : v.eenheid ? ` ${v.eenheid}` : ""}` : "",
               jaNee(v.verplicht),
+              v.op_certificaat ? "Ja" : "",
               h("div", { class: "knoppen-klein" },
                 v.actief ? h("button", { class: "knop knop-klein", onclick: () => veldWijzigen(v) }, "Wijzigen") : null,
                 h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(v, !v.actief) }, v.actief ? "Uitzetten" : "Weer aanzetten")),
@@ -353,6 +356,29 @@ export async function oorzaken() {
           wijzig(() => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, { actief: !o.actief }), o.actief ? `${o.naam} uitgezet` : `${o.naam} weer actief`, oorzaken) },
           o.actief ? "Uitzetten" : "Weer aanzetten")),
     ]), "compact"),
+  );
+}
+
+// ---------- Bedrijfsgegevens (certificaat) ----------
+export async function bedrijf() {
+  const actueel = vastHouden();
+  toon(kop("Bedrijfsgegevens"), laden());
+  let b: { bedrijfsnaam: string; bedrijfsadres: string; certificaat_verklaring: string };
+  try { b = await haal("/certificaten/instellingen"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const naam = h("input", { id: "b-naam", value: b.bedrijfsnaam, maxlength: 120 }) as HTMLInputElement;
+  const adres = h("input", { id: "b-adres", value: b.bedrijfsadres, maxlength: 300 }) as HTMLInputElement;
+  const tekst = h("textarea", { id: "b-tekst", rows: 4, maxlength: 1500 }, b.certificaat_verklaring) as HTMLTextAreaElement;
+  toon(
+    kop("Bedrijfsgegevens", "Staan bovenaan het certificaat per lot. Welke kenmerken erop komen, kies je per veld bij Stappen en velden."),
+    h("section", { class: "blok formulier-blok" },
+      h("label", { for: "b-naam" }, "Bedrijfsnaam", naam),
+      h("label", { for: "b-adres" }, "Adres", adres),
+      h("label", { for: "b-tekst" }, "Verklaring op het certificaat", tekst),
+      h("button", { class: "knop knop-hoofd", onclick: () => {
+        if (!naam.value.trim()) return melding("Vul een bedrijfsnaam in", "fout");
+        return wijzig(() => stuur("PUT", "/certificaten/instellingen", { bedrijfsnaam: naam.value, bedrijfsadres: adres.value, certificaat_verklaring: tekst.value }), "Opgeslagen", bedrijf);
+      } }, "Opslaan")),
   );
 }
 

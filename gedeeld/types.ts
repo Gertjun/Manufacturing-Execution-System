@@ -15,6 +15,7 @@ export interface Veld {
   volgnummer: number;
   verplicht: boolean;
   actief: boolean;
+  op_certificaat?: boolean;
 }
 
 export interface Stap {

@@ -75,6 +75,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             tolerantie_soort: Type.Optional(Type.Union([Type.Literal("absoluut"), Type.Literal("procent")])),
             verplicht: Type.Optional(Type.Boolean()),
             actief: Type.Optional(Type.Boolean()),
+            op_certificaat: Type.Optional(Type.Boolean()),
           },
           { additionalProperties: false, minProperties: 1 },
         ),
@@ -83,7 +84,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const kolommen = Object.keys(req.body);
-      const toegestaan = ["naam", "eenheid", "grens_min", "grens_max", "tolerantie", "tolerantie_soort", "verplicht", "actief"];
+      const toegestaan = ["naam", "eenheid", "grens_min", "grens_max", "tolerantie", "tolerantie_soort", "verplicht", "actief", "op_certificaat"];
       if (kolommen.length === 0) throw new ApiFout(400, "Niets te wijzigen");
       if (kolommen.some((k) => !toegestaan.includes(k))) throw new ApiFout(400, "Onbekend veld in wijziging");
       const waarden = kolommen.map((k) => (req.body as Record<string, unknown>)[k]);

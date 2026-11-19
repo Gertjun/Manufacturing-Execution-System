@@ -18,6 +18,7 @@ import wandschermRoutes from "../../api/src/routes/wandscherm";
 import overdrachtRoutes from "../../api/src/routes/overdracht";
 import meldingRoutes from "../../api/src/routes/meldingen";
 import stilstandRoutes from "../../api/src/routes/stilstand";
+import certificaatRoutes from "../../api/src/routes/certificaat";
 import { VERSIE } from "../../api/src/versie";
 
 export const DB_NAAM = `batchgui-demo-${VERSIE}`;
@@ -208,6 +209,7 @@ export async function startServer(pg: PGlite) {
   await app.register(overdrachtRoutes, { prefix: "/overdracht" });
   await app.register(meldingRoutes, { prefix: "/meldingen" });
   await app.register(stilstandRoutes, { prefix: "/stilstand" });
+  await app.register(certificaatRoutes, { prefix: "/certificaten" });
   app.get("/gezondheid", {}, async () => ({ status: "ok", versie: VERSIE, demo: true }));
   return verwerk;
 }

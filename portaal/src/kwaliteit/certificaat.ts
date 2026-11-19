@@ -1,0 +1,100 @@
+// Certificaat per lot (analysecertificaat voor de klant): concept bekijken, uitgeven (Kwaliteit), afdrukken of als pdf bewaren.
+import { h, laden, melding, toon, vastHouden } from "../../../gedeeld/ui";
+import { toonGetal } from "../../../gedeeld/markering";
+import { haal, sessie, stuur } from "../basis";
+import { fout } from "./schermen";
+
+interface Kenmerk {
+  veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; spec_min: number | null; spec_max: number | null;
+  resultaten: { nummer: string; waarde: number }[]; min: number | null; max: number | null; gemiddelde: number | null; voldoet: boolean | null;
+}
+interface Inhoud {
+  lotnummer: string; status: string; gereed_op: string | null; producten: string[]; batches: string[];
+  bedrijf: { naam: string; adres: string; verklaring: string };
+  kenmerken: Kenmerk[]; grondstoffen: { grondstof: string; naam: string; partijen: string[] }[]; voldoet: boolean;
+}
+interface Uitgegeven { nummer: number; door: string; uitgegeven_op: string }
+
+const dt = (iso: string) => new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+const e = (k: Kenmerk) => (k.eenheid ? ` ${k.eenheid}` : "");
+function spec(k: Kenmerk) {
+  if (k.spec_min !== null && k.spec_max !== null) return `${toonGetal(k.spec_min)} – ${toonGetal(k.spec_max)}${e(k)}`;
+  if (k.spec_max !== null) return `≤ ${toonGetal(k.spec_max)}${e(k)}`;
+  if (k.spec_min !== null) return `≥ ${toonGetal(k.spec_min)}${e(k)}`;
+  return "–";
+}
+function resultaat(k: Kenmerk) {
+  if (!k.resultaten.length) return "niet gemeten";
+  if (k.resultaten.length === 1) return `${toonGetal(k.resultaten[0].waarde)}${e(k)}`;
+  return `${toonGetal(k.min!)} – ${toonGetal(k.max!)}${e(k)} (gem. ${toonGetal(k.gemiddelde!)}, ${k.resultaten.length} batches)`;
+}
+
+function document_(c: Inhoud, uit: Uitgegeven | null) {
+  return h("article", { class: `certificaat${uit ? "" : " concept"}` },
+    h("header", { class: "cert-kop" },
+      h("div", {}, h("div", { class: "cert-bedrijf" }, c.bedrijf.naam), h("div", { class: "sub" }, c.bedrijf.adres)),
+      h("div", { class: "cert-titel" }, h("div", { class: "cert-soort" }, "Analysecertificaat"),
+        h("div", { class: "cert-nummer" }, uit ? `Nr. ${uit.nummer}` : "CONCEPT"))),
+    h("dl", { class: "cert-feiten" },
+      h("div", {}, h("dt", {}, "Lot"), h("dd", {}, c.lotnummer)),
+      h("div", {}, h("dt", {}, "Product"), h("dd", {}, c.producten.join(", ") || "–")),
+      h("div", {}, h("dt", {}, "Batches"), h("dd", {}, c.batches.join(", "))),
+      h("div", {}, h("dt", {}, "Gereed op"), h("dd", {}, c.gereed_op ? dt(c.gereed_op) : "nog niet gereed"))),
+    h("table", { class: "cert-tabel" },
+      h("thead", {}, h("tr", {}, ["Kenmerk", "Specificatie", "Resultaat", "Voldoet"].map((t) => h("th", { scope: "col" }, t)))),
+      h("tbody", {}, c.kenmerken.map((k) => h("tr", {},
+        h("td", {}, h("strong", {}, k.naam), h("span", { class: "cert-klein" }, ` ${k.veld}, ${k.stap}`)),
+        h("td", {}, spec(k)),
+        h("td", {}, resultaat(k)),
+        h("td", { class: k.voldoet === false ? "cert-nee" : "" }, k.voldoet === null ? "–" : k.voldoet ? "✓ Ja" : "✗ Nee"))))),
+    c.grondstoffen.length
+      ? h("p", { class: "cert-klein" }, "Grondstofpartijen: ", c.grondstoffen.map((g) => `${g.naam} ${g.partijen.join(", ")}`).join("; "))
+      : null,
+    h("p", { class: "cert-verklaring" }, c.bedrijf.verklaring),
+    h("footer", { class: "cert-voet" },
+      uit
+        ? h("div", {}, `Uitgegeven door ${uit.door} (Kwaliteit) op ${dt(uit.uitgegeven_op)}.`)
+        : h("div", {}, "Concept: nog niet uitgegeven. Alleen Kwaliteit kan een certificaat uitgeven, als het lot gereed is en voldoet."),
+      h("div", { class: "cert-handtekening" }, "Handtekening")));
+}
+
+export async function certificaat(lotnummer: string, nummer?: string) {
+  const actueel = vastHouden();
+  toon(h("h1", {}, "Certificaat"), laden());
+  let c: Inhoud, uit: Uitgegeven | null = null, lijst: Uitgegeven[] = [];
+  try {
+    if (nummer) {
+      const r = await haal<Uitgegeven & { inhoud: Inhoud }>(`/certificaten/${encodeURIComponent(nummer)}`);
+      c = r.inhoud; uit = r;
+      lijst = (await haal<{ uitgegeven: Uitgegeven[] }>(`/certificaten/lots/${encodeURIComponent(lotnummer)}`)).uitgegeven;
+    } else {
+      const r = await haal<{ concept: Inhoud; uitgegeven: Uitgegeven[] }>(`/certificaten/lots/${encodeURIComponent(lotnummer)}`);
+      c = r.concept; lijst = r.uitgegeven;
+    }
+  } catch (err) { return fout(err); }
+  if (!actueel()) return;
+  const magUitgeven = ["kwaliteit", "beheerder"].includes(sessie.rol ?? "") && !uit;
+  const waarom = c.status !== "gereed" ? "Het lot is nog niet gereed." : !c.voldoet ? "Niet alle kenmerken zijn gemeten en binnen de specificatie, of een batch is afgekeurd." : null;
+  toon(
+    h("div", { class: "kop geen-print" },
+      h("div", {}, h("p", { class: "terug" }, h("a", { href: `#/kwaliteit/lotpaspoort/${lotnummer}` }, `Lotpaspoort ${lotnummer}`)),
+        h("h1", {}, uit ? `Certificaat nr. ${uit.nummer}` : `Certificaat ${lotnummer} (concept)`),
+        lijst.length ? h("p", { class: "sub" }, "Uitgegeven: ", lijst.flatMap((x, i) => [i ? ", " : "",
+          h("a", { href: `#/kwaliteit/certificaat/${lotnummer}/${x.nummer}` }, `nr. ${x.nummer} (${dt(x.uitgegeven_op)})`)])) : null),
+      h("div", { class: "knoppen-klein" },
+        uit ? h("a", { class: "knop knop-stil", href: `#/kwaliteit/certificaat/${lotnummer}` }, "Concept") : null,
+        magUitgeven ? h("button", {
+          class: "knop knop-hoofd", disabled: !!waarom, title: waarom ?? undefined,
+          onclick: async () => {
+            try {
+              const r = await stuur<Uitgegeven>("POST", `/certificaten/lots/${encodeURIComponent(lotnummer)}`);
+              melding(`Certificaat nr. ${r.nummer} uitgegeven`, "ok");
+              location.hash = `#/kwaliteit/certificaat/${lotnummer}/${r.nummer}`;
+            } catch (err) { melding((err as Error).message, "fout"); }
+          },
+        }, "Uitgeven") : null,
+        h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken of pdf"))),
+    magUitgeven && waarom ? h("p", { class: "melding-inline geen-print" }, waarom) : null,
+    document_(c, uit),
+  );
+}

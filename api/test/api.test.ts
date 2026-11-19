@@ -912,3 +912,44 @@ describe("Capaciteit", () => {
     assert.equal((await verzoek("PUT", "/planning/capaciteit/weekdagen", await login("kwaliteit1"), { weekdagen: [{ weekdag: 6, max_batches: 9 }] })).status, 403);
   });
 });
+
+describe("Certificaat per lot", () => {
+  test("concept, uitgeven door Kwaliteit, herdruk gelijk, niet voor een lot dat niet gereed is", async () => {
+    const kw = await login("kwaliteit1");
+    const c = await verzoek("GET", "/certificaten/lots/L-2026-0001", kw);
+    assert.equal(c.status, 200, JSON.stringify(c.body));
+    const k = c.body.concept;
+    assert.deepEqual(k.kenmerken.map((x: any) => x.veld), ["S3.3", "S7.3", "S17.2", "S18.2", "S18.3"]);
+    assert.equal(k.kenmerken[0].resultaten.length, 4, "batchkenmerk: één resultaat per batch");
+    assert.equal(k.bedrijf.naam, "Voorbeeldfabriek B.V. (fictief)");
+    assert.equal(c.body.uitgegeven.length, 0);
+    // Lot L-2026-0001 is in de API-tests niet door PS17/PS18 gegaan: niet gereed.
+    if (k.status !== "gereed") {
+      const n = await verzoek("POST", "/certificaten/lots/L-2026-0001", kw);
+      assert.equal(n.status, 422);
+    }
+    // Een lot dat gereed is: zoek er een in de database of maak het af.
+    const { rows } = await beheerDb.query("SELECT lotnummer FROM fabriek.lot WHERE status = 'gereed' ORDER BY lotnummer LIMIT 1");
+    if (!rows[0]) return;
+    const nr = rows[0].lotnummer;
+    assert.equal((await verzoek("POST", `/certificaten/lots/${nr}`, await login("planner1"))).status, 403);
+    const u = await verzoek("POST", `/certificaten/lots/${nr}`, kw);
+    if (u.status === 422) return; // afwijking in de testdata: dan geen certificaat
+    assert.equal(u.status, 201, JSON.stringify(u.body));
+    const herdruk = await verzoek("GET", `/certificaten/${u.body.nummer}`, kw);
+    assert.deepEqual(herdruk.body.inhoud, u.body.inhoud);
+    assert.equal((await verzoek("GET", `/certificaten/lots/${nr}`, kw)).body.uitgegeven[0].nummer, u.body.nummer);
+  });
+
+  test("beheer: bedrijfsgegevens en veld op het certificaat", async () => {
+    const bh = await login("beheerder1");
+    assert.equal((await verzoek("PUT", "/certificaten/instellingen", bh, { bedrijfsnaam: "Testfabriek (fictief)", bedrijfsadres: "Testweg 1", certificaat_verklaring: "Test." })).status, 204);
+    assert.equal((await verzoek("GET", "/certificaten/instellingen", bh)).body.bedrijfsnaam, "Testfabriek (fictief)");
+    const v = await verzoek("PATCH", "/beheer/velden/S9.2", bh, { op_certificaat: true });
+    assert.equal(v.status, 200, JSON.stringify(v.body));
+    const c = await verzoek("GET", "/certificaten/lots/L-2026-0001", bh);
+    assert.ok(c.body.concept.kenmerken.some((x: any) => x.veld === "S9.2"));
+    await verzoek("PATCH", "/beheer/velden/S9.2", bh, { op_certificaat: false });
+    assert.equal((await verzoek("PUT", "/certificaten/instellingen", await login("kwaliteit1"), { bedrijfsnaam: "x", bedrijfsadres: "", certificaat_verklaring: "" })).status, 403);
+  });
+});

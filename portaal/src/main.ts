@@ -9,6 +9,7 @@ import * as planning from "./planning/schermen";
 import { stopWandscherm, wandscherm } from "./wandscherm";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 import { etikettenScherm } from "./etiketten";
+import { certificaat } from "./kwaliteit/certificaat";
 
 // ---------- Menu ----------
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
@@ -88,7 +89,7 @@ function volgtScherm(naam: string) {
 // ---------- Navigatie ----------
 async function route() {
   nieuweRoute();
-  const [, portaal = "", onderdeel = "", arg] = location.hash.split("/");
+  const [, portaal = "", onderdeel = "", arg, arg2] = location.hash.split("/");
   if (!sessie.geldig()) {
     stopWandscherm();
     stopMeldingen();
@@ -159,18 +160,20 @@ async function route() {
       case "grondstoffen": return beheer.grondstoffen();
       case "ploegen": return beheer.ploegen();
       case "oorzaken": return beheer.oorzaken();
+      case "bedrijf": return beheer.bedrijf();
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
       case "server": return beheer.server();
       default: return void (location.hash = "#/beheer");
     }
   }
-  await tekenMenu(p.id, ["batch"].includes(deel) ? "beoordelen" : deel);
+  await tekenMenu(p.id, ["batch"].includes(deel) ? "beoordelen" : deel === "certificaat" ? "lotpaspoort" : deel);
   switch (deel) {
     case "overzicht": return kwaliteit.overzicht();
     case "beoordelen": return kwaliteit.beoordelen();
     case "lotpaspoort": return kwaliteit.lotpaspoort(a);
     case "grondstoffen": return kwaliteit.grondstoffen(a);
+    case "certificaat": return certificaat(a ?? "", arg2);
     case "batch": return a ? kwaliteit.batch(a) : kwaliteit.beoordelen();
     case "afwijkingen": return kwaliteit.afwijkingen();
     case "trend": return kwaliteit.trendScherm(a);

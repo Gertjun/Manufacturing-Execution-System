@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.16.0",
+    "version": "0.17.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -312,6 +312,10 @@
                             },
                             "verplicht": {
                               "type": "boolean"
+                            },
+                            "op_certificaat": {
+                              "type": "boolean",
+                              "description": "Komt op het certificaat per lot (sinds 0.17.0)"
                             },
                             "actief": {
                               "type": "boolean"
@@ -5395,6 +5399,10 @@
                     "verplicht": {
                       "type": "boolean"
                     },
+                    "op_certificaat": {
+                      "type": "boolean",
+                      "description": "Komt op het certificaat per lot (sinds 0.17.0)"
+                    },
                     "actief": {
                       "type": "boolean"
                     }
@@ -5458,6 +5466,9 @@
                     "type": "boolean"
                   },
                   "actief": {
+                    "type": "boolean"
+                  },
+                  "op_certificaat": {
                     "type": "boolean"
                   }
                 },
@@ -5550,6 +5561,10 @@
                     },
                     "verplicht": {
                       "type": "boolean"
+                    },
+                    "op_certificaat": {
+                      "type": "boolean",
+                      "description": "Komt op het certificaat per lot (sinds 0.17.0)"
                     },
                     "actief": {
                       "type": "boolean"
@@ -12114,6 +12129,767 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/certificaten/lots/{lotnummer}": {
+      "get": {
+        "tags": [
+          "certificaat"
+        ],
+        "description": "Het certificaat zoals het nu zou worden uitgegeven (concept), en de certificaten die al zijn uitgegeven.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^L-[0-9]{4}-[0-9]{4}$"
+            },
+            "example": "L-2026-0042",
+            "in": "path",
+            "name": "lotnummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "concept",
+                    "uitgegeven"
+                  ],
+                  "properties": {
+                    "concept": {
+                      "type": "object",
+                      "required": [
+                        "lotnummer",
+                        "status",
+                        "gereed_op",
+                        "producten",
+                        "batches",
+                        "bedrijf",
+                        "kenmerken",
+                        "grondstoffen",
+                        "voldoet"
+                      ],
+                      "properties": {
+                        "lotnummer": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "gereed_op": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "producten": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "batches": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "bedrijf": {
+                          "type": "object",
+                          "required": [
+                            "naam",
+                            "adres",
+                            "verklaring"
+                          ],
+                          "properties": {
+                            "naam": {
+                              "type": "string"
+                            },
+                            "adres": {
+                              "type": "string"
+                            },
+                            "verklaring": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "kenmerken": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "veld",
+                              "naam",
+                              "stap",
+                              "niveau",
+                              "eenheid",
+                              "spec_min",
+                              "spec_max",
+                              "resultaten",
+                              "min",
+                              "max",
+                              "gemiddelde",
+                              "voldoet"
+                            ],
+                            "properties": {
+                              "veld": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "stap": {
+                                "type": "string"
+                              },
+                              "niveau": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "spec_min": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "spec_max": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "resultaten": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "nummer",
+                                    "waarde"
+                                  ],
+                                  "properties": {
+                                    "nummer": {
+                                      "type": "string"
+                                    },
+                                    "waarde": {
+                                      "type": "number"
+                                    }
+                                  }
+                                }
+                              },
+                              "min": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "max": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "gemiddelde": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "voldoet": {
+                                "description": "null = geen meting",
+                                "type": "boolean",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "grondstof",
+                              "naam",
+                              "partijen"
+                            ],
+                            "properties": {
+                              "grondstof": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "partijen": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "voldoet": {
+                          "type": "boolean",
+                          "description": "Alle kenmerken gemeten en binnen de specificatie, en geen batch afgekeurd"
+                        }
+                      }
+                    },
+                    "uitgegeven": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "nummer",
+                          "door",
+                          "uitgegeven_op"
+                        ],
+                        "properties": {
+                          "nummer": {
+                            "type": "integer"
+                          },
+                          "door": {
+                            "type": "string"
+                          },
+                          "uitgegeven_op": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "certificaat"
+        ],
+        "description": "Certificaat uitgeven: krijgt een volgnummer en de inhoud wordt bewaard zoals hij nu is.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^L-[0-9]{4}-[0-9]{4}$"
+            },
+            "example": "L-2026-0042",
+            "in": "path",
+            "name": "lotnummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "nummer",
+                        "door",
+                        "uitgegeven_op"
+                      ],
+                      "properties": {
+                        "nummer": {
+                          "type": "integer"
+                        },
+                        "door": {
+                          "type": "string"
+                        },
+                        "uitgegeven_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "inhoud"
+                      ],
+                      "properties": {
+                        "inhoud": {
+                          "type": "object",
+                          "required": [
+                            "lotnummer",
+                            "status",
+                            "gereed_op",
+                            "producten",
+                            "batches",
+                            "bedrijf",
+                            "kenmerken",
+                            "grondstoffen",
+                            "voldoet"
+                          ],
+                          "properties": {
+                            "lotnummer": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "gereed_op": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "producten": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "batches": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "bedrijf": {
+                              "type": "object",
+                              "required": [
+                                "naam",
+                                "adres",
+                                "verklaring"
+                              ],
+                              "properties": {
+                                "naam": {
+                                  "type": "string"
+                                },
+                                "adres": {
+                                  "type": "string"
+                                },
+                                "verklaring": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "kenmerken": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "veld",
+                                  "naam",
+                                  "stap",
+                                  "niveau",
+                                  "eenheid",
+                                  "spec_min",
+                                  "spec_max",
+                                  "resultaten",
+                                  "min",
+                                  "max",
+                                  "gemiddelde",
+                                  "voldoet"
+                                ],
+                                "properties": {
+                                  "veld": {
+                                    "type": "string"
+                                  },
+                                  "naam": {
+                                    "type": "string"
+                                  },
+                                  "stap": {
+                                    "type": "string"
+                                  },
+                                  "niveau": {
+                                    "type": "string"
+                                  },
+                                  "eenheid": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "spec_min": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "spec_max": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "resultaten": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": [
+                                        "nummer",
+                                        "waarde"
+                                      ],
+                                      "properties": {
+                                        "nummer": {
+                                          "type": "string"
+                                        },
+                                        "waarde": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "min": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "max": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gemiddelde": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "voldoet": {
+                                    "description": "null = geen meting",
+                                    "type": "boolean",
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "grondstoffen": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "grondstof",
+                                  "naam",
+                                  "partijen"
+                                ],
+                                "properties": {
+                                  "grondstof": {
+                                    "type": "string"
+                                  },
+                                  "naam": {
+                                    "type": "string"
+                                  },
+                                  "partijen": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "voldoet": {
+                              "type": "boolean",
+                              "description": "Alle kenmerken gemeten en binnen de specificatie, en geen batch afgekeurd"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificaten/{nummer}": {
+      "get": {
+        "tags": [
+          "certificaat"
+        ],
+        "description": "Een uitgegeven certificaat, precies zoals het is uitgegeven (voor een herdruk).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "path",
+            "name": "nummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "nummer",
+                        "door",
+                        "uitgegeven_op"
+                      ],
+                      "properties": {
+                        "nummer": {
+                          "type": "integer"
+                        },
+                        "door": {
+                          "type": "string"
+                        },
+                        "uitgegeven_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "inhoud"
+                      ],
+                      "properties": {
+                        "inhoud": {
+                          "type": "object",
+                          "required": [
+                            "lotnummer",
+                            "status",
+                            "gereed_op",
+                            "producten",
+                            "batches",
+                            "bedrijf",
+                            "kenmerken",
+                            "grondstoffen",
+                            "voldoet"
+                          ],
+                          "properties": {
+                            "lotnummer": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "gereed_op": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "producten": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "batches": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "bedrijf": {
+                              "type": "object",
+                              "required": [
+                                "naam",
+                                "adres",
+                                "verklaring"
+                              ],
+                              "properties": {
+                                "naam": {
+                                  "type": "string"
+                                },
+                                "adres": {
+                                  "type": "string"
+                                },
+                                "verklaring": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "kenmerken": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "veld",
+                                  "naam",
+                                  "stap",
+                                  "niveau",
+                                  "eenheid",
+                                  "spec_min",
+                                  "spec_max",
+                                  "resultaten",
+                                  "min",
+                                  "max",
+                                  "gemiddelde",
+                                  "voldoet"
+                                ],
+                                "properties": {
+                                  "veld": {
+                                    "type": "string"
+                                  },
+                                  "naam": {
+                                    "type": "string"
+                                  },
+                                  "stap": {
+                                    "type": "string"
+                                  },
+                                  "niveau": {
+                                    "type": "string"
+                                  },
+                                  "eenheid": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "spec_min": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "spec_max": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "resultaten": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": [
+                                        "nummer",
+                                        "waarde"
+                                      ],
+                                      "properties": {
+                                        "nummer": {
+                                          "type": "string"
+                                        },
+                                        "waarde": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "min": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "max": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gemiddelde": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "voldoet": {
+                                    "description": "null = geen meting",
+                                    "type": "boolean",
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "grondstoffen": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "grondstof",
+                                  "naam",
+                                  "partijen"
+                                ],
+                                "properties": {
+                                  "grondstof": {
+                                    "type": "string"
+                                  },
+                                  "naam": {
+                                    "type": "string"
+                                  },
+                                  "partijen": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "voldoet": {
+                              "type": "boolean",
+                              "description": "Alle kenmerken gemeten en binnen de specificatie, en geen batch afgekeurd"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificaten/instellingen": {
+      "get": {
+        "tags": [
+          "certificaat",
+          "beheer"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "bedrijfsnaam",
+                    "bedrijfsadres",
+                    "certificaat_verklaring"
+                  ],
+                  "properties": {
+                    "bedrijfsnaam": {
+                      "type": "string"
+                    },
+                    "bedrijfsadres": {
+                      "type": "string"
+                    },
+                    "certificaat_verklaring": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "certificaat",
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bedrijfsnaam",
+                  "bedrijfsadres",
+                  "certificaat_verklaring"
+                ],
+                "properties": {
+                  "bedrijfsnaam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "bedrijfsadres": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "certificaat_verklaring": {
+                    "type": "string",
+                    "maxLength": 1500
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Default Response"
           }
         }
       }

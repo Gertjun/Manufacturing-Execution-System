@@ -74,4 +74,11 @@ INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES
 -- Fictieve capaciteit: 6 batches per dag, ook in het weekend (de fictieve fabriek draait 24/7; sinds 0.16.0).
 INSERT INTO capaciteit (weekdag, max_batches) VALUES (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6);
 
+-- Certificaat (sinds 0.17.0): fictieve bedrijfsgegevens en welke velden op het certificaat komen.
+INSERT INTO instelling (sleutel, waarde) VALUES
+  ('bedrijfsnaam', 'Voorbeeldfabriek B.V. (fictief)'),
+  ('bedrijfsadres', 'Fabrieksweg 1, 1234 AB Voorbeeldstad'),
+  ('certificaat_verklaring', 'Wij verklaren dat dit lot is geproduceerd en gecontroleerd volgens onze procedures, en dat de hieronder genoemde kenmerken binnen de specificatie vallen.');
+UPDATE veld SET op_certificaat = true WHERE code IN ('S3.3', 'S7.3', 'S17.2', 'S18.2', 'S18.3');
+
 COMMIT;

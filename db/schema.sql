@@ -89,6 +89,7 @@ CREATE TABLE veld (
     volgnummer        int  NOT NULL,
     verplicht         boolean NOT NULL DEFAULT true,
     actief            boolean NOT NULL DEFAULT true,
+    op_certificaat    boolean NOT NULL DEFAULT false,   -- sinds migratie 0010
     UNIQUE (processtap_id, volgnummer),
     CHECK (grens_min IS NULL OR grens_max IS NULL OR grens_min <= grens_max),
     CHECK (tolerantie IS NULL OR soort = 'procesparameter')
@@ -1299,6 +1300,48 @@ CREATE FUNCTION capaciteit_op(p_dag date) RETURNS int LANGUAGE sql STABLE AS $$
 $$;
 
 -- ---------------------------------------------------------------------
+-- Certificaat per lot (sinds migratie 0010, versie 0.17.0)
+-- ---------------------------------------------------------------------
+CREATE TABLE instelling (
+    id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    sleutel  text NOT NULL UNIQUE CHECK (sleutel ~ '^[a-z_]{1,40}$'),
+    waarde   text NOT NULL
+);
+CREATE TRIGGER instelling_log BEFORE INSERT OR UPDATE OR DELETE ON instelling
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE TABLE certificaat (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    nummer           int GENERATED ALWAYS AS IDENTITY UNIQUE,
+    lot_id           uuid NOT NULL REFERENCES lot(id),
+    inhoud           jsonb NOT NULL,
+    uitgegeven_door  uuid NOT NULL REFERENCES gebruiker(id),
+    uitgegeven_op    timestamptz NOT NULL DEFAULT now()
+);
+
+-- Alleen Kwaliteit (of de beheerder) geeft een certificaat uit, en alleen voor een lot dat gereed is.
+CREATE FUNCTION controleer_certificaat() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_status text;
+    v_rol    text;
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        RAISE EXCEPTION 'Een uitgegeven certificaat wordt niet gewijzigd of verwijderd';
+    END IF;
+    SELECT status INTO v_status FROM lot WHERE id = NEW.lot_id;
+    IF v_status <> 'gereed' THEN
+        RAISE EXCEPTION 'Een certificaat kan pas als het lot gereed is (nu: %)', v_status;
+    END IF;
+    SELECT rol INTO v_rol FROM gebruiker WHERE id = NEW.uitgegeven_door AND actief;
+    IF v_rol IS NULL OR v_rol NOT IN ('kwaliteit','beheerder') THEN
+        RAISE EXCEPTION 'Alleen Kwaliteit geeft een certificaat uit';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER certificaat_controle BEFORE INSERT OR UPDATE OR DELETE ON certificaat
+    FOR EACH ROW EXECUTE FUNCTION controleer_certificaat();
+
+-- ---------------------------------------------------------------------
 -- Onderhoud (sinds migratie 0002, versie 0.6.0)
 -- ---------------------------------------------------------------------
 -- Welke migraties zijn uitgevoerd. Wordt bijgewerkt door tools/migreer.mjs.
@@ -1323,7 +1366,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

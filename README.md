@@ -145,6 +145,7 @@ Het menu toont de portalen die bij je rol horen; Planning en Beheer staan erin a
 | Te beoordelen | Batches in beoordeling; Kwaliteit voert hier OK of NOK in |
 | Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan, grondstofpartijen, afdrukbaar voor een klant |
 | Grondstoffen terugzoeken | Op partijnummer: in welke batches en lots zit die partij |
+| Certificaat (via het lotpaspoort) | Analysecertificaat per lot: concept, uitgeven met volgnummer, afdrukken of pdf (D37) |
 | Afwijkingen | Alle metingen buiten tolerantie of grens, met filters |
 | Trend per veld | Grafiek van één veld door de tijd, met tolerantieband en grenzen |
 | Herbewerkingen en afkeur | Hoe vaak, in welke stap en met welke redenen |
@@ -192,6 +193,7 @@ node e2e/planning.mjs         # test Planning in Chrome (zet zelf een verse data
 node e2e/wandscherm.mjs       # test het wandscherm in Chrome (database met verse testdata)
 node e2e/grondstoffen.mjs     # test grondstoffen in Beheer en Kwaliteit (database met verse testdata)
 node e2e/meldingen.mjs        # test meldingen in Chrome (database met verse testdata)
+node e2e/certificaat.mjs      # test het certificaat per lot (database met verse testdata)
 ```
 
 ## Proof of concept op een laptop
@@ -265,6 +267,7 @@ Ook op `/portaal/` (testaccount `beheerder1`, wachtwoord `demo`; een beheerder s
 | Operators | Operatornamen toevoegen, hernoemen of uitzetten (ze verschijnen direct in het invoerscherm) |
 | Grondstoffen | Grondstoffen toevoegen, wijzigen, uitzetten; per stap verplicht of niet (D31) |
 | Ploegen | Begin- en eindtijd en naam van de ploegen |
+| Bedrijfsgegevens | Naam, adres en verklaring bovenaan het certificaat |
 | Oorzaken van stilstand | De keuzelijst bij het melden van stilstand, met de soort |
 | Pc's | Pc's toevoegen en per pc kiezen welke stappen hij bedient |
 | Logboek | Elke wijziging: wie, wanneer, oude en nieuwe waarde |

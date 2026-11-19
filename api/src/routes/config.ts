@@ -14,6 +14,7 @@ export const Veld = Type.Object({
   tolerantie_soort: Type.String(),
   volgnummer: Type.Integer(),
   verplicht: Type.Boolean(),
+  op_certificaat: Type.Optional(Type.Boolean({ description: "Komt op het certificaat per lot (sinds 0.17.0)" })),
   actief: Type.Boolean(),
 });
 
@@ -36,7 +37,7 @@ export const STAPPEN_SQL = `
            'code', v.code, 'naam', v.naam, 'soort', v.soort, 'eenheid', v.eenheid,
            'grens_min', v.grens_min, 'grens_max', v.grens_max, 'tolerantie', v.tolerantie,
            'tolerantie_soort', v.tolerantie_soort, 'volgnummer', v.volgnummer,
-           'verplicht', v.verplicht, 'actief', v.actief) ORDER BY v.volgnummer)
+           'verplicht', v.verplicht, 'actief', v.actief, 'op_certificaat', v.op_certificaat) ORDER BY v.volgnummer)
            FILTER (WHERE v.id IS NOT NULL AND (v.actief OR $1)), '[]') AS velden,
          coalesce((SELECT json_agg(json_build_object('code', g.code, 'naam', g.naam, 'eenheid', g.eenheid, 'verplicht', x.verplicht) ORDER BY g.code)
                      FROM stap_grondstof x JOIN grondstof g ON g.id = x.grondstof_id

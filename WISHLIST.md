@@ -2,7 +2,7 @@
 
 Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
 
-Laatst bijgewerkt: versie 0.16.0, 19 november 2026
+Laatst bijgewerkt: versie 0.17.0, 19 november 2026
 
 ## Gepland
 - #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
@@ -13,7 +13,6 @@ Laatst bijgewerkt: versie 0.16.0, 19 november 2026
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
 - #21 **Meldingen per mail of Teams** (klein, te besluiten) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
 - #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en daarmee de volledige OEE berekend kan worden.
-- #18 **Certificaat per lot** (klein, 0.17.0) — Lotpaspoort als nette pdf voor de klant.
 - #19 **Regelkaarten** (middel, 0.18.0) — Voor Kwaliteit: afwijken zien aankomen vóór de grens.
 - #20 **Export naar Excel** (klein, 0.19.0) — Elke tabel in de portalen naar Excel.
 
@@ -22,6 +21,7 @@ Laatst bijgewerkt: versie 0.16.0, 19 november 2026
 - #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
 
 ## Gerealiseerd
+- #18 **Certificaat per lot** — versie 0.17.0; analysecertificaat met specificatie en resultaat, uitgeven door Kwaliteit met volgnummer, herdruk gelijk, afdrukken of pdf.
 - #17 **Capaciteit in de planning** — versie 0.16.0; per weekdag en afwijkende dagen, bezetting per dag, waarschuwing bij te veel.
 - #5 **Etiketten en barcodes** — versie 0.15.0; Code 128 op etiketprinter of A4-vel, scannen met een handscanner in het invoerscherm.
 - #16 **Storingen en stilstand** — versie 0.14.0; melden en beëindigen in de invoer (offline), melding bij storing, wandscherm, Productie → Stilstand met beschikbaarheid en kwaliteit, oorzaken in Beheer.
