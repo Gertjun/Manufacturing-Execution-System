@@ -246,6 +246,9 @@ try {
   const [st] = await q("SELECT status FROM fabriek.batch WHERE batchnummer = 'B-2026-0005'");
   check("Batch staat in beoordeling", st.status === "in_beoordeling");
   check("Ploegleider ziet geen knoppen voor het keurresultaat", (await page.getByRole("button", { name: /Keurresultaat/ }).count()) === 0);
+  await page.getByRole("link", { name: /^Meldingen/ }).click();
+  await page.locator(".rij", { hasText: "B-2026-0005 in beoordeling gezet" }).waitFor();
+  check("Ploegleider ziet de melding van de beoordeling", true);
 
   console.log("\nKwaliteit: keurresultaat");
   await page.getByRole("button", { name: "Afmelden" }).click();

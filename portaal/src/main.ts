@@ -7,6 +7,7 @@ import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import { stopWandscherm, wandscherm } from "./wandscherm";
+import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 
 // ---------- Menu ----------
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
@@ -18,6 +19,9 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   const portalen = portalenVoor(sessie.rol);
   menu.replaceChildren(
     h("div", { class: "merk" }, "Portalen"),
+    ...(heeftMeldingen()
+      ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
+      : []),
     ...portalen.map((p) =>
       h("div", { class: "menu-groep" },
         h("a", { class: "menu-portaal", href: `#/${p.id}`, "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,
@@ -86,6 +90,7 @@ async function route() {
   const [, portaal = "", onderdeel = "", arg] = location.hash.split("/");
   if (!sessie.geldig()) {
     stopWandscherm();
+    stopMeldingen();
     await tekenMenu("", "");
     return loginScherm();
   }
@@ -95,6 +100,10 @@ async function route() {
     return wandscherm(onderdeel ? decodeURIComponent(onderdeel) : undefined);
   }
   stopWandscherm();
+  if (portaal === "meldingen" && heeftMeldingen()) {
+    await tekenMenu("meldingen", "");
+    return meldingenScherm(onderdeel === "alle");
+  }
   const toegestaan = portalenVoor(sessie.rol);
   if (!toegestaan.length) {
     await tekenMenu("", "");

@@ -2,6 +2,18 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.13.0 — 19 november 2026
+- Nieuw: meldingen. De database maakt zelf een melding als iemand iets moet weten:
+  - een waarde buiten de grens (ook na een correctie): naar ploegleider en Kwaliteit;
+  - een batch in beoordeling: naar ploegleider en Kwaliteit;
+  - een keurresultaat: OK naar de ploegleider, NOK naar ploegleider en planner;
+  - een lot dat afwijkt van het lotvoorstel: naar de planner.
+- In de portalen staat "Meldingen" bovenaan het menu, met het aantal ongelezen. Een nieuwe melding verschijnt ook even onderin beeld. Met "Bekijken" open je de batch of het lot.
+- In het invoerscherm ziet de ploegleider de meldingen onder "Meldingen" in de bovenbalk (alleen met verbinding).
+- Gelezen is per persoon. Meldingen ouder dan 30 dagen verdwijnen uit de lijst (ze blijven wel bewaard).
+- Meldingen gaan niet per mail of Teams: het platform werkt zonder internet (D33).
+- Technisch: database-update 7 (`0007_meldingen`).
+
 ## 0.12.0 — 19 november 2026
 - Nieuw: ploegoverdracht. In het invoerscherm staat onder "Overdracht" wat deze ploeg tot nu toe heeft gedaan: afgeronde stappen per stap, gestarte batches, lots, afwijkingen en wat nog open staat. Daar schrijf je de bijzonderheden van de ploeg en de aandachtspunten voor de volgende ploeg. Dat werkt ook zonder verbinding.
 - Nieuw: bovenaan het stappenoverzicht staat de overdracht van de vorige ploeg, met de aandachtspunten vet. Met "Gelezen" klap je hem op deze pc in.

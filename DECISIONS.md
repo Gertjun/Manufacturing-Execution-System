@@ -122,3 +122,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** ploegen zijn configuratie (code, naam, begin- en eindtijd); `ploeg_van(tijdstip)` bepaalt de ploeg en de dag (een nachtploeg hoort bij de dag waarop hij begint). Een overdracht is een notitie met bijzonderheden en aandachtspunten, vastgelegd met operator, pc en hal; niet te wijzigen, wel aan te vullen. De cijfers van een ploeg worden niet opgeslagen maar uitgerekend uit de registraties. De ploeg van een offline geschreven overdracht volgt het tijdstip op het apparaat (een tijdstip in de toekomst telt als nu).
 - **Waarom:** de volgende ploeg moet in één oogopslag zien wat er speelt, ook als de pc even geen verbinding had.
 
+### D33 – Meldingen: door de database, alleen in de schermen (19 nov 2026, 0.13.0)
+- **Besluit:** meldingen worden gemaakt door triggers in de database (waarde buiten de grens, besluit over een batch, lot afgeweken van het voorstel), met per melding de rollen voor wie hij is. Gelezen wordt per gebruiker vastgelegd; meldingen worden niet gewijzigd of verwijderd en zijn 30 dagen zichtbaar. Beheerder en analist zien alle meldingen; operators en het wandscherm geen. Er gaat niets per mail, Teams of sms: het platform moet zonder internet werken (WISHLIST #21 als dat later wel mag).
+- **Waarom:** regels horen in de database (D9), dus ook "wanneer moet iemand iets weten"; zo krijgt elke invoer (ook offline ingevoerd en later verstuurd) dezelfde melding.
+

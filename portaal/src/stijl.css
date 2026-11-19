@@ -323,3 +323,18 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 .notities { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 10px; }
 .notities li { border-left: 4px solid var(--actie); padding-left: 12px; }
 .notities p { margin: 0 0 4px; }
+
+/* Meldingen */
+.menu-meldingen { margin-bottom: 6px; border: 1px solid #36414f; }
+.meldingen { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.melding-rij { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; background: var(--vlak); border: 1px solid var(--lijn); border-left: 6px solid var(--lijn); border-radius: 8px; padding: 10px 14px; }
+.melding-rij p { margin: 0; }
+.melding-tekst { font-weight: 700; }
+.melding-rij.gelezen .melding-tekst { font-weight: 400; }
+.melding-ernst { font-weight: 700; }
+.melding-teken { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 700; color: #fff; background: var(--inkt-zacht); }
+.ernst-kritiek { border-left-color: var(--status-kritiek); }
+.ernst-kritiek .melding-teken { background: var(--status-kritiek); }
+.ernst-let_op { border-left-color: var(--status-waarschuwing); }
+.ernst-let_op .melding-teken { background: var(--status-waarschuwing); color: var(--inkt); border-radius: 4px; }
+.ernst-info .melding-teken { background: var(--actie); font-style: italic; }

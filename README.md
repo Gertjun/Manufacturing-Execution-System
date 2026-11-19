@@ -190,6 +190,7 @@ node e2e/beheer.mjs           # test Beheer in Chrome (database met verse config
 node e2e/planning.mjs         # test Planning in Chrome (zet zelf een verse database klaar)
 node e2e/wandscherm.mjs       # test het wandscherm in Chrome (database met verse testdata)
 node e2e/grondstoffen.mjs     # test grondstoffen in Beheer en Kwaliteit (database met verse testdata)
+node e2e/meldingen.mjs        # test meldingen in Chrome (database met verse testdata)
 ```
 
 ## Proof of concept op een laptop
@@ -238,6 +239,10 @@ Ook op `/portaal/` (testaccount `planner1`, wachtwoord `demo`; een planner start
 | Producten | Producten of recepten toevoegen, hernoemen of uitzetten |
 
 In het invoerscherm staat bovenaan elke stap "Gepland voor vandaag". In de eerste stap start de operator een geplande batch; een ongeplande batch aanmaken zit achter "Ongeplande batch aanmaken (uitzondering)".
+
+## Meldingen
+
+De database maakt zelf meldingen bij een waarde buiten de grens, een batch in beoordeling, een keurresultaat en een lot dat afwijkt van het voorstel (D33). In de portalen staan ze bovenaan het menu; de ploegleider ziet ze ook in het invoerscherm.
 
 ## Wandscherm
 

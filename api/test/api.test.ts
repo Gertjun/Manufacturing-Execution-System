@@ -789,3 +789,41 @@ describe("Ploegoverdracht", () => {
     assert.equal((await verzoek("PATCH", "/overdracht/ploegen/O", await login("planner1"), { naam: "x" })).status, 403);
   });
 });
+
+describe("Meldingen", () => {
+  test("buiten grens, beoordeling en keurresultaat komen bij de juiste rollen; gelezen per persoon", async () => {
+    const op = await kiesNaam(await login("operator", "PC-06"));
+    const pl = await login("ploegleider2");
+    const kw = await login("kwaliteit1");
+    const pn = await login("planner1");
+    for (const t of [pl, kw, pn]) await verzoek("POST", "/meldingen/alles-gelezen", t);
+    assert.equal((await verzoek("GET", "/meldingen", op)).status, 403);
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0710" })).status, 201);
+    const start = await verzoek("POST", "/registraties", op, { stapcode: "PS1", batchnummer: "B-2026-0710" });
+    await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: waardenVoor(start.body, { "S1.2": [null, 470] }) });
+    const kwM = await verzoek("GET", "/meldingen", kw);
+    assert.equal(kwM.body.ongelezen, 1, JSON.stringify(kwM.body));
+    const m = kwM.body.meldingen[0];
+    assert.equal(m.soort, "buiten_grens");
+    assert.equal(m.ernst, "kritiek");
+    assert.equal(m.batchnummer, "B-2026-0710");
+    assert.match(m.tekst, /PS1: S1\.2 Gewicht buiten de grens \(470 kg\)/);
+    assert.equal(m.hal, "Hal 1");
+    assert.equal((await verzoek("GET", "/meldingen", pn)).body.ongelezen, 0, "planner krijgt geen grenswaarden");
+    // Gelezen geldt per persoon.
+    assert.equal((await verzoek("POST", `/meldingen/${m.id}/gelezen`, kw)).status, 204);
+    assert.equal((await verzoek("GET", "/meldingen", kw)).body.ongelezen, 0);
+    assert.equal((await verzoek("GET", "/meldingen?ongelezen=true", pl)).body.meldingen[0].id, m.id);
+    // Besluiten.
+    await verzoek("POST", "/batches/B-2026-0710/besluiten", pl, { besluit: "in_beoordeling", reden: "gewicht te hoog" });
+    await verzoek("POST", "/batches/B-2026-0710/besluiten", kw, { besluit: "afgekeurd", reden: "te zwaar" });
+    const pnM = await verzoek("GET", "/meldingen?ongelezen=true", pn);
+    assert.deepEqual(pnM.body.meldingen.map((x: any) => x.soort), ["afgekeurd"]);
+    assert.match(pnM.body.meldingen[0].tekst, /B-2026-0710 afgekeurd \(keurresultaat NOK\) door kwaliteit1: te zwaar/);
+    const kwM2 = await verzoek("GET", "/meldingen?ongelezen=true", kw);
+    assert.deepEqual(kwM2.body.meldingen.map((x: any) => x.soort), ["beoordeling"]);
+    const alles = await verzoek("POST", "/meldingen/alles-gelezen", pl);
+    assert.equal(alles.body.gelezen, 3);
+    assert.equal((await verzoek("GET", "/meldingen", pl)).body.ongelezen, 0);
+  });
+});

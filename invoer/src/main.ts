@@ -7,6 +7,7 @@ import { stapScherm, stappenScherm } from "./schermen/werk";
 import { registratieScherm } from "./schermen/registratie";
 import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
 import { overdrachtScherm } from "./schermen/overdracht";
+import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./schermen/meldingen";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -36,7 +37,11 @@ function tekenBalk() {
       ? h("nav", { class: "balk-nav", "aria-label": "Hoofdmenu" },
           h("a", { href: "#/stappen", "aria-current": route === "stappen" || route === "stap" ? "page" : undefined }, "Stappen"),
           h("a", { href: "#/zoek", "aria-current": route === "zoek" ? "page" : undefined }, "Zoeken"),
-          h("a", { href: "#/overdracht", "aria-current": route === "overdracht" ? "page" : undefined }, "Overdracht"))
+          h("a", { href: "#/overdracht", "aria-current": route === "overdracht" ? "page" : undefined }, "Overdracht"),
+          heeftMeldingen()
+            ? h("a", { href: "#/meldingen", "aria-current": route === "meldingen" ? "page" : undefined },
+                "Meldingen", ongelezen() ? h("span", { class: "balk-teller" }, ongelezen()) : null)
+            : null)
       : null,
     ingelogd && sessie.operatornaam
       ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
@@ -71,6 +76,7 @@ async function route() {
     case "zoek": return zoekScherm(arg ? decodeURIComponent(arg) : undefined);
     case "wachtrij": return wachtrijScherm();
     case "overdracht": return overdrachtScherm();
+    case "meldingen": return meldingenScherm();
     default:
       if (scherm !== "stappen") return void (location.hash = "#/stappen");
       return stappenScherm();
@@ -86,6 +92,7 @@ opStatus((s) => {
   if (wasUit && s.verbonden && (location.hash === "#/stappen" || location.hash.startsWith("#/stap/"))) void route();
 });
 startWachtrij();
+startMeldingen(tekenBalk);
 void route();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

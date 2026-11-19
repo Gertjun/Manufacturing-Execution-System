@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -10730,6 +10730,175 @@
                     },
                     "actief": {
                       "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/meldingen/": {
+      "get": {
+        "tags": [
+          "meldingen"
+        ],
+        "description": "Meldingen voor mijn rol van de laatste 30 dagen, nieuwste eerst.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "ongelezen",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            },
+            "in": "query",
+            "name": "limiet",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ongelezen",
+                    "meldingen"
+                  ],
+                  "properties": {
+                    "ongelezen": {
+                      "type": "integer"
+                    },
+                    "meldingen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "soort",
+                          "ernst",
+                          "tekst",
+                          "batchnummer",
+                          "lotnummer",
+                          "hal",
+                          "aangemaakt_op",
+                          "gelezen"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "soort": {
+                            "type": "string"
+                          },
+                          "ernst": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "info"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "let_op"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "kritiek"
+                                ]
+                              }
+                            ]
+                          },
+                          "tekst": {
+                            "type": "string"
+                          },
+                          "batchnummer": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "lotnummer": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "hal": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "aangemaakt_op": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "gelezen": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/meldingen/{id}/gelezen": {
+      "post": {
+        "tags": [
+          "meldingen"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/meldingen/alles-gelezen": {
+      "post": {
+        "tags": [
+          "meldingen"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "gelezen"
+                  ],
+                  "properties": {
+                    "gelezen": {
+                      "type": "integer"
                     }
                   }
                 }

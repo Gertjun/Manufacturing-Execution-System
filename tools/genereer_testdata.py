@@ -352,6 +352,17 @@ with con.transaction():
     con.execute("UPDATE stapplanning SET aangemaakt_op = %s", (eind - dt.timedelta(hours=3),))
 print(f"Planning: {gepland_vooruit} batches gepland voor de komende werkdagen, {n_voorstellen} open lotvoorstellen. Overdrachten: {n_overdracht}.")
 
+# Meldingen krijgen het tijdstip van de gebeurtenis; oudere meldingen zijn al gelezen.
+with con.transaction():
+    con.execute("SET LOCAL session_replication_role = replica")
+    con.execute("""UPDATE melding m SET aangemaakt_op = coalesce(
+                       (SELECT ingevoerd_op FROM waarde WHERE id = m.bron_id),
+                       (SELECT besloten_op FROM batch_besluit WHERE id = m.bron_id),
+                       (SELECT afgesloten_op FROM lot_voorstel WHERE id = m.bron_id), m.aangemaakt_op)""")
+con.execute("""INSERT INTO melding_gelezen (melding_id, gebruiker_id, gelezen_op)
+               SELECT m.id, g.id, m.aangemaakt_op + interval '2 hours' FROM melding m JOIN gebruiker g ON g.rol = ANY(m.voor_rollen)
+                WHERE m.aangemaakt_op < %s""", (eind - dt.timedelta(days=1),))
+
 n_waarden = con.execute("SELECT count(*) FROM waarde").fetchone()[0]
 n_afw = con.execute("SELECT count(*) FROM waarde_actueel WHERE markering <> 'ok'").fetchone()[0]
 print(f"Klaar: {stats['batches']} batches, {stats['lots']} lots, {n_waarden} waarden ({n_afw} afwijkend), "
