@@ -126,8 +126,11 @@ async function verschuifNaarNu(pg: PGlite) {
   const { rows } = await pg.query<{ v: string; dagen: number }>(
     `SELECT v::text, ((m + v)::date - m::date) AS dagen FROM (SELECT max(t) AS m, now() - max(t) - interval '10 minutes' AS v FROM (${delen.join(" UNION ALL ")}) x) y`,
   );
-  for (const k of kol) {
-    await pg.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::interval WHERE "${k.column_name}" IS NOT NULL`, [rows[0].v]);
+  // Per tabel alle tijdkolommen in één keer, zodat regels als "einde na begin" blijven kloppen.
+  const perTabel = new Map<string, string[]>();
+  for (const k of kol) perTabel.set(k.table_name, [...(perTabel.get(k.table_name) ?? []), k.column_name]);
+  for (const [tabel, kols] of perTabel) {
+    await pg.query(`UPDATE "${tabel}" SET ${kols.map((c) => `"${c}" = "${c}" + $1::interval`).join(", ")}`, [rows[0].v]);
   }
   // Planningsdagen (datums) schuiven evenveel kalenderdagen mee.
   const { rows: datums } = await pg.query<{ table_name: string; column_name: string }>(`

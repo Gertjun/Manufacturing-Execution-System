@@ -273,8 +273,11 @@ async function verschuifNaarNu(d) {
     `SELECT v, ((m + v)::date - m::date) AS dagen FROM (SELECT max(t) AS m, now() - max(t) - interval '10 minutes' AS v FROM (${delen.join(" UNION ALL ")}) x) y`);
   const { v, dagen } = rows[0];
   if (!v) return;
-  for (const k of kolommen) {
-    await d.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::interval WHERE "${k.column_name}" IS NOT NULL`, [v]);
+  // Per tabel alle tijdkolommen in één keer, zodat regels als "einde na begin" blijven kloppen.
+  const perTabel = new Map();
+  for (const k of kolommen) perTabel.set(k.table_name, [...(perTabel.get(k.table_name) ?? []), k.column_name]);
+  for (const [tabel, kols] of perTabel) {
+    await d.query(`UPDATE "${tabel}" SET ${kols.map((c) => `"${c}" = "${c}" + $1::interval`).join(", ")}`, [v]);
   }
   // Planningsdagen (datums) schuiven evenveel kalenderdagen mee.
   const { rows: datums } = await d.query(`
