@@ -1,14 +1,14 @@
 # Wishlist – wat moet er nog gebeuren
 
 > **Dit bestand:** alles wat nog moet gebeuren: functies, verbeteringen, praktijktests, acties van Geert en open vragen. Het is de enige takenlijst.
-> **Niet hier:** wat al gebouwd is staat in [`CHANGELOG.md`](CHANGELOG.md), waarom iets zo is gekozen in [`DECISIONS.md`](DECISIONS.md), de stand van nu in [`NOTES.md`](NOTES.md).
+> **Niet hier:** in welke volgorde en wanneer staat in [`ROADMAP.md`](ROADMAP.md); wat al gebouwd is in [`CHANGELOG.md`](CHANGELOG.md), waarom iets zo is gekozen in [`DECISIONS.md`](DECISIONS.md), de stand van nu in [`NOTES.md`](NOTES.md).
 
 Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
 Laatst bijgewerkt: 19 november 2026
 
 ## Vóór de pilot
-Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i). Voorgestelde volgorde: #23 en #24 samen, dan #25 en #26, dan #29, #28 en #27.
+Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i).
 - #23 **Offline stappen krijgen het tijdstip van de pc** (middel) — Starten en afronden krijgen nu de tijd van versturen in plaats van invoeren. Tijdstip van het apparaat meesturen, met grenzen (niet in de toekomst, niet vóór de start, niet te oud); aankomsttijd apart bewaren. Oudere invoerschermen blijven werken (D18).
 - #24 **Wachtrij onthoudt wie iets invoerde** (middel) — Operator, pc en tijdstip bij elke wachtende actie bewaren en meesturen. Waarschuwen bij afmelden met wachtende acties. Vaste opslag in de browser aanvragen.
 - #25 **Tijdzone vast op Europe/Amsterdam** (klein) — Nu volgt de database de tijdzone van de computer; op een server met UTC schuiven de ploegen.
@@ -17,6 +17,8 @@ Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting e
 - #28 **Inloggen beveiligen** (klein) — Foute pogingen beperken en loggen, bcrypt sterkte 11–12, hoofdletters in gebruikersnamen negeren, Content-Security-Policy.
 - #29 **Regelkaart en lijsten eerlijk tonen** (klein) — Onder 20 metingen "voorlopig" en geen Cpk; melden als een lijst is afgekapt (stilstand 200, grondstoffen 500).
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.19 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
+- #35 **Velden importeren uit een Excel-sjabloon** (klein) — Per stap een sjabloon met veld, eenheid, decimalen, setting, toleranties, grenzen en "op het certificaat"; inlezen in Beheer met een controle vooraf. Maakt het aanleveren van de echte velden (#2) makkelijker en minder foutgevoelig.
+- #36 **Training en handleiding** (klein) — Korte handleiding per rol (operator, ploegleider, Kwaliteit, planner, beheerder) en een trainingsmoment vóór de pilot, met de laptop of de server en fictieve data.
 - #11 **Proof of concept laten zien** (klein, Geert) — Laptoppakket 0.19.0 draaien en laten zien; bevindingen worden nieuwe punten op deze lijst.
 - #2 **Echte velden per stap** (middel, Geert) — Per processtap de echte invoervelden aanleveren: veld, eenheid, decimalen, setting, grenzen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand en grondstoffen. Nodig voor de pilot.
 - #10 **Fabrieksserver installeren met IT** (middel, na de proof of concept, D26) — Geert bespreekt het advies met IT en beantwoordt de vier vragen onder "Nog te besluiten" in het advies. IT richt de server in volgens `docs/SERVER.md`; eerste keer samen op een testmachine, met een proef met een pc die offline gaat.

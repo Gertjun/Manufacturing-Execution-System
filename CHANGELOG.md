@@ -8,6 +8,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 ## Zonder nieuwe versie (na 0.19.0)
 - Werkafspraken: de skillpakketten coding-skills, data en claude-for-manufacturing horen bij het project (D40).
 - Documenten opnieuw ingedeeld: elk onderwerp op één plek (D41). README begint met "Waar vind je wat"; open punten en praktijktests staan alleen nog in de wishlist; de notities tonen alleen de stand van nu. De adviezen uit de doorlichting van 19-11-2026 staan als #23–#33 in de wishlist.
+- Roadmap toegevoegd (`ROADMAP.md`, D42): fasen A tot en met G met poorten en een globale planning tot na de pilot. Nieuwe wishlistpunten #35 (velden importeren uit Excel) en #36 (training en handleiding).
 - Schermtests portaal en grondstoffen bijgewerkt; de browserdemo maakt zijn database opnieuw als schema of testdata nieuwer is.
 
 ## 0.19.0 — 19 november 2026

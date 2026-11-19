@@ -11,13 +11,14 @@ Elk onderwerp staat op één plek; de andere bestanden verwijzen ernaar.
 | Hoe zit het in elkaar, hoe start en test je het? | dit bestand, `README.md` |
 | Wat is de stand nu (versie, wat draait waar, laatste test)? | [`NOTES.md`](NOTES.md) |
 | Wat moet er nog gebeuren (functies, tests, acties, open vragen)? | [`WISHLIST.md`](WISHLIST.md) |
+| In welke volgorde en wanneer? Fasen en poorten tot en na de pilot | [`ROADMAP.md`](ROADMAP.md) |
 | Wat is er per versie veranderd? | [`CHANGELOG.md`](CHANGELOG.md) |
 | Waarom is iets zo gekozen? | [`DECISIONS.md`](DECISIONS.md) |
 | Hoe installeert IT de fabrieksserver? | [`docs/SERVER.md`](docs/SERVER.md) |
 | Hoe gebruik je het laptoppakket? | [`tools/pakket/README.md`](tools/pakket/README.md) |
 | Hoe werkt Claude in dit project? | [`CLAUDE.md`](CLAUDE.md) |
 
-Buiten de repository (op claude.ai): het projectdocument in het Claude-project (korte instap met links), het Whiteboard met het projectplan, de browserdemo, en drie momentopnamen die niet meer worden bijgewerkt: advies fabrieksserver, datamodel v1 en de doorlichting van 19-11-2026. De links staan in `NOTES.md`.
+Buiten de repository (op claude.ai): het projectdocument in het Claude-project (korte instap met links), het Whiteboard met het eerste projectplan, de browserdemo, en drie momentopnamen die niet meer worden bijgewerkt: advies fabrieksserver, datamodel v1 en de doorlichting van 19-11-2026. De links staan in `NOTES.md`.
 
 ## Het platform in het kort
 

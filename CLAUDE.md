@@ -61,8 +61,8 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 
 ## Aan het eind van een sessie (altijd)
 1. **`NOTES.md`** overschrijven met de stand van nu (versie, wat draait waar, laatste testronde, valkuilen). Geen sessielog: de geschiedenis staat in `CHANGELOG.md` (wijzigingen zonder versie onder "Zonder nieuwe versie").
-2. **`WISHLIST.md`**: nieuwe punten erbij, klare punten naar Gerealiseerd (alleen nummer, naam en versie).
+2. **`WISHLIST.md`**: nieuwe punten erbij, klare punten naar Gerealiseerd (alleen nummer, naam en versie). **`ROADMAP.md`** alleen als een fase klaar is, een poort niet gehaald wordt of de volgorde verandert.
 3. **`DECISIONS.md`**: een nieuw `D<n>`-besluit voor elke keuze die een volgende sessie moet kennen.
 4. **`README.md`** bijwerken als de opbouw, een scherm of een test verandert.
-5. **Projectdocument** in het Claude-project (`claude/architectuur-en-besluiten.md`): alleen de samenvatting en de links bijwerken. **Whiteboard** alleen als de fase verandert. Rapporten op claude.ai (momentopnamen) niet bijwerken.
+5. **Projectdocument** in het Claude-project (`claude/architectuur-en-besluiten.md`): alleen de samenvatting en de links bijwerken. Het Whiteboard en de rapporten op claude.ai zijn momentopnamen: niet bijwerken.
 6. Push naar `main` en controleer dat de testrun groen wordt.
