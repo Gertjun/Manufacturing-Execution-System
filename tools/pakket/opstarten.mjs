@@ -83,7 +83,13 @@ function maakBackup() {
 }
 
 function startPostgres(poort) {
-  const r = pgTool("pg_ctl", ["start", "-D", PGDATA, "-l", join(DATA, "postgres.log"), "-w", "-t", "90", "-o", `-p ${poort}`]);
+  // Geen uitvoer opvangen: op Windows erft de database die verbinding en houdt hem open,
+  // waardoor het wachten nooit zou eindigen. De meldingen staan in data\postgres.log.
+  const r = spawnSync(join(PG_BIN, "pg_ctl" + EXE), ["start", "-D", PGDATA, "-l", join(DATA, "postgres.log"), "-w", "-t", "90", "-o", `-p ${poort}`], {
+    stdio: "ignore",
+    windowsHide: true,
+    timeout: 120_000,
+  });
   if (r.status !== 0) {
     let log = "";
     try { log = readFileSync(join(DATA, "postgres.log"), "utf8").split(/\r?\n/).slice(-15).join("\n"); } catch {}
