@@ -827,3 +827,49 @@ describe("Meldingen", () => {
     assert.equal((await verzoek("GET", "/meldingen", pl)).body.ongelezen, 0);
   });
 });
+
+describe("Stilstand", () => {
+  test("melden, opnieuw versturen, één tegelijk, beëindigen, melding, wandscherm en analyse", async () => {
+    const op = await kiesNaam(await login("operator", "PC-07"));
+    const oorzaken = await verzoek("GET", "/stilstand/oorzaken", op);
+    assert.equal(oorzaken.body[0].categorie, "storing");
+    const id = randomUUID();
+    const begin = new Date(Date.now() - 25 * 60_000).toISOString();
+    const s = await verzoek("POST", "/stilstand", op, { id, stapcode: "PS5", oorzaak: "STOR-MACH", toelichting: "lager maakt herrie", begin_op: begin });
+    assert.equal(s.status, 201, JSON.stringify(s.body));
+    assert.equal(s.body.operator, "Operator A");
+    assert.equal(s.body.hal, "Hal 1");
+    assert.ok(s.body.minuten >= 24.9);
+    assert.equal((await verzoek("POST", "/stilstand", op, { id, stapcode: "PS5", oorzaak: "STOR-MACH" })).status, 200);
+    const dubbel = await verzoek("POST", "/stilstand", op, { stapcode: "PS5", oorzaak: "OMSTEL" });
+    assert.equal(dubbel.status, 409);
+    assert.match(dubbel.body.fout, /loopt al een stilstand/);
+    assert.equal((await verzoek("POST", "/stilstand", op, { stapcode: "PS6", oorzaak: "BESTAATNIET" })).status, 422);
+    const pl = await login("ploegleider1");
+    const m = await verzoek("GET", "/meldingen?ongelezen=true", pl);
+    assert.ok(m.body.meldingen.some((x: any) => x.soort === "storing" && /PS5.*Machinestoring \(lager maakt herrie\)/.test(x.tekst)));
+    const wand = await verzoek("GET", "/wandscherm", await login("scherm1"));
+    assert.equal(wand.body.stappen.find((x: any) => x.code === "PS5").stilstand.oorzaak, "Machinestoring");
+    assert.equal((await verzoek("GET", "/stilstand", await login("scherm1"))).body.length, 1);
+    assert.equal((await verzoek("POST", `/stilstand/${id}/einde`, await login("kwaliteit1"), {})).status, 403);
+    const e = await verzoek("POST", `/stilstand/${id}/einde`, op, {});
+    assert.equal(e.status, 200);
+    assert.ok(e.body.eind_op);
+    assert.equal((await verzoek("POST", `/stilstand/${id}/einde`, op, {})).status, 200, "opnieuw versturen is veilig");
+    const a = await verzoek("GET", "/analyse/stilstand", pl);
+    const ps5 = a.body.per_stap.find((x: any) => x.stap === "PS5");
+    assert.equal(ps5.aantal, 1);
+    assert.ok(ps5.storing >= 24.9 && ps5.storing < 26);
+    assert.ok(ps5.beschikbaarheid > 0.99 && ps5.beschikbaarheid < 1);
+    assert.equal(a.body.per_oorzaak[0].oorzaak, "STOR-MACH");
+    assert.equal(a.body.ploeguren_per_dag, 24);
+  });
+
+  test("beheer: oorzaak toevoegen en uitzetten", async () => {
+    const bh = await login("beheerder1");
+    assert.equal((await verzoek("POST", "/stilstand/oorzaken", bh, { code: "STROOM", naam: "Stroomuitval", categorie: "storing" })).status, 201);
+    assert.equal((await verzoek("PATCH", "/stilstand/oorzaken/STROOM", bh, { actief: false })).body.actief, false);
+    assert.ok(!(await verzoek("GET", "/stilstand/oorzaken", bh)).body.some((o: any) => o.code === "STROOM"));
+    assert.equal((await verzoek("POST", "/stilstand/oorzaken", await login("planner1"), { code: "X", naam: "x", categorie: "overig" })).status, 403);
+  });
+});

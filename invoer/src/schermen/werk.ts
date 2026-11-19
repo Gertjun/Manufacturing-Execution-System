@@ -1,10 +1,10 @@
 // Stappenoverzicht en het werk binnen één stap.
-import { ApiFout, GeenVerbinding, haal, stuur } from "../api";
+import { ApiFout, GeenVerbinding, haal, nieuwId, stuur } from "../api";
 import { sessie } from "../sessie";
 import { lokaleRegistraties, maakLot, nieuweBatch, startStap, stappen } from "../registraties";
 import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
 import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
-import { acties } from "../wachtrij";
+import { acties, voegToe } from "../wachtrij";
 import { vorigeOverdrachtBlok } from "./overdracht";
 
 /** Wat er lokaal al gebeurd is maar nog niet in de werkvoorraad van de server staat. */
@@ -76,6 +76,62 @@ export async function stappenScherm() {
   );
 }
 
+// ---------- Stilstand ----------
+interface Stilstand { id: string; stap: string; oorzaaknaam: string; categorie: string; toelichting: string | null; begin_op: string; wacht?: boolean }
+interface Oorzaak { code: string; naam: string; categorie: string }
+
+/** Lopende stilstand van deze stap: van de server, aangevuld met wat deze pc nog moet versturen. */
+async function lopendeStilstand(code: string): Promise<Stilstand | null> {
+  let lijst: Stilstand[] = [];
+  try { lijst = (await haal<Stilstand[]>("/stilstand")).data; } catch { /* zonder verbinding en zonder bewaarde lijst */ }
+  const wacht = await acties();
+  const beeindigd = new Set(wacht.filter((a) => /^\/stilstand\/[^/]+\/einde$/.test(a.pad)).map((a) => a.pad.split("/")[2]));
+  for (const a of wacht) {
+    const b = a.body as { id: string; stapcode: string; oorzaak: string; oorzaaknaam?: string; toelichting: string | null; begin_op: string } | undefined;
+    if (a.pad === "/stilstand" && b && !lijst.some((x) => x.id === b.id)) {
+      lijst.push({ id: b.id, stap: b.stapcode, oorzaaknaam: b.oorzaaknaam ?? b.oorzaak, categorie: "", toelichting: b.toelichting, begin_op: b.begin_op, wacht: true });
+    }
+  }
+  return lijst.find((x) => x.stap === code && !beeindigd.has(x.id)) ?? null;
+}
+
+async function stilstandMelden(s: Stap, opnieuw: () => void) {
+  let oorzaken: Oorzaak[];
+  try { oorzaken = (await haal<Oorzaak[]>("/stilstand/oorzaken")).data; } catch { return melding("De lijst met oorzaken is niet beschikbaar zonder verbinding", "fout"); }
+  const groep: Record<string, string> = { storing: "Storing", wachten: "Wachten", gepland: "Gepland", overig: "Overig" };
+  const r = await vraag(`Stilstand in ${s.naam}`, [
+    { naam: "oorzaak", label: "Oorzaak", opties: oorzaken.map((o): [string, string] => [o.code, `${groep[o.categorie] ?? o.categorie}: ${o.naam}`]) },
+    { naam: "toelichting", label: "Toelichting", optioneel: true, hint: "Bijvoorbeeld welke machine of wat er gebeurt" },
+  ], "Stilstand melden", "De stilstand loopt vanaf nu tot je hem beëindigt. Bij een storing krijgt de ploegleider een melding.");
+  if (!r) return;
+  const o = oorzaken.find((x) => x.code === r.oorzaak)!;
+  await voegToe({
+    omschrijving: `Stilstand ${s.code}: ${o.naam}`,
+    methode: "POST",
+    pad: "/stilstand",
+    body: { id: nieuwId(), stapcode: s.code, oorzaak: o.code, oorzaaknaam: o.naam, toelichting: r.toelichting || null, begin_op: new Date().toISOString() },
+  });
+  melding("Stilstand gemeld", "ok");
+  opnieuw();
+}
+
+function stilstandBlok(st: Stilstand, s: Stap, magMelden: boolean, opnieuw: () => void) {
+  const minuten = Math.max(0, Math.round((Date.now() - Date.parse(st.begin_op)) / 60000));
+  return h("section", { class: "stilstand-blok", role: "status" },
+    h("div", {},
+      h("h2", {}, `⛔ Stilstand: ${st.oorzaaknaam}`),
+      h("p", {}, `Sinds ${tijd(st.begin_op)} (${minuten < 60 ? `${minuten} min` : `${Math.floor(minuten / 60)} u ${minuten % 60} min`})`, st.toelichting ? `. ${st.toelichting}` : ""),
+      st.wacht ? h("span", { class: "label label-wacht" }, "Nog niet verstuurd") : null),
+    magMelden
+      ? h("button", { class: "knop knop-hoofd", onclick: async () => {
+          if (!(await bevestig("Stilstand beëindigen?", `${s.naam} kan weer verder.`, "Beëindigen"))) return;
+          await voegToe({ omschrijving: `Stilstand ${s.code} beëindigd`, methode: "POST", pad: `/stilstand/${st.id}/einde`, body: { eind_op: new Date().toISOString() } });
+          melding("Stilstand beëindigd", "ok");
+          opnieuw();
+        } }, "Stilstand beëindigen")
+      : null);
+}
+
 // ---------- Planning ----------
 interface PlanItem { soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[] }
 interface Voorstel { nummer: number; opmerking: string | null; batches: { batchnummer: string }[] }
@@ -145,18 +201,22 @@ export async function stapScherm(code: string) {
     vers = false;
   }
   w = pasAan(s, w, await lokaleAanpassingen());
-  const [plan, voorstellen] = await Promise.all([planVandaag(code), s.is_lot_stap ? openVoorstellen() : Promise.resolve([])]);
+  const [plan, voorstellen, stil] = await Promise.all([planVandaag(code), s.is_lot_stap ? openVoorstellen() : Promise.resolve([]), lopendeStilstand(code)]);
   // Wat vandaag gepland is eerst, in de volgorde van de planning.
   const plek = new Map(plan.map((p) => [p.nummer, p.volgorde]));
   w.wachtend.sort((a, b) => (plek.get(a.nummer) ?? 1e6) - (plek.get(b.nummer) ?? 1e6));
   const eersteBatchStap = (await stappen()).filter((x) => x.niveau === "batch")[0]?.code;
   if (!actueel()) return;
 
+  const opVloer = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const opnieuw = () => void stapScherm(code);
   const kop = h(
     "div",
     { class: "kop" },
     h("div", {}, h("h1", {}, s.naam), h("p", { class: "sub" }, s.is_lot_stap ? "Hier worden 4 batches één lot." : s.niveau === "batch" ? "Per batch" : "Per lot")),
-    vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand"),
+    h("div", { class: "kop-rechts" },
+      vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand"),
+      opVloer && !stil ? h("button", { class: "knop", onclick: () => stilstandMelden(s, opnieuw) }, "Stilstand melden") : null),
   );
 
   const bezig = [
@@ -205,7 +265,7 @@ export async function stapScherm(code: string) {
         : null,
     ].filter(Boolean) as Node[];
   }
-  toon(kop, planBlok(plan), ...bezig, ...klaar);
+  toon(kop, stil ? stilstandBlok(stil, s, opVloer, opnieuw) : null, planBlok(plan), ...bezig, ...klaar);
 }
 
 /** Met verbinding meteen controleren of een nummer al bestaat; zonder verbinding controleert de server later. */

@@ -191,6 +191,24 @@ try {
   }
   await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor();
 
+  console.log("\nStilstand");
+  await page.goto(`${BASIS}/invoer/#/stap/PS4`);
+  await page.getByRole("button", { name: "Stilstand melden" }).click();
+  await page.getByRole("dialog").getByLabel("Oorzaak").selectOption("STOR-MACH");
+  await page.getByRole("dialog").getByLabel(/Toelichting/).fill("transportband loopt vast");
+  await page.getByRole("dialog").getByRole("button", { name: "Stilstand melden" }).click();
+  await page.getByRole("heading", { name: "⛔ Stilstand: Machinestoring" }).waitFor();
+  await page.waitForTimeout(1200);
+  const [st1] = await q("SELECT x.eind_op, o.code FROM fabriek.stilstand x JOIN fabriek.stilstand_oorzaak o ON o.id = x.oorzaak_id JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
+  check("Stilstand loopt in de database", st1?.code === "STOR-MACH" && st1.eind_op === null, JSON.stringify(st1));
+  await shot("10b-stilstand");
+  await page.getByRole("button", { name: "Stilstand beëindigen" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Beëindigen" }).click();
+  await page.getByRole("button", { name: "Stilstand melden" }).waitFor();
+  await page.waitForTimeout(1200);
+  const [st2] = await q("SELECT x.eind_op FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
+  check("Stilstand beëindigd", st2?.eind_op !== null);
+
   console.log("\nPloegoverdracht");
   await page.goto(`${BASIS}/invoer/#/overdracht`);
   await page.getByRole("heading", { name: /^Overdracht \w+ploeg$/ }).waitFor();

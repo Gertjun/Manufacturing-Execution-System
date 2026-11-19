@@ -352,13 +352,55 @@ with con.transaction():
     con.execute("UPDATE stapplanning SET aangemaakt_op = %s", (eind - dt.timedelta(hours=3),))
 print(f"Planning: {gepland_vooruit} batches gepland voor de komende werkdagen, {n_voorstellen} open lotvoorstellen. Overdrachten: {n_overdracht}.")
 
+# ---------- Stilstand ----------
+# Dagelijks schoonmaken aan het eind van de middag, af en toe omstellen, storingen en wachten (fictief).
+oorzaak = {c: i for c, i in con.execute("SELECT code, id FROM stilstand_oorzaak")}
+stap_id = {c: i for c, i in con.execute("SELECT code, id FROM processtap")}
+pc_van_stap = {code: pcs[(int(code[2:]) - 1) % len(pcs)] for code, *_ in stappen}
+TOELICHTING = {"STOR-MACH": ["lager maakt lawaai", "transportband loopt vast", "sensor geeft foutmelding", None],
+               "STOR-ELEK": ["zekering eruit", "besturing herstart", None], "WACHT-GS": ["grondstof B nog niet geleverd", "pallet nog in ontvangst", None],
+               "WACHT-KW": ["wachten op vrijgave monster", None], "OMSTEL": [None], "SCHOON": [None], "ONDERH": ["preventief onderhoud", None], "OVERIG": ["overleg", None]}
+n_stil = 0
+
+
+def stil(code, oz, start, minuten_duur, open_laten=False):
+    global n_stil
+    eind_stil = None if open_laten else start + dt.timedelta(minutes=minuten_duur)
+    con.execute("""INSERT INTO stilstand (processtap_id, oorzaak_id, toelichting, begin_op, eind_op, pc_id, operator_id, gemeld_door)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (stap_id[code], oorzaak[oz], rnd.choice(TOELICHTING[oz]), start.astimezone(), eind_stil.astimezone() if eind_stil else None,
+                 pc_van_stap[code], operators[rnd.choice(opnamen)], operator_account))
+    n_stil += 1
+
+
+dag = begin
+while dag + dt.timedelta(days=1) < eind:
+    for code in ("PS3", "PS9", "PS17"):
+        stil(code, "SCHOON", dag.replace(hour=21, minute=rnd.randint(0, 20)), rnd.randint(20, 40))
+    if dag.weekday() == 0:
+        stil("PS5", "ONDERH", dag.replace(hour=6, minute=0), rnd.randint(60, 120))
+    for code, *_ in batchstappen + lotstappen:
+        # Storingen: PS7 vaker (oude machine), de rest af en toe.
+        kans = 0.12 if code == "PS7" else 0.025
+        if rnd.random() < kans:
+            stil(code, rnd.choice(["STOR-MACH", "STOR-MACH", "STOR-ELEK"]), dag.replace(hour=rnd.randint(7, 19), minute=rnd.randint(0, 59)), rnd.randint(10, 90))
+        if rnd.random() < 0.02:
+            stil(code, rnd.choice(["WACHT-GS", "WACHT-KW", "OVERIG"]), dag.replace(hour=rnd.randint(7, 19), minute=rnd.randint(0, 59)), rnd.randint(10, 60))
+        if rnd.random() < 0.03:
+            stil(code, "OMSTEL", dag.replace(hour=rnd.randint(7, 19), minute=rnd.randint(0, 59)), rnd.randint(15, 45))
+    dag += dt.timedelta(days=1)
+# Een storing die nu nog loopt.
+stil("PS7", "STOR-MACH", eind - dt.timedelta(minutes=35), 0, open_laten=True)
+print(f"Stilstand: {n_stil} keer.")
+
 # Meldingen krijgen het tijdstip van de gebeurtenis; oudere meldingen zijn al gelezen.
 with con.transaction():
     con.execute("SET LOCAL session_replication_role = replica")
     con.execute("""UPDATE melding m SET aangemaakt_op = coalesce(
                        (SELECT ingevoerd_op FROM waarde WHERE id = m.bron_id),
                        (SELECT besloten_op FROM batch_besluit WHERE id = m.bron_id),
-                       (SELECT afgesloten_op FROM lot_voorstel WHERE id = m.bron_id), m.aangemaakt_op)""")
+                       (SELECT afgesloten_op FROM lot_voorstel WHERE id = m.bron_id),
+                       (SELECT begin_op FROM stilstand WHERE id = m.bron_id), m.aangemaakt_op)""")
 con.execute("""INSERT INTO melding_gelezen (melding_id, gebruiker_id, gelezen_op)
                SELECT m.id, g.id, m.aangemaakt_op + interval '2 hours' FROM melding m JOIN gebruiker g ON g.rol = ANY(m.voor_rollen)
                 WHERE m.aangemaakt_op < %s""", (eind - dt.timedelta(days=1),))

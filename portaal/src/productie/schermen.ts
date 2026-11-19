@@ -248,3 +248,72 @@ export async function overdracht(dag?: string) {
       : h("p", { class: "leeg" }, "Op deze dag is nog geen ploeg begonnen."),
   );
 }
+
+// ---------- Stilstand ----------
+interface StilstandRegel { id: string; stap: string; stapnaam: string; oorzaak: string; oorzaaknaam: string; categorie: string; toelichting: string | null; begin_op: string; eind_op: string | null; minuten: number; pc: string | null; operator: string | null; hal: string | null }
+interface StilstandAnalyse {
+  van: string; tot: string; ploeguren_per_dag: number; kwaliteit: number | null;
+  per_stap: { stap: string; stapnaam: string; aantal: number; storing: number; wachten: number; gepland: number; overig: number; beschikbaarheid: number | null }[];
+  per_oorzaak: { oorzaak: string; oorzaaknaam: string; categorie: string; aantal: number; minuten: number }[];
+  lijst: StilstandRegel[];
+}
+const CATEGORIE: Record<string, string> = { storing: "Storing", wachten: "Wachten", gepland: "Gepland", overig: "Overig" };
+const procent = (n: number | null) => (n === null ? "–" : `${toonGetal(Math.round(n * 1000) / 10)} %`);
+
+export async function stilstand() {
+  const actueel = vastHouden();
+  toon(kop("Stilstand"), laden());
+  let a: StilstandAnalyse;
+  try { a = await haal<StilstandAnalyse>(`/analyse/stilstand${qs(periode.bereik())}`); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const ongepland = a.per_stap.reduce((t, x) => t + x.storing + x.wachten + x.overig, 0);
+  const metB = a.per_stap.filter((x) => x.beschikbaarheid !== null);
+  const gemB = metB.length ? metB.reduce((t, x) => t + x.beschikbaarheid!, 0) / metB.length : null;
+  const slechtst = [...metB].sort((x, y) => x.beschikbaarheid! - y.beschikbaarheid!)[0];
+  const lopend = a.lijst.filter((x) => !x.eind_op);
+  toon(
+    kop("Stilstand", `Wanneer en waarom er niet gewerkt kon worden, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}. Operators melden stilstand in het invoerscherm.`, periodeKeuze(stilstand)),
+    lopend.length
+      ? h("section", { class: "blok let-op-blok" }, h("h2", {}, `Nu stil (${lopend.length})`),
+          tabel(["Stap", "Oorzaak", "Sinds", "Duur", "Toelichting", "Gemeld door"], lopend.map((x) => [`${x.stap} ${x.stapnaam}`, x.oorzaaknaam, kort(x.begin_op), minuten(x.minuten), x.toelichting ?? "", x.operator ?? ""]), "compact"))
+      : null,
+    h("div", { class: "tegels" },
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, minuten(ongepland)), h("span", { class: "tegel-tekst" }, "ongeplande stilstand (storing, wachten, overig)")),
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, procent(gemB)), h("span", { class: "tegel-tekst" }, "beschikbaarheid, gemiddeld over de stappen")),
+      slechtst && slechtst.beschikbaarheid! < 1
+        ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, slechtst.stap), h("span", { class: "tegel-tekst" }, `laagste beschikbaarheid: ${procent(slechtst.beschikbaarheid)}`))
+        : null,
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, procent(a.kwaliteit)), h("span", { class: "tegel-tekst" }, "kwaliteit: gestarte batches niet afgekeurd"))),
+    h("section", { class: "blok" }, h("h2", {}, "Stilstand per stap"),
+      h("p", { class: "sub" }, `Beschikbaarheid = de geplande productietijd (${toonGetal(a.ploeguren_per_dag)} ploeguren per dag, min geplande stilstand) waarin de stap niet stil lag. Samen met kwaliteit het begin van OEE; voor de prestatie zijn nog normtijden per stap nodig.`),
+      ongepland + a.per_stap.reduce((t, x) => t + x.gepland, 0) > 0
+        ? liggendeStaven(
+            a.per_stap.map((x) => ({
+              label: x.stap,
+              delen: [
+                { naam: "Storing", waarde: x.storing, klasse: "deel-storing" },
+                { naam: "Wachten", waarde: x.wachten, klasse: "deel-wacht" },
+                { naam: "Overig", waarde: x.overig, klasse: "deel-overig" },
+                { naam: "Gepland", waarde: x.gepland, klasse: "deel-gepland" },
+              ],
+              tip: [`${x.stap} ${x.stapnaam}`, `Storing: ${minuten(x.storing)}`, `Wachten: ${minuten(x.wachten)}`, `Overig: ${minuten(x.overig)}`, `Gepland: ${minuten(x.gepland)}`, `Beschikbaarheid: ${procent(x.beschikbaarheid)}`],
+            })),
+            (n) => minuten(n),
+            [{ naam: "Storing", klasse: "deel-storing" }, { naam: "Wachten", klasse: "deel-wacht" }, { naam: "Overig", klasse: "deel-overig" }, { naam: "Gepland", klasse: "deel-gepland" }],
+            [30, 60, 120, 240, 480, 960, 1920, 3840],
+            "Stilstand per stap")
+        : h("p", { class: "leeg" }, "Geen stilstand in deze periode."),
+      tabel(["Stap", "Keer", "Storing", "Wachten", "Overig", "Gepland", "Beschikbaarheid"], a.per_stap.map((x) => [
+        `${x.stap} ${x.stapnaam}`, h("span", { class: "getal" }, x.aantal), minuten(x.storing), minuten(x.wachten), minuten(x.overig), minuten(x.gepland),
+        h("span", { class: x.beschikbaarheid !== null && x.beschikbaarheid < 0.95 ? "getal let-op" : "getal" }, procent(x.beschikbaarheid))]), "compact")),
+    a.per_oorzaak.length
+      ? h("section", { class: "blok" }, h("h2", {}, "Per oorzaak"),
+          tabel(["Oorzaak", "Soort", "Keer", "Totaal"], a.per_oorzaak.map((x) => [x.oorzaaknaam, CATEGORIE[x.categorie] ?? x.categorie, h("span", { class: "getal" }, x.aantal), minuten(x.minuten)]), "compact"))
+      : null,
+    a.lijst.length
+      ? h("section", { class: "blok" }, h("h2", {}, "Laatste 50 keer stilstand"),
+          tabel(["Begin", "Stap", "Oorzaak", "Duur", "Toelichting", "Gemeld door", "Pc"], a.lijst.slice(0, 50).map((x) => [
+            kort(x.begin_op), x.stap, x.oorzaaknaam, x.eind_op ? minuten(x.minuten) : h("strong", {}, `loopt (${minuten(x.minuten)})`), x.toelichting ?? "", x.operator ?? "", x.pc ?? ""]), "compact"))
+      : null,
+  );
+}

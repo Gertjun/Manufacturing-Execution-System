@@ -162,6 +162,7 @@ Ook op `/portaal/` (testaccount `ploegleider1`, wachtwoord `demo`; een ploegleid
 | Productie per week | Batches gestart en klaar, lots gereed en afkeur per week |
 | Correcties | Alle correcties: oude en nieuwe waarde, reden, wie corrigeerde en wie oorspronkelijk invoerde |
 | Ploegoverdracht | Per dag de ploegen met hun cijfers, overdrachten en wat open bleef (D32) |
+| Stilstand | Wat nu stilligt, stilstand per stap en oorzaak, beschikbaarheid en kwaliteit (D34) |
 
 Een batch in beoordeling zetten kan vanaf de batchpagina.
 
@@ -259,6 +260,7 @@ Ook op `/portaal/` (testaccount `beheerder1`, wachtwoord `demo`; een beheerder s
 | Operators | Operatornamen toevoegen, hernoemen of uitzetten (ze verschijnen direct in het invoerscherm) |
 | Grondstoffen | Grondstoffen toevoegen, wijzigen, uitzetten; per stap verplicht of niet (D31) |
 | Ploegen | Begin- en eindtijd en naam van de ploegen |
+| Oorzaken van stilstand | De keuzelijst bij het melden van stilstand, met de soort |
 | Pc's | Pc's toevoegen en per pc kiezen welke stappen hij bedient |
 | Logboek | Elke wijziging: wie, wanneer, oude en nieuwe waarde |
 

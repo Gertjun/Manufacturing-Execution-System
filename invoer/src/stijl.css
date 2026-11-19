@@ -226,3 +226,9 @@ input[aria-invalid="true"] { border-color: var(--grens); }
 .melding-let_op { border-left: 6px solid var(--signaal); }
 .rij.gelezen .rij-hoofd { font-weight: 400; }
 .knoppen-rij { display: flex; gap: 8px; }
+
+/* Stilstand */
+.stilstand-blok { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; background: #fbeceb; border: 2px solid var(--grens); border-left-width: 10px; border-radius: 10px; padding: 14px 18px; margin: 0 0 20px; }
+.stilstand-blok h2 { margin: 0 0 4px; color: var(--grens); }
+.stilstand-blok p { margin: 0; }
+.kop-rechts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

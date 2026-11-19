@@ -226,7 +226,7 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
 export interface Deel { naam: string; waarde: number; klasse: string }
 
 /** Eén liggende staaf per rij, opgebouwd uit delen (samen één geheel). */
-export function liggendeStaven(rijen: { label: string; delen: Deel[]; tip: string[] }[], eenheid: (n: number) => string, legendaItems: { naam: string; klasse: string }[], vasteStappen?: number[]): HTMLElement {
+export function liggendeStaven(rijen: { label: string; delen: Deel[]; tip: string[] }[], eenheid: (n: number) => string, legendaItems: { naam: string; klasse: string }[], vasteStappen?: number[], titel = "Doorlooptijd per stap"): HTMLElement {
   const rij = 26, B = 760, m = { l: 150, r: 70, t: 4, b: 26 };
   const H = m.t + rijen.length * rij + m.b;
   const max = Math.max(1, ...rijen.map((r) => r.delen.reduce((a, d) => a + d.waarde, 0)));
@@ -239,7 +239,7 @@ export function liggendeStaven(rijen: { label: string; delen: Deel[]; tip: strin
   } else ticks = schaalStappen(0, max, 5);
   const top = ticks[ticks.length - 1];
   const X = (v: number) => m.l + (v / top) * (B - m.l - m.r);
-  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": "Doorlooptijd per stap" });
+  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": titel });
   for (const t of ticks) {
     svg.append(s("line", { x1: X(t), x2: X(t), y1: m.t, y2: H - m.b, class: t === 0 ? "as" : "raster" }));
     svg.append(s("text", { x: X(t), y: H - 8, "text-anchor": "middle", class: "as-tekst" }, eenheid(t)));

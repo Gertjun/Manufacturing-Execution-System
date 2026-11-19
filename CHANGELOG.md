@@ -2,6 +2,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.14.0 — 19 november 2026
+- Nieuw: stilstand melden. In het invoerscherm staat bij elke stap "Stilstand melden": kies de oorzaak (storing, wachten, gepland of overig) en eventueel een toelichting. Een rode balk laat zien dat de stap stilligt, tot iemand op "Stilstand beëindigen" drukt. Dat werkt ook zonder verbinding.
+- Bij een storing krijgt de ploegleider een melding. Op het wandscherm wordt de stap rood met ⛔.
+- Nieuw: Portaal Productie → Stilstand. Je ziet wat nu stilligt, de stilstand per stap en per oorzaak, en de beschikbaarheid per stap. Daarnaast de kwaliteit: het deel van de gestarte batches dat niet is afgekeurd. Samen is dat het begin van OEE. Voor de prestatie (snelheid) zijn nog normtijden per stap nodig.
+- Nieuw: Portaal Beheer → Oorzaken van stilstand. Een geplande oorzaak (omstellen, schoonmaken, onderhoud) telt niet mee als verlies.
+- De testdata bevat fictieve stilstand: dagelijks schoonmaken, wekelijks onderhoud, en storingen (PS7 vaker). In PS7 loopt nu een storing.
+- Technisch: database-update 8 (`0008_stilstand`).
+
 ## 0.13.0 — 19 november 2026
 - Nieuw: meldingen. De database maakt zelf een melding als iemand iets moet weten:
   - een waarde buiten de grens (ook na een correctie): naar ploegleider en Kwaliteit;

@@ -8,6 +8,7 @@ interface Stap {
   code: string; naam: string; niveau: string;
   gepland: { nummer: string; volgorde: number; status: string; opmerking: string | null }[];
   bezig: Item[]; klaar: Item[];
+  stilstand: { oorzaak: string; categorie: string; sinds: string; toelichting: string | null } | null;
 }
 interface Wand {
   tijd: string; hal: string | null; hallen: string[];
@@ -74,7 +75,7 @@ export async function wandscherm(hal?: string) {
       h("footer", { class: "wand-voet" },
         h("span", { class: "wand-uitleg" },
           h("span", { class: "wl wl-bezig" }, "▶ Bezig"), h("span", { class: "wl wl-klaar" }, "● Klaar om te starten"),
-          h("span", { class: "wl wl-gepland" }, "○ Gepland, nog niet klaar"), h("span", { class: "wl wl-lang" }, "Gele rand: wacht of loopt langer dan normaal")),
+          h("span", { class: "wl wl-gepland" }, "○ Gepland, nog niet klaar"), h("span", { class: "wl wl-lang" }, "Gele rand: wacht of loopt langer dan normaal"), h("span", { class: "wl wl-stil" }, "⛔ Stilstand")),
         sessie.rol === "scherm" ? null : h("nav", { class: "wand-hallen", "aria-label": "Hal" },
           h("a", { href: "#/wandscherm", "aria-current": w.hal ? undefined : "page" }, "Alle hallen"),
           w.hallen.map((x) => h("a", { href: `#/wandscherm/${encodeURIComponent(x)}`, "aria-current": x === w.hal ? "page" : undefined }, x)),
@@ -117,11 +118,14 @@ function stapKaart(s: Stap) {
   ];
   const meer = regels.length - MAX_REGELS;
   const leeg = regels.length === 0;
-  return h("section", { class: `wand-stap${leeg ? " wand-stap-leeg" : ""}${s.bezig.length ? " wand-stap-actief" : ""}` },
+  return h("section", { class: `wand-stap${leeg && !s.stilstand ? " wand-stap-leeg" : ""}${s.bezig.length ? " wand-stap-actief" : ""}${s.stilstand ? " wand-stap-stil" : ""}` },
     h("div", { class: "wand-stap-kop" },
       h("span", { class: "wand-code" }, s.code.replace("PS", "")),
       h("span", { class: "wand-naam" }, s.naam),
       s.gepland.length ? h("span", { class: "wand-voortgang" }, `${gedaan}/${s.gepland.length} ✓`) : null),
+    s.stilstand
+      ? h("p", { class: "wand-stil" }, h("strong", {}, `⛔ ${s.stilstand.oorzaak}`), ` sinds ${duur(s.stilstand.sinds)}`)
+      : null,
     leeg
       ? h("p", { class: "wand-niets" }, "Niets te doen")
       : h("ul", { class: "wand-lijst" }, regels.slice(0, meer > 0 ? MAX_REGELS - 1 : MAX_REGELS),

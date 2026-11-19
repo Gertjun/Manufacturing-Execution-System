@@ -4,6 +4,7 @@ import { IEDEREEN, vereist } from "../auth.js";
 import { lees } from "../db.js";
 import { niet } from "../fouten.js";
 import { Markering, StapCode } from "./schemas.js";
+import { Stilstand, STILSTAND_SQL } from "./stilstand.js";
 
 // Analyses voor de portalen. Elke analyse is een eigen route, zodat een portaal
 // kan kiezen welke het toont.
@@ -599,6 +600,98 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            FROM grondstof_gebruik_actueel u JOIN grondstof g ON g.id = u.grondstof_id JOIN stapregistratie r ON r.id = u.stapregistratie_id
           GROUP BY g.code, g.naam, u.partij ORDER BY max(u.ingevoerd_op) DESC LIMIT 500`,
       )) as never,
+  );
+
+  // ---------- Productie: stilstand en beschikbaarheid ----------
+  app.get(
+    "/stilstand",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["analyse"],
+        description:
+          "Stilstand per stap en per oorzaak in de periode (standaard de laatste 30 dagen), in minuten. Beschikbaarheid per stap = (geplande productietijd - ongeplande stilstand) / geplande productietijd, waarbij de geplande productietijd = de ploeguren min geplande stilstand (omstellen, schoonmaken, onderhoud). Kwaliteit = deel van de gestarte batches dat niet is afgekeurd. Samen het begin van OEE; de prestatie (snelheid) vraagt normtijden per stap en ontbreekt nog.",
+        querystring: Type.Object(Periode),
+        response: {
+          200: Type.Object({
+            van: Type.String({ format: "date" }),
+            tot: Type.String({ format: "date" }),
+            ploeguren_per_dag: Type.Number(),
+            kwaliteit: OptGetal,
+            per_stap: Type.Array(Type.Object({
+              stap: Type.String(), stapnaam: Type.String(), aantal: Type.Integer(),
+              storing: Type.Number(), wachten: Type.Number(), gepland: Type.Number(), overig: Type.Number(),
+              beschikbaarheid: OptGetal,
+            })),
+            per_oorzaak: Type.Array(Type.Object({ oorzaak: Type.String(), oorzaaknaam: Type.String(), categorie: Type.String(), aantal: Type.Integer(), minuten: Type.Number() })),
+            lijst: Type.Array(Stilstand),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const [p] = await lees<{ van: string; tot: string; dagen: number; uren: number }>(
+        app.db,
+        `SELECT coalesce($1::date, current_date - 29)::text AS van, coalesce($2::date, current_date + 1)::text AS tot,
+                (coalesce($2::date, current_date + 1) - coalesce($1::date, current_date - 29)) AS dagen,
+                coalesce((SELECT sum(extract(epoch FROM CASE WHEN eindigt > begint THEN eindigt - begint ELSE eindigt - begint + interval '24 hours' END)) / 3600
+                            FROM ploeg WHERE actief), 24)::float AS uren`,
+        [req.query.van ?? null, req.query.tot ?? null],
+      );
+      const t = [p.van, p.tot];
+      // Elke stilstand telt alleen mee voor het deel binnen de periode.
+      const BINNEN = `greatest(0, extract(epoch FROM least(coalesce(x.eind_op, now()), $2::date::timestamptz) - greatest(x.begin_op, $1::date::timestamptz)) / 60)`;
+      const per_stap = await lees<{ stap: string; storing: number; wachten: number; gepland: number; overig: number }>(
+        app.db,
+        `SELECT s.code AS stap, s.naam AS stapnaam, count(x.id)::int AS aantal,
+                coalesce(sum(${BINNEN}) FILTER (WHERE o.categorie = 'storing'), 0)::float AS storing,
+                coalesce(sum(${BINNEN}) FILTER (WHERE o.categorie = 'wachten'), 0)::float AS wachten,
+                coalesce(sum(${BINNEN}) FILTER (WHERE o.categorie = 'gepland'), 0)::float AS gepland,
+                coalesce(sum(${BINNEN}) FILTER (WHERE o.categorie = 'overig'), 0)::float AS overig
+           FROM processtap s
+           LEFT JOIN stilstand x ON x.processtap_id = s.id AND x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz
+           LEFT JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
+          WHERE s.actief
+          GROUP BY s.id ORDER BY s.volgorde`,
+        t,
+      );
+      const plan = p.dagen * p.uren * 60;
+      const per_oorzaak = await lees(
+        app.db,
+        `SELECT o.code AS oorzaak, o.naam AS oorzaaknaam, o.categorie, count(*)::int AS aantal, round(sum(${BINNEN})::numeric, 1)::float AS minuten
+           FROM stilstand x JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
+          WHERE x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz
+          GROUP BY o.code, o.naam, o.categorie ORDER BY 5 DESC`,
+        t,
+      );
+      const lijst = await lees(
+        app.db,
+        `${STILSTAND_SQL} WHERE x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz ORDER BY x.begin_op DESC LIMIT 200`,
+        t,
+      );
+      const [k] = await lees<{ gestart: number; afgekeurd: number }>(
+        app.db,
+        `SELECT (SELECT count(*) FROM batch WHERE gestart_op >= $1::date AND gestart_op < $2::date)::int AS gestart,
+                (SELECT count(*) FROM batch WHERE status = 'afgekeurd' AND gestart_op >= $1::date AND gestart_op < $2::date)::int AS afgekeurd`,
+        t,
+      );
+      return {
+        van: p.van,
+        tot: p.tot,
+        ploeguren_per_dag: p.uren,
+        kwaliteit: k.gestart ? 1 - k.afgekeurd / k.gestart : null,
+        per_stap: per_stap.map((x) => {
+          const productietijd = plan - x.gepland;
+          const r = (n: number) => Math.round(n * 10) / 10;
+          return {
+            ...x, storing: r(x.storing), wachten: r(x.wachten), gepland: r(x.gepland), overig: r(x.overig),
+            beschikbaarheid: productietijd > 0 ? Math.max(0, (productietijd - x.storing - x.wachten - x.overig) / productietijd) : null,
+          };
+        }),
+        per_oorzaak,
+        lijst,
+      } as never;
+    },
   );
 };
 

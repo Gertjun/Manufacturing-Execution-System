@@ -117,6 +117,15 @@ try {
   await page.getByRole("link", { name: "Vandaag" }).click();
   await page.locator("section.ploeg-nu, .leeg").first().waitFor();
   check("Vandaag: de lopende ploeg is gemarkeerd", (await page.locator("section.ploeg-nu").count()) <= 1);
+
+  console.log("\nStilstand");
+  await page.goto(`${BASIS}/portaal/#/productie/stilstand`);
+  await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
+  check("Nu stil: de lopende storing in PS7", (await page.locator("section", { hasText: "Nu stil" }).locator("tbody tr", { hasText: "PS7" }).count()) === 1);
+  const rijPs7 = await page.locator("section", { hasText: "Stilstand per stap" }).locator("tbody tr", { hasText: "PS7 " }).innerText();
+  check("PS7 heeft de laagste beschikbaarheid", (await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText()).includes("PS7"), rijPs7);
+  check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
+  await shot("08-stilstand");
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

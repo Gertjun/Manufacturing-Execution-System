@@ -126,3 +126,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** meldingen worden gemaakt door triggers in de database (waarde buiten de grens, besluit over een batch, lot afgeweken van het voorstel), met per melding de rollen voor wie hij is. Gelezen wordt per gebruiker vastgelegd; meldingen worden niet gewijzigd of verwijderd en zijn 30 dagen zichtbaar. Beheerder en analist zien alle meldingen; operators en het wandscherm geen. Er gaat niets per mail, Teams of sms: het platform moet zonder internet werken (WISHLIST #21 als dat later wel mag).
 - **Waarom:** regels horen in de database (D9), dus ook "wanneer moet iemand iets weten"; zo krijgt elke invoer (ook offline ingevoerd en later verstuurd) dezelfde melding.
 
+### D34 – Stilstand en beschikbaarheid (19 nov 2026, 0.14.0)
+- **Besluit:** stilstand wordt per stap gemeld (één tegelijk per stap), met een oorzaak uit een lijst in vier soorten: storing, wachten, gepland, overig. Een stilstand ligt vast; alleen het einde wordt één keer ingevuld. Tijden komen van het apparaat (offline), een tijdstip in de toekomst telt als nu. Beschikbaarheid per stap = (ploeguren in de periode − geplande stilstand − ongeplande stilstand) / (ploeguren − geplande stilstand). Kwaliteit = gestarte batches die niet zijn afgekeurd. De prestatie (OEE) volgt pas als er normtijden zijn (WISHLIST #22).
+- **Waarom:** zonder oorzaak is stilstand niet te verbeteren; door geplande stilstand apart te houden telt schoonmaken niet als verlies.
+

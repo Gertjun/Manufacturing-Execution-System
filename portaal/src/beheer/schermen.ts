@@ -321,6 +321,41 @@ export async function ploegen() {
   );
 }
 
+// ---------- Oorzaken van stilstand ----------
+interface Oorzaak { code: string; naam: string; categorie: string; actief: boolean }
+const CATEGORIEEN: [string, string][] = [["storing", "Storing (ploegleider krijgt een melding)"], ["wachten", "Wachten"], ["gepland", "Gepland (telt niet mee voor de beschikbaarheid)"], ["overig", "Overig"]];
+
+export async function oorzaken() {
+  const actueel = vastHouden();
+  toon(kop("Oorzaken van stilstand"), laden());
+  let lijst: Oorzaak[];
+  try { lijst = await haal<Oorzaak[]>("/stilstand/oorzaken?ookInactief=true"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const soort = (c: string) => CATEGORIEEN.find(([k]) => k === c)?.[1].replace(/ \(.*\)/, "") ?? c;
+  toon(
+    kop("Oorzaken van stilstand", "De keuzelijst als een operator stilstand meldt. Geplande stilstand (omstellen, schoonmaken, onderhoud) telt niet mee als verlies.",
+      h("button", { class: "knop knop-hoofd", onclick: async () => {
+        const r = await vraag("Oorzaak toevoegen", [
+          { naam: "code", label: "Code", hint: "Kort, zonder spaties. Ligt daarna vast.", controle: (v) => (/^[A-Za-z0-9._-]{1,20}$/.test(v) ? null : "Alleen letters, cijfers, punt en streepjes; hoogstens 20 tekens") },
+          { naam: "naam", label: "Naam" },
+          { naam: "categorie", label: "Soort", opties: CATEGORIEEN },
+        ], "Toevoegen");
+        if (r) await wijzig(() => stuur("POST", "/stilstand/oorzaken", r), `${r.naam} toegevoegd`, oorzaken);
+      } }, "Oorzaak toevoegen")),
+    tabel(["Code", "Naam", "Soort", ""], lijst.map((o) => [
+      h("strong", { class: o.actief ? "" : "inactief" }, o.code), h("span", { class: o.actief ? "" : "inactief" }, o.naam, o.actief ? "" : " (uit)"), soort(o.categorie),
+      h("div", { class: "knoppen-klein" },
+        o.actief ? h("button", { class: "knop knop-klein", onclick: async () => {
+          const r = await vraag(`${o.code} wijzigen`, [{ naam: "naam", label: "Naam", waarde: o.naam }, { naam: "categorie", label: "Soort", opties: CATEGORIEEN, waarde: o.categorie }], "Opslaan");
+          if (r) await wijzig(() => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, r), "Opgeslagen", oorzaken);
+        } }, "Wijzigen") : null,
+        h("button", { class: "knop knop-klein knop-stil", onclick: () =>
+          wijzig(() => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, { actief: !o.actief }), o.actief ? `${o.naam} uitgezet` : `${o.naam} weer actief`, oorzaken) },
+          o.actief ? "Uitzetten" : "Weer aanzetten")),
+    ]), "compact"),
+  );
+}
+
 // ---------- Pc's ----------
 interface Pc { naam: string; locatie: string | null; actief: boolean; stappen: string[] }
 

@@ -2,7 +2,7 @@
 
 Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
 
-Laatst bijgewerkt: versie 0.13.0, 19 november 2026
+Laatst bijgewerkt: versie 0.14.0, 19 november 2026
 
 ## Gepland
 - #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
@@ -13,7 +13,7 @@ Laatst bijgewerkt: versie 0.13.0, 19 november 2026
 - #6 **Koppeling met Exact** (groot) — Gegevens uitwisselen met Exact.
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
 - #21 **Meldingen per mail of Teams** (klein, te besluiten) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
-- #16 **Storingen en stilstand** (middel, 0.14.0) — Stilstand per stap vastleggen met oorzaak; basis voor OEE.
+- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en daarmee de volledige OEE berekend kan worden.
 - #17 **Capaciteit in de planning** (klein, 0.16.0) — Waarschuwing bij meer batches dan een dag aankan.
 - #18 **Certificaat per lot** (klein, 0.17.0) — Lotpaspoort als nette pdf voor de klant.
 - #19 **Regelkaarten** (middel, 0.18.0) — Voor Kwaliteit: afwijken zien aankomen vóór de grens.
@@ -24,6 +24,7 @@ Laatst bijgewerkt: versie 0.13.0, 19 november 2026
 - #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
 
 ## Gerealiseerd
+- #16 **Storingen en stilstand** — versie 0.14.0; melden en beëindigen in de invoer (offline), melding bij storing, wandscherm, Productie → Stilstand met beschikbaarheid en kwaliteit, oorzaken in Beheer.
 - #15 **Meldingen** — versie 0.13.0; door de database bij grenswaarden, beoordeling, keurresultaat en afwijkend lot; in de portalen en voor de ploegleider in het invoerscherm.
 - #14 **Ploegoverdracht** — versie 0.12.0; cijfers per ploeg, overdracht schrijven in het invoerscherm (ook offline), vorige ploeg bovenaan, overzicht in Productie, ploegtijden in Beheer.
 - #13 **Grondstoffen per batch** — versie 0.11.0; partijnummer en hoeveelheid per stap, verplicht of niet, terugzoeken en in het lotpaspoort.

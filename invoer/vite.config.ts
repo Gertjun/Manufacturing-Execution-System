@@ -22,7 +22,7 @@ function serviceWorker(): Plugin {
 // De app draait op /invoer/ van de API-server. Tijdens ontwikkelen gaan
 // API-verzoeken via een proxy naar de lokale API.
 const API = process.env.API_URL ?? "http://localhost:3000";
-const apiPaden = ["/auth", "/config", "/batches", "/registraties", "/lots", "/werkvoorraad", "/planning", "/overdracht", "/meldingen", "/beheer", "/analyse", "/gezondheid"];
+const apiPaden = ["/auth", "/config", "/batches", "/registraties", "/lots", "/werkvoorraad", "/planning", "/overdracht", "/meldingen", "/stilstand", "/beheer", "/analyse", "/gezondheid"];
 
 export default defineConfig({
   base: "/invoer/",

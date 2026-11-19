@@ -60,4 +60,15 @@ INSERT INTO ploeg (code, naam, begint, eindigt) VALUES
   ('M', 'Middagploeg', '14:00', '22:00'),
   ('N', 'Nachtploeg', '22:00', '06:00');
 
+-- Fictieve oorzaken van stilstand (sinds 0.14.0).
+INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES
+  ('STOR-MACH', 'Machinestoring', 'storing'),
+  ('STOR-ELEK', 'Elektrische storing', 'storing'),
+  ('WACHT-GS', 'Wachten op grondstof', 'wachten'),
+  ('WACHT-KW', 'Wachten op Kwaliteit', 'wachten'),
+  ('OMSTEL', 'Omstellen', 'gepland'),
+  ('SCHOON', 'Schoonmaken', 'gepland'),
+  ('ONDERH', 'Gepland onderhoud', 'gepland'),
+  ('OVERIG', 'Overig', 'overig');
+
 COMMIT;

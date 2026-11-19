@@ -53,6 +53,7 @@ try {
   const bezig = Number((await q("SELECT count(*) FROM fabriek.stapregistratie WHERE status = 'open'"))[0].count);
   check("Alles wat bezig is staat erop", (await page.locator(".wr-bezig").count()) === Math.min(bezig, 999), `${bezig}`);
   check("Geen links naar andere hallen of portalen voor het schermaccount", (await page.locator(".wand-hallen").count()) === 0);
+  check("Lopende storing staat op de kaart van PS7", (await page.locator(".wand-stap-stil").count()) === 1 && (await page.locator(".wand-stap-stil .wand-code").innerText()) === "7");
   await shot("01-wandscherm");
   await page.goto(`${BASIS}/portaal/#/kwaliteit`);
   await page.waitForFunction(() => location.hash === "#/wandscherm");

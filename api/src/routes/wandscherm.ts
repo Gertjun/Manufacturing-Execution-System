@@ -46,6 +46,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 ),
                 bezig: Type.Array(Item),
                 klaar: Type.Array(Item),
+                stilstand: Type.Union([Type.Null(), Type.Object({ oorzaak: Type.String(), categorie: Type.String(), sinds: Type.String({ format: "date-time" }), toelichting: Type.Union([Type.Null(), Type.String()]) })]),
               }),
             ),
           }),
@@ -120,6 +121,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `SELECT s.code AS stap, w.nummer, w.sinds FROM processtap s CROSS JOIN LATERAL werkvoorraad(s.code) w WHERE s.actief ORDER BY w.sinds NULLS LAST`,
       );
+      const stil = await lees<{ stap: string; oorzaak: string; categorie: string; sinds: Date; toelichting: string | null }>(
+        app.db,
+        `SELECT s.code AS stap, o.naam AS oorzaak, o.categorie, x.begin_op AS sinds, x.toelichting
+           FROM stilstand x JOIN processtap s ON s.id = x.processtap_id JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
+          WHERE x.eind_op IS NULL`,
+      );
       const [k] = await lees<{ gepland_vandaag: number; gestart_vandaag: number; lots_gereed_vandaag: number; in_beoordeling: number }>(
         app.db,
         `SELECT (SELECT count(*) FROM batch WHERE geplande_dag = current_date AND status <> 'vervallen')::int AS gepland_vandaag,
@@ -156,6 +163,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             gepland: p.map(({ nummer, volgorde, status, opmerking }) => ({ nummer, volgorde, status, opmerking })),
             bezig: open.filter((x) => x.stap === s.code).map((x) => item(x, n?.bewerking_p90)),
             klaar: wacht,
+            stilstand: (() => {
+              const x = stil.find((y) => y.stap === s.code);
+              return x ? { oorzaak: x.oorzaak, categorie: x.categorie, sinds: new Date(x.sinds).toISOString(), toelichting: x.toelichting } : null;
+            })(),
           };
         }),
       } as never;

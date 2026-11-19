@@ -11,7 +11,7 @@ await db.exec("BEGIN; SET LOCAL session_replication_role = replica;\n" + sql("..
 console.log("data", Date.now() - t0, "ms");
 // Fictief onderhoud, zodat Beheer → Server eruitziet als op een echte server (tijden vlak voor de laatste invoer).
 await db.exec(`
-  WITH t AS (SELECT max(gestart_op) AS m FROM fabriek.stapregistratie)
+  WITH t AS (SELECT greatest((SELECT max(gestart_op) FROM fabriek.stapregistratie), (SELECT max(begin_op) FROM fabriek.stilstand)) AS m)
   INSERT INTO fabriek.onderhoud_log (soort, gestart_op, klaar_op, gelukt, bestand, grootte_bytes, versie, melding)
   SELECT 'migratie', m - interval '20 days', m - interval '20 days', true, NULL, NULL, '0.6.0', 'Nieuwe database aangemaakt op schemaversie 2' FROM t
   UNION ALL SELECT 'hersteltest', m - interval '17 days', m - interval '17 days' + interval '40 seconds', true, 'batchgui_demo.dump', 1250000, '0.6.0', 'Back-up volledig teruggezet in een tijdelijke database (demo)' FROM t

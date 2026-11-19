@@ -18,6 +18,7 @@ import planningRoutes from "./routes/planning.js";
 import wandschermRoutes from "./routes/wandscherm.js";
 import overdrachtRoutes from "./routes/overdracht.js";
 import meldingRoutes from "./routes/meldingen.js";
+import stilstandRoutes from "./routes/stilstand.js";
 import werkvoorraadRoutes from "./routes/werkvoorraad.js";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
@@ -78,6 +79,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(wandschermRoutes, { prefix: "/wandscherm" });
   await app.register(overdrachtRoutes, { prefix: "/overdracht" });
   await app.register(meldingRoutes, { prefix: "/meldingen" });
+  await app.register(stilstandRoutes, { prefix: "/stilstand" });
 
   // De invoerapplicatie (browser) op /invoer/.
   if (invoerMap && existsSync(invoerMap)) {

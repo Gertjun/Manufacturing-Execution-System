@@ -338,3 +338,18 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 .ernst-let_op { border-left-color: var(--status-waarschuwing); }
 .ernst-let_op .melding-teken { background: var(--status-waarschuwing); color: var(--inkt); border-radius: 4px; }
 .ernst-info .melding-teken { background: var(--actie); font-style: italic; }
+
+/* Stilstand */
+.deel-storing { fill: var(--status-kritiek); }
+.deel-wacht { fill: var(--status-waarschuwing); }
+.deel-overig { fill: #8a96a3; }
+.deel-gepland { fill: #b9c2cb; }
+.blokje.deel-storing { background: var(--status-kritiek); }
+.blokje.deel-wacht { background: var(--status-waarschuwing); }
+.blokje.deel-overig { background: #8a96a3; }
+.blokje.deel-gepland { background: #b9c2cb; }
+.let-op-blok { border-left: 6px solid var(--status-waarschuwing); }
+.wand-stap-stil { border-color: #e5484d; background: #3a1d22; }
+.wand-stil { margin: 0; color: #ffb4b6; }
+.wand-stil strong { color: #fff; }
+.wl-stil { color: #ffb4b6; }

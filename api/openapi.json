@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.13.0",
+    "version": "0.14.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -8096,6 +8096,217 @@
         }
       }
     },
+    "/analyse/stilstand": {
+      "get": {
+        "tags": [
+          "analyse"
+        ],
+        "description": "Stilstand per stap en per oorzaak in de periode (standaard de laatste 30 dagen), in minuten. Beschikbaarheid per stap = (geplande productietijd - ongeplande stilstand) / geplande productietijd, waarbij de geplande productietijd = de ploeguren min geplande stilstand (omstellen, schoonmaken, onderhoud). Kwaliteit = deel van de gestarte batches dat niet is afgekeurd. Samen het begin van OEE; de prestatie (snelheid) vraagt normtijden per stap en ontbreekt nog.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "van",
+            "required": false,
+            "description": "Vanaf (inclusief), bv. 2026-11-01"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "tot",
+            "required": false,
+            "description": "Tot (exclusief)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "van",
+                    "tot",
+                    "ploeguren_per_dag",
+                    "kwaliteit",
+                    "per_stap",
+                    "per_oorzaak",
+                    "lijst"
+                  ],
+                  "properties": {
+                    "van": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "tot": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "ploeguren_per_dag": {
+                      "type": "number"
+                    },
+                    "kwaliteit": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "per_stap": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "stap",
+                          "stapnaam",
+                          "aantal",
+                          "storing",
+                          "wachten",
+                          "gepland",
+                          "overig",
+                          "beschikbaarheid"
+                        ],
+                        "properties": {
+                          "stap": {
+                            "type": "string"
+                          },
+                          "stapnaam": {
+                            "type": "string"
+                          },
+                          "aantal": {
+                            "type": "integer"
+                          },
+                          "storing": {
+                            "type": "number"
+                          },
+                          "wachten": {
+                            "type": "number"
+                          },
+                          "gepland": {
+                            "type": "number"
+                          },
+                          "overig": {
+                            "type": "number"
+                          },
+                          "beschikbaarheid": {
+                            "type": "number",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "per_oorzaak": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "oorzaak",
+                          "oorzaaknaam",
+                          "categorie",
+                          "aantal",
+                          "minuten"
+                        ],
+                        "properties": {
+                          "oorzaak": {
+                            "type": "string"
+                          },
+                          "oorzaaknaam": {
+                            "type": "string"
+                          },
+                          "categorie": {
+                            "type": "string"
+                          },
+                          "aantal": {
+                            "type": "integer"
+                          },
+                          "minuten": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "lijst": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "stap",
+                          "stapnaam",
+                          "oorzaak",
+                          "oorzaaknaam",
+                          "categorie",
+                          "toelichting",
+                          "begin_op",
+                          "eind_op",
+                          "minuten",
+                          "pc",
+                          "operator",
+                          "hal"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "stap": {
+                            "type": "string"
+                          },
+                          "stapnaam": {
+                            "type": "string"
+                          },
+                          "oorzaak": {
+                            "type": "string"
+                          },
+                          "oorzaaknaam": {
+                            "type": "string"
+                          },
+                          "categorie": {
+                            "type": "string"
+                          },
+                          "toelichting": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "begin_op": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "eind_op": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "minuten": {
+                            "type": "number",
+                            "description": "Duur tot het einde, of tot nu als hij nog loopt"
+                          },
+                          "pc": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "operator": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "hal": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/werkvoorraad/": {
       "get": {
         "tags": [
@@ -9944,7 +10155,8 @@
                           "niveau",
                           "gepland",
                           "bezig",
-                          "klaar"
+                          "klaar",
+                          "stilstand"
                         ],
                         "properties": {
                           "code": {
@@ -10054,6 +10266,32 @@
                                 }
                               }
                             }
+                          },
+                          "stilstand": {
+                            "type": "object",
+                            "required": [
+                              "oorzaak",
+                              "categorie",
+                              "sinds",
+                              "toelichting"
+                            ],
+                            "properties": {
+                              "oorzaak": {
+                                "type": "string"
+                              },
+                              "categorie": {
+                                "type": "string"
+                              },
+                              "sinds": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "toelichting": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            },
+                            "nullable": true
                           }
                         }
                       }
@@ -10899,6 +11137,641 @@
                   "properties": {
                     "gelezen": {
                       "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stilstand/oorzaken": {
+      "get": {
+        "tags": [
+          "stilstand"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "ookInactief",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "naam",
+                      "categorie",
+                      "actief"
+                    ],
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
+                      },
+                      "categorie": {
+                        "type": "string"
+                      },
+                      "actief": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "stilstand",
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "naam",
+                  "categorie"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._-]{1,20}$"
+                  },
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "categorie": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "storing"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "gepland"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "wachten"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "overig"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "naam",
+                    "categorie",
+                    "actief"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "categorie": {
+                      "type": "string"
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stilstand/": {
+      "get": {
+        "tags": [
+          "stilstand"
+        ],
+        "description": "Stilstand die nu loopt, per stap.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "stap",
+                      "stapnaam",
+                      "oorzaak",
+                      "oorzaaknaam",
+                      "categorie",
+                      "toelichting",
+                      "begin_op",
+                      "eind_op",
+                      "minuten",
+                      "pc",
+                      "operator",
+                      "hal"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "stap": {
+                        "type": "string"
+                      },
+                      "stapnaam": {
+                        "type": "string"
+                      },
+                      "oorzaak": {
+                        "type": "string"
+                      },
+                      "oorzaaknaam": {
+                        "type": "string"
+                      },
+                      "categorie": {
+                        "type": "string"
+                      },
+                      "toelichting": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "begin_op": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "eind_op": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                      },
+                      "minuten": {
+                        "type": "number",
+                        "description": "Duur tot het einde, of tot nu als hij nog loopt"
+                      },
+                      "pc": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "operator": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "hal": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "stilstand"
+        ],
+        "description": "Stilstand melden voor een stap. Met een eigen id is opnieuw versturen veilig (offline wachtrij).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "stapcode",
+                  "oorzaak"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "stapcode": {
+                    "type": "string",
+                    "pattern": "^PS[0-9]+$",
+                    "example": "PS3"
+                  },
+                  "oorzaak": {
+                    "type": "string"
+                  },
+                  "toelichting": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "nullable": true
+                  },
+                  "begin_op": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "stap",
+                    "stapnaam",
+                    "oorzaak",
+                    "oorzaaknaam",
+                    "categorie",
+                    "toelichting",
+                    "begin_op",
+                    "eind_op",
+                    "minuten",
+                    "pc",
+                    "operator",
+                    "hal"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "stap": {
+                      "type": "string"
+                    },
+                    "stapnaam": {
+                      "type": "string"
+                    },
+                    "oorzaak": {
+                      "type": "string"
+                    },
+                    "oorzaaknaam": {
+                      "type": "string"
+                    },
+                    "categorie": {
+                      "type": "string"
+                    },
+                    "toelichting": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "begin_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "eind_op": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "minuten": {
+                      "type": "number",
+                      "description": "Duur tot het einde, of tot nu als hij nog loopt"
+                    },
+                    "pc": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "operator": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hal": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "stap",
+                    "stapnaam",
+                    "oorzaak",
+                    "oorzaaknaam",
+                    "categorie",
+                    "toelichting",
+                    "begin_op",
+                    "eind_op",
+                    "minuten",
+                    "pc",
+                    "operator",
+                    "hal"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "stap": {
+                      "type": "string"
+                    },
+                    "stapnaam": {
+                      "type": "string"
+                    },
+                    "oorzaak": {
+                      "type": "string"
+                    },
+                    "oorzaaknaam": {
+                      "type": "string"
+                    },
+                    "categorie": {
+                      "type": "string"
+                    },
+                    "toelichting": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "begin_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "eind_op": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "minuten": {
+                      "type": "number",
+                      "description": "Duur tot het einde, of tot nu als hij nog loopt"
+                    },
+                    "pc": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "operator": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hal": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stilstand/{id}/einde": {
+      "post": {
+        "tags": [
+          "stilstand"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "eind_op": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "stap",
+                    "stapnaam",
+                    "oorzaak",
+                    "oorzaaknaam",
+                    "categorie",
+                    "toelichting",
+                    "begin_op",
+                    "eind_op",
+                    "minuten",
+                    "pc",
+                    "operator",
+                    "hal"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "stap": {
+                      "type": "string"
+                    },
+                    "stapnaam": {
+                      "type": "string"
+                    },
+                    "oorzaak": {
+                      "type": "string"
+                    },
+                    "oorzaaknaam": {
+                      "type": "string"
+                    },
+                    "categorie": {
+                      "type": "string"
+                    },
+                    "toelichting": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "begin_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "eind_op": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "minuten": {
+                      "type": "number",
+                      "description": "Duur tot het einde, of tot nu als hij nog loopt"
+                    },
+                    "pc": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "operator": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hal": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stilstand/oorzaken/{code}": {
+      "patch": {
+        "tags": [
+          "stilstand",
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "categorie": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "storing"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "gepland"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "wachten"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "overig"
+                        ]
+                      }
+                    ]
+                  },
+                  "actief": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "code",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "naam",
+                    "categorie",
+                    "actief"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "categorie": {
+                      "type": "string"
+                    },
+                    "actief": {
+                      "type": "boolean"
                     }
                   }
                 }
