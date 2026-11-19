@@ -5,6 +5,7 @@ import { lees } from "../db.js";
 import { niet } from "../fouten.js";
 import { Markering, StapCode } from "./schemas.js";
 import { Stilstand, STILSTAND_SQL } from "./stilstand.js";
+import { cpk, regelkaart, REGELS } from "../regelkaart.js";
 
 // Analyses voor de portalen. Elke analyse is een eigen route, zodat een portaal
 // kan kiezen welke het toont.
@@ -690,6 +691,106 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         }),
         per_oorzaak,
         lijst,
+      } as never;
+    },
+  );
+
+  // ---------- Kwaliteit: regelkaarten ----------
+  // Bij een procesparameter tekenen we het verschil tussen gemeten en setting (de setting kan per batch anders zijn);
+  // bij andere velden de gemeten waarde zelf.
+  const REEKS_SQL = `
+    SELECT v.code AS veld, w.gemeten::float AS gemeten, w.setting::float AS setting, w.ingevoerd_op AS tijd,
+           coalesce(b.batchnummer, l.lotnummer) AS nummer, w.markering
+      FROM waarde_actueel w
+      JOIN veld v ON v.id = w.veld_id
+      JOIN stapregistratie r ON r.id = w.stapregistratie_id
+      LEFT JOIN batch b ON b.id = r.batch_id
+      LEFT JOIN lot l ON l.id = r.lot_id
+     WHERE v.actief AND r.status = 'afgerond' AND ($1::text IS NULL OR v.code = $1)
+       AND ${PERIODE_SQL("w.ingevoerd_op", 2, 3)}
+     ORDER BY v.code, w.ingevoerd_op`;
+  type Rij = { veld: string; gemeten: number; setting: number | null; tijd: string; nummer: string; markering: string };
+  const reeks = (rijen: Rij[], soort: string) =>
+    rijen.map((r) => ({ ...r, waarde: soort === "procesparameter" && r.setting !== null ? r.gemeten - r.setting : r.gemeten }));
+
+  app.get(
+    "/regelkaarten",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["analyse"],
+        description: "Per veld: aantal metingen, signalen volgens de Western Electric-regels en het procesvermogen (Cpk) in de periode. Velden met signalen eerst.",
+        querystring: Type.Object(Periode),
+        response: {
+          200: Type.Array(Type.Object({
+            veld: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst,
+            n: Type.Integer(), signalen: Type.Integer(), laatste_signaal: Type.Union([Type.Null(), Tijd]), cpk: OptGetal,
+          })),
+        },
+      },
+    },
+    async (req) => {
+      const velden = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null }>(
+        app.db,
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min::float AS grens_min, v.grens_max::float AS grens_max
+           FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.actief ORDER BY s.volgorde, v.volgnummer`,
+      );
+      const rijen = await lees<Rij>(app.db, REEKS_SQL, [null, req.query.van ?? null, req.query.tot ?? null]);
+      const perVeld = new Map<string, Rij[]>();
+      for (const r of rijen) perVeld.set(r.veld, [...(perVeld.get(r.veld) ?? []), r]);
+      const uit = velden.map((v) => {
+        const p = reeks(perVeld.get(v.code) ?? [], v.soort);
+        const k = regelkaart(p.map((x) => x.waarde));
+        const laatste = k.signalen.at(-1);
+        // Cpk alleen voor velden waar de gemeten waarde zelf getekend wordt (de specificatie gaat over de gemeten waarde).
+        const c = v.soort === "procesparameter" ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max);
+        return { veld: v.code, naam: v.naam, stap: v.stap, soort: v.soort, eenheid: v.eenheid, n: k.n, signalen: k.signalen.length,
+          laatste_signaal: laatste ? new Date(p[laatste.index].tijd).toISOString() : null, cpk: c };
+      });
+      uit.sort((a, b) => (b.signalen > 0 ? 1 : 0) - (a.signalen > 0 ? 1 : 0) || (b.laatste_signaal ?? "").localeCompare(a.laatste_signaal ?? ""));
+      return uit as never;
+    },
+  );
+
+  app.get(
+    "/regelkaart",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["analyse"],
+        description: "Regelkaart van één veld: punten, middenlijn, regelgrenzen (3 sigma), bewegend bereik en signalen.",
+        querystring: Type.Object({ ...Periode, veld: Type.String({ examples: ["S5.1"] }) }),
+        response: {
+          200: Type.Object({
+            veld: Type.Object({ code: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst, grens_min: OptGetal, grens_max: OptGetal }),
+            getekend: Type.Union([Type.Literal("gemeten"), Type.Literal("afwijking_van_setting")]),
+            punten: Type.Array(Type.Object({ tijd: Tijd, nummer: Type.String(), waarde: Type.Number(), signaal: Type.Union([Type.Null(), Type.Integer()]) })),
+            gemiddelde: OptGetal, sigma: OptGetal, bovengrens: OptGetal, ondergrens: OptGetal,
+            mr_gemiddeld: OptGetal, mr_bovengrens: OptGetal, cpk: OptGetal,
+            regels: Type.Record(Type.String(), Type.String()),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const [v] = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null }>(
+        app.db,
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min::float AS grens_min, v.grens_max::float AS grens_max
+           FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.code = $1`,
+        [req.query.veld],
+      );
+      if (!v) throw niet("Veld");
+      const p = reeks(await lees<Rij>(app.db, REEKS_SQL, [v.code, req.query.van ?? null, req.query.tot ?? null]), v.soort);
+      const k = regelkaart(p.map((x) => x.waarde));
+      const sig = new Map(k.signalen.map((s) => [s.index, s.regel]));
+      return {
+        veld: v,
+        getekend: v.soort === "procesparameter" ? "afwijking_van_setting" : "gemeten",
+        punten: p.map((x, i) => ({ tijd: new Date(x.tijd).toISOString(), nummer: x.nummer, waarde: x.waarde, signaal: sig.get(i) ?? null })),
+        gemiddelde: k.gemiddelde, sigma: k.sigma, bovengrens: k.bovengrens, ondergrens: k.ondergrens,
+        mr_gemiddeld: k.mr_gemiddeld, mr_bovengrens: k.mr_bovengrens,
+        cpk: v.soort === "procesparameter" ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max),
+        regels: REGELS,
       } as never;
     },
   );

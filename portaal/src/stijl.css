@@ -395,3 +395,21 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
   .certificaat { border: none; box-shadow: none; margin: 0; padding: 0; max-width: none; }
   @page { size: A4; margin: 15mm; }
 }
+
+/* Regelkaart */
+.regelkaart .rk-zone-2 { fill: #eef3fb; }
+.regelkaart .rk-zone-3 { fill: #f6f8fb; }
+.regelkaart .rk-lijn { fill: none; stroke: var(--reeks-1); stroke-width: 1.5; opacity: .6; }
+.regelkaart .rk-punt { fill: var(--reeks-1); }
+.regelkaart .rk-signaal { fill: var(--status-kritiek); stroke: #fff; stroke-width: 1.5; }
+.regelkaart .rk-midden { stroke: var(--inkt); stroke-width: 1.5; }
+.regelkaart .rk-grens { stroke: var(--inkt-zacht); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.regelkaart .rk-spec { stroke: var(--status-kritiek); stroke-width: 1; stroke-dasharray: 2 4; opacity: .7; }
+.regelkaart .rk-label { font-size: 11px; }
+.regelkaart .raakvlak { fill: transparent; cursor: pointer; }
+.tip-signaal { color: var(--status-kritiek); }
+.rk-leg-punt, .rk-leg-signaal { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--reeks-1); margin-right: 6px; vertical-align: middle; }
+.rk-leg-signaal { border-radius: 0; transform: rotate(45deg); background: var(--status-kritiek); }
+.rk-leg-grens, .rk-leg-spec { display: inline-block; width: 18px; border-top: 2px dashed var(--inkt-zacht); margin-right: 6px; vertical-align: middle; }
+.rk-leg-spec { border-top: 2px dotted var(--status-kritiek); }
+.tegel.let-op { border-left: 6px solid var(--status-waarschuwing); }

@@ -312,3 +312,71 @@ export function staven(punten: { week: string; waarde: number; tip: string[] }[]
   const kaderEl = h("div", { class: "grafiek" }, svg as unknown as Node, tip.el);
   return kaderEl;
 }
+
+// ---------------------------------------------------------------------------
+// Regelkaart: punten in volgorde, middenlijn, regelgrenzen (3 sigma) en zones van 1 en 2 sigma.
+// Een signaal is een rood ruitje met het nummer van de regel; normaal is een blauw rondje.
+export interface RkPunt { tijd: string; nummer: string; waarde: number; signaal: number | null }
+export function regelkaartGrafiek(
+  punten: RkPunt[], k: { gemiddelde: number | null; sigma: number | null; bovengrens: number | null; ondergrens: number | null },
+  eenheid: string, spec?: { min: number | null; max: number | null }, titel = "Regelkaart",
+): HTMLElement {
+  const B = 900, H = 340, m = { l: 64, r: 120, t: 12, b: 34 };
+  const waarden = punten.map((p) => p.waarde);
+  const extra = [k.bovengrens, k.ondergrens, spec?.min ?? null, spec?.max ?? null].filter((x): x is number => x !== null && Number.isFinite(x));
+  // Specificatiegrenzen alleen meenemen als ze in de buurt liggen; anders wordt de kaart plat.
+  const sp = k.sigma ? extra.filter((x) => Math.abs(x - (k.gemiddelde ?? 0)) < 8 * k.sigma!) : extra;
+  const lo = Math.min(...waarden, ...sp), hi = Math.max(...waarden, ...sp);
+  const ticks = schaalStappen(lo, hi, 6);
+  const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const X = (i: number) => m.l + (punten.length < 2 ? 0.5 : i / (punten.length - 1)) * (B - m.l - m.r);
+  const Y = (v: number) => m.t + (1 - (v - y0) / (y1 - y0)) * (H - m.t - m.b);
+  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": titel, class: "regelkaart" });
+  if (k.gemiddelde !== null && k.sigma) {
+    for (const [a, b, kl] of [[2, 3, "rk-zone-3"], [1, 2, "rk-zone-2"]] as [number, number, string][]) {
+      for (const kant of [1, -1]) {
+        const ya = Y(k.gemiddelde + kant * a * k.sigma), yb = Y(k.gemiddelde + kant * b * k.sigma);
+        svg.append(s("rect", { x: m.l, width: B - m.l - m.r, y: Math.min(ya, yb), height: Math.abs(ya - yb), class: kl }));
+      }
+    }
+  }
+  for (const t of ticks) {
+    svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(t), y2: Y(t), class: "raster" }));
+    svg.append(s("text", { x: m.l - 8, y: Y(t) + 4, "text-anchor": "end", class: "as-tekst" }, getal(t)));
+  }
+  const lijn = (v: number | null | undefined, kl: string, label: string) => {
+    if (v === null || v === undefined || v < y0 || v > y1) return;
+    svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(v), y2: Y(v), class: kl }));
+    svg.append(s("text", { x: B - m.r + 6, y: Y(v) + 4, class: "as-tekst rk-label" }, `${label} ${getal(v)}`));
+  };
+  lijn(k.bovengrens, "rk-grens", "BRG");
+  lijn(k.ondergrens, "rk-grens", "ORG");
+  lijn(k.gemiddelde, "rk-midden", "gem.");
+  if (spec) { lijn(spec.max, "rk-spec", "spec. max"); lijn(spec.min, "rk-spec", "spec. min"); }
+  // datums onder de as: ongeveer 6
+  const stapD = Math.max(1, Math.ceil(punten.length / 6));
+  for (let i = 0; i < punten.length; i += stapD) svg.append(s("text", { x: X(i), y: H - 10, "text-anchor": "middle", class: "as-tekst" }, datumKort(new Date(punten[i].tijd))));
+  if (punten.length > 1) svg.append(s("path", { d: punten.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p.waarde).toFixed(1)}`).join(""), class: "rk-lijn" }));
+  const tip = tooltip();
+  punten.forEach((p, i) => {
+    const x = X(i), y = Y(p.waarde);
+    const vorm = p.signaal ? s("path", { d: `M${x},${y - 6}L${x + 6},${y}L${x},${y + 6}L${x - 6},${y}Z`, class: "rk-signaal" }) : s("circle", { cx: x, cy: y, r: 3, class: "rk-punt" });
+    svg.append(vorm);
+    const raak = s("circle", { cx: x, cy: y, r: 9, class: "raakvlak" });
+    raak.addEventListener("mouseenter", (e) => {
+      const kader = houder.getBoundingClientRect();
+      tip.toon((e as MouseEvent).clientX - kader.left, (e as MouseEvent).clientY - kader.top,
+        [h("strong", {}, p.nummer), `${new Date(p.tijd).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`,
+          `${getal(p.waarde)}${eenheid}`, ...(p.signaal ? [h("strong", { class: "tip-signaal" }, `Signaal regel ${p.signaal}`)] : [])], kader);
+    });
+    raak.addEventListener("mouseleave", () => tip.verberg());
+    svg.append(raak);
+  });
+  const houder = h("div", { class: "grafiek" }, svg, tip.el,
+    h("div", { class: "legenda" },
+      h("span", {}, h("span", { class: "rk-leg-punt", "aria-hidden": "true" }), "Meting"),
+      h("span", {}, h("span", { class: "rk-leg-signaal", "aria-hidden": "true" }), "Signaal"),
+      h("span", {}, h("span", { class: "rk-leg-grens", "aria-hidden": "true" }), "Regelgrens (3 sigma)"),
+      spec ? h("span", {}, h("span", { class: "rk-leg-spec", "aria-hidden": "true" }), "Specificatie") : null));
+  return houder;
+}

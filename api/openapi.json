@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.17.0",
+    "version": "0.18.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -8312,6 +8312,277 @@
                             "nullable": true
                           }
                         }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyse/regelkaarten": {
+      "get": {
+        "tags": [
+          "analyse"
+        ],
+        "description": "Per veld: aantal metingen, signalen volgens de Western Electric-regels en het procesvermogen (Cpk) in de periode. Velden met signalen eerst.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "van",
+            "required": false,
+            "description": "Vanaf (inclusief), bv. 2026-11-01"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "tot",
+            "required": false,
+            "description": "Tot (exclusief)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "veld",
+                      "naam",
+                      "stap",
+                      "soort",
+                      "eenheid",
+                      "n",
+                      "signalen",
+                      "laatste_signaal",
+                      "cpk"
+                    ],
+                    "properties": {
+                      "veld": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
+                      },
+                      "stap": {
+                        "type": "string"
+                      },
+                      "soort": {
+                        "type": "string"
+                      },
+                      "eenheid": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "n": {
+                        "type": "integer"
+                      },
+                      "signalen": {
+                        "type": "integer"
+                      },
+                      "laatste_signaal": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                      },
+                      "cpk": {
+                        "type": "number",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyse/regelkaart": {
+      "get": {
+        "tags": [
+          "analyse"
+        ],
+        "description": "Regelkaart van één veld: punten, middenlijn, regelgrenzen (3 sigma), bewegend bereik en signalen.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "van",
+            "required": false,
+            "description": "Vanaf (inclusief), bv. 2026-11-01"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "tot",
+            "required": false,
+            "description": "Tot (exclusief)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "example": "S5.1",
+            "in": "query",
+            "name": "veld",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "veld",
+                    "getekend",
+                    "punten",
+                    "gemiddelde",
+                    "sigma",
+                    "bovengrens",
+                    "ondergrens",
+                    "mr_gemiddeld",
+                    "mr_bovengrens",
+                    "cpk",
+                    "regels"
+                  ],
+                  "properties": {
+                    "veld": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "naam",
+                        "stap",
+                        "soort",
+                        "eenheid",
+                        "grens_min",
+                        "grens_max"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "naam": {
+                          "type": "string"
+                        },
+                        "stap": {
+                          "type": "string"
+                        },
+                        "soort": {
+                          "type": "string"
+                        },
+                        "eenheid": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "grens_min": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "grens_max": {
+                          "type": "number",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    "getekend": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "gemeten"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "afwijking_van_setting"
+                          ]
+                        }
+                      ]
+                    },
+                    "punten": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "tijd",
+                          "nummer",
+                          "waarde",
+                          "signaal"
+                        ],
+                        "properties": {
+                          "tijd": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "nummer": {
+                            "type": "string"
+                          },
+                          "waarde": {
+                            "type": "number"
+                          },
+                          "signaal": {
+                            "type": "integer",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "gemiddelde": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "sigma": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "bovengrens": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "ondergrens": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "mr_gemiddeld": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "mr_bovengrens": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "cpk": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "regels": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
                       }
                     }
                   }

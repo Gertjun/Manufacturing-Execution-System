@@ -71,6 +71,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "beoordelen", naam: "Te beoordelen", teller: async () => (await haal<unknown[]>("/analyse/te-beoordelen")).length },
       { pad: "lotpaspoort", naam: "Lotpaspoort" },
       { pad: "grondstoffen", naam: "Grondstoffen terugzoeken" },
+      { pad: "regelkaarten", naam: "Regelkaarten" },
       { pad: "afwijkingen", naam: "Afwijkingen" },
       { pad: "trend", naam: "Trend per veld" },
       { pad: "herbewerkingen", naam: "Herbewerkingen en afkeur" },

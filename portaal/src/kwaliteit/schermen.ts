@@ -1,5 +1,6 @@
 // Portaal Kwaliteit: overzicht, te beoordelen, lot- en batchpaspoort,
 // afwijkingen, trend per veld, herbewerkingen en afkeur.
+import { regelkaartGrafiek, type RkPunt } from "../grafiek";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../../../gedeeld/ui";
 import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
@@ -425,4 +426,73 @@ export async function grondstoffen(partij?: string) {
   );
   await laad();
   zoek.focus();
+}
+
+// ---------- Regelkaarten ----------
+interface RkOverzicht { veld: string; naam: string; stap: string; soort: string; eenheid: string | null; n: number; signalen: number; laatste_signaal: string | null; cpk: number | null }
+interface RkDetail {
+  veld: { code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null };
+  getekend: "gemeten" | "afwijking_van_setting";
+  punten: RkPunt[]; gemiddelde: number | null; sigma: number | null; bovengrens: number | null; ondergrens: number | null;
+  mr_gemiddeld: number | null; mr_bovengrens: number | null; cpk: number | null; regels: Record<string, string>;
+}
+function cpkLabel(c: number | null) {
+  if (c === null) return h("span", { class: "sub" }, "–");
+  const klasse = c >= 1.33 ? "label-ok" : c >= 1 ? "label-tol" : "label-grens";
+  const tekst = c >= 1.33 ? "ruim" : c >= 1 ? "krap" : "te krap";
+  return h("span", { class: `label ${klasse}` }, `${toonGetal(c)} ${tekst}`);
+}
+
+export async function regelkaarten(veld?: string) {
+  if (veld) return regelkaartDetail(veld);
+  const actueel = vastHouden();
+  toon(kop("Regelkaarten"), laden());
+  let o: RkOverzicht[];
+  try { o = await haal<RkOverzicht[]>(`/analyse/regelkaarten${qs(periode.bereik())}`); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const met = o.filter((x) => x.signalen > 0);
+  toon(
+    kop("Regelkaarten", "Een regelkaart laat zien of een proces verandert, ook als de waarden nog binnen de grenzen vallen. Een signaal is een reden om te kijken, nog vóórdat er een afwijking is.", periodeKeuze(() => regelkaarten())),
+    h("div", { class: "tegels" },
+      h("div", { class: `tegel${met.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, met.length), h("span", { class: "tegel-tekst" }, met.length === 1 ? "veld met signalen" : "velden met signalen")),
+      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, o.filter((x) => x.cpk !== null && x.cpk < 1).length), h("span", { class: "tegel-tekst" }, "velden met Cpk onder 1 (te krap)"))),
+    tabel(["Veld", "Stap", "Metingen", "Signalen", "Laatste signaal", "Procesvermogen (Cpk)"], o.map((x) => [
+      h("a", { class: "sterk", href: `#/kwaliteit/regelkaarten/${x.veld}` }, `${x.veld} ${x.naam}`), x.stap,
+      h("span", { class: "getal" }, x.n), h("span", { class: x.signalen ? "getal let-op" : "getal" }, x.signalen),
+      x.laatste_signaal ? kort(x.laatste_signaal) : "", cpkLabel(x.cpk)]), "compact"),
+    h("p", { class: "sub" }, "Cpk: hoe ver het gemiddelde van de dichtstbijzijnde specificatiegrens ligt, gedeeld door 3 keer de spreiding. Vanaf 1,33 is er ruim marge. Bij een procesparameter staat geen Cpk: daar tekent de kaart het verschil met de setting."),
+  );
+}
+
+async function regelkaartDetail(code: string) {
+  const actueel = vastHouden();
+  toon(kop("Regelkaart"), laden());
+  let r: RkDetail;
+  try { r = await haal<RkDetail>(`/analyse/regelkaart${qs({ ...periode.bereik(), veld: code })}`); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const v = r.veld;
+  const e = v.eenheid ? ` ${v.eenheid}` : "";
+  const signalen = r.punten.filter((p) => p.signaal);
+  toon(
+    h("p", { class: "terug" }, h("a", { href: "#/kwaliteit/regelkaarten" }, "Alle regelkaarten")),
+    kop(`Regelkaart ${v.code} ${v.naam}`,
+      r.getekend === "afwijking_van_setting" ? `${v.stap}. Getekend: gemeten min setting (de setting kan per batch anders zijn).` : `${v.stap}. Getekend: de gemeten waarde, met de specificatie erbij.`,
+      periodeKeuze(() => regelkaartDetail(code))),
+    r.punten.length < 2
+      ? h("p", { class: "leeg" }, "Te weinig metingen in deze periode voor een regelkaart.")
+      : h("div", {},
+          h("div", { class: "tegels" },
+            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, r.punten.length), h("span", { class: "tegel-tekst" }, "metingen")),
+            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, `${toonGetal(Math.round(r.gemiddelde! * 1000) / 1000)}`), h("span", { class: "tegel-tekst" }, `gemiddelde${e}`)),
+            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(Math.round((r.sigma ?? 0) * 1000) / 1000)), h("span", { class: "tegel-tekst" }, `spreiding (sigma)${e}`)),
+            h("div", { class: `tegel${signalen.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, signalen.length), h("span", { class: "tegel-tekst" }, "signalen")),
+            r.cpk !== null ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.cpk)), h("span", { class: "tegel-tekst" }, "Cpk")) : null),
+          h("section", { class: "blok" }, h("h2", {}, "Metingen"),
+            regelkaartGrafiek(r.punten, r, e, r.getekend === "gemeten" ? { min: v.grens_min, max: v.grens_max } : undefined, `Regelkaart ${v.code}`)),
+          signalen.length
+            ? h("section", { class: "blok" }, h("h2", {}, "Signalen"),
+                tabel(["Wanneer", "Batch of lot", "Waarde", "Regel"], signalen.slice(-50).reverse().map((p) => [
+                  kort(p.tijd), p.nummer, `${toonGetal(Math.round(p.waarde * 1000) / 1000)}${e}`, `${p.signaal}: ${r.regels[String(p.signaal)]}`]), "compact"))
+            : h("p", { class: "leeg goed" }, "Geen signalen: het proces is stabiel in deze periode.")),
+  );
 }

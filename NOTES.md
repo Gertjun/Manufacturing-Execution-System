@@ -2,7 +2,7 @@
 
 De **actuele stand**: versie, open punten en sessielog. Werk dit bij aan het eind van elke sessie (zie `CLAUDE.md`). Besluiten staan in `DECISIONS.md`, wensen in `WISHLIST.md`.
 
-Laatst bijgewerkt: 19 november 2026 · versie **0.17.0**
+Laatst bijgewerkt: 19 november 2026 · versie **0.18.0**
 
 ---
 
@@ -44,6 +44,7 @@ Op GitHub draaien automatisch (Node.js 22 en 26): databaseregels, migraties, API
 - Let op bij het opnieuw maken van `tools/pakket/testdata.sql`: neem `schema_versie` en `onderhoud_log` niet mee in de dump (`--exclude-table`), anders botst het laden met `schema.sql`.
 
 ## Sessielog (nieuwste bovenaan)
+- **19 nov 2026 · 0.18.0** — Regelkaarten (D38): I-kaart, Western Electric, Cpk, overzicht en detail in Kwaliteit.
 - **19 nov 2026 · 0.17.0** — Certificaat per lot (D37): kenmerken op het certificaat, uitgeven door Kwaliteit met volgnummer, bedrijfsgegevens.
 - **19 nov 2026 · 0.16.0** — Capaciteit in de planning (D36): per weekdag en afwijkende dagen, bezetting in de week, waarschuwing.
 - **19 nov 2026 · 0.15.1** — Laptoppakket: testdata verschuiven per tabel in één keer (CI faalde op 0.14.0). Laptoppakkettest lokaal weer groen.

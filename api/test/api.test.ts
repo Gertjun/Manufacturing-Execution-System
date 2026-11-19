@@ -953,3 +953,20 @@ describe("Certificaat per lot", () => {
     assert.equal((await verzoek("PUT", "/certificaten/instellingen", await login("kwaliteit1"), { bedrijfsnaam: "x", bedrijfsadres: "", certificaat_verklaring: "" })).status, 403);
   });
 });
+
+describe("Regelkaarten", () => {
+  test("overzicht per veld en één regelkaart", async () => {
+    const kw = await login("kwaliteit1");
+    const o = await verzoek("GET", "/analyse/regelkaarten", kw);
+    assert.equal(o.status, 200, JSON.stringify(o.body));
+    assert.ok(o.body.length >= 36);
+    const r = await verzoek("GET", "/analyse/regelkaart?veld=S1.1", kw);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.getekend, "afwijking_van_setting");
+    assert.ok(r.body.punten.length > 0);
+    const g = await verzoek("GET", "/analyse/regelkaart?veld=S1.2", kw);
+    assert.equal(g.body.getekend, "gemeten");
+    if (g.body.punten.length > 2) assert.ok(g.body.bovengrens >= g.body.gemiddelde);
+    assert.equal((await verzoek("GET", "/analyse/regelkaart?veld=S99.9", kw)).status, 404);
+  });
+});

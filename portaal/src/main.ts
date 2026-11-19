@@ -173,6 +173,7 @@ async function route() {
     case "beoordelen": return kwaliteit.beoordelen();
     case "lotpaspoort": return kwaliteit.lotpaspoort(a);
     case "grondstoffen": return kwaliteit.grondstoffen(a);
+    case "regelkaarten": return kwaliteit.regelkaarten(a);
     case "certificaat": return certificaat(a ?? "", arg2);
     case "batch": return a ? kwaliteit.batch(a) : kwaliteit.beoordelen();
     case "afwijkingen": return kwaliteit.afwijkingen();

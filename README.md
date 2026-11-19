@@ -146,6 +146,7 @@ Het menu toont de portalen die bij je rol horen; Planning en Beheer staan erin a
 | Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan, grondstofpartijen, afdrukbaar voor een klant |
 | Grondstoffen terugzoeken | Op partijnummer: in welke batches en lots zit die partij |
 | Certificaat (via het lotpaspoort) | Analysecertificaat per lot: concept, uitgeven met volgnummer, afdrukken of pdf (D37) |
+| Regelkaarten | Per veld een regelkaart met signalen en Cpk; overzicht met de velden met signalen bovenaan (D38) |
 | Afwijkingen | Alle metingen buiten tolerantie of grens, met filters |
 | Trend per veld | Grafiek van één veld door de tijd, met tolerantieband en grenzen |
 | Herbewerkingen en afkeur | Hoe vaak, in welke stap en met welke redenen |
@@ -194,6 +195,7 @@ node e2e/wandscherm.mjs       # test het wandscherm in Chrome (database met vers
 node e2e/grondstoffen.mjs     # test grondstoffen in Beheer en Kwaliteit (database met verse testdata)
 node e2e/meldingen.mjs        # test meldingen in Chrome (database met verse testdata)
 node e2e/certificaat.mjs      # test het certificaat per lot (database met verse testdata)
+node e2e/regelkaarten.mjs     # test de regelkaarten (database met verse testdata)
 ```
 
 ## Proof of concept op een laptop

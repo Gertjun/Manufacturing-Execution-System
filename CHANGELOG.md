@@ -2,6 +2,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.18.0 — 19 november 2026
+- Nieuw: Portaal Kwaliteit → Regelkaarten. Het overzicht laat per veld zien hoeveel metingen en signalen er in de periode zijn, en hoeveel marge er is tot de specificatie (Cpk). Velden met signalen staan bovenaan.
+- Per veld een regelkaart met de metingen, het gemiddelde, de regelgrenzen (3 sigma) en de zones van 1 en 2 sigma. Bij een procesparameter tekent de kaart het verschil tussen gemeten en setting; bij andere velden de gemeten waarde, met de specificatie erbij.
+- Een signaal (rood ruitje) volgt de vier Western Electric-regels: één punt buiten 3 sigma; 2 van 3 punten buiten 2 sigma; 4 van 5 punten buiten 1 sigma; 8 punten op rij aan dezelfde kant. Een signaal betekent dat het proces verandert, vaak al vóórdat er een afwijking is. Onder de kaart staat een lijst met de signalen.
+- Technisch: geen database-update; de berekening zit in de API (`api/src/regelkaart.ts`, met eigen tests).
+
 ## 0.17.0 — 19 november 2026
 - Nieuw: certificaat per lot (analysecertificaat voor de klant). In het lotpaspoort staat "Certificaat". Daar zie je per kenmerk de specificatie, het resultaat (bij batchkenmerken van laag tot hoog, met het gemiddelde over de 4 batches) en of het lot voldoet. Ook staan erop: de batches, het product en de grondstofpartijen, en de verklaring van het bedrijf.
 - Kwaliteit geeft het certificaat uit met "Uitgeven". Dat kan alleen als het lot gereed is, alle kenmerken gemeten zijn en binnen de specificatie vallen, en geen batch is afgekeurd. Het certificaat krijgt een volgnummer en wordt bewaard zoals het is uitgegeven, zodat een herdruk precies gelijk is. Tot het uitgeven staat er "CONCEPT" op.
