@@ -53,7 +53,27 @@ export const VeldMetWaarde = Type.Object({
   ]),
 });
 
-export const RegistratieDetail = Type.Intersect([RegistratieKort, Type.Object({ velden: Type.Array(VeldMetWaarde) })]);
+export const GrondstofMetGebruik = Type.Object({
+  code: Type.String(),
+  naam: Type.String(),
+  eenheid: OptTekst,
+  verplicht: Type.Boolean(),
+  gebruik: Type.Union([
+    Type.Object({
+      id: Type.String({ format: "uuid" }),
+      partij: Type.String(),
+      hoeveelheid: OptGetal,
+      gecorrigeerd: Type.Boolean(),
+      ingevoerd_op: Tijd,
+    }),
+    Type.Null(),
+  ]),
+});
+
+export const RegistratieDetail = Type.Intersect([
+  RegistratieKort,
+  Type.Object({ velden: Type.Array(VeldMetWaarde), grondstoffen: Type.Array(GrondstofMetGebruik) }),
+]);
 
 export const Batch = Type.Object({
   batchnummer: Type.String(),

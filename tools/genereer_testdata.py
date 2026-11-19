@@ -52,6 +52,11 @@ operators = {naam: oid for oid, naam in con.execute("SELECT id, naam FROM operat
 opnamen = sorted(operators)
 gebruiker = {n: i for i, n in con.execute("SELECT id, gebruikersnaam FROM gebruiker")}
 producten = [r[0] for r in con.execute("SELECT id FROM product WHERE actief ORDER BY code")]
+stap_grondstoffen: dict = {}
+for stap, gid, gcode, eenheid in con.execute(
+    """SELECT s.code, g.id, g.code, g.eenheid FROM stap_grondstof x JOIN processtap s ON s.id = x.processtap_id
+        JOIN grondstof g ON g.id = x.grondstof_id WHERE x.actief AND g.actief"""):
+    stap_grondstoffen.setdefault(stap, []).append((gid, gcode, eenheid))
 planner = gebruiker["planner1"]
 batchstappen = [s for s in stappen if s[2] == "batch"]
 lotstappen = [s for s in stappen if s[2] == "lot"]
@@ -68,6 +73,13 @@ tijd_batch: dict = {}
 tijd_lot: dict = {}
 tijd_besluit: list = []  # (besluit-id, tijd)
 tijd_voorstel: list = []  # (voorstel-id, gemaakt, afgesloten)
+tijd_grondstof: list = []  # (registratie-id, tijd)
+
+
+def partij_voor(gcode, moment):
+    """Een nieuwe leverancierspartij ongeveer elke 4 dagen (fictieve nummers)."""
+    n = (moment - begin).days // 4 + 1
+    return f"LEV-{gcode}-{moment:%y%m}-{n:02d}"
 teller = {"batch": {}, "lot": {}}
 stats = {"batches": 0, "lots": 0, "herbewerkingen": 0, "beoordeling": 0, "afgekeurd": 0}
 
@@ -117,6 +129,10 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
             (reg, vid, setting if soort == "procesparameter" else None, gemeten, oid),
         )
         tijd_waarde.append((reg, moment + duur * 0.8))
+    for gid, gcode, eenheid in stap_grondstoffen.get(stapcode, []):
+        con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
+                    (reg, gid, partij_voor(gcode, moment), round(rnd.gauss(120, 4), 1) if eenheid == "kg" else None, oid))
+        tijd_grondstof.append((reg, moment + duur * 0.3))
     con.execute("SELECT rond_stap_af(%s)", (reg,))
     tijd_reg[reg] = (moment, moment + duur)
     return reg, moment + duur + dt.timedelta(minutes=rnd.randint(5, 90))
@@ -236,6 +252,7 @@ with con.transaction():
         c.executemany("UPDATE batch SET aangemaakt_op = %s WHERE id = %s", [(t, b) for b, t in tijd_batch.items()])
         c.executemany("UPDATE lot SET aangemaakt_op = %s WHERE id = %s", [(t, l) for l, t in tijd_lot.items()])
         c.executemany("UPDATE batch_besluit SET besloten_op = %s WHERE id = %s", [(t, b) for b, t in tijd_besluit])
+        c.executemany("UPDATE grondstof_gebruik SET ingevoerd_op = %s WHERE stapregistratie_id = %s", [(t, r) for r, t in tijd_grondstof])
         c.executemany("UPDATE lot_voorstel SET aangemaakt_op = %s, afgesloten_op = %s WHERE id = %s", [(g, a, v) for v, g, a in tijd_voorstel])
     # Gestart = begin van de eerste stap.
     con.execute("""UPDATE batch b SET gestart_op = r.t

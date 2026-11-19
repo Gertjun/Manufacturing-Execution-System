@@ -24,6 +24,10 @@ BEGIN
         FOR k IN 1..v_tot LOOP
             v_reg := start_stap('PS' || k, v_b, NULL, v_pc, v_op);
             IF v_nr = 5 AND k = 7 THEN EXIT; END IF;  -- PS7 blijft open
+            INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, ingevoerd_door)
+            SELECT v_reg, x.grondstof_id, 'LEV-' || g.code || '-2611-0' || (1 + v_nr % 2), 120, v_op
+              FROM stap_grondstof x JOIN grondstof g ON g.id = x.grondstof_id JOIN processtap s ON s.id = x.processtap_id
+             WHERE s.code = 'PS' || k AND x.actief;
             FOR v_veld IN SELECT v.* FROM veld v JOIN processtap s ON s.id = v.processtap_id
                           WHERE s.code = 'PS' || k AND v.actief LOOP
                 INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door)

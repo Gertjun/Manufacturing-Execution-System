@@ -219,6 +219,78 @@ export async function operators() {
   );
 }
 
+// ---------- Grondstoffen ----------
+interface Grondstof { id: string; code: string; naam: string; eenheid: string | null; actief: boolean; stappen: { stap: string; verplicht: boolean }[] }
+
+function kiesGrondstofStappen(g: Grondstof, alle: Stap[]): Promise<{ stap: string; verplicht: boolean }[] | null> {
+  return new Promise((ok) => {
+    const keuze = alle.map((s) => {
+      const nu = g.stappen.find((x) => x.stap === s.code);
+      return h("select", { "aria-label": `${s.code} ${s.naam}` },
+        h("option", { value: "", selected: !nu }, "Niet"),
+        h("option", { value: "verplicht", selected: nu?.verplicht === true }, "Verplicht"),
+        h("option", { value: "mag", selected: nu?.verplicht === false }, "Mag")) as HTMLSelectElement;
+    });
+    const d = h("dialog", { class: "venster" },
+      h("h2", {}, `${g.code} in welke stappen?`),
+      h("p", { class: "sub" }, "Verplicht: de stap kan pas worden afgerond als het partijnummer is ingevuld."),
+      h("div", { class: "keuze-raster" }, alle.map((s, i) => h("label", {}, h("span", {}, `${s.code} ${s.naam}`), keuze[i]))),
+      h("div", { class: "knoppen" },
+        h("button", { class: "knop knop-stil", onclick: () => d.close("nee") }, "Terug"),
+        h("button", { class: "knop knop-hoofd", onclick: () => d.close("ja") }, "Opslaan")));
+    d.addEventListener("close", () => {
+      ok(d.returnValue === "ja"
+        ? alle.map((s, i) => ({ stap: s.code, k: keuze[i].value })).filter((x) => x.k).map((x) => ({ stap: x.stap, verplicht: x.k === "verplicht" }))
+        : null);
+      d.remove();
+    });
+    document.body.append(d);
+    (d as HTMLDialogElement).showModal();
+  });
+}
+
+export async function grondstoffen() {
+  const actueel = vastHouden();
+  toon(kop("Grondstoffen"), laden());
+  let lijst: Grondstof[], alle: Stap[];
+  try { [lijst, alle] = await Promise.all([haal<Grondstof[]>("/beheer/grondstoffen"), haal<Stap[]>("/config/stappen")]); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const opnieuw = () => grondstoffen();
+  const stappenTekst = (g: Grondstof) => g.stappen.length ? g.stappen.map((s) => `${s.stap}${s.verplicht ? "" : " (mag)"}`).join(", ") : "Nog geen stap";
+  toon(
+    kop("Grondstoffen", "Grondstoffen waarvan de operator het partijnummer invoert, en in welke stap. Zo kun je later van een lot terugzoeken naar de grondstof.",
+      h("button", { class: "knop knop-hoofd", onclick: async () => {
+        const r = await vraag("Grondstof toevoegen", [
+          { naam: "code", label: "Code", hint: "Kort, zonder spaties, bijvoorbeeld GS-D. Ligt daarna vast.", controle: (v) => (/^[A-Za-z0-9._-]{1,20}$/.test(v) ? null : "Alleen letters, cijfers, punt en streepjes; hoogstens 20 tekens") },
+          { naam: "naam", label: "Naam" },
+          { naam: "eenheid", label: "Eenheid van de hoeveelheid", optioneel: true, hint: "Bijvoorbeeld kg of l" },
+        ], "Toevoegen", "Kies daarna in welke stappen de grondstof wordt ingevoerd.");
+        if (r) await wijzig(() => stuur("POST", "/beheer/grondstoffen", { ...r, eenheid: r.eenheid || null }), `${r.code} toegevoegd`, opnieuw);
+      } }, "Grondstof toevoegen")),
+    lijst.length
+      ? tabel(["Code", "Naam", "Eenheid", "Stappen", ""], lijst.map((g) => [
+          h("strong", { class: g.actief ? "" : "inactief" }, g.code),
+          h("span", { class: g.actief ? "" : "inactief" }, g.naam, g.actief ? "" : " (uit)"),
+          g.eenheid ?? "",
+          stappenTekst(g),
+          h("div", { class: "knoppen-klein" },
+            g.actief ? h("button", { class: "knop knop-klein", onclick: async () => {
+              const r = await kiesGrondstofStappen(g, alle);
+              if (r) await wijzig(() => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { stappen: r }), "Stappen opgeslagen", opnieuw);
+            } }, "Stappen kiezen") : null,
+            g.actief ? h("button", { class: "knop knop-klein", onclick: async () => {
+              const r = await vraag(`${g.code} wijzigen`, [{ naam: "naam", label: "Naam", waarde: g.naam }, { naam: "eenheid", label: "Eenheid", waarde: g.eenheid ?? "", optioneel: true }], "Opslaan");
+              if (r) await wijzig(() => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { naam: r.naam, eenheid: r.eenheid || null }), "Opgeslagen", opnieuw);
+            } }, "Wijzigen") : null,
+            h("button", { class: "knop knop-klein knop-stil", onclick: async () => {
+              if (g.actief && !(await bevestig(`${g.code} uitzetten?`, "De grondstof verdwijnt uit het invoerscherm. Wat al is ingevoerd blijft bewaard en terug te zoeken.", "Uitzetten", true))) return;
+              await wijzig(() => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { actief: !g.actief }), g.actief ? `${g.code} uitgezet` : `${g.code} weer actief`, opnieuw);
+            } }, g.actief ? "Uitzetten" : "Weer aanzetten")),
+        ]), "compact")
+      : h("p", { class: "leeg" }, "Nog geen grondstoffen. Voeg er een toe."),
+  );
+}
+
 // ---------- Pc's ----------
 interface Pc { naam: string; locatie: string | null; actief: boolean; stappen: string[] }
 

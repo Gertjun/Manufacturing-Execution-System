@@ -520,6 +520,86 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         [req.query.van ?? null, req.query.tot ?? null],
       ) as never,
   );
+
+  // ---------- Grondstoffen: terugzoeken ----------
+  const GrondstofRegel = Type.Object({
+    grondstof: Type.String(),
+    grondstofnaam: Type.String(),
+    partij: Type.String(),
+    hoeveelheid: Type.Union([Type.Null(), Type.Number()]),
+    eenheid: Type.Union([Type.Null(), Type.String()]),
+    batchnummer: Type.Union([Type.Null(), Type.String()]),
+    batchstatus: Type.Union([Type.Null(), Type.String()]),
+    lotnummer: Type.Union([Type.Null(), Type.String()]),
+    lotstatus: Type.Union([Type.Null(), Type.String()]),
+    stap: Type.String(),
+    ingevoerd_op: Type.String({ format: "date-time" }),
+    gecorrigeerd: Type.Boolean(),
+  });
+  app.get(
+    "/grondstoffen",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["analyse"],
+        description: "Terugzoeken: op partijnummer (deel van het nummer mag) welke batches en lots die partij bevatten; of met lotnummer of batchnummer welke grondstofpartijen erin zitten.",
+        querystring: Type.Object({
+          partij: Type.Optional(Type.String({ minLength: 2, maxLength: 60 })),
+          lotnummer: Type.Optional(Type.String()),
+          batchnummer: Type.Optional(Type.String()),
+        }),
+        response: { 200: Type.Array(GrondstofRegel) },
+      },
+    },
+    async (req) => {
+      const { partij, lotnummer, batchnummer } = req.query;
+      if (!partij && !lotnummer && !batchnummer) return [] as never;
+      return (await lees(
+        app.db,
+        `SELECT g.code AS grondstof, g.naam AS grondstofnaam, u.partij, u.hoeveelheid, g.eenheid,
+                b.batchnummer, b.status AS batchstatus, coalesce(l.lotnummer, bl.lotnummer) AS lotnummer,
+                coalesce(l.status, bl.status) AS lotstatus, s.code AS stap, u.ingevoerd_op, u.vervangt_id IS NOT NULL AS gecorrigeerd
+           FROM grondstof_gebruik_actueel u
+           JOIN grondstof g ON g.id = u.grondstof_id
+           JOIN stapregistratie r ON r.id = u.stapregistratie_id
+           JOIN processtap s ON s.id = r.processtap_id
+           LEFT JOIN batch b ON b.id = r.batch_id
+           LEFT JOIN lot bl ON bl.id = b.lot_id
+           LEFT JOIN lot l ON l.id = r.lot_id
+          WHERE ($1::text IS NULL OR lower(u.partij) LIKE '%' || lower($1) || '%')
+            AND ($2::text IS NULL OR coalesce(l.lotnummer, bl.lotnummer) = $2)
+            AND ($3::text IS NULL OR b.batchnummer = $3)
+          ORDER BY u.ingevoerd_op DESC
+          LIMIT 1000`,
+        [partij?.trim() || null, lotnummer || null, batchnummer || null],
+      )) as never;
+    },
+  );
+
+  app.get(
+    "/partijen",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["analyse"],
+        description: "Alle grondstofpartijen met het aantal batches en de periode waarin ze zijn gebruikt (nieuwste eerst).",
+        response: {
+          200: Type.Array(Type.Object({
+            grondstof: Type.String(), grondstofnaam: Type.String(), partij: Type.String(), batches: Type.Integer(),
+            eerste: Type.String({ format: "date-time" }), laatste: Type.String({ format: "date-time" }),
+          })),
+        },
+      },
+    },
+    async () =>
+      (await lees(
+        app.db,
+        `SELECT g.code AS grondstof, g.naam AS grondstofnaam, u.partij, count(DISTINCT r.batch_id)::int AS batches,
+                min(u.ingevoerd_op) AS eerste, max(u.ingevoerd_op) AS laatste
+           FROM grondstof_gebruik_actueel u JOIN grondstof g ON g.id = u.grondstof_id JOIN stapregistratie r ON r.id = u.stapregistratie_id
+          GROUP BY g.code, g.naam, u.partij ORDER BY max(u.ingevoerd_op) DESC LIMIT 500`,
+      )) as never,
+  );
 };
 
 export default routes;

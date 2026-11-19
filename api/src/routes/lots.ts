@@ -179,6 +179,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             batches: Type.Array(Type.String()),
             aantal_afwijkingen: Type.Integer(),
             regels: Type.Array(PaspoortRegel),
+            grondstoffen: Type.Array(Type.Object({
+              batch_of_lot: Type.String(), stap: Type.String(), grondstof: Type.String(), grondstofnaam: Type.String(),
+              partij: Type.String(), hoeveelheid: Type.Union([Type.Null(), Type.Number()]), eenheid: Type.Union([Type.Null(), Type.String()]),
+              gecorrigeerd: Type.Boolean(),
+            }), { description: "Gebruikte grondstofpartijen van het lot en zijn batches" }),
           }),
         },
       },
@@ -199,7 +204,21 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         "SELECT count(*) AS n FROM lotpaspoort WHERE lotnummer = $1 AND markering <> 'ok'",
         [req.params.lotnummer],
       );
-      return { lotnummer: req.params.lotnummer, batches: lot.batches, aantal_afwijkingen: n, regels } as never;
+      const grondstoffen = await lees(
+        app.db,
+        `SELECT coalesce(b.batchnummer, l.lotnummer) AS batch_of_lot, s.code AS stap, g.code AS grondstof, g.naam AS grondstofnaam,
+                u.partij, u.hoeveelheid, g.eenheid, u.vervangt_id IS NOT NULL AS gecorrigeerd
+           FROM grondstof_gebruik_actueel u
+           JOIN grondstof g ON g.id = u.grondstof_id
+           JOIN stapregistratie r ON r.id = u.stapregistratie_id
+           JOIN processtap s ON s.id = r.processtap_id
+           LEFT JOIN batch b ON b.id = r.batch_id
+           LEFT JOIN lot l ON l.id = coalesce(r.lot_id, b.lot_id)
+          WHERE l.lotnummer = $1
+          ORDER BY s.volgorde, 1, g.code`,
+        [req.params.lotnummer],
+      );
+      return { lotnummer: req.params.lotnummer, batches: lot.batches, aantal_afwijkingen: n, regels, grondstoffen } as never;
     },
   );
 };

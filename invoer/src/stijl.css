@@ -198,3 +198,7 @@ input[aria-invalid="true"] { border-color: var(--grens); }
 .label-plan { margin-left: 10px; color: var(--actie); font-size: .85rem; vertical-align: 2px; }
 .uitzondering { margin-top: 20px; }
 .uitzondering summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+
+/* Grondstoffen in een registratie */
+.tussenkop-invoer { margin: 24px 0 10px; }
+.veld-grondstof .veld-invoer input[id^="p-"] { min-width: 14em; }

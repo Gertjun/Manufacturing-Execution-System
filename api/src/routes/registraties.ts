@@ -26,7 +26,21 @@ export async function registratieDetail(db: Db, id: string) {
       ORDER BY v.volgnummer`,
     [id],
   );
-  return { ...reg, velden };
+  const grondstoffen = await lees(
+    db,
+    `SELECT g.code, g.naam, g.eenheid, coalesce(x.verplicht AND x.actief, false) AS verplicht,
+            CASE WHEN u.id IS NULL THEN NULL ELSE json_build_object(
+              'id', u.id, 'partij', u.partij, 'hoeveelheid', u.hoeveelheid,
+              'gecorrigeerd', u.vervangt_id IS NOT NULL, 'ingevoerd_op', u.ingevoerd_op) END AS gebruik
+       FROM stapregistratie r
+       JOIN grondstof g ON true
+       LEFT JOIN stap_grondstof x ON x.processtap_id = r.processtap_id AND x.grondstof_id = g.id
+       LEFT JOIN grondstof_gebruik_actueel u ON u.stapregistratie_id = r.id AND u.grondstof_id = g.id
+      WHERE r.id = $1 AND ((x.actief AND g.actief) OR u.id IS NOT NULL)
+      ORDER BY g.code`,
+    [id],
+  );
+  return { ...reg, velden, grondstoffen };
 }
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
@@ -187,6 +201,94 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       invoerContext(req);
       await inTransactie(app.db, req.user.naam, (tx) => tx.query("SELECT rond_stap_af($1)", [req.params.id]));
       return (await registratieDetail(app.db, req.params.id)) as never;
+    },
+  );
+
+  // Grondstoffen: partijnummer (en eventueel hoeveelheid) per grondstof van de stap.
+  app.post(
+    "/:id/grondstoffen",
+    {
+      preHandler: vereist(...INVOER),
+      schema: {
+        tags: ["registraties"],
+        params: Id,
+        body: Type.Object({
+          grondstoffen: Type.Array(
+            Type.Object({
+              id: Type.Optional(Type.String({ format: "uuid" })),
+              code: Type.String({ examples: ["GS-A"] }),
+              partij: Type.String({ minLength: 1, maxLength: 60, examples: ["LEV-GS-A-2611-03"] }),
+              hoeveelheid: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0 })])),
+            }),
+            { minItems: 1 },
+          ),
+        }),
+        response: { 200: RegistratieDetail },
+      },
+    },
+    async (req) => {
+      const { operatorId } = invoerContext(req);
+      await inTransactie(app.db, req.user.naam, async (tx) => {
+        for (const g of req.body.grondstoffen) {
+          if (g.id) {
+            const { rows } = await tx.query("SELECT stapregistratie_id FROM grondstof_gebruik WHERE id = $1", [g.id]);
+            if (rows[0]) {
+              if (rows[0].stapregistratie_id !== req.params.id) throw new ApiFout(409, "Dit id hoort bij een andere registratie");
+              continue; // al ontvangen
+            }
+          }
+          const { rows: gs } = await tx.query("SELECT id FROM grondstof WHERE code = $1", [g.code]);
+          if (!gs[0]) throw new ApiFout(422, `Onbekende grondstof ${g.code}`);
+          try {
+            await tx.query("SAVEPOINT g");
+            await tx.query(
+              `INSERT INTO grondstof_gebruik (id, stapregistratie_id, grondstof_id, partij, hoeveelheid, ingevoerd_door)
+               VALUES (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6)`,
+              [g.id ?? null, req.params.id, gs[0].id, g.partij, g.hoeveelheid ?? null, operatorId],
+            );
+          } catch (e) {
+            if ((e as { constraint?: string }).constraint === "grondstof_gebruik_een_origineel") {
+              throw new ApiFout(409, `Grondstof ${g.code} is al ingevuld; een ploegleider kan corrigeren`);
+            }
+            throw e;
+          }
+        }
+      });
+      return (await registratieDetail(app.db, req.params.id)) as never;
+    },
+  );
+
+  app.post(
+    "/:id/grondstoffen/:code/correctie",
+    {
+      preHandler: vereist(...LEIDING),
+      schema: {
+        tags: ["registraties"],
+        params: Type.Object({ id: Type.String({ format: "uuid" }), code: Type.String() }),
+        body: Type.Object({
+          partij: Type.String({ minLength: 1, maxLength: 60 }),
+          hoeveelheid: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0 })])),
+          reden: Type.String({ minLength: 1 }),
+        }),
+        response: { 201: RegistratieDetail },
+      },
+    },
+    async (req, reply) => {
+      await inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows } = await tx.query(
+          `SELECT u.id, u.grondstof_id, u.hoeveelheid FROM grondstof_gebruik_actueel u JOIN grondstof g ON g.id = u.grondstof_id
+            WHERE u.stapregistratie_id = $1 AND g.code = $2`,
+          [req.params.id, req.params.code],
+        );
+        if (!rows[0]) throw niet("Grondstofregel");
+        await tx.query(
+          `INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, vervangt_id, correctie_reden, gecorrigeerd_door)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [req.params.id, rows[0].grondstof_id, req.body.partij, req.body.hoeveelheid === undefined ? rows[0].hoeveelheid : req.body.hoeveelheid,
+            rows[0].id, req.body.reden, req.user.sub],
+        );
+      });
+      return reply.status(201).send((await registratieDetail(app.db, req.params.id)) as never);
     },
   );
 

@@ -24,6 +24,16 @@ export interface Stap {
   niveau: "batch" | "lot";
   is_lot_stap: boolean;
   velden: Veld[];
+  /** Sinds 0.11.0; ontbreekt in een oudere opgeslagen configuratie. */
+  grondstoffen?: { code: string; naam: string; eenheid: string | null; verplicht: boolean }[];
+}
+
+export interface GrondstofMetGebruik {
+  code: string;
+  naam: string;
+  eenheid: string | null;
+  verplicht: boolean;
+  gebruik: { id: string; partij: string; hoeveelheid: number | null; gecorrigeerd: boolean; ingevoerd_op: string; wacht?: boolean } | null;
 }
 
 export interface Waarde {
@@ -66,6 +76,7 @@ export interface Registratie {
   gestart_op: string;
   afgerond_op: string | null;
   velden?: VeldMetWaarde[];
+  grondstoffen?: GrondstofMetGebruik[];
   /** Alleen lokaal: er wachten nog acties voor deze registratie. */
   lokaal?: boolean;
 }

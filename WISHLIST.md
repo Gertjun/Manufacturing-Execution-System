@@ -2,7 +2,7 @@
 
 Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
 
-Laatst bijgewerkt: versie 0.10.0, 19 november 2026
+Laatst bijgewerkt: versie 0.11.0, 19 november 2026
 
 ## Gepland
 - #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
@@ -12,7 +12,6 @@ Laatst bijgewerkt: versie 0.10.0, 19 november 2026
 - #5 **Etiketten en barcodes** (middel, 0.15.0) — Etiket met barcode bij het plannen; batch- en lotnummers scannen in plaats van typen.
 - #6 **Koppeling met Exact** (groot) — Gegevens uitwisselen met Exact.
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
-- #13 **Grondstoffen per batch** (middel, 0.11.0) — Welke grondstofpartij ging in welke batch; terugzoeken van lot naar grondstof en andersom.
 - #14 **Ploegoverdracht** (klein, 0.12.0) — Samenvatting per ploeg met opmerkingen, te lezen bij het inloggen.
 - #15 **Meldingen** (middel, 0.13.0) — Seintje bij een waarde buiten de grens of een batch in beoordeling, in het portaal en het invoerscherm.
 - #16 **Storingen en stilstand** (middel, 0.14.0) — Stilstand per stap vastleggen met oorzaak; basis voor OEE.
@@ -26,6 +25,7 @@ Laatst bijgewerkt: versie 0.10.0, 19 november 2026
 - #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
 
 ## Gerealiseerd
+- #13 **Grondstoffen per batch** — versie 0.11.0; partijnummer en hoeveelheid per stap, verplicht of niet, terugzoeken en in het lotpaspoort.
 - #12 **Wandscherm** — versie 0.10.0; tv in de hal met per stap bezig, klaar en gepland, kerncijfers, per hal, schermaccount.
 - #4 **Portaal Planning** — versie 0.9.0; batches per dag met doornummeren, planning per stap, lotvoorstellen en producten; zichtbaar in het invoerscherm.
 - **Eerste beheerder en noodsleutel** — versie 0.8.0; lege fabriek zonder testaccounts.

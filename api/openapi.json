@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -210,7 +210,8 @@
                       "volgorde",
                       "niveau",
                       "is_lot_stap",
-                      "velden"
+                      "velden",
+                      "grondstoffen"
                     ],
                     "properties": {
                       "code": {
@@ -317,6 +318,34 @@
                             }
                           }
                         }
+                      },
+                      "grondstoffen": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "naam",
+                            "eenheid",
+                            "verplicht"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "naam": {
+                              "type": "string"
+                            },
+                            "eenheid": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "verplicht": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "description": "Grondstoffen die in deze stap worden ingevoerd (partijnummer en hoeveelheid)"
                       }
                     }
                   }
@@ -1218,7 +1247,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -1312,6 +1342,65 @@
                                         ]
                                       }
                                     ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
                                   },
                                   "gecorrigeerd": {
                                     "type": "boolean"
@@ -1431,7 +1520,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -1525,6 +1615,65 @@
                                         ]
                                       }
                                     ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
                                   },
                                   "gecorrigeerd": {
                                     "type": "boolean"
@@ -1820,7 +1969,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -1914,6 +2064,65 @@
                                         ]
                                       }
                                     ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
                                   },
                                   "gecorrigeerd": {
                                     "type": "boolean"
@@ -2096,7 +2305,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -2190,6 +2400,65 @@
                                         ]
                                       }
                                     ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
                                   },
                                   "gecorrigeerd": {
                                     "type": "boolean"
@@ -2329,7 +2598,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -2423,6 +2693,736 @@
                                         ]
                                       }
                                     ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registraties/{id}/grondstoffen": {
+      "post": {
+        "tags": [
+          "registraties"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "grondstoffen"
+                ],
+                "properties": {
+                  "grondstoffen": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "partij"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "GS-A"
+                        },
+                        "partij": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60,
+                          "example": "LEV-GS-A-2611-03"
+                        },
+                        "hoeveelheid": {
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "nullable": true
+                        }
+                      }
+                    },
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "stapcode",
+                        "stapnaam",
+                        "niveau",
+                        "batchnummer",
+                        "lotnummer",
+                        "poging",
+                        "herbewerking_start",
+                        "reden",
+                        "status",
+                        "operator",
+                        "pc",
+                        "gestart_op",
+                        "afgerond_op"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "stapcode": {
+                          "type": "string"
+                        },
+                        "stapnaam": {
+                          "type": "string"
+                        },
+                        "niveau": {
+                          "type": "string"
+                        },
+                        "batchnummer": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "lotnummer": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "poging": {
+                          "type": "integer"
+                        },
+                        "herbewerking_start": {
+                          "type": "boolean"
+                        },
+                        "reden": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "afgerond"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "afgebroken"
+                              ]
+                            }
+                          ]
+                        },
+                        "operator": {
+                          "type": "string"
+                        },
+                        "pc": {
+                          "type": "string"
+                        },
+                        "gestart_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "afgerond_op": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "velden",
+                        "grondstoffen"
+                      ],
+                      "properties": {
+                        "velden": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "soort",
+                              "eenheid",
+                              "grens_min",
+                              "grens_max",
+                              "tolerantie",
+                              "tolerantie_soort",
+                              "verplicht",
+                              "waarde"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "soort": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "grens_min": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "grens_max": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "tolerantie": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "tolerantie_soort": {
+                                "type": "string"
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "waarde": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "setting",
+                                  "gemeten",
+                                  "markering",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "setting": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gemeten": {
+                                    "type": "number"
+                                  },
+                                  "markering": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ok"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "buiten_tolerantie"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "buiten_grens"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registraties/{id}/grondstoffen/{code}/correctie": {
+      "post": {
+        "tags": [
+          "registraties"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "partij",
+                  "reden"
+                ],
+                "properties": {
+                  "partij": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "hoeveelheid": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "nullable": true
+                  },
+                  "reden": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "code",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "stapcode",
+                        "stapnaam",
+                        "niveau",
+                        "batchnummer",
+                        "lotnummer",
+                        "poging",
+                        "herbewerking_start",
+                        "reden",
+                        "status",
+                        "operator",
+                        "pc",
+                        "gestart_op",
+                        "afgerond_op"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "stapcode": {
+                          "type": "string"
+                        },
+                        "stapnaam": {
+                          "type": "string"
+                        },
+                        "niveau": {
+                          "type": "string"
+                        },
+                        "batchnummer": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "lotnummer": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "poging": {
+                          "type": "integer"
+                        },
+                        "herbewerking_start": {
+                          "type": "boolean"
+                        },
+                        "reden": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "afgerond"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "afgebroken"
+                              ]
+                            }
+                          ]
+                        },
+                        "operator": {
+                          "type": "string"
+                        },
+                        "pc": {
+                          "type": "string"
+                        },
+                        "gestart_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "afgerond_op": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "velden",
+                        "grondstoffen"
+                      ],
+                      "properties": {
+                        "velden": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "soort",
+                              "eenheid",
+                              "grens_min",
+                              "grens_max",
+                              "tolerantie",
+                              "tolerantie_soort",
+                              "verplicht",
+                              "waarde"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "soort": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "grens_min": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "grens_max": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "tolerantie": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "tolerantie_soort": {
+                                "type": "string"
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "waarde": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "setting",
+                                  "gemeten",
+                                  "markering",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "setting": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gemeten": {
+                                    "type": "number"
+                                  },
+                                  "markering": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ok"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "buiten_tolerantie"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "buiten_grens"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
                                   },
                                   "gecorrigeerd": {
                                     "type": "boolean"
@@ -2597,7 +3597,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -2691,6 +3692,65 @@
                                         ]
                                       }
                                     ]
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
                                   },
                                   "gecorrigeerd": {
                                     "type": "boolean"
@@ -2901,7 +3961,8 @@
                         {
                           "type": "object",
                           "required": [
-                            "velden"
+                            "velden",
+                            "grondstoffen"
                           ],
                           "properties": {
                             "velden": {
@@ -2995,6 +4056,65 @@
                                             ]
                                           }
                                         ]
+                                      },
+                                      "gecorrigeerd": {
+                                        "type": "boolean"
+                                      },
+                                      "ingevoerd_op": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      }
+                                    },
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "grondstoffen": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "code",
+                                  "naam",
+                                  "eenheid",
+                                  "verplicht",
+                                  "gebruik"
+                                ],
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "naam": {
+                                    "type": "string"
+                                  },
+                                  "eenheid": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "verplicht": {
+                                    "type": "boolean"
+                                  },
+                                  "gebruik": {
+                                    "type": "object",
+                                    "required": [
+                                      "id",
+                                      "partij",
+                                      "hoeveelheid",
+                                      "gecorrigeerd",
+                                      "ingevoerd_op"
+                                    ],
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      "partij": {
+                                        "type": "string"
+                                      },
+                                      "hoeveelheid": {
+                                        "type": "number",
+                                        "nullable": true
                                       },
                                       "gecorrigeerd": {
                                         "type": "boolean"
@@ -3150,7 +4270,8 @@
                         {
                           "type": "object",
                           "required": [
-                            "velden"
+                            "velden",
+                            "grondstoffen"
                           ],
                           "properties": {
                             "velden": {
@@ -3244,6 +4365,65 @@
                                             ]
                                           }
                                         ]
+                                      },
+                                      "gecorrigeerd": {
+                                        "type": "boolean"
+                                      },
+                                      "ingevoerd_op": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      }
+                                    },
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "grondstoffen": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "code",
+                                  "naam",
+                                  "eenheid",
+                                  "verplicht",
+                                  "gebruik"
+                                ],
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "naam": {
+                                    "type": "string"
+                                  },
+                                  "eenheid": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "verplicht": {
+                                    "type": "boolean"
+                                  },
+                                  "gebruik": {
+                                    "type": "object",
+                                    "required": [
+                                      "id",
+                                      "partij",
+                                      "hoeveelheid",
+                                      "gecorrigeerd",
+                                      "ingevoerd_op"
+                                    ],
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      "partij": {
+                                        "type": "string"
+                                      },
+                                      "hoeveelheid": {
+                                        "type": "number",
+                                        "nullable": true
                                       },
                                       "gecorrigeerd": {
                                         "type": "boolean"
@@ -3660,7 +4840,8 @@
                     {
                       "type": "object",
                       "required": [
-                        "velden"
+                        "velden",
+                        "grondstoffen"
                       ],
                       "properties": {
                         "velden": {
@@ -3767,6 +4948,65 @@
                               }
                             }
                           }
+                        },
+                        "grondstoffen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "naam",
+                              "eenheid",
+                              "verplicht",
+                              "gebruik"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "naam": {
+                                "type": "string"
+                              },
+                              "eenheid": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "verplicht": {
+                                "type": "boolean"
+                              },
+                              "gebruik": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "partij",
+                                  "hoeveelheid",
+                                  "gecorrigeerd",
+                                  "ingevoerd_op"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "partij": {
+                                    "type": "string"
+                                  },
+                                  "hoeveelheid": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "gecorrigeerd": {
+                                    "type": "boolean"
+                                  },
+                                  "ingevoerd_op": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
                         }
                       }
                     }
@@ -3815,7 +5055,8 @@
                     "lotnummer",
                     "batches",
                     "aantal_afwijkingen",
-                    "regels"
+                    "regels",
+                    "grondstoffen"
                   ],
                   "properties": {
                     "lotnummer": {
@@ -3939,6 +5180,51 @@
                           }
                         }
                       }
+                    },
+                    "grondstoffen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "batch_of_lot",
+                          "stap",
+                          "grondstof",
+                          "grondstofnaam",
+                          "partij",
+                          "hoeveelheid",
+                          "eenheid",
+                          "gecorrigeerd"
+                        ],
+                        "properties": {
+                          "batch_of_lot": {
+                            "type": "string"
+                          },
+                          "stap": {
+                            "type": "string"
+                          },
+                          "grondstof": {
+                            "type": "string"
+                          },
+                          "grondstofnaam": {
+                            "type": "string"
+                          },
+                          "partij": {
+                            "type": "string"
+                          },
+                          "hoeveelheid": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "eenheid": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "gecorrigeerd": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "description": "Gebruikte grondstofpartijen van het lot en zijn batches"
                     }
                   }
                 }
@@ -4860,6 +6146,283 @@
                     },
                     "actief": {
                       "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beheer/grondstoffen": {
+      "get": {
+        "tags": [
+          "beheer"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "code",
+                      "naam",
+                      "eenheid",
+                      "actief",
+                      "stappen"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
+                      },
+                      "eenheid": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "actief": {
+                        "type": "boolean"
+                      },
+                      "stappen": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "stap",
+                            "verplicht"
+                          ],
+                          "properties": {
+                            "stap": {
+                              "type": "string"
+                            },
+                            "verplicht": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "naam"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._-]{1,20}$"
+                  },
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "eenheid": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "nullable": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "naam",
+                    "eenheid",
+                    "actief",
+                    "stappen"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "eenheid": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    },
+                    "stappen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "stap",
+                          "verplicht"
+                        ],
+                        "properties": {
+                          "stap": {
+                            "type": "string"
+                          },
+                          "verplicht": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beheer/grondstoffen/{code}": {
+      "patch": {
+        "tags": [
+          "beheer"
+        ],
+        "description": "Naam, eenheid of actief wijzigen, en/of de stappen waarin de grondstof wordt ingevoerd (vervangt de lijst).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "eenheid": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "nullable": true
+                  },
+                  "actief": {
+                    "type": "boolean"
+                  },
+                  "stappen": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "stap",
+                        "verplicht"
+                      ],
+                      "properties": {
+                        "stap": {
+                          "type": "string"
+                        },
+                        "verplicht": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "code",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "naam",
+                    "eenheid",
+                    "actief",
+                    "stappen"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "eenheid": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    },
+                    "stappen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "stap",
+                          "verplicht"
+                        ],
+                        "properties": {
+                          "stap": {
+                            "type": "string"
+                          },
+                          "verplicht": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -6360,6 +7923,169 @@
                       "ingevoerd_door": {
                         "type": "string",
                         "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyse/grondstoffen": {
+      "get": {
+        "tags": [
+          "analyse"
+        ],
+        "description": "Terugzoeken: op partijnummer (deel van het nummer mag) welke batches en lots die partij bevatten; of met lotnummer of batchnummer welke grondstofpartijen erin zitten.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 60
+            },
+            "in": "query",
+            "name": "partij",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "lotnummer",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "batchnummer",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "grondstof",
+                      "grondstofnaam",
+                      "partij",
+                      "hoeveelheid",
+                      "eenheid",
+                      "batchnummer",
+                      "batchstatus",
+                      "lotnummer",
+                      "lotstatus",
+                      "stap",
+                      "ingevoerd_op",
+                      "gecorrigeerd"
+                    ],
+                    "properties": {
+                      "grondstof": {
+                        "type": "string"
+                      },
+                      "grondstofnaam": {
+                        "type": "string"
+                      },
+                      "partij": {
+                        "type": "string"
+                      },
+                      "hoeveelheid": {
+                        "type": "number",
+                        "nullable": true
+                      },
+                      "eenheid": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "batchnummer": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "batchstatus": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "lotnummer": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "lotstatus": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "stap": {
+                        "type": "string"
+                      },
+                      "ingevoerd_op": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "gecorrigeerd": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyse/partijen": {
+      "get": {
+        "tags": [
+          "analyse"
+        ],
+        "description": "Alle grondstofpartijen met het aantal batches en de periode waarin ze zijn gebruikt (nieuwste eerst).",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "grondstof",
+                      "grondstofnaam",
+                      "partij",
+                      "batches",
+                      "eerste",
+                      "laatste"
+                    ],
+                    "properties": {
+                      "grondstof": {
+                        "type": "string"
+                      },
+                      "grondstofnaam": {
+                        "type": "string"
+                      },
+                      "partij": {
+                        "type": "string"
+                      },
+                      "batches": {
+                        "type": "integer"
+                      },
+                      "eerste": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "laatste": {
+                        "type": "string",
+                        "format": "date-time"
                       }
                     }
                   }

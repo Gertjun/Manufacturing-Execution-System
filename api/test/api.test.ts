@@ -62,6 +62,13 @@ async function doorloop(token: string, nummer: string, soort: "batch" | "lot", v
     assert.equal(start.status, 201, `PS${k}: ${JSON.stringify(start.body)}`);
     const w = await verzoek("POST", `/registraties/${start.body.id}/waarden`, token, { waarden: waardenVoor(start.body) });
     assert.equal(w.status, 200, JSON.stringify(w.body));
+    const gs = start.body.grondstoffen.filter((g: any) => g.verplicht && !g.gebruik);
+    if (gs.length) {
+      const r = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, token, {
+        grondstoffen: gs.map((g: any) => ({ id: randomUUID(), code: g.code, partij: `LEV-${g.code}-TEST`, hoeveelheid: 120 })),
+      });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+    }
     const a = await verzoek("POST", `/registraties/${start.body.id}/afronden`, token);
     assert.equal(a.status, 200, JSON.stringify(a.body));
   }
@@ -181,6 +188,7 @@ describe("productie van batch tot lot", () => {
     assert.equal(s11.waarde.gemeten, 82);
     assert.equal(s11.waarde.gecorrigeerd, true);
     assert.equal(s11.waarde.markering, "ok");
+    await verzoek("POST", `/registraties/${id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-A", partij: "LEV-GS-A-TEST" }] });
     assert.equal((await verzoek("POST", `/registraties/${id}/afronden`, op)).status, 200);
   });
 
@@ -682,5 +690,62 @@ describe("Wandscherm", () => {
     assert.ok(Array.isArray(ps16.gepland) && Array.isArray(ps16.bezig) && Array.isArray(ps16.klaar));
     const metPlan = r.body.stappen.flatMap((s: any) => s.klaar).filter((i: any) => i.gepland !== null);
     assert.ok(metPlan.every((i: any) => Number.isInteger(i.gepland)));
+  });
+});
+
+describe("Grondstoffen", () => {
+  test("invoeren, verplicht bij afronden, correctie, terugzoeken en lotpaspoort", async () => {
+    const op = await kiesNaam(await login("operator", "PC-05"));
+    const pl = await kiesNaam(await login("ploegleider1", "PC-05"), "Operator B");
+    const cfg = await verzoek("GET", "/config/stappen", op);
+    assert.deepEqual(cfg.body.find((s: any) => s.code === "PS1").grondstoffen.map((g: any) => g.code), ["GS-A"]);
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0700" })).status, 201);
+    const start = await verzoek("POST", "/registraties", op, { stapcode: "PS1", batchnummer: "B-2026-0700" });
+    assert.equal(start.body.grondstoffen[0].code, "GS-A");
+    assert.equal(start.body.grondstoffen[0].gebruik, null);
+    await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: waardenVoor(start.body) });
+    const zonder = await verzoek("POST", `/registraties/${start.body.id}/afronden`, op);
+    assert.equal(zonder.status, 422);
+    assert.match(zonder.body.fout, /grondstof GS-A/);
+    const fout = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-B", partij: "X-1" }] });
+    assert.equal(fout.status, 422);
+    const id = randomUUID();
+    const g = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ id, code: "GS-A", partij: " LEV-A-9001 ", hoeveelheid: 125.5 }] });
+    assert.equal(g.status, 200, JSON.stringify(g.body));
+    assert.equal(g.body.grondstoffen[0].gebruik.partij, "LEV-A-9001");
+    // Zelfde id opnieuw versturen (offline wachtrij) geeft geen tweede regel.
+    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ id, code: "GS-A", partij: "LEV-A-9001" }] })).status, 200);
+    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-A", partij: "ander" }] })).status, 409);
+    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/afronden`, op)).status, 200);
+    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen/GS-A/correctie`, op, { partij: "LEV-A-9002", reden: "tikfout" })).status, 403);
+    const c = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen/GS-A/correctie`, pl, { partij: "LEV-A-9002", reden: "tikfout" });
+    assert.equal(c.status, 201, JSON.stringify(c.body));
+    assert.equal(c.body.grondstoffen[0].gebruik.partij, "LEV-A-9002");
+    assert.equal(c.body.grondstoffen[0].gebruik.hoeveelheid, 125.5);
+    assert.equal(c.body.grondstoffen[0].gebruik.gecorrigeerd, true);
+    const kw = await login("kwaliteit1");
+    const zoek = await verzoek("GET", "/analyse/grondstoffen?partij=a-9002", kw);
+    assert.equal(zoek.body.length, 1);
+    assert.equal(zoek.body[0].batchnummer, "B-2026-0700");
+    assert.equal((await verzoek("GET", "/analyse/grondstoffen?partij=a-9001", kw)).body.length, 0);
+    const partijen = await verzoek("GET", "/analyse/partijen", kw);
+    assert.ok(partijen.body.some((p: any) => p.partij === "LEV-A-9002" && p.batches === 1));
+    // Lotpaspoort van het eerder gemaakte lot heeft de grondstoffen van zijn batches.
+    const pas = await verzoek("GET", "/lots/L-2026-0001/paspoort", kw);
+    assert.equal(pas.status, 200);
+    assert.ok(Array.isArray(pas.body.grondstoffen));
+  });
+
+  test("beheer: grondstof toevoegen en aan stappen koppelen", async () => {
+    const bh = await login("beheerder1");
+    const n = await verzoek("POST", "/beheer/grondstoffen", bh, { code: "GS-D", naam: "Grondstof D", eenheid: "kg" });
+    assert.equal(n.status, 201, JSON.stringify(n.body));
+    const k = await verzoek("PATCH", "/beheer/grondstoffen/GS-D", bh, { stappen: [{ stap: "PS5", verplicht: false }, { stap: "PS6", verplicht: true }] });
+    assert.deepEqual(k.body.stappen, [{ stap: "PS5", verplicht: false }, { stap: "PS6", verplicht: true }]);
+    const k2 = await verzoek("PATCH", "/beheer/grondstoffen/GS-D", bh, { stappen: [{ stap: "PS6", verplicht: false }] });
+    assert.deepEqual(k2.body.stappen, [{ stap: "PS6", verplicht: false }]);
+    assert.equal((await verzoek("PATCH", "/beheer/grondstoffen/GS-D", bh, { stappen: [{ stap: "PS99", verplicht: false }] })).status, 422);
+    assert.equal((await verzoek("PATCH", "/beheer/grondstoffen/GS-D", bh, { actief: false })).body.actief, false);
+    assert.equal((await verzoek("GET", "/beheer/grondstoffen", await login("kwaliteit1"))).status, 403);
   });
 });

@@ -24,6 +24,10 @@ const Stap = Type.Object({
   niveau: Type.Union([Type.Literal("batch"), Type.Literal("lot")]),
   is_lot_stap: Type.Boolean(),
   velden: Type.Array(Veld),
+  grondstoffen: Type.Array(
+    Type.Object({ code: Type.String(), naam: Type.String(), eenheid: Type.Union([Type.Null(), Type.String()]), verplicht: Type.Boolean() }),
+    { description: "Grondstoffen die in deze stap worden ingevoerd (partijnummer en hoeveelheid)" },
+  ),
 });
 
 export const STAPPEN_SQL = `
@@ -33,7 +37,10 @@ export const STAPPEN_SQL = `
            'grens_min', v.grens_min, 'grens_max', v.grens_max, 'tolerantie', v.tolerantie,
            'tolerantie_soort', v.tolerantie_soort, 'volgnummer', v.volgnummer,
            'verplicht', v.verplicht, 'actief', v.actief) ORDER BY v.volgnummer)
-           FILTER (WHERE v.id IS NOT NULL AND (v.actief OR $1)), '[]') AS velden
+           FILTER (WHERE v.id IS NOT NULL AND (v.actief OR $1)), '[]') AS velden,
+         coalesce((SELECT json_agg(json_build_object('code', g.code, 'naam', g.naam, 'eenheid', g.eenheid, 'verplicht', x.verplicht) ORDER BY g.code)
+                     FROM stap_grondstof x JOIN grondstof g ON g.id = x.grondstof_id
+                    WHERE x.processtap_id = s.id AND x.actief AND g.actief), '[]') AS grondstoffen
     FROM processtap s
     LEFT JOIN veld v ON v.processtap_id = s.id
    WHERE s.actief OR $1

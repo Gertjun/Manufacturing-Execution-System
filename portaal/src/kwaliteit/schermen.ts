@@ -186,10 +186,10 @@ export async function lotpaspoort(nummer?: string) {
 async function toonLotpaspoort(nummer: string) {
   const actueel = vastHouden();
   toon(kop(`Lot ${nummer}`), laden());
-  let lot: Lot, pas: { aantal_afwijkingen: number; regels: Regel[] };
+  let lot: Lot, pas: { aantal_afwijkingen: number; regels: Regel[]; grondstoffen?: GsPaspoort[] };
   try {
     [lot, pas] = await Promise.all([haal<Lot & { registraties: { stapcode: string; poging: number; herbewerking_start: boolean; reden: string | null }[] }>(`/lots/${nummer}`),
-      haal<{ aantal_afwijkingen: number; regels: Regel[] }>(`/lots/${nummer}/paspoort`)]);
+      haal<{ aantal_afwijkingen: number; regels: Regel[]; grondstoffen?: GsPaspoort[] }>(`/lots/${nummer}/paspoort`)]);
   } catch (e) { return fout(e, `Lot ${nummer}`); }
   if (!actueel()) return;
   const afw = pas.regels.filter((r) => r.markering !== "ok");
@@ -207,6 +207,13 @@ async function toonLotpaspoort(nummer: string) {
     ),
     h("section", { class: "blok" }, h("h2", {}, "Afwijkingen"),
       afw.length ? regelsTabel(afw, true) : h("p", { class: "leeg goed" }, "Geen afwijkingen in dit lot en zijn batches.")),
+    pas.grondstoffen?.length
+      ? h("section", { class: "blok" }, h("h2", {}, "Grondstoffen"),
+          tabel(["Stap", "Batch of lot", "Grondstof", "Partij", "Hoeveelheid"], pas.grondstoffen.map((g) => [
+            g.stap, g.batch_of_lot, `${g.grondstof} ${g.grondstofnaam}`,
+            h("span", {}, h("a", { href: `#/kwaliteit/grondstoffen/${encodeURIComponent(g.partij)}`, class: "sterk" }, g.partij), g.gecorrigeerd ? " (gecorrigeerd)" : ""),
+            g.hoeveelheid !== null ? `${toonGetal(g.hoeveelheid)}${g.eenheid ? ` ${g.eenheid}` : ""}` : ""]), "compact"))
+      : null,
     h("section", { class: "blok" }, h("h2", {}, "Metingen binnen grenzen"),
       h("details", { class: "meer" }, h("summary", {}, `Alle ${pas.regels.length - afw.length} metingen binnen grenzen tonen`),
         regelsTabel(pas.regels.filter((r) => r.markering === "ok").sort((a, b) => a.stap.localeCompare(b.stap, "nl", { numeric: true }) || a.batch_of_lot.localeCompare(b.batch_of_lot)), true))),
@@ -357,4 +364,62 @@ export async function herbewerkingen() {
           h("a", { href: `#/kwaliteit/batch/${r.batchnummer}`, class: "sterk" }, r.batchnummer), r.reden, r.door, r.in_beoordeling_reden ?? "", r.laatst_afgeronde_stap ?? ""]))]
         : h("p", { class: "leeg goed" }, "Geen afgekeurde batches in deze periode.")),
   );
+}
+
+// ---------- Grondstoffen terugzoeken ----------
+interface GsPaspoort { batch_of_lot: string; stap: string; grondstof: string; grondstofnaam: string; partij: string; hoeveelheid: number | null; eenheid: string | null; gecorrigeerd: boolean }
+interface GsRegel {
+  grondstof: string; grondstofnaam: string; partij: string; hoeveelheid: number | null; eenheid: string | null;
+  batchnummer: string | null; batchstatus: string | null; lotnummer: string | null; lotstatus: string | null; stap: string; ingevoerd_op: string; gecorrigeerd: boolean;
+}
+interface Partij { grondstof: string; grondstofnaam: string; partij: string; batches: number; eerste: string; laatste: string }
+
+export async function grondstoffen(partij?: string) {
+  const actueel = vastHouden();
+  const zoek = h("input", { id: "zoek-partij", type: "text", placeholder: "Partijnummer of een deel ervan", autocomplete: "off", value: partij ?? "" }) as HTMLInputElement;
+  const uitkomst = h("div", {}, laden());
+  let laatste = 0;
+  const laad = async () => {
+    const mijn = ++laatste;
+    const t = zoek.value.trim();
+    try {
+      if (t.length < 2) {
+        const p = await haal<Partij[]>("/analyse/partijen");
+        if (!actueel() || mijn !== laatste) return;
+        uitkomst.replaceChildren(h("h2", { class: "tussenkop" }, "Laatst gebruikte partijen"), p.length
+          ? tabel(["Partij", "Grondstof", "Batches", "Gebruikt van", "tot"], p.slice(0, 60).map((x) => [
+              h("a", { href: `#/kwaliteit/grondstoffen/${encodeURIComponent(x.partij)}`, class: "sterk" }, x.partij), `${x.grondstof} ${x.grondstofnaam}`,
+              h("span", { class: "getal" }, x.batches), datum(x.eerste), datum(x.laatste)]), "compact")
+          : h("p", { class: "leeg" }, "Er zijn nog geen grondstoffen ingevoerd."));
+        return;
+      }
+      const r = await haal<GsRegel[]>(`/analyse/grondstoffen${qs({ partij: t })}`);
+      if (!actueel() || mijn !== laatste) return;
+      const lots = [...new Set(r.map((x) => x.lotnummer).filter(Boolean))] as string[];
+      const batches = [...new Set(r.map((x) => x.batchnummer).filter(Boolean))] as string[];
+      uitkomst.replaceChildren(
+        r.length
+          ? h("div", {},
+              h("div", { class: "tegels" },
+                h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, batches.length), h("span", { class: "tegel-tekst" }, batches.length === 1 ? "batch" : "batches")),
+                h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, lots.length), h("span", { class: "tegel-tekst" }, lots.length === 1 ? "lot" : "lots")),
+                h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, new Set(r.map((x) => x.partij)).size), h("span", { class: "tegel-tekst" }, "partijen gevonden"))),
+              lots.length ? h("p", { class: "sub", style: "margin-top:12px" }, "Lots: ", lots.flatMap((l, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/lotpaspoort/${l}` }, l)])) : null,
+              tabel(["Partij", "Grondstof", "Batch", "Stap", "Lot", "Ingevoerd", "Hoeveelheid"], r.map((x) => [
+                h("span", { class: "sterk" }, x.partij, x.gecorrigeerd ? h("span", { class: "noot" }, " (gecorrigeerd)") : null), `${x.grondstof} ${x.grondstofnaam}`,
+                x.batchnummer ? h("a", { href: `#/kwaliteit/batch/${x.batchnummer}` }, x.batchnummer) : "", x.stap,
+                x.lotnummer ? h("a", { href: `#/kwaliteit/lotpaspoort/${x.lotnummer}` }, x.lotnummer) : h("span", { class: "sub" }, "nog geen lot"),
+                datum(x.ingevoerd_op), x.hoeveelheid !== null ? `${toonGetal(x.hoeveelheid)}${x.eenheid ? ` ${x.eenheid}` : ""}` : ""]), "compact"))
+          : h("p", { class: "leeg" }, `Geen batches met een partijnummer dat "${t}" bevat.`));
+    } catch (e) { uitkomst.replaceChildren(h("p", { class: "leeg" }, (e as Error).message)); }
+  };
+  let timer: number | undefined;
+  zoek.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(laad, 250); });
+  toon(
+    kop("Grondstoffen terugzoeken", "Zoek op het partijnummer van een leverancier: in welke batches en lots zit die partij? Andersom staan de grondstoffen in elk lotpaspoort."),
+    h("div", { class: "filters" }, h("label", { for: "zoek-partij", class: "filter breed" }, "Partijnummer", zoek)),
+    uitkomst,
+  );
+  await laad();
+  zoek.focus();
 }

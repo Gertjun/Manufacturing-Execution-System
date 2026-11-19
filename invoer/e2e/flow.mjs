@@ -86,6 +86,8 @@ try {
   await page.locator("#s-S1\\.1").fill("80");
   await page.locator("#g-S1\\.1").fill("86,5");
   await page.locator("#g-S1\\.2").fill("410");
+  await page.locator("#p-GS-A").fill("LEV-GS-A-E2E-01");
+  await page.locator("#h-GS-A").fill("118,5");
   await page.locator(".veld[data-markering='buiten_tolerantie']").waitFor();
   check("Afwijking zichtbaar tijdens typen", (await page.locator(".label-buiten_tolerantie", { hasText: "Buiten tolerantie" }).count()) === 1);
   await shot("05-formulier-ingevuld");
@@ -104,6 +106,9 @@ try {
       FROM fabriek.stapregistratie r JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100'`);
   check("PS1 afgerond in de database met 2 waarden", ps1?.status === "afgerond" && Number(ps1?.n) === 2, JSON.stringify(ps1));
   check("Database markeert 86,5 als buiten tolerantie", ps1?.m === "buiten_tolerantie");
+  const [gs] = await q(`SELECT u.partij, u.hoeveelheid FROM fabriek.grondstof_gebruik u JOIN fabriek.stapregistratie r ON r.id = u.stapregistratie_id
+      JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100'`);
+  check("Grondstofpartij en hoeveelheid in de database", gs?.partij === "LEV-GS-A-E2E-01" && Number(gs?.hoeveelheid) === 118.5, JSON.stringify(gs));
 
   console.log("\nLot samenstellen in PS16");
   await page.goto(`${BASIS}/invoer/#/stap/PS16`);

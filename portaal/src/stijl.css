@@ -309,3 +309,6 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 .wand-hallen a { color: #c7cfd8; }
 .wand-hallen a[aria-current="page"] { color: #fff; font-weight: 700; }
 @media (max-width: 1100px) { .wand-raster { grid-template-columns: repeat(3, 1fr); } .wand-kop { grid-template-columns: 1fr; } .wand-klok { justify-items: start; } }
+.keuze-raster { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; max-height: 55vh; overflow-y: auto; margin-bottom: 8px; }
+.keuze-raster label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.keuze-raster select { font: inherit; padding: 4px 6px; }

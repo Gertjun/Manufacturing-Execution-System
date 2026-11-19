@@ -2,7 +2,7 @@
 // uit de velden die bij de stap zijn ingesteld.
 import { GeenVerbinding } from "../api";
 import { berekenMarkering, leesGetal, markeringTekst, toonGetal } from "../markering";
-import { corrigeer, registratie, rondAf, slaWaardenOp, type Invoer } from "../registraties";
+import { corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
 import type { Markering, Registratie, VeldMetWaarde } from "../types";
 import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
@@ -60,6 +60,24 @@ function teken(reg: Registratie) {
     return { invoer: { code: v.code, setting: i.setting ? setting : null, gemeten }, leeg, fout };
   };
 
+  // Grondstoffen: partijnummer (verplicht om op te slaan) en eventueel hoeveelheid.
+  const gsInvoer = new Map<string, { partij: HTMLInputElement; hoeveelheid: HTMLInputElement }>();
+  const leesGs = (): { klaar: GrondstofInvoer[]; fout: boolean } => {
+    const klaar: GrondstofInvoer[] = [];
+    let fout = false;
+    for (const [code, i] of gsInvoer) {
+      const partij = i.partij.value.trim();
+      const hv = i.hoeveelheid.value.trim();
+      const hoeveelheid = hv === "" ? null : leesGetal(hv);
+      const ongeldig = (hv !== "" && (hoeveelheid === null || hoeveelheid <= 0)) || (partij === "" && hv !== "");
+      i.hoeveelheid.setAttribute("aria-invalid", String(hv !== "" && (hoeveelheid === null || hoeveelheid <= 0)));
+      i.partij.setAttribute("aria-invalid", String(partij === "" && hv !== ""));
+      if (ongeldig) fout = true;
+      else if (partij) klaar.push({ code, partij, hoeveelheid });
+    }
+    return { klaar, fout };
+  };
+
   const werkBij = () => {
     let klaar = 0;
     let half = 0;
@@ -78,12 +96,15 @@ function teken(reg: Registratie) {
         delete i.rij.dataset.markering;
       }
     }
-    const ontbreekt = reg.velden!.filter((v) => v.verplicht && !v.waarde).length;
+    const gs = leesGs();
+    klaar += gs.klaar.length;
+    if (gs.fout) half++;
+    const ontbreekt = reg.velden!.filter((v) => v.verplicht && !v.waarde).length + (reg.grondstoffen ?? []).filter((g) => g.verplicht && !g.gebruik).length;
     opslaan.disabled = klaar === 0 || half > 0;
     afronden.disabled = ontbreekt > 0 || reg.status !== "open";
     hint.textContent =
-      half > 0 ? "Vul bij een procesparameter zowel setting als gemeten waarde in" :
-      klaar > 0 ? `${klaar} ${klaar === 1 ? "waarde" : "waarden"} klaar om op te slaan` :
+      half > 0 ? (gs.fout ? "Vul bij een grondstof het partijnummer in, en een geldige hoeveelheid" : "Vul bij een procesparameter zowel setting als gemeten waarde in") :
+      klaar > 0 ? `${klaar} ${klaar === 1 ? "invoer" : "invoeren"} klaar om op te slaan` :
       ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "veld" : "velden"} in te vullen` :
       reg.status === "open" ? "Alle velden zijn ingevuld" : "";
   };
@@ -154,8 +175,56 @@ function teken(reg: Registratie) {
     return rij;
   });
 
+  const grondstoffen = (reg.grondstoffen ?? []).map((g) => {
+    const rij = h("div", { class: "veld veld-grondstof" });
+    const eenheid = g.eenheid ? ` (${g.eenheid})` : "";
+    const links = h("div", {}, h("div", { class: "veld-code" }, `${g.code} ${g.naam}`), h("div", { class: "veld-grens" }, g.verplicht ? "Partijnummer van de leverancier" : "Partijnummer, niet verplicht"));
+    const rechts = h("div", { class: "veld-rechts" });
+    let midden: HTMLElement;
+    if (g.gebruik) {
+      midden = h("div", { class: "veld-waarde" }, g.gebruik.partij,
+        g.gebruik.hoeveelheid !== null ? h("span", { class: "eenheid" }, `, ${toonGetal(g.gebruik.hoeveelheid)}${g.eenheid ? ` ${g.eenheid}` : ""}`) : null);
+      if (g.gebruik.wacht) rechts.append(h("span", { class: "label label-wacht" }, "Nog niet verstuurd"));
+      if (g.gebruik.gecorrigeerd) rechts.append(h("span", { class: "label label-afgerond" }, "Gecorrigeerd"));
+      if (magCorrigeren && !g.gebruik.wacht) {
+        rechts.append(h("button", {
+          class: "knop knop-klein",
+          onclick: async () => {
+            const r = await vraag(`${g.code} corrigeren`, [
+              { naam: "partij", label: "Partijnummer", waarde: g.gebruik!.partij },
+              { naam: "hoeveelheid", label: `Hoeveelheid${eenheid}`, type: "getal", optioneel: true, waarde: g.gebruik!.hoeveelheid !== null ? toonGetal(g.gebruik!.hoeveelheid) : "" },
+              { naam: "reden", label: "Reden van de correctie" },
+            ], "Correctie opslaan");
+            if (!r) return;
+            const hv = r.hoeveelheid === "" ? null : leesGetal(r.hoeveelheid);
+            if (r.hoeveelheid !== "" && hv === null) return melding("Vul een geldige hoeveelheid in", "fout");
+            try {
+              teken(await corrigeerGrondstof(reg, g.code, r.partij, hv, r.reden));
+              melding(`${g.code} gecorrigeerd`, "ok");
+            } catch (e) {
+              melding(e instanceof GeenVerbinding ? "Corrigeren kan alleen met verbinding" : (e as Error).message, "fout");
+            }
+          },
+        }, "Corrigeer"));
+      }
+    } else if (magInvoeren) {
+      const partij = h("input", { type: "text", autocomplete: "off", id: `p-${g.code}`, oninput: werkBij, maxlength: 60 }) as HTMLInputElement;
+      const hoeveelheid = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `h-${g.code}`, oninput: werkBij }) as HTMLInputElement;
+      gsInvoer.set(g.code, { partij, hoeveelheid });
+      midden = h("div", { class: "veld-invoer" },
+        h("label", { for: `p-${g.code}` }, "Partijnummer", partij),
+        h("label", { for: `h-${g.code}` }, `Hoeveelheid${eenheid}`, hoeveelheid));
+      if (!g.verplicht) rechts.append(h("span", { class: "veld-grens" }, "Niet verplicht"));
+    } else {
+      midden = h("div", { class: "sub" }, "Niet ingevuld");
+    }
+    rij.append(links, midden, rechts);
+    return rij;
+  });
+
   opslaan.addEventListener("click", async () => {
     const klaar = reg.velden!.map((v) => (invoer.has(v.code) ? lees(v).invoer : null)).filter((x): x is Invoer => !!x);
+    const gsKlaar = leesGs().klaar;
     const regels = klaar.map((i) => {
       const v = reg.velden!.find((x) => x.code === i.code)!;
       const m = berekenMarkering(i.setting, i.gemeten, v.grens_min, v.grens_max, v.tolerantie, v.tolerantie_soort);
@@ -174,6 +243,11 @@ function teken(reg: Registratie) {
             h("li", {}, h("span", {}, `${v.code} ${v.naam}`),
               h("span", { class: "getal" }, i.setting !== null ? `${toonGetal(i.setting)} / ` : "", `${toonGetal(i.gemeten)}${v.eenheid ? ` ${v.eenheid}` : ""} `, markeringLabel(m))),
           ),
+          gsKlaar.map((g) => {
+            const gg = reg.grondstoffen!.find((x) => x.code === g.code)!;
+            return h("li", {}, h("span", {}, `${g.code} ${gg.naam}`),
+              h("span", {}, `partij ${g.partij}${g.hoeveelheid !== null ? `, ${toonGetal(g.hoeveelheid)}${gg.eenheid ? ` ${gg.eenheid}` : ""}` : ""}`));
+          }),
         ),
         afwijkend ? h("p", { class: "waarschuwing" }, `${afwijkend} ${afwijkend === 1 ? "waarde wijkt" : "waarden wijken"} af. Controleer of je goed hebt afgelezen.`) : null,
         h("p", { class: "sub" }, "Na opslaan kan alleen een ploegleider een waarde nog corrigeren."),
@@ -181,7 +255,9 @@ function teken(reg: Registratie) {
       "Opslaan",
     );
     if (!ok) return;
-    teken(await slaWaardenOp(reg, klaar));
+    if (klaar.length) reg = await slaWaardenOp(reg, klaar);
+    if (gsKlaar.length) reg = await slaGrondstoffenOp(reg, gsKlaar);
+    teken(reg);
     melding("Opgeslagen", "ok");
   });
 
@@ -220,6 +296,8 @@ function teken(reg: Registratie) {
       statusLabel,
     ),
     h("div", { class: "formulier" }, velden),
+    grondstoffen.length ? h("h2", { class: "tussenkop-invoer" }, "Grondstoffen") : null,
+    grondstoffen.length ? h("div", { class: "formulier" }, grondstoffen) : null,
     reg.status === "open" && magInvoeren ? h("div", { class: "balk-onder" }, h("div", {}, hint, opslaan, afronden)) : null,
   );
   werkBij();

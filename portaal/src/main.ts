@@ -139,6 +139,7 @@ async function route() {
       case "stappen": return beheer.stappen(a);
       case "accounts": return beheer.accounts();
       case "operators": return beheer.operators();
+      case "grondstoffen": return beheer.grondstoffen();
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
       case "server": return beheer.server();
@@ -150,6 +151,7 @@ async function route() {
     case "overzicht": return kwaliteit.overzicht();
     case "beoordelen": return kwaliteit.beoordelen();
     case "lotpaspoort": return kwaliteit.lotpaspoort(a);
+    case "grondstoffen": return kwaliteit.grondstoffen(a);
     case "batch": return a ? kwaliteit.batch(a) : kwaliteit.beoordelen();
     case "afwijkingen": return kwaliteit.afwijkingen();
     case "trend": return kwaliteit.trendScherm(a);

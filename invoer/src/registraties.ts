@@ -60,6 +60,7 @@ function lokaal(s: Stap, id: string, nummer: { batchnummer?: string; lotnummer?:
     gestart_op: new Date().toISOString(),
     afgerond_op: null,
     velden: veldenUit(s),
+    grondstoffen: (s.grondstoffen ?? []).map((g) => ({ ...g, gebruik: null })),
     lokaal: true,
     ...extra,
   };
@@ -159,6 +160,42 @@ export async function slaWaardenOp(reg: Registratie, invoer: Invoer[]) {
     registratieId: reg.id,
   });
   return reg;
+}
+
+export interface GrondstofInvoer {
+  code: string;
+  partij: string;
+  hoeveelheid: number | null;
+}
+
+export async function slaGrondstoffenOp(reg: Registratie, invoer: GrondstofInvoer[]) {
+  const regels = invoer.map((g) => ({ id: nieuwId(), code: g.code, partij: g.partij, hoeveelheid: g.hoeveelheid }));
+  const nu = new Date().toISOString();
+  reg.grondstoffen = (reg.grondstoffen ?? []).map((g) => {
+    const r = regels.find((x) => x.code === g.code);
+    return r ? { ...g, gebruik: { id: r.id, partij: r.partij, hoeveelheid: r.hoeveelheid, gecorrigeerd: false, ingevoerd_op: nu, wacht: true } } : g;
+  });
+  reg.lokaal = true;
+  await opslag.zet("registraties", reg);
+  await voegToe({
+    omschrijving: `${reg.stapcode} ${reg.batchnummer ?? reg.lotnummer}: grondstof ${invoer.map((g) => `${g.code} ${g.partij}`).join(", ")}`,
+    methode: "POST",
+    pad: `/registraties/${reg.id}/grondstoffen`,
+    body: { grondstoffen: regels },
+    registratieId: reg.id,
+  });
+  return reg;
+}
+
+/** Correctie van een grondstofregel door een ploegleider: alleen met verbinding. */
+export async function corrigeerGrondstof(reg: Registratie, code: string, partij: string, hoeveelheid: number | null | undefined, reden: string) {
+  const antwoord = await stuur<Registratie>("POST", `/registraties/${reg.id}/grondstoffen/${encodeURIComponent(code)}/correctie`, {
+    partij,
+    ...(hoeveelheid === undefined ? {} : { hoeveelheid }),
+    reden,
+  });
+  await opslag.zet("registraties", { ...antwoord, lokaal: false });
+  return antwoord;
 }
 
 export async function rondAf(reg: Registratie) {

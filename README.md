@@ -143,7 +143,8 @@ Het menu toont de portalen die bij je rol horen; Planning en Beheer staan erin a
 | --- | --- |
 | Overzicht | Kerncijfers, afwijkingen per week, velden met de meeste afwijkingen |
 | Te beoordelen | Batches in beoordeling; Kwaliteit voert hier OK of NOK in |
-| Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan, afdrukbaar voor een klant |
+| Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan, grondstofpartijen, afdrukbaar voor een klant |
+| Grondstoffen terugzoeken | Op partijnummer: in welke batches en lots zit die partij |
 | Afwijkingen | Alle metingen buiten tolerantie of grens, met filters |
 | Trend per veld | Grafiek van één veld door de tijd, met tolerantieband en grenzen |
 | Herbewerkingen en afkeur | Hoe vaak, in welke stap en met welke redenen |
@@ -187,6 +188,7 @@ node e2e/productie.mjs        # test Productie in Chrome (database met verse tes
 node e2e/beheer.mjs           # test Beheer in Chrome (database met verse configuratie)
 node e2e/planning.mjs         # test Planning in Chrome (zet zelf een verse database klaar)
 node e2e/wandscherm.mjs       # test het wandscherm in Chrome (database met verse testdata)
+node e2e/grondstoffen.mjs     # test grondstoffen in Beheer en Kwaliteit (database met verse testdata)
 ```
 
 ## Proof of concept op een laptop
@@ -249,6 +251,7 @@ Ook op `/portaal/` (testaccount `beheerder1`, wachtwoord `demo`; een beheerder s
 | Stappen en velden | Stapnamen aanpassen, velden toevoegen, setting, tolerantie en grenzen wijzigen, velden uitzetten. Codes worden nooit hergebruikt |
 | Accounts | Accounts aanmaken, rol wijzigen, wachtwoord opnieuw instellen, account uitzetten |
 | Operators | Operatornamen toevoegen, hernoemen of uitzetten (ze verschijnen direct in het invoerscherm) |
+| Grondstoffen | Grondstoffen toevoegen, wijzigen, uitzetten; per stap verplicht of niet (D31) |
 | Pc's | Pc's toevoegen en per pc kiezen welke stappen hij bedient |
 | Logboek | Elke wijziging: wie, wanneer, oude en nieuwe waarde |
 

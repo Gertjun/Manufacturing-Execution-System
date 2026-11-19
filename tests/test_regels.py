@@ -52,8 +52,14 @@ def main():
     veld = {code: vid for code, vid in con.execute("SELECT code, id FROM veld")}
     soort = {code: s for code, s in con.execute("SELECT code, soort FROM veld")}
 
+    stap_gs = {s: g for s, g in con.execute(
+        "SELECT p.code, x.grondstof_id FROM stap_grondstof x JOIN processtap p ON p.id = x.processtap_id WHERE x.verplicht")}
+
     def vul_in(reg, stapnr, afwijkend=None):
-        """Vul alle velden van een stap met normale fictieve waarden."""
+        """Vul alle velden (en verplichte grondstoffen) van een stap met normale fictieve waarden."""
+        if f"PS{stapnr}" in stap_gs:
+            con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'LEV-TEST-01',%s)",
+                        (reg, stap_gs[f"PS{stapnr}"], op))
         afwijkend = afwijkend or {}
         codes = [c for c in veld if c.startswith(f"S{stapnr}.")]
         for code in sorted(codes):
@@ -94,7 +100,14 @@ def main():
 
     reg = val("SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op))
     faalt("Zelfde stap twee keer open", "SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op), "staat nog open")
-    faalt("Afronden zonder verplichte velden", "SELECT rond_stap_af(%s)", (reg,), "Nog niet ingevuld: S1.1, S1.2")
+    faalt("Afronden zonder verplichte velden en grondstof", "SELECT rond_stap_af(%s)", (reg,), "Nog niet ingevuld: S1.1, S1.2, grondstof GS-A")
+    gs = {c: i for c, i in con.execute("SELECT code, id FROM grondstof")}
+    faalt("Grondstof die niet bij de stap hoort",
+          "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'P-1',%s)",
+          (reg, gs["GS-B"], op), "hoort niet bij deze stap")
+    faalt("Partijnummer mag niet leeg zijn",
+          "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'  ',%s)",
+          (reg, gs["GS-A"], op), "check")
     faalt("Procesparameter zonder setting",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,81,%s)",
           (reg, veld["S1.1"], op), "setting is verplicht")
@@ -108,6 +121,18 @@ def main():
     faalt("Waarde toevoegen na afronden",
           "INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,80,81,%s)",
           (reg, veld["S1.1"], op), "al afgerond")
+    faalt("Grondstof toevoegen na afronden",
+          "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'P-2',%s)",
+          (reg, gs["GS-A"], op), "al afgerond")
+    gid = val("SELECT id FROM grondstof_gebruik WHERE stapregistratie_id = %s", (reg,))
+    faalt("Grondstofregel wijzigen kan niet", "UPDATE grondstof_gebruik SET partij = 'X' WHERE id = %s", (gid,), "niet gewijzigd")
+    faalt("Correctie van een grondstof door kwaliteit kan niet",
+          "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
+          (reg, gs["GS-A"], gid, kw), "ploegleider")
+    con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
+                (reg, gs["GS-A"], gid, pl))
+    check("Correctie door ploegleider: actuele partij is P-3",
+          val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s", (reg,)) == "P-3")
     faalt("PS1 herhalen zonder herbewerking", "SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op), "al doorlopen")
 
     doorloop(b[0], 2, 15)

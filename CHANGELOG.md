@@ -2,6 +2,15 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.11.0 — 19 november 2026
+- Nieuw: grondstoffen per batch. In een stap voert de operator per grondstof het partijnummer van de leverancier in, en eventueel de hoeveelheid. Een verplichte grondstof moet zijn ingevuld voordat de stap kan worden afgerond. Een ploegleider kan een partijnummer achteraf corrigeren; het origineel blijft bewaard.
+- Nieuw: Portaal Kwaliteit → Grondstoffen terugzoeken. Zoek op (een deel van) een partijnummer en zie in welke batches en lots die partij zit. Zonder zoekterm: de laatst gebruikte partijen.
+- Nieuw: het lotpaspoort toont welke grondstofpartijen in het lot en zijn batches zitten.
+- Nieuw: Portaal Beheer → Grondstoffen. Grondstoffen toevoegen, wijzigen of uitzetten, en per stap kiezen of de grondstof verplicht is of mag.
+- De fictieve configuratie heeft drie grondstoffen: GS-A in PS1 en GS-B in PS3 (verplicht), HS-C in PS9 (mag). De testdata wisselt ongeveer elke 4 dagen van partij.
+- Let op: een ouder invoerscherm (van vóór 0.11.0) kan geen grondstoffen invoeren. Werk alle pc's bij voordat je een grondstof verplicht maakt in een stap die al in gebruik is.
+- Technisch: database-update 5 (`0005_grondstoffen`).
+
 ## 0.10.0 — 19 november 2026
 - Nieuw: wandscherm voor een tv in de hal (`/portaal/#/wandscherm`). Per stap zie je wat bezig is (▶ blauw), wat klaarstaat (● wit) en wat gepland is maar nog niet klaar (○ grijs), in de volgorde van de planner. Een gele rand met ⚠ betekent: wacht of loopt langer dan normaal (langer dan 90% van de keren in de laatste 30 dagen). Bovenaan: batches gestart tegenover gepland, lots gereed en batches in beoordeling.
 - Het wandscherm ververst elke 30 seconden. Valt de verbinding weg, dan blijft de laatste stand staan met de melding "Geen verbinding sinds …".

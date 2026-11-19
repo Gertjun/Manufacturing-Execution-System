@@ -44,4 +44,14 @@ INSERT INTO product (code, naam) VALUES
   ('PRD-B', 'Product B fijn'),
   ('PRD-C', 'Product C grof');
 
+-- Fictieve grondstoffen en in welke stap ze worden ingevoerd (sinds 0.11.0).
+INSERT INTO grondstof (code, naam, eenheid) VALUES
+  ('GS-A', 'Grondstof A', 'kg'),
+  ('GS-B', 'Grondstof B', 'kg'),
+  ('HS-C', 'Hulpstof C', 'l');
+INSERT INTO stap_grondstof (processtap_id, grondstof_id, verplicht)
+SELECT s.id, g.id, v.verplicht
+  FROM (VALUES ('PS1', 'GS-A', true), ('PS3', 'GS-B', true), ('PS9', 'HS-C', false)) v(stap, gs, verplicht)
+  JOIN processtap s ON s.code = v.stap JOIN grondstof g ON g.code = v.gs;
+
 COMMIT;

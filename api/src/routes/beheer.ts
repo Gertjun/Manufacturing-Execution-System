@@ -263,6 +263,95 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  // ---------- Grondstoffen en in welke stap ze worden ingevoerd ----------
+  const Grondstof = Type.Object({
+    id: Type.String(),
+    code: Type.String(),
+    naam: Type.String(),
+    eenheid: Type.Union([Type.Null(), Type.String()]),
+    actief: Type.Boolean(),
+    stappen: Type.Array(Type.Object({ stap: Type.String(), verplicht: Type.Boolean() })),
+  });
+  const GRONDSTOF_SQL = `SELECT g.id::text, g.code, g.naam, g.eenheid, g.actief,
+           coalesce((SELECT json_agg(json_build_object('stap', s.code, 'verplicht', x.verplicht) ORDER BY s.volgorde)
+                       FROM stap_grondstof x JOIN processtap s ON s.id = x.processtap_id
+                      WHERE x.grondstof_id = g.id AND x.actief), '[]') AS stappen
+      FROM grondstof g`;
+  app.get(
+    "/grondstoffen",
+    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Grondstof) } } },
+    async () => (await lees(app.db, `${GRONDSTOF_SQL} ORDER BY g.actief DESC, g.code`)) as never,
+  );
+  app.post(
+    "/grondstoffen",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        body: Type.Object({
+          code: Type.String({ pattern: "^[A-Za-z0-9._-]{1,20}$" }),
+          naam: Type.String({ minLength: 1, maxLength: 100 }),
+          eenheid: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 20 })])),
+        }, { additionalProperties: false }),
+        response: { 201: Grondstof },
+      },
+    },
+    async (req, reply) => {
+      const id = await inTransactie(app.db, req.user.naam, async (tx) =>
+        (await tx.query("INSERT INTO grondstof (code, naam, eenheid) VALUES ($1, $2, $3) RETURNING id",
+          [req.body.code.trim(), req.body.naam.trim(), req.body.eenheid?.trim() || null])).rows[0].id);
+      const [g] = await lees(app.db, `${GRONDSTOF_SQL} WHERE g.id = $1`, [id]);
+      return reply.status(201).send(g as never);
+    },
+  );
+  app.patch(
+    "/grondstoffen/:code",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        description: "Naam, eenheid of actief wijzigen, en/of de stappen waarin de grondstof wordt ingevoerd (vervangt de lijst).",
+        params: Type.Object({ code: Type.String() }),
+        body: Type.Object({
+          naam: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+          eenheid: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 20 })])),
+          actief: Type.Optional(Type.Boolean()),
+          stappen: Type.Optional(Type.Array(Type.Object({ stap: Type.String(), verplicht: Type.Boolean() }))),
+        }, { additionalProperties: false, minProperties: 1 }),
+        response: { 200: Grondstof },
+      },
+    },
+    async (req) => {
+      await inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows } = await tx.query(
+          `UPDATE grondstof SET naam = coalesce($2, naam), eenheid = CASE WHEN $4 THEN $3 ELSE eenheid END, actief = coalesce($5, actief)
+            WHERE code = $1 RETURNING id`,
+          [req.params.code, req.body.naam?.trim() ?? null, req.body.eenheid?.trim() || null, req.body.eenheid !== undefined, req.body.actief ?? null],
+        );
+        if (!rows[0]) throw niet("Grondstof");
+        if (req.body.stappen) {
+          const gid = rows[0].id;
+          const nieuw = new Map(req.body.stappen.map((s) => [s.stap, s.verplicht]));
+          const { rows: stappen } = await tx.query("SELECT id, code FROM processtap WHERE code = ANY($1)", [[...nieuw.keys()]]);
+          if (stappen.length !== nieuw.size) throw new ApiFout(422, "Onbekende stap in de lijst");
+          // Niets verwijderen: koppelingen gaan uit of aan.
+          await tx.query("UPDATE stap_grondstof SET actief = false WHERE grondstof_id = $1 AND actief AND processtap_id <> ALL($2)",
+            [gid, stappen.map((s) => s.id)]);
+          for (const s of stappen) {
+            await tx.query(
+              `INSERT INTO stap_grondstof (processtap_id, grondstof_id, verplicht) VALUES ($1, $2, $3)
+               ON CONFLICT (processtap_id, grondstof_id) DO UPDATE SET verplicht = EXCLUDED.verplicht, actief = true
+               WHERE stap_grondstof.verplicht IS DISTINCT FROM EXCLUDED.verplicht OR NOT stap_grondstof.actief`,
+              [s.id, gid, nieuw.get(s.code)],
+            );
+          }
+        }
+      });
+      const [g] = await lees(app.db, `${GRONDSTOF_SQL} WHERE g.code = $1`, [req.params.code]);
+      return g as never;
+    },
+  );
+
   // ---------- Pc's en welke stappen ze bedienen ----------
   const Pc = Type.Object({
     naam: Type.String(),

@@ -52,6 +52,7 @@ await inv.getByRole("heading", { name: "B-2026-9001" }).waitFor();
 await inv.locator("#s-S1\\.1").fill("80");
 await inv.locator("#g-S1\\.1").fill("86,5");
 await inv.locator("#g-S1\\.2").fill("410");
+await inv.locator("#p-GS-A").fill("LEV-GS-A-DEMO");
 await inv.getByRole("button", { name: "Opslaan" }).click();
 await inv.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
 await p.waitForTimeout(1500);
