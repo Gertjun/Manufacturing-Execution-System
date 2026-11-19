@@ -44,9 +44,20 @@ head -c 3000 "$B" > "$T/half.dump"
 node tools/herstel.mjs "$T/half.dump" --ja >/dev/null 2>&1 && fout "half bestand zou moeten mislukken"
 [ "$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)" = "$N" ] || fout "na mislukt herstel is de oude database niet terug"
 
+# Database-update: eerst een back-up. Doe alsof de laatste migratie nog open staat; die mislukt dan
+# (de onderdelen bestaan al), maar de back-up ervoor moet er zijn en de database blijft ongewijzigd.
+LAATSTE=$(psql -Atc "SELECT max(nummer) FROM fabriek.schema_versie" -d $DB)
+psql -q -d $DB -c "DELETE FROM fabriek.schema_versie WHERE nummer = $LAATSTE"
+node tools/migreer.mjs > "$T/migreer.txt" 2>&1 && fout "dubbele migratie zou moeten mislukken"
+grep -q "Back-up vóór de database-update" "$T/migreer.txt" || fout "geen back-up vóór de database-update"
+ls "$T"/backups/batchgui_*_voor-migratie-*.dump >/dev/null || fout "geen back-upbestand vóór de migratie"
+grep -q "De database staat nog op de vorige versie" "$T/migreer.txt" || fout "mislukte migratie niet gemeld"
+psql -q -d $DB -c "INSERT INTO fabriek.schema_versie (nummer, naam) SELECT $LAATSTE, 'terug'"
+[ "$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)" = "$N" ] || fout "na de mislukte migratie klopt het aantal waarden niet"
+
 L=$(psql -Atc "SELECT string_agg(soort || ':' || gelukt, ' ' ORDER BY id) FROM fabriek.onderhoud_log" -d $DB)
 echo "$L" | grep -q "herstel:t" || fout "onderhoudslogboek mist het herstel ($L)"
 
 for d in $(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}%'"); do psql -q -c "DROP DATABASE \"$d\" WITH (FORCE)"; done
 rm -rf "$T"
-echo "Beheertools: alle controles geslaagd ($N waarden, noodsleutel, back-up, hersteltest, herstel, terugval)."
+echo "Beheertools: alle controles geslaagd ($N waarden, noodsleutel, back-up, hersteltest, herstel, terugval, back-up vóór database-update)."

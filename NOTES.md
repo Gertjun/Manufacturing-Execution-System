@@ -17,7 +17,7 @@ Geslaagd: databaseregels (94, met de nachten van de klokwissel en een sessie op 
 
 ## Valkuilen voor de volgende sessie
 - `tools/pakket/testdata.sql` opnieuw maken: `schema_versie` en `onderhoud_log` niet meenemen in de dump (zie README, "Testdata").
-- De schermtests in Chrome draaien nog niet op GitHub (WISHLIST #27). Draai ze zelf na een wijziging, op verse testdata.
+- De schermtests in Chrome draaien op GitHub (`tests/test_schermen.sh`, ongeveer 4 minuten). Een losse portaaltest vraagt verse testdata; beheer en planning zetten zelf hun database klaar.
 - Na een wijziging aan schema of testdata maakt `demo/bouw.sh` de demodatabase vanzelf opnieuw.
 
 ## Links

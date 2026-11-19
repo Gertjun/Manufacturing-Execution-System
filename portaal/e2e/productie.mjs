@@ -87,7 +87,9 @@ try {
   await page.locator(".tabel tbody tr").first().waitFor();
   await shot("05-correcties");
   const [{ c }] = await q("SELECT count(*)::int AS c FROM fabriek.waarde WHERE vervangt_waarde_id IS NOT NULL AND ingevoerd_op >= now() - interval '91 days'");
-  check("Alle correcties staan erin", (await page.locator(".tabel tbody tr").count()) === c, String(c));
+  await page.waitForFunction((n) => document.querySelectorAll(".tabel tbody tr").length === n, c, { timeout: 5000 }).catch(() => {});
+  const getoondC = await page.locator(".tabel tbody tr").count();
+  check("Alle correcties staan erin", getoondC === c, `${getoondC} getoond, ${c} in de database`);
 
   console.log("\nBatch in beoordeling zetten vanuit Productie");
   const [b] = await q("SELECT batchnummer FROM fabriek.batch WHERE status = 'in_productie' ORDER BY aangemaakt_op DESC LIMIT 1");

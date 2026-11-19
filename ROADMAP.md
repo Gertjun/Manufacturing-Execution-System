@@ -63,7 +63,7 @@ De fouten uit de doorlichting oplossen die ongemerkt verkeerde tijden of namen o
 | 0.20.1 | #25, #26 | Tijdzone vast, nachtploeg rond de klokwissel |
 | 0.20.2 | #29 | Regelkaart "voorlopig" bij weinig metingen, afgekapte lijsten melden |
 | 0.21.0 | #28 | Inloggen beveiligen |
-| geen versie | #27 | Schermtests op GitHub, draaiboek bijwerken, back-up vóór database-update |
+| 0.21.1 | #27 | Schermtests op GitHub, draaiboek bijwerken, back-up vóór database-update |
 | 0.22.0 | #35 | Velden per stap importeren uit een Excel-sjabloon (maakt #2 makkelijker) |
 
 **Poort A:** alle punten gebouwd, alle tests groen op GitHub, nieuw laptoppakket bij Geert.

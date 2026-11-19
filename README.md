@@ -184,9 +184,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | Beheertools | `tests/test_tools.sh` | ja |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | ja |
 | Laptoppakket | `tests/test_laptoppakket.sh` (als gewone gebruiker) | ja |
-| Invoerscherm in Chrome | `cd invoer && node e2e/flow.mjs` (database met seed_config, seed_accounts_demo en seed_demo) | nee |
-| Portalen in Chrome | `cd portaal && node e2e/<naam>.mjs`: portaal, productie, beheer, planning, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel (verse testdata; beheer en planning zetten zelf hun database klaar) | nee |
-| Browserdemo | `node portaal/e2e/demo.mjs` (demo/dist via een statische server op poort 4173) | nee |
+| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` | ja |
 
 ### Versies
 Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Elke versie krijgt automatisch een tag en release op GitHub. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).

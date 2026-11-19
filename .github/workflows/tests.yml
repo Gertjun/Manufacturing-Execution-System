@@ -80,3 +80,14 @@ jobs:
       - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
         if: matrix.node == 26
         run: tests/test_laptoppakket.sh
+      - name: Schermtests in Chrome (invoerscherm, portalen, browserdemo)
+        if: matrix.node == 26
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+        run: |
+          google-chrome --version
+          (cd demo && npm ci --no-audit --no-fund)
+          tests/test_schermen.sh
+      - name: Logboeken van de schermtests tonen
+        if: failure() && matrix.node == 26
+        run: tail -n 40 /tmp/schermtest-*.log || true

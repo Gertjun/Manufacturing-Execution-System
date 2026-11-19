@@ -9,10 +9,15 @@
 // uit db/migraties/ die nog niet in fabriek.schema_versie staan, elk in een eigen transactie.
 // Een database van vóór versie 0.6.0 (zonder schema_versie) staat op migratie 0001.
 // Na afloop worden de rechten uit db/rechten.sql opnieuw toegepast.
+// Staan er migraties open en is backupMap ingesteld, dan wordt eerst een back-up gemaakt
+// (batchgui_<datum_tijd>_voor-migratie-<nummer>.dump); mislukt die, dan wordt er niets gemigreerd.
 
+import { mkdirSync, renameSync, rmSync } from "node:fs";
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
-import { argumenten, leesInstellingen, logOnderhoud, pg, ROOT, sqlBestand, stop, verbind, VERSIE } from "./lib.mjs";
+import { join, resolve } from "node:path";
+import {
+  argumenten, leesInstellingen, logOnderhoud, pg, pgProgramma, ROOT, sqlBestand, stop, tijdstempel, verbind, verbindingArgs, VERSIE, voerUit,
+} from "./lib.mjs";
 
 const { opties } = argumenten();
 const inst = leesInstellingen(opties);
@@ -76,6 +81,24 @@ if (gedaan === null) {
   const open = alle.filter((m) => !gedaan.has(m.nummer));
   if (open.length === 0) {
     console.log(`Database is bijgewerkt (schemaversie ${Math.max(...gedaan)}). Niets te doen.`);
+  } else if (inst.backupMap) {
+    // Eerst een back-up, zodat een database-update altijd terug te draaien is.
+    const map = resolve(inst.backupMap);
+    mkdirSync(map, { recursive: true });
+    const naam = `batchgui_${tijdstempel(start)}_voor-migratie-${String(open[0].nummer).padStart(4, "0")}.dump`;
+    const doel = join(map, naam);
+    console.log(`Back-up vóór de database-update: ${doel} …`);
+    const r = await voerUit(pgProgramma(inst, "pg_dump"), [...verbindingArgs(DB), "-Fc", "-f", doel + ".bezig"], DB);
+    if (r.code !== 0) {
+      rmSync(doel + ".bezig", { force: true });
+      await c.end();
+      await logOnderhoud(inst, { soort: "backup", gestart_op: start, gelukt: false, bestand: naam, melding: r.uitvoer.slice(0, 500) });
+      stop(`Back-up vóór de database-update mislukt; er is niets gewijzigd.\n${r.uitvoer}`);
+    }
+    renameSync(doel + ".bezig", doel);
+    await logOnderhoud(inst, { soort: "backup", gestart_op: start, gelukt: true, bestand: naam, melding: "vóór database-update" });
+  } else {
+    console.log("Let op: geen backupMap ingesteld, dus geen back-up vóór de database-update.");
   }
   for (const m of open) {
     console.log(`Migratie ${String(m.nummer).padStart(4, "0")} ${m.naam} …`);

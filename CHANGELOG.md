@@ -5,6 +5,11 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.21.1 — 19 november 2026
+- Voor IT: `migreer.mjs` maakt vóór een database-update eerst een back-up (`batchgui_<datum_tijd>_voor-migratie-<nummer>.dump`) als er een back-upmap is ingesteld. Mislukt die back-up, dan verandert er niets.
+- Het draaiboek voor de fabrieksserver (`docs/SERVER.md`) is bijgewerkt tot deze versie, met de klok en tijdzone, de inlogbeveiliging en de beveiligingskoppen.
+- De schermtests in Chrome (invoerscherm, alle portalen en de browserdemo) draaien nu ook automatisch op GitHub (`tests/test_schermen.sh`). Twee tests wachten nu tot het scherm klaar is in plaats van te snel te tellen.
+
 ## 0.21.0 — 19 november 2026
 - Na 5 verkeerde wachtwoorden voor dezelfde gebruikersnaam binnen 15 minuten moet je 1 minuut wachten. Het scherm zegt hoe lang.
 - Elke inlogpoging wordt vastgelegd (gebruikersnaam, pc, gelukt of niet; nooit het wachtwoord). Beheer → Server waarschuwt bij 20 of meer mislukte pogingen in 24 uur.
