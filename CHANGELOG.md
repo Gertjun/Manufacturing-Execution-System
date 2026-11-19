@@ -1,6 +1,14 @@
-# Changelog
+# Changelog – wat is er per versie veranderd
 
-Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
+> **Dit bestand:** per versie wat er nieuw of anders is, in gewone taal. Het is de enige geschiedenis van het project.
+> **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`WISHLIST.md`](WISHLIST.md).
+
+Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
+
+## Zonder nieuwe versie (na 0.19.0)
+- Werkafspraken: de skillpakketten coding-skills, data en claude-for-manufacturing horen bij het project (D40).
+- Documenten opnieuw ingedeeld: elk onderwerp op één plek (D41). README begint met "Waar vind je wat"; open punten en praktijktests staan alleen nog in de wishlist; de notities tonen alleen de stand van nu. De adviezen uit de doorlichting van 19-11-2026 staan als #23–#33 in de wishlist.
+- Schermtests portaal en grondstoffen bijgewerkt; de browserdemo maakt zijn database opnieuw als schema of testdata nieuwer is.
 
 ## 0.19.0 — 19 november 2026
 - Nieuw: boven elke tabel in de portalen staat de knop "Naar Excel". Die maakt direct een Excel-bestand (.xlsx) van de tabel zoals je hem ziet, met de kop van de pagina en de datum in de bestandsnaam.

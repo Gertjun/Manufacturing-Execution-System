@@ -3,7 +3,7 @@
 Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, PWA-Core en de andere apps), aangepast aan dit fabrieksplatform. Bij twijfel gaan de besluiten in `DECISIONS.md` voor.
 
 ## Aan het begin van een sessie
-1. Lees **`NOTES.md`** (stand en open punten), **`DECISIONS.md`** (eerdere besluiten) en alleen de bovenste paar versies van **`CHANGELOG.md`**. Lees niet de volledige chatgeschiedenis.
+1. Lees **`NOTES.md`** (stand van nu), **`WISHLIST.md`** (wat er nog moet), **`DECISIONS.md`** (eerdere besluiten) en alleen de bovenste paar versies van **`CHANGELOG.md`**. Lees niet de volledige chatgeschiedenis.
 2. Lees daarna alleen de code die je nodig hebt (`README.md` beschrijft de opbouw).
 3. Koppel de GitHub-repository `Gertjun/batch-input-gui` met schrijfrechten en haal de laatste versie op (`git fetch origin main`). Kijk of de laatste testrun op GitHub groen is.
 
@@ -26,6 +26,7 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
 - **Groen op GitHub is niet alles.** De automatische tests bewijzen niet dat offline werken, een echte Windows-pc of het netwerk in de fabriek werkt. Noem praktijktests die niet zijn uitgevoerd altijd expliciet.
 - **Release-tags worden nooit achteraf gewijzigd.** Tags en GitHub Releases maakt de workflow `release.yml` automatisch voor elke nieuwe versie op `main`.
 - Ga je in tegen een besluit uit `DECISIONS.md`? Zeg dat en vraag het eerst.
+- **Elk onderwerp op één plek (D41).** Schrijf iets in het document dat die vraag beantwoordt (zie "Waar vind je wat" in `README.md`) en verwijs er elders naar; neem het niet over. Nieuwe taken, adviezen, open vragen en praktijktests gaan met een nummer in `WISHLIST.md`.
 - Het `README.md` heet altijd `README.md` (niet `LEESMIJ.md`).
 - Pin externe GitHub Actions op een vaste commit-SHA.
 
@@ -59,7 +60,9 @@ Geert heeft in zijn account drie skillpakketten geïnstalleerd. Gebruik ze in di
 Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijfsdocumenten. Draai `onboarding` en koppelingen met echte systemen **niet** zonder akkoord van Geert, en gebruik er nooit echte fabrieksgegevens mee in de repository. Offerte- en ontwerpskills (`rfq-to-quote`, `quote-build`, `customer-inquiry-intake`, `supplier-quote-request`, `design-space-explore`, `trade-study-report`) horen niet bij dit project.
 
 ## Aan het eind van een sessie (altijd)
-1. **`NOTES.md`**: versie en datum bovenaan, stand en open punten bijwerken, één of twee regels in het sessielog (nieuwste bovenaan).
-2. **`DECISIONS.md`**: een nieuw `D<n>`-besluit voor elke keuze die een volgende sessie moet kennen. Oude besluiten pas je niet aan; een nieuw besluit vervangt een oud ("vervangt D3").
-3. Werk ook het projectdocument in de Claude-Project bij (`claude/architectuur-en-besluiten.md`) en het Whiteboard als de fase of opbouw verandert.
-4. Push naar `main` en controleer dat de testrun groen wordt.
+1. **`NOTES.md`** overschrijven met de stand van nu (versie, wat draait waar, laatste testronde, valkuilen). Geen sessielog: de geschiedenis staat in `CHANGELOG.md` (wijzigingen zonder versie onder "Zonder nieuwe versie").
+2. **`WISHLIST.md`**: nieuwe punten erbij, klare punten naar Gerealiseerd (alleen nummer, naam en versie).
+3. **`DECISIONS.md`**: een nieuw `D<n>`-besluit voor elke keuze die een volgende sessie moet kennen.
+4. **`README.md`** bijwerken als de opbouw, een scherm of een test verandert.
+5. **Projectdocument** in het Claude-project (`claude/architectuur-en-besluiten.md`): alleen de samenvatting en de links bijwerken. **Whiteboard** alleen als de fase verandert. Rapporten op claude.ai (momentopnamen) niet bijwerken.
+6. Push naar `main` en controleer dat de testrun groen wordt.

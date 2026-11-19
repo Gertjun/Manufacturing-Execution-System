@@ -1,6 +1,6 @@
 # Draaiboek fabrieksserver – Batch input GUI
 
-Voor IT: installeren, back-ups, updates en herstel. Het advies waarom het zo is ingericht staat in het document "Advies fabrieksserver – Batch input GUI". Dit draaiboek hoort bij versie 0.6.0.
+Voor IT: installeren, back-ups, updates en herstel. Het advies waarom het zo is ingericht staat in het document "Advies fabrieksserver – Batch input GUI". Dit draaiboek hoort bij versie 0.6.0. Bijwerken tot de huidige versie staat in de wishlist (#27); de stappen zelf gelden nog, nieuwere database-updates voert `migreer.mjs` automatisch uit.
 
 > **Let op:** de stappen voor Windows zijn opgesteld maar nog niet op een echte Windows Server uitgevoerd. De tools zelf (database-updates, back-up, hersteltest, herstel, https) zijn getest met PostgreSQL 16 op Linux. Loop de stappen de eerste keer samen met de leverancier van dit draaiboek door, op een testmachine.
 

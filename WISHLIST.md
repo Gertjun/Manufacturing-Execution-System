@@ -1,44 +1,52 @@
-# Wishlist
+# Wishlist – wat moet er nog gebeuren
 
-Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
+> **Dit bestand:** alles wat nog moet gebeuren: functies, verbeteringen, praktijktests, acties van Geert en open vragen. Het is de enige takenlijst.
+> **Niet hier:** wat al gebouwd is staat in [`CHANGELOG.md`](CHANGELOG.md), waarom iets zo is gekozen in [`DECISIONS.md`](DECISIONS.md), de stand van nu in [`NOTES.md`](NOTES.md).
 
-Laatst bijgewerkt: versie 0.19.0, 19 november 2026
+Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
-## Gepland
-- #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
-- #10 **Fabrieksserver installeren met IT** (middel, na de proof of concept, D26) — IT richt de server in volgens het advies en `docs/SERVER.md`; eerste keer samen doorlopen op een testmachine, inclusief een proef met een pc die offline gaat.
-- #2 **Echte velden per stap** (middel) — Geert levert per processtap de echte invoervelden aan (setting, gemeten waarde, gewichten, grenzen). Nodig voor de pilot.
-- #3 **Pilot met echte data** (groot) — Versie 1.0.0: eerste stappen in de fabriek met echte batches.
+Laatst bijgewerkt: 19 november 2026
+
+## Vóór de pilot
+Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i). Voorgestelde volgorde: #23 en #24 samen, dan #25 en #26, dan #29, #28 en #27.
+- #23 **Offline stappen krijgen het tijdstip van de pc** (middel) — Starten en afronden krijgen nu de tijd van versturen in plaats van invoeren. Tijdstip van het apparaat meesturen, met grenzen (niet in de toekomst, niet vóór de start, niet te oud); aankomsttijd apart bewaren. Oudere invoerschermen blijven werken (D18).
+- #24 **Wachtrij onthoudt wie iets invoerde** (middel) — Operator, pc en tijdstip bij elke wachtende actie bewaren en meesturen. Waarschuwen bij afmelden met wachtende acties. Vaste opslag in de browser aanvragen.
+- #25 **Tijdzone vast op Europe/Amsterdam** (klein) — Nu volgt de database de tijdzone van de computer; op een server met UTC schuiven de ploegen.
+- #26 **Nachtploeg rond zomer- en wintertijd** (klein) — `ploeg_van()` vindt op 25-10-2026 om 05:30 geen ploeg; in maart overlappen nacht- en ochtendploeg.
+- #27 **Schermtests in GitHub Actions** (klein, geen versie) — Verwachte aantallen uit de database lezen; `docs/SERVER.md` bijwerken tot database-update 10; `migreer.mjs` maakt eerst een back-up.
+- #28 **Inloggen beveiligen** (klein) — Foute pogingen beperken en loggen, bcrypt sterkte 11–12, hoofdletters in gebruikersnamen negeren, Content-Security-Policy.
+- #29 **Regelkaart en lijsten eerlijk tonen** (klein) — Onder 20 metingen "voorlopig" en geen Cpk; melden als een lijst is afgekapt (stilstand 200, grondstoffen 500).
+- #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.19 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
+- #11 **Proof of concept laten zien** (klein, Geert) — Laptoppakket 0.19.0 draaien en laten zien; bevindingen worden nieuwe punten op deze lijst.
+- #2 **Echte velden per stap** (middel, Geert) — Per processtap de echte invoervelden aanleveren: veld, eenheid, decimalen, setting, grenzen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand en grondstoffen. Nodig voor de pilot.
+- #10 **Fabrieksserver installeren met IT** (middel, na de proof of concept, D26) — Geert bespreekt het advies met IT en beantwoordt de vier vragen onder "Nog te besluiten" in het advies. IT richt de server in volgens `docs/SERVER.md`; eerste keer samen op een testmachine, met een proef met een pc die offline gaat.
+- #3 **Pilot met echte data** (groot) — Versie 1.0.0. Advies: één hal en een paar stappen, de eerste twee weken met de papieren registratie ernaast.
+
+## Na de start van de pilot
+- #30 **Afkeur met omvang, herhaling en maatregel** (middel) — Bij afkeur de geschonden grens tonen, verdachte batches (zelfde grondstofpartij, dag of lot) en eerdere afwijkingen van hetzelfde veld. Daarna een eenvoudige maatregel: wat, wie, wanneer klaar, na 30 dagen controleren of het hielp.
+- #31 **Notitie bij het einde van een storing** (klein) — Wat was het en wat is er gedaan.
+- #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
+- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden.
+- #21 **Meldingen per mail of Teams** (klein) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
 - #6 **Koppeling met Exact** (groot) — Gegevens uitwisselen met Exact.
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
-- #21 **Meldingen per mail of Teams** (klein, te besluiten) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
-- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en daarmee de volledige OEE berekend kan worden.
 
-## Te besluiten
-- #8 **Analyses per operator** — Bijvoorbeeld afwijkingen per persoon. Bewust niet gebouwd (D12); Geert beslist of dit gewenst is.
-- #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
+## Te besluiten (Geert)
+- #8 **Analyses per operator** — Bijvoorbeeld afwijkingen per persoon. Bewust niet gebouwd (D12).
+- #9 **Portalen voor andere afdelingen** — Welke afdelingen hebben nog een portaal nodig?
+- #34 **Open vragen planning** — Moet de planner ook ploegen of pc's toewijzen? Mag een operator een lotvoorstel zelf aanpassen? Is "per stap per dag" zo bruikbaar?
 
 ## Gerealiseerd
-- #20 **Export naar Excel** — versie 0.19.0; knop "Naar Excel" boven elke tabel in de portalen, echte getallen, in de browser gemaakt.
-- #19 **Regelkaarten** — versie 0.18.0; I-kaart met 3 sigma, Western Electric-signalen, Cpk, overzicht per veld.
-- #18 **Certificaat per lot** — versie 0.17.0; analysecertificaat met specificatie en resultaat, uitgeven door Kwaliteit met volgnummer, herdruk gelijk, afdrukken of pdf.
-- #17 **Capaciteit in de planning** — versie 0.16.0; per weekdag en afwijkende dagen, bezetting per dag, waarschuwing bij te veel.
-- #5 **Etiketten en barcodes** — versie 0.15.0; Code 128 op etiketprinter of A4-vel, scannen met een handscanner in het invoerscherm.
-- #16 **Storingen en stilstand** — versie 0.14.0; melden en beëindigen in de invoer (offline), melding bij storing, wandscherm, Productie → Stilstand met beschikbaarheid en kwaliteit, oorzaken in Beheer.
-- #15 **Meldingen** — versie 0.13.0; door de database bij grenswaarden, beoordeling, keurresultaat en afwijkend lot; in de portalen en voor de ploegleider in het invoerscherm.
-- #14 **Ploegoverdracht** — versie 0.12.0; cijfers per ploeg, overdracht schrijven in het invoerscherm (ook offline), vorige ploeg bovenaan, overzicht in Productie, ploegtijden in Beheer.
-- #13 **Grondstoffen per batch** — versie 0.11.0; partijnummer en hoeveelheid per stap, verplicht of niet, terugzoeken en in het lotpaspoort.
-- #12 **Wandscherm** — versie 0.10.0; tv in de hal met per stap bezig, klaar en gepland, kerncijfers, per hal, schermaccount.
-- #4 **Portaal Planning** — versie 0.9.0; batches per dag met doornummeren, planning per stap, lotvoorstellen en producten; zichtbaar in het invoerscherm.
-- **Eerste beheerder en noodsleutel** — versie 0.8.0; lege fabriek zonder testaccounts.
-- **Proof of concept op de laptop zonder installaties** — versie 0.7.0; Node.js en PostgreSQL ingebouwd, back-up bij elke start, lege fabriek.
-- #1 **Advies en voorbereiding fabrieksserver** — versie 0.6.0; adviesdocument, draaiboek, serverpakket, back-ups, hersteltest, database-updates, https en Portaal Beheer → Server.
-- **Werkafspraken en automatische tests** — versie 0.5.1; dezelfde opzet als Geerts andere projecten, tests en releases automatisch op GitHub.
-- **Browserdemo** — versie 0.5.0; het hele platform in de browser, als privépagina.
-- **Laptoppakket** — versie 0.5.0; met `START.bat` alles op de eigen laptop testen.
-- **Portaal Beheer** — versie 0.4.0.
-- **Portaal Productie** — versie 0.4.0.
-- **Portaal Kwaliteit** — versie 0.4.0.
-- **Lot samenstellen en herbewerking** — versie 0.3.0.
-- **Invoerscherm met offline wachtrij** — versie 0.2.0.
-- **Datamodel, databaseregels en API** — versie 0.1.0.
+Details per versie staan in [`CHANGELOG.md`](CHANGELOG.md).
+- #20 Export naar Excel — 0.19.0
+- #19 Regelkaarten — 0.18.0
+- #18 Certificaat per lot — 0.17.0
+- #17 Capaciteit in de planning — 0.16.0
+- #5 Etiketten en barcodes — 0.15.0
+- #16 Storingen en stilstand — 0.14.0
+- #15 Meldingen — 0.13.0
+- #14 Ploegoverdracht — 0.12.0
+- #13 Grondstoffen per batch — 0.11.0
+- #12 Wandscherm — 0.10.0
+- #4 Portaal Planning — 0.9.0
+- #1 Advies en voorbereiding fabrieksserver — 0.6.0

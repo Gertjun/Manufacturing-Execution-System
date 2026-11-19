@@ -1,4 +1,7 @@
-# DECISIONS – Batch input GUI
+# Besluiten – waarom is iets zo gekozen
+
+> **Dit bestand:** de besluiten en waarom. Alleen aanvullen: oude besluiten pas je niet aan, een nieuw besluit vervangt een oud ("vervangt D3").
+> **Niet hier:** wat er gebouwd is → [`CHANGELOG.md`](CHANGELOG.md); wat er nog moet → [`WISHLIST.md`](WISHLIST.md).
 
 Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; een nieuw besluit vervangt een oud ("vervangt D3"). D1–D16 zijn achteraf vastgelegd uit de gesprekken van november 2026.
 
@@ -153,3 +156,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D40 – Skills als vast onderdeel van het werk (19 nov 2026)
 - **Besluit:** de skillpakketten `coding-skills`, `data` en `claude-for-manufacturing` uit Geerts account horen bij dit project. `CLAUDE.md` zegt per situatie welke skill Claude laadt. De fabrieksskills gebruiken we als vakkennis en controlelijst bij het ontwerpen (OEE, afwijkingen, oorzaakanalyse), niet om echte systemen te koppelen; koppelingen en `onboarding` alleen na akkoord van Geert, nooit met echte gegevens in de repository. Offerte- en CAD-skills vallen buiten dit project. De skills zelf staan niet in de repository; ze komen uit het account.
 - **Waarom:** vaste werkwijzen voor de lastige onderwerpen (migraties zonder stilstand, tijd en ploegen, gelijktijdige invoer, statistiek) verkleinen de kans op fouten, en de fabrieksskills geven een tweede blik op functies voor Productie en Kwaliteit.
+
+### D41 – Elk onderwerp op één plek (19 nov 2026)
+- **Besluit:** elk document beantwoordt één vraag. README: hoe het in elkaar zit en hoe je het start en test, met bovenaan "Waar vind je wat". NOTES: alleen de stand van nu, in één scherm. WISHLIST: alles wat nog moet gebeuren, ook praktijktests, acties van Geert en open vragen. CHANGELOG: de enige geschiedenis (geen sessielog meer in NOTES). DECISIONS: waarom. Het projectdocument in het Claude-project is een korte instap met een vaste samenvatting van een halve pagina en links; geen kopie van besluiten of functies. Rapporten op claude.ai (advies fabrieksserver, datamodel v1, doorlichting) zijn momentopnamen en worden niet bijgewerkt; wat eruit volgt staat met een nummer in de wishlist. Het Whiteboard toont alleen de fasen.
+- **Waarom:** informatie op meerdere plekken raakt uit de pas (NOTES noemde nog 0.9.0 en oude testaantallen). Geert moet op GitHub direct zien waar hij wat vindt; een gesprek in het Claude-project, dat de repository niet kan lezen, moet toch de hoofdlijn kennen.
