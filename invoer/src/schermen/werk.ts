@@ -5,6 +5,7 @@ import { lokaleRegistraties, maakLot, nieuweBatch, startStap, stappen } from "..
 import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
 import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 import { acties } from "../wachtrij";
+import { vorigeOverdrachtBlok } from "./overdracht";
 
 /** Wat er lokaal al gebeurd is maar nog niet in de werkvoorraad van de server staat. */
 async function lokaleAanpassingen() {
@@ -34,10 +35,11 @@ function pasAan(stap: Stap, w: Werkvoorraad, l: Awaited<ReturnType<typeof lokale
 export async function stappenScherm() {
   const actueel = vastHouden();
   toon(h("h1", {}, "Kies een stap"), laden());
-  const [{ data: alle }, overzicht, l] = await Promise.all([
+  const [{ data: alle }, overzicht, l, overdracht] = await Promise.all([
     haal<Stap[]>("/config/stappen?voorDezePc=true"),
     haal<Overzicht[]>("/werkvoorraad").catch(() => ({ data: [] as Overzicht[], vers: false })),
     lokaleAanpassingen(),
+    vorigeOverdrachtBlok(),
   ]);
   if (!actueel()) return;
 
@@ -66,6 +68,7 @@ export async function stappenScherm() {
   const lot = alle.filter((s) => s.niveau === "lot");
   toon(
     h("div", { class: "kop" }, h("h1", {}, "Kies een stap"), overzicht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
+    overdracht,
     batch.length ? h("h2", {}, "Per batch") : null,
     batch.length ? h("div", { class: "route" }, batch.map(tegel)) : null,
     lot.length ? h("h2", {}, "Per lot") : null,

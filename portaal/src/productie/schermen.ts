@@ -199,3 +199,52 @@ export async function correcties() {
       : h("p", { class: "leeg" }, "Geen correcties in deze periode."),
   );
 }
+
+// ---------- Ploegoverdracht ----------
+interface Notitie { id: string; hal: string | null; bijzonderheden: string | null; aandachtspunten: string | null; door: string; pc: string | null; geschreven_op: string }
+interface PloegSamenvatting {
+  ploeg: string; ploegnaam: string; dag: string; begin_op: string; eind_op: string; loopt_nog: boolean;
+  cijfers: { stappen_afgerond: number; batches_gestart: number; lots_gemaakt: number; afwijkingen: number; correcties: number; in_beoordeling_gezet: number };
+  per_stap: { stap: string; stapnaam: string; afgerond: number }[];
+  nog_open: { stap: string; nummer: string; sinds: string; operator: string }[];
+  notities: Notitie[];
+}
+const isoDag = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const plusDag = (dag: string, n: number) => { const d = new Date(`${dag}T12:00:00`); d.setDate(d.getDate() + n); return isoDag(d); };
+const uur = (iso: string) => new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+
+export async function overdracht(dag?: string) {
+  const actueel = vastHouden();
+  const d = dag && /^\d{4}-\d{2}-\d{2}$/.test(dag) ? dag : isoDag();
+  toon(kop("Ploegoverdracht"), laden());
+  let p: PloegSamenvatting[];
+  try { p = await haal<PloegSamenvatting[]>(`/overdracht/dag?dag=${d}`); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const cijfer = (n: number, t: string, klasse = "") => h("div", { class: `ploeg-cijfer ${klasse}` }, h("span", { class: "tegel-getal" }, n), h("span", { class: "tegel-tekst" }, t));
+  toon(
+    kop(`Ploegoverdracht ${new Date(`${d}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })}`,
+      "Per ploeg wat er gedaan is, wat open bleef en wat de ploeg heeft overgedragen. Operators schrijven de overdracht in het invoerscherm.",
+      h("div", { class: "knoppen-klein" },
+        h("a", { class: "knop knop-stil", href: `#/productie/overdracht/${plusDag(d, -1)}` }, "Vorige dag"),
+        h("a", { class: "knop knop-stil", href: "#/productie/overdracht" }, "Vandaag"),
+        d < isoDag() ? h("a", { class: "knop knop-stil", href: `#/productie/overdracht/${plusDag(d, 1)}` }, "Volgende dag") : null)),
+    p.length
+      ? h("div", { class: "ploegen" }, p.map((x) =>
+          h("section", { class: `blok ploeg${x.loopt_nog ? " ploeg-nu" : ""}` },
+            h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, x.ploegnaam), h("p", { class: "sub" }, `${uur(x.begin_op)}–${uur(x.eind_op)}${x.loopt_nog ? ", loopt nog" : ""}`))),
+            h("div", { class: "ploeg-cijfers" },
+              cijfer(x.cijfers.stappen_afgerond, "stappen afgerond"), cijfer(x.cijfers.batches_gestart, "batches gestart"),
+              cijfer(x.cijfers.lots_gemaakt, "lots samengesteld"), cijfer(x.cijfers.afwijkingen, "afwijkingen", x.cijfers.afwijkingen ? "let-op" : "")),
+            x.notities.length
+              ? h("ul", { class: "notities" }, x.notities.map((n) => h("li", {},
+                  n.aandachtspunten ? h("p", {}, h("strong", {}, "Aandachtspunten: "), n.aandachtspunten) : null,
+                  n.bijzonderheden ? h("p", {}, n.bijzonderheden) : null,
+                  h("p", { class: "sub" }, `${n.door}${n.pc ? ` op ${n.pc}` : ""}${n.hal ? `, ${n.hal}` : ""}, ${kort(n.geschreven_op)}`))))
+              : h("p", { class: "leeg" }, x.loopt_nog ? "Nog geen overdracht geschreven." : "Deze ploeg heeft geen overdracht geschreven."),
+            x.nog_open.length
+              ? h("details", { class: "meer" }, h("summary", {}, `${x.nog_open.length} ${x.nog_open.length === 1 ? "stap" : "stappen"} open aan het eind`),
+                  tabel(["Stap", "Batch of lot", "Sinds", "Operator"], x.nog_open.map((o) => [o.stap, o.nummer, kort(o.sinds), o.operator]), "compact"))
+              : null)))
+      : h("p", { class: "leeg" }, "Op deze dag is nog geen ploeg begonnen."),
+  );
+}

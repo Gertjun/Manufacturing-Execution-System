@@ -312,3 +312,14 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 .keuze-raster { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; max-height: 55vh; overflow-y: auto; margin-bottom: 8px; }
 .keuze-raster label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .keuze-raster select { font: inherit; padding: 4px 6px; }
+
+/* Ploegoverdracht */
+.ploegen { display: grid; gap: 0; }
+.ploeg-nu { border: 2px solid var(--inkt); }
+.ploeg-cijfers { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 12px; }
+.ploeg-cijfer { display: grid; }
+.ploeg-cijfer .tegel-getal { font-size: 1.6rem; }
+.ploeg-cijfer.let-op .tegel-getal { color: var(--tol); }
+.notities { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 10px; }
+.notities li { border-left: 4px solid var(--actie); padding-left: 12px; }
+.notities p { margin: 0 0 4px; }

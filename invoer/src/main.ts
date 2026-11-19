@@ -6,6 +6,7 @@ import { loginScherm, naamScherm, pcScherm } from "./schermen/start";
 import { stapScherm, stappenScherm } from "./schermen/werk";
 import { registratieScherm } from "./schermen/registratie";
 import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
+import { overdrachtScherm } from "./schermen/overdracht";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -34,7 +35,8 @@ function tekenBalk() {
     ingelogd
       ? h("nav", { class: "balk-nav", "aria-label": "Hoofdmenu" },
           h("a", { href: "#/stappen", "aria-current": route === "stappen" || route === "stap" ? "page" : undefined }, "Stappen"),
-          h("a", { href: "#/zoek", "aria-current": route === "zoek" ? "page" : undefined }, "Zoeken"))
+          h("a", { href: "#/zoek", "aria-current": route === "zoek" ? "page" : undefined }, "Zoeken"),
+          h("a", { href: "#/overdracht", "aria-current": route === "overdracht" ? "page" : undefined }, "Overdracht"))
       : null,
     ingelogd && sessie.operatornaam
       ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
@@ -68,6 +70,7 @@ async function route() {
     case "reg": return registratieScherm(arg);
     case "zoek": return zoekScherm(arg ? decodeURIComponent(arg) : undefined);
     case "wachtrij": return wachtrijScherm();
+    case "overdracht": return overdrachtScherm();
     default:
       if (scherm !== "stappen") return void (location.hash = "#/stappen");
       return stappenScherm();

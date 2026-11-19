@@ -191,6 +191,30 @@ try {
   }
   await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor();
 
+  console.log("\nPloegoverdracht");
+  await page.goto(`${BASIS}/invoer/#/overdracht`);
+  await page.getByRole("heading", { name: /^Overdracht \w+ploeg$/ }).waitFor();
+  await page.getByLabel(/Bijzonderheden/).fill("Menger 2 hersteld na storing");
+  await page.getByLabel(/Aandachtspunten/).fill("Filter PS7 morgen vervangen");
+  await page.getByRole("button", { name: "Overdracht opslaan" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
+  await page.locator(".notitie", { hasText: "Filter PS7" }).waitFor();
+  await page.waitForTimeout(1200);
+  const [od] = await q("SELECT o.aandachtspunten, op.naam FROM fabriek.overdracht o JOIN fabriek.operator op ON op.id = o.operator_id ORDER BY geschreven_op DESC LIMIT 1");
+  check("Overdracht in de database, met de operatornaam", od?.aandachtspunten === "Filter PS7 morgen vervangen" && od?.naam === "Operator A", JSON.stringify(od));
+  await context.setOffline(true);
+  await page.getByLabel(/Bijzonderheden/).fill("Aanvulling zonder verbinding");
+  await page.getByRole("button", { name: "Overdracht opslaan" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
+  await page.locator(".notitie", { hasText: "Aanvulling zonder verbinding" }).getByText("Nog niet verstuurd").waitFor();
+  check("Zonder verbinding: overdracht staat klaar om te versturen", true);
+  await shot("11-overdracht");
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
+  const [n] = await q("SELECT count(*)::int AS n FROM fabriek.overdracht");
+  check("Na herstel van de verbinding staan beide overdrachten in de database", n.n === 2, JSON.stringify(n));
+
   console.log("\nPloegleider: correctie en besluit");
   await page.getByRole("button", { name: "Afmelden" }).click();
   await page.getByLabel("Gebruikersnaam").fill("ploegleider1");

@@ -202,3 +202,20 @@ input[aria-invalid="true"] { border-color: var(--grens); }
 /* Grondstoffen in een registratie */
 .tussenkop-invoer { margin: 24px 0 10px; }
 .veld-grondstof .veld-invoer input[id^="p-"] { min-width: 14em; }
+
+/* Ploegoverdracht */
+.overdracht-blok { background: #fff; border: 2px solid var(--inkt); border-left-width: 8px; border-radius: 10px; padding: 14px 18px; margin: 0 0 20px; }
+.overdracht-blok h2 { margin-top: 0; }
+.overdracht-blok.gelezen { border-width: 1px; border-left-width: 4px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 14px; color: var(--inkt-zacht); }
+.notities { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; }
+.notitie p { margin: 0 0 4px; }
+.notitie-aandacht { font-size: 1.1rem; }
+.knop-tekst { background: none; border: none; color: var(--actie); font: inherit; text-decoration: underline; cursor: pointer; min-height: 44px; }
+.overdracht-cijfers { background: #fff; border: 1px solid var(--lijn); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; }
+.overdracht-cijfers h2 { margin-top: 0; }
+.lijst-klein { margin: 4px 0 0; padding-left: 20px; }
+.overdracht-vorm { display: grid; gap: 14px; max-width: 720px; margin-top: 20px; }
+.overdracht-vorm label { display: grid; gap: 4px; font-weight: 700; }
+.overdracht-vorm .hint { font-weight: 400; color: var(--inkt-zacht); }
+.overdracht-vorm textarea { font: inherit; padding: 10px 12px; border: 2px solid var(--lijn); border-radius: 8px; resize: vertical; }
+.overdracht-vorm button { justify-self: start; }

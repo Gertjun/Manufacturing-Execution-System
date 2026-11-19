@@ -291,6 +291,36 @@ export async function grondstoffen() {
   );
 }
 
+// ---------- Ploegen ----------
+interface Ploeg { code: string; naam: string; begint: string; eindigt: string; actief: boolean }
+
+export async function ploegen() {
+  const actueel = vastHouden();
+  toon(kop("Ploegen"), laden());
+  let lijst: Ploeg[];
+  try { lijst = await haal<Ploeg[]>("/overdracht/ploegen"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const tijdCheck = (v: string) => (/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(v) ? null : "Schrijf de tijd als uu:mm, bijvoorbeeld 06:00");
+  toon(
+    kop("Ploegen", "Begin- en eindtijden van de ploegen. Hiermee worden de ploegoverdracht en de cijfers per ploeg ingedeeld. Een ploeg die over middernacht loopt, hoort bij de dag waarop hij begint."),
+    tabel(["Code", "Naam", "Van", "Tot", ""], lijst.map((p) => [
+      h("strong", { class: p.actief ? "" : "inactief" }, p.code), h("span", { class: p.actief ? "" : "inactief" }, p.naam, p.actief ? "" : " (uit)"), p.begint, p.eindigt,
+      h("div", { class: "knoppen-klein" },
+        h("button", { class: "knop knop-klein", onclick: async () => {
+          const r = await vraag(`${p.naam} wijzigen`, [
+            { naam: "naam", label: "Naam", waarde: p.naam },
+            { naam: "begint", label: "Begint om", waarde: p.begint, controle: tijdCheck },
+            { naam: "eindigt", label: "Eindigt om", waarde: p.eindigt, controle: tijdCheck },
+          ], "Opslaan", "Let op dat de ploegen elkaar niet overlappen en samen de hele dag dekken.");
+          if (r) await wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, r), "Ploeg opgeslagen", ploegen);
+        } }, "Wijzigen"),
+        h("button", { class: "knop knop-klein knop-stil", onclick: () =>
+          wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, ploegen) },
+          p.actief ? "Uitzetten" : "Weer aanzetten")),
+    ]), "compact"),
+  );
+}
+
 // ---------- Pc's ----------
 interface Pc { naam: string; locatie: string | null; actief: boolean; stappen: string[] }
 

@@ -749,3 +749,43 @@ describe("Grondstoffen", () => {
     assert.equal((await verzoek("GET", "/beheer/grondstoffen", await login("kwaliteit1"))).status, 403);
   });
 });
+
+describe("Ploegoverdracht", () => {
+  test("huidige ploeg, schrijven (ook opnieuw versturen), vorige ploeg en per dag", async () => {
+    const op = await kiesNaam(await login("operator", "PC-02"));
+    const ploegen = await verzoek("GET", "/overdracht/ploegen", op);
+    assert.deepEqual(ploegen.body.map((p: any) => p.code), ["O", "M", "N"]);
+    const nu = await verzoek("GET", "/overdracht", op);
+    assert.equal(nu.status, 200, JSON.stringify(nu.body));
+    assert.equal(nu.body.loopt_nog, true);
+    assert.equal(typeof nu.body.cijfers.stappen_afgerond, "number");
+    assert.equal((await verzoek("POST", "/overdracht", op, { bijzonderheden: "  " })).status, 400);
+    const id = randomUUID();
+    const n = await verzoek("POST", "/overdracht", op, { id, bijzonderheden: "Menger 2 hersteld", aandachtspunten: "Filter PS7 vervangen", moment: new Date().toISOString() });
+    assert.equal(n.status, 201, JSON.stringify(n.body));
+    assert.equal(n.body.door, "Operator A");
+    assert.equal(n.body.pc, "PC-02");
+    assert.equal(n.body.hal, "Hal 1");
+    assert.equal((await verzoek("POST", "/overdracht", op, { id, bijzonderheden: "Menger 2 hersteld" })).status, 200);
+    const na = await verzoek("GET", "/overdracht", op);
+    assert.equal(na.body.notities.filter((x: any) => x.id === id).length, 1);
+    // De volgende ploeg ziet hem als "vorige": vraag de ploeg op aan de hand van dag en code.
+    const dag = await verzoek("GET", `/overdracht?dag=${nu.body.dag}&ploeg=${nu.body.ploeg}`, await login("ploegleider2"));
+    assert.ok(dag.body.notities.some((x: any) => x.aandachtspunten === "Filter PS7 vervangen"));
+    const vorige = await verzoek("GET", "/overdracht?vorige=true", op);
+    assert.ok(Date.parse(vorige.body.eind_op) <= Date.parse(nu.body.begin_op));
+    const alles = await verzoek("GET", `/overdracht/dag?dag=${nu.body.dag}`, await login("analist1").catch(() => login("kwaliteit1")));
+    assert.ok(alles.body.some((p: any) => p.ploeg === nu.body.ploeg));
+    // Analisten en Kwaliteit lezen, maar schrijven niet.
+    assert.equal((await verzoek("POST", "/overdracht", await login("kwaliteit1"), { bijzonderheden: "x" })).status, 403);
+  });
+
+  test("beheerder past ploegtijden aan", async () => {
+    const bh = await login("beheerder1");
+    const r = await verzoek("PATCH", "/overdracht/ploegen/O", bh, { naam: "Vroege ploeg" });
+    assert.equal(r.body.naam, "Vroege ploeg");
+    assert.equal((await verzoek("PATCH", "/overdracht/ploegen/O", bh, { begint: "25:00" })).status, 400);
+    await verzoek("PATCH", "/overdracht/ploegen/O", bh, { naam: "Ochtendploeg" });
+    assert.equal((await verzoek("PATCH", "/overdracht/ploegen/O", await login("planner1"), { naam: "x" })).status, 403);
+  });
+});

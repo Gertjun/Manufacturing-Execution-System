@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -10057,6 +10057,679 @@
                           }
                         }
                       }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/ploegen": {
+      "get": {
+        "tags": [
+          "overdracht"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "naam",
+                      "begint",
+                      "eindigt",
+                      "actief"
+                    ],
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
+                      },
+                      "begint": {
+                        "type": "string"
+                      },
+                      "eindigt": {
+                        "type": "string"
+                      },
+                      "actief": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/": {
+      "get": {
+        "tags": [
+          "overdracht"
+        ],
+        "description": "Samenvatting van een ploeg: cijfers, afgeronde stappen, wat nog open stond, en de notities. Zonder parameters: de huidige ploeg. Met vorige=true: de ploeg daarvoor. Met dag en ploeg: die ploeg.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "dag",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "ploeg",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "vorige",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "hal",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ploeg",
+                    "ploegnaam",
+                    "dag",
+                    "begin_op",
+                    "eind_op",
+                    "loopt_nog",
+                    "cijfers",
+                    "per_stap",
+                    "nog_open",
+                    "notities"
+                  ],
+                  "properties": {
+                    "ploeg": {
+                      "type": "string"
+                    },
+                    "ploegnaam": {
+                      "type": "string"
+                    },
+                    "dag": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "begin_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "eind_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "loopt_nog": {
+                      "type": "boolean"
+                    },
+                    "cijfers": {
+                      "type": "object",
+                      "required": [
+                        "stappen_afgerond",
+                        "batches_gestart",
+                        "lots_gemaakt",
+                        "afwijkingen",
+                        "correcties",
+                        "in_beoordeling_gezet"
+                      ],
+                      "properties": {
+                        "stappen_afgerond": {
+                          "type": "integer"
+                        },
+                        "batches_gestart": {
+                          "type": "integer"
+                        },
+                        "lots_gemaakt": {
+                          "type": "integer"
+                        },
+                        "afwijkingen": {
+                          "type": "integer"
+                        },
+                        "correcties": {
+                          "type": "integer"
+                        },
+                        "in_beoordeling_gezet": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "per_stap": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "stap",
+                          "stapnaam",
+                          "afgerond"
+                        ],
+                        "properties": {
+                          "stap": {
+                            "type": "string"
+                          },
+                          "stapnaam": {
+                            "type": "string"
+                          },
+                          "afgerond": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "nog_open": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "stap",
+                          "nummer",
+                          "sinds",
+                          "operator"
+                        ],
+                        "properties": {
+                          "stap": {
+                            "type": "string"
+                          },
+                          "nummer": {
+                            "type": "string"
+                          },
+                          "sinds": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "operator": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "notities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "hal",
+                          "bijzonderheden",
+                          "aandachtspunten",
+                          "door",
+                          "pc",
+                          "geschreven_op"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "hal": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "bijzonderheden": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "aandachtspunten": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "door": {
+                            "type": "string",
+                            "description": "Operatornaam, of de gebruikersnaam als er geen operator is gekozen"
+                          },
+                          "pc": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "geschreven_op": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "overdracht"
+        ],
+        "description": "Overdracht schrijven voor de ploeg van 'moment' (standaard nu). Met een eigen id is opnieuw versturen veilig (offline wachtrij).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "bijzonderheden": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "aandachtspunten": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "moment": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Wanneer geschreven (op het apparaat); bepaalt de ploeg"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "hal",
+                    "bijzonderheden",
+                    "aandachtspunten",
+                    "door",
+                    "pc",
+                    "geschreven_op"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "hal": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "bijzonderheden": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "aandachtspunten": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "door": {
+                      "type": "string",
+                      "description": "Operatornaam, of de gebruikersnaam als er geen operator is gekozen"
+                    },
+                    "pc": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "geschreven_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "hal",
+                    "bijzonderheden",
+                    "aandachtspunten",
+                    "door",
+                    "pc",
+                    "geschreven_op"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "hal": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "bijzonderheden": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "aandachtspunten": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "door": {
+                      "type": "string",
+                      "description": "Operatornaam, of de gebruikersnaam als er geen operator is gekozen"
+                    },
+                    "pc": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "geschreven_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/dag": {
+      "get": {
+        "tags": [
+          "overdracht"
+        ],
+        "description": "Alle ploegen van een dag, met hun samenvatting (voor het portaal).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "dag",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "ploeg",
+                      "ploegnaam",
+                      "dag",
+                      "begin_op",
+                      "eind_op",
+                      "loopt_nog",
+                      "cijfers",
+                      "per_stap",
+                      "nog_open",
+                      "notities"
+                    ],
+                    "properties": {
+                      "ploeg": {
+                        "type": "string"
+                      },
+                      "ploegnaam": {
+                        "type": "string"
+                      },
+                      "dag": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "begin_op": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "eind_op": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "loopt_nog": {
+                        "type": "boolean"
+                      },
+                      "cijfers": {
+                        "type": "object",
+                        "required": [
+                          "stappen_afgerond",
+                          "batches_gestart",
+                          "lots_gemaakt",
+                          "afwijkingen",
+                          "correcties",
+                          "in_beoordeling_gezet"
+                        ],
+                        "properties": {
+                          "stappen_afgerond": {
+                            "type": "integer"
+                          },
+                          "batches_gestart": {
+                            "type": "integer"
+                          },
+                          "lots_gemaakt": {
+                            "type": "integer"
+                          },
+                          "afwijkingen": {
+                            "type": "integer"
+                          },
+                          "correcties": {
+                            "type": "integer"
+                          },
+                          "in_beoordeling_gezet": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "per_stap": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "stap",
+                            "stapnaam",
+                            "afgerond"
+                          ],
+                          "properties": {
+                            "stap": {
+                              "type": "string"
+                            },
+                            "stapnaam": {
+                              "type": "string"
+                            },
+                            "afgerond": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      },
+                      "nog_open": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "stap",
+                            "nummer",
+                            "sinds",
+                            "operator"
+                          ],
+                          "properties": {
+                            "stap": {
+                              "type": "string"
+                            },
+                            "nummer": {
+                              "type": "string"
+                            },
+                            "sinds": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "operator": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "notities": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "hal",
+                            "bijzonderheden",
+                            "aandachtspunten",
+                            "door",
+                            "pc",
+                            "geschreven_op"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "hal": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "bijzonderheden": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "aandachtspunten": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "door": {
+                              "type": "string",
+                              "description": "Operatornaam, of de gebruikersnaam als er geen operator is gekozen"
+                            },
+                            "pc": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "geschreven_op": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/ploegen/{code}": {
+      "patch": {
+        "tags": [
+          "overdracht",
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "begint": {
+                    "type": "string",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "eindigt": {
+                    "type": "string",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "actief": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "code",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "naam",
+                    "begint",
+                    "eindigt",
+                    "actief"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "begint": {
+                      "type": "string"
+                    },
+                    "eindigt": {
+                      "type": "string"
+                    },
+                    "actief": {
+                      "type": "boolean"
                     }
                   }
                 }

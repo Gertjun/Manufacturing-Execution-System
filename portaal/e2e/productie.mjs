@@ -104,6 +104,19 @@ try {
   await page.goto(`${BASIS}/portaal/#/productie/overzicht`);
   await page.locator(".staptegel").first().waitFor();
   await shot("06-smal");
+
+  console.log("\nPloegoverdracht");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const [gisteren] = await q("SELECT (max(dag) - 1)::text AS d FROM fabriek.overdracht");
+  await page.goto(`${BASIS}/portaal/#/productie/overdracht/${gisteren.d}`);
+  await page.getByRole("heading", { name: "Ochtendploeg" }).waitFor();
+  check("Drie ploegen op een hele dag", (await page.locator("section.ploeg").count()) === 3);
+  const [nOd] = await q("SELECT count(*)::int AS n FROM fabriek.overdracht WHERE dag = $1", [gisteren.d]);
+  check("Alle overdrachten van die dag staan erbij", (await page.locator("section.ploeg .notities li").count()) === nOd.n, `${nOd.n}`);
+  await shot("07-overdracht");
+  await page.getByRole("link", { name: "Vandaag" }).click();
+  await page.locator("section.ploeg-nu, .leeg").first().waitFor();
+  check("Vandaag: de lopende ploeg is gemarkeerd", (await page.locator("section.ploeg-nu").count()) <= 1);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

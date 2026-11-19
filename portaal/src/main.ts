@@ -115,6 +115,7 @@ async function route() {
       case "doorlooptijden": return productie.doorlooptijden();
       case "week": return productie.perWeek();
       case "correcties": return productie.correcties();
+      case "overdracht": return productie.overdracht(a);
       case "batch": return a ? kwaliteit.batch(a) : productie.werkvoorraad();
       case "lot": return a ? kwaliteit.lotpaspoort(a) : productie.werkvoorraad();
       default: return void (location.hash = "#/productie");
@@ -140,6 +141,7 @@ async function route() {
       case "accounts": return beheer.accounts();
       case "operators": return beheer.operators();
       case "grondstoffen": return beheer.grondstoffen();
+      case "ploegen": return beheer.ploegen();
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
       case "server": return beheer.server();

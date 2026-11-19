@@ -286,6 +286,30 @@ for wid, setting, gemeten, op, naam in rnd.sample(kandidaten, min(6, len(kandida
         con.execute("UPDATE waarde SET ingevoerd_op = %s WHERE id = %s", (moment, nid))
     stats["correcties"] = stats.get("correcties", 0) + 1
 
+# ---------- Ploegoverdracht ----------
+# De meeste ploegen schrijven een korte overdracht vlak voor het eind (fictieve teksten).
+BIJZ = ["Rustige ploeg, alles volgens planning.", "Menger 2 gaf een foutmelding, na herstart weer in orde.",
+        "Weegschaal PS9 opnieuw gekalibreerd.", "Grondstof A nieuwe partij aangebroken.", "Twee batches iets later gestart door wachten op grondstof.",
+        "Droger had een storing van een half uur.", "Nieuwe collega ingewerkt op PS3.", "Schoonmaak van lijn 1 gedaan."]
+AANDACHT = [None, None, "Let op temperatuur in PS5, loopt wat op.", "Filter PS7 moet morgen vervangen worden.",
+            "Batch in beoordeling: niet verder zonder akkoord Kwaliteit.", "Voorraad hulpstof C bijna op.", "Monster voor Kwaliteit staat klaar bij PS18."]
+n_overdracht = 0
+operator_account = gebruiker["operator"]
+ploeg_rijen = con.execute("SELECT id, begint, eindigt FROM ploeg WHERE actief").fetchall()
+dag = begin.date()
+while dag <= eind.date():
+    for pid, b, e in ploeg_rijen:
+        start = dt.datetime.combine(dag, b)
+        stop = dt.datetime.combine(dag if e > b else dag + dt.timedelta(days=1), e)
+        moment = stop - dt.timedelta(minutes=rnd.randint(5, 25))
+        if moment >= eind or start < begin or rnd.random() > 0.75:
+            continue
+        con.execute("""INSERT INTO overdracht (dag, ploeg_id, bijzonderheden, aandachtspunten, gebruiker_id, operator_id, geschreven_op)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (dag, pid, rnd.choice(BIJZ), rnd.choice(AANDACHT), operator_account, operators[rnd.choice(opnamen)], moment.astimezone()))
+        n_overdracht += 1
+    dag += dt.timedelta(days=1)
+
 # ---------- Planning vooruit ----------
 # Planner1 plant de komende 5 werkdagen, maakt lotvoorstellen voor wat klaarstaat
 # en zet voor vandaag per stap de volgorde.
@@ -326,7 +350,7 @@ with con.transaction():
     con.execute("UPDATE batch SET aangemaakt_op = %s WHERE aangemaakt_op > %s", (eind - dt.timedelta(hours=3), eind))
     con.execute("UPDATE lot_voorstel SET aangemaakt_op = %s WHERE aangemaakt_op > %s", (eind - dt.timedelta(hours=3), eind))
     con.execute("UPDATE stapplanning SET aangemaakt_op = %s", (eind - dt.timedelta(hours=3),))
-print(f"Planning: {gepland_vooruit} batches gepland voor de komende werkdagen, {n_voorstellen} open lotvoorstellen.")
+print(f"Planning: {gepland_vooruit} batches gepland voor de komende werkdagen, {n_voorstellen} open lotvoorstellen. Overdrachten: {n_overdracht}.")
 
 n_waarden = con.execute("SELECT count(*) FROM waarde").fetchone()[0]
 n_afw = con.execute("SELECT count(*) FROM waarde_actueel WHERE markering <> 'ok'").fetchone()[0]

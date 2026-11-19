@@ -2,6 +2,15 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.12.0 — 19 november 2026
+- Nieuw: ploegoverdracht. In het invoerscherm staat onder "Overdracht" wat deze ploeg tot nu toe heeft gedaan: afgeronde stappen per stap, gestarte batches, lots, afwijkingen en wat nog open staat. Daar schrijf je de bijzonderheden van de ploeg en de aandachtspunten voor de volgende ploeg. Dat werkt ook zonder verbinding.
+- Nieuw: bovenaan het stappenoverzicht staat de overdracht van de vorige ploeg, met de aandachtspunten vet. Met "Gelezen" klap je hem op deze pc in.
+- Nieuw: Portaal Productie → Ploegoverdracht. Per dag de drie ploegen met hun cijfers, overdrachten en wat open bleef aan het eind.
+- Nieuw: Portaal Beheer → Ploegen. Begin- en eindtijd en naam per ploeg. Een nachtploeg hoort bij de dag waarop hij begint.
+- Een overdracht is na opslaan niet meer te wijzigen; schrijf een aanvulling.
+- Fictieve ploegen: ochtend 06–14, middag 14–22, nacht 22–06. In de testdata schrijft ongeveer driekwart van de ploegen een overdracht.
+- Technisch: database-update 6 (`0006_ploegoverdracht`).
+
 ## 0.11.0 — 19 november 2026
 - Nieuw: grondstoffen per batch. In een stap voert de operator per grondstof het partijnummer van de leverancier in, en eventueel de hoeveelheid. Een verplichte grondstof moet zijn ingevuld voordat de stap kan worden afgerond. Een ploegleider kan een partijnummer achteraf corrigeren; het origineel blijft bewaard.
 - Nieuw: Portaal Kwaliteit → Grondstoffen terugzoeken. Zoek op (een deel van) een partijnummer en zie in welke batches en lots die partij zit. Zonder zoekterm: de laatst gebruikte partijen.

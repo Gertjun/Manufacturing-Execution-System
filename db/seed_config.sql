@@ -54,4 +54,10 @@ SELECT s.id, g.id, v.verplicht
   FROM (VALUES ('PS1', 'GS-A', true), ('PS3', 'GS-B', true), ('PS9', 'HS-C', false)) v(stap, gs, verplicht)
   JOIN processtap s ON s.code = v.stap JOIN grondstof g ON g.code = v.gs;
 
+-- Fictieve ploegen (sinds 0.12.0).
+INSERT INTO ploeg (code, naam, begint, eindigt) VALUES
+  ('O', 'Ochtendploeg', '06:00', '14:00'),
+  ('M', 'Middagploeg', '14:00', '22:00'),
+  ('N', 'Nachtploeg', '22:00', '06:00');
+
 COMMIT;

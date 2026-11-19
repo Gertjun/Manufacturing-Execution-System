@@ -161,6 +161,7 @@ Ook op `/portaal/` (testaccount `ploegleider1`, wachtwoord `demo`; een ploegleid
 | Doorlooptijden | Per stap wachttijd en bewerkingstijd (mediaan en 90%), en de doorlooptijd van batches en lots per week |
 | Productie per week | Batches gestart en klaar, lots gereed en afkeur per week |
 | Correcties | Alle correcties: oude en nieuwe waarde, reden, wie corrigeerde en wie oorspronkelijk invoerde |
+| Ploegoverdracht | Per dag de ploegen met hun cijfers, overdrachten en wat open bleef (D32) |
 
 Een batch in beoordeling zetten kan vanaf de batchpagina.
 
@@ -252,6 +253,7 @@ Ook op `/portaal/` (testaccount `beheerder1`, wachtwoord `demo`; een beheerder s
 | Accounts | Accounts aanmaken, rol wijzigen, wachtwoord opnieuw instellen, account uitzetten |
 | Operators | Operatornamen toevoegen, hernoemen of uitzetten (ze verschijnen direct in het invoerscherm) |
 | Grondstoffen | Grondstoffen toevoegen, wijzigen, uitzetten; per stap verplicht of niet (D31) |
+| Ploegen | Begin- en eindtijd en naam van de ploegen |
 | Pc's | Pc's toevoegen en per pc kiezen welke stappen hij bedient |
 | Logboek | Elke wijziging: wie, wanneer, oude en nieuwe waarde |
 

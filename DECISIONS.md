@@ -118,3 +118,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** de beheerder legt vast welke grondstoffen in welke stap worden ingevoerd (verplicht of niet). De operator voert per grondstof het partijnummer van de leverancier in, met een optionele hoeveelheid. Dezelfde regels als bij waarden: één invoer per registratie, alleen in een open stap, nooit wijzigen of verwijderen, correctie door een ploegleider of beheerder met reden. Een verplichte grondstof hoort bij "afronden" (`rond_stap_af`). Voorraad en ontvangst van grondstoffen houden we niet bij; dat hoort in Exact.
 - **Waarom:** terugzoeken van lot naar grondstof en andersom is nodig voor klachten en audits; het partijnummer is wat op de zak of het vat staat.
 
+### D32 – Ploegen en overdracht (19 nov 2026, 0.12.0)
+- **Besluit:** ploegen zijn configuratie (code, naam, begin- en eindtijd); `ploeg_van(tijdstip)` bepaalt de ploeg en de dag (een nachtploeg hoort bij de dag waarop hij begint). Een overdracht is een notitie met bijzonderheden en aandachtspunten, vastgelegd met operator, pc en hal; niet te wijzigen, wel aan te vullen. De cijfers van een ploeg worden niet opgeslagen maar uitgerekend uit de registraties. De ploeg van een offline geschreven overdracht volgt het tijdstip op het apparaat (een tijdstip in de toekomst telt als nu).
+- **Waarom:** de volgende ploeg moet in één oogopslag zien wat er speelt, ook als de pc even geen verbinding had.
+
