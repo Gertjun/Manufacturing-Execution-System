@@ -2,7 +2,7 @@
 
 Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
 
-Laatst bijgewerkt: versie 0.7.0, 19 november 2026
+Laatst bijgewerkt: versie 0.8.0, 19 november 2026
 
 ## Gepland
 - #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
@@ -19,6 +19,7 @@ Laatst bijgewerkt: versie 0.7.0, 19 november 2026
 - #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
 
 ## Gerealiseerd
+- **Eerste beheerder en noodsleutel** — versie 0.8.0; lege fabriek zonder testaccounts.
 - **Proof of concept op de laptop zonder installaties** — versie 0.7.0; Node.js en PostgreSQL ingebouwd, back-up bij elke start, lege fabriek.
 - #1 **Advies en voorbereiding fabrieksserver** — versie 0.6.0; adviesdocument, draaiboek, serverpakket, back-ups, hersteltest, database-updates, https en Portaal Beheer → Server.
 - **Werkafspraken en automatische tests** — versie 0.5.1; dezelfde opzet als Geerts andere projecten, tests en releases automatisch op GitHub.

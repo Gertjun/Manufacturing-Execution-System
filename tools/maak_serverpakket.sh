@@ -15,9 +15,9 @@ cp "$ROOT/api/package.json" "$ROOT/api/package-lock.json" "$DOEL/server/"
 (cd "$DOEL/server" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent)
 cp -r "$ROOT/invoer/dist" "$DOEL/web/invoer"
 cp -r "$ROOT/portaal/dist" "$DOEL/web/portaal"
-cp "$ROOT/db/schema.sql" "$ROOT/db/rechten.sql" "$ROOT/db/seed_config.sql" "$DOEL/db/"
+cp "$ROOT/db/schema.sql" "$ROOT/db/rechten.sql" "$ROOT/db/seed_config.sql" "$ROOT/db/seed_accounts_demo.sql" "$DOEL/db/"
 cp -r "$ROOT/db/migraties" "$DOEL/db/migraties"
-for t in lib migreer backup herstel rotatie start-server; do cp "$ROOT/tools/$t.mjs" "$DOEL/tools/"; done
+for t in lib migreer backup herstel rotatie start-server beheerder; do cp "$ROOT/tools/$t.mjs" "$DOEL/tools/"; done
 cp "$ROOT/tools/pakket/server/"* "$DOEL/service/"
 cp "$ROOT/docs/SERVER.md" "$DOEL/README.md"
 cp "$ROOT/VERSIE" "$ROOT/CHANGELOG.md" "$DOEL/"

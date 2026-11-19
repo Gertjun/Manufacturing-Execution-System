@@ -34,9 +34,22 @@ printf '1\n' | node opstarten.mjs --herstel --geen-browser > /tmp/laptoptest.log
 for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && break; sleep 1; done
 grep -q "Back-up teruggezet" /tmp/laptoptest.log || fout "terugzetten"
 stopApp
-start --leeg
-TOK=$(curl -s -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"kwaliteit1","wachtwoord":"demo"}' | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).token))')
-curl -s "localhost:3000/analyse/samenvatting" -H "authorization: Bearer $TOK" | grep -q '"batches":0' || echo "(let op: samenvatting na --leeg niet gecontroleerd)"
+wacht() { for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && return 0; sleep 1; done; fout "applicatie start niet"; }
+login() { curl -s -o /dev/null -w "%{http_code}" -X POST localhost:3000/auth/login -H 'content-type: application/json' -d "{\"gebruikersnaam\":\"$1\",\"wachtwoord\":\"$2\"}"; }
+
+# Lege fabriek: geen testaccounts, eerste beheerder wordt gevraagd
+printf 'geert\nwachtwoord123\nwachtwoord123\n' | node opstarten.mjs --geen-browser --leeg > /tmp/laptoptest.log 2>&1 &
+wacht
+grep -q "Er is nog geen beheerder" /tmp/laptoptest.log || fout "geen vraag om de eerste beheerder"
+[ "$(login geert wachtwoord123)" = "200" ] || fout "eerste beheerder kan niet inloggen"
+[ "$(login beheerder1 demo)" = "401" ] || fout "testaccount bestaat nog in de lege fabriek"
+stopApp
+
+# Noodsleutel: nieuw wachtwoord voor de beheerder
+printf '1\nnieuwwachtwoord\nnieuwwachtwoord\n' | node opstarten.mjs --geen-browser --beheerder > /tmp/laptoptest.log 2>&1 &
+wacht
+[ "$(login geert nieuwwachtwoord)" = "200" ] || fout "noodsleutel: nieuw wachtwoord werkt niet"
+[ "$(login geert wachtwoord123)" = "401" ] || fout "noodsleutel: oud wachtwoord werkt nog"
 stopApp
 pgDraait && fout "database draait nog aan het eind"
-echo "Laptoppakket: alle controles geslaagd (eerste start, stoppen, back-up, harde stop, terugzetten, lege fabriek)."
+echo "Laptoppakket: alle controles geslaagd (eerste start, stoppen, back-up, harde stop, terugzetten, lege fabriek met eerste beheerder, noodsleutel)."

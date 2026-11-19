@@ -56,7 +56,11 @@ Alleen de beheerders en het serviceaccount mogen `C:\batchgui\instellingen.json`
    ```
    "C:\Program Files\PostgreSQL\18\bin\psql" -U postgres -d batchgui -c "ALTER ROLE batchgui_app PASSWORD 'het-wachtwoord'"
    ```
-6. **Configuratie laden:** de stappen, velden, pc's en accounts. Voor de pilot levert de applicatiebeheerder dit aan; voor een test kan `db\seed_config.sql` (fictief, accounts met wachtwoord `demo`; daarna direct wijzigen in Portaal Beheer).
+6. **Eerste beheerder en configuratie:**
+   ```
+   node tools\beheerder.mjs
+   ```
+   vraagt om een gebruikersnaam en wachtwoord voor de eerste beheerder; die richt in Portaal Beheer de accounts, operators, pc's, stappen en velden in. Voor een test kan `db\seed_config.sql` (fictieve stappen, velden, operators en pc's, geen accounts). Laad `db\seed_accounts_demo.sql` (wachtwoord `demo`) nooit op een database met echte gegevens.
 7. **Proefstart:** `node tools\start-server.mjs` en open `https://<servernaam>/gezondheid` op een pc. Verwacht: `{"status":"ok", ...}`. Stop met Ctrl+C.
 8. **Windows-service:** zet `WinSW-x64.exe` als `C:\batchgui\batchgui-service.exe` neer en kopieer `C:\batchgui\huidig\service\batchgui-service.xml` naar `C:\batchgui\`. Controleer de paden (Node.js, PostgreSQL-servicenaam bij `depend`). Dan als beheerder:
    ```
@@ -129,6 +133,7 @@ C:\batchgui\batchgui-service.exe start
 | `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden) | taakplanner, elk uur |
 | `node tools/herstel.mjs --controle` | hersteltest in een tijdelijke database | taakplanner, elke maand |
 | `node tools/herstel.mjs <bestand>` | echte herstel | IT, bij een storing |
+| `node tools/beheerder.mjs` | eerste beheerder aanmaken, of een beheerder een nieuw wachtwoord geven (noodsleutel) | IT of applicatiebeheerder, op de server zelf |
 
 De back-up- en hersteltools moeten dezelfde PostgreSQL-versie gebruiken als de server; `herstel.mjs` controleert dat en stopt met uitleg als `pg_restore` nieuwer is.
 

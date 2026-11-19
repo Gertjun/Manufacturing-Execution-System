@@ -1,5 +1,5 @@
 // Test van het Portaal Beheer in Chrome, plus de doorwerking op het invoerscherm.
-// Verwacht: database met schema.sql + seed_config.sql (+ eventueel seed_demo.sql),
+// Verwacht: database met schema.sql + seed_config.sql + seed_accounts_demo.sql (+ eventueel seed_demo.sql),
 // en een gebouwd invoerscherm. Gebruik: node e2e/beheer.mjs (API op poort 3461).
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";

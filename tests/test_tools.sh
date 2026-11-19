@@ -17,9 +17,14 @@ for d in $(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}_
 
 node tools/migreer.mjs | grep -q "Nieuwe database aangemaakt op schemaversie" || fout "migreer maakt geen nieuwe database"
 node tools/migreer.mjs | grep -q "Niets te doen" || fout "tweede migreer zou niets moeten doen"
-psql -q -d $DB -f db/seed_config.sql >/dev/null
+psql -q -d $DB -f db/seed_config.sql >/dev/null && psql -q -d $DB -f db/seed_accounts_demo.sql >/dev/null
 python3 tools/genereer_testdata.py "host=$H port=$P user=$U dbname=$DB" --dagen 5 >/dev/null
 N=$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)
+
+# Noodsleutel: beheerder1 een nieuw wachtwoord geven
+NR=$(psql -Atc "SELECT n FROM (SELECT gebruikersnaam, row_number() OVER (ORDER BY gebruikersnaam) n FROM fabriek.gebruiker WHERE rol='beheerder') x WHERE gebruikersnaam='beheerder1'" -d $DB)
+printf "$NR\\nnieuwwachtwoord\\nnieuwwachtwoord\\n" | node tools/beheerder.mjs | grep -q "is gewijzigd" || fout "beheerder.mjs: nieuw wachtwoord"
+[ "$(psql -Atc "SELECT count(*) FROM fabriek.controleer_login('beheerder1','nieuwwachtwoord')" -d $DB)" = "1" ] || fout "nieuw wachtwoord werkt niet"
 
 node tools/backup.mjs | grep -q "Back-up gemaakt" || fout "back-up"
 ls "$T"/backups/batchgui_*.dump >/dev/null || fout "geen back-upbestand"
@@ -44,4 +49,4 @@ echo "$L" | grep -q "herstel:t" || fout "onderhoudslogboek mist het herstel ($L)
 
 for d in $(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}%'"); do psql -q -c "DROP DATABASE \"$d\" WITH (FORCE)"; done
 rm -rf "$T"
-echo "Beheertools: alle controles geslaagd ($N waarden, back-up, hersteltest, herstel, terugval)."
+echo "Beheertools: alle controles geslaagd ($N waarden, noodsleutel, back-up, hersteltest, herstel, terugval)."

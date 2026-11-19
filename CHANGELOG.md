@@ -2,6 +2,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.8.0 — 19 november 2026
+- Nieuw: eerste beheerder. Begin je zonder testaccounts (lege fabriek, of een nieuwe server), dan vraagt het zwarte venster om een gebruikersnaam en wachtwoord voor de eerste beheerder.
+- Nieuw: noodsleutel voor een vergeten wachtwoord. `BEHEERDER HERSTELLEN.bat` op de laptop (op de server: `node tools/beheerder.mjs`) geeft een beheerder een nieuw wachtwoord of maakt een nieuwe aan. Dat kan alleen op de computer zelf en komt in het logboek.
+- Verbeterd: `LEGE FABRIEK.bat` begint echt leeg, zonder de bekende testaccounts met wachtwoord `demo`. De fictieve testdata houdt die accounts.
+- Technisch: de testaccounts staan in een eigen bestand (`db/seed_accounts_demo.sql`), los van de configuratie (`db/seed_config.sql`).
+
 ## 0.7.1 — 19 november 2026
 - Opgelost: op Windows bleef de eerste start hangen op "Eerste keer: database aanmaken …". De database was wel gestart, maar het startscript bleef wachten op een uitvoerverbinding die de database openhield.
 

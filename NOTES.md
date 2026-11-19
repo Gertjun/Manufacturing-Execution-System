@@ -2,7 +2,7 @@
 
 De **actuele stand**: versie, open punten en sessielog. Werk dit bij aan het eind van elke sessie (zie `CLAUDE.md`). Besluiten staan in `DECISIONS.md`, wensen in `WISHLIST.md`.
 
-Laatst bijgewerkt: 19 november 2026 · versie **0.7.1**
+Laatst bijgewerkt: 19 november 2026 · versie **0.8.0**
 
 ---
 
@@ -33,7 +33,7 @@ Laatst bijgewerkt: 19 november 2026 · versie **0.7.1**
 
 Op GitHub draaien automatisch (Node.js 22 en 26): databaseregels, migraties, API met `batchgui_app`, opruimschema, beheertools, en controle en bouw van de schermen. De schermtests in Chrome draaien alleen lokaal.
 
-**Niet uitgevoerd in de praktijk:** het Windows-laptoppakket 0.7.0 op een echte Windows-laptop (ingebouwde PostgreSQL via pg_ctl, Ctrl+C en venster sluiten, Visual C++-runtime, SmartScreen), serverpakket en draaiboek op een echte Windows Server (WinSW, Taakplanner, junction, pfx-certificaat), browserdemo op claude.ai zelf (alleen lokaal in Chrome), invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk.
+**In de praktijk:** het Windows-laptoppakket 0.7.1 start op Geerts laptop. **Niet uitgevoerd in de praktijk:** op Windows nog niet gecontroleerd: Ctrl+C en venster sluiten, back-up terugzetten, sterretjes bij het wachtwoord (0.8.0), serverpakket en draaiboek op een echte Windows Server (WinSW, Taakplanner, junction, pfx-certificaat), browserdemo op claude.ai zelf (alleen lokaal in Chrome), invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk.
 
 ## Open punten
 - Geert: advies fabrieksserver met IT bespreken; de vier vragen onder "Nog te besluiten" in het advies beantwoorden.
@@ -42,6 +42,7 @@ Op GitHub draaien automatisch (Node.js 22 en 26): databaseregels, migraties, API
 - Let op bij het opnieuw maken van `tools/pakket/testdata.sql`: neem `schema_versie` en `onderhoud_log` niet mee in de dump (`--exclude-table`), anders botst het laden met `schema.sql`.
 
 ## Sessielog (nieuwste bovenaan)
+- **19 nov 2026 · 0.8.0** — Geert draait de proof of concept op zijn laptop (0.7.1 werkt). Op zijn vraag: eerste beheerder bij een lege start, noodsleutel `BEHEERDER HERSTELLEN.bat` / `tools/beheerder.mjs`, lege fabriek zonder testaccounts (D28).
 - **19 nov 2026 · 0.7.1** — Eerste echte Windows-start hing na het starten van de database: `spawnSync` wachtte op uitvoer die `postgres.exe` openhield. `pg_ctl start` nu zonder opgevangen uitvoer. Les: op Windows nooit uitvoer opvangen van een programma dat een achtergrondproces start.
 - **19 nov 2026 · 0.7.0** — Proof of concept op de laptop eerst (D26). Laptoppakket met ingebouwde Node.js, PostgreSQL 18 en Visual C++-runtime (D27), back-up bij elke start, terugzetten, lege fabriek; test van het pakket op GitHub.
 - **18 nov 2026 · 0.6.0** — Advies fabrieksserver (document) en draaiboek; serverpakket; back-up, hersteltest en herstel; migraties met schemaversie; `batchgui_app` met beperkte rechten; https; Beheer → Server; laptoppakket werkt database bij; tests op Node.js 22 en 26.

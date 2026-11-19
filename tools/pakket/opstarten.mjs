@@ -4,6 +4,7 @@
 //   node opstarten.mjs --opnieuw        database leegmaken en verse testdata laden, daarna starten
 //   node opstarten.mjs --leeg           lege fabriek: alleen configuratie (stappen, velden, accounts), daarna starten
 //   node opstarten.mjs --herstel        een back-up terugzetten (je kiest uit een lijst), daarna starten
+//   node opstarten.mjs --beheerder      noodsleutel: een beheerder een nieuw wachtwoord geven of een nieuwe aanmaken
 //   node opstarten.mjs --geen-browser   browser niet automatisch openen
 //
 // Met de map postgres\ in dit pakket draait PostgreSQL ingebouwd: niets installeren, geen wachtwoord.
@@ -298,6 +299,22 @@ if (backupVoorLog) {
   await c.end();
 }
 
+// Eerste beheerder (lege fabriek) of noodsleutel (--beheerder).
+{
+  const { maakInvoer, eersteBeheerder, beheerderMenu } = await import(pathToFileURL(join(MAP, "tools", "beheerder.mjs")).href);
+  const c = await verbind(inst.db.database);
+  const io = maakInvoer();
+  try {
+    if (args.has("--beheerder")) await beheerderMenu(c, io);
+    else await eersteBeheerder(c, io);
+  } catch (e) {
+    stop(e.message);
+  } finally {
+    io.sluit();
+    await c.end();
+  }
+}
+
 // ---------- 6. Applicatie starten ----------
 process.env.DATABASE_URL =
   `postgres://${encodeURIComponent(inst.db.user)}:${encodeURIComponent(inst.db.password ?? "")}@${inst.db.host}:${inst.db.port}/${inst.db.database}`;
@@ -323,7 +340,13 @@ if (inst.adres === "0.0.0.0") {
   for (const lijst of Object.values(networkInterfaces()))
     for (const a of lijst ?? []) if (a.family === "IPv4" && !a.internal) console.log(`  vanaf een ander apparaat: http://${a.address}:${inst.poort}/`);
 }
-console.log("Testaccounts: operator, ploegleider1, kwaliteit1, beheerder1, analist1 (wachtwoord: demo)");
+{
+  const c = await verbind(inst.db.database);
+  const { rowCount } = await c.query("SELECT 1 FROM fabriek.gebruiker WHERE gebruikersnaam = 'beheerder1' AND actief");
+  await c.end();
+  if (rowCount) console.log("Testaccounts: operator, ploegleider1, kwaliteit1, beheerder1, analist1 (wachtwoord: demo)");
+  else console.log("Inloggen met je eigen beheerder; maak in Portaal Beheer de andere accounts aan.");
+}
 console.log("Stoppen: druk Ctrl+C in dit venster (of sluit het venster).\n");
 
 if (!args.has("--geen-browser")) {

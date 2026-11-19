@@ -22,7 +22,8 @@ De analyses komen niet in een losse app maar in de portalen, met één gedeelde 
 | Bestand | Wat |
 | --- | --- |
 | `db/schema.sql` | Tabellen, regels (triggers) en acties in schema `fabriek` |
-| `db/seed_config.sql` | PS1–PS18, voorbeeldvelden S1.1 … S18.3, 8 operators, 20 pc's, accounts |
+| `db/seed_config.sql` | PS1–PS18, voorbeeldvelden S1.1 … S18.3, 8 operators, 20 pc's (geen accounts) |
+| `db/seed_accounts_demo.sql` | Fictieve testaccounts, wachtwoord `demo` (alleen voor demo's en tests) |
 | `db/seed_demo.sql` | Kleine fictieve productie: 4 batches klaar voor een lot, 1 batch in PS7, 1 nieuwe batch |
 | `tools/genereer_testdata.py` | Maanden fictieve productie met ingebouwde afwijkingen, voor de analyses |
 | `gedeeld/` | Onderdelen die invoerscherm en portalen-app delen |
@@ -129,7 +130,7 @@ cd invoer
 npm install
 npm run build                 # maakt invoer/dist
 npm run dev                   # ontwikkelen, met de API op poort 3000
-node e2e/flow.mjs             # test in Chrome (database met seed_config + seed_demo)
+node e2e/flow.mjs             # test in Chrome (database met seed_config + seed_accounts_demo + seed_demo)
 ```
 
 ## Portaal Kwaliteit
@@ -164,7 +165,7 @@ Een batch in beoordeling zetten kan vanaf de batchpagina.
 ### Testdata voor de analyses
 
 ```
-psql -f db/schema.sql && psql -f db/seed_config.sql
+psql -f db/schema.sql && psql -f db/seed_config.sql && psql -f db/seed_accounts_demo.sql
 python3 tools/genereer_testdata.py "host=localhost user=postgres dbname=batchgui" --dagen 90
 ```
 Maakt ongeveer 540 batches en 130 lots, via dezelfde databaseregels als echte invoer. Ingebouwd:
@@ -200,6 +201,7 @@ Het draaiboek voor IT staat in `docs/SERVER.md`; het advies in het document "Adv
 | `node tools/migreer.mjs [--status]` | database aanmaken of bijwerken met `db/migraties/`, rechten uit `db/rechten.sql` |
 | `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden) |
 | `node tools/herstel.mjs --controle` / `<bestand>` | hersteltest of echt herstel |
+| `node tools/beheerder.mjs` | eerste beheerder, of noodsleutel bij een vergeten wachtwoord (D28) |
 
 Alle tools lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of `--instellingen <pad>`. Een databasewijziging = een nieuwe migratie plus dezelfde wijziging in `db/schema.sql` (zie D23); `tests/test_migraties.sh` controleert dat.
 

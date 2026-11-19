@@ -1,5 +1,5 @@
 // End-to-end test van het invoerscherm in Chrome, inclusief offline invoer.
-// Verwacht: database met seed_config.sql + seed_demo.sql, en een gebouwde app (npm run build).
+// Verwacht: database met seed_config.sql + seed_accounts_demo.sql + seed_demo.sql, en een gebouwde app (npm run build).
 // Gebruik: node e2e/flow.mjs   (start zelf de API op poort 3456)
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";

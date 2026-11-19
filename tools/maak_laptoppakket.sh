@@ -34,9 +34,9 @@ cp "$ROOT/api/package.json" "$ROOT/api/package-lock.json" "$DOEL/server/"
 (cd "$DOEL/server" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent)
 cp -r "$ROOT/invoer/dist" "$DOEL/web/invoer"
 cp -r "$ROOT/portaal/dist" "$DOEL/web/portaal"
-cp "$ROOT/db/schema.sql" "$ROOT/db/seed_config.sql" "$ROOT/tools/pakket/testdata.sql" "$DOEL/db/"
+cp "$ROOT/db/schema.sql" "$ROOT/db/seed_config.sql" "$ROOT/db/seed_accounts_demo.sql" "$ROOT/tools/pakket/testdata.sql" "$DOEL/db/"
 cp "$ROOT/db/rechten.sql" "$DOEL/db/" && cp -r "$ROOT/db/migraties" "$DOEL/db/migraties"
-mkdir -p "$DOEL/tools" && cp "$ROOT/tools/lib.mjs" "$ROOT/tools/migreer.mjs" "$DOEL/tools/"
+mkdir -p "$DOEL/tools" && cp "$ROOT/tools/lib.mjs" "$ROOT/tools/migreer.mjs" "$ROOT/tools/beheerder.mjs" "$DOEL/tools/"
 cp "$ROOT/VERSIE" "$DOEL/"
 cp "$ROOT/tools/pakket/opstarten.mjs" "$ROOT/tools/pakket/README.md" "$DOEL/"
 if [ "$PLATFORM" = "windows" ]; then

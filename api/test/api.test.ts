@@ -71,6 +71,7 @@ before(async () => {
   beheerDb = maakPool(DB_URL);
   await beheerDb.query(readFileSync(new URL("../../db/schema.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/seed_config.sql", import.meta.url), "utf8"));
+  await beheerDb.query(readFileSync(new URL("../../db/seed_accounts_demo.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/rechten.sql", import.meta.url), "utf8"));
   db = APP_DB_URL === DB_URL ? beheerDb : maakPool(APP_DB_URL);
   app = await bouwApp({ db, jwtGeheim: "test-geheim-dat-lang-genoeg-is-0123456789" });

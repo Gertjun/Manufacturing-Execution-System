@@ -1,7 +1,7 @@
 """Test de regels van datamodel v1 tegen een lege database met fictieve configuratie.
 
 Gebruik:  python3 tests/test_regels.py "host=/tmp port=5433 user=postgres dbname=batchgui"
-Het script laadt schema.sql en seed_config.sql opnieuw, dus de database wordt leeggemaakt.
+Het script laadt schema.sql, seed_config.sql en seed_accounts_demo.sql opnieuw, dus de database wordt leeggemaakt.
 """
 import pathlib
 import sys
@@ -23,6 +23,7 @@ def main():
     with psycopg.connect(DSN, autocommit=True) as c:
         c.execute((ROOT / "db/schema.sql").read_text())
         c.execute((ROOT / "db/seed_config.sql").read_text())
+        c.execute((ROOT / "db/seed_accounts_demo.sql").read_text())
 
     con = psycopg.connect(DSN, autocommit=True)
     con.execute("SET search_path = fabriek")

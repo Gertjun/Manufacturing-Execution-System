@@ -1,5 +1,6 @@
 -- Fictieve configuratie: 18 processtappen met voorbeeldvelden,
--- operators, pc's en gebruikers.
+-- operators en pc's. Geen accounts: de eerste beheerder maak je met tools/beheerder.mjs
+-- (of de laptop vraagt erom bij de eerste start). Fictieve testaccounts: seed_accounts_demo.sql.
 BEGIN;
 SET search_path = fabriek;
 SELECT set_config('fabriek.gebruiker', 'seed', true);
@@ -36,16 +37,5 @@ INSERT INTO operator (naam) SELECT 'Operator ' || chr(64 + n) FROM generate_seri
 -- 20 pc's.
 INSERT INTO pc (naam, locatie)
 SELECT 'PC-' || lpad(n::text, 2, '0'), 'Hal ' || (1 + (n - 1) / 7) FROM generate_series(1, 20) n;
-
--- Accounts.
--- Alle testaccounts hebben wachtwoord 'demo'.
-INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash)
-SELECT naam, rol, public.crypt('demo', public.gen_salt('bf'))
-FROM (VALUES ('operator',     'operator'),
-             ('ploegleider1', 'ploegleider'),
-             ('ploegleider2', 'ploegleider'),
-             ('kwaliteit1',   'kwaliteit'),
-             ('beheerder1',   'beheerder'),
-             ('analist1',     'analist')) v(naam, rol);
 
 COMMIT;

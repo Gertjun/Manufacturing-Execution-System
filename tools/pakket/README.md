@@ -16,7 +16,7 @@ Krijg je een blauwe Windows-melding ("Windows heeft uw pc beschermd")? Kies *Mee
 
 ## Testaccounts
 
-Wachtwoord is steeds `demo`. Wijzig of vervang ze in Portaal Beheer als je anderen laat meekijken.
+Met de fictieve testdata zijn er testaccounts; het wachtwoord is steeds `demo`. Wijzig of vervang ze in Portaal Beheer (Accounts) als je anderen laat meekijken.
 
 | Account | Komt in |
 | --- | --- |
@@ -36,7 +36,11 @@ Wachtwoord is steeds `demo`. Wijzig of vervang ze in Portaal Beheer als je ander
 
 ## Je eigen proces inrichten
 
-Dubbelklik op **`LEGE FABRIEK.bat`**: dan blijven alleen de stappen, velden, accounts, operators en pc's over, zonder batches. Pas in Portaal Beheer de stapnamen en velden aan je eigen proces aan en probeer het uit.
+Dubbelklik op **`LEGE FABRIEK.bat`**: dan blijven alleen de stappen, velden, operators en pc's over, zonder batches en **zonder testaccounts**. Het zwarte venster vraagt je dan om **de eerste beheerder**: kies een gebruikersnaam (bijvoorbeeld je voornaam) en een wachtwoord van minstens 8 tekens. Daarmee log je in op Portaal Beheer en maak je de andere accounts aan (bijvoorbeeld het gedeelde account voor operators), en pas je de stapnamen en velden aan je eigen proces aan.
+
+## Wachtwoord van de beheerder vergeten
+
+Dubbelklik op **`BEHEERDER HERSTELLEN.bat`**. Je kiest een beheerder en geeft die een nieuw wachtwoord (een uitgezette beheerder gaat daarbij weer aan), of je maakt een nieuwe beheerder. Dat kan alleen op deze laptop zelf, en het komt in het logboek van Portaal Beheer.
 
 Let op: dit is een proof of concept. Gebruik geen gegevens die vertrouwelijk zijn zolang de laptop niet daarvoor is ingericht.
 
@@ -49,7 +53,7 @@ Let op: dit is een proof of concept. Gebruik geen gegevens die vertrouwelijk zij
 ## Opnieuw beginnen
 
 - **`TESTDATA OPNIEUW.bat`**: verse fictieve testdata (90 dagen).
-- **`LEGE FABRIEK.bat`**: alleen de configuratie, geen batches.
+- **`LEGE FABRIEK.bat`**: alleen de configuratie, geen batches en geen testaccounts; je maakt zelf de eerste beheerder aan.
 
 Bij beide wordt eerst een back-up gemaakt van wat er nu in staat.
 
@@ -84,6 +88,7 @@ Lukt het niet, stuur dan de inhoud van `data\postgres.log` en een foto van het z
 | --- | --- |
 | `START.bat` | Starten |
 | `LEGE FABRIEK.bat`, `TESTDATA OPNIEUW.bat`, `BACKUP TERUGZETTEN.bat` | Opnieuw beginnen of terugzetten |
+| `BEHEERDER HERSTELLEN.bat` | Nieuw wachtwoord voor een beheerder, of een nieuwe beheerder |
 | `opstarten.mjs` | Start de database, maakt back-ups, start de applicatie |
 | `runtime\` | Node.js 26 LTS (officiële versie) |
 | `postgres\` | PostgreSQL 18, alleen bereikbaar op deze laptop |

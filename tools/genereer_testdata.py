@@ -4,7 +4,7 @@ Alles loopt via de functies en regels van de database (start_stap, maak_lot,
 rond_stap_af, batch_besluit ...), dus de data voldoet aan dezelfde regels als echte
 invoer. Daarna worden de tijdstippen teruggezet naar de gesimuleerde datum.
 
-Gebruik (op een database met schema.sql + seed_config.sql, zonder productie):
+Gebruik (op een database met schema.sql + seed_config.sql + seed_accounts_demo.sql, zonder productie):
     python3 tools/genereer_testdata.py "host=localhost user=postgres dbname=batchgui" --dagen 90
 
 Ingebouwde patronen (zodat de analyses iets te vinden hebben):
