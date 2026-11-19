@@ -81,9 +81,18 @@ try {
   const tegel = await page.locator(".tegel").first().innerText();
   check(`Partij ${partij}: aantal batches klopt`, tegel.startsWith(String(verwacht.b)), tegel);
   await page.screenshot({ path: `${SHOTS}/02-terugzoeken.png`, fullPage: true });
-  await page.locator("tbody tr a[href*='lotpaspoort']").first().click();
+  const lotLink = page.locator("tbody tr a[href*='lotpaspoort']").first();
+  const lotnummer = (await lotLink.innerText()).trim();
+  const [gsLot] = await q(`SELECT count(*)::int AS n FROM fabriek.grondstof_gebruik_actueel u
+      JOIN fabriek.stapregistratie r ON r.id = u.stapregistratie_id
+      LEFT JOIN fabriek.batch b ON b.id = r.batch_id
+      JOIN fabriek.lot l ON l.id = coalesce(r.lot_id, b.lot_id) WHERE l.lotnummer = $1`, [lotnummer]);
+  await lotLink.click();
   await page.getByRole("heading", { name: "Grondstoffen" }).waitFor();
-  check("Lotpaspoort toont 4 batches x 3 grondstoffen", (await page.locator("section", { hasText: "Grondstoffen" }).locator("tbody tr").count()) === 12);
+  const gsBlok = page.locator("section, .blok", { has: page.getByRole("heading", { name: "Grondstoffen", exact: true }) }).last();
+  await gsBlok.locator("tbody tr").first().waitFor({ timeout: 10000 }).catch(() => {});
+  const gsRijen = await gsBlok.locator("tbody tr").count();
+  check(`Lotpaspoort ${lotnummer} toont alle grondstoffen van het lot en zijn batches`, gsRijen === gsLot.n && gsRijen >= 12, `${gsRijen} / ${gsLot.n}`);
   await page.locator("section", { hasText: "Grondstoffen" }).screenshot({ path: `${SHOTS}/03-lotpaspoort.png` });
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);

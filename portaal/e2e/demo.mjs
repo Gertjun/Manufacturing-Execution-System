@@ -1,7 +1,9 @@
+import { mkdirSync } from "node:fs";
 // Test van de browserdemo (demo/dist via een statische server op DEMO_URL).
 import { chromium } from "playwright-core";
 const URL_ = process.env.DEMO_URL ?? "http://localhost:4173/";
-const SHOTS = process.env.SHOTS ?? "/home/claude/shots-demo";
+const SHOTS = process.env.SHOTS ?? "/tmp/shots-demo";
+mkdirSync(SHOTS, { recursive: true });
 const b = await chromium.launch({ executablePath: "/usr/bin/google-chrome" });
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const fouten = [];

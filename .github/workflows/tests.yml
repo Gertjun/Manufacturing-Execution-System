@@ -86,6 +86,7 @@ jobs:
           DATABASE_URL: postgres://postgres@localhost:5432/batchgui
         run: |
           google-chrome --version
+          python3 -m pip install --quiet openpyxl pillow
           (cd demo && npm ci --no-audit --no-fund)
           tests/test_schermen.sh
       - name: Logboeken van de schermtests tonen

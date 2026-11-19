@@ -64,8 +64,12 @@ try {
   check("Blad heet zoals de tabel", x.blad === "Stilstand per stap", x.blad);
   check("Koppen en 18 stappen", x.rijen[0][0] === "Stap" && x.rijen.length === 19, JSON.stringify(x.rijen[0]));
   check("Aantallen zijn getallen in Excel", typeof x.rijen[1][1] === "number", JSON.stringify(x.rijen[1]));
-  const csv = libre(pad);
-  check("LibreOffice opent het bestand", /convert/.test(csv), csv.trim());
+  let heeftLibre = true;
+  try { execFileSync("soffice", ["--version"], { timeout: 30000 }); } catch { heeftLibre = false; }
+  if (heeftLibre) {
+    const csv = libre(pad);
+    check("LibreOffice opent het bestand", /convert/.test(csv), csv.trim());
+  } else console.log("  (LibreOffice niet geïnstalleerd: die controle is overgeslagen)");
 
   console.log("\nKwaliteit: afwijkingen");
   await page.evaluate(() => localStorage.clear());
