@@ -48,7 +48,9 @@ try {
   await inloggen("beheerder1");
   await page.getByRole("link", { name: "Grondstoffen" }).click();
   await page.getByRole("heading", { name: "Grondstoffen" }).waitFor();
-  check("Drie fictieve grondstoffen", (await page.locator("tbody tr").count()) === 3);
+  await page.locator("tbody tr").first().waitFor();
+  const aantalGs = await page.locator("tbody tr").count();
+  check("Drie fictieve grondstoffen", aantalGs === 3, String(aantalGs));
   await page.getByRole("button", { name: "Grondstof toevoegen" }).click();
   await page.getByRole("dialog").getByLabel("Code").fill("GS-D");
   await page.getByRole("dialog").getByLabel("Naam").fill("Grondstof D");
