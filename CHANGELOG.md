@@ -2,6 +2,11 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.19.0 — 19 november 2026
+- Nieuw: boven elke tabel in de portalen staat de knop "Naar Excel". Die maakt direct een Excel-bestand (.xlsx) van de tabel zoals je hem ziet, met de kop van de pagina en de datum in de bestandsnaam.
+- Aantallen en meetwaarden worden echte getallen in Excel (ook met een komma als decimaalteken), zodat je er meteen mee kunt rekenen of filteren. De kopregel staat vast en heeft een filter. Knoppen en lege kolommen gaan niet mee.
+- Technisch: geen database-update en geen API-wijziging; het bestand wordt in de browser gemaakt en werkt dus ook offline (D39).
+
 ## 0.18.0 — 19 november 2026
 - Nieuw: Portaal Kwaliteit → Regelkaarten. Het overzicht laat per veld zien hoeveel metingen en signalen er in de periode zijn, en hoeveel marge er is tot de specificatie (Cpk). Velden met signalen staan bovenaan.
 - Per veld een regelkaart met de metingen, het gemiddelde, de regelgrenzen (3 sigma) en de zones van 1 en 2 sigma. Bij een procesparameter tekent de kaart het verschil tussen gemeten en setting; bij andere velden de gemeten waarde, met de specificatie erbij.

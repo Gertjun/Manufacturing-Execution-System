@@ -1,6 +1,7 @@
 // Portaal Kwaliteit: overzicht, te beoordelen, lot- en batchpaspoort,
 // afwijkingen, trend per veld, herbewerkingen en afkeur.
 import { regelkaartGrafiek, type RkPunt } from "../grafiek";
+import { tabelNaarExcel } from "../excel";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../../../gedeeld/ui";
 import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
@@ -24,10 +25,19 @@ export function periodeKeuze(opnieuw: () => void) {
 }
 
 export function tabel(koppen: string[], rijen: (Node | string | number | null)[][], klasse = "") {
-  return h("div", { class: "tabel-kader" },
-    h("table", { class: `tabel ${klasse}` },
-      h("thead", {}, h("tr", {}, koppen.map((k) => h("th", { scope: "col" }, k)))),
-      h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c) => h("td", {}, c ?? "")))))));
+  const t = h("table", { class: `tabel ${klasse}` },
+    h("thead", {}, h("tr", {}, koppen.map((k) => h("th", { scope: "col" }, k)))),
+    h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c) => h("td", {}, c ?? "")))))) as HTMLTableElement;
+  // Elke tabel kan naar Excel; de naam komt van de dichtstbijzijnde kop (blok of pagina).
+  const knop = h("button", {
+    class: "knop knop-klein knop-stil excel-knop", type: "button",
+    onclick: () => {
+      const blok = knop.closest("section, .blok");
+      const kopTekst = (blok?.querySelector("h2")?.textContent ?? document.querySelector("#scherm h1")?.textContent ?? "Tabel").trim();
+      tabelNaarExcel(t, kopTekst);
+    },
+  }, "Naar Excel") as HTMLButtonElement;
+  return h("div", { class: "tabel-met-acties" }, rijen.length ? h("div", { class: "tabel-acties" }, knop) : null, h("div", { class: "tabel-kader" }, t));
 }
 
 export function grenzen(r: { grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string | null; eenheid?: string | null }) {

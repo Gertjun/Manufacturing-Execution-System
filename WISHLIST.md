@@ -2,7 +2,7 @@
 
 Ideeën en geplande onderdelen voor volgende versies van de Batch input GUI. Deze lijst wordt bij elke versie bijgewerkt: wat gebouwd is, verhuist naar Gerealiseerd en staat in de changelog. Elk punt houdt zijn nummer, ook als andere punten klaar zijn.
 
-Laatst bijgewerkt: versie 0.18.0, 19 november 2026
+Laatst bijgewerkt: versie 0.19.0, 19 november 2026
 
 ## Gepland
 - #11 **Proof of concept laten zien** (klein) — Geert draait het laptoppakket en laat het zien; bevindingen worden nieuwe punten op deze lijst.
@@ -13,13 +13,13 @@ Laatst bijgewerkt: versie 0.18.0, 19 november 2026
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
 - #21 **Meldingen per mail of Teams** (klein, te besluiten) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
 - #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en daarmee de volledige OEE berekend kan worden.
-- #20 **Export naar Excel** (klein, 0.19.0) — Elke tabel in de portalen naar Excel.
 
 ## Te besluiten
 - #8 **Analyses per operator** — Bijvoorbeeld afwijkingen per persoon. Bewust niet gebouwd (D12); Geert beslist of dit gewenst is.
 - #9 **Portalen voor andere afdelingen** — Geert meldt welke afdelingen nog een portaal nodig hebben.
 
 ## Gerealiseerd
+- #20 **Export naar Excel** — versie 0.19.0; knop "Naar Excel" boven elke tabel in de portalen, echte getallen, in de browser gemaakt.
 - #19 **Regelkaarten** — versie 0.18.0; I-kaart met 3 sigma, Western Electric-signalen, Cpk, overzicht per veld.
 - #18 **Certificaat per lot** — versie 0.17.0; analysecertificaat met specificatie en resultaat, uitgeven door Kwaliteit met volgnummer, herdruk gelijk, afdrukken of pdf.
 - #17 **Capaciteit in de planning** — versie 0.16.0; per weekdag en afwijkende dagen, bezetting per dag, waarschuwing bij te veel.

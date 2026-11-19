@@ -413,3 +413,7 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 .rk-leg-grens, .rk-leg-spec { display: inline-block; width: 18px; border-top: 2px dashed var(--inkt-zacht); margin-right: 6px; vertical-align: middle; }
 .rk-leg-spec { border-top: 2px dotted var(--status-kritiek); }
 .tegel.let-op { border-left: 6px solid var(--status-waarschuwing); }
+
+/* Naar Excel */
+.tabel-acties { display: flex; justify-content: flex-end; margin: 0 0 4px; }
+.excel-knop { min-height: 30px; font-size: .85rem; }
