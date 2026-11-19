@@ -38,4 +38,10 @@ INSERT INTO operator (naam) SELECT 'Operator ' || chr(64 + n) FROM generate_seri
 INSERT INTO pc (naam, locatie)
 SELECT 'PC-' || lpad(n::text, 2, '0'), 'Hal ' || (1 + (n - 1) / 7) FROM generate_series(1, 20) n;
 
+-- Fictieve producten (de planner kan ze aanpassen in Portaal Planning).
+INSERT INTO product (code, naam) VALUES
+  ('PRD-A', 'Product A standaard'),
+  ('PRD-B', 'Product B fijn'),
+  ('PRD-C', 'Product C grof');
+
 COMMIT;

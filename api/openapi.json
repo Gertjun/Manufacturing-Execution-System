@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.1.0",
+    "version": "0.9.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -2755,6 +2755,13 @@
                     },
                     "minItems": 4,
                     "maxItems": 4
+                  },
+                  "afwijkingReden": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500,
+                    "description": "Verplicht als de batches afwijken van een lotvoorstel",
+                    "nullable": true
                   }
                 }
               }
@@ -5047,6 +5054,260 @@
         }
       }
     },
+    "/beheer/server": {
+      "get": {
+        "tags": [
+          "beheer"
+        ],
+        "description": "Stand van de server: applicatie- en schemaversie, database, laatste back-up en hersteltest, en waarschuwingen (back-up ouder dan 2 uur of mislukt, hersteltest ouder dan 35 dagen of mislukt).",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "versie",
+                    "node",
+                    "servertijd",
+                    "schema",
+                    "database",
+                    "laatsteBackup",
+                    "laatsteHersteltest",
+                    "recent",
+                    "waarschuwingen"
+                  ],
+                  "properties": {
+                    "versie": {
+                      "type": "string"
+                    },
+                    "node": {
+                      "type": "string"
+                    },
+                    "servertijd": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "schema": {
+                      "type": "object",
+                      "required": [
+                        "nummer",
+                        "naam",
+                        "uitgevoerd_op"
+                      ],
+                      "properties": {
+                        "nummer": {
+                          "type": "integer"
+                        },
+                        "naam": {
+                          "type": "string"
+                        },
+                        "uitgevoerd_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "nullable": true
+                    },
+                    "database": {
+                      "type": "object",
+                      "required": [
+                        "naam",
+                        "grootte_bytes",
+                        "postgres"
+                      ],
+                      "properties": {
+                        "naam": {
+                          "type": "string"
+                        },
+                        "grootte_bytes": {
+                          "type": "number"
+                        },
+                        "postgres": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "laatsteBackup": {
+                      "type": "object",
+                      "required": [
+                        "soort",
+                        "gestart_op",
+                        "klaar_op",
+                        "gelukt",
+                        "bestand",
+                        "grootte_bytes",
+                        "versie",
+                        "melding"
+                      ],
+                      "properties": {
+                        "soort": {
+                          "type": "string"
+                        },
+                        "gestart_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "klaar_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "gelukt": {
+                          "type": "boolean"
+                        },
+                        "bestand": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "grootte_bytes": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "versie": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "melding": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "nullable": true
+                    },
+                    "laatsteHersteltest": {
+                      "type": "object",
+                      "required": [
+                        "soort",
+                        "gestart_op",
+                        "klaar_op",
+                        "gelukt",
+                        "bestand",
+                        "grootte_bytes",
+                        "versie",
+                        "melding"
+                      ],
+                      "properties": {
+                        "soort": {
+                          "type": "string"
+                        },
+                        "gestart_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "klaar_op": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "gelukt": {
+                          "type": "boolean"
+                        },
+                        "bestand": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "grootte_bytes": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "versie": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "melding": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "nullable": true
+                    },
+                    "recent": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "soort",
+                          "gestart_op",
+                          "klaar_op",
+                          "gelukt",
+                          "bestand",
+                          "grootte_bytes",
+                          "versie",
+                          "melding"
+                        ],
+                        "properties": {
+                          "soort": {
+                            "type": "string"
+                          },
+                          "gestart_op": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "klaar_op": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "gelukt": {
+                            "type": "boolean"
+                          },
+                          "bestand": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "grootte_bytes": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "versie": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "melding": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "waarschuwingen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "niveau",
+                          "tekst"
+                        ],
+                        "properties": {
+                          "niveau": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "let_op"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "fout"
+                                ]
+                              }
+                            ]
+                          },
+                          "tekst": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/analyse/samenvatting": {
       "get": {
         "tags": [
@@ -6317,6 +6578,1551 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/planning/producten": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "ookInactief",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "code",
+                      "naam",
+                      "actief"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
+                      },
+                      "actief": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "naam"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._-]{1,20}$"
+                  },
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "naam",
+                    "actief"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/producten/{id}": {
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "naam": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "actief": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "naam",
+                    "actief"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "naam": {
+                      "type": "string"
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/week": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Batches per dag: geplande batches op hun geplande dag, niet-geplande op de dag dat ze startten. Plus achterstand: geplande batches van eerdere dagen die nog niet gestart zijn.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20",
+            "in": "query",
+            "name": "van",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31,
+              "default": 7
+            },
+            "in": "query",
+            "name": "dagen",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "dagen",
+                    "achterstand"
+                  ],
+                  "properties": {
+                    "dagen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "dag",
+                          "batches"
+                        ],
+                        "properties": {
+                          "dag": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-11-20"
+                          },
+                          "batches": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "batchnummer",
+                                "status",
+                                "gepland",
+                                "dag",
+                                "volgorde",
+                                "product_id",
+                                "product",
+                                "opmerking",
+                                "vervallen_reden",
+                                "laatste_stap",
+                                "lotnummer",
+                                "voorstel"
+                              ],
+                              "properties": {
+                                "batchnummer": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "gepland": {
+                                  "type": "boolean",
+                                  "description": "false = door een operator aangemaakt, niet gepland"
+                                },
+                                "dag": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "nullable": true,
+                                  "example": "2026-11-20"
+                                },
+                                "volgorde": {
+                                  "type": "integer",
+                                  "nullable": true
+                                },
+                                "product_id": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "product": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "opmerking": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "vervallen_reden": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "laatste_stap": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "lotnummer": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "voorstel": {
+                                  "type": "integer",
+                                  "nullable": true
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "achterstand": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "batchnummer",
+                          "status",
+                          "gepland",
+                          "dag",
+                          "volgorde",
+                          "product_id",
+                          "product",
+                          "opmerking",
+                          "vervallen_reden",
+                          "laatste_stap",
+                          "lotnummer",
+                          "voorstel"
+                        ],
+                        "properties": {
+                          "batchnummer": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "gepland": {
+                            "type": "boolean",
+                            "description": "false = door een operator aangemaakt, niet gepland"
+                          },
+                          "dag": {
+                            "type": "string",
+                            "format": "date",
+                            "nullable": true,
+                            "example": "2026-11-20"
+                          },
+                          "volgorde": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "product_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "product": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "opmerking": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "vervallen_reden": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "laatste_stap": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "lotnummer": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "voorstel": {
+                            "type": "integer",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/batches": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Plant een aantal batches op een dag. Het systeem geeft de volgende vrije batchnummers.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dag",
+                  "aantal"
+                ],
+                "properties": {
+                  "dag": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-11-20"
+                  },
+                  "aantal": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "productId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  },
+                  "opmerking": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "batchnummers"
+                  ],
+                  "properties": {
+                    "batchnummers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/batches/{batchnummer}": {
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Dag, product of opmerking van een geplande batch wijzigen. Na de start ligt alles behalve de opmerking vast.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dag": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-11-20"
+                  },
+                  "productId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  },
+                  "opmerking": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^B-[0-9]{4}-[0-9]{4}$"
+            },
+            "example": "B-2026-0161",
+            "in": "path",
+            "name": "batchnummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "batchnummer",
+                    "status",
+                    "gepland",
+                    "dag",
+                    "volgorde",
+                    "product_id",
+                    "product",
+                    "opmerking",
+                    "vervallen_reden",
+                    "laatste_stap",
+                    "lotnummer",
+                    "voorstel"
+                  ],
+                  "properties": {
+                    "batchnummer": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "gepland": {
+                      "type": "boolean",
+                      "description": "false = door een operator aangemaakt, niet gepland"
+                    },
+                    "dag": {
+                      "type": "string",
+                      "format": "date",
+                      "nullable": true,
+                      "example": "2026-11-20"
+                    },
+                    "volgorde": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "product_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "product": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "opmerking": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vervallen_reden": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "laatste_stap": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "lotnummer": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "voorstel": {
+                      "type": "integer",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/batches/{batchnummer}/volgorde": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Een geplande batch één plaats eerder of later op zijn dag zetten.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "richting"
+                ],
+                "properties": {
+                  "richting": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "eerder"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "later"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^B-[0-9]{4}-[0-9]{4}$"
+            },
+            "example": "B-2026-0161",
+            "in": "path",
+            "name": "batchnummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/planning/batches/{batchnummer}/vervallen": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Een geplande batch die nog niet gestart is laten vervallen (hij blijft bewaard).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reden"
+                ],
+                "properties": {
+                  "reden": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^B-[0-9]{4}-[0-9]{4}$"
+            },
+            "example": "B-2026-0161",
+            "in": "path",
+            "name": "batchnummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/planning/stappen": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Per actieve stap de items die op deze dag gepland zijn, met hun stand.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20",
+            "in": "query",
+            "name": "dag",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "naam",
+                      "niveau",
+                      "is_lot_stap",
+                      "items"
+                    ],
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
+                      },
+                      "niveau": {
+                        "type": "string"
+                      },
+                      "is_lot_stap": {
+                        "type": "boolean"
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "soort",
+                            "nummer",
+                            "volgorde",
+                            "opmerking",
+                            "status",
+                            "batches"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "soort": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "batch"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "lot"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "voorstel"
+                                  ]
+                                }
+                              ]
+                            },
+                            "nummer": {
+                              "type": "string",
+                              "description": "Batch- of lotnummer, of het nummer van het lotvoorstel"
+                            },
+                            "volgorde": {
+                              "type": "integer"
+                            },
+                            "opmerking": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "status": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "gepland"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "bezig"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "gedaan"
+                                  ]
+                                }
+                              ]
+                            },
+                            "batches": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Bij een lotvoorstel: de 4 batches"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Zet de planning van één stap op één dag: de items in deze volgorde (vervangt wat er stond).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dag",
+                  "stap",
+                  "items"
+                ],
+                "properties": {
+                  "dag": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-11-20"
+                  },
+                  "stap": {
+                    "type": "string",
+                    "pattern": "^PS[0-9]+$",
+                    "example": "PS3"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "nummer"
+                      ],
+                      "properties": {
+                        "nummer": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "opmerking": {
+                          "type": "string",
+                          "maxLength": 300,
+                          "nullable": true
+                        }
+                      }
+                    },
+                    "maxItems": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "soort",
+                      "nummer",
+                      "volgorde",
+                      "opmerking",
+                      "status",
+                      "batches"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "soort": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "batch"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "lot"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "voorstel"
+                            ]
+                          }
+                        ]
+                      },
+                      "nummer": {
+                        "type": "string",
+                        "description": "Batch- of lotnummer, of het nummer van het lotvoorstel"
+                      },
+                      "volgorde": {
+                        "type": "integer"
+                      },
+                      "opmerking": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "status": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "gepland"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "bezig"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "gedaan"
+                            ]
+                          }
+                        ]
+                      },
+                      "batches": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Bij een lotvoorstel: de 4 batches"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/vandaag": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Voor het invoerscherm: wat er vandaag in deze stap gepland is, in volgorde.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PS[0-9]+$"
+            },
+            "example": "PS3",
+            "in": "query",
+            "name": "stap",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "soort",
+                      "nummer",
+                      "volgorde",
+                      "opmerking",
+                      "status",
+                      "batches"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "soort": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "batch"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "lot"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "voorstel"
+                            ]
+                          }
+                        ]
+                      },
+                      "nummer": {
+                        "type": "string",
+                        "description": "Batch- of lotnummer, of het nummer van het lotvoorstel"
+                      },
+                      "volgorde": {
+                        "type": "integer"
+                      },
+                      "opmerking": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "status": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "gepland"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "bezig"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "gedaan"
+                            ]
+                          }
+                        ]
+                      },
+                      "batches": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Bij een lotvoorstel: de 4 batches"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/kandidaten": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Wat je in deze stap kunt plannen. 'klaar' = staat nu in de werkvoorraad van de stap.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PS[0-9]+$"
+            },
+            "example": "PS3",
+            "in": "query",
+            "name": "stap",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "soort",
+                      "nummer",
+                      "klaar",
+                      "toelichting"
+                    ],
+                    "properties": {
+                      "soort": {
+                        "type": "string"
+                      },
+                      "nummer": {
+                        "type": "string"
+                      },
+                      "klaar": {
+                        "type": "boolean"
+                      },
+                      "toelichting": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/lotvoorstellen": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "alle",
+            "required": false,
+            "description": "ook gebruikte, afgeweken en vervallen (laatste 50)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "nummer",
+                      "status",
+                      "opmerking",
+                      "aangemaakt_op",
+                      "door",
+                      "lotnummer",
+                      "afwijking_reden",
+                      "batches"
+                    ],
+                    "properties": {
+                      "nummer": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "opmerking": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "aangemaakt_op": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "door": {
+                        "type": "string"
+                      },
+                      "lotnummer": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "afwijking_reden": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "batches": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "batchnummer",
+                            "status",
+                            "klaar_voor_lot",
+                            "laatste_stap"
+                          ],
+                          "properties": {
+                            "batchnummer": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "klaar_voor_lot": {
+                              "type": "boolean"
+                            },
+                            "laatste_stap": {
+                              "type": "string",
+                              "nullable": true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "batchnummers"
+                ],
+                "properties": {
+                  "batchnummers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^B-[0-9]{4}-[0-9]{4}$",
+                      "example": "B-2026-0161"
+                    },
+                    "minItems": 4,
+                    "maxItems": 4
+                  },
+                  "opmerking": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "nummer",
+                    "status",
+                    "opmerking",
+                    "aangemaakt_op",
+                    "door",
+                    "lotnummer",
+                    "afwijking_reden",
+                    "batches"
+                  ],
+                  "properties": {
+                    "nummer": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "opmerking": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "aangemaakt_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "door": {
+                      "type": "string"
+                    },
+                    "lotnummer": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "afwijking_reden": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "batches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "batchnummer",
+                          "status",
+                          "klaar_voor_lot",
+                          "laatste_stap"
+                        ],
+                        "properties": {
+                          "batchnummer": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "klaar_voor_lot": {
+                            "type": "boolean"
+                          },
+                          "laatste_stap": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/lotkandidaten": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Batches die je in een lotvoorstel kunt zetten: nog geen lot, niet afgekeurd of vervallen. 'voorstel' = staat al in dit open voorstel.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "batchnummer",
+                      "status",
+                      "product",
+                      "dag",
+                      "laatste_stap",
+                      "klaar_voor_lot",
+                      "voorstel"
+                    ],
+                    "properties": {
+                      "batchnummer": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "product": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "dag": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2026-11-20"
+                      },
+                      "laatste_stap": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "klaar_voor_lot": {
+                        "type": "boolean"
+                      },
+                      "voorstel": {
+                        "type": "integer",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/lotvoorstellen/{nummer}": {
+      "put": {
+        "tags": [
+          "planning"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "batchnummers"
+                ],
+                "properties": {
+                  "batchnummers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^B-[0-9]{4}-[0-9]{4}$",
+                      "example": "B-2026-0161"
+                    },
+                    "minItems": 4,
+                    "maxItems": 4
+                  },
+                  "opmerking": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "path",
+            "name": "nummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "nummer",
+                    "status",
+                    "opmerking",
+                    "aangemaakt_op",
+                    "door",
+                    "lotnummer",
+                    "afwijking_reden",
+                    "batches"
+                  ],
+                  "properties": {
+                    "nummer": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "opmerking": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "aangemaakt_op": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "door": {
+                      "type": "string"
+                    },
+                    "lotnummer": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "afwijking_reden": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "batches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "batchnummer",
+                          "status",
+                          "klaar_voor_lot",
+                          "laatste_stap"
+                        ],
+                        "properties": {
+                          "batchnummer": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "klaar_voor_lot": {
+                            "type": "boolean"
+                          },
+                          "laatste_stap": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/lotvoorstellen/{nummer}/vervallen": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "path",
+            "name": "nummer",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           }
         }
       }

@@ -12,6 +12,11 @@ Ingebouwde patronen (zodat de analyses iets te vinden hebben):
   * Operator F weegt in een periode van twee weken in PS9 structureel te zwaar.
   * Een "natte week": vochtgehalte S18.3 te hoog, lots gaan terug naar PS17.
   * Ongeveer 2% van de batches gaat in beoordeling; ongeveer een derde daarvan wordt afgekeurd.
+
+Planning (sinds 0.9.0): bijna alle batches zijn door planner1 gepland, met een product;
+ongeveer 5% is als uitzondering door een operator aangemaakt. Elk lot heeft een
+lotvoorstel; af en toe wijkt de operator af (met reden). Voor de komende werkdagen
+staan batches gepland, en voor vandaag een dagplanning per stap.
 """
 import argparse
 import datetime as dt
@@ -46,6 +51,8 @@ pcs = [r[0] for r in con.execute("SELECT id FROM pc ORDER BY naam")]
 operators = {naam: oid for oid, naam in con.execute("SELECT id, naam FROM operator ORDER BY naam")}
 opnamen = sorted(operators)
 gebruiker = {n: i for i, n in con.execute("SELECT id, gebruikersnaam FROM gebruiker")}
+producten = [r[0] for r in con.execute("SELECT id FROM product WHERE actief ORDER BY code")]
+planner = gebruiker["planner1"]
 batchstappen = [s for s in stappen if s[2] == "batch"]
 lotstappen = [s for s in stappen if s[2] == "lot"]
 
@@ -60,6 +67,7 @@ tijd_waarde: list = []   # (registratie-id, tijd)
 tijd_batch: dict = {}
 tijd_lot: dict = {}
 tijd_besluit: list = []  # (besluit-id, tijd)
+tijd_voorstel: list = []  # (voorstel-id, gemaakt, afgesloten)
 teller = {"batch": {}, "lot": {}}
 stats = {"batches": 0, "lots": 0, "herbewerkingen": 0, "beoordeling": 0, "afgekeurd": 0}
 
@@ -133,7 +141,13 @@ while dag < eind:
             break
         nummer = volgnummer("batch", start.year)
         operator = rnd.choice(opnamen)
-        bid = con.execute("INSERT INTO batch (batchnummer, aangemaakt_door) VALUES (%s,%s) RETURNING id", (nummer, operators[operator])).fetchone()[0]
+        if rnd.random() < 0.05:  # uitzondering: ongeplande batch, door de operator aangemaakt
+            bid = con.execute("INSERT INTO batch (batchnummer, aangemaakt_door) VALUES (%s,%s) RETURNING id", (nummer, operators[operator])).fetchone()[0]
+        else:
+            bid = con.execute(
+                """INSERT INTO batch (batchnummer, bron, status, geplande_dag, volgorde, product_id, gepland_door)
+                   VALUES (%s, 'planner', 'gepland', %s, %s, %s, %s) RETURNING id""",
+                (nummer, start.date(), i + 1, rnd.choice(producten) if producten else None, planner)).fetchone()[0]
         tijd_batch[bid] = start
         stats["batches"] += 1
         # Batches van de laatste dag zijn nog onderweg.
@@ -142,6 +156,9 @@ while dag < eind:
         afgekeurd = False
         beoordeel_bij = rnd.randint(2, 14) if rnd.random() < 0.02 and tot == len(batchstappen) else None
         for n, (code, *_rest) in enumerate(batchstappen[:tot], start=1):
+            if moment >= eind - dt.timedelta(hours=1):  # niets na het eind van de gesimuleerde periode
+                tot = n - 1
+                break
             operator = rnd.choice(opnamen)
             _, moment = doe_stap(code, moment, operator, batch_id=bid)
             if beoordeel_bij == n:
@@ -173,7 +190,14 @@ while dag < eind:
             break
         operator = rnd.choice(opnamen)
         lotnr = volgnummer("lot", moment.year)
-        lot = con.execute("SELECT maak_lot(%s, %s, %s, %s)", (lotnr, [b for b, _ in groep], pcs[15], operators[operator])).fetchone()[0]
+        # De planner stelde het lot voor; soms wijkt de operator af (met reden).
+        afwijken = rnd.random() < 0.08 and wachtrij_lot
+        voorstel = [b for b, _ in groep[:3]] + [wachtrij_lot[0][0] if afwijken else groep[3][0]]
+        vid = con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (voorstel, planner)).fetchone()[0]
+        reden = rnd.choice(["batch nog niet klaar", "batch eerst nagekeken", "volgorde in de droger anders"]) if afwijken else None
+        lot = con.execute("SELECT maak_lot(%s, %s, %s, %s, NULL, NULL, %s)",
+                          (lotnr, [b for b, _ in groep], pcs[15], operators[operator], reden)).fetchone()[0]
+        tijd_voorstel.append((vid, moment - dt.timedelta(hours=rnd.uniform(4, 30)), moment))
         tijd_lot[lot] = moment
         stats["lots"] += 1
         ps16 = con.execute("SELECT r.id FROM stapregistratie r WHERE r.lot_id = %s", (lot,)).fetchone()[0]
@@ -187,12 +211,14 @@ while dag < eind:
         tijd_reg[ps16] = (moment, moment + duur)
         moment += duur + dt.timedelta(minutes=rnd.randint(10, 60))
         nat = natte_week[0] <= moment < natte_week[1]
+        if moment >= eind - dt.timedelta(hours=2):
+            continue  # lot staat klaar voor PS17
         _, moment = doe_stap("PS17", moment, rnd.choice(opnamen), lot_id=lot)
         _, moment = doe_stap("PS18", moment, rnd.choice(opnamen), lot_id=lot, nat=nat)
         vocht = con.execute(
             """SELECT w.gemeten FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id JOIN stapregistratie r ON r.id = w.stapregistratie_id
                 WHERE r.lot_id = %s AND v.code = 'S18.3' ORDER BY w.ingevoerd_op DESC LIMIT 1""", (lot,)).fetchone()
-        if vocht and vocht[0] > 4.0:
+        if vocht and vocht[0] > 4.0 and moment < eind - dt.timedelta(hours=2):
             stats["herbewerkingen"] += 1
             moment += dt.timedelta(hours=rnd.uniform(1, 6))
             _, moment = doe_stap("PS17", moment, rnd.choice(opnamen), lot_id=lot, herbewerking="te nat na verpakken")
@@ -210,14 +236,21 @@ with con.transaction():
         c.executemany("UPDATE batch SET aangemaakt_op = %s WHERE id = %s", [(t, b) for b, t in tijd_batch.items()])
         c.executemany("UPDATE lot SET aangemaakt_op = %s WHERE id = %s", [(t, l) for l, t in tijd_lot.items()])
         c.executemany("UPDATE batch_besluit SET besloten_op = %s WHERE id = %s", [(t, b) for b, t in tijd_besluit])
+        c.executemany("UPDATE lot_voorstel SET aangemaakt_op = %s, afgesloten_op = %s WHERE id = %s", [(g, a, v) for v, g, a in tijd_voorstel])
+    # Gestart = begin van de eerste stap.
+    con.execute("""UPDATE batch b SET gestart_op = r.t
+                     FROM (SELECT batch_id, min(gestart_op) AS t FROM stapregistratie WHERE batch_id IS NOT NULL GROUP BY batch_id) r
+                    WHERE r.batch_id = b.id""")
     # Afgebroken stappen (NOK tijdens een open stap) krijgen de tijd van het besluit.
     con.execute("""UPDATE stapregistratie r SET afgerond_op = d.besloten_op
                      FROM batch_besluit d WHERE d.batch_id = r.batch_id AND d.besluit = 'afgekeurd' AND r.status = 'afgebroken'""")
 
 # Twee lopende batches wachten op een keurresultaat (voor "Te beoordelen").
 for (bid,) in con.execute("SELECT id FROM batch WHERE status = 'in_productie' ORDER BY aangemaakt_op LIMIT 2").fetchall():
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling',%s,%s)",
-                (bid, rnd.choice(["kleur wijkt af", "afwijkende geur"]), gebruiker["ploegleider1"]))
+    besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "afwijkende geur"]), "ploegleider1", eind - dt.timedelta(hours=1))
+    with con.transaction():
+        con.execute("SET LOCAL session_replication_role = replica")
+        con.execute("UPDATE batch_besluit SET besloten_op = %s WHERE id = %s", tijd_besluit[-1][::-1])
     stats["beoordeling"] += 1
 
 # Enkele correcties door ploegleiders (tikfouten en verkeerd afgelezen waarden).
@@ -235,6 +268,48 @@ for wid, setting, gemeten, op, naam in rnd.sample(kandidaten, min(6, len(kandida
         moment = min(op + dt.timedelta(hours=rnd.uniform(1, 8)), eind.astimezone())  # nooit in de toekomst
         con.execute("UPDATE waarde SET ingevoerd_op = %s WHERE id = %s", (moment, nid))
     stats["correcties"] = stats.get("correcties", 0) + 1
+
+# ---------- Planning vooruit ----------
+# Planner1 plant de komende 5 werkdagen, maakt lotvoorstellen voor wat klaarstaat
+# en zet voor vandaag per stap de volgorde.
+vandaag = dt.date.today()
+plan_dag, gepland_vooruit = vandaag, 0
+for _ in range(5):
+    plan_dag += dt.timedelta(days=1)
+    while plan_dag.weekday() >= 5:
+        plan_dag += dt.timedelta(days=1)
+    gepland_vooruit += len(con.execute("SELECT plan_batches(%s, %s, %s, NULL, %s)",
+                                       (args.per_dag, plan_dag, rnd.choice(producten) if producten else None, planner)).fetchall())
+open_batches = [r[0] for r in con.execute(
+    """SELECT b.id FROM batch b WHERE b.status IN ('in_productie', 'gepland')
+        ORDER BY (SELECT count(*) FROM stapregistratie r WHERE r.batch_id = b.id AND r.status = 'afgerond') DESC, b.batchnummer""")]
+n_voorstellen = 0
+for k in range(0, min(len(open_batches), 12) - 3, 4):
+    con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (open_batches[k:k + 4], planner))
+    n_voorstellen += 1
+# Dagplanning voor vandaag: elke lopende batch in zijn volgende stap.
+volgende = con.execute(
+    """SELECT b.id, (SELECT s.id FROM processtap s WHERE s.actief AND s.niveau = 'batch'
+                       AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond')
+                     ORDER BY s.volgorde LIMIT 1) AS stap
+         FROM batch b WHERE b.status IN ('in_productie', 'gepland') AND (b.geplande_dag IS NULL OR b.geplande_dag <= %s)
+        ORDER BY b.batchnummer""", (vandaag,)).fetchall()
+plek: dict = {}
+for bid, stap in volgende:
+    if stap is None:
+        continue
+    plek[stap] = plek.get(stap, 0) + 1
+    con.execute("INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door) VALUES (%s,%s,%s,%s,%s)",
+                (vandaag, stap, bid, plek[stap], planner))
+# Planning is gemaakt vóór de laatste invoer, niet "nu", en de configuratie vóór de eerste batch.
+# Zo is de laatste invoer het laatste tijdstip, en schuift het laptoppakket alles goed naar vandaag.
+with con.transaction():
+    con.execute("SET LOCAL session_replication_role = replica")
+    con.execute("UPDATE config_log SET gewijzigd_op = %s WHERE gewijzigd_op > %s", (begin - dt.timedelta(days=1), begin))
+    con.execute("UPDATE batch SET aangemaakt_op = %s WHERE aangemaakt_op > %s", (eind - dt.timedelta(hours=3), eind))
+    con.execute("UPDATE lot_voorstel SET aangemaakt_op = %s WHERE aangemaakt_op > %s", (eind - dt.timedelta(hours=3), eind))
+    con.execute("UPDATE stapplanning SET aangemaakt_op = %s", (eind - dt.timedelta(hours=3),))
+print(f"Planning: {gepland_vooruit} batches gepland voor de komende werkdagen, {n_voorstellen} open lotvoorstellen.")
 
 n_waarden = con.execute("SELECT count(*) FROM waarde").fetchone()[0]
 n_afw = con.execute("SELECT count(*) FROM waarde_actueel WHERE markering <> 'ok'").fetchone()[0]

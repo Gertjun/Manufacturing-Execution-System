@@ -3,6 +3,9 @@
 --   B-2026-0001 t/m 0004: PS1-PS15 afgerond (klaar voor een lot)
 --   B-2026-0005: tot en met PS6, PS7 staat open
 --   B-2026-0006: aangemaakt, nog niet gestart
+--   B-2026-0007 en 0008: door planner1 gepland voor vandaag (product PRD-A)
+--   Lotvoorstel 1: B-2026-0001, 0002, 0003 en 0005 (0005 is nog niet klaar)
+--   Dagplanning van vandaag voor PS1: eerst B-2026-0008, dan B-2026-0007
 DO $$
 DECLARE
     v_pc   uuid := (SELECT id FROM fabriek.pc WHERE naam = 'PC-05');
@@ -38,4 +41,19 @@ BEGIN
             PERFORM rond_stap_af(v_reg);
         END LOOP;
     END LOOP;
+END $$;
+
+-- Planning (sinds 0.9.0).
+DO $$
+DECLARE
+    v_planner uuid := (SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam = 'planner1');
+BEGIN
+    SET LOCAL search_path = fabriek, public;
+    PERFORM plan_batches(2, current_date, (SELECT id FROM product WHERE code = 'PRD-A'), NULL, v_planner);
+    PERFORM bewaar_lot_voorstel(NULL,
+        ARRAY(SELECT id FROM batch WHERE batchnummer IN ('B-2026-0001','B-2026-0002','B-2026-0003','B-2026-0005')), NULL, v_planner);
+    INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, opmerking, aangemaakt_door)
+    SELECT current_date, (SELECT id FROM processtap WHERE code = 'PS1'), b.id, v.n, v.opm, v_planner
+      FROM (VALUES ('B-2026-0008', 1, 'Spoed: eerst deze'), ('B-2026-0007', 2, NULL)) v(nr, n, opm)
+      JOIN batch b ON b.batchnummer = v.nr;
 END $$;

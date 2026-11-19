@@ -93,7 +93,7 @@ export async function nieuweBatch(batchnummer: string, eersteStap: string) {
 }
 
 /** Lot-stap: 4 batches samenvoegen. Opent de registratie van de lot-stap. */
-export async function maakLot(lotnummer: string, batchnummers: string[]) {
+export async function maakLot(lotnummer: string, batchnummers: string[], afwijkingReden?: string) {
   const lotStap = (await stappen()).find((s) => s.is_lot_stap)!;
   const registratieId = nieuwId();
   const reg = lokaal(lotStap, registratieId, { lotnummer }, { poging: 1 });
@@ -103,7 +103,7 @@ export async function maakLot(lotnummer: string, batchnummers: string[]) {
     omschrijving: `Lot ${lotnummer} samenstellen (${batchnummers.join(", ")})`,
     methode: "POST",
     pad: "/lots",
-    body: { id: nieuwId(), registratieId, lotnummer, batchnummers },
+    body: { id: nieuwId(), registratieId, lotnummer, batchnummers, ...(afwijkingReden ? { afwijkingReden } : {}) },
     registratieId,
   });
   return reg;

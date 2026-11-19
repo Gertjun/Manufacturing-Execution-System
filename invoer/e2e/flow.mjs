@@ -60,8 +60,26 @@ try {
   check("Stappenoverzicht toont 18 stappen", (await page.locator(".tegel").count()) === 18);
   check("PS7 staat als bezig", (await page.locator(".tegel.bezig").count()) === 1);
 
-  console.log("\nNieuwe batch in PS1 met een afwijking");
+  console.log("\nPlanning in PS1");
   await page.locator(".tegel", { hasText: "Process Step 1" }).first().click();
+  await page.getByRole("heading", { name: "Gepland voor vandaag" }).waitFor();
+  const plan = await page.locator(".plan .planlijst li").allInnerTexts();
+  check("Planning van vandaag in volgorde, met opmerking", plan.length === 2 && plan[0].includes("B-2026-0008") && plan[0].includes("Spoed"), plan.join(" | "));
+  const klaar = await page.locator("ul.lijst .rij-hoofd").allInnerTexts();
+  check("Geplande batches staan klaar, in de volgorde van de planning", klaar[0]?.startsWith("B-2026-0008") && klaar[1]?.startsWith("B-2026-0007"), klaar.join(" | "));
+  check("Ongeplande batch zit achter een uitklapper", !(await page.getByLabel("Nieuwe batch").isVisible()));
+  await shot("04b-ps1-planning");
+  await page.locator(".rij", { hasText: "B-2026-0008" }).getByRole("button", { name: "Start" }).click();
+  await page.getByRole("heading", { name: "B-2026-0008" }).waitFor();
+  await page.waitForTimeout(1200);
+  const [gestart] = await q("SELECT status, gestart_op IS NOT NULL AS g FROM fabriek.batch WHERE batchnummer = 'B-2026-0008'");
+  check("Geplande batch gestart: in productie", gestart.status === "in_productie" && gestart.g);
+  await page.goto(`${BASIS}/invoer/#/stap/PS1`);
+  await page.locator(".plan-bezig", { hasText: "B-2026-0008" }).waitFor();
+  check("Planning toont de batch als bezig", true);
+
+  console.log("\nNieuwe batch in PS1 met een afwijking");
+  await page.getByText("Ongeplande batch aanmaken").click();
   await page.getByLabel("Nieuwe batch").fill("b-2026-0100");
   await page.getByRole("button", { name: "Aanmaken en starten" }).click();
   await page.getByRole("heading", { name: "B-2026-0100" }).waitFor();
@@ -90,15 +108,23 @@ try {
   console.log("\nLot samenstellen in PS16");
   await page.goto(`${BASIS}/invoer/#/stap/PS16`);
   await page.getByRole("heading", { name: "Batches klaar voor een lot" }).waitFor();
+  check("Lotvoorstel zichtbaar, nog niet te kiezen (B-2026-0005 niet klaar)",
+    (await page.locator(".plan .rij", { hasText: "Lotvoorstel 1" }).locator(".label-wacht", { hasText: "Nog niet klaar" }).count()) === 1);
   for (const n of ["B-2026-0001", "B-2026-0002", "B-2026-0003", "B-2026-0004"]) await page.locator("label.rij", { hasText: n }).click();
   await page.getByLabel("Lotnummer").fill("L-2026-0001");
   await shot("07-lot-samenstellen");
   await page.getByRole("button", { name: "Lot samenstellen" }).click();
+  await page.getByRole("dialog").getByRole("heading", { name: "Afwijken van lotvoorstel 1?" }).waitFor();
+  check("Afwijken van het voorstel vraagt een reden", true);
+  await page.getByRole("dialog").getByLabel("Reden").fill("B-2026-0005 nog niet klaar");
+  await page.getByRole("dialog").getByRole("button", { name: "Verder" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Samenstellen" }).click();
   await page.getByRole("heading", { name: "L-2026-0001" }).waitFor();
   await page.waitForTimeout(1200);
   const [lot] = await q("SELECT count(*) AS n FROM fabriek.batch b JOIN fabriek.lot l ON l.id = b.lot_id WHERE l.lotnummer = 'L-2026-0001'");
   check("Lot met 4 batches in de database", Number(lot.n) === 4);
+  const [vs] = await q("SELECT status, afwijking_reden FROM fabriek.lot_voorstel WHERE nummer = 1");
+  check("Lotvoorstel staat als afgeweken, met de reden", vs.status === "afgeweken" && vs.afwijking_reden === "B-2026-0005 nog niet klaar", JSON.stringify(vs));
 
   console.log("\nOffline invoer");
   await page.goto(`${BASIS}/invoer/#/stap/PS2`);
@@ -138,6 +164,7 @@ try {
 
   console.log("\nGeweigerde invoer");
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
+  await page.getByText("Ongeplande batch aanmaken").click();
   await page.getByLabel("Nieuwe batch").fill("B-2026-0100");
   await page.getByRole("button", { name: "Aanmaken en starten" }).click();
   await page.locator("#melding", { hasText: "bestaat al" }).waitFor();

@@ -12,8 +12,8 @@ Besluit (18-11-2026): één platform met één login. Elke afdeling krijgt een e
 | Invoerscherm (`/invoer/`) | Operators, ploegleiders op de vloer | v1 gereed, werkt offline |
 | Portaal Productie (`/portaal/`) | Ploegleiders, productieleiding | v1 gereed |
 | Portaal Kwaliteit (`/portaal/`) | Kwaliteit (QC) | v1 gereed |
-| Portaal Planning | Planners | Later |
-| Portaal Beheer | Beheerder | Fase 4 (API bestaat al) |
+| Portaal Planning (`/portaal/`) | Planners (ploegleiders kijken mee) | v1 gereed (0.9.0) |
+| Portaal Beheer (`/portaal/`) | Beheerder | v1 gereed |
 
 De analyses komen niet in een losse app maar in de portalen, met één gedeelde verzameling analyses waaruit je kiest. Nieuwe afdelingen krijgen een eigen portaal en zo nodig een eigen rol.
 
@@ -30,6 +30,7 @@ De analyses komen niet in een losse app maar in de portalen, met één gedeelde 
 | `portaal/` | Portalen-app; `portaal/dist` is de gebouwde versie |
 | `portaal/e2e/portaal.mjs` | Test in Chrome van het Portaal Kwaliteit |
 | `portaal/e2e/productie.mjs` | Test in Chrome van het Portaal Productie |
+| `portaal/e2e/planning.mjs` | Test in Chrome van het Portaal Planning (zet zelf een verse database klaar) |
 | `tests/test_regels.py` | 44 controles op de regels; leegt en vult de database opnieuw |
 | `api/` | API (Fastify, TypeScript) met inloggen, invoer, lots, beheer en analyse |
 | `api/openapi.json` | Volledige API-beschrijving (OpenAPI 3), ook bruikbaar voor een latere .NET-client |
@@ -81,7 +82,7 @@ npm start
 ```
 
 Daarna staat de interactieve documentatie op `http://<server>:3000/docs`.
-Testaccounts (wachtwoord `demo`): `operator`, `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`.
+Testaccounts (wachtwoord `demo`): `operator`, `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`.
 
 ### Inloggen
 
@@ -171,7 +172,9 @@ python3 tools/genereer_testdata.py "host=localhost user=postgres dbname=batchgui
 Maakt ongeveer 540 batches en 130 lots, via dezelfde databaseregels als echte invoer. Ingebouwd:
 S5.1 loopt de laatste 30 dagen langzaam op, operator F weegt in PS9 twee weken te zwaar, een natte week
 geeft herbewerkingen in PS17, en enkele batches worden afgekeurd. Twee batches wachten op een keurresultaat,
-een paar stappen staan nog open en ploegleiders hebben zes waarden gecorrigeerd.
+een paar stappen staan nog open en ploegleiders hebben zes waarden gecorrigeerd. Planning: bijna alle batches
+zijn door `planner1` gepland (ca. 5% ongepland), elk lot had een lotvoorstel (soms afgeweken met reden), en er
+staat planning klaar voor vandaag en de komende werkdagen.
 
 ### Bouwen en testen
 
@@ -182,6 +185,7 @@ npm run build
 node e2e/portaal.mjs          # test Kwaliteit in Chrome (database met verse testdata)
 node e2e/productie.mjs        # test Productie in Chrome (database met verse testdata)
 node e2e/beheer.mjs           # test Beheer in Chrome (database met verse configuratie)
+node e2e/planning.mjs         # test Planning in Chrome (zet zelf een verse database klaar)
 ```
 
 ## Proof of concept op een laptop
@@ -217,6 +221,19 @@ node ../portaal/e2e/demo.mjs            # test (demo/dist via een statische serv
 ## Versies
 
 Eén versienummer voor het hele platform, in `VERSIE`; zetten met `tools/zet_versie.sh 0.6.0`. Zie `CHANGELOG.md`. Elke versie krijgt een Git-tag (`v0.5.0`).
+
+## Portaal Planning
+
+Ook op `/portaal/` (testaccount `planner1`, wachtwoord `demo`; een planner start hier). Ploegleiders kunnen meekijken. Zie D29.
+
+| Onderdeel | Wat je kunt doen |
+| --- | --- |
+| Per week | Batches plannen per dag (aantal, product, opmerking); het systeem geeft de batchnummers. Volgorde aanpassen, naar een andere dag, of laten vervallen met reden. Ongeplande batches staan erbij als "niet gepland" |
+| Per stap | Per dag en per stap welke batches of lots er gedaan moeten worden, in volgorde, met een opmerking. Stand: nog doen, bezig, gedaan |
+| Lotvoorstellen | Voorstellen welke 4 batches samen een lot worden. Afwijken mag in het invoerscherm, met een reden |
+| Producten | Producten of recepten toevoegen, hernoemen of uitzetten |
+
+In het invoerscherm staat bovenaan elke stap "Gepland voor vandaag". In de eerste stap start de operator een geplande batch; een ongeplande batch aanmaken zit achter "Ongeplande batch aanmaken (uitzondering)".
 
 ## Portaal Beheer
 

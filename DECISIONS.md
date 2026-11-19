@@ -100,3 +100,13 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D28 – Eerste beheerder en noodsleutel (19 nov 2026, 0.8.0)
 - **Besluit:** zonder actieve beheerder vraagt de applicatie bij de start (laptop) of `tools/beheerder.mjs` (server) om de eerste beheerder. Dezelfde tool is de noodsleutel bij een vergeten wachtwoord: alleen te gebruiken op de computer met de database zelf, en vastgelegd in het logboek (wie: "noodsleutel (op de computer zelf)"). Testaccounts met wachtwoord `demo` staan los in `db/seed_accounts_demo.sql` en komen niet in een lege fabriek of op een echte installatie.
 - **Waarom:** Geert merkte op dat je zonder beheerder niet in Portaal Beheer kunt om een beheerder te maken; en bekende wachtwoorden horen niet in een echte installatie.
+
+### D29 – Planning: wie nummert, wat ligt vast, en afwijken mag (19 nov 2026, 0.9.0)
+- **Besluit:**
+  - De planner plant batches per dag; het systeem geeft het batchnummer uit (volgende vrije nummer van het jaar, `plan_batches`). Een geplande batch heeft status `gepland` en wordt `in_productie` zodra de eerste batchstap start. Daarna liggen dag, volgorde en product vast; de opmerking niet. Een geplande batch die nog niet gestart is, kan vervallen (met reden); het nummer wordt niet hergebruikt.
+  - Een ongeplande batch (door de operator aangemaakt, met een zelf ingevoerd nummer) blijft mogelijk als uitzondering en is voor de planner zichtbaar als "niet gepland".
+  - De planner legt per dag en per stap vast wat er gedaan moet worden (`stapplanning`). Dat is een richtlijn: het invoerscherm toont het en zet het bovenaan, maar weigert niets dat niet gepland is.
+  - Lotsamenstelling: de planner stelt 4 batches voor (`lot_voorstel`). De operator mag afwijken, maar dan is een reden verplicht (databaseregel in `maak_lot`). Een voorstel wordt "gevolgd" of "afgeweken" en blijft bewaard.
+  - Plannen mogen de rollen planner en beheerder; iedereen mag de planning lezen.
+- **Waarom:** antwoorden van Geert: "Systeem nummert door", "Planner stelt voor" en ongeplande batches "Ja, als uitzondering". De fabriek moet kunnen blijven draaien als de planning niet klopt.
+

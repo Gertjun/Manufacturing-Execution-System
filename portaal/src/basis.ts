@@ -87,7 +87,18 @@ export const PORTALEN: Portaal[] = [
       { pad: "correcties", naam: "Correcties" },
     ],
   },
-  { id: "planning", naam: "Planning", rollen: ["planner", "beheerder"], klaar: false, onderdelen: [] },
+  {
+    id: "planning",
+    naam: "Planning",
+    rollen: ["planner", "beheerder", "ploegleider"],
+    klaar: true,
+    onderdelen: [
+      { pad: "week", naam: "Per week" },
+      { pad: "dag", naam: "Per stap" },
+      { pad: "lots", naam: "Lotvoorstellen", teller: async () => (await haal<unknown[]>("/planning/lotvoorstellen")).length },
+      { pad: "producten", naam: "Producten" },
+    ],
+  },
   {
     id: "beheer",
     naam: "Beheer",

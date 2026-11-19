@@ -269,11 +269,20 @@ async function verschuifNaarNu(d) {
     WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'timestamp with time zone'
       AND c.table_name NOT IN ('schema_versie', 'onderhoud_log')`);
   const delen = kolommen.map((k) => `SELECT max("${k.column_name}") AS t FROM "${k.table_name}"`);
-  const { rows } = await d.query(`SELECT now() - max(t) - interval '10 minutes' AS v FROM (${delen.join(" UNION ALL ")}) x`);
-  const v = rows[0].v;
+  const { rows } = await d.query(
+    `SELECT v, ((m + v)::date - m::date) AS dagen FROM (SELECT max(t) AS m, now() - max(t) - interval '10 minutes' AS v FROM (${delen.join(" UNION ALL ")}) x) y`);
+  const { v, dagen } = rows[0];
   if (!v) return;
   for (const k of kolommen) {
     await d.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::interval WHERE "${k.column_name}" IS NOT NULL`, [v]);
+  }
+  // Planningsdagen (datums) schuiven evenveel kalenderdagen mee.
+  const { rows: datums } = await d.query(`
+    SELECT c.table_name, c.column_name FROM information_schema.columns c
+    JOIN information_schema.tables t USING (table_schema, table_name)
+    WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'date'`);
+  for (const k of datums) {
+    await d.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::int WHERE "${k.column_name}" IS NOT NULL`, [dagen]);
   }
 }
 

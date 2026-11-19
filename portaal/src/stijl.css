@@ -216,3 +216,47 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
 .serverstatus-ok { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
 h2:not(:first-child) { margin-top: 28px; }
 .server-tegels .tegel-getal { font-size: 1.6rem; }
+
+/* ---------- Planning ---------- */
+.weekraster { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 20px; }
+.dagkaart { background: var(--vlak); border: 1px solid var(--lijn); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.dagkaart.vandaag { border: 2px solid var(--inkt); }
+.dagkaart.voorbij { background: #f4f6f8; }
+.dagkaart-kop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.dagkaart-kop h2 { margin: 0 !important; font-size: 1rem; }
+.dagkaart-kop h2::first-letter { text-transform: uppercase; }
+.planlijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.planrij { border-left: 4px solid var(--actie); padding: 4px 0 4px 10px; display: grid; gap: 2px; }
+.planrij.ongepland { border-left-color: var(--status-waarschuwing); }
+.planrij.vervallen { border-left-color: var(--lijn); color: var(--inkt-zacht); }
+.planrij.vervallen .sterk { text-decoration: line-through; }
+.planrij-hoofd { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.planrij-info { color: var(--inkt-zacht); font-size: .9rem; }
+.planrij .knoppen-klein { margin-top: 4px; flex-wrap: wrap; }
+.etiket { font-size: .8rem; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: #eef1f4; color: var(--inkt); text-decoration: none; }
+.let-op-blok { border-left: 6px solid var(--status-waarschuwing); }
+.stappenlijst .groei { flex: 1; }
+.teller-licht { font-variant-numeric: tabular-nums; font-weight: 700; }
+.stand { font-weight: 700; white-space: nowrap; }
+.stand-gepland { color: var(--inkt-zacht); }
+.stand-bezig { color: var(--actie); }
+.stand-gedaan { color: var(--ok); }
+.stand-gedaan::before { content: "✓ "; }
+.venster-breed { width: min(640px, 94vw); }
+.keuzelijst { display: grid; gap: 2px; max-height: 50vh; overflow-y: auto; margin-bottom: 8px; border: 1px solid var(--lijn-zacht); border-radius: 8px; padding: 6px; }
+.keuzelijst label { display: flex; gap: 10px; align-items: baseline; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.keuzelijst label:hover { background: #f3f5f7; }
+.keuzelijst input { width: 18px; height: 18px; flex: none; accent-color: var(--actie); }
+.voorstellen { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.voorstellen .blok { margin-top: 0; }
+.voorstel-batches { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.voorstel-batches li { display: flex; gap: 10px; align-items: baseline; }
+.vink { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1.5px solid var(--lijn); border-radius: 4px; font-weight: 700; font-size: .85rem; flex: none; align-self: center; }
+.voorstel-batches li.klaar .vink { background: var(--ok); border-color: var(--ok); color: #fff; }
+a.knop { display: inline-flex; align-items: center; text-decoration: none; }
+.knop-mini { min-height: 28px; padding: 0 9px; font-size: .85rem; }
+.dagkaart-kop .sub { white-space: nowrap; }
+.planrij .knoppen-klein { gap: 6px; }
+.vink { border-radius: 50%; }
+.voorstel-batches li.klaar .vink { border-radius: 50%; }
+.weekraster { align-items: start; }

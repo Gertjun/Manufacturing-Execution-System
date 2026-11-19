@@ -443,7 +443,7 @@ describe("server en onderhoud", () => {
     await beheerDb.query("DELETE FROM fabriek.onderhoud_log");
     const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.equal(r.body.schema.nummer, 2);
+    assert.equal(r.body.schema.nummer, 3);
     assert.equal(r.body.laatsteBackup, null);
     assert.ok(r.body.waarschuwingen.some((w: any) => w.niveau === "fout" && /nooit een back-up/.test(w.tekst)));
   });
@@ -466,5 +466,187 @@ describe("server en onderhoud", () => {
     await assert.rejects(db.query("DELETE FROM fabriek.waarde"), /permission denied/);
     await assert.rejects(db.query("DELETE FROM fabriek.onderhoud_log"), /permission denied/);
     await assert.rejects(db.query("INSERT INTO fabriek.onderhoud_log (soort, gestart_op, gelukt) VALUES ('backup', now(), true)"), /permission denied/);
+  });
+});
+
+describe("Portaal Planning", () => {
+  let planner: string;
+  let op: string;
+  let vandaag: string;
+  let morgen: string;
+  let gepland: string[] = [];
+
+  before(async () => {
+    planner = await login("planner1");
+    op = await kiesNaam(await login("operator", "PC-04"));
+    const { rows } = await beheerDb.query("SELECT current_date::text AS v, (current_date + 1)::text AS m");
+    vandaag = rows[0].v;
+    morgen = rows[0].m;
+  });
+
+  test("alleen planner en beheerder mogen plannen; iedereen mag kijken", async () => {
+    assert.equal((await verzoek("POST", "/planning/batches", op, { dag: vandaag, aantal: 1 })).status, 403);
+    assert.equal((await verzoek("POST", "/planning/batches", await login("kwaliteit1"), { dag: vandaag, aantal: 1 })).status, 403);
+    assert.equal((await verzoek("POST", "/planning/producten", op, { code: "X", naam: "x" })).status, 403);
+    assert.equal((await verzoek("GET", "/planning/vandaag?stap=PS1", op)).status, 200);
+    assert.equal((await verzoek("GET", "/planning/lotvoorstellen", op)).status, 200);
+    const prod = await verzoek("GET", "/planning/producten", op);
+    assert.equal(prod.body.length, 3);
+  });
+
+  test("het systeem nummert door na het hoogste batchnummer van dit jaar", async () => {
+    const prod = await verzoek("GET", "/planning/producten", planner);
+    const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 8, productId: prod.body[0].id, opmerking: "test" });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    gepland = r.body.batchnummers;
+    assert.equal(gepland.length, 8);
+    const jaar = vandaag.slice(0, 4);
+    const { rows } = await beheerDb.query(
+      "SELECT max(batchnummer) AS m FROM fabriek.batch WHERE batchnummer LIKE $1 AND bron = 'operator'",
+      [`B-${jaar}-%`],
+    );
+    const volg = (nr: string) => Number(nr.slice(-4));
+    assert.equal(volg(gepland[0]), volg(rows[0].m) + 1);
+    for (let i = 1; i < 8; i++) assert.equal(volg(gepland[i]), volg(gepland[0]) + i);
+    const week = await verzoek("GET", `/planning/week?van=${vandaag}&dagen=2`, planner);
+    const dag = week.body.dagen[0].batches.filter((b: any) => b.gepland);
+    assert.deepEqual(dag.map((b: any) => b.volgorde), [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(dag[0].product, "PRD-A – Product A standaard");
+  });
+
+  test("volgorde verschuiven ruilt twee batches", async () => {
+    assert.equal((await verzoek("POST", `/planning/batches/${gepland[1]}/volgorde`, planner, { richting: "eerder" })).status, 204);
+    const week = await verzoek("GET", `/planning/week?van=${vandaag}&dagen=1`, planner);
+    const dag = week.body.dagen[0].batches.filter((b: any) => b.gepland);
+    assert.deepEqual(dag.slice(0, 2).map((b: any) => b.batchnummer), [gepland[1], gepland[0]]);
+  });
+
+  test("geplande batch staat klaar voor PS1, niet voor PS2; start zet hem in productie", async () => {
+    const ps1 = await verzoek("GET", "/werkvoorraad/PS1", op);
+    assert.ok(ps1.body.wachtend.some((w: any) => w.nummer === gepland[0]));
+    const ps2 = await verzoek("POST", "/registraties", op, { stapcode: "PS2", batchnummer: gepland[0] });
+    assert.equal(ps2.status, 422);
+    assert.match(ps2.body.fout, /gepland en nog niet gestart.*PS1/);
+    await doorloop(op, gepland[0], "batch", 1, 1);
+    const b = await verzoek("GET", `/batches/${gepland[0]}`, op);
+    assert.equal(b.body.status, "in_productie");
+    // Na de start ligt de dag vast.
+    const wijzig = await verzoek("PATCH", `/planning/batches/${gepland[0]}`, planner, { dag: morgen });
+    assert.equal(wijzig.status, 422);
+    // De opmerking mag wel.
+    assert.equal((await verzoek("PATCH", `/planning/batches/${gepland[0]}`, planner, { opmerking: "loopt" })).status, 200);
+  });
+
+  test("batch voor morgen staat vandaag niet klaar; vervallen kan alleen vóór de start", async () => {
+    const r = await verzoek("POST", "/planning/batches", planner, { dag: morgen, aantal: 1 });
+    const [nr] = r.body.batchnummers;
+    const ps1 = await verzoek("GET", "/werkvoorraad/PS1", op);
+    assert.ok(!ps1.body.wachtend.some((w: any) => w.nummer === nr));
+    assert.equal((await verzoek("POST", `/planning/batches/${nr}/vervallen`, planner, { reden: "order geannuleerd" })).status, 204);
+    const start = await verzoek("POST", "/registraties", op, { stapcode: "PS1", batchnummer: nr });
+    assert.equal(start.status, 422);
+    assert.equal((await verzoek("POST", `/planning/batches/${gepland[0]}/vervallen`, planner, { reden: "te laat" })).status, 422);
+    const week = await verzoek("GET", `/planning/week?van=${morgen}&dagen=1`, planner);
+    const b = week.body.dagen[0].batches.find((x: any) => x.batchnummer === nr);
+    assert.equal(b.status, "vervallen");
+    assert.equal(b.vervallen_reden, "order geannuleerd");
+  });
+
+  test("dagplanning per stap: volgorde, stand en vandaag-lijst", async () => {
+    const zet = await verzoek("PUT", "/planning/stappen", planner, {
+      dag: vandaag,
+      stap: "PS1",
+      items: [{ nummer: gepland[2] }, { nummer: gepland[0], opmerking: "eerst" }],
+    });
+    assert.equal(zet.status, 200, JSON.stringify(zet.body));
+    assert.deepEqual(zet.body.map((i: any) => [i.nummer, i.status]), [[gepland[2], "gepland"], [gepland[0], "gedaan"]]);
+    const v = await verzoek("GET", "/planning/vandaag?stap=PS1", op);
+    assert.deepEqual(v.body.map((i: any) => i.nummer), [gepland[2], gepland[0]]);
+    // Vervangen, niet toevoegen.
+    await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS1", items: [{ nummer: gepland[3] }] });
+    const stappen = await verzoek("GET", `/planning/stappen?dag=${vandaag}`, planner);
+    assert.equal(stappen.body.length, 18);
+    assert.deepEqual(stappen.body[0].items.map((i: any) => i.nummer), [gepland[3]]);
+    // In de lot-stap plan je een lotvoorstel, geen batch.
+    const fout = await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS16", items: [{ nummer: gepland[0] }] });
+    assert.equal(fout.status, 400);
+    const kand = await verzoek("GET", "/planning/kandidaten?stap=PS2", planner);
+    assert.equal(kand.body[0].nummer, gepland[0]);
+    assert.equal(kand.body[0].klaar, true);
+  });
+
+  test("lotvoorstel: gebruikt bij gelijke samenstelling, afwijken alleen met reden", async () => {
+    const [a, b, c, d, e, f, g, h] = gepland;
+    const p1 = await verzoek("POST", "/planning/lotvoorstellen", planner, { batchnummers: [a, b, c, d] });
+    assert.equal(p1.status, 201, JSON.stringify(p1.body));
+    const dubbel = await verzoek("POST", "/planning/lotvoorstellen", planner, { batchnummers: [d, e, f, g] });
+    assert.equal(dubbel.status, 422);
+    const p2 = await verzoek("POST", "/planning/lotvoorstellen", planner, { batchnummers: [e, f, g, h] });
+    assert.equal(p2.status, 201);
+    assert.equal((await verzoek("POST", "/planning/lotvoorstellen", op, { batchnummers: [e, f, g, h] })).status, 403);
+
+    await doorloop(op, a, "batch", 2, 15);
+    for (const nr of [b, c, d, e, f, g, h]) await doorloop(op, nr, "batch", 1, 15);
+    const lijst = await verzoek("GET", "/planning/lotvoorstellen", op);
+    assert.ok(lijst.body.find((v: any) => v.nummer === p1.body.nummer).batches.every((x: any) => x.klaar_voor_lot));
+
+    const zonderReden = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0101", batchnummers: [a, b, c, e] });
+    assert.equal(zonderReden.status, 422);
+    assert.match(zonderReden.body.fout, /wijkt af van lotvoorstel/);
+    const metReden = await verzoek("POST", "/lots", op, {
+      lotnummer: "L-2026-0101",
+      batchnummers: [a, b, c, e],
+      afwijkingReden: "batch d nog in de droger",
+    });
+    assert.equal(metReden.status, 201, JSON.stringify(metReden.body));
+
+    // e zat in voorstel 2, dat nu ook is afgeweken; d, f, g en h gaan samen.
+    const gelijk = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0102", batchnummers: [d, f, g, h] });
+    assert.equal(gelijk.status, 201, JSON.stringify(gelijk.body));
+    const alle = await verzoek("GET", "/planning/lotvoorstellen?alle=true", planner);
+    const v1 = alle.body.find((v: any) => v.nummer === p1.body.nummer);
+    const v2 = alle.body.find((v: any) => v.nummer === p2.body.nummer);
+    assert.equal(v1.status, "afgeweken");
+    assert.equal(v1.afwijking_reden, "batch d nog in de droger");
+    assert.equal(v1.lotnummer, "L-2026-0101");
+    assert.equal(v2.status, "afgeweken");
+  });
+
+  test("lotvoorstel exact gevolgd wordt 'gebruikt'", async () => {
+    const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 4 });
+    const nrs: string[] = r.body.batchnummers;
+    const p = await verzoek("POST", "/planning/lotvoorstellen", planner, { batchnummers: nrs });
+    assert.equal(p.status, 201);
+    const plan = await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS16", items: [{ nummer: String(p.body.nummer) }] });
+    assert.equal(plan.body[0].status, "gepland");
+    for (const nr of nrs) await doorloop(op, nr, "batch", 1, 15);
+    const kand = await verzoek("GET", "/planning/kandidaten?stap=PS16", planner);
+    assert.equal(kand.body.find((k: any) => k.nummer === String(p.body.nummer)).klaar, true);
+    const lot = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0103", batchnummers: [...nrs].reverse() });
+    assert.equal(lot.status, 201, JSON.stringify(lot.body));
+    const alle = await verzoek("GET", "/planning/lotvoorstellen?alle=true", planner);
+    assert.equal(alle.body.find((v: any) => v.nummer === p.body.nummer).status, "gebruikt");
+    const v = await verzoek("GET", "/planning/vandaag?stap=PS16", op);
+    assert.equal(v.body[0].status, "gedaan");
+  });
+
+  test("ongeplande batch blijft mogelijk en is zichtbaar als niet gepland", async () => {
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0900" })).status, 201);
+    await doorloop(op, "B-2026-0900", "batch", 1, 1);
+    const week = await verzoek("GET", `/planning/week?van=${vandaag}&dagen=1`, planner);
+    const b = week.body.dagen[0].batches.find((x: any) => x.batchnummer === "B-2026-0900");
+    assert.equal(b.gepland, false);
+    assert.equal(b.status, "in_productie");
+  });
+});
+
+describe("Portaal Planning: lotkandidaten", () => {
+  test("klaar voor een lot komt eerst; voorstel wordt getoond", async () => {
+    const planner = await login("planner1");
+    const r = await verzoek("GET", "/planning/lotkandidaten", planner);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.ok(r.body.length > 0);
+    const eerste = r.body.findIndex((b: any) => !b.klaar_voor_lot);
+    assert.ok(eerste === -1 || r.body.slice(eerste).every((b: any) => !b.klaar_voor_lot));
   });
 });

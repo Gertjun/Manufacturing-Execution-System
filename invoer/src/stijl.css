@@ -182,3 +182,19 @@ input[aria-invalid="true"] { border-color: var(--grens); }
   .veld-rechts { justify-items: start; }
 }
 @media (prefers-reduced-motion: reduce) { .melding { transition: none; } }
+
+/* Planning van vandaag */
+.plan { background: #fff; border: 2px solid var(--inkt); border-radius: 10px; padding: 14px 18px; margin: 0 0 20px; }
+.plan h2 { margin-top: 0; }
+.planlijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.planlijst li { display: grid; grid-template-columns: 2.2em 1fr auto; gap: 10px; align-items: baseline; font-size: 1.1rem; }
+.plan-nr { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--inkt-zacht); }
+.plan-naam { font-weight: 700; }
+.plan-opmerking { display: block; font-weight: 400; }
+.plan-stand { font-weight: 700; }
+.plan-gedaan .plan-naam, .plan-gedaan .plan-stand { color: var(--inkt-zacht); }
+.plan-gedaan .plan-stand::before { content: "✓ "; }
+.plan-bezig .plan-stand { color: var(--actie); }
+.label-plan { margin-left: 10px; color: var(--actie); font-size: .85rem; vertical-align: 2px; }
+.uitzondering { margin-top: 20px; }
+.uitzondering summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }

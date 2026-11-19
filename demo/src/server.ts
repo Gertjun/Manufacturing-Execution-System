@@ -13,6 +13,7 @@ import lotRoutes from "../../api/src/routes/lots";
 import beheerRoutes from "../../api/src/routes/beheer";
 import analyseRoutes from "../../api/src/routes/analyse";
 import werkvoorraadRoutes from "../../api/src/routes/werkvoorraad";
+import planningRoutes from "../../api/src/routes/planning";
 import { VERSIE } from "../../api/src/versie";
 
 export const DB_NAAM = `batchgui-demo-${VERSIE}`;
@@ -115,12 +116,22 @@ async function verschuifNaarNu(pg: PGlite) {
     SELECT c.table_name, c.column_name FROM information_schema.columns c
     JOIN information_schema.tables t USING (table_schema, table_name)
     WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'timestamp with time zone'`);
-  const delen = kol.map((k) => `SELECT max("${k.column_name}") AS t FROM "${k.table_name}"`);
-  const { rows } = await pg.query<{ v: string }>(
-    `SELECT (now() - max(t) - interval '10 minutes')::text AS v FROM (${delen.join(" UNION ALL ")}) x`,
+  // Het laatste tijdstip van de productie zelf (niet het moment dat de demo is gebouwd).
+  const delen = kol.filter((k) => !["schema_versie", "onderhoud_log"].includes(k.table_name))
+    .map((k) => `SELECT max("${k.column_name}") AS t FROM "${k.table_name}"`);
+  const { rows } = await pg.query<{ v: string; dagen: number }>(
+    `SELECT v::text, ((m + v)::date - m::date) AS dagen FROM (SELECT max(t) AS m, now() - max(t) - interval '10 minutes' AS v FROM (${delen.join(" UNION ALL ")}) x) y`,
   );
   for (const k of kol) {
     await pg.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::interval WHERE "${k.column_name}" IS NOT NULL`, [rows[0].v]);
+  }
+  // Planningsdagen (datums) schuiven evenveel kalenderdagen mee.
+  const { rows: datums } = await pg.query<{ table_name: string; column_name: string }>(`
+    SELECT c.table_name, c.column_name FROM information_schema.columns c
+    JOIN information_schema.tables t USING (table_schema, table_name)
+    WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'date'`);
+  for (const k of datums) {
+    await pg.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::int WHERE "${k.column_name}" IS NOT NULL`, [rows[0].dagen]);
   }
   await pg.exec("COMMIT");
 }
@@ -185,6 +196,7 @@ export async function startServer(pg: PGlite) {
   await app.register(beheerRoutes, { prefix: "/beheer" });
   await app.register(analyseRoutes, { prefix: "/analyse" });
   await app.register(werkvoorraadRoutes, { prefix: "/werkvoorraad" });
+  await app.register(planningRoutes, { prefix: "/planning" });
   app.get("/gezondheid", {}, async () => ({ status: "ok", versie: VERSIE, demo: true }));
   return verwerk;
 }

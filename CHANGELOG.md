@@ -2,6 +2,22 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.9.0 — 19 november 2026
+- Nieuw: Portaal Planning voor de planner (account `planner1` in de testdata).
+  - Per week: batches plannen per dag, met product en opmerking. Het systeem geeft de batchnummers uit (doornummeren per jaar). Volgorde op de dag aanpassen, verschuiven naar een andere dag, of laten vervallen met een reden. Geplande batches die niet op tijd gestart zijn, staan bovenaan.
+  - Per stap: per dag en per stap welke batches of lots er gedaan moeten worden, in volgorde, met een opmerking voor de operator. Je ziet meteen wat gedaan, bezig of nog te doen is.
+  - Lotvoorstellen: de planner stelt voor welke 4 batches samen een lot worden.
+  - Producten: lijst van producten of recepten om bij een batch te kiezen.
+- Nieuw in het invoerscherm:
+  - Bovenaan elke stap "Gepland voor vandaag", in volgorde. Geplande batches staan ook bovenaan bij "Klaar om te starten".
+  - In de eerste stap start de operator een geplande batch met één druk op Start. Een ongeplande batch aanmaken kan nog steeds, als uitzondering; de planner ziet die als "niet gepland".
+  - Bij het samenstellen van een lot staan de lotvoorstellen bovenaan; "Dit voorstel kiezen" vinkt de 4 batches aan. Kies je een andere samenstelling, dan vraagt het scherm om een reden.
+- Verbeterd: de ploegleider kan de planning bekijken (niet wijzigen).
+- Verbeterd: "batches gestart" in de analyses telt vanaf de eerste stap, niet vanaf het plannen.
+- Let op: een ouder invoerscherm dat een lot samenstelt dat afwijkt van een lotvoorstel, krijgt de melding dat er een reden nodig is. Werk die pc bij en stel het lot opnieuw samen.
+- Technisch: database-update 3 (`0003_planning`): producten, planning per batch, lotvoorstellen en dagplanning per stap. Wordt bij de start automatisch uitgevoerd; bestaande gegevens blijven staan.
+- Technisch: de fictieve testdata bevat nu planning (ca. 95% gepland, 5% ongepland, lotvoorstellen met af en toe een afwijking, planning voor de komende werkdagen). De testdata eindigt nu precies op het laatste moment van invoer, zodat het verschuiven naar vandaag klopt.
+
 ## 0.8.0 — 19 november 2026
 - Nieuw: eerste beheerder. Begin je zonder testaccounts (lege fabriek, of een nieuwe server), dan vraagt het zwarte venster om een gebruikersnaam en wachtwoord voor de eerste beheerder.
 - Nieuw: noodsleutel voor een vergeten wachtwoord. `BEHEERDER HERSTELLEN.bat` op de laptop (op de server: `node tools/beheerder.mjs`) geeft een beheerder een nieuw wachtwoord of maakt een nieuwe aan. Dat kan alleen op de computer zelf en komt in het logboek.

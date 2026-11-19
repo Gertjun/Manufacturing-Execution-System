@@ -45,6 +45,7 @@ await inv.getByRole("heading", { name: "Wie ben je?" }).waitFor();
 await inv.getByRole("button", { name: "Operator A" }).click();
 await inv.getByRole("heading", { name: "Kies een stap" }).waitFor();
 await inv.locator(".tegel", { hasText: "Process Step 1" }).first().click();
+await inv.getByText("Ongeplande batch aanmaken").click();
 await inv.getByLabel("Nieuwe batch").fill("b-2026-9001");
 await inv.getByRole("button", { name: "Aanmaken en starten" }).click();
 await inv.getByRole("heading", { name: "B-2026-9001" }).waitFor();
@@ -84,7 +85,30 @@ const srv = await p.evaluate(async () => {
   const l = JSON.parse((await api({ methode: "POST", url: "/auth/login", headers: {}, body: JSON.stringify({ gebruikersnaam: "beheerder1", wachtwoord: "demo" }) })).body);
   return JSON.parse((await api({ methode: "GET", url: "/beheer/server", headers: { authorization: "Bearer " + l.token } })).body);
 });
-check(srv.schema?.nummer === 2 && srv.laatsteBackup && srv.waarschuwingen.length === 0, `serveroverzicht in de demo zonder waarschuwingen (${JSON.stringify(srv.waarschuwingen)})`);
+check(srv.schema?.nummer === 3 && srv.laatsteBackup && srv.waarschuwingen.length === 0, `serveroverzicht in de demo zonder waarschuwingen (${JSON.stringify(srv.waarschuwingen)})`);
+
+// Planning: vandaag gepland en lotvoorstellen open
+const plan = await p.evaluate(async () => {
+  const api = window.demoApi;
+  const l = JSON.parse((await api({ methode: "POST", url: "/auth/login", headers: {}, body: JSON.stringify({ gebruikersnaam: "planner1", wachtwoord: "demo" }) })).body);
+  const h = { authorization: "Bearer " + l.token };
+  const d = new Date();
+  const vandaag = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const stappen = JSON.parse((await api({ methode: "GET", url: `/planning/stappen?dag=${vandaag}`, headers: h })).body);
+  const voorstellen = JSON.parse((await api({ methode: "GET", url: "/planning/lotvoorstellen", headers: h })).body);
+  const week = JSON.parse((await api({ methode: "GET", url: `/planning/week?van=${vandaag}&dagen=7`, headers: h })).body);
+  return { items: stappen.reduce((a, s) => a + s.items.length, 0), voorstellen: voorstellen.length, vooruit: week.dagen.slice(1).reduce((a, x) => a + x.batches.length, 0) };
+});
+check(plan.items > 0 && plan.voorstellen > 0 && plan.vooruit > 0, `planning in de demo: ${JSON.stringify(plan)}`);
+await p.getByRole("button", { name: "Portalen", exact: true }).click();
+await port.getByRole("button", { name: "Afmelden" }).click();
+await port.getByLabel("Gebruikersnaam").fill("planner1");
+await port.getByLabel("Wachtwoord").fill("demo");
+await port.getByRole("button", { name: "Inloggen" }).click();
+await port.getByRole("heading", { name: /^Week van/ }).waitFor({ timeout: 20000 }).catch(async (e) => { await p.screenshot({ path: `${SHOTS}/fout.png` }); throw e; });
+await p.waitForTimeout(800);
+await p.screenshot({ path: `${SHOTS}/04-planning.png` });
+check(true, "Portaal Planning opent voor planner1");
 
 // herladen: gegevens bewaard
 await p.reload();

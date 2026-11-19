@@ -5,6 +5,7 @@ import { ApiFout, portalenVoor, PORTALEN, sessie, stuur } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
+import * as planning from "./planning/schermen";
 
 // ---------- Menu ----------
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
@@ -92,7 +93,7 @@ async function route() {
   }
   const p = toegestaan.find((x) => x.id === portaal);
   // Eerste portaal dat bij de rol hoort (ploegleider: Productie, kwaliteit: Kwaliteit).
-  const standaard = sessie.rol === "ploegleider" ? "productie" : sessie.rol === "beheerder" ? "beheer" : toegestaan.find((x) => x.klaar)?.id ?? toegestaan[0].id;
+  const standaard = sessie.rol === "ploegleider" ? "productie" : sessie.rol === "beheerder" ? "beheer" : sessie.rol === "planner" ? "planning" : toegestaan.find((x) => x.klaar)?.id ?? toegestaan[0].id;
   if (!p) return void (location.hash = `#/${standaard}`);
   if (!p.klaar) { await tekenMenu(p.id, ""); return volgtScherm(p.naam); }
   const deel = onderdeel || "overzicht";
@@ -108,6 +109,18 @@ async function route() {
       case "batch": return a ? kwaliteit.batch(a) : productie.werkvoorraad();
       case "lot": return a ? kwaliteit.lotpaspoort(a) : productie.werkvoorraad();
       default: return void (location.hash = "#/productie");
+    }
+  }
+  if (p.id === "planning") {
+    const stuk = onderdeel || "week";
+    await tekenMenu(p.id, stuk);
+    const [, , , a1, a2] = location.hash.split("/").map(decodeURIComponent);
+    switch (stuk) {
+      case "week": return planning.week(a1);
+      case "dag": return planning.dag(a1, a2);
+      case "lots": return planning.lots();
+      case "producten": return planning.producten();
+      default: return void (location.hash = "#/planning");
     }
   }
   if (p.id === "beheer") {

@@ -72,7 +72,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const [k] = await lees<Record<string, number>>(
         app.db,
         `SELECT
-           (SELECT count(*) FROM batch WHERE ${PERIODE_SQL("aangemaakt_op", 1, 2)}) AS batches,
+           (SELECT count(*) FROM batch WHERE gestart_op IS NOT NULL AND ${PERIODE_SQL("gestart_op", 1, 2)}) AS batches,
            (SELECT count(*) FROM lot WHERE ${PERIODE_SQL("aangemaakt_op", 1, 2)}) AS lots,
            (SELECT count(*) FROM waarde_actueel WHERE ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS waarden,
            (SELECT count(*) FROM waarde_actueel WHERE markering = 'buiten_tolerantie' AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS buiten_tolerantie,
@@ -445,7 +445,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `WITH laatste_batchstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'batch' ORDER BY volgorde DESC LIMIT 1),
               laatste_lotstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'lot' ORDER BY volgorde DESC LIMIT 1),
               g AS (
-                SELECT 'gestart' AS soort, aangemaakt_op AS t FROM batch
+                SELECT 'gestart' AS soort, gestart_op AS t FROM batch WHERE gestart_op IS NOT NULL
                 UNION ALL
                 SELECT 'klaar', r.afgerond_op FROM stapregistratie r
                  WHERE r.processtap_id = (SELECT id FROM laatste_batchstap) AND r.status = 'afgerond'

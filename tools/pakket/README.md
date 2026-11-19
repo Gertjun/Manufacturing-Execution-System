@@ -23,6 +23,7 @@ Met de fictieve testdata zijn er testaccounts; het wachtwoord is steeds `demo`. 
 | `operator` | Invoerscherm (daarna pc en naam kiezen) |
 | `ploegleider1` | Invoerscherm en Portaal Productie |
 | `kwaliteit1` | Portaal Kwaliteit |
+| `planner1` | Portaal Planning |
 | `beheerder1` | Portaal Beheer |
 | `analist1` | Portalen, alleen lezen |
 

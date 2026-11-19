@@ -19,6 +19,14 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA fabriek TO batchgui_app;
 -- Verwijderen alleen waar de regels dat toestaan: de stapkoppeling van een pc.
 REVOKE DELETE ON ALL TABLES IN SCHEMA fabriek FROM batchgui_app;
 GRANT DELETE ON fabriek.pc_stap TO batchgui_app;
+-- Planning mag de planner herschikken: de dagplanning per stap en de batches in een open lotvoorstel.
+-- (Voorwaardelijk: een teruggezette oudere back-up heeft deze tabellen nog niet tot migreer.mjs draait.)
+DO $$
+BEGIN
+  IF to_regclass('fabriek.stapplanning') IS NOT NULL THEN
+    GRANT DELETE ON fabriek.stapplanning, fabriek.lot_voorstel_batch TO batchgui_app;
+  END IF;
+END $$;
 -- Het onderhoudslogboek en de schemaversie zijn alleen te lezen.
 REVOKE INSERT, UPDATE ON fabriek.onderhoud_log, fabriek.schema_versie FROM batchgui_app;
 

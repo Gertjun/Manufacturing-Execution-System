@@ -31,6 +31,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           registratieId: Type.Optional(Type.String({ format: "uuid", description: "Id voor de PS16-registratie" })),
           lotnummer: LotNummer,
           batchnummers: Type.Array(BatchNummer, { minItems: 4, maxItems: 4 }),
+          afwijkingReden: Type.Optional(
+            Type.Union([Type.Null(), Type.String({ minLength: 3, maxLength: 500, description: "Verplicht als de batches afwijken van een lotvoorstel" })]),
+          ),
         }),
         response: {
           200: Type.Object({ lot: Lot, registratie: RegistratieDetail }),
@@ -59,13 +62,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         const gevonden = new Map(rows.map((r) => [r.batchnummer as string, r.id as string]));
         const ontbreekt = req.body.batchnummers.filter((n) => !gevonden.has(n));
         if (ontbreekt.length) throw niet(`Batch ${ontbreekt.join(", ")}`);
-        await tx.query("SELECT maak_lot($1, $2, $3, $4, $5, $6)", [
+        await tx.query("SELECT maak_lot($1, $2, $3, $4, $5, $6, $7)", [
           req.body.lotnummer,
           req.body.batchnummers.map((n) => gevonden.get(n)),
           pcId,
           operatorId,
           req.body.id ?? null,
           req.body.registratieId ?? null,
+          req.body.afwijkingReden?.trim() || null,
         ]);
       });
       return antwoord(201);

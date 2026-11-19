@@ -3,7 +3,7 @@ import { ApiFout, GeenVerbinding, haal, stuur } from "../api";
 import { sessie } from "../sessie";
 import { lokaleRegistraties, maakLot, nieuweBatch, startStap, stappen } from "../registraties";
 import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
-import { bevestig, h, laden, melding, tijd, toon, vastHouden } from "../ui";
+import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 import { acties } from "../wachtrij";
 
 /** Wat er lokaal al gebeurd is maar nog niet in de werkvoorraad van de server staat. */
@@ -73,6 +73,32 @@ export async function stappenScherm() {
   );
 }
 
+// ---------- Planning ----------
+interface PlanItem { soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[] }
+interface Voorstel { nummer: number; opmerking: string | null; batches: { batchnummer: string }[] }
+
+/** Planning van vandaag voor deze stap; zonder verbinding de laatst bekende, en anders niets. */
+async function planVandaag(code: string): Promise<PlanItem[]> {
+  try { return (await haal<PlanItem[]>(`/planning/vandaag?stap=${code}`)).data; } catch { return []; }
+}
+async function openVoorstellen(): Promise<Voorstel[]> {
+  try { return (await haal<Voorstel[]>("/planning/lotvoorstellen")).data; } catch { return []; }
+}
+const STAND: Record<PlanItem["status"], string> = { gepland: "Nog doen", bezig: "Bezig", gedaan: "Gedaan" };
+
+function planBlok(plan: PlanItem[]): Node | null {
+  if (!plan.length) return null;
+  return h("section", { class: "plan" },
+    h("h2", {}, "Gepland voor vandaag"),
+    h("ol", { class: "planlijst" }, plan.map((p) =>
+      h("li", { class: `plan-${p.status}` },
+        h("span", { class: "plan-nr" }, p.volgorde),
+        h("span", { class: "plan-naam" }, p.soort === "voorstel" ? `Lotvoorstel ${p.nummer}` : p.nummer,
+          p.batches.length ? h("span", { class: "rij-info" }, ` ${p.batches.join(", ")}`) : null,
+          p.opmerking ? h("span", { class: "rij-info plan-opmerking" }, p.opmerking) : null),
+        h("span", { class: "plan-stand" }, STAND[p.status])))));
+}
+
 function regRij(r: Registratie) {
   return h(
     "li",
@@ -116,6 +142,10 @@ export async function stapScherm(code: string) {
     vers = false;
   }
   w = pasAan(s, w, await lokaleAanpassingen());
+  const [plan, voorstellen] = await Promise.all([planVandaag(code), s.is_lot_stap ? openVoorstellen() : Promise.resolve([])]);
+  // Wat vandaag gepland is eerst, in de volgorde van de planning.
+  const plek = new Map(plan.map((p) => [p.nummer, p.volgorde]));
+  w.wachtend.sort((a, b) => (plek.get(a.nummer) ?? 1e6) - (plek.get(b.nummer) ?? 1e6));
   const eersteBatchStap = (await stappen()).filter((x) => x.niveau === "batch")[0]?.code;
   if (!actueel()) return;
 
@@ -134,12 +164,11 @@ export async function stapScherm(code: string) {
   // Alleen operators en ploegleiders voeren in; andere rollen kijken mee.
   const kanInvoeren = sessie.rol === "operator" || sessie.rol === "ploegleider";
   let klaar: Node[];
-  if (s.is_lot_stap && kanInvoeren) klaar = lotSamenstellen(s, w);
+  if (s.is_lot_stap && kanInvoeren) klaar = lotSamenstellen(s, w, voorstellen);
   else {
     const eerste = eersteBatchStap === s.code;
     klaar = [
       h("h2", {}, s.is_lot_stap ? "Batches klaar voor een lot" : "Klaar om te starten"),
-      eerste && kanInvoeren ? nieuweBatchVorm(s) : null,
       w.wachtend.length
         ? h(
             "ul",
@@ -148,7 +177,8 @@ export async function stapScherm(code: string) {
               h(
                 "li",
                 { class: "rij" },
-                h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer), h("div", { class: "rij-info" }, x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : "")),
+                h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer, plek.has(x.nummer) ? h("span", { class: "label label-plan" }, `Gepland, nr ${plek.get(x.nummer)}`) : null),
+                  h("div", { class: "rij-info" }, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : "")),
                 !kanInvoeren ? null : h(
                   "button",
                   {
@@ -163,12 +193,16 @@ export async function stapScherm(code: string) {
               ),
             ),
           )
-        : eerste && kanInvoeren
-          ? null
-          : h("p", { class: "leeg" }, "Nog niets klaar voor deze stap."),
+        : h("p", { class: "leeg" }, eerste ? "Er staan geen geplande batches klaar. Vraag de planner, of maak als uitzondering een ongeplande batch." : "Nog niets klaar voor deze stap."),
+      eerste && kanInvoeren
+        ? h("details", { class: "uitzondering" },
+            h("summary", {}, "Ongeplande batch aanmaken (uitzondering)"),
+            h("p", { class: "sub" }, "Alleen als een batch niet in de planning staat. De planner ziet hem als niet gepland."),
+            nieuweBatchVorm(s))
+        : null,
     ].filter(Boolean) as Node[];
   }
-  toon(kop, ...bezig, ...klaar);
+  toon(kop, planBlok(plan), ...bezig, ...klaar);
 }
 
 /** Met verbinding meteen controleren of een nummer al bestaat; zonder verbinding controleert de server later. */
@@ -207,7 +241,7 @@ function nieuweBatchVorm(s: Stap) {
   );
 }
 
-function lotSamenstellen(s: Stap, w: Werkvoorraad): Node[] {
+function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Node[] {
   const gekozen = new Set<string>();
   const lotnr = h("input", {
     id: "nieuw-lot", type: "text", class: "breed", placeholder: "L-2026-0001", autocomplete: "off",
@@ -226,6 +260,16 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad): Node[] {
     if (!lotnr.reportValidity()) return;
     if (await bestaatAl(`/lots/${lotnr.value}`)) return melding(`Lot ${lotnr.value} bestaat al`, "fout");
     const batches = [...gekozen].sort();
+    // Wijkt de keuze af van een lotvoorstel? Dan een reden vragen (de planner ziet die).
+    const afwijkend = voorstellen.find((v) => v.batches.some((b) => gekozen.has(b.batchnummer)) &&
+      v.batches.map((b) => b.batchnummer).sort().join() !== batches.join());
+    let reden: string | undefined;
+    if (afwijkend) {
+      const r = await vraag(`Afwijken van lotvoorstel ${afwijkend.nummer}?`, [{ naam: "reden", label: "Reden", controle: (v) => (v.length < 3 ? "Geef een korte reden" : null) }],
+        "Verder", `De planner stelde voor: ${afwijkend.batches.map((b) => b.batchnummer).join(", ")}. Je kiest een andere samenstelling; geef aan waarom.`);
+      if (!r) return;
+      reden = r.reden;
+    }
     const ok = await bevestig(
       `Lot ${lotnr.value} samenstellen?`,
       h("div", {}, h("p", {}, "Deze batches worden samengevoegd:"), h("ul", { class: "samenvatting" }, batches.map((b) => h("li", {}, b))),
@@ -234,14 +278,40 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad): Node[] {
     );
     if (!ok) return;
     try {
-      const reg = await maakLot(lotnr.value, batches);
+      const reg = await maakLot(lotnr.value, batches, reden);
       location.hash = `#/reg/${reg.id}`;
     } catch (e) {
       melding(e instanceof ApiFout ? e.message : "Opslaan mislukt", "fout");
     }
   });
 
+  const vinken = new Map<string, HTMLInputElement>();
+  const klaarSet = new Set(w.wachtend.map((x) => x.nummer));
+  const kiesVoorstel = (v: Voorstel) => {
+    gekozen.clear();
+    for (const [nr, vink] of vinken) {
+      vink.checked = v.batches.some((b) => b.batchnummer === nr);
+      if (vink.checked) gekozen.add(nr);
+      vink.closest(".rij")?.classList.toggle("gekozen", vink.checked);
+    }
+    werkBij();
+    lotnr.focus();
+  };
+  const voorstelBlok = voorstellen.length
+    ? h("section", { class: "plan" },
+        h("h2", {}, "Lotvoorstellen van de planner"),
+        h("ul", { class: "lijst" }, voorstellen.map((v) => {
+          const klaar = v.batches.every((b) => klaarSet.has(b.batchnummer));
+          return h("li", { class: "rij" },
+            h("div", {}, h("div", { class: "rij-hoofd" }, `Lotvoorstel ${v.nummer}`),
+              h("div", { class: "rij-info" }, v.batches.map((b) => `${b.batchnummer}${klaarSet.has(b.batchnummer) ? "" : " (nog niet klaar)"}`).join(", ")),
+              v.opmerking ? h("div", { class: "rij-info" }, v.opmerking) : null),
+            klaar ? h("button", { class: "knop knop-hoofd", type: "button", onclick: () => kiesVoorstel(v) }, "Dit voorstel kiezen") : h("span", { class: "label label-wacht" }, "Nog niet klaar"));
+        })))
+    : null;
+
   return [
+    voorstelBlok,
     h("h2", {}, "Batches klaar voor een lot"),
     w.wachtend.length
       ? h(
@@ -249,6 +319,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad): Node[] {
           { class: "lijst" },
           w.wachtend.map((x) => {
             const vink = h("input", { type: "checkbox", value: x.nummer }) as HTMLInputElement;
+            vinken.set(x.nummer, vink);
             const rij = h("label", { class: "rij" }, h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer),
               h("div", { class: "rij-info" }, x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : "")), vink);
             vink.addEventListener("change", () => {
