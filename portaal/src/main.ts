@@ -145,6 +145,7 @@ async function route() {
       case "dag": return planning.dag(a1, a2);
       case "lots": return planning.lots();
       case "producten": return planning.producten();
+      case "capaciteit": return planning.capaciteit();
       default: return void (location.hash = "#/planning");
     }
   }

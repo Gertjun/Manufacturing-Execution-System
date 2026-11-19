@@ -886,3 +886,29 @@ describe("Etiketten", () => {
     assert.match(r.body[1].dag, /^\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+describe("Capaciteit", () => {
+  test("weekdagen, uitzondering, bezetting in de week en waarschuwing bij te veel", async () => {
+    const t = await login("planner1");
+    const c = await verzoek("GET", "/planning/capaciteit", t);
+    assert.deepEqual(c.body.weekdagen.map((w: any) => w.max_batches), [6, 6, 6, 6, 6, 6, 6]);
+    await verzoek("PUT", "/planning/capaciteit/weekdagen", t, { weekdagen: [{ weekdag: 6, max_batches: 0 }, { weekdag: 7, max_batches: 0 }] });
+    // Een maandag ver in de toekomst, zodat er nog niets op staat.
+    const dag = "2027-03-01";
+    assert.equal((await verzoek("PUT", `/planning/capaciteit/dagen/${dag}`, t, { max_batches: 2, reden: "onderhoud lijn 1" })).status, 204);
+    const p1 = await verzoek("POST", "/planning/batches", t, { dag, aantal: 2 });
+    assert.equal(p1.body.waarschuwing, null);
+    const p2 = await verzoek("POST", "/planning/batches", t, { dag, aantal: 1 });
+    assert.equal(p2.body.waarschuwing, "Deze dag heeft nu 3 batches; de capaciteit is 2");
+    const w = await verzoek("GET", `/planning/week?van=${dag}&dagen=7`, t);
+    assert.deepEqual([w.body.dagen[0].capaciteit, w.body.dagen[0].bezet, w.body.dagen[0].reden], [2, 3, "onderhoud lijn 1"]);
+    assert.equal(w.body.dagen[5].capaciteit, 0);
+    assert.equal(w.body.vrij, 4 * 6, "dinsdag t/m vrijdag; de volle maandag telt niet negatief");
+    await verzoek("POST", `/planning/capaciteit/dagen/${dag}/weghalen`, t);
+    const d = await verzoek("GET", `/planning/capaciteit?dag=${dag}`, t);
+    assert.deepEqual(d.body.dag, { dag, capaciteit: 6, bezet: 3 });
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/weekdagen", t, { weekdagen: [{ weekdag: 6, max_batches: 2 }] })).status, 204);
+    assert.equal((await verzoek("GET", "/planning/capaciteit", t)).body.weekdagen[5].max_batches, 2);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/weekdagen", await login("kwaliteit1"), { weekdagen: [{ weekdag: 6, max_batches: 9 }] })).status, 403);
+  });
+});

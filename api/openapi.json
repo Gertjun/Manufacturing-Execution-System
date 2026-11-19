@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.15.0",
+    "version": "0.16.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -8753,7 +8753,8 @@
                   "type": "object",
                   "required": [
                     "dagen",
-                    "achterstand"
+                    "achterstand",
+                    "vrij"
                   ],
                   "properties": {
                     "dagen": {
@@ -8762,7 +8763,10 @@
                         "type": "object",
                         "required": [
                           "dag",
-                          "batches"
+                          "batches",
+                          "capaciteit",
+                          "bezet",
+                          "reden"
                         ],
                         "properties": {
                           "dag": {
@@ -8839,6 +8843,20 @@
                                 }
                               }
                             }
+                          },
+                          "capaciteit": {
+                            "description": "Hoeveel batches deze dag aankan (null = niet ingesteld)",
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "bezet": {
+                            "type": "integer",
+                            "description": "Batches op deze dag, zonder vervallen"
+                          },
+                          "reden": {
+                            "description": "Reden van een afwijkende capaciteit op deze dag",
+                            "type": "string",
+                            "nullable": true
                           }
                         }
                       }
@@ -8912,6 +8930,10 @@
                           }
                         }
                       }
+                    },
+                    "vrij": {
+                      "type": "integer",
+                      "description": "Ruimte in deze periode vanaf vandaag (dagen boven de capaciteit tellen niet negatief mee)"
                     }
                   }
                 }
@@ -8971,7 +8993,8 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "batchnummers"
+                    "batchnummers",
+                    "waarschuwing"
                   ],
                   "properties": {
                     "batchnummers": {
@@ -8979,6 +9002,11 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "waarschuwing": {
+                      "description": "Gezet als de dag nu meer batches heeft dan de capaciteit",
+                      "type": "string",
+                      "nullable": true
                     }
                   }
                 }
@@ -9658,6 +9686,236 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/planning/capaciteit": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Capaciteit per weekdag, uitzonderingen vanaf 30 dagen geleden, en (met dag) de bezetting op die dag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20",
+            "in": "query",
+            "name": "dag",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "weekdagen",
+                    "uitzonderingen",
+                    "dag"
+                  ],
+                  "properties": {
+                    "weekdagen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "weekdag",
+                          "max_batches"
+                        ],
+                        "properties": {
+                          "weekdag": {
+                            "type": "integer"
+                          },
+                          "max_batches": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "uitzonderingen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "dag",
+                          "max_batches",
+                          "reden"
+                        ],
+                        "properties": {
+                          "dag": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-11-20"
+                          },
+                          "max_batches": {
+                            "type": "integer"
+                          },
+                          "reden": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "dag": {
+                      "type": "object",
+                      "required": [
+                        "dag",
+                        "capaciteit",
+                        "bezet"
+                      ],
+                      "properties": {
+                        "dag": {
+                          "type": "string",
+                          "format": "date",
+                          "example": "2026-11-20"
+                        },
+                        "capaciteit": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "bezet": {
+                          "type": "integer"
+                        }
+                      },
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/capaciteit/weekdagen": {
+      "put": {
+        "tags": [
+          "planning"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "weekdagen"
+                ],
+                "properties": {
+                  "weekdagen": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "weekdag",
+                        "max_batches"
+                      ],
+                      "properties": {
+                        "weekdag": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        },
+                        "max_batches": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 500
+                        }
+                      }
+                    },
+                    "minItems": 1,
+                    "maxItems": 7
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/planning/capaciteit/dagen/{dag}": {
+      "put": {
+        "tags": [
+          "planning"
+        ],
+        "description": "Afwijkende capaciteit op één dag, bijvoorbeeld bij onderhoud of een feestdag.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "max_batches",
+                  "reden"
+                ],
+                "properties": {
+                  "max_batches": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500
+                  },
+                  "reden": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20",
+            "in": "path",
+            "name": "dag",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/planning/capaciteit/dagen/{dag}/weghalen": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20",
+            "in": "path",
+            "name": "dag",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           }
         }
       }

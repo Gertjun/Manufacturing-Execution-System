@@ -134,3 +134,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** barcodes in Code 128 (tekenset B), getekend in de browser (SVG) en afgedrukt via het afdrukvenster van de browser: etiketprinter 100 × 50 mm of A4-vel 3 × 7 (63,5 × 38,1 mm). Geen printerstuurprogramma of labelsoftware van het platform. Scannen met een handscanner die als toetsenbord werkt: snelle toetsen (< 50 ms ertussen) gevolgd door Enter buiten een invoerveld gelden als scan. Geen camera-scannen (nog).
 - **Waarom:** werkt op elke pc en offline, zonder installatie; handscanners zijn goedkoop en betrouwbaar.
 
+### D36 – Capaciteit: aantal batches per dag, waarschuwen en niet blokkeren (19 nov 2026, 0.16.0)
+- **Besluit:** capaciteit = het aantal batches dat op een dag kan worden gestart, per weekdag, met afwijkende dagen (met reden). Bezet = alle batches op die dag (gepland, of gestart als ze niet gepland waren), zonder vervallen. Boven de capaciteit plannen mag; de planner krijgt vooraf een vraag en daarna een waarschuwing. Capaciteit per stap of machine doen we (nog) niet.
+- **Waarom:** de planner moet kunnen kiezen (spoedorder, extra ploeg); het systeem moet het alleen zichtbaar maken. Batches per dag is wat de planner nu ook telt.
+

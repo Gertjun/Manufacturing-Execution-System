@@ -30,7 +30,7 @@ const magPlannen = () => sessie.rol === "planner" || sessie.rol === "beheerder";
 async function wijzig(actie: () => Promise<unknown>, gelukt: string, opnieuw: () => void) {
   try {
     await actie();
-    melding(gelukt, "ok");
+    if (gelukt) melding(gelukt, "ok");
     opnieuw();
   } catch (e) {
     melding((e as Error).message, "fout");
@@ -65,7 +65,8 @@ async function productOpties(): Promise<[string, string][]> {
 }
 
 // ---------- Week ----------
-interface Week { dagen: { dag: string; batches: BatchPlan[] }[]; achterstand: BatchPlan[] }
+interface Dag { dag: string; batches: BatchPlan[]; capaciteit: number | null; bezet: number; reden: string | null }
+interface Week { dagen: Dag[]; achterstand: BatchPlan[]; vrij: number }
 
 export async function week(van?: string) {
   const actueel = vastHouden();
@@ -85,12 +86,17 @@ export async function week(van?: string) {
       { naam: "opmerking", label: "Opmerking", optioneel: true },
     ], "Plannen", "Het systeem geeft de volgende vrije batchnummers. De batches komen achteraan op die dag.");
     if (!r) return;
+    // Waarschuwen als de dag daarmee te vol wordt (plannen mag wel).
+    const d = w.dagen.find((x) => x.dag === r.dag);
+    if (d && d.capaciteit !== null && d.bezet + Number(r.aantal) > d.capaciteit &&
+        !(await bevestig("Meer dan de capaciteit?", `${dagNaam(r.dag)} heeft al ${d.bezet} van de ${d.capaciteit} batches${d.reden ? ` (${d.reden})` : ""}. Met ${r.aantal} erbij wordt het ${d.bezet + Number(r.aantal)}. Toch plannen?`, "Toch plannen", true))) return;
     await wijzig(async () => {
-      const a = await stuur<{ batchnummers: string[] }>("POST", "/planning/batches", {
+      const a = await stuur<{ batchnummers: string[]; waarschuwing: string | null }>("POST", "/planning/batches", {
         dag: r.dag, aantal: Number(r.aantal), productId: r.product || null, opmerking: r.opmerking || null,
       });
-      melding(a.batchnummers.length === 1 ? `${a.batchnummers[0]} gepland` : `${a.batchnummers[0]} tot ${a.batchnummers.at(-1)} gepland`, "ok");
-    }, "Gepland", () => week(r.dag));
+      melding((a.batchnummers.length === 1 ? `${a.batchnummers[0]} gepland` : `${a.batchnummers[0]} tot ${a.batchnummers.at(-1)} gepland`) +
+        (a.waarschuwing ? `. ${a.waarschuwing}.` : ""), a.waarschuwing ? "fout" : "ok");
+    }, "", () => week(r.dag));
   };
 
   const wijzigBatch = async (b: BatchPlan) => {
@@ -137,14 +143,21 @@ export async function week(van?: string) {
         : null);
   };
 
-  const dagKaart = (d: { dag: string; batches: BatchPlan[] }) => {
+  const dagKaart = (d: Dag) => {
     const geplandeLijst = d.batches.filter((b) => b.gepland);
     const ongepland = d.batches.filter((b) => !b.gepland);
-    const actief = d.batches.filter((b) => b.status !== "vervallen").length;
-    return h("section", { class: `dagkaart${d.dag === vandaag ? " vandaag" : ""}${d.dag < vandaag ? " voorbij" : ""}` },
+    const teVol = d.capaciteit !== null && d.bezet > d.capaciteit;
+    const vol = d.capaciteit ? Math.min(1, d.bezet / d.capaciteit) : d.bezet ? 1 : 0;
+    return h("section", { class: `dagkaart${d.dag === vandaag ? " vandaag" : ""}${d.dag < vandaag ? " voorbij" : ""}${teVol ? " te-vol" : ""}` },
       h("div", { class: "dagkaart-kop" },
         h("h2", {}, dagNaam(d.dag), d.dag === vandaag ? h("span", { class: "sub" }, " (vandaag)") : null),
-        h("span", { class: "sub" }, actief === 1 ? "1 batch" : `${actief} batches`)),
+        h("span", { class: teVol ? "bezetting te-vol-tekst" : "bezetting" },
+          d.capaciteit === null ? `${d.bezet} ${d.bezet === 1 ? "batch" : "batches"}` : `${teVol ? "⚠ " : ""}${d.bezet} / ${d.capaciteit}`)),
+      d.capaciteit !== null && d.capaciteit > 0
+        ? h("div", { class: "bezetbalk", role: "img", "aria-label": `${d.bezet} van ${d.capaciteit} batches` }, h("span", { style: `width:${Math.round(vol * 100)}%` }))
+        : null,
+      teVol ? h("p", { class: "te-vol-tekst" }, `Te vol: ${d.bezet - d.capaciteit!} meer dan de capaciteit`) : null,
+      d.reden ? h("p", { class: "sub" }, `Capaciteit ${d.capaciteit}: ${d.reden}`) : d.capaciteit === 0 && !d.bezet ? h("p", { class: "sub" }, "Geen productie") : null,
       d.batches.length
         ? h("ol", { class: "planlijst" }, geplandeLijst.map(rij), ongepland.map(rij))
         : h("p", { class: "sub" }, "Niets gepland."),
@@ -158,7 +171,7 @@ export async function week(van?: string) {
 
   toon(
     kop(`Week van ${new Date(`${maandag}T12:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}`,
-      "Welke batches op welke dag. Een operator start een geplande batch in de eerste stap; daarna liggen dag en product vast.",
+      `Welke batches op welke dag. Een operator start een geplande batch in de eerste stap; daarna liggen dag en product vast. Deze week nog ruimte voor ${w.vrij} ${w.vrij === 1 ? "batch" : "batches"}.`,
       h("div", { class: "knoppen-klein" },
         h("a", { class: "knop knop-stil", href: `#/planning/week/${plusDagen(maandag, -7)}` }, "Vorige week"),
         h("a", { class: "knop knop-stil", href: "#/planning/week" }, "Deze week"),
@@ -415,5 +428,47 @@ export async function producten() {
             x.actief ? h("button", { class: "knop knop-klein", onclick: () => hernoem(x) }, "Naam wijzigen") : null,
             h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(x, !x.actief) }, x.actief ? "Uitzetten" : "Weer aanzetten")) : null]), "compact")
       : h("p", { class: "leeg" }, "Nog geen producten. Voeg er een toe."),
+  );
+}
+
+// ---------- Capaciteit ----------
+interface Capaciteit { weekdagen: { weekdag: number; max_batches: number }[]; uitzonderingen: { dag: string; max_batches: number; reden: string }[] }
+const WEEKDAGEN = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"];
+
+export async function capaciteit() {
+  const actueel = vastHouden();
+  toon(kop("Capaciteit"), laden());
+  let c: Capaciteit;
+  try { c = await haal<Capaciteit>("/planning/capaciteit"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const invoer = WEEKDAGEN.map((_, i) => h("input", {
+    type: "number", min: 0, max: 500, id: `wd-${i + 1}`, disabled: !magPlannen(),
+    value: String(c.weekdagen.find((w) => w.weekdag === i + 1)?.max_batches ?? ""),
+  }) as HTMLInputElement);
+  toon(
+    kop("Capaciteit", "Hoeveel batches de fabriek per dag aankan. In de weekplanning zie je per dag hoe vol het is; plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
+    h("section", { class: "blok" }, h("h2", {}, "Per weekdag"),
+      h("div", { class: "weekdagen" }, WEEKDAGEN.map((n, i) => h("label", { for: `wd-${i + 1}` }, n, invoer[i]))),
+      magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: () => {
+        const weekdagen = invoer.map((x, i) => ({ weekdag: i + 1, max_batches: Number(x.value) }));
+        if (weekdagen.some((w) => !Number.isInteger(w.max_batches) || w.max_batches < 0 || w.max_batches > 500)) return melding("Vul per dag een heel getal van 0 tot 500 in", "fout");
+        return wijzig(() => stuur("PUT", "/planning/capaciteit/weekdagen", { weekdagen }), "Capaciteit opgeslagen", capaciteit);
+      } }, "Opslaan") : null),
+    h("section", { class: "blok" },
+      h("div", { class: "kop" }, h("h2", { style: "margin:0" }, "Afwijkende dagen"),
+        magPlannen() ? h("button", { class: "knop", onclick: async () => {
+          const r = await vraag("Afwijkende capaciteit", [
+            { naam: "dag", label: "Dag", type: "date", waarde: isoDag() },
+            { naam: "max", label: "Aantal batches", type: "number", waarde: "0", controle: (v) => (/^\d+$/.test(v) && +v <= 500 ? null : "Een heel getal van 0 tot 500") },
+            { naam: "reden", label: "Reden", hint: "Bijvoorbeeld feestdag of onderhoud", controle: (v) => (v.trim().length < 2 ? "Geef een reden" : null) },
+          ], "Opslaan");
+          if (r) await wijzig(() => stuur("PUT", `/planning/capaciteit/dagen/${r.dag}`, { max_batches: Number(r.max), reden: r.reden }), "Opgeslagen", capaciteit);
+        } }, "Dag toevoegen") : null),
+      c.uitzonderingen.length
+        ? tabel(["Dag", "Batches", "Reden", ""], c.uitzonderingen.map((u) => [
+            dagNaam(u.dag), h("span", { class: "getal" }, u.max_batches), u.reden,
+            magPlannen() ? h("button", { class: "knop knop-klein knop-stil", onclick: () =>
+              wijzig(() => stuur("POST", `/planning/capaciteit/dagen/${u.dag}/weghalen`), "Weggehaald", capaciteit) }, "Weghalen") : null]), "compact")
+        : h("p", { class: "leeg" }, "Geen afwijkende dagen.")),
   );
 }

@@ -110,6 +110,12 @@ async function batchIds(tx: { query: (s: string, p?: unknown[]) => Promise<{ row
   return nummers.map((n) => kaart.get(n)!);
 }
 
+/** Capaciteit en bezetting op één dag. */
+const BEZETTING_SQL = `
+  SELECT capaciteit_op($1::date) AS capaciteit,
+         (SELECT count(*) FROM batch WHERE status <> 'vervallen'
+             AND coalesce(geplande_dag, coalesce(gestart_op, aangemaakt_op)::date) = $1::date)::int AS bezet`;
+
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // ---------- Producten ----------
   app.get(
@@ -181,8 +187,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         querystring: Type.Object({ van: Dag, dagen: Type.Optional(Type.Integer({ minimum: 1, maximum: 31, default: 7 })) }),
         response: {
           200: Type.Object({
-            dagen: Type.Array(Type.Object({ dag: Dag, batches: Type.Array(BatchPlan) })),
+            dagen: Type.Array(Type.Object({
+              dag: Dag,
+              batches: Type.Array(BatchPlan),
+              capaciteit: Type.Union([Type.Null(), Type.Integer()], { description: "Hoeveel batches deze dag aankan (null = niet ingesteld)" }),
+              bezet: Type.Integer({ description: "Batches op deze dag, zonder vervallen" }),
+              reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
+            })),
             achterstand: Type.Array(BatchPlan),
+            vrij: Type.Integer({ description: "Ruimte in deze periode vanaf vandaag (dagen boven de capaciteit tellen niet negatief mee)" }),
           }),
         },
       },
@@ -201,13 +214,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `${BATCH_PLAN_SQL} WHERE b.status = 'gepland' AND b.geplande_dag < least($1::date, current_date) ORDER BY b.geplande_dag, b.volgorde`,
         [req.query.van],
       );
-      const lijst = Array.from({ length: dagen }, (_, i) => {
-        const d = new Date(`${req.query.van}T12:00:00Z`);
-        d.setUTCDate(d.getUTCDate() + i);
-        const dag = d.toISOString().slice(0, 10);
-        return { dag, batches: rijen.filter((r) => r.dag === dag) };
+      const cap = await lees<{ dag: string; capaciteit: number | null; reden: string | null; vandaag: boolean }>(
+        app.db,
+        `SELECT to_char(d, 'YYYY-MM-DD') AS dag, capaciteit_op(d::date) AS capaciteit,
+                (SELECT reden FROM capaciteit_dag WHERE dag = d::date AND actief) AS reden, d::date >= current_date AS vandaag
+           FROM generate_series($1::date, $1::date + ($2 - 1), interval '1 day') d`,
+        [req.query.van, dagen],
+      );
+      const lijst = cap.map((c) => {
+        const batches = rijen.filter((r) => r.dag === c.dag);
+        return { dag: c.dag, batches, capaciteit: c.capaciteit, reden: c.reden, bezet: batches.filter((b) => b.status !== "vervallen").length };
       });
-      return { dagen: lijst, achterstand } as never;
+      const vrij = lijst.reduce((t, d, i) => t + (cap[i].vandaag && d.capaciteit !== null ? Math.max(0, d.capaciteit - d.bezet) : 0), 0);
+      return { dagen: lijst, achterstand, vrij } as never;
     },
   );
 
@@ -224,7 +243,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           productId: Type.Optional(Type.Union([Type.Null(), Type.String({ format: "uuid" })])),
           opmerking: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
         }),
-        response: { 201: Type.Object({ batchnummers: Type.Array(Type.String()) }) },
+        response: {
+          201: Type.Object({
+            batchnummers: Type.Array(Type.String()),
+            waarschuwing: Type.Union([Type.Null(), Type.String()], { description: "Gezet als de dag nu meer batches heeft dan de capaciteit" }),
+          }),
+        },
       },
     },
     async (req, reply) => {
@@ -238,7 +262,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         ]);
         return rows.map((r) => r.nr as string);
       });
-      return reply.status(201).send({ batchnummers: nummers });
+      const [b] = await lees<{ capaciteit: number | null; bezet: number }>(app.db, BEZETTING_SQL, [req.body.dag]);
+      return reply.status(201).send({
+        batchnummers: nummers,
+        waarschuwing: b.capaciteit !== null && b.bezet > b.capaciteit ? `Deze dag heeft nu ${b.bezet} batches; de capaciteit is ${b.capaciteit}` : null,
+      });
     },
   );
 
@@ -475,6 +503,96 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         }
       });
       return lees(app.db, `${PLAN_ITEMS_SQL} WHERE sp.dag = $1 AND s.code = $2 ORDER BY sp.volgorde`, [req.body.dag, req.body.stap]) as never;
+    },
+  );
+
+  // ---------- Capaciteit ----------
+  app.get(
+    "/capaciteit",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["planning"],
+        description: "Capaciteit per weekdag, uitzonderingen vanaf 30 dagen geleden, en (met dag) de bezetting op die dag.",
+        querystring: Type.Object({ dag: Type.Optional(Dag) }),
+        response: {
+          200: Type.Object({
+            weekdagen: Type.Array(Type.Object({ weekdag: Type.Integer(), max_batches: Type.Integer() })),
+            uitzonderingen: Type.Array(Type.Object({ dag: Dag, max_batches: Type.Integer(), reden: Type.String() })),
+            dag: Type.Union([Type.Null(), Type.Object({ dag: Dag, capaciteit: Type.Union([Type.Null(), Type.Integer()]), bezet: Type.Integer() })]),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const weekdagen = await lees(app.db, "SELECT weekdag, max_batches FROM capaciteit ORDER BY weekdag");
+      const uitzonderingen = await lees(app.db,
+        "SELECT to_char(dag, 'YYYY-MM-DD') AS dag, max_batches, reden FROM capaciteit_dag WHERE actief AND dag >= current_date - 30 ORDER BY dag");
+      let dag = null;
+      if (req.query.dag) {
+        const [b] = await lees<{ capaciteit: number | null; bezet: number }>(app.db, BEZETTING_SQL, [req.query.dag]);
+        dag = { dag: req.query.dag, ...b };
+      }
+      return { weekdagen, uitzonderingen, dag } as never;
+    },
+  );
+
+  app.put(
+    "/capaciteit/weekdagen",
+    {
+      preHandler: vereist(...PLANNEN),
+      schema: {
+        tags: ["planning"],
+        body: Type.Object({ weekdagen: Type.Array(Type.Object({ weekdag: Type.Integer({ minimum: 1, maximum: 7 }), max_batches: Type.Integer({ minimum: 0, maximum: 500 }) }), { minItems: 1, maxItems: 7 }) }),
+        response: { 204: Type.Null() },
+      },
+    },
+    async (req, reply) => {
+      await inTransactie(app.db, req.user.naam, async (tx) => {
+        for (const w of req.body.weekdagen) {
+          await tx.query(
+            `INSERT INTO capaciteit (weekdag, max_batches) VALUES ($1, $2)
+             ON CONFLICT (weekdag) DO UPDATE SET max_batches = EXCLUDED.max_batches WHERE capaciteit.max_batches <> EXCLUDED.max_batches`,
+            [w.weekdag, w.max_batches],
+          );
+        }
+      });
+      return reply.status(204).send(null);
+    },
+  );
+
+  app.put(
+    "/capaciteit/dagen/:dag",
+    {
+      preHandler: vereist(...PLANNEN),
+      schema: {
+        tags: ["planning"],
+        description: "Afwijkende capaciteit op één dag, bijvoorbeeld bij onderhoud of een feestdag.",
+        params: Type.Object({ dag: Dag }),
+        body: Type.Object({ max_batches: Type.Integer({ minimum: 0, maximum: 500 }), reden: Type.String({ minLength: 2, maxLength: 200 }) }),
+        response: { 204: Type.Null() },
+      },
+    },
+    async (req, reply) => {
+      await inTransactie(app.db, req.user.naam, (tx) =>
+        tx.query(
+          `INSERT INTO capaciteit_dag (dag, max_batches, reden) VALUES ($1, $2, $3)
+           ON CONFLICT (dag) DO UPDATE SET max_batches = EXCLUDED.max_batches, reden = EXCLUDED.reden, actief = true`,
+          [req.params.dag, req.body.max_batches, req.body.reden.trim()],
+        ));
+      return reply.status(204).send(null);
+    },
+  );
+
+  app.post(
+    "/capaciteit/dagen/:dag/weghalen",
+    {
+      preHandler: vereist(...PLANNEN),
+      schema: { tags: ["planning"], params: Type.Object({ dag: Dag }), response: { 204: Type.Null() } },
+    },
+    async (req, reply) => {
+      await inTransactie(app.db, req.user.naam, (tx) => tx.query("UPDATE capaciteit_dag SET actief = false WHERE dag = $1 AND actief", [req.params.dag]));
+      return reply.status(204).send(null);
     },
   );
 

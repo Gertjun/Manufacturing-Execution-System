@@ -21,6 +21,8 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 for (const f of ["schema.sql", "seed_config.sql", "seed_accounts_demo.sql"]) await db.query(readFileSync(new URL(`../../db/${f}`, import.meta.url), "utf8"));
+// Elke dag (ook in het weekend) 6 batches, zodat de test op elke dag hetzelfde loopt.
+await db.query("UPDATE fabriek.capaciteit SET max_batches = 6");
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
@@ -100,6 +102,26 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
 
+  console.log("\nCapaciteit");
+  check("Vandaag 5 van de 6 (vervallen telt niet)", (await page.locator(".dagkaart.vandaag .bezetting").innerText()) === "5 / 6");
+  await page.locator(".kop").getByRole("button", { name: "Batches plannen" }).click();
+  await page.getByRole("dialog").getByLabel("Aantal batches").fill("2");
+  await page.getByRole("dialog").getByRole("button", { name: "Plannen" }).click();
+  await page.getByRole("dialog").getByRole("heading", { name: "Meer dan de capaciteit?" }).waitFor();
+  check("Waarschuwing vóór het plannen boven de capaciteit", true);
+  await page.getByRole("dialog").getByRole("button", { name: "Toch plannen" }).click();
+  await page.locator(".dagkaart.vandaag.te-vol").waitFor();
+  check("Dag staat als te vol", (await page.locator(".dagkaart.vandaag .bezetting").innerText()) === "⚠ 7 / 6");
+  await shot("05b-te-vol");
+  await page.getByRole("link", { name: "Capaciteit" }).click();
+  await page.getByLabel("zaterdag").fill("2");
+  await page.getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("#melding", { hasText: "Capaciteit opgeslagen" }).waitFor();
+  const [za] = await q("SELECT max_batches FROM fabriek.capaciteit WHERE weekdag = 6");
+  check("Capaciteit zaterdag opgeslagen", za.max_batches === 2);
+  await page.goto(`${BASIS}/portaal/#/planning/week`);
+  await page.getByRole("heading", { name: /^Week van/ }).waitFor();
+
   console.log("\nPer stap");
   await page.locator(".dagkaart.vandaag").getByRole("link", { name: "Per stap" }).click();
   await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS1$/ }) }).click();
@@ -145,7 +167,7 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
   check("Ploegleider ziet de planning zonder knoppen om te plannen",
-    (await page.getByRole("button", { name: "Batches plannen" }).count()) === 0 && (await page.locator(".planrij").count()) === 6);
+    (await page.getByRole("button", { name: "Batches plannen" }).count()) === 0 && (await page.locator(".planrij").count()) === 8);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

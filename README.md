@@ -238,6 +238,7 @@ Ook op `/portaal/` (testaccount `planner1`, wachtwoord `demo`; een planner start
 | Per stap | Per dag en per stap welke batches of lots er gedaan moeten worden, in volgorde, met een opmerking. Stand: nog doen, bezig, gedaan |
 | Lotvoorstellen | Voorstellen welke 4 batches samen een lot worden. Afwijken mag in het invoerscherm, met een reden |
 | Producten | Producten of recepten toevoegen, hernoemen of uitzetten |
+| Capaciteit | Batches per weekdag en afwijkende dagen; de weekplanning toont per dag hoe vol hij is (D36) |
 
 In het invoerscherm staat bovenaan elke stap "Gepland voor vandaag". In de eerste stap start de operator een geplande batch; een ongeplande batch aanmaken zit achter "Ongeplande batch aanmaken (uitzondering)".
 

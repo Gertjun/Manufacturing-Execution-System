@@ -100,6 +100,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "dag", naam: "Per stap" },
       { pad: "lots", naam: "Lotvoorstellen", teller: async () => (await haal<unknown[]>("/planning/lotvoorstellen")).length },
       { pad: "producten", naam: "Producten" },
+      { pad: "capaciteit", naam: "Capaciteit" },
     ],
   },
   {

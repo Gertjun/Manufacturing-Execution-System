@@ -1272,6 +1272,33 @@ END $$;
 CREATE TRIGGER stilstand_melding AFTER INSERT ON stilstand FOR EACH ROW EXECUTE FUNCTION meld_stilstand();
 
 -- ---------------------------------------------------------------------
+-- Capaciteit in de planning (sinds migratie 0009, versie 0.16.0)
+-- ---------------------------------------------------------------------
+CREATE TABLE capaciteit (
+    weekdag      int PRIMARY KEY CHECK (weekdag BETWEEN 1 AND 7),  -- 1 = maandag (ISO)
+    max_batches  int NOT NULL CHECK (max_batches BETWEEN 0 AND 500),
+    id           uuid NOT NULL UNIQUE DEFAULT gen_random_uuid()
+);
+CREATE TRIGGER capaciteit_log BEFORE INSERT OR UPDATE OR DELETE ON capaciteit
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE TABLE capaciteit_dag (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    dag          date NOT NULL UNIQUE,
+    max_batches  int NOT NULL CHECK (max_batches BETWEEN 0 AND 500),
+    reden        text NOT NULL CHECK (length(btrim(reden)) > 0),
+    actief       boolean NOT NULL DEFAULT true
+);
+CREATE TRIGGER capaciteit_dag_log BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_dag
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Capaciteit op een dag: de uitzondering als die er is, anders die van de weekdag (NULL = niet ingesteld).
+CREATE FUNCTION capaciteit_op(p_dag date) RETURNS int LANGUAGE sql STABLE AS $$
+    SELECT coalesce((SELECT max_batches FROM capaciteit_dag WHERE dag = p_dag AND actief),
+                    (SELECT max_batches FROM capaciteit WHERE weekdag = extract(isodow FROM p_dag)::int))
+$$;
+
+-- ---------------------------------------------------------------------
 -- Onderhoud (sinds migratie 0002, versie 0.6.0)
 -- ---------------------------------------------------------------------
 -- Welke migraties zijn uitgevoerd. Wordt bijgewerkt door tools/migreer.mjs.
@@ -1296,7 +1323,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

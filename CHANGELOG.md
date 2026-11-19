@@ -2,6 +2,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, zie D17 in `DECISIONS.md`). Alle gegevens zijn fictief.
 
+## 0.16.0 — 19 november 2026
+- Nieuw: capaciteit in de planning. In Portaal Planning → Capaciteit leg je per weekdag vast hoeveel batches de fabriek aankan. Daarnaast kun je afwijkende dagen vastleggen met een reden, zoals een feestdag of onderhoud.
+- In de weekplanning staat per dag hoe vol hij is ("4 / 6" met een balk). Een dag met meer batches dan de capaciteit wordt geel met ⚠. Bovenaan zie je hoeveel ruimte er deze week nog is.
+- Plannen boven de capaciteit kan nog steeds. Het scherm vraagt dan eerst of je het zeker weet, en meldt het daarna nog eens.
+- Fictieve capaciteit: 6 batches per dag. In de testdata heeft een dag over drie dagen een lagere capaciteit (onderhoud) en is die dag te vol gepland.
+- Technisch: database-update 9 (`0009_capaciteit`).
+
 ## 0.15.1 — 19 november 2026
 - Opgelost: het laptoppakket startte sinds 0.14.0 niet bij de eerste start met testdata. Bij het verschuiven van de testdata naar vandaag lag het einde van een stilstand even vóór het begin. Nu schuiven alle tijden van een tabel tegelijk. De browserdemo had hetzelfde probleem.
 

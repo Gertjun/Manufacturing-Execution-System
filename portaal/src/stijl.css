@@ -353,3 +353,14 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: #f3f5f7; font-
 .wand-stil { margin: 0; color: #ffb4b6; }
 .wand-stil strong { color: #fff; }
 .wl-stil { color: #ffb4b6; }
+
+/* Capaciteit */
+.bezetting { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.bezetbalk { height: 6px; background: #e6eaee; border-radius: 3px; overflow: hidden; }
+.bezetbalk span { display: block; height: 100%; background: var(--actie); border-radius: 3px; }
+.dagkaart.te-vol { border-color: var(--status-waarschuwing); border-width: 2px; }
+.dagkaart.te-vol .bezetbalk span { background: var(--status-waarschuwing); }
+.te-vol-tekst { color: #8a5a00; font-weight: 700; margin: 0; }
+.weekdagen { display: grid; grid-template-columns: repeat(7, minmax(90px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.weekdagen label { display: grid; gap: 4px; font-weight: 700; }
+.weekdagen input { font: inherit; padding: 6px 8px; border: 1px solid var(--lijn); border-radius: 6px; width: 100%; }
