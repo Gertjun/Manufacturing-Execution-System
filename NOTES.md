@@ -3,17 +3,17 @@
 > **Dit bestand:** de stand op dit moment, in één scherm: welke versie, wat draait waar, de laatste testronde en valkuilen voor de volgende sessie. Wordt aan het eind van elke sessie overschreven.
 > **Niet hier:** wat er nog moet gebeuren → [`WISHLIST.md`](WISHLIST.md); volgorde en planning → [`ROADMAP.md`](ROADMAP.md); wat er per versie veranderd is → [`CHANGELOG.md`](CHANGELOG.md); waarom → [`DECISIONS.md`](DECISIONS.md); hoe het werkt en hoe je test → [`README.md`](README.md).
 
-Bijgewerkt: 19 november 2026 · versie **0.20.0**
+Bijgewerkt: 19 november 2026 · versie **0.20.1**
 
 ## Stand
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap loopt: 0.20.0 (tijdstip en operator van offline invoer) is klaar. Volgende stap: 0.20.1 (tijdzone en nachtploeg, #25 en #26).
-- **Laptop:** Geert draait 0.7.1; 0.20.0 is als zip geleverd (`batch-gui-laptop-0.20.0-windows.zip`).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap loopt: 0.20.0 (tijdstip en operator van offline invoer) en 0.20.1 (tijdzone en nachtploeg) zijn klaar. Volgende stap: 0.20.2 (regelkaart en lijsten, #29).
+- **Laptop:** Geert draait 0.7.1; 0.20.1 is als zip geleverd (`batch-gui-laptop-0.20.1-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (WISHLIST #10).
-- **Browserdemo:** versie 0.20.0 gepubliceerd.
+- **Browserdemo:** versie 0.20.1 gepubliceerd.
 - **Gegevens:** alles fictief (D1).
 
-## Laatste testronde – 0.20.0, 19 november 2026
-Geslaagd: databaseregels (89), API (64), migraties, beheertools, opruimschema, laptoppakket, schermtests invoer (met offline tijdstip en afmelden met wachtrij), portaal, productie en browserdemo. De andere schermtests in Chrome zijn bij 0.19.0 voor het laatst gedraaid; 0.20.0 verandert daar niets aan. Op GitHub groen vanaf 0.15.1. Bij 0.14.0 en 0.15.0 faalde de laptoppakkettest op GitHub, maar ze kregen wel een release: niet gebruiken.
+## Laatste testronde – 0.20.1, 19 november 2026
+Geslaagd: databaseregels (94, met de nachten van de klokwissel en een sessie op UTC), API (64), migraties, beheertools, opruimschema, laptoppakket, schermtests invoer (met offline tijdstip en afmelden met wachtrij), portaal, productie en browserdemo. De andere schermtests in Chrome zijn bij 0.19.0 voor het laatst gedraaid. Op GitHub groen vanaf 0.15.1. Bij 0.14.0 en 0.15.0 faalde de laptoppakkettest op GitHub, maar ze kregen wel een release: niet gebruiken.
 
 ## Valkuilen voor de volgende sessie
 - `tools/pakket/testdata.sql` opnieuw maken: `schema_versie` en `onderhoud_log` niet meenemen in de dump (zie README, "Testdata").

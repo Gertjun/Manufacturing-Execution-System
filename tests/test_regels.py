@@ -294,6 +294,18 @@ def main():
     check("03:00 hoort bij de nachtploeg van de dag ervoor",
           one("SELECT code, dag::text FROM ploeg_van('2026-11-19 03:00')") == ("N", "2026-11-18"))
     check("14:00 is het begin van de middagploeg", val("SELECT code FROM ploeg_van('2026-11-19 14:00')") == "M")
+    check("De database staat op de tijdzone van de fabriek",
+          val("""SELECT EXISTS (SELECT 1 FROM unnest(s.setconfig) c WHERE lower(c) = lower('timezone=' || fabriekstijdzone())) FROM pg_db_role_setting s
+                  JOIN pg_database d ON d.oid = s.setdatabase WHERE d.datname = current_database() AND s.setrole = 0""") is True)
+    con.execute("SET timezone = 'UTC'")
+    check("Ook met UTC begint de nachtploeg om 22:00 Nederlandse tijd",
+          one("SELECT code, to_char(begin_op AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI') FROM ploeg_van('2026-11-19 21:30+00')") == ("N", "22:00"))
+    con.execute("SET timezone = 'Europe/Amsterdam'")
+    check("Wintertijdnacht: 05:30 hoort bij de nachtploeg, die 9 uur duurt",
+          one("SELECT code, extract(epoch FROM eind_op - begin_op)/3600 FROM ploeg_van('2026-10-25 05:30+01')") == ("N", 9))
+    check("Zomertijdnacht: de nachtploeg duurt 7 uur en eindigt om 06:00",
+          one("SELECT code, extract(epoch FROM eind_op - begin_op)/3600, to_char(eind_op, 'HH24:MI') FROM ploeg_van('2026-03-29 05:30+02')") == ("N", 7, "06:00"))
+    check("Zomertijdnacht: 06:30 is de ochtendploeg", val("SELECT code FROM ploeg_van('2026-03-29 06:30+02')") == "O")
     ploeg = val("SELECT id FROM ploeg WHERE code = 'O'")
     faalt("Lege overdracht kan niet",
           "INSERT INTO overdracht (dag, ploeg_id, bijzonderheden, gebruiker_id) VALUES ('2026-11-19', %s, '  ', %s)", (ploeg, pl), "check")

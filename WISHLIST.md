@@ -5,12 +5,10 @@
 
 Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
-Laatst bijgewerkt: 19 november 2026 (versie 0.20.0)
+Laatst bijgewerkt: 19 november 2026 (versie 0.20.1)
 
 ## Vóór de pilot
 Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i).
-- #25 **Tijdzone vast op Europe/Amsterdam** (klein) — Nu volgt de database de tijdzone van de computer; op een server met UTC schuiven de ploegen.
-- #26 **Nachtploeg rond zomer- en wintertijd** (klein) — `ploeg_van()` vindt op 25-10-2026 om 05:30 geen ploeg; in maart overlappen nacht- en ochtendploeg.
 - #27 **Schermtests in GitHub Actions** (klein, geen versie) — Verwachte aantallen uit de database lezen; `docs/SERVER.md` bijwerken tot database-update 10; `migreer.mjs` maakt eerst een back-up.
 - #28 **Inloggen beveiligen** (klein) — Foute pogingen beperken en loggen, bcrypt sterkte 11–12, hoofdletters in gebruikersnamen negeren, Content-Security-Policy.
 - #29 **Regelkaart en lijsten eerlijk tonen** (klein) — Onder 20 metingen "voorlopig" en geen Cpk; melden als een lijst is afgekapt (stilstand 200, grondstoffen 500).
@@ -38,6 +36,8 @@ Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting e
 
 ## Gerealiseerd
 Details per versie staan in [`CHANGELOG.md`](CHANGELOG.md).
+- #25 Tijdzone vast op Europe/Amsterdam — 0.20.1
+- #26 Nachtploeg rond zomer- en wintertijd — 0.20.1
 - #23 Offline stappen krijgen het tijdstip van de pc — 0.20.0
 - #24 Wachtrij onthoudt wie iets invoerde — 0.20.0
 - #20 Export naar Excel — 0.19.0

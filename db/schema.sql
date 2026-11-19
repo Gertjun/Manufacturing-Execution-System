@@ -1070,6 +1070,20 @@ SELECT g.* FROM grondstof_gebruik g
 WHERE NOT EXISTS (SELECT 1 FROM grondstof_gebruik c WHERE c.vervangt_id = g.id);
 
 -- ---------------------------------------------------------------------
+-- Vaste tijdzone (sinds migratie 0012, versie 0.20.1)
+-- ---------------------------------------------------------------------
+-- De tijdzone van de fabriek. Op één plek, zodat hij later instelbaar kan worden.
+CREATE FUNCTION fabriekstijdzone() RETURNS text LANGUAGE sql IMMUTABLE AS $$ SELECT 'Europe/Amsterdam'::text $$;
+ALTER FUNCTION fabriekstijdzone() SET search_path = fabriek, public;
+
+-- Nieuwe verbindingen met deze database krijgen die tijdzone (de API zet hem ook per transactie).
+DO $$ BEGIN
+    EXECUTE format('ALTER DATABASE %I SET timezone = %L', current_database(), fabriek.fabriekstijdzone());
+EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Tijdzone niet op de database gezet (geen eigenaar); de applicatie zet hem per transactie.';
+END $$;
+
+-- ---------------------------------------------------------------------
 -- Ploegoverdracht (sinds migratie 0006, versie 0.12.0)
 -- ---------------------------------------------------------------------
 CREATE TABLE ploeg (
@@ -1085,19 +1099,22 @@ CREATE TRIGGER ploeg_log BEFORE INSERT OR UPDATE OR DELETE ON ploeg
     FOR EACH ROW EXECUTE FUNCTION log_config();
 
 -- Welke ploeg werkt op moment p_t, en op welke dag die ploeg begon (een nachtploeg hoort bij de dag waarop hij begint).
+-- Begin en eind zijn kloktijden in de fabriek (sinds migratie 0012): een nachtploeg
+-- van 22:00 tot 06:00 duurt in de nacht van de wintertijd 9 uur en in de nacht van de zomertijd 7 uur.
 CREATE FUNCTION ploeg_van(p_t timestamptz)
 RETURNS TABLE (ploeg_id uuid, code text, naam text, dag date, begin_op timestamptz, eind_op timestamptz)
 LANGUAGE sql STABLE AS $$
-    SELECT p.id, p.code, p.naam, d.dag, (d.dag + p.begint)::timestamptz,
-           (d.dag + p.begint)::timestamptz + CASE WHEN p.eindigt > p.begint THEN p.eindigt - p.begint
-                                                ELSE p.eindigt - p.begint + interval '24 hours' END
+    SELECT p.id, p.code, p.naam, d.dag, x.begin_op, x.eind_op
       FROM ploeg p
-      CROSS JOIN LATERAL (VALUES (p_t::date), (p_t::date - 1)) d(dag)
+      CROSS JOIN LATERAL (VALUES ((p_t AT TIME ZONE fabriekstijdzone())::date),
+                                 ((p_t AT TIME ZONE fabriekstijdzone())::date - 1)) d(dag)
+      CROSS JOIN LATERAL (SELECT (d.dag + p.begint) AT TIME ZONE fabriekstijdzone() AS begin_op,
+                                 ((d.dag + CASE WHEN p.eindigt > p.begint THEN 0 ELSE 1 END) + p.eindigt)
+                                     AT TIME ZONE fabriekstijdzone() AS eind_op) x
      WHERE p.actief
-       AND p_t >= (d.dag + p.begint)::timestamptz
-       AND p_t < (d.dag + p.begint)::timestamptz + CASE WHEN p.eindigt > p.begint THEN p.eindigt - p.begint
-                                                       ELSE p.eindigt - p.begint + interval '24 hours' END
-     ORDER BY (d.dag + p.begint) DESC
+       AND p_t >= x.begin_op
+       AND p_t < x.eind_op
+     ORDER BY x.begin_op DESC
      LIMIT 1
 $$;
 
@@ -1454,7 +1471,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

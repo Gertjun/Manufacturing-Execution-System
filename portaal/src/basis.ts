@@ -144,6 +144,7 @@ export const periode = {
     if (p.dagen === null) return { van: null };
     const d = new Date();
     d.setDate(d.getDate() - p.dagen + 1);
-    return { van: d.toISOString().slice(0, 10) };
+    // Lokale datum (toISOString zou tussen middernacht en 01:00/02:00 de dag ervoor geven).
+    return { van: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` };
   },
 };

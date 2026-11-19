@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.20.1 — 19 november 2026
+- De tijdzone staat vast op die van de fabriek (Europe/Amsterdam). Ploegen, "vandaag" en de weekindeling volgden de tijdzone van de computer waarop de database draait; op een server met UTC schoven de ploegen een of twee uur.
+- De nachtploeg rond de wisseling van zomer- en wintertijd klopt. In de nacht van de wintertijd duurt hij 9 uur (05:30 hoorde eerst bij geen enkele ploeg), in de nacht van de zomertijd 7 uur (eerst overlapte hij een uur met de ochtendploeg).
+- De periodekeuze in de portalen (bijvoorbeeld "laatste 7 dagen") gaf tussen middernacht en 01:00 of 02:00 een dag te vroeg als begin.
+- Technisch: database-update 12 (`0012_tijdzone`) wordt bij de start automatisch uitgevoerd; de opgeslagen tijden veranderen niet (D44).
+
 ## 0.20.0 — 19 november 2026
 - Wat offline is ingevoerd, krijgt nu het moment van invoer op de pc in plaats van het moment van versturen. Dat geldt voor het starten en afronden van een stap, meetwaarden en grondstoffen. Doorlooptijden, wachttijden en ploegcijfers kloppen daardoor ook na een periode zonder verbinding.
 - Loopt de klok van een pc voor of achter, dan wordt dat gecorrigeerd. Een moment in de toekomst, of van meer dan 7 dagen geleden, wordt de servertijd. Een stap start nooit vóór het afronden van de vorige, en wordt nooit afgerond vóór hij gestart is.

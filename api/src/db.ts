@@ -13,7 +13,7 @@ export function maakPool(connectionString: string): Db {
 }
 
 /**
- * Voert fn uit in één transactie, met schema `fabriek` en de naam van de
+ * Voert fn uit in één transactie, met schema `fabriek`, de tijdzone van de fabriek (D44) en de naam van de
  * gebruiker in de sessie (voor het wijzigingslogboek). `moment` is het tijdstip
  * van invoer op het apparaat (offline wachtrij); de database begrenst het (D43).
  */
@@ -22,7 +22,8 @@ export async function inTransactie<T>(db: Db, gebruiker: string, fn: (tx: Tx) =>
   try {
     await tx.query("BEGIN");
     await tx.query(
-      "SELECT set_config('search_path', 'fabriek,public', true), set_config('fabriek.gebruiker', $1, true), set_config('fabriek.moment', $2, true)",
+      `SELECT set_config('search_path', 'fabriek,public', true), set_config('timezone', fabriek.fabriekstijdzone(), true),
+              set_config('fabriek.gebruiker', $1, true), set_config('fabriek.moment', $2, true)`,
       [gebruiker, moment ?? ""],
     );
     const resultaat = await fn(tx);
