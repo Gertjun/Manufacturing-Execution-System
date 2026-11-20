@@ -65,6 +65,7 @@ const CONTROLE: Record<string, string> = {
   veld_check: "De ondergrens is hoger dan de bovengrens",
   veld_check1: "Alleen een procesparameter heeft een tolerantie",
   veld_tolerantie_check: "De tolerantie kan niet negatief zijn",
+  veld_decimalen_check: "Decimalen moet een getal van 0 tot en met 6 zijn",
 };
 
 /** Een fout als korte Nederlandse tekst (voor meldingen per regel, bijvoorbeeld bij een import). */

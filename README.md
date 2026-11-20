@@ -83,7 +83,7 @@ Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoe
 ### Portaal Beheer
 | Onderdeel | Wat je kunt doen |
 | --- | --- |
-| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46) |
+| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen. Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46) |
 | Accounts, operators, pc's | Aanmaken, wijzigen, uitzetten; per pc de stappen |
 | Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |

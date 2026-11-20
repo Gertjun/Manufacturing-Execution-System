@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.23.0 — 20 november 2026
+- Nieuw: per veld het **aantal decimalen** (0 tot en met 6) in Beheer → Stappen en velden en in het Excel-sjabloon (kolom Decimalen). Het invoerscherm, het lotpaspoort, de afwijkingen, het certificaat en de regelkaart tonen de waarden dan met precies zoveel cijfers achter de komma; gemiddelde en spreiding op de regelkaart met één cijfer meer. Leeg = zoals voorheen. De opgeslagen meetwaarde verandert niet. In de fictieve configuratie hebben temperaturen 1 decimaal, druk en vochtgehalte 2 en het toerental 0.
+- Een sjabloon zonder kolom Decimalen (van vóór deze versie) laat de decimalen ongemoeid.
+- **Opgelost:** een 0 werd door de server soms als leeg opgeslagen, bijvoorbeeld een setting van 0, een ondergrens van 0 of decimalen 0. Elke 0 blijft nu een 0.
+- Beheer → Server: actieve testaccounts met wachtwoord "demo" staan nu als opmerking onder de status en tellen niet meer als waarschuwing; met testdata blijft de status "In orde".
+- Technisch: database-update 15 (`0015_decimalen`) wordt bij de start automatisch uitgevoerd.
+
 ## 0.22.2 — 20 november 2026
 - Inlogpogingen worden 90 dagen bewaard. Oudere ruimt het onderhoud op: op de server de back-up (elk uur), op de laptop het opstarten. Het onderhoudslogboek in Beheer → Server noemt hoeveel er zijn opgeruimd.
 - Technisch: database-update 14 (`0014_opruimen`) met de functie `ruim_inlogpogingen_op()`; alleen het onderhoud kan die aanroepen, de applicatie niet.

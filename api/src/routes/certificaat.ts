@@ -3,11 +3,11 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { BEHEER, IEDEREEN, vereist, type Rol } from "../auth.js";
 import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
-import { LotNummer } from "./schemas.js";
+import { LotNummer, NulGetal, NulGeheel } from "./schemas.js";
 
 const UITGEVEN: Rol[] = ["kwaliteit", "beheerder"];
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
-const OptGetal = Type.Union([Type.Null(), Type.Number()]);
+const OptGetal = NulGetal();
 
 const Inhoud = Type.Object({
   lotnummer: Type.String(),
@@ -22,6 +22,7 @@ const Inhoud = Type.Object({
     stap: Type.String(),
     niveau: Type.String(),
     eenheid: OptTekst,
+    decimalen: NulGeheel(),
     spec_min: OptGetal,
     spec_max: OptGetal,
     resultaten: Type.Array(Type.Object({ nummer: Type.String(), waarde: Type.Number() })),
@@ -50,9 +51,9 @@ async function maakInhoud(db: Db, lotnummer: string) {
   if (!lot) throw niet("Lot");
   const instellingen = new Map((await lees<{ sleutel: string; waarde: string }>(db, "SELECT sleutel, waarde FROM instelling")).map((r) => [r.sleutel, r.waarde]));
   // Per kenmerk: de laatste afgeronde meting per batch (of van het lot), met correcties verwerkt.
-  const regels = await lees<{ veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; spec_min: number | null; spec_max: number | null; nummer: string | null; waarde: number | null; markering: string | null }>(
+  const regels = await lees<{ veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; decimalen: number | null; spec_min: number | null; spec_max: number | null; nummer: string | null; waarde: number | null; markering: string | null }>(
     db,
-    `SELECT v.code AS veld, v.naam, s.code AS stap, s.niveau, v.eenheid, v.grens_min::float AS spec_min, v.grens_max::float AS spec_max,
+    `SELECT v.code AS veld, v.naam, s.code AS stap, s.niveau, v.eenheid, v.decimalen, v.grens_min::float AS spec_min, v.grens_max::float AS spec_max,
             m.nummer, m.gemeten::float AS waarde, m.markering
        FROM veld v JOIN processtap s ON s.id = v.processtap_id
        LEFT JOIN LATERAL (
@@ -72,7 +73,7 @@ async function maakInhoud(db: Db, lotnummer: string) {
   for (const r of regels) {
     let k = kenmerken.find((x) => x.veld === r.veld) as { resultaten: { nummer: string; waarde: number }[]; markeringen: string[] } | undefined;
     if (!k) {
-      k = { veld: r.veld, naam: r.naam, stap: r.stap, niveau: r.niveau, eenheid: r.eenheid, spec_min: r.spec_min, spec_max: r.spec_max, resultaten: [], markeringen: [] } as never;
+      k = { veld: r.veld, naam: r.naam, stap: r.stap, niveau: r.niveau, eenheid: r.eenheid, decimalen: r.decimalen, spec_min: r.spec_min, spec_max: r.spec_max, resultaten: [], markeringen: [] } as never;
       kenmerken.push(k as never);
     }
     if (r.nummer !== null && r.waarde !== null) {

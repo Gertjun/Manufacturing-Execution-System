@@ -90,6 +90,7 @@ CREATE TABLE veld (
     verplicht         boolean NOT NULL DEFAULT true,
     actief            boolean NOT NULL DEFAULT true,
     op_certificaat    boolean NOT NULL DEFAULT false,   -- sinds migratie 0010
+    decimalen         smallint CHECK (decimalen BETWEEN 0 AND 6),   -- sinds migratie 0015; leeg = automatisch
     UNIQUE (processtap_id, volgnummer),
     CHECK (grens_min IS NULL OR grens_max IS NULL OR grens_min <= grens_max),
     CHECK (tolerantie IS NULL OR soort = 'procesparameter')
@@ -791,7 +792,8 @@ SELECT l.lotnummer,
        (w.vervangt_waarde_id IS NOT NULL) AS gecorrigeerd,
        o.naam      AS operator,
        p.naam      AS pc,
-       r.afgerond_op
+       r.afgerond_op,
+       v.decimalen   -- sinds migratie 0015
 FROM lot l
 JOIN stapregistratie r
   ON r.lot_id = l.id
@@ -1554,7 +1556,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

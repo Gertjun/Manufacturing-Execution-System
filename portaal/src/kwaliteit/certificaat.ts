@@ -5,7 +5,7 @@ import { haal, sessie, stuur } from "../basis";
 import { fout } from "./schermen";
 
 interface Kenmerk {
-  veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; spec_min: number | null; spec_max: number | null;
+  veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; decimalen: number | null; spec_min: number | null; spec_max: number | null;
   resultaten: { nummer: string; waarde: number }[]; min: number | null; max: number | null; gemiddelde: number | null; voldoet: boolean | null;
 }
 interface Inhoud {
@@ -18,15 +18,15 @@ interface Uitgegeven { nummer: number; door: string; uitgegeven_op: string }
 const dt = (iso: string) => new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
 const e = (k: Kenmerk) => (k.eenheid ? ` ${k.eenheid}` : "");
 function spec(k: Kenmerk) {
-  if (k.spec_min !== null && k.spec_max !== null) return `${toonGetal(k.spec_min)} – ${toonGetal(k.spec_max)}${e(k)}`;
-  if (k.spec_max !== null) return `≤ ${toonGetal(k.spec_max)}${e(k)}`;
-  if (k.spec_min !== null) return `≥ ${toonGetal(k.spec_min)}${e(k)}`;
+  if (k.spec_min !== null && k.spec_max !== null) return `${toonGetal(k.spec_min, k.decimalen)} – ${toonGetal(k.spec_max, k.decimalen)}${e(k)}`;
+  if (k.spec_max !== null) return `≤ ${toonGetal(k.spec_max, k.decimalen)}${e(k)}`;
+  if (k.spec_min !== null) return `≥ ${toonGetal(k.spec_min, k.decimalen)}${e(k)}`;
   return "–";
 }
 function resultaat(k: Kenmerk) {
   if (!k.resultaten.length) return "niet gemeten";
-  if (k.resultaten.length === 1) return `${toonGetal(k.resultaten[0].waarde)}${e(k)}`;
-  return `${toonGetal(k.min!)} – ${toonGetal(k.max!)}${e(k)} (gem. ${toonGetal(k.gemiddelde!)}, ${k.resultaten.length} batches)`;
+  if (k.resultaten.length === 1) return `${toonGetal(k.resultaten[0].waarde, k.decimalen)}${e(k)}`;
+  return `${toonGetal(k.min!, k.decimalen)} – ${toonGetal(k.max!, k.decimalen)}${e(k)} (gem. ${toonGetal(k.gemiddelde!, k.decimalen)}, ${k.resultaten.length} batches)`;
 }
 
 function document_(c: Inhoud, uit: Uitgegeven | null) {

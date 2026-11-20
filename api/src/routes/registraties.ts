@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, INVOER, LEIDING, invoerContext, invoerTransactie, vereist } from "../auth.js";
 import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
-import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode } from "./schemas.js";
+import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode, NulGetal } from "./schemas.js";
 
 const Id = Type.Object({ id: Type.String({ format: "uuid" }) });
 
@@ -12,7 +12,7 @@ export async function registratieDetail(db: Db, id: string) {
   if (!reg) throw niet("Registratie");
   const velden = await lees(
     db,
-    `SELECT v.code, v.naam, v.soort, v.eenheid,
+    `SELECT v.code, v.naam, v.soort, v.eenheid, v.decimalen,
             coalesce(w.grens_min, v.grens_min) AS grens_min, coalesce(w.grens_max, v.grens_max) AS grens_max,
             coalesce(w.tolerantie, v.tolerantie) AS tolerantie, coalesce(w.tolerantie_soort, v.tolerantie_soort) AS tolerantie_soort,
             v.verplicht,
@@ -149,7 +149,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             Type.Object({
               id: Type.Optional(Type.String({ format: "uuid" })),
               veldcode: Type.String({ examples: ["S3.1"] }),
-              setting: Type.Optional(Type.Union([Type.Null(), Type.Number()])),
+              setting: Type.Optional(NulGetal()),
               gemeten: Type.Number(),
             }),
             { minItems: 1 },
@@ -218,7 +218,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               id: Type.Optional(Type.String({ format: "uuid" })),
               code: Type.String({ examples: ["GS-A"] }),
               partij: Type.String({ minLength: 1, maxLength: 60, examples: ["LEV-GS-A-2611-03"] }),
-              hoeveelheid: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0 })])),
+              hoeveelheid: Type.Optional(NulGetal({ exclusiveMinimum: 0 })),
             }),
             { minItems: 1 },
           ),
@@ -267,7 +267,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         params: Type.Object({ id: Type.String({ format: "uuid" }), code: Type.String() }),
         body: Type.Object({
           partij: Type.String({ minLength: 1, maxLength: 60 }),
-          hoeveelheid: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0 })])),
+          hoeveelheid: Type.Optional(NulGetal({ exclusiveMinimum: 0 })),
           reden: Type.String({ minLength: 1 }),
         }),
         response: { 201: RegistratieDetail },
@@ -301,7 +301,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["registraties"],
         params: Type.Object({ id: Type.String({ format: "uuid" }), veldcode: Type.String() }),
         body: Type.Object({
-          setting: Type.Optional(Type.Union([Type.Null(), Type.Number()])),
+          setting: Type.Optional(NulGetal()),
           gemeten: Type.Number(),
           reden: Type.String({ minLength: 1 }),
         }),

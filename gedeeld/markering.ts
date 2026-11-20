@@ -31,7 +31,12 @@ export function leesGetal(tekst: string): number | null {
   return Number(t);
 }
 
-export function toonGetal(n: number | null): string {
+/**
+ * Getal in Nederlandse notatie. Met `decimalen` (instelling per veld, sinds 0.23.0) precies zoveel
+ * decimalen; zonder: tot 3 decimalen, zonder nullen achteraan.
+ */
+export function toonGetal(n: number | null, decimalen?: number | null): string {
   if (n === null) return "–";
+  if (decimalen !== null && decimalen !== undefined) return n.toLocaleString("nl-NL", { minimumFractionDigits: decimalen, maximumFractionDigits: decimalen });
   return n.toLocaleString("nl-NL", { maximumFractionDigits: 3 });
 }

@@ -75,7 +75,7 @@ try {
   const x = leesXlsx(pad);
   const [{ n }] = await q("SELECT count(*)::int AS n FROM fabriek.veld");
   check("Alle velden staan erin, ook uitgezette", x.rijen.length === n + 1, `${x.rijen.length - 1} / ${n}`);
-  check("Kolommen van het sjabloon", x.rijen[0].join("|") === "Stap|Code|Naam|Soort|Eenheid|Verplicht|Tolerantie|Tolerantie in|Ondergrens|Bovengrens|Op certificaat|Actief", x.rijen[0].join("|"));
+  check("Kolommen van het sjabloon", x.rijen[0].join("|") === "Stap|Code|Naam|Soort|Eenheid|Verplicht|Tolerantie|Tolerantie in|Ondergrens|Bovengrens|Decimalen|Op certificaat|Actief", x.rijen[0].join("|"));
   const s51 = x.rijen.find((r) => r[1] === "S5.1");
   check("Grenzen zijn getallen in Excel", typeof s51[8] === "number" || s51[8] === null, JSON.stringify(s51));
 
@@ -84,8 +84,8 @@ try {
   bewerk(pad, fout1, `
 for r in ws.iter_rows(min_row=2):
     if r[1].value == "S3.1": r[2].value = "Temperatuur menger"
-ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, 100, 400, "ja", "ja"])
-ws.append(["PS4", None, "Verkeerde grenzen", "overig", None, "ja", None, None, 10, 5, "nee", "ja"])`);
+ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, 100, 400, None, "ja", "ja"])
+ws.append(["PS4", None, "Verkeerde grenzen", "overig", None, "ja", None, None, 10, 5, None, "nee", "ja"])`);
   await page.locator("#sjabloon-bestand").setInputFiles(fout1);
   await page.getByRole("heading", { name: "Sjabloon inlezen" }).waitFor();
   await page.getByText("Er wordt niets opgeslagen zolang er een regel met een fout is").waitFor();
@@ -102,7 +102,7 @@ ws.append(["PS4", None, "Verkeerde grenzen", "overig", None, "ja", None, None, 1
   bewerk(pad, goed, `
 for r in ws.iter_rows(min_row=2):
     if r[1].value == "S3.1": r[2].value = "Temperatuur menger"
-ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, "100", "400,5", "ja", "ja"])`);
+ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, "100", "400,5", 1, "ja", "ja"])`);
   await page.locator("#sjabloon-bestand").setInputFiles(goed);
   await page.getByRole("button", { name: "2 wijzigingen opslaan" }).waitFor();
   check("Controle toont 1 nieuw en 1 gewijzigd", (await page.locator(".tegel").first().innerText()).startsWith("1") && (await page.locator(".tegel").nth(1).innerText()).startsWith("1"));
@@ -111,8 +111,8 @@ ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, "1
   await page.getByRole("button", { name: "2 wijzigingen opslaan" }).click();
   await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
   await page.waitForTimeout(500);
-  const [nieuw] = await q("SELECT code, eenheid, verplicht, grens_min::float, grens_max::float, op_certificaat FROM fabriek.veld WHERE naam = 'Viscositeit'");
-  check("Nieuw veld opgeslagen met alle gegevens", nieuw?.eenheid === "mPa·s" && nieuw.verplicht === false && nieuw.grens_min === 100 && nieuw.grens_max === 400.5 && nieuw.op_certificaat === true, JSON.stringify(nieuw));
+  const [nieuw] = await q("SELECT code, eenheid, verplicht, grens_min::float, grens_max::float, op_certificaat, decimalen FROM fabriek.veld WHERE naam = 'Viscositeit'");
+  check("Nieuw veld opgeslagen met alle gegevens", nieuw?.eenheid === "mPa·s" && nieuw.verplicht === false && nieuw.grens_min === 100 && nieuw.grens_max === 400.5 && nieuw.op_certificaat === true && nieuw.decimalen === 1, JSON.stringify(nieuw));
   const [s31] = await q("SELECT naam FROM fabriek.veld WHERE code = 'S3.1'");
   check("Bestaand veld hernoemd", s31.naam === "Temperatuur menger");
   const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel = 'veld' AND gewijzigd_door = 'beheerder1'");

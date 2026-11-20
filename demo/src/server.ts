@@ -301,7 +301,8 @@ function valideer(schema: any, waarde: unknown, waar: string): any {
 }
 
 function soort(s: any): string | undefined {
-  return Array.isArray(s.type) ? s.type[0] : s.type;
+  // Bij twee types (zoals ["number", "null"], zie NulGetal in de API) telt het eerste dat niet null is.
+  return Array.isArray(s.type) ? (s.type.find((t: string) => t !== "null") ?? "null") : s.type;
 }
 
 function controleer(s: any, w: any, pad: string): { waarde?: any; fout?: string } {
@@ -313,6 +314,7 @@ function controleer(s: any, w: any, pad: string): { waarde?: any; fout?: string 
     }
     return { fout: `${pad} heeft geen geldige waarde` };
   }
+  if (Array.isArray(s.type) && s.type.includes("null") && w === null) return { waarde: null };
   if ("const" in s) return w === s.const ? { waarde: w } : { fout: `${pad} moet ${JSON.stringify(s.const)} zijn` };
   if (s.enum && !s.enum.includes(w)) return { fout: `${pad} moet een van ${s.enum.join(", ")} zijn` };
   switch (soort(s)) {

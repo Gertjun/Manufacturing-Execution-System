@@ -1,4 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
+import { NulGeheel } from "./schemas.js";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { vereist, type Rol } from "../auth.js";
 import { lees } from "../db.js";
@@ -11,7 +12,7 @@ const Item = Type.Object({
   nummer: Type.String(),
   sinds: Type.Union([Type.Null(), Type.String({ format: "date-time" })]),
   lang: Type.Boolean({ description: "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen" }),
-  gepland: Type.Union([Type.Null(), Type.Integer()], { description: "Plek in de dagplanning van deze stap" }),
+  gepland: NulGeheel({ description: "Plek in de dagplanning van deze stap" }),
   opmerking: Type.Union([Type.Null(), Type.String()]),
 });
 

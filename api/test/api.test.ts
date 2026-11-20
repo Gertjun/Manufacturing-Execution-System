@@ -1155,6 +1155,46 @@ describe("Startpagina en testaccounts (0.22.1)", () => {
   test("Beheer > Server waarschuwt voor testaccounts met wachtwoord demo", async () => {
     const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
     assert.equal(r.status, 200);
-    assert.ok(r.body.waarschuwingen.some((w: { tekst: string }) => /testaccount/.test(w.tekst)), JSON.stringify(r.body.waarschuwingen));
+    assert.ok(r.body.testaccounts.includes("beheerder1"), JSON.stringify(r.body.testaccounts));
+    assert.ok(!r.body.waarschuwingen.some((w: { tekst: string }) => /testaccount/.test(w.tekst)), "geen waarschuwing: met testdata is dit normaal");
+  });
+});
+
+describe("Decimalen per veld (0.23.0)", () => {
+  test("instellen in Beheer, terug in de configuratie en in het sjabloon zonder kolom blijft hij staan", async () => {
+    const bh = await login("beheerder1");
+    const r = await verzoek("PATCH", "/beheer/velden/S5.1", bh, { decimalen: 2 });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.decimalen, 2);
+    assert.equal((await verzoek("PATCH", "/beheer/velden/S5.1", bh, { decimalen: 7 })).status, 400);
+    const stappen = await verzoek("GET", "/config/stappen", bh);
+    const v = stappen.body.flatMap((s: any) => s.velden).find((x: any) => x.code === "S5.1");
+    assert.equal(v.decimalen, 2);
+    const regel = { regel: 2, stapcode: "PS5", code: "S5.1", naam: v.naam, soort: v.soort, eenheid: v.eenheid, verplicht: v.verplicht,
+      tolerantie: v.tolerantie, tolerantie_soort: v.tolerantie_soort, grens_min: v.grens_min, grens_max: v.grens_max, op_certificaat: !!v.op_certificaat, actief: v.actief };
+    const zonder = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: false, regels: [regel] });
+    assert.equal(zonder.body.regels[0].actie, "gelijk", "zonder kolom Decimalen verandert er niets");
+    const met = await verzoek("POST", "/beheer/velden/import", bh, { uitvoeren: false, regels: [{ ...regel, decimalen: 1 }] });
+    assert.deepEqual(met.body.regels[0].wijzigingen, ["decimalen: 2 → 1"]);
+  });
+});
+
+describe("Een 0 blijft een 0 (0.23.0)", () => {
+  test("setting 0 bij een meetwaarde en ondergrens 0 bij een veld worden niet leeg", async () => {
+    const bh = await login("beheerder1");
+    const r = await verzoek("PATCH", "/beheer/velden/S6.1", bh, { grens_min: 0 });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(Number(r.body.grens_min), 0);
+    const leeg = await verzoek("PATCH", "/beheer/velden/S6.1", bh, { grens_min: null });
+    assert.equal(leeg.body.grens_min, null, "null blijft null");
+    const token = await kiesNaam(await login("operator", "PC-01"), "Operator A");
+    const nr = "B-2026-8010";
+    assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
+    const start = await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: nr });
+    const w = await verzoek("POST", `/registraties/${start.body.id}/waarden`, token, {
+      waarden: [{ id: randomUUID(), veldcode: "S1.1", setting: 0, gemeten: 0 }] });
+    assert.equal(w.status, 200, JSON.stringify(w.body));
+    const { rows } = await beheerDb.query("SELECT setting::float AS s, gemeten::float AS g FROM fabriek.waarde w JOIN fabriek.veld v ON v.id = w.veld_id WHERE v.code = 'S1.1' AND w.stapregistratie_id = $1", [start.body.id]);
+    assert.deepEqual(rows[0], { s: 0, g: 0 });
   });
 });

@@ -16,6 +16,8 @@ export interface Veld {
   verplicht: boolean;
   actief: boolean;
   op_certificaat?: boolean;
+  /** Aantal decimalen bij het tonen; leeg = automatisch (sinds 0.23.0). */
+  decimalen?: number | null;
 }
 
 export interface Stap {
@@ -58,6 +60,7 @@ export interface VeldMetWaarde {
   tolerantie: number | null;
   tolerantie_soort: string;
   verplicht: boolean;
+  decimalen?: number | null;
   waarde: Waarde | null;
 }
 

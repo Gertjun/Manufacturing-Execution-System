@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.22.2",
+    "version": "0.23.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -316,6 +316,11 @@
                             "op_certificaat": {
                               "type": "boolean",
                               "description": "Komt op het certificaat per lot (sinds 0.17.0)"
+                            },
+                            "decimalen": {
+                              "type": "integer",
+                              "description": "Aantal decimalen bij het tonen; leeg = automatisch (sinds 0.23.0)",
+                              "nullable": true
                             },
                             "actief": {
                               "type": "boolean"
@@ -989,6 +994,11 @@
                             "type": "string",
                             "format": "date-time",
                             "nullable": true
+                          },
+                          "decimalen": {
+                            "type": "integer",
+                            "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                            "nullable": true
                           }
                         }
                       }
@@ -1303,6 +1313,11 @@
                               "verplicht": {
                                 "type": "boolean"
                               },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
+                              },
                               "waarde": {
                                 "type": "object",
                                 "required": [
@@ -1575,6 +1590,11 @@
                               },
                               "verplicht": {
                                 "type": "boolean"
+                              },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
                               },
                               "waarde": {
                                 "type": "object",
@@ -2025,6 +2045,11 @@
                               "verplicht": {
                                 "type": "boolean"
                               },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
+                              },
                               "waarde": {
                                 "type": "object",
                                 "required": [
@@ -2361,6 +2386,11 @@
                               "verplicht": {
                                 "type": "boolean"
                               },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
+                              },
                               "waarde": {
                                 "type": "object",
                                 "required": [
@@ -2653,6 +2683,11 @@
                               },
                               "verplicht": {
                                 "type": "boolean"
+                              },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
                               },
                               "waarde": {
                                 "type": "object",
@@ -2994,6 +3029,11 @@
                               "verplicht": {
                                 "type": "boolean"
                               },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
+                              },
                               "waarde": {
                                 "type": "object",
                                 "required": [
@@ -3325,6 +3365,11 @@
                               "verplicht": {
                                 "type": "boolean"
                               },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
+                              },
                               "waarde": {
                                 "type": "object",
                                 "required": [
@@ -3652,6 +3697,11 @@
                               },
                               "verplicht": {
                                 "type": "boolean"
+                              },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
                               },
                               "waarde": {
                                 "type": "object",
@@ -4017,6 +4067,11 @@
                                   "verplicht": {
                                     "type": "boolean"
                                   },
+                                  "decimalen": {
+                                    "type": "integer",
+                                    "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                    "nullable": true
+                                  },
                                   "waarde": {
                                     "type": "object",
                                     "required": [
@@ -4325,6 +4380,11 @@
                                   },
                                   "verplicht": {
                                     "type": "boolean"
+                                  },
+                                  "decimalen": {
+                                    "type": "integer",
+                                    "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                    "nullable": true
                                   },
                                   "waarde": {
                                     "type": "object",
@@ -4896,6 +4956,11 @@
                               "verplicht": {
                                 "type": "boolean"
                               },
+                              "decimalen": {
+                                "type": "integer",
+                                "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                                "nullable": true
+                              },
                               "waarde": {
                                 "type": "object",
                                 "required": [
@@ -5181,6 +5246,11 @@
                             "type": "string",
                             "format": "date-time",
                             "nullable": true
+                          },
+                          "decimalen": {
+                            "type": "integer",
+                            "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                            "nullable": true
                           }
                         }
                       }
@@ -5319,6 +5389,13 @@
                   },
                   "verplicht": {
                     "type": "boolean"
+                  },
+                  "decimalen": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6,
+                    "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                    "nullable": true
                   }
                 }
               }
@@ -5403,6 +5480,11 @@
                       "type": "boolean",
                       "description": "Komt op het certificaat per lot (sinds 0.17.0)"
                     },
+                    "decimalen": {
+                      "type": "integer",
+                      "description": "Aantal decimalen bij het tonen; leeg = automatisch (sinds 0.23.0)",
+                      "nullable": true
+                    },
                     "actief": {
                       "type": "boolean"
                     }
@@ -5470,6 +5552,13 @@
                   },
                   "op_certificaat": {
                     "type": "boolean"
+                  },
+                  "decimalen": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6,
+                    "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
@@ -5566,6 +5655,11 @@
                       "type": "boolean",
                       "description": "Komt op het certificaat per lot (sinds 0.17.0)"
                     },
+                    "decimalen": {
+                      "type": "integer",
+                      "description": "Aantal decimalen bij het tonen; leeg = automatisch (sinds 0.23.0)",
+                      "nullable": true
+                    },
                     "actief": {
                       "type": "boolean"
                     }
@@ -5656,6 +5750,13 @@
                         },
                         "actief": {
                           "type": "boolean"
+                        },
+                        "decimalen": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 6,
+                          "description": "Aantal decimalen bij het tonen; leeg = automatisch",
+                          "nullable": true
                         }
                       },
                       "additionalProperties": false
@@ -6864,7 +6965,8 @@
                     "laatsteBackup",
                     "laatsteHersteltest",
                     "recent",
-                    "waarschuwingen"
+                    "waarschuwingen",
+                    "testaccounts"
                   ],
                   "properties": {
                     "versie": {
@@ -7087,6 +7189,13 @@
                           }
                         }
                       }
+                    },
+                    "testaccounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Actieve testaccounts met wachtwoord demo (sinds 0.22.1); hoort leeg te zijn in een echte installatie"
                     }
                   }
                 }
@@ -7418,6 +7527,10 @@
                         "type": "string",
                         "nullable": true
                       },
+                      "decimalen": {
+                        "type": "integer",
+                        "nullable": true
+                      },
                       "setting": {
                         "type": "number",
                         "nullable": true
@@ -7545,7 +7658,8 @@
                         "grens_min",
                         "grens_max",
                         "tolerantie",
-                        "tolerantie_soort"
+                        "tolerantie_soort",
+                        "decimalen"
                       ],
                       "properties": {
                         "code": {
@@ -7578,6 +7692,10 @@
                         },
                         "tolerantie_soort": {
                           "type": "string"
+                        },
+                        "decimalen": {
+                          "type": "integer",
+                          "nullable": true
                         }
                       }
                     },
@@ -8683,7 +8801,8 @@
                         "soort",
                         "eenheid",
                         "grens_min",
-                        "grens_max"
+                        "grens_max",
+                        "decimalen"
                       ],
                       "properties": {
                         "code": {
@@ -8708,6 +8827,10 @@
                         },
                         "grens_max": {
                           "type": "number",
+                          "nullable": true
+                        },
+                        "decimalen": {
+                          "type": "integer",
                           "nullable": true
                         }
                       }
@@ -9343,8 +9466,8 @@
                             }
                           },
                           "capaciteit": {
-                            "description": "Hoeveel batches deze dag aankan (null = niet ingesteld)",
                             "type": "integer",
+                            "description": "Hoeveel batches deze dag aankan (null = niet ingesteld)",
                             "nullable": true
                           },
                           "bezet": {
@@ -11055,8 +11178,8 @@
                                   "description": "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen"
                                 },
                                 "gepland": {
-                                  "description": "Plek in de dagplanning van deze stap",
                                   "type": "integer",
+                                  "description": "Plek in de dagplanning van deze stap",
                                   "nullable": true
                                 },
                                 "opmerking": {
@@ -11091,8 +11214,8 @@
                                   "description": "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen"
                                 },
                                 "gepland": {
-                                  "description": "Plek in de dagplanning van deze stap",
                                   "type": "integer",
+                                  "description": "Plek in de dagplanning van deze stap",
                                   "nullable": true
                                 },
                                 "opmerking": {
@@ -12712,6 +12835,7 @@
                               "stap",
                               "niveau",
                               "eenheid",
+                              "decimalen",
                               "spec_min",
                               "spec_max",
                               "resultaten",
@@ -12735,6 +12859,10 @@
                               },
                               "eenheid": {
                                 "type": "string",
+                                "nullable": true
+                              },
+                              "decimalen": {
+                                "type": "integer",
                                 "nullable": true
                               },
                               "spec_min": {
@@ -12960,6 +13088,7 @@
                                   "stap",
                                   "niveau",
                                   "eenheid",
+                                  "decimalen",
                                   "spec_min",
                                   "spec_max",
                                   "resultaten",
@@ -12983,6 +13112,10 @@
                                   },
                                   "eenheid": {
                                     "type": "string",
+                                    "nullable": true
+                                  },
+                                  "decimalen": {
+                                    "type": "integer",
                                     "nullable": true
                                   },
                                   "spec_min": {
@@ -13187,6 +13320,7 @@
                                   "stap",
                                   "niveau",
                                   "eenheid",
+                                  "decimalen",
                                   "spec_min",
                                   "spec_max",
                                   "resultaten",
@@ -13210,6 +13344,10 @@
                                   },
                                   "eenheid": {
                                     "type": "string",
+                                    "nullable": true
+                                  },
+                                  "decimalen": {
+                                    "type": "integer",
                                     "nullable": true
                                   },
                                   "spec_min": {

@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist, type Rol } from "../auth.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
-import { BatchNummer, StapCode } from "./schemas.js";
+import { BatchNummer, StapCode, NulGeheel } from "./schemas.js";
 
 /** Plannen mag de planner (en de beheerder); kijken mag iedereen. */
 export const PLANNEN: Rol[] = ["planner", "beheerder"];
@@ -18,14 +18,14 @@ const BatchPlan = Type.Object({
   status: Type.String(),
   gepland: Type.Boolean({ description: "false = door een operator aangemaakt, niet gepland" }),
   dag: Type.Union([Type.Null(), Dag]),
-  volgorde: Type.Union([Type.Null(), Type.Integer()]),
+  volgorde: NulGeheel(),
   product_id: OptTekst,
   product: OptTekst,
   opmerking: OptTekst,
   vervallen_reden: OptTekst,
   laatste_stap: OptTekst,
   lotnummer: OptTekst,
-  voorstel: Type.Union([Type.Null(), Type.Integer()]),
+  voorstel: NulGeheel(),
 });
 
 const BATCH_PLAN_SQL = `
@@ -190,7 +190,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             dagen: Type.Array(Type.Object({
               dag: Dag,
               batches: Type.Array(BatchPlan),
-              capaciteit: Type.Union([Type.Null(), Type.Integer()], { description: "Hoeveel batches deze dag aankan (null = niet ingesteld)" }),
+              capaciteit: NulGeheel({ description: "Hoeveel batches deze dag aankan (null = niet ingesteld)" }),
               bezet: Type.Integer({ description: "Batches op deze dag, zonder vervallen" }),
               reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
             })),
@@ -519,7 +519,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           200: Type.Object({
             weekdagen: Type.Array(Type.Object({ weekdag: Type.Integer(), max_batches: Type.Integer() })),
             uitzonderingen: Type.Array(Type.Object({ dag: Dag, max_batches: Type.Integer(), reden: Type.String() })),
-            dag: Type.Union([Type.Null(), Type.Object({ dag: Dag, capaciteit: Type.Union([Type.Null(), Type.Integer()]), bezet: Type.Integer() })]),
+            dag: Type.Union([Type.Null(), Type.Object({ dag: Dag, capaciteit: NulGeheel(), bezet: Type.Integer() })]),
           }),
         },
       },
@@ -660,7 +660,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         response: {
           200: Type.Array(Type.Object({
             batchnummer: Type.String(), status: Type.String(), product: OptTekst, dag: Type.Union([Type.Null(), Dag]),
-            laatste_stap: OptTekst, klaar_voor_lot: Type.Boolean(), voorstel: Type.Union([Type.Null(), Type.Integer()]),
+            laatste_stap: OptTekst, klaar_voor_lot: Type.Boolean(), voorstel: NulGeheel(),
           })),
         },
       },

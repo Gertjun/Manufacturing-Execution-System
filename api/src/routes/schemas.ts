@@ -2,7 +2,14 @@ import { Type } from "@fastify/type-provider-typebox";
 
 const Tijd = Type.String({ format: "date-time" });
 const OptTijd = Type.Union([Tijd, Type.Null()]);
-const OptGetal = Type.Union([Type.Null(), Type.Number()]);
+/**
+ * Getal of null. Bewust een JSON-schema met twee types in plaats van anyOf: Fastify zet invoer om
+ * (coerceTypes) en zou bij anyOf [null, getal] de waarde 0 omzetten naar null (0.23.0).
+ */
+export const NulGetal = (o: Record<string, unknown> = {}) => Type.Unsafe<number | null>({ type: ["number", "null"], ...o });
+/** Geheel getal of null; zie NulGetal. */
+export const NulGeheel = (o: Record<string, unknown> = {}) => Type.Unsafe<number | null>({ type: ["integer", "null"], ...o });
+const OptGetal = NulGetal();
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 
 export const Markering = Type.Union([Type.Literal("ok"), Type.Literal("buiten_tolerantie"), Type.Literal("buiten_grens")]);
@@ -40,6 +47,7 @@ export const VeldMetWaarde = Type.Object({
   tolerantie: OptGetal,
   tolerantie_soort: Type.String(),
   verplicht: Type.Boolean(),
+  decimalen: Type.Optional(NulGeheel({ description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
   waarde: Type.Union([
     Type.Object({
       id: Type.String({ format: "uuid" }),
@@ -111,6 +119,7 @@ export const PaspoortRegel = Type.Object({
   operator: Type.String(),
   pc: Type.String(),
   afgerond_op: OptTijd,
+  decimalen: Type.Optional(NulGeheel({ description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
 });
 
 export const REGISTRATIE_SQL = `

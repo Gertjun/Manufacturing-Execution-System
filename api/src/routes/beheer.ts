@@ -5,10 +5,10 @@ import { inTransactie, lees, type Tx } from "../db.js";
 import { TESTACCOUNTS } from "../testaccounts.js";
 import { ApiFout, leesbaar, niet } from "../fouten.js";
 import { Veld } from "./config.js";
-import { StapCode } from "./schemas.js";
+import { StapCode, NulGetal, NulGeheel } from "./schemas.js";
 import { VERSIE } from "../versie.js";
 
-const OptGetal = Type.Optional(Type.Union([Type.Null(), Type.Number()]));
+const OptGetal = Type.Optional(NulGetal());
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // Nieuw veld bij een stap. De code (S3.4) wordt uitgegeven en nooit hergebruikt.
@@ -28,6 +28,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           tolerantie: OptGetal,
           tolerantie_soort: Type.Optional(Type.Union([Type.Literal("absoluut"), Type.Literal("procent")])),
           verplicht: Type.Optional(Type.Boolean()),
+          decimalen: Type.Optional(NulGeheel({ minimum: 0, maximum: 6, description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
         }),
         response: { 201: Veld },
       },
@@ -46,10 +47,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         );
         const code = `S${stap.volgorde}.${m[0].nr}`;
         await tx.query(
-          `INSERT INTO veld (processtap_id, code, naam, soort, eenheid, grens_min, grens_max, tolerantie, tolerantie_soort, volgnummer, verplicht)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9,'absoluut'),$10,coalesce($11,true))`,
+          `INSERT INTO veld (processtap_id, code, naam, soort, eenheid, grens_min, grens_max, tolerantie, tolerantie_soort, volgnummer, verplicht, decimalen)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9,'absoluut'),$10,coalesce($11,true),$12)`,
           [stap.id, code, b.naam, b.soort, b.eenheid ?? null, b.grens_min ?? null, b.grens_max ?? null, b.tolerantie ?? null,
-            b.tolerantie_soort ?? null, m[0].volg, b.verplicht ?? null],
+            b.tolerantie_soort ?? null, m[0].volg, b.verplicht ?? null, b.decimalen ?? null],
         );
         return code;
       });
@@ -77,6 +78,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             verplicht: Type.Optional(Type.Boolean()),
             actief: Type.Optional(Type.Boolean()),
             op_certificaat: Type.Optional(Type.Boolean()),
+            decimalen: Type.Optional(NulGeheel({ minimum: 0, maximum: 6, description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
           },
           { additionalProperties: false, minProperties: 1 },
         ),
@@ -85,7 +87,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const kolommen = Object.keys(req.body);
-      const toegestaan = ["naam", "eenheid", "grens_min", "grens_max", "tolerantie", "tolerantie_soort", "verplicht", "actief", "op_certificaat"];
+      const toegestaan = ["naam", "eenheid", "grens_min", "grens_max", "tolerantie", "tolerantie_soort", "verplicht", "actief", "op_certificaat", "decimalen"];
       if (kolommen.length === 0) throw new ApiFout(400, "Niets te wijzigen");
       if (kolommen.some((k) => !toegestaan.includes(k))) throw new ApiFout(400, "Onbekend veld in wijziging");
       const waarden = kolommen.map((k) => (req.body as Record<string, unknown>)[k]);
@@ -117,6 +119,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     grens_max: OptGetal,
     op_certificaat: Type.Boolean(),
     actief: Type.Boolean(),
+    decimalen: Type.Optional(NulGeheel({ minimum: 0, maximum: 6, description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
   }, { additionalProperties: false });
   const ImportUitkomst = Type.Object({
     regel: Type.Integer(), stapcode: Type.String(), code: Type.Union([Type.Null(), Type.String()]), naam: Type.String(),
@@ -127,7 +130,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   class Terugdraaien extends Error { constructor(public rijen: ImportRij[]) { super("terugdraaien"); } }
   const KOLOMMEN: [string, string][] = [
     ["naam", "naam"], ["eenheid", "eenheid"], ["verplicht", "verplicht"], ["tolerantie", "tolerantie"], ["tolerantie_soort", "tolerantie in"],
-    ["grens_min", "ondergrens"], ["grens_max", "bovengrens"], ["op_certificaat", "op certificaat"], ["actief", "actief"],
+    ["grens_min", "ondergrens"], ["grens_max", "bovengrens"], ["decimalen", "decimalen"], ["op_certificaat", "op certificaat"], ["actief", "actief"],
   ];
   const toonWaarde = (w: unknown) => (w === null || w === undefined || w === "" ? "leeg" : typeof w === "boolean" ? (w ? "ja" : "nee") : String(w).replace(".", ","));
 
@@ -162,6 +165,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             const nieuw = {
               naam: r.naam.trim(), eenheid: r.eenheid?.trim() || null, verplicht: r.verplicht, tolerantie: r.tolerantie ?? null,
               tolerantie_soort: tsoort, grens_min: r.grens_min ?? null, grens_max: r.grens_max ?? null, op_certificaat: r.op_certificaat, actief: r.actief,
+              // Zonder kolom Decimalen (sjabloon van vóór 0.23.0) blijft de instelling zoals hij is.
+              decimalen: r.decimalen,
             };
             if (rij.code) {
               if (gezien.has(rij.code)) throw new ApiFout(422, `${rij.code} staat twee keer in het bestand`);
@@ -172,6 +177,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               if (v[0].stapcode !== r.stapcode.trim().toUpperCase()) throw new ApiFout(422, `${rij.code} hoort bij ${v[0].stapcode}; een veld verhuist niet naar een andere stap`);
               if (v[0].soort !== soort) throw new ApiFout(422, `De soort van ${rij.code} is ${v[0].soort}; die verandert niet (maak een nieuw veld)`);
               const anders = KOLOMMEN.filter(([k]) => {
+                if (k === "decimalen" && nieuw.decimalen === undefined) return false;
                 const a = (v[0] as Record<string, unknown>)[k], b = (nieuw as Record<string, unknown>)[k];
                 return typeof a === "number" || typeof b === "number" ? (a === null ? null : Number(a)) !== (b === null ? null : Number(b)) : (a ?? null) !== (b ?? null);
               });
@@ -188,10 +194,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               rij.code = `S${st[0].volgorde}.${m[0].nr}`;
               rij.actie = "nieuw";
               await tx.query(
-                `INSERT INTO veld (processtap_id, code, naam, soort, eenheid, grens_min, grens_max, tolerantie, tolerantie_soort, volgnummer, verplicht, op_certificaat, actief)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                `INSERT INTO veld (processtap_id, code, naam, soort, eenheid, grens_min, grens_max, tolerantie, tolerantie_soort, volgnummer, verplicht, op_certificaat, actief, decimalen)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
                 [st[0].id, rij.code, nieuw.naam, soort, nieuw.eenheid, nieuw.grens_min, nieuw.grens_max, nieuw.tolerantie, nieuw.tolerantie_soort,
-                  m[0].volg, nieuw.verplicht, nieuw.op_certificaat, nieuw.actief]);
+                  m[0].volg, nieuw.verplicht, nieuw.op_certificaat, nieuw.actief, nieuw.decimalen ?? null]);
             }
             await tx.query("RELEASE SAVEPOINT rij");
           } catch (e) {
@@ -555,7 +561,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     klaar_op: Type.String({ format: "date-time" }),
     gelukt: Type.Boolean(),
     bestand: Type.Union([Type.Null(), Type.String()]),
-    grootte_bytes: Type.Union([Type.Null(), Type.Number()]),
+    grootte_bytes: NulGetal(),
     versie: Type.Union([Type.Null(), Type.String()]),
     melding: Type.Union([Type.Null(), Type.String()]),
   });
@@ -578,6 +584,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             laatsteHersteltest: Type.Union([Type.Null(), Onderhoud]),
             recent: Type.Array(Onderhoud),
             waarschuwingen: Type.Array(Type.Object({ niveau: Type.Union([Type.Literal("let_op"), Type.Literal("fout")]), tekst: Type.String() })),
+            testaccounts: Type.Array(Type.String(), { description: "Actieve testaccounts met wachtwoord demo (sinds 0.22.1); hoort leeg te zijn in een echte installatie" }),
           }),
         },
       },
@@ -642,8 +649,6 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             AND wachtwoord_hash = public.crypt('demo', wachtwoord_hash) ORDER BY gebruikersnaam`,
         [TESTACCOUNTS.map(([n]) => n)],
       );
-      if (demo.length)
-        waarschuwingen.push({ niveau: "let_op", tekst: `${demo.length} testaccount${demo.length === 1 ? "" : "s"} met wachtwoord "demo" actief (${demo.map((d) => d.gebruikersnaam).join(", ")}). Prima met testdata; zet ze uit in een echte installatie.` });
       if (pogingen && pogingen.n >= 20)
         waarschuwingen.push({ niveau: "let_op", tekst: `${pogingen.n} mislukte inlogpogingen in de laatste 24 uur (${(pogingen.namen ?? "").slice(0, 200)}).` });
       return {
@@ -656,6 +661,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         laatsteHersteltest: laatsteHersteltest ?? null,
         recent,
         waarschuwingen,
+        testaccounts: demo.map((d) => d.gebruikersnaam),
       } as never;
     },
   );

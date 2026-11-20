@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist } from "../auth.js";
 import { lees } from "../db.js";
 import { niet } from "../fouten.js";
-import { Markering, StapCode } from "./schemas.js";
+import { Markering, StapCode, NulGetal, NulGeheel } from "./schemas.js";
 import { Stilstand, STILSTAND_SQL } from "./stilstand.js";
 import { cpk, regelkaart, REGELS, MIN_PUNTEN } from "../regelkaart.js";
 
@@ -16,13 +16,13 @@ const Periode = {
 };
 const Tijd = Type.String({ format: "date-time" });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
-const OptGetal = Type.Union([Type.Null(), Type.Number()]);
+const OptGetal = NulGetal();
 
 /** Basis: alle actuele waarden met hun context. */
 const WAARDEN_SQL = `
   SELECT w.id, coalesce(b.batchnummer, l.lotnummer) AS batch_of_lot,
          coalesce(l.lotnummer, lb.lotnummer) AS lotnummer,
-         s.code AS stap, s.volgorde, r.poging, v.code AS veld, v.naam AS veldnaam, v.eenheid,
+         s.code AS stap, s.volgorde, r.poging, v.code AS veld, v.naam AS veldnaam, v.eenheid, v.decimalen,
          w.setting, w.gemeten, w.grens_min, w.grens_max, w.tolerantie, w.tolerantie_soort,
          w.markering, w.ingevoerd_op, o.naam AS operator, p.naam AS pc,
          (w.vervangt_waarde_id IS NOT NULL) AS gecorrigeerd
@@ -171,6 +171,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               veld: Type.String(),
               veldnaam: Type.String(),
               eenheid: OptTekst,
+              decimalen: Type.Optional(NulGeheel()),
               setting: OptGetal,
               gemeten: Type.Number(),
               grens_min: OptGetal,
@@ -221,6 +222,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               grens_max: OptGetal,
               tolerantie: OptGetal,
               tolerantie_soort: Type.String(),
+              decimalen: NulGeheel(),
             }),
             punten: Type.Array(
               Type.Object({
@@ -239,7 +241,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [veld] = await lees(
         app.db,
-        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min, v.grens_max, v.tolerantie, v.tolerantie_soort
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min, v.grens_max, v.tolerantie, v.tolerantie_soort, v.decimalen
            FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.code = $1`,
         [req.query.veld],
       );
@@ -345,17 +347,17 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 aantal: Type.Integer(),
                 bewerking_mediaan: Type.Number(),
                 bewerking_p90: Type.Number(),
-                wachten_mediaan: Type.Union([Type.Null(), Type.Number()]),
-                wachten_p90: Type.Union([Type.Null(), Type.Number()]),
+                wachten_mediaan: NulGetal(),
+                wachten_p90: NulGetal(),
               }),
             ),
             per_week: Type.Array(
               Type.Object({
                 week: Type.String({ format: "date" }),
                 batches: Type.Integer(),
-                batch_uren_mediaan: Type.Union([Type.Null(), Type.Number()]),
+                batch_uren_mediaan: NulGetal(),
                 lots: Type.Integer(),
-                lot_uren_mediaan: Type.Union([Type.Null(), Type.Number()]),
+                lot_uren_mediaan: NulGetal(),
               }),
             ),
           }),
@@ -530,7 +532,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     grondstof: Type.String(),
     grondstofnaam: Type.String(),
     partij: Type.String(),
-    hoeveelheid: Type.Union([Type.Null(), Type.Number()]),
+    hoeveelheid: NulGetal(),
     eenheid: Type.Union([Type.Null(), Type.String()]),
     batchnummer: Type.Union([Type.Null(), Type.String()]),
     batchstatus: Type.Union([Type.Null(), Type.String()]),
@@ -766,9 +768,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         querystring: Type.Object({ ...Periode, veld: Type.String({ examples: ["S5.1"] }) }),
         response: {
           200: Type.Object({
-            veld: Type.Object({ code: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst, grens_min: OptGetal, grens_max: OptGetal }),
+            veld: Type.Object({ code: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst, grens_min: OptGetal, grens_max: OptGetal, decimalen: NulGeheel(), }),
             getekend: Type.Union([Type.Literal("gemeten"), Type.Literal("afwijking_van_setting")]),
-            punten: Type.Array(Type.Object({ tijd: Tijd, nummer: Type.String(), waarde: Type.Number(), signaal: Type.Union([Type.Null(), Type.Integer()]) })),
+            punten: Type.Array(Type.Object({ tijd: Tijd, nummer: Type.String(), waarde: Type.Number(), signaal: NulGeheel() })),
             gemiddelde: OptGetal, sigma: OptGetal, bovengrens: OptGetal, ondergrens: OptGetal,
             mr_gemiddeld: OptGetal, mr_bovengrens: OptGetal, cpk: OptGetal,
             voorlopig: Type.Boolean({ description: "Minder dan 20 metingen: nog geen betrouwbare grenzen, geen Cpk" }),
@@ -779,9 +781,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const [v] = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null }>(
+      const [v] = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; decimalen: number | null }>(
         app.db,
-        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min::float AS grens_min, v.grens_max::float AS grens_max
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min::float AS grens_min, v.grens_max::float AS grens_max, v.decimalen
            FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.code = $1`,
         [req.query.veld],
       );

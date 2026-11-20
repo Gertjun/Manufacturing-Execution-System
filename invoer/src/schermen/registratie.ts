@@ -11,9 +11,9 @@ import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../u
 function grensTekst(v: VeldMetWaarde): string {
   const e = v.eenheid ? ` ${v.eenheid}` : "";
   const delen: string[] = [];
-  if (v.grens_min !== null && v.grens_max !== null) delen.push(`Grens ${toonGetal(v.grens_min)} tot ${toonGetal(v.grens_max)}${e}`);
-  else if (v.grens_max !== null) delen.push(`Maximaal ${toonGetal(v.grens_max)}${e}`);
-  else if (v.grens_min !== null) delen.push(`Minimaal ${toonGetal(v.grens_min)}${e}`);
+  if (v.grens_min !== null && v.grens_max !== null) delen.push(`Grens ${toonGetal(v.grens_min, v.decimalen)} tot ${toonGetal(v.grens_max, v.decimalen)}${e}`);
+  else if (v.grens_max !== null) delen.push(`Maximaal ${toonGetal(v.grens_max, v.decimalen)}${e}`);
+  else if (v.grens_min !== null) delen.push(`Minimaal ${toonGetal(v.grens_min, v.decimalen)}${e}`);
   if (v.tolerantie !== null) delen.push(`tolerantie ±${toonGetal(v.tolerantie)}${v.tolerantie_soort === "procent" ? " %" : e}`);
   return delen.join(", ");
 }
@@ -121,8 +121,8 @@ function teken(reg: Registratie) {
       midden = h(
         "div",
         { class: "veld-waarde getal" },
-        v.waarde.setting !== null ? h("span", { class: "eenheid" }, `setting ${toonGetal(v.waarde.setting)}, gemeten `) : null,
-        toonGetal(v.waarde.gemeten),
+        v.waarde.setting !== null ? h("span", { class: "eenheid" }, `setting ${toonGetal(v.waarde.setting, v.decimalen)}, gemeten `) : null,
+        toonGetal(v.waarde.gemeten, v.decimalen),
         v.eenheid ? h("span", { class: "eenheid" }, ` ${v.eenheid}`) : null,
       );
       rechts.append(markeringLabel(v.waarde.markering));
@@ -242,7 +242,7 @@ function teken(reg: Registratie) {
           { class: "samenvatting" },
           regels.map(({ i, v, m }) =>
             h("li", {}, h("span", {}, `${v.code} ${v.naam}`),
-              h("span", { class: "getal" }, i.setting !== null ? `${toonGetal(i.setting)} / ` : "", `${toonGetal(i.gemeten)}${v.eenheid ? ` ${v.eenheid}` : ""} `, markeringLabel(m))),
+              h("span", { class: "getal" }, i.setting !== null ? `${toonGetal(i.setting, v.decimalen)} / ` : "", `${toonGetal(i.gemeten, v.decimalen)}${v.eenheid ? ` ${v.eenheid}` : ""} `, markeringLabel(m))),
           ),
           gsKlaar.map((g) => {
             const gg = reg.grondstoffen!.find((x) => x.code === g.code)!;

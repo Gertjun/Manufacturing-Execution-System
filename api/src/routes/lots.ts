@@ -4,7 +4,7 @@ import { IEDEREEN, INVOER, invoerContext, invoerTransactie, vereist } from "../a
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
-import { BatchNummer, LotNummer, PaspoortRegel, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode } from "./schemas.js";
+import { BatchNummer, LotNummer, PaspoortRegel, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode, NulGetal } from "./schemas.js";
 
 const Lot = Type.Object({
   lotnummer: Type.String(),
@@ -181,7 +181,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             regels: Type.Array(PaspoortRegel),
             grondstoffen: Type.Array(Type.Object({
               batch_of_lot: Type.String(), stap: Type.String(), grondstof: Type.String(), grondstofnaam: Type.String(),
-              partij: Type.String(), hoeveelheid: Type.Union([Type.Null(), Type.Number()]), eenheid: Type.Union([Type.Null(), Type.String()]),
+              partij: Type.String(), hoeveelheid: NulGetal(), eenheid: Type.Union([Type.Null(), Type.String()]),
               gecorrigeerd: Type.Boolean(),
             }), { description: "Gebruikte grondstofpartijen van het lot en zijn batches" }),
           }),

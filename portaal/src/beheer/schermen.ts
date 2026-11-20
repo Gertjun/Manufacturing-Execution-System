@@ -52,6 +52,8 @@ export async function stappen(code?: string) {
       { naam: "eenheid", label: "Eenheid", waarde: v?.eenheid ?? undefined, optioneel: true, hint: "Bijvoorbeeld °C, kg, %, bar" },
       { naam: "grens_min", label: "Ondergrens", type: "getal", waarde: tekst(v?.grens_min ?? null), optioneel: true },
       { naam: "grens_max", label: "Bovengrens", type: "getal", waarde: tekst(v?.grens_max ?? null), optioneel: true },
+      { naam: "decimalen", label: "Decimalen", type: "getal", waarde: v?.decimalen === null || v?.decimalen === undefined ? "" : String(v.decimalen), optioneel: true,
+        hint: "Hoeveel cijfers achter de komma bij het tonen (0 tot en met 6). Leeg = automatisch." },
       ...(isParameter
         ? [
             { naam: "tolerantie", label: "Tolerantie (max. verschil tussen setting en gemeten)", type: "getal", waarde: tekst(v?.tolerantie ?? null), optioneel: true },
@@ -65,6 +67,8 @@ export async function stappen(code?: string) {
   const naarBody = (r: Record<string, string>, metTolerantie: boolean) => {
     const min = getalOfNull(r.grens_min), max = getalOfNull(r.grens_max);
     if (min !== null && max !== null && min > max) throw new Error("De ondergrens is hoger dan de bovengrens");
+    const decimalen = getalOfNull(r.decimalen ?? "");
+    if (decimalen !== null && (!Number.isInteger(decimalen) || decimalen < 0 || decimalen > 6)) throw new Error("Decimalen moet een heel getal van 0 tot en met 6 zijn");
     return {
       naam: r.naam,
       eenheid: r.eenheid ? r.eenheid : null,
@@ -73,6 +77,7 @@ export async function stappen(code?: string) {
       ...(metTolerantie ? { tolerantie: getalOfNull(r.tolerantie), tolerantie_soort: r.tolerantie_soort } : {}),
       verplicht: r.verplicht === "ja",
       op_certificaat: r.op_certificaat === "ja",
+      decimalen,
     };
   };
 
@@ -154,13 +159,14 @@ export async function stappen(code?: string) {
 }
 
 // ---------- Velden via een Excel-sjabloon (0.22.0, D46) ----------
-const SJABLOON = ["Stap", "Code", "Naam", "Soort", "Eenheid", "Verplicht", "Tolerantie", "Tolerantie in", "Ondergrens", "Bovengrens", "Op certificaat", "Actief"];
+const SJABLOON = ["Stap", "Code", "Naam", "Soort", "Eenheid", "Verplicht", "Tolerantie", "Tolerantie in", "Ondergrens", "Bovengrens", "Decimalen", "Op certificaat", "Actief"];
 
 function sjabloonDownloaden(alle: Stap[]) {
   const nl = (n: number | null) => (n === null ? "" : String(n).replace(".", ","));
   const rijen = alle.flatMap((s) => s.velden.map((v) => [
     s.code, v.code, v.naam, v.soort, v.eenheid ?? "", v.verplicht ? "ja" : "nee",
     nl(v.tolerantie), v.soort === "procesparameter" ? v.tolerantie_soort : "", nl(v.grens_min), nl(v.grens_max),
+    v.decimalen === null || v.decimalen === undefined ? "" : String(v.decimalen),
     v.op_certificaat ? "ja" : "nee", v.actief ? "ja" : "nee",
   ]));
   downloadXlsx(xlsx("Velden", SJABLOON, rijen), `Velden per stap ${vandaag()}.xlsx`);
@@ -169,6 +175,7 @@ function sjabloonDownloaden(alle: Stap[]) {
 interface ImportRegel {
   regel: number; stapcode: string; code: string | null; naam: string; soort: string; eenheid: string | null; verplicht: boolean;
   tolerantie: number | null; tolerantie_soort: string | null; grens_min: number | null; grens_max: number | null; op_certificaat: boolean; actief: boolean;
+  decimalen?: number | null;
 }
 interface ImportUitkomst { regel: number; stapcode: string; code: string | null; naam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null }
 interface ImportAntwoord { uitgevoerd: boolean; nieuw: number; gewijzigd: number; gelijk: number; fouten: number; regels: ImportUitkomst[] }
@@ -210,7 +217,10 @@ function leesSjabloon(rijen: Cel[][]): { regels: ImportRegel[]; fouten: ImportUi
       eenheid: tekst("Eenheid"), verplicht: jaNeeCel("Verplicht", true), tolerantie: getal("Tolerantie"),
       tolerantie_soort: (tekst("Tolerantie in") ?? "absoluut").toLowerCase().replace("%", "procent"),
       grens_min: getal("Ondergrens"), grens_max: getal("Bovengrens"), op_certificaat: jaNeeCel("Op certificaat", false), actief: jaNeeCel("Actief", true),
+      ...(kolom("Decimalen") >= 0 ? { decimalen: getal("Decimalen") } : {}),
     };
+    if (regel.decimalen !== undefined && regel.decimalen !== null && (!Number.isInteger(regel.decimalen) || regel.decimalen < 0 || regel.decimalen > 6))
+      problemen.push(`Decimalen "${regel.decimalen}" moet een heel getal van 0 tot en met 6 zijn`);
     if (!regel.stapcode) problemen.push("Stap ontbreekt");
     if (!regel.naam) problemen.push("Naam ontbreekt");
     if (problemen.length) fouten.push({ regel: regel.regel, stapcode: regel.stapcode, code: regel.code, naam: regel.naam, actie: "fout", wijzigingen: [], fout: problemen.join("; ") });
@@ -565,7 +575,7 @@ interface Regel { tabel: string; actie: string; oud: Record<string, unknown> | n
 
 const ONDERDEEL: Record<string, string> = { processtap: "Stap", veld: "Veld", gebruiker: "Account", operator: "Operator", pc: "Pc", pc_stap: "Pc en stap" };
 const KOLOM: Record<string, string> = {
-  naam: "naam", eenheid: "eenheid", grens_min: "ondergrens", grens_max: "bovengrens", tolerantie: "tolerantie", tolerantie_soort: "tolerantie in",
+  naam: "naam", eenheid: "eenheid", grens_min: "ondergrens", grens_max: "bovengrens", tolerantie: "tolerantie", tolerantie_soort: "tolerantie in", decimalen: "decimalen",
   verplicht: "verplicht", actief: "actief", rol: "rol", locatie: "locatie", volgnummer: "volgorde", soort: "soort",
 };
 const toonWaarde = (v: unknown) => (v === null || v === undefined || v === "" ? "leeg" : typeof v === "boolean" ? jaNee(v) : String(v));
@@ -622,6 +632,7 @@ interface ServerStand {
   database: { naam: string; grootte_bytes: number; postgres: string };
   laatsteBackup: Onderhoud | null; laatsteHersteltest: Onderhoud | null; recent: Onderhoud[];
   waarschuwingen: { niveau: "let_op" | "fout"; tekst: string }[];
+  testaccounts?: string[];
 }
 const SOORT_ONDERHOUD: Record<string, string> = { backup: "Back-up", hersteltest: "Hersteltest", herstel: "Herstel", migratie: "Database-update" };
 const grootte = (b: number | null) => (b === null ? "" : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} kB` : `${(b / 1024 / 1024).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} MB`);
@@ -647,9 +658,13 @@ export async function server() {
     ? h("ul", { class: "serverstatus" }, s.waarschuwingen.map((w) =>
         h("li", { class: `status-${w.niveau}` }, h("span", { class: "status-teken", "aria-hidden": "true" }, w.niveau === "fout" ? "!" : "i"), h("strong", {}, w.niveau === "fout" ? "Actie nodig: " : "Let op: "), w.tekst)))
     : h("p", { class: "serverstatus-ok" }, h("span", { class: "label label-ok" }, "In orde"), " Back-ups en hersteltests lopen volgens schema.");
+  const test = s.testaccounts?.length
+    ? h("p", { class: "sub testaccounts" }, `Testomgeving: ${s.testaccounts.length} testaccount${s.testaccounts.length === 1 ? "" : "s"} met wachtwoord "demo" (${s.testaccounts.join(", ")}). Prima met fictieve testdata; zet ze uit voordat er echte gegevens in komen.`)
+    : null;
   toon(
     kop("Server", "Versie, database, back-ups en hersteltests. De back-ups en hersteltests maakt de server zelf volgens het schema van IT."),
     meldingen,
+    test,
     h("div", { class: "tegels server-tegels" },
       tegel(s.versie, "versie van de applicatie", s.schema ? `database: schemaversie ${s.schema.nummer}` : "database: schemaversie onbekend"),
       tegel(b ? geleden(b.klaar_op, nu) : "Nooit", "laatste back-up", b ? `${b.gelukt ? grootte(b.grootte_bytes) : "mislukt"} · ${datum(b.klaar_op)}` : undefined, !b || !b.gelukt),

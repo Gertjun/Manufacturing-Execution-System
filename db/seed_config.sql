@@ -80,5 +80,9 @@ INSERT INTO instelling (sleutel, waarde) VALUES
   ('bedrijfsadres', 'Fabrieksweg 1, 1234 AB Voorbeeldstad'),
   ('certificaat_verklaring', 'Wij verklaren dat dit lot is geproduceerd en gecontroleerd volgens onze procedures, en dat de hieronder genoemde kenmerken binnen de specificatie vallen.');
 UPDATE veld SET op_certificaat = true WHERE code IN ('S3.3', 'S7.3', 'S17.2', 'S18.2', 'S18.3');
+-- Decimalen bij het tonen (sinds 0.23.0); gewichten blijven automatisch.
+UPDATE veld SET decimalen = 1 WHERE code LIKE 'S%.1';
+UPDATE veld SET decimalen = 2 WHERE code IN ('S3.3', 'S18.3');
+UPDATE veld SET decimalen = 0 WHERE code = 'S7.3';
 
 COMMIT;

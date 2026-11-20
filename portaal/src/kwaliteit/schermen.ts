@@ -149,7 +149,7 @@ export async function beoordelen() {
 interface Regel {
   batch_of_lot: string; stap: string; poging: number; herbewerking_reden: string | null; veld: string; veldnaam: string; eenheid: string | null;
   setting: number | null; gemeten: number; grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string | null;
-  markering: Markering; gecorrigeerd: boolean; operator: string; pc: string; afgerond_op: string | null;
+  markering: Markering; gecorrigeerd: boolean; operator: string; pc: string; afgerond_op: string | null; decimalen?: number | null;
 }
 
 function regelsTabel(regels: Regel[], metBatch: boolean) {
@@ -159,8 +159,8 @@ function regelsTabel(regels: Regel[], metBatch: boolean) {
       `${r.stap}${r.poging > 1 ? ` (poging ${r.poging})` : ""}`,
       ...(metBatch ? [r.batch_of_lot] : []),
       `${r.veld} ${r.veldnaam}`,
-      h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting) : ""),
-      h("span", { class: "getal" }, `${toonGetal(r.gemeten)}${r.eenheid ? ` ${r.eenheid}` : ""}`, r.gecorrigeerd ? h("span", { class: "noot" }, " gecorrigeerd") : ""),
+      h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting, r.decimalen) : ""),
+      h("span", { class: "getal" }, `${toonGetal(r.gemeten, r.decimalen)}${r.eenheid ? ` ${r.eenheid}` : ""}`, r.gecorrigeerd ? h("span", { class: "noot" }, " gecorrigeerd") : ""),
       grenzen(r), label(r.markering), r.operator, kort(r.afgerond_op),
     ]),
     "compact",
@@ -309,8 +309,8 @@ export async function afwijkingen() {
             h("a", { href: r.batch_of_lot.startsWith("L-") ? `#/kwaliteit/lotpaspoort/${r.batch_of_lot}` : `#/kwaliteit/batch/${r.batch_of_lot}` }, r.batch_of_lot),
             r.lotnummer ? h("a", { href: `#/kwaliteit/lotpaspoort/${r.lotnummer}` }, r.lotnummer) : "",
             `${r.stap}${r.poging > 1 ? ` (${r.poging})` : ""}`, `${r.veld} ${r.veldnaam}`,
-            h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting) : ""),
-            h("span", { class: "getal" }, `${toonGetal(r.gemeten)}${r.eenheid ? ` ${r.eenheid}` : ""}`),
+            h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting, r.decimalen) : ""),
+            h("span", { class: "getal" }, `${toonGetal(r.gemeten, r.decimalen)}${r.eenheid ? ` ${r.eenheid}` : ""}`),
             grenzen(r), label(r.markering), r.operator, h("a", { href: `#/kwaliteit/trend/${r.veld}` }, "Trend"),
           ]), "compact")
       : h("p", { class: "leeg goed" }, "Geen afwijkingen met deze filters."),
@@ -452,7 +452,7 @@ export async function grondstoffen(partij?: string) {
 // ---------- Regelkaarten ----------
 interface RkOverzicht { veld: string; naam: string; stap: string; soort: string; eenheid: string | null; n: number; voorlopig: boolean; signalen: number; laatste_signaal: string | null; cpk: number | null }
 interface RkDetail {
-  veld: { code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null };
+  veld: { code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; decimalen: number | null };
   getekend: "gemeten" | "afwijking_van_setting";
   punten: RkPunt[]; gemiddelde: number | null; sigma: number | null; bovengrens: number | null; ondergrens: number | null;
   mr_gemiddeld: number | null; mr_bovengrens: number | null; cpk: number | null; voorlopig: boolean; min_metingen: number; regels: Record<string, string>;
@@ -495,6 +495,8 @@ async function regelkaartDetail(code: string) {
   const v = r.veld;
   const e = v.eenheid ? ` ${v.eenheid}` : "";
   const signalen = r.punten.filter((p) => p.signaal);
+  // Gemiddelde en spreiding met één decimaal meer dan het veld (gangbaar bij regelkaarten).
+  const statD = v.decimalen === null || v.decimalen === undefined ? null : v.decimalen + 1;
   toon(
     h("p", { class: "terug" }, h("a", { href: "#/kwaliteit/regelkaarten" }, "Alle regelkaarten")),
     kop(`Regelkaart ${v.code} ${v.naam}`,
@@ -505,8 +507,8 @@ async function regelkaartDetail(code: string) {
       : h("div", {},
           h("div", { class: "tegels" },
             h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, r.punten.length), h("span", { class: "tegel-tekst" }, "metingen")),
-            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, `${toonGetal(Math.round(r.gemiddelde! * 1000) / 1000)}`), h("span", { class: "tegel-tekst" }, `gemiddelde${e}`)),
-            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(Math.round((r.sigma ?? 0) * 1000) / 1000)), h("span", { class: "tegel-tekst" }, `spreiding (sigma)${e}`)),
+            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.gemiddelde!, statD)), h("span", { class: "tegel-tekst" }, `gemiddelde${e}`)),
+            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.sigma ?? 0, statD)), h("span", { class: "tegel-tekst" }, `spreiding (sigma)${e}`)),
             h("div", { class: `tegel${signalen.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, signalen.length), h("span", { class: "tegel-tekst" }, "signalen")),
             r.cpk !== null ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.cpk)), h("span", { class: "tegel-tekst" }, "Cpk")) : null),
           r.voorlopig
@@ -517,7 +519,7 @@ async function regelkaartDetail(code: string) {
           signalen.length
             ? h("section", { class: "blok" }, h("h2", {}, "Signalen"),
                 tabel(["Wanneer", "Batch of lot", "Waarde", "Regel"], signalen.slice(-50).reverse().map((p) => [
-                  kort(p.tijd), p.nummer, `${toonGetal(Math.round(p.waarde * 1000) / 1000)}${e}`, `${p.signaal}: ${r.regels[String(p.signaal)]}`]), "compact"))
+                  kort(p.tijd), p.nummer, `${toonGetal(p.waarde, v.decimalen)}${e}`, `${p.signaal}: ${r.regels[String(p.signaal)]}`]), "compact"))
             : h("p", { class: r.voorlopig ? "leeg" : "leeg goed" }, r.voorlopig ? "Geen signalen in deze metingen; met zo weinig metingen zegt dat nog niet veel." : "Geen signalen: het proces is stabiel in deze periode.")),
   );
 }
