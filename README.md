@@ -20,11 +20,11 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 Bijgewerkt: 20 november 2026 · versie **0.23.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
 - **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd (0.20.0 tot en met 0.23.0); in de software staat niets meer open vóór de pilot. De volgende stappen liggen bij Geert: fase B (praktijktests, #33) en C (echte velden via het sjabloon, #2).
-- **Laptop:** Geert draait 0.7.1; 0.23.0 is als zip geleverd (`batch-gui-laptop-0.23.0-windows.zip`).
+- **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.23.0 gepubliceerd.
-- **Releases op GitHub:** werken weer, met de eigen sleutel `RELEASE_TOKEN` (#40); alle versies tot en met 0.23.0 hebben een tag en release. Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.23.0, 20 november 2026):** geslaagd: databaseregels (94), API (75), migraties (tot en met 15), beheertools, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo). Praktijktests zijn nog niet gedaan (#33).
+- **Browserdemo:** versie 0.23.1 gepubliceerd; start weer in Chrome.
+- **Releases op GitHub:** werken weer, met de eigen sleutel `RELEASE_TOKEN` (#40); elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
+- **Laatste testronde (0.23.0, 20 november 2026; in 0.23.1 alleen de browserdemo opnieuw getest, ook op claude.ai):** geslaagd: databaseregels (94), API (75), migraties (tot en met 15), beheertools, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo). Praktijktests zijn nog niet gedaan (#33).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -200,4 +200,4 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
 
 ### Versies
-Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Elke versie krijgt automatisch een tag en release op GitHub. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).
+Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Elke versie krijgt automatisch een tag en release op GitHub (`release.yml`), met het laptoppakket voor Windows als bijlage (`laptoppakket.yml`, D49). Downloaden: repository → Releases → versie → Assets. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).

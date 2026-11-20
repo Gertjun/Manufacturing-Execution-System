@@ -19,7 +19,14 @@ for f in dist/invoer/index.html dist/portaal/index.html; do
 done
 
 # Het publicatieplatform serveert geen .gz of .data: zelfde inhoud, extensie .wasm.
-mv dist/batchgui.tar.gz dist/batchgui-db.wasm
+# De database in delen van hoogstens 4 MiB, met een lijst van lengte en controlesom, zodat de demo
+# een onvolledige of veranderde download herkent (te grote bestanden kwamen niet heel aan).
+node -e '
+const fs=require("fs"),c=require("crypto");
+const b=fs.readFileSync("dist/batchgui.tar.gz"),D=4*1024*1024,delen=[];
+for(let i=0;i*D<b.length;i++){const n="batchgui-db-"+i+".wasm";fs.writeFileSync("dist/"+n,b.subarray(i*D,(i+1)*D));delen.push(n);}
+fs.writeFileSync("dist/batchgui-db.json",JSON.stringify({grootte:b.length,sha256:c.createHash("sha256").update(b).digest("hex"),delen}));
+fs.unlinkSync("dist/batchgui.tar.gz");'
 for f in dist/assets/*.tar-*.gz dist/assets/*.data; do
   oud=$(basename "$f"); nieuw="${oud%.*}-bin.wasm"; mv "$f" "dist/assets/$nieuw"
   sed -i "s#$oud#$nieuw#g" dist/assets/*.js

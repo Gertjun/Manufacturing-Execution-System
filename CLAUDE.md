@@ -71,3 +71,4 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 - `tools/pakket/testdata.sql` opnieuw maken: `schema_versie`, `onderhoud_log` en `inlogpoging` niet meenemen in de dump (zie README, "Testdata").
 - De schermtests in Chrome draaien op GitHub (`tests/test_schermen.sh`, ongeveer 4 minuten). Een losse portaaltest vraagt verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar.
 - Na een wijziging aan schema of testdata maakt `demo/bouw.sh` de demodatabase vanzelf opnieuw.
+- Browserdemo op claude.ai: bestanden groter dan ongeveer 10 MB en ingepakte pakketten kwamen daar niet goed door ("File is corrupted"), lokaal wel. De demo laadt de database daarom in delen van 4 MB met controlesom; houd de eigen databestanden onder 4 MB en test na publiceren de echte link.

@@ -63,7 +63,7 @@ class DemoPool {
 /** Start PGlite. De eerste keer vanuit het meegeleverde databasebestand, daarna uit de browseropslag. */
 export async function startDatabase(melding: (t: string) => void): Promise<{ pg: PGlite; bewaard: boolean }> {
   const opties = {
-    extensions: { pgcrypto },
+    extensions: { pgcrypto: gecontroleerd(pgcrypto) },
     relaxedDurability: true,
     parsers: { 1700: (v: string) => Number(v), 20: (v: string) => Number(v), 1082: (v: string) => v },
   };
@@ -72,16 +72,17 @@ export async function startDatabase(melding: (t: string) => void): Promise<{ pg:
   let bewaard = true;
   if (bestaat) {
     melding("Database openen …");
-    pg = await PGlite.create(`idb://${DB_NAAM}`, opties);
+    pg = await fase("database openen", () => PGlite.create(`idb://${DB_NAAM}`, opties));
   } else {
     melding("Fictieve fabrieksdata downloaden (ca. 10 MB) …");
-    const blob = await (await fetch(new URL("batchgui-db.wasm", location.href))).blob();
+    const blob = await fase("database downloaden", haalDatabase);
     melding("Database opstarten …");
     try {
       pg = await PGlite.create(`idb://${DB_NAAM}`, { ...opties, loadDataDir: blob });
-    } catch {
+    } catch (e) {
+      console.warn("Browseropslag niet bruikbaar, demo draait in het geheugen:", e);
       // Geen browseropslag beschikbaar: alles in het geheugen (weg na herladen).
-      pg = await PGlite.create({ ...opties, loadDataDir: blob });
+      pg = await fase("database starten", () => PGlite.create({ ...opties, loadDataDir: blob }));
       bewaard = false;
     }
     melding("Tijdstippen naar vandaag verschuiven …");
@@ -89,6 +90,66 @@ export async function startDatabase(melding: (t: string) => void): Promise<{ pg:
   }
   await pg.exec("SET TIME ZONE 'Europe/Amsterdam'");
   return { pg, bewaard };
+}
+
+/** Zet de naam van de fase voor een foutmelding, zodat zichtbaar is wat er misging. */
+async function fase<T>(naam: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    throw new Error(`${naam}: ${(e as Error).message ?? e}`);
+  }
+}
+
+const isGzip = (b: Uint8Array) => b[0] === 0x1f && b[1] === 0x8b;
+const isTar = (b: Uint8Array) => new TextDecoder().decode(b.subarray(257, 262)) === "ustar";
+const stroomNaar = async (b: Uint8Array, t: TransformStream<Uint8Array, Uint8Array>) =>
+  new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(t)).arrayBuffer());
+
+/** Haalt het pakket van een uitbreiding zelf op en controleert het, voordat PGlite het uitpakt. */
+function gecontroleerd<T extends { setup: (...a: any[]) => Promise<any> }>(ext: T): T {
+  return {
+    ...ext,
+    setup: async (...a: any[]) => {
+      const r = await ext.setup(...a);
+      if (!r?.bundlePath) return r;
+      return fase("uitbreiding pgcrypto", async () => {
+        const antwoord = await fetch(String(r.bundlePath));
+        if (!antwoord.ok) throw new Error(`downloaden mislukt (status ${antwoord.status})`);
+        let b = new Uint8Array(await antwoord.arrayBuffer());
+        const info = `${b.length} bytes, ${antwoord.headers.get("content-type") ?? "?"}`;
+        if (!isGzip(b)) {
+          if (!isTar(b)) throw new Error(`onbekende inhoud (${info})`);
+          b = await stroomNaar(b, new CompressionStream("gzip"));
+        } else if (!isTar(await stroomNaar(b, new DecompressionStream("gzip")))) {
+          throw new Error(`pakket is beschadigd (${info})`);
+        }
+        return { ...r, bundlePath: new URL(URL.createObjectURL(new Blob([b]))) };
+      });
+    },
+  } as T;
+}
+
+/** Haalt de database in delen op, controleert lengte en controlesom en pakt hem uit tot een tar-bestand. */
+async function haalDatabase(): Promise<Blob> {
+  const url = (n: string) => new URL(n, location.href);
+  const haal = async (n: string) => {
+    const r = await fetch(url(n), { cache: "no-cache" });
+    if (!r.ok) throw new Error(`downloaden van ${n} mislukt (status ${r.status})`);
+    return r;
+  };
+  const lijst = (await (await haal("batchgui-db.json")).json()) as { grootte: number; sha256: string; delen: string[] };
+  const delen = await Promise.all(lijst.delen.map(async (n) => new Uint8Array(await (await haal(n)).arrayBuffer())));
+  const lengte = delen.reduce((t, d) => t + d.length, 0);
+  if (lengte !== lijst.grootte) throw new Error(`de database kwam onvolledig binnen (${lengte} van ${lijst.grootte} bytes)`);
+  let data = new Uint8Array(lengte);
+  let pos = 0;
+  for (const d of delen) { data.set(d, pos); pos += d.length; }
+  const som = [...new Uint8Array(await crypto.subtle.digest("SHA-256", data))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (som !== lijst.sha256) throw new Error("de database kwam beschadigd binnen (controlesom klopt niet)");
+  if (isGzip(data)) data = await stroomNaar(data, new DecompressionStream("gzip"));
+  if (!isTar(data)) throw new Error("de database is na het uitpakken geen geldig archief");
+  return new Blob([data], { type: "application/x-tar" });
 }
 
 async function bestaatOpslag(): Promise<boolean> {
