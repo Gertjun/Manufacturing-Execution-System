@@ -159,7 +159,7 @@ function toonBatch(b: BatchDetail) {
   toon(
     h("div", { class: "kop" }, h("div", {}, h("p", { class: "sub" }, "Batch"), h("h1", { class: "getal" }, b.batchnummer),
       b.lotnummer ? h("p", { class: "sub" }, "In lot ", h("a", { href: `#/zoek/${b.lotnummer}` }, b.lotnummer)) : null),
-      h("span", { class: `label ${b.status === "afgekeurd" ? "label-buiten_grens" : b.status === "in_beoordeling" ? "label-buiten_tolerantie" : "label-open"}` }, statusTekst[b.status] ?? b.status)),
+      h("span", { class: `label ${b.status === "afgekeurd" ? "label-buiten_grens" : b.status === "in_beoordeling" ? "label-wacht" : "label-open"}` }, statusTekst[b.status] ?? b.status)),
     zoekVorm(b.batchnummer),
     magBeoordeling && b.status === "in_productie"
       ? h("div", { class: "knoppen" }, h("button", { class: "knop", onclick: () => besluit("in_beoordeling", `${b.batchnummer} in beoordeling zetten`, "In beoordeling zetten") }, "In beoordeling zetten"))

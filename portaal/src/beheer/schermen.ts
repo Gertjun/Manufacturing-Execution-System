@@ -17,7 +17,7 @@ const ROLLEN: [string, string][] = [
   ["scherm", "Wandscherm (alleen kijken, voor een tv in de hal)"],
 ];
 const rolNaam = (r: string) => ROLLEN.find(([k]) => k === r)?.[1].replace(/ \(.*\)/, "") ?? r;
-const SOORTEN: [string, string][] = [["procesparameter", "Procesparameter (setting en gemeten)"], ["gewicht", "Gewicht"], ["overig", "Overig (alleen gemeten)"]];
+const SOORTEN: [string, string][] = [["procesparameter", "Procesparameter (instelling en gemeten)"], ["gewicht", "Gewicht"], ["overig", "Overig (alleen gemeten)"]];
 const jaNee = (b: boolean) => (b ? "Ja" : "Nee");
 
 /** Voert een wijziging uit, meldt het resultaat en tekent het scherm opnieuw. */
@@ -56,7 +56,7 @@ export async function stappen(code?: string) {
         hint: "Hoeveel cijfers achter de komma bij het tonen (0 tot en met 6). Leeg = automatisch." },
       ...(isParameter
         ? [
-            { naam: "tolerantie", label: "Tolerantie (max. verschil tussen setting en gemeten)", type: "getal", waarde: tekst(v?.tolerantie ?? null), optioneel: true },
+            { naam: "tolerantie", label: "Tolerantie (max. verschil tussen instelling en gemeten)", type: "getal", waarde: tekst(v?.tolerantie ?? null), optioneel: true },
             { naam: "tolerantie_soort", label: "Tolerantie in", opties: [["absoluut", "Eenheid van het veld"], ["procent", "Procent van de setting"]] as [string, string][], waarde: v?.tolerantie_soort ?? "absoluut" },
           ]
         : []),

@@ -77,6 +77,7 @@ select, input[type="text"], input[type="password"] {
 .tabel.compact td { padding: var(--space-2) var(--space-3); font-size: var(--text-md); }
 .tabel tbody tr:hover { background: var(--vlak-2); }
 .tabel td .getal { display: block; text-align: right; }
+.tabel th.rechts, .tabel td.rechts { text-align: right; }
 .let-op { color: var(--grens); font-weight: 700; }
 
 .feiten { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-3) var(--space-5); margin: 0 0 var(--space-2); }
@@ -93,7 +94,7 @@ select, input[type="text"], input[type="password"] {
 .label-buiten_grens { color: var(--grens); background: var(--grens-vlak); }
 
 /* ---------- Knoppen ---------- */
-.knop { font: inherit; font-weight: 700; min-height: var(--doel-min); padding: 0 var(--space-4); border-radius: var(--radius-sm); border: 1.5px solid var(--inkt); background: var(--vlak); color: var(--inkt); cursor: pointer; }
+.knop { font: inherit; font-weight: 700; min-height: var(--doel-min); padding: 0 var(--space-4); border-radius: var(--radius-sm); border: 1.5px solid var(--lijn-sterk); background: var(--vlak); color: var(--inkt); cursor: pointer; }
 .knop:hover { background: var(--vlak-2); }
 .knop-hoofd { background: var(--actie); border-color: var(--actie); color: var(--op-kleur); }
 .knop-hoofd:hover { background: var(--actie-donker); }
@@ -172,7 +173,8 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
 .staptegel .naam { font-weight: 700; }
 .staptegel .werk { color: var(--inkt-zacht); font-size: var(--text-sm); }
 .staptegel.knelpunt { border: 2px solid var(--inkt); box-shadow: inset 6px 0 0 var(--signaal); }
-.staptegel.leeg-stap { color: var(--inkt-zacht); }
+.staptegel.leeg-stap { color: var(--inkt-zacht); background: transparent; }
+.staptegel.leeg-stap .naam { font-weight: 400; }
 .tussenkop { margin: var(--space-5) 0 var(--space-2); font-size: var(--text-md); color: var(--inkt-zacht); }
 @media (max-width: 900px) { .stappen-raster, .stappen-raster.lot { grid-template-columns: repeat(2, 1fr); max-width: none; } }
 .getal-inline { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -339,7 +341,6 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 .blokje.deel-overig { background: var(--grafiek-grijs-donker); }
 .blokje.deel-gepland { background: var(--vlak); box-shadow: inset 0 0 0 1.5px var(--grafiek-grijs); }
 .blokje.reeks-tol { background: var(--status-waarschuwing); }
-.let-op-blok { border-left: 6px solid var(--status-waarschuwing); }
 .wand-stap-stil { border-color: var(--wand-stil); background: var(--wand-stil-vlak); }
 .wand-stil { margin: 0; color: var(--wand-stil-tekst); }
 .wand-stil strong { color: var(--op-kleur); }
@@ -417,3 +418,7 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 .verborgen { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 label.knop { display: inline-flex; align-items: center; }
 label.knop:has(+ .verborgen:focus-visible) { outline: 3px solid var(--focus, var(--focus)); outline-offset: 2px; }
+
+/* Stilstand is overal rood (D51, ROADMAP #43). */
+.stil-blok { border-left: 6px solid var(--status-kritiek); }
+.stil-blok h2 { color: var(--grens); }

@@ -274,7 +274,7 @@ export async function stilstand() {
   toon(
     kop("Stilstand", `Wanneer en waarom er niet gewerkt kon worden, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}. Operators melden stilstand in het invoerscherm.`, periodeKeuze(stilstand)),
     lopend.length
-      ? h("section", { class: "blok let-op-blok" }, h("h2", {}, `Nu stil (${lopend.length})`),
+      ? h("section", { class: "blok stil-blok" }, h("h2", {}, `Nu stil (${lopend.length})`),
           tabel(["Stap", "Oorzaak", "Sinds", "Duur", "Toelichting", "Gemeld door"], lopend.map((x) => [`${x.stap} ${x.stapnaam}`, x.oorzaaknaam, kort(x.begin_op), minuten(x.minuten), x.toelichting ?? "", x.operator ?? ""]), "compact"))
       : null,
     h("div", { class: "tegels" },

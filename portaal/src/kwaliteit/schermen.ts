@@ -25,9 +25,14 @@ export function periodeKeuze(opnieuw: () => void) {
 }
 
 export function tabel(koppen: string[], rijen: (Node | string | number | null)[][], klasse = "") {
+  // Kolommen met alleen getallen (ook met eenheid of duur, zoals "3 u 15") staan rechts, kop en cellen (richtlijnen §2).
+  const rechts = koppen.map((_, k) => {
+    const gevuld = rijen.map((r) => r[k]).filter((c) => c !== null && c !== "" && !(c instanceof Node && !c.textContent?.trim()));
+    return gevuld.length > 0 && gevuld.every(isGetal);
+  });
   const t = h("table", { class: `tabel ${klasse}` },
-    h("thead", {}, h("tr", {}, koppen.map((k) => h("th", { scope: "col" }, k)))),
-    h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c) => h("td", {}, c ?? "")))))) as HTMLTableElement;
+    h("thead", {}, h("tr", {}, koppen.map((k, i) => h("th", { scope: "col", class: rechts[i] ? "rechts" : undefined }, k)))),
+    h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c, i) => h("td", { class: rechts[i] ? "rechts" : undefined }, c ?? "")))))) as HTMLTableElement;
   // Elke tabel kan naar Excel; de naam komt van de dichtstbijzijnde kop (blok of pagina).
   const knop = h("button", {
     class: "knop knop-klein knop-stil excel-knop", type: "button",
@@ -38,6 +43,14 @@ export function tabel(koppen: string[], rijen: (Node | string | number | null)[]
     },
   }, "Naar Excel") as HTMLButtonElement;
   return h("div", { class: "tabel-met-acties" }, rijen.length ? h("div", { class: "tabel-acties" }, knop) : null, h("div", { class: "tabel-kader" }, t));
+}
+
+/** Een getal, of tekst die alleen uit cijfers en eenheden bestaat ("120,5 kg", "3 u 15", "99,8 %", "−2"). */
+function isGetal(c: Node | string | number | null): boolean {
+  if (typeof c === "number") return true;
+  if (c instanceof Element && (c.classList.contains("getal") || c.querySelector(".getal"))) return true;
+  const t = (c instanceof Node ? c.textContent : String(c))?.trim() ?? "";
+  return /\d/.test(t) && /^[−+-]?[\d.,\s]*((u|min|kg|g|%|°C|bar|×)[\s\d.,]*)*$/.test(t);
 }
 
 /** Melding als een lijst op de maximale lengte zit: er is meer dan er getoond wordt (ook in de Excel-export). */
@@ -154,7 +167,7 @@ interface Regel {
 
 function regelsTabel(regels: Regel[], metBatch: boolean) {
   return tabel(
-    ["Stap", ...(metBatch ? ["Batch of lot"] : []), "Veld", "Setting", "Gemeten", "Grenzen", "Resultaat", "Operator", "Afgerond"],
+    ["Stap", ...(metBatch ? ["Batch of lot"] : []), "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", "Afgerond"],
     regels.map((r) => [
       `${r.stap}${r.poging > 1 ? ` (poging ${r.poging})` : ""}`,
       ...(metBatch ? [r.batch_of_lot] : []),
@@ -303,7 +316,7 @@ export async function afwijkingen() {
       h("span", { class: "sub" }, `${rijen.length} ${rijen.length === 1 ? "meting" : "metingen"}`)),
     afgekapt(rijen.length, 500, "afwijkende metingen"),
     rijen.length
-      ? tabel(["Ingevoerd", "Batch of lot", "Lot", "Stap", "Veld", "Setting", "Gemeten", "Grenzen", "Resultaat", "Operator", ""],
+      ? tabel(["Ingevoerd", "Batch of lot", "Lot", "Stap", "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", ""],
           rijen.map((r) => [
             kort(r.ingevoerd_op),
             h("a", { href: r.batch_of_lot.startsWith("L-") ? `#/kwaliteit/lotpaspoort/${r.batch_of_lot}` : `#/kwaliteit/batch/${r.batch_of_lot}` }, r.batch_of_lot),
@@ -500,7 +513,7 @@ async function regelkaartDetail(code: string) {
   toon(
     h("p", { class: "terug" }, h("a", { href: "#/kwaliteit/regelkaarten" }, "Alle regelkaarten")),
     kop(`Regelkaart ${v.code} ${v.naam}`,
-      r.getekend === "afwijking_van_setting" ? `${v.stap}. Getekend: gemeten min setting (de setting kan per batch anders zijn).` : `${v.stap}. Getekend: de gemeten waarde, met de specificatie erbij.`,
+      r.getekend === "afwijking_van_setting" ? `${v.stap}. Getekend: gemeten min instelling (de instelling kan per batch anders zijn).` : `${v.stap}. Getekend: de gemeten waarde, met de specificatie erbij.`,
       periodeKeuze(() => regelkaartDetail(code))),
     r.punten.length < 2
       ? h("p", { class: "leeg" }, "Te weinig metingen in deze periode voor een regelkaart.")

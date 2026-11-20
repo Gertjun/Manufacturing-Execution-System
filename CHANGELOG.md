@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.24.1 — 20 november 2026 · #43
+- Vaste woorden (D51): "Instelling" in plaats van "Setting" in het invoerscherm, de afwijkingen, het lotpaspoort en Beheer. In de database en de API blijft het `setting`.
+- Foutmeldingen staan nu direct onder het veld, met ⚠ en een uitleg hoe je het oplost ("Vul een getal in, bijvoorbeeld 86,5"). Ze verschijnen pas als je de rij verlaat, niet tijdens het typen; de markering binnen of buiten tolerantie blijft wel direct zichtbaar (D50). Onderin staat ook waarom "Stap afronden" nog niet kan.
+- Statuskleuren met één betekenis: "In beoordeling" is geel (wacht op Kwaliteit) in plaats van oranje, en "Nu stil" in Productie → Stilstand is rood, zoals in het invoerscherm en op het wandscherm.
+- Tabellen: kolommen met alleen getallen (ook met eenheid of duur, zoals "2 u 51") staan rechts uitgelijnd, de kop erboven ook.
+- Knoppen in de portalen: alle gewone knoppen hebben dezelfde rand; alleen de hoofdknop is gevuld.
+- Stappen zonder werk zijn rustiger (in het invoerscherm en in Productie → Werkvoorraad), zodat stappen met werk opvallen.
+
 ## 0.24.0 — 20 november 2026 · #42
 - Nieuw: één gedeeld bestand met alle kleuren, afstanden, tekstgroottes en rondingen (`gedeeld/tokens.css`) voor invoerscherm en portalen. Beide apps gebruiken alleen nog die waarden; afstanden liggen op een raster van 4 en 8 px. Kleine verschillen tussen de apps (twee grijzen voor randen) zijn weg.
 - Knoppen die iets versturen zijn meteen niet nogmaals te klikken tot het antwoord er is; duurt het langer dan 0,4 s, dan verschijnt een draaiend rondje. Zo kan een dubbele klik geen dubbele invoer meer geven.

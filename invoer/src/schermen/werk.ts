@@ -51,7 +51,7 @@ export async function stappenScherm() {
     const wachtend = o?.wachtend ?? 0;
     return h(
       "a",
-      { class: open > 0 ? "tegel bezig" : "tegel", href: `#/stap/${s.code}` },
+      { class: open > 0 ? "tegel bezig" : wachtend > 0 ? "tegel" : "tegel leeg", href: `#/stap/${s.code}` },
       h("span", { class: "tegel-nr" }, s.volgorde),
       h("span", { class: "tegel-naam" }, s.naam),
       h(

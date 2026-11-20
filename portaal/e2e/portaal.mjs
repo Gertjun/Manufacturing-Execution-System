@@ -58,6 +58,8 @@ try {
   await page.locator(".grafiek > svg").first().waitFor();
   await page.waitForTimeout(300);
   await shot("01-overzicht");
+  check("Kop boven een getalkolom staat rechts (#43)", (await page.locator("th.rechts", { hasText: "Afwijkend" }).count()) === 1);
+  check("Kop boven een tekstkolom staat links", (await page.locator("th.rechts", { hasText: "Veld" }).count()) === 0);
   await page.getByRole("link", { name: /Te beoordelen/ }).locator(".teller:not(:empty)").waitFor();
   const inBeoordeling = Number((await q("SELECT count(*) AS n FROM fabriek.batch WHERE status = 'in_beoordeling'"))[0].n);
   check(`Teller in het menu toont ${inBeoordeling} te beoordelen`, inBeoordeling >= 2 && (await page.getByRole("link", { name: /Te beoordelen/ }).locator(".teller:not(:empty)").innerText()) === String(inBeoordeling));

@@ -41,7 +41,16 @@ export async function registratieScherm(id: string) {
 function teken(reg: Registratie) {
   const magInvoeren = reg.status === "open" && (sessie.rol === "operator" || sessie.rol === "ploegleider");
   const magCorrigeren = (sessie.rol === "ploegleider" || sessie.rol === "beheerder") && !reg.lokaal;
-  const invoer = new Map<string, { setting?: HTMLInputElement; gemeten: HTMLInputElement; label: HTMLElement; rij: HTMLElement }>();
+  const invoer = new Map<string, { setting?: HTMLInputElement; gemeten: HTMLInputElement; label: HTMLElement; rij: HTMLElement; fout: HTMLElement }>();
+  // Rijen die de operator al heeft verlaten: daar tonen we een foutmelding onder het veld (niet tijdens het typen, D50).
+  const verlaten = new Set<string>();
+  const toonFout = (code: string, tekst: string | null, velden: (HTMLInputElement | undefined)[], ongeldig: (HTMLInputElement | undefined)[]) => {
+    const el = rijFout.get(code);
+    const zichtbaar = verlaten.has(code) ? tekst : null;
+    if (el) el.textContent = zichtbaar ?? "";
+    for (const v of velden) v?.setAttribute("aria-invalid", String(!!zichtbaar && ongeldig.includes(v)));
+  };
+  const rijFout = new Map<string, HTMLElement>();
 
   const opslaan = h("button", { class: "knop knop-hoofd", disabled: true }, "Opslaan") as HTMLButtonElement;
   const afronden = h("button", { class: "knop" }, "Stap afronden") as HTMLButtonElement;
@@ -55,8 +64,16 @@ function teken(reg: Registratie) {
     const leeg = i.gemeten.value.trim() === "" && (!i.setting || i.setting.value.trim() === "");
     const fout =
       (i.gemeten.value.trim() !== "" && gemeten === null) || (!!i.setting && i.setting.value.trim() !== "" && setting === null);
-    i.gemeten.setAttribute("aria-invalid", String(i.gemeten.value.trim() !== "" && gemeten === null));
-    i.setting?.setAttribute("aria-invalid", String(i.setting.value.trim() !== "" && setting === null));
+    const gOngeldig = i.gemeten.value.trim() !== "" && gemeten === null;
+    const sOngeldig = !!i.setting && i.setting.value.trim() !== "" && setting === null;
+    const sLeeg = !!i.setting && i.setting.value.trim() === "";
+    const gLeeg = i.gemeten.value.trim() === "";
+    const tekst =
+      gOngeldig || sOngeldig ? "Vul een getal in, bijvoorbeeld 86,5" :
+      !leeg && gLeeg ? "Vul ook de gemeten waarde in" :
+      !leeg && sLeeg ? "Vul ook de instelling in" : null;
+    const leegVeld = !leeg && gLeeg ? i.gemeten : !leeg && sLeeg ? i.setting : undefined;
+    toonFout(v.code, tekst, [i.gemeten, i.setting], [gOngeldig ? i.gemeten : undefined, sOngeldig ? i.setting : undefined, leegVeld]);
     if (gemeten === null || (i.setting && setting === null)) return { invoer: null, leeg, fout };
     return { invoer: { code: v.code, setting: i.setting ? setting : null, gemeten }, leeg, fout };
   };
@@ -71,8 +88,10 @@ function teken(reg: Registratie) {
       const hv = i.hoeveelheid.value.trim();
       const hoeveelheid = hv === "" ? null : leesGetal(hv);
       const ongeldig = (hv !== "" && (hoeveelheid === null || hoeveelheid <= 0)) || (partij === "" && hv !== "");
-      i.hoeveelheid.setAttribute("aria-invalid", String(hv !== "" && (hoeveelheid === null || hoeveelheid <= 0)));
-      i.partij.setAttribute("aria-invalid", String(partij === "" && hv !== ""));
+      const hOngeldig = hv !== "" && (hoeveelheid === null || hoeveelheid <= 0);
+      const pLeeg = partij === "" && hv !== "";
+      toonFout(code, hOngeldig ? "Vul een hoeveelheid groter dan 0 in, bijvoorbeeld 118,5" : pLeeg ? "Vul het partijnummer van de leverancier in" : null,
+        [i.partij, i.hoeveelheid], [hOngeldig ? i.hoeveelheid : undefined, pLeeg ? i.partij : undefined]);
       if (ongeldig) fout = true;
       else if (partij) klaar.push({ code, partij, hoeveelheid });
     }
@@ -104,9 +123,9 @@ function teken(reg: Registratie) {
     opslaan.disabled = klaar === 0 || half > 0;
     afronden.disabled = ontbreekt > 0 || reg.status !== "open";
     hint.textContent =
-      half > 0 ? (gs.fout ? "Vul bij een grondstof het partijnummer in, en een geldige hoeveelheid" : "Vul bij een procesparameter zowel setting als gemeten waarde in") :
-      klaar > 0 ? `${klaar} ${klaar === 1 ? "invoer" : "invoeren"} klaar om op te slaan` :
-      ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "veld" : "velden"} in te vullen` :
+      half > 0 ? (gs.fout ? "Vul bij een grondstof het partijnummer in, en een geldige hoeveelheid" : "Vul bij een procesparameter zowel instelling als gemeten waarde in") :
+      klaar > 0 ? `${klaar} ${klaar === 1 ? "invoer" : "invoeren"} klaar om op te slaan${ontbreekt > 0 ? "; de stap afronden kan als alle verplichte velden zijn opgeslagen" : ""}` :
+      ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "veld" : "velden"} in te vullen; daarna kun je de stap afronden` :
       reg.status === "open" ? "Alle velden zijn ingevuld" : "";
   };
 
@@ -121,7 +140,7 @@ function teken(reg: Registratie) {
       midden = h(
         "div",
         { class: "veld-waarde getal" },
-        v.waarde.setting !== null ? h("span", { class: "eenheid" }, `setting ${toonGetal(v.waarde.setting, v.decimalen)}, gemeten `) : null,
+        v.waarde.setting !== null ? h("span", { class: "eenheid" }, `instelling ${toonGetal(v.waarde.setting, v.decimalen)}, gemeten `) : null,
         toonGetal(v.waarde.gemeten, v.decimalen),
         v.eenheid ? h("span", { class: "eenheid" }, ` ${v.eenheid}`) : null,
       );
@@ -134,7 +153,7 @@ function teken(reg: Registratie) {
             class: "knop knop-klein",
             onclick: async () => {
               const velden = [
-                ...(v.soort === "procesparameter" ? [{ naam: "setting", label: `Setting${v.eenheid ? ` (${v.eenheid})` : ""}`, type: "getal" }] : []),
+                ...(v.soort === "procesparameter" ? [{ naam: "setting", label: `Instelling${v.eenheid ? ` (${v.eenheid})` : ""}`, type: "getal" }] : []),
                 { naam: "gemeten", label: `Gemeten${v.eenheid ? ` (${v.eenheid})` : ""}`, type: "getal" },
                 { naam: "reden", label: "Reden van de correctie" },
               ];
@@ -154,18 +173,22 @@ function teken(reg: Registratie) {
         );
       }
     } else if (magInvoeren) {
-      const gemeten = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `g-${v.code}`, oninput: werkBij }) as HTMLInputElement;
+      const gemeten = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `g-${v.code}`, "aria-describedby": `f-${v.code}`, oninput: werkBij }) as HTMLInputElement;
       const setting =
         v.soort === "procesparameter"
-          ? (h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `s-${v.code}`, oninput: werkBij }) as HTMLInputElement)
+          ? (h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `s-${v.code}`, "aria-describedby": `f-${v.code}`, oninput: werkBij }) as HTMLInputElement)
           : undefined;
       const label = h("div");
-      invoer.set(v.code, { setting, gemeten, label, rij });
+      const fout = h("p", { class: "veld-fout", id: `f-${v.code}`, "aria-live": "polite" });
+      rijFout.set(v.code, fout);
+      rij.addEventListener("focusout", (e) => { if (!rij.contains((e as FocusEvent).relatedTarget as Node | null)) { verlaten.add(v.code); werkBij(); } });
+      invoer.set(v.code, { setting, gemeten, label, rij, fout });
       midden = h(
         "div",
         { class: "veld-invoer" },
-        setting ? h("label", { for: `s-${v.code}` }, `Setting${v.eenheid ? ` (${v.eenheid})` : ""}`, setting) : null,
+        setting ? h("label", { for: `s-${v.code}` }, `Instelling${v.eenheid ? ` (${v.eenheid})` : ""}`, setting) : null,
         h("label", { for: `g-${v.code}` }, `${v.soort === "gewicht" ? "Gewicht" : "Gemeten"}${v.eenheid ? ` (${v.eenheid})` : ""}`, gemeten),
+        fout,
       );
       rechts.append(label);
       if (!v.verplicht) rechts.append(h("span", { class: "veld-grens" }, "Niet verplicht"));
@@ -209,12 +232,16 @@ function teken(reg: Registratie) {
         }, "Corrigeer"));
       }
     } else if (magInvoeren) {
-      const partij = h("input", { type: "text", autocomplete: "off", id: `p-${g.code}`, oninput: werkBij, maxlength: 60 }) as HTMLInputElement;
-      const hoeveelheid = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `h-${g.code}`, oninput: werkBij }) as HTMLInputElement;
+      const partij = h("input", { type: "text", autocomplete: "off", id: `p-${g.code}`, "aria-describedby": `f-${g.code}`, oninput: werkBij, maxlength: 60 }) as HTMLInputElement;
+      const hoeveelheid = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `h-${g.code}`, "aria-describedby": `f-${g.code}`, oninput: werkBij }) as HTMLInputElement;
       gsInvoer.set(g.code, { partij, hoeveelheid });
+      const fout = h("p", { class: "veld-fout", id: `f-${g.code}`, "aria-live": "polite" });
+      rijFout.set(g.code, fout);
+      rij.addEventListener("focusout", (e) => { if (!rij.contains((e as FocusEvent).relatedTarget as Node | null)) { verlaten.add(g.code); werkBij(); } });
       midden = h("div", { class: "veld-invoer" },
         h("label", { for: `p-${g.code}` }, "Partijnummer", partij),
-        h("label", { for: `h-${g.code}` }, `Hoeveelheid${eenheid}`, hoeveelheid));
+        h("label", { for: `h-${g.code}` }, `Hoeveelheid${eenheid}`, hoeveelheid),
+        fout);
       if (!g.verplicht) rechts.append(h("span", { class: "veld-grens" }, "Niet verplicht"));
     } else {
       midden = h("div", { class: "sub" }, "Niet ingevuld");

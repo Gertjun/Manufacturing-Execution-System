@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 20 november 2026 · huidige versie 0.24.0
+Bijgewerkt: 20 november 2026 · huidige versie 0.24.1
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -54,7 +54,6 @@ gantt
 Alle punten zijn gebouwd in 0.20.0 tot en met 0.23.0, sneller dan gepland (wat er per versie veranderde: changelog). In de software staat niets meer open vóór de pilot.
 
 Daarna, uit de UI/UX-review van 20 november 2026 (D50), vóór de training (#36):
-- #43 **Consistentie** (middel) — Eén oranje en één rood met één betekenis; kolomkoppen rechts boven getallen; één primaire knop per scherm; vaste woorden (D51); foutmelding direct onder het veld; rustigere lege stappen.
 - #44 **Ongedaan maken en tabletmenu** (klein) — "Ongedaan maken" in de melding bij acties die je makkelijk terugdraait; inklapbaar menu in de portalen op een smal scherm.
 
 **Poort A:** gehaald zodra Geert het laptoppakket van de nieuwste versie draait.

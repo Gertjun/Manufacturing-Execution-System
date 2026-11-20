@@ -106,8 +106,15 @@ try {
   await page.getByLabel("Nieuwe batch").fill("b-2026-0100");
   await page.getByRole("button", { name: "Aanmaken en starten" }).click();
   await page.getByRole("heading", { name: "B-2026-0100" }).waitFor();
+  // Foutmelding onder het veld: niet tijdens het typen, wel na het verlaten van de rij (#43, D50).
+  await page.locator("#s-S1\\.1").fill("8x");
+  check("Geen foutmelding tijdens het typen", (await page.locator("#f-S1\\.1").textContent()) === "");
+  await page.locator("#g-S1\\.2").focus();
+  check("Foutmelding onder het veld na verlaten", (await page.locator("#f-S1\\.1").textContent())?.includes("Vul een getal in"));
+  check("Veld gemarkeerd als ongeldig", (await page.locator("#s-S1\\.1").getAttribute("aria-invalid")) === "true");
   await page.locator("#s-S1\\.1").fill("80");
   await page.locator("#g-S1\\.1").fill("86,5");
+  check("Foutmelding weg na verbeteren", (await page.locator("#f-S1\\.1").textContent()) === "");
   await page.locator("#g-S1\\.2").fill("410");
   await page.locator("#p-GS-A").fill("LEV-GS-A-E2E-01");
   await page.locator("#h-GS-A").fill("118,5");
@@ -295,7 +302,7 @@ try {
   await shot("11-batch-zoeken");
   await page.locator("a.rij", { hasText: "Process Step 1" }).click();
   await page.locator(".veld", { hasText: "S1.1" }).getByRole("button", { name: "Corrigeer" }).click();
-  await page.getByLabel(/Setting/).fill("80");
+  await page.getByLabel(/Instelling/).fill("80");
   await page.getByLabel(/Gemeten/).fill("82");
   await page.getByLabel("Reden van de correctie").fill("verkeerd afgelezen");
   await page.getByRole("button", { name: "Correctie opslaan" }).click();
