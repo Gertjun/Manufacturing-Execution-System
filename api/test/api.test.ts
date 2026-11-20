@@ -581,6 +581,24 @@ describe("Portaal Planning", () => {
     const kand = await verzoek("GET", "/planning/kandidaten?stap=PS2", planner);
     assert.equal(kand.body[0].nummer, gepland[0]);
     assert.equal(kand.body[0].klaar, true);
+    // Stand van de vorige stap (D52): waarschuwen, niet weigeren.
+    const k2 = await verzoek("GET", `/planning/kandidaten?stap=PS2&dag=${vandaag}`, planner);
+    const stand = (n: string) => k2.body.find((k: any) => k.nummer === n)?.vorige?.stand;
+    assert.equal(stand(gepland[0]), "klaar");
+    assert.equal(stand(gepland[3]), "vandaag");
+    const ps3 = await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS3", items: [{ nummer: gepland[1] }] });
+    assert.equal(ps3.status, 200, "plannen vóór de vorige stap mag (alleen een waarschuwing)");
+    assert.equal(ps3.body[0].vorige.stand, "niet_gepland");
+    assert.equal(ps3.body[0].vorige.stap, "PS2");
+    const route = await verzoek("GET", "/planning/route", planner);
+    assert.equal(route.status, 200, JSON.stringify(route.body));
+    const rij = route.body.batches.find((b: any) => b.batchnummer === gepland[1]);
+    const cel = rij.cellen.find((c: any) => c.stap === "PS3");
+    assert.equal(cel.stand, "gepland");
+    assert.equal(cel.dag, morgen);
+    assert.match(cel.waarschuwing, /PS2 is nog niet gepland/);
+    assert.equal(rij.cellen.find((c: any) => c.stap === "PS1").waarschuwing, null);
+    await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS3", items: [] });
   });
 
   test("lotvoorstel: gebruikt bij gelijke samenstelling, afwijken alleen met reden", async () => {

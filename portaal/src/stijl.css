@@ -433,3 +433,26 @@ label.knop:has(+ .verborgen:focus-visible) { outline: 3px solid var(--focus, var
 /* Stilstand is overal rood (D51, ROADMAP #43). */
 .stil-blok { border-left: 6px solid var(--status-kritiek); }
 .stil-blok h2 { color: var(--grens); }
+
+/* Planning: vorige stap niet op tijd (D52). Oranje tekst met ⚠, nooit alleen kleur. */
+.plan-waarschuwing { color: var(--tol); font-weight: 700; }
+.keuzegroep { font-size: var(--text-sm); font-weight: 700; color: var(--inkt-zacht); padding: var(--space-2) var(--space-2) 0; }
+.keuzegroep-let-op { color: var(--tol); border-top: 1px solid var(--lijn-zacht); margin-top: var(--space-1); }
+.proef-melding { background: var(--signaal-vlak); border-left: 4px solid var(--signaal); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); max-width: 66ch; }
+.dagoverzicht th[scope="row"] { font-weight: 400; white-space: nowrap; vertical-align: top; }
+.dagoverzicht th[scope="row"] a { display: inline-flex; min-height: var(--doel-min); align-items: center; gap: var(--space-1); }
+.dagoverzicht td { vertical-align: top; padding-top: var(--space-3); }
+.dagoverzicht .leeg-rij th, .dagoverzicht .leeg-rij td { color: var(--inkt-zacht); }
+.dag-items { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); }
+.route-scroll { overflow-x: auto; background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--radius-md); }
+.route-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.route-tabel { margin: 0; font-variant-numeric: tabular-nums; }
+.route-tabel th, .route-tabel td { white-space: nowrap; text-align: center; padding: var(--space-2); }
+.route-tabel th[scope="row"] { position: sticky; left: 0; background: var(--vlak); text-align: left; z-index: 1; box-shadow: 1px 0 0 var(--lijn-zacht); }
+.route-tabel thead th { position: sticky; top: 0; background: var(--vlak-2); }
+.route-klaar { color: var(--ok); }
+.route-bezig { color: var(--actie); font-weight: 700; }
+.route-leeg { color: var(--inkt-zacht); }
+.route-let-op a { color: var(--tol); font-weight: 700; }
+.route-let-op { background: var(--signaal-vlak); }
+.route-legenda { display: flex; flex-wrap: wrap; gap: var(--space-4); }

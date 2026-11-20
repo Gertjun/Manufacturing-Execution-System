@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.26.0 — 20 november 2026
+- Nieuw: **Planning waarschuwt als de vorige stap niet op tijd is** (D52). Plannen mag nog steeds; je ziet alleen een ⚠ met uitleg, zoals "PS1 is nog niet gepland", "PS1 is pas gepland op ma 23-11" of "PS1 stond op do 19-11 en is nog niet klaar".
+  - Bij Toevoegen in Per stap staat wat je kunt plannen in drie groepen: "Staat klaar", "Komt op tijd klaar" en "⚠ Vorige stap niet op tijd". De melding na het toevoegen zegt erbij als er iets met waarschuwing tussen zit.
+  - In de lijst per stap staat de waarschuwing bij het item, en in de stappenlijst links een ⚠ bij stappen met zo'n item.
+- Nieuw, als **proef** om te vergelijken (#48): **Dagoverzicht** (alle 18 stappen van één dag onder elkaar) en **Batchroute** (per batch die nog niet in een lot zit: per stap ✓ klaar, ▶ bezig of de geplande dag, met ⚠ en een filter "Met waarschuwing"). Klik op een stap of een geplande dag om die te wijzigen.
+- Database: migratie 0016 voegt de functie `planning_vorige_stap` toe; er verandert niets aan bestaande gegevens. De API geeft bij geplande items en bij kandidaten een veld `vorige` mee; oudere invoerschermen negeren dat.
+
 ## Zonder nieuwe versie (na 0.25.0)
 - Roadmap #11: verwijst naar het laptoppakket van de nieuwste versie in plaats van 0.23.0.
 - Schermtest portaal: de controle "menu weer dicht na kiezen" wacht nu tot het menu opnieuw getekend is (faalde op GitHub doordat hij te vroeg keek).

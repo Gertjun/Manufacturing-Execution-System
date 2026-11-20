@@ -160,6 +160,8 @@ async function route() {
     switch (stuk) {
       case "week": return planning.week(a1);
       case "dag": return planning.dag(a1, a2);
+      case "overzicht": return planning.overzicht(a1);
+      case "route": return planning.route(a1);
       case "lots": return planning.lots();
       case "producten": return planning.producten();
       case "capaciteit": return planning.capaciteit();

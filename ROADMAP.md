@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 20 november 2026 · huidige versie 0.25.0
+Bijgewerkt: 20 november 2026 · huidige versie 0.26.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -58,8 +58,10 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 **Poort A:** gehaald zodra Geert het laptoppakket van de nieuwste versie draait.
 
 ### B. Proof of concept en praktijk — december 2026
-- #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie (nu 0.25.0) draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
+- #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie (nu 0.26.0) draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
+
+- #48 **Kiezen: Dagoverzicht of Batchroute** (klein, *Geert*) — Beide staan als proef in Planning (0.26.0, D52). Geert bekijkt ze in de demo of op de laptop en kiest er één; de andere gaat eruit en "(proef)" verdwijnt uit het menu.
 
 **Poort B:** elke praktijktest heeft een uitkomst; wat misging is opgelost of bewust geaccepteerd.
 
@@ -104,7 +106,7 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
 - #34 **Open vragen planning** — Moet de planner ook ploegen of pc's toewijzen? Mag een operator een lotvoorstel zelf aanpassen? Is "per stap per dag" zo bruikbaar?
 
 ## Hoe we deze roadmap bijhouden
-- Nieuwe taken, adviezen, open vragen en praktijktests komen hier met het volgende vrije nummer (nu #48), in de fase waar ze horen.
+- Nieuwe taken, adviezen, open vragen en praktijktests komen hier met het volgende vrije nummer (nu #49), in de fase waar ze horen.
 - Is een punt gebouwd, dan haal je het hier weg en zet je het nummer in de changelog achter de versie.
 - De tijdlijn en de fasen pas je aan als een fase klaar is, een poort niet gehaald wordt of de volgorde verandert.
 - Rapporten op claude.ai zijn momentopnamen; wat eruit volgt komt hier als punt.

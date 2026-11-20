@@ -139,6 +139,41 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   check("Teller in de stappenlijst", (await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS1$/ }) }).innerText()).includes("2"));
   await shot("02-per-stap");
 
+  console.log("\nWaarschuwing: vorige stap niet op tijd (D52)");
+  await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS3$/ }) }).click();
+  await page.getByRole("heading", { name: /^PS3 / }).waitFor();
+  await page.getByRole("button", { name: "Toevoegen" }).click();
+  await dialoog().locator(".keuzegroep-let-op").waitFor();
+  check("Keuzevenster: groep 'Vorige stap niet op tijd'", (await dialoog().locator(".keuzegroep-let-op").innerText()).includes("Vorige stap niet op tijd"));
+  await shot("02b-toevoegen-groepen", false);
+  await dialoog().getByLabel(new RegExp(nummers[1])).check();
+  await dialoog().getByRole("button", { name: "Kiezen" }).click();
+  await page.locator("#melding", { hasText: "let op" }).waitFor();
+  check("Plannen vóór de vorige stap mag, met waarschuwing", (await page.locator("tr", { hasText: nummers[1] }).innerText()).includes("PS2 is nog niet gepland"));
+  check("⚠ bij PS3 in de stappenlijst", (await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS3$/ }) }).innerText()).includes("⚠"));
+  await shot("02c-per-stap-waarschuwing");
+
+  console.log("\nProef: Dagoverzicht en Batchroute");
+  await page.getByRole("link", { name: "Dagoverzicht (proef)" }).click();
+  await page.locator(".dagoverzicht").waitFor();
+  check("Dagoverzicht toont alle 18 stappen", (await page.locator(".dagoverzicht tbody tr").count()) === 18);
+  check("Dagoverzicht telt de waarschuwing", (await page.locator("main p", { hasText: "niet op tijd" }).count()) >= 1);
+  await shot("06-dagoverzicht");
+  await page.getByRole("link", { name: "Batchroute (proef)" }).click();
+  await page.locator(".route-tabel").waitFor();
+  const letOpCel = page.locator(".route-tabel tr", { hasText: nummers[1] }).locator("td.route-let-op");
+  check("Batchroute: geplande PS3 met ⚠", (await letOpCel.count()) === 1 && (await letOpCel.getAttribute("title")).includes("PS2 is nog niet gepland"));
+  await shot("07-batchroute");
+  await page.getByRole("link", { name: /^Met waarschuwing/ }).click();
+  await page.waitForFunction(() => location.hash.endsWith("/let-op"));
+  await page.locator(".route-tabel").waitFor();
+  check("Batchroute: filter alleen met waarschuwing", (await page.locator(".route-tabel tbody tr").count()) >= 1 && (await page.locator(".route-tabel tbody tr", { hasText: nummers[1] }).count()) === 1);
+  // Weer weghalen, zodat de rest van de test niet verandert.
+  await letOpCel.locator("a").click();
+  await page.getByRole("heading", { name: /^PS3 / }).waitFor();
+  await page.locator("tr", { hasText: nummers[1] }).getByRole("button", { name: "Weghalen" }).click();
+  await page.locator("#melding", { hasText: "uit de planning gehaald" }).waitFor();
+
   console.log("\nLotvoorstellen");
   await page.getByRole("link", { name: "Lotvoorstellen" }).click();
   await page.getByRole("button", { name: "Nieuw lotvoorstel" }).click();

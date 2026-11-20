@@ -194,9 +194,32 @@ export async function week(van?: string) {
 }
 
 // ---------- Dag per stap ----------
-interface PlanItem { id: string; soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[] }
+interface PlanItem { id: string; soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[]; vorige?: Vorige | null }
 interface StapPlan { code: string; naam: string; niveau: string; is_lot_stap: boolean; items: PlanItem[] }
-interface Kandidaat { soort: string; nummer: string; klaar: boolean; toelichting: string | null }
+interface Kandidaat { soort: string; nummer: string; klaar: boolean; toelichting: string | null; vorige?: Vorige | null }
+
+// ---------- Stand van de vorige stap (D52) ----------
+// De database zegt hoe de vorige stap ervoor staat; het scherm waarschuwt, maar weigert niets (D29).
+interface Vorige { stand: "eerste" | "klaar" | "bezig" | "vandaag" | "eerder" | "achter" | "later" | "niet_gepland" | "niet_klaar"; stap: string | null; dag: string | null; nr: number | null }
+const NIET_OP_TIJD = new Set<Vorige["stand"]>(["achter", "later", "niet_gepland", "niet_klaar"]);
+const korteDag = (dag: string) => new Date(`${dag}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "numeric" });
+function vorigeTekst(v: Vorige | null | undefined): string {
+  if (!v || !v.stap) return "";
+  switch (v.stand) {
+    case "klaar": return `${v.stap} is klaar`;
+    case "bezig": return `${v.stap} is bezig`;
+    case "vandaag": return `${v.stap} staat dezelfde dag gepland${v.nr ? ` (nr. ${v.nr})` : ""}`;
+    case "eerder": return `${v.stap} staat gepland op ${korteDag(v.dag!)}`;
+    case "achter": return `${v.stap} stond op ${korteDag(v.dag!)} en is nog niet klaar`;
+    case "later": return `${v.stap} is pas gepland op ${korteDag(v.dag!)}`;
+    case "niet_gepland": return `${v.stap} is nog niet gepland`;
+    case "niet_klaar": return `Nog niet alle batches hebben ${v.stap} afgerond`;
+    default: return "";
+  }
+}
+const nietOpTijd = (v: Vorige | null | undefined) => !!v && NIET_OP_TIJD.has(v.stand);
+/** ⚠ met uitleg, voor een gepland item waarvan de vorige stap niet op tijd is. */
+const waarschuwing = (tekst: string) => h("span", { class: "plan-waarschuwing" }, h("span", { "aria-hidden": "true" }, "⚠ "), tekst);
 
 const STAND: Record<PlanItem["status"], string> = { gepland: "Gepland", bezig: "Bezig", gedaan: "Gedaan" };
 const itemNaam = (i: { soort: string; nummer: string }) => (i.soort === "voorstel" ? `Lotvoorstel ${i.nummer}` : i.nummer);
@@ -218,15 +241,25 @@ export async function dag(datum?: string, stapcode?: string) {
 
   const toevoegen = async () => {
     let k: Kandidaat[];
-    try { k = await haal<Kandidaat[]>(`/planning/kandidaten?stap=${s.code}`); } catch (e) { return melding((e as Error).message, "fout"); }
+    try { k = await haal<Kandidaat[]>(`/planning/kandidaten?stap=${s.code}&dag=${d}`); } catch (e) { return melding((e as Error).message, "fout"); }
     const al = new Set(s.items.map((i) => i.nummer));
     k = k.filter((x) => !al.has(x.nummer));
     if (!k.length) return melding(s.is_lot_stap ? "Er zijn geen open lotvoorstellen om te plannen. Maak eerst een lotvoorstel." : "Er is niets meer om in deze stap te plannen.", "info");
+    // Drie groepen: klaar, komt op tijd klaar, en vorige stap niet op tijd (D52).
+    const groep = (x: Kandidaat) =>
+      nietOpTijd(x.vorige) ? 2 : x.klaar || !x.vorige || x.vorige.stand === "klaar" || x.vorige.stand === "eerste" ? 0 : 1;
+    const GROEPEN = ["Staat klaar", `Komt op tijd klaar voor ${dagNaam(d)}`, "Vorige stap niet op tijd"];
+    k = [...k].sort((a, b) => groep(a) - groep(b));
     const gekozen = await kiesUit(`Toevoegen aan ${s.code} ${s.naam}`,
-      "Bovenaan staat wat nu al klaar is voor deze stap. Je kunt ook plannen wat later vandaag klaar komt.",
-      k.map((x) => ({ waarde: x.nummer, tekst: itemNaam(x), uitleg: [x.klaar ? "Staat klaar" : null, x.toelichting].filter(Boolean).join(". ") })));
+      "Je kunt alles plannen, ook als de vorige stap nog niet klaar is. Dan zie je een waarschuwing.",
+      k.map((x) => ({ waarde: x.nummer, tekst: itemNaam(x), groep: GROEPEN[groep(x)], waarschuwing: groep(x) === 2,
+        let_op: groep(x) === 2 ? vorigeTekst(x.vorige) : undefined,
+        uitleg: [groep(x) === 2 ? null : x.klaar ? "Staat nu in de werkvoorraad" : vorigeTekst(x.vorige), x.toelichting].filter(Boolean).join(". ") })));
     if (!gekozen?.length) return;
-    await bewaar([...huidig(), ...gekozen.map((nummer) => ({ nummer, opmerking: null }))], gekozen.length === 1 ? `${itemNaam({ soort: k[0].soort, nummer: gekozen[0] })} toegevoegd` : `${gekozen.length} toegevoegd`);
+    const metWaarschuwing = k.filter((x) => gekozen.includes(x.nummer) && groep(x) === 2).length;
+    await bewaar([...huidig(), ...gekozen.map((nummer) => ({ nummer, opmerking: null }))],
+      (gekozen.length === 1 ? `${itemNaam({ soort: k[0].soort, nummer: gekozen[0] })} toegevoegd` : `${gekozen.length} toegevoegd`) +
+      (metWaarschuwing ? `; let op: bij ${metWaarschuwing === 1 ? "één" : metWaarschuwing} is de vorige stap niet op tijd` : ""));
   };
   const verplaats = (i: number, n: number) => {
     const lijst = huidig();
@@ -247,9 +280,12 @@ export async function dag(datum?: string, stapcode?: string) {
     return bewaar(lijst, "Opmerking opgeslagen");
   };
 
+  const metWaarschuwingIn = (x: StapPlan) => x.items.filter((i) => i.status === "gepland" && nietOpTijd(i.vorige)).length;
   const lijstLink = (x: StapPlan) =>
     h("a", { href: `#/planning/dag/${d}/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined },
-      h("span", { class: "code" }, x.code), h("span", { class: "groei" }, x.naam), x.items.length ? h("span", { class: "teller-licht" }, x.items.length) : null);
+      h("span", { class: "code" }, x.code), h("span", { class: "groei" }, x.naam),
+      metWaarschuwingIn(x) ? h("span", { class: "plan-waarschuwing", title: "Vorige stap niet op tijd", "aria-label": `${metWaarschuwingIn(x)} met waarschuwing` }, "⚠") : null,
+      x.items.length ? h("span", { class: "teller-licht" }, x.items.length) : null);
 
   toon(
     kop(dagNaam(d).replace(/^./, (c) => c.toUpperCase()),
@@ -272,7 +308,8 @@ export async function dag(datum?: string, stapcode?: string) {
           ? tabel(["", s.is_lot_stap ? "Lotvoorstel" : s.niveau === "lot" ? "Lot" : "Batch", "Stand", "Opmerking", ""], s.items.map((i, n) => [
               h("span", { class: "getal sub" }, n + 1),
               h("span", {}, h("strong", {}, itemNaam(i)), i.batches.length ? h("div", { class: "sub" }, i.batches.join(", ")) : null),
-              h("span", { class: `stand stand-${i.status}` }, STAND[i.status]),
+              h("span", {}, h("span", { class: `stand stand-${i.status}` }, STAND[i.status]),
+                i.status === "gepland" && nietOpTijd(i.vorige) ? h("div", {}, waarschuwing(vorigeTekst(i.vorige))) : null),
               i.opmerking ?? "",
               kanWijzigen
                 ? h("div", { class: "knoppen-klein" },
@@ -285,8 +322,100 @@ export async function dag(datum?: string, stapcode?: string) {
   );
 }
 
+// ---------- Proef: Dagoverzicht en Batchroute (D52) ----------
+// Twee overzichten om naast elkaar te proberen. Geert kiest er één; de andere gaat er weer uit.
+const proefMelding = () =>
+  h("p", { class: "proef-melding" }, h("strong", {}, "Proef. "),
+    "Dit overzicht en de Batchroute (of het Dagoverzicht) staan er allebei om te vergelijken. Na de keuze blijft er één over.");
+
+export async function overzicht(datum?: string) {
+  const actueel = vastHouden();
+  const d = geldigeDag(datum) ?? isoDag();
+  toon(kop("Dagoverzicht"), laden());
+  let stappen: StapPlan[];
+  try { stappen = await haal<StapPlan[]>(`/planning/stappen?dag=${d}`); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const letOp = (i: PlanItem) => i.status === "gepland" && nietOpTijd(i.vorige);
+  const aantal = stappen.reduce((n, s) => n + s.items.length, 0);
+  const metWaarschuwing = stappen.reduce((n, s) => n + s.items.filter(letOp).length, 0);
+  toon(
+    kop(dagNaam(d).replace(/^./, (c) => c.toUpperCase()),
+      "Alle stappen van één dag onder elkaar, met wat er gepland is, in volgorde.",
+      h("div", { class: "knoppen-klein" },
+        h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${plusDagen(d, -1)}` }, "Vorige dag"),
+        h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${isoDag()}` }, "Vandaag"),
+        h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${plusDagen(d, 1)}` }, "Volgende dag"))),
+    proefMelding(),
+    h("p", {}, `${aantal} gepland in ${stappen.filter((s) => s.items.length).length} van ${stappen.length} stappen`,
+      metWaarschuwing ? [". ", waarschuwing(`${metWaarschuwing} met een vorige stap die niet op tijd is`)] : "."),
+    h("section", { class: "blok" },
+      h("table", { class: "tabel dagoverzicht" },
+        h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Stap (klik om te wijzigen)"), h("th", { scope: "col" }, "Gepland, in volgorde"))),
+        h("tbody", {}, stappen.map((s) =>
+          h("tr", { class: s.items.length ? undefined : "leeg-rij" },
+            h("th", { scope: "row" }, h("a", { href: `#/planning/dag/${d}/${s.code}` }, h("span", { class: "code" }, s.code), " ", s.naam)),
+            h("td", {}, s.items.length
+              ? h("ol", { class: "dag-items" }, s.items.map((i) =>
+                  h("li", {}, h("strong", {}, itemNaam(i)), " ", h("span", { class: `stand stand-${i.status}` }, STAND[i.status]),
+                    letOp(i) ? h("div", {}, waarschuwing(vorigeTekst(i.vorige))) : null)))
+              : h("span", { class: "sub" }, "Niets gepland")))))),
+    ),
+  );
+}
+
+interface RouteCel { stap: string; stand: "klaar" | "bezig" | "gepland" | null; dag: string | null; waarschuwing: string | null }
+interface Route {
+  stappen: { code: string; naam: string; is_lot_stap: boolean }[];
+  batches: { batchnummer: string; status: string; product: string | null; startdag: string | null; voorstel: number | null; cellen: RouteCel[] }[];
+}
+
+export async function route(filter?: string) {
+  const actueel = vastHouden();
+  toon(kop("Batchroute"), laden());
+  let r: Route;
+  try { r = await haal<Route>("/planning/route"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const alleenLetOp = filter === "let-op";
+  const letOp = r.batches.filter((b) => b.cellen.some((c) => c.waarschuwing));
+  const batches = alleenLetOp ? letOp : r.batches;
+  const cel = (c: RouteCel) => {
+    if (!c.stand) return h("td", { class: "route-leeg" }, h("span", { "aria-hidden": "true" }, "–"), h("span", { class: "verborgen" }, "niet gepland"));
+    if (c.stand === "klaar") return h("td", { class: "route-klaar" }, h("span", { "aria-hidden": "true" }, "✓ "), c.dag ? korteDag(c.dag) : "klaar", h("span", { class: "verborgen" }, " klaar"));
+    if (c.stand === "bezig") return h("td", { class: "route-bezig" }, h("span", { "aria-hidden": "true" }, "▶ "), "bezig");
+    return h("td", { class: c.waarschuwing ? "route-let-op" : "route-gepland", title: c.waarschuwing ?? undefined },
+      h("a", { href: `#/planning/dag/${c.dag}/${c.stap}` },
+        c.waarschuwing ? h("span", { "aria-hidden": "true" }, "⚠ ") : null, korteDag(c.dag!),
+        h("span", { class: "verborgen" }, c.waarschuwing ? ` gepland, let op: ${c.waarschuwing}` : " gepland")));
+  };
+  const batchStappen = r.stappen.filter((s) => !s.is_lot_stap);
+  const lotStap = r.stappen.find((s) => s.is_lot_stap);
+  toon(
+    kop("Batchroute", "Per batch die nog niet in een lot zit: welke stap klaar is, welke bezig is en wanneer de rest gepland staat. Klik op een geplande dag om die stap te wijzigen."),
+    proefMelding(),
+    h("div", { class: "filters" },
+      h("a", { class: `knop knop-klein ${alleenLetOp ? "knop-stil" : "knop-hoofd"}`, href: "#/planning/route", "aria-current": alleenLetOp ? undefined : "page" }, `Alle batches (${r.batches.length})`),
+      h("a", { class: `knop knop-klein ${alleenLetOp ? "knop-hoofd" : "knop-stil"}`, href: "#/planning/route/let-op", "aria-current": alleenLetOp ? "page" : undefined }, `Met waarschuwing (${letOp.length})`)),
+    h("p", { class: "legenda route-legenda" },
+      h("span", {}, "✓ klaar"), h("span", {}, "▶ bezig"), h("span", {}, "ma 23-11 gepland"),
+      h("span", { class: "plan-waarschuwing" }, "⚠ vorige stap niet op tijd"), h("span", {}, "– niet gepland")),
+    batches.length
+      ? h("div", { class: "route-scroll", tabindex: "0", role: "region", "aria-label": "Batchroute, schuift opzij" },
+          h("table", { class: "tabel route-tabel" },
+            h("thead", {}, h("tr", {},
+              h("th", { scope: "col" }, "Batch"),
+              batchStappen.map((s) => h("th", { scope: "col", title: s.naam }, s.code)),
+              lotStap ? h("th", { scope: "col", title: lotStap.naam }, `${lotStap.code} lot`) : null)),
+            h("tbody", {}, batches.map((b) =>
+              h("tr", {},
+                h("th", { scope: "row" }, h("strong", {}, b.batchnummer), h("div", { class: "sub" }, [b.product, b.status === "gepland" && b.startdag ? `start ${korteDag(b.startdag)}` : null].filter(Boolean).join(" · "))),
+                batchStappen.map((s) => cel(b.cellen.find((c) => c.stap === s.code) ?? { stap: s.code, stand: null, dag: null, waarschuwing: null })),
+                lotStap ? h("td", { class: b.voorstel ? "route-gepland" : "route-leeg" }, b.voorstel ? `Voorstel ${b.voorstel}` : "–") : null)))))
+      : h("p", { class: "leeg" }, alleenLetOp ? "Geen batches met een waarschuwing." : "Er zijn geen batches die nog niet in een lot zitten."),
+  );
+}
+
 /** Venster met vinkjes; geeft de gekozen waarden terug, of null. */
-function kiesUit(titel: string, uitleg: string, opties: { waarde: string; tekst: string; uitleg?: string }[], precies?: number, gekozen: string[] = []) {
+function kiesUit(titel: string, uitleg: string, opties: { waarde: string; tekst: string; uitleg?: string; groep?: string; waarschuwing?: boolean; let_op?: string }[], precies?: number, gekozen: string[] = []) {
   return new Promise<string[] | null>((ok) => {
     const vinken = opties.map((o) => h("input", { type: "checkbox", value: o.waarde, checked: gekozen.includes(o.waarde) }) as HTMLInputElement);
     const teller = h("p", { class: "sub", "aria-live": "polite" });
@@ -300,8 +429,14 @@ function kiesUit(titel: string, uitleg: string, opties: { waarde: string; tekst:
     const d = h("dialog", { class: "venster venster-breed" },
       h("h2", {}, titel),
       h("p", { class: "sub" }, uitleg),
-      h("div", { class: "keuzelijst" }, opties.map((o, i) =>
-        h("label", {}, vinken[i], h("span", {}, h("strong", {}, o.tekst), o.uitleg ? h("span", { class: "sub" }, ` ${o.uitleg}`) : null)))),
+      h("div", { class: "keuzelijst" }, opties.flatMap((o, i) => [
+        o.groep && o.groep !== opties[i - 1]?.groep
+          ? h("div", { class: `keuzegroep${o.waarschuwing ? " keuzegroep-let-op" : ""}` }, o.waarschuwing ? h("span", { "aria-hidden": "true" }, "⚠ ") : null, o.groep)
+          : null,
+        h("label", {}, vinken[i], h("span", {}, h("strong", {}, o.tekst),
+          o.let_op ? h("span", { class: "plan-waarschuwing" }, ` ${o.let_op}.`) : null,
+          o.uitleg ? h("span", { class: "sub" }, ` ${o.uitleg}`) : null)),
+      ])),
       teller,
       h("div", { class: "knoppen" }, h("button", { class: "knop knop-stil", onclick: () => d.close("nee") }, "Terug"), knop));
     d.addEventListener("close", () => {

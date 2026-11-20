@@ -201,3 +201,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D51 – Vaste woorden in de schermen (20 nov 2026)
 - **Besluit:** "Instelling" (niet "Setting") naast "Gemeten". Een stap heet in lopende tekst "Stap 5" en in tabellen en op tegels "PS5"; een veld heet "S5.1". In de database en de API blijft het `setting`. Alle schermteksten blijven Nederlands; een talenkeuze komt later (#45) en gebruikt deze woorden als basis.
 - **Waarom:** één woord per begrip (richtlijnen §12), en Geert wil later meer talen.
+
+### D52 – Planning waarschuwt als de vorige stap niet op tijd is (20 nov 2026, 0.26.0)
+- **Besluit:** de database-functie `planning_vorige_stap` zegt per gepland item hoe de vorige stap ervoor staat: klaar, bezig, dezelfde dag gepland, op een eerdere dag gepland die nog komt (in orde), *achter* (stond op een dag die voorbij is en is niet klaar), pas *later* gepland, of *niet gepland*. Bij een lotvoorstel: alle 4 batches klaar of niet. De laatste drie (en "niet alle batches klaar") geven een ⚠ in Per stap, het keuzevenster bij Toevoegen, het Dagoverzicht en de Batchroute. Plannen blijft mogen. De startdag uit Per week telt als planning van de eerste stap.
+- **Waarom:** Geert kon een batch in stap 2 plannen terwijl stap 1 nog niet klaar of zelfs niet gepland was, zonder dat hij het zag. Weigeren past niet bij D29: de planning is een richtlijn en de fabriek moet kunnen doordraaien. Geert koos voor waarschuwen.
+- **Proef:** om de planning overzichtelijker te maken staan twee overzichten naast elkaar, Dagoverzicht (alle stappen van één dag) en Batchroute (per batch alle stappen). Geert kiest er één (#48).

@@ -41,6 +41,35 @@ const BATCH_PLAN_SQL = `
     LEFT JOIN product p ON p.id = b.product_id
     LEFT JOIN lot l ON l.id = b.lot_id`;
 
+/** Hoe de vorige stap ervoor staat (D52). Een waarschuwing, geen weigering: de planning blijft een richtlijn (D29). */
+const Vorige = Type.Object(
+  {
+    stand: Type.Union(["eerste", "klaar", "bezig", "vandaag", "eerder", "achter", "later", "niet_gepland", "niet_klaar"].map((x) => Type.Literal(x))),
+    stap: OptTekst,
+    dag: Type.Union([Type.Null(), Dag]),
+    nr: NulGeheel(),
+  },
+  { description: "achter/later/niet_gepland (en bij een lotvoorstel niet_klaar) = de vorige stap is niet op tijd: waarschuwen" },
+);
+
+/** SQL voor de kolom "vorige": stapId, batchId, lotId, voorstelId en dag als SQL-uitdrukkingen. */
+function vorigeSql(stap: string, batch: string, lot: string, voorstel: string, dag: string) {
+  return `CASE WHEN ${voorstel} IS NOT NULL THEN
+            json_build_object(
+              'stand', CASE WHEN EXISTS (
+                         SELECT 1 FROM lot_voorstel_batch vx JOIN batch vb ON vb.id = vx.batch_id
+                          WHERE vx.voorstel_id = ${voorstel}
+                            AND EXISTS (SELECT 1 FROM processtap vs WHERE vs.actief AND vs.niveau = 'batch'
+                                          AND NOT EXISTS (SELECT 1 FROM stapregistratie vr
+                                                           WHERE vr.batch_id = vb.id AND vr.processtap_id = vs.id AND vr.status = 'afgerond')))
+                       THEN 'niet_klaar' ELSE 'klaar' END,
+              'stap', (SELECT code FROM processtap WHERE actief AND niveau = 'batch' ORDER BY volgorde DESC LIMIT 1),
+              'dag', NULL, 'nr', NULL)
+          ELSE (SELECT json_build_object('stand', x.stand, 'stap', x.vorige, 'dag', to_char(x.dag, 'YYYY-MM-DD'), 'nr', x.nr)
+                  FROM planning_vorige_stap(${stap}, ${batch}, ${lot}, ${dag}) x)
+          END`;
+}
+
 const PlanItem = Type.Object({
   id: Type.String(),
   soort: Type.Union([Type.Literal("batch"), Type.Literal("lot"), Type.Literal("voorstel")]),
@@ -49,6 +78,7 @@ const PlanItem = Type.Object({
   opmerking: OptTekst,
   status: Type.Union([Type.Literal("gepland"), Type.Literal("bezig"), Type.Literal("gedaan")]),
   batches: Type.Array(Type.String(), { description: "Bij een lotvoorstel: de 4 batches" }),
+  vorige: Type.Optional(Type.Union([Type.Null(), Vorige])),
 });
 
 /** Geplande items per stap op een dag, met hun stand (gepland, bezig, gedaan). */
@@ -67,7 +97,8 @@ const PLAN_ITEMS_SQL = `
                            ORDER BY r.poging DESC LIMIT 1), 'gepland')
          END AS status,
          coalesce((SELECT array_agg(bb.batchnummer ORDER BY bb.batchnummer) FROM lot_voorstel_batch x JOIN batch bb ON bb.id = x.batch_id
-                    WHERE x.voorstel_id = sp.voorstel_id), '{}') AS batches
+                    WHERE x.voorstel_id = sp.voorstel_id), '{}') AS batches,
+         ${vorigeSql("sp.processtap_id", "sp.batch_id", "sp.lot_id", "sp.voorstel_id", "sp.dag")} AS vorige
     FROM stapplanning sp
     JOIN processtap s ON s.id = sp.processtap_id
     LEFT JOIN batch b ON b.id = sp.batch_id
@@ -395,6 +426,81 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   app.get(
+    "/route",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["planning"],
+        description:
+          "Proef (D52): per batch die nog niet in een lot zit de stand van elke batchstap: klaar (met dag), bezig, gepland (met dag) of niets. " +
+          "'waarschuwing' = gepland terwijl de vorige stap niet op tijd is. De lotstap toont het lotvoorstel.",
+        response: {
+          200: Type.Object({
+            stappen: Type.Array(Type.Object({ code: Type.String(), naam: Type.String(), is_lot_stap: Type.Boolean() })),
+            batches: Type.Array(Type.Object({
+              batchnummer: Type.String(), status: Type.String(), product: OptTekst, startdag: Type.Union([Type.Null(), Dag]), voorstel: NulGeheel(),
+              cellen: Type.Array(Type.Object({
+                stap: Type.String(),
+                stand: Type.Union([Type.Null(), Type.Literal("klaar"), Type.Literal("bezig"), Type.Literal("gepland")]),
+                dag: Type.Union([Type.Null(), Dag]),
+                waarschuwing: OptTekst,
+              })),
+            })),
+          }),
+        },
+      },
+    },
+    async () => {
+      const stappen = await lees<{ code: string }>(app.db,
+        "SELECT code, naam, is_lot_stap FROM processtap WHERE actief AND (niveau = 'batch' OR is_lot_stap) ORDER BY volgorde");
+      const rijen = await lees<{ batchnummer: string; stap: string; stand: string | null; dag: string | null; waarschuwing: string | null }>(
+        app.db,
+        `WITH bb AS (
+           SELECT b.id, b.batchnummer, b.status, b.geplande_dag, b.volgorde, b.aangemaakt_op, p.code AS product,
+                  (SELECT v.nummer FROM lot_voorstel_batch x JOIN lot_voorstel v ON v.id = x.voorstel_id
+                    WHERE x.batch_id = b.id AND v.status = 'open' LIMIT 1) AS voorstel
+             FROM batch b LEFT JOIN product p ON p.id = b.product_id
+            WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling') AND b.lot_id IS NULL
+         ), st AS (
+           SELECT id, code, volgorde, (volgorde = (SELECT min(volgorde) FROM processtap WHERE actief AND niveau = 'batch')) AS eerste
+             FROM processtap WHERE actief AND niveau = 'batch'
+         ), cel AS (
+           SELECT bb.*, st.id AS stap_id, st.code AS stap, st.volgorde AS stapvolgorde,
+                  (SELECT r.status FROM stapregistratie r
+                    WHERE r.batch_id = bb.id AND r.processtap_id = st.id AND r.status <> 'afgebroken'
+                    ORDER BY r.poging DESC LIMIT 1) AS reg,
+                  (SELECT (r.afgerond_op AT TIME ZONE fabriekstijdzone())::date FROM stapregistratie r
+                    WHERE r.batch_id = bb.id AND r.processtap_id = st.id AND r.status = 'afgerond'
+                    ORDER BY r.poging DESC LIMIT 1) AS klaar_op,
+                  (SELECT min(d) FROM (SELECT sp.dag AS d FROM stapplanning sp WHERE sp.batch_id = bb.id AND sp.processtap_id = st.id
+                                        UNION ALL SELECT bb.geplande_dag WHERE st.eerste) z) AS plandag
+             FROM bb CROSS JOIN st
+         )
+         SELECT batchnummer, status, product, voorstel, to_char(coalesce(geplande_dag, aangemaakt_op::date), 'YYYY-MM-DD') AS startdag,
+                stap,
+                CASE reg WHEN 'afgerond' THEN 'klaar' WHEN 'open' THEN 'bezig' ELSE CASE WHEN plandag IS NOT NULL THEN 'gepland' END END AS stand,
+                to_char(CASE reg WHEN 'afgerond' THEN klaar_op WHEN 'open' THEN NULL ELSE plandag END, 'YYYY-MM-DD') AS dag,
+                CASE WHEN reg IS NULL AND plandag IS NOT NULL THEN
+                  (SELECT CASE x.stand
+                            WHEN 'achter' THEN x.vorige || ' stond op ' || to_char(x.dag, 'DD-MM') || ' en is nog niet klaar'
+                            WHEN 'later' THEN x.vorige || ' is pas gepland op ' || to_char(x.dag, 'DD-MM')
+                            WHEN 'niet_gepland' THEN x.vorige || ' is nog niet gepland'
+                          END
+                     FROM planning_vorige_stap(stap_id, id, NULL, plandag) x)
+                END AS waarschuwing
+           FROM cel
+          ORDER BY coalesce(geplande_dag, aangemaakt_op::date), volgorde NULLS LAST, batchnummer, stapvolgorde`,
+      );
+      const batches = new Map<string, { batchnummer: string; status: string; product: string | null; startdag: string | null; voorstel: number | null; cellen: unknown[] }>();
+      for (const r of rijen as never as { batchnummer: string; status: string; product: string | null; startdag: string; voorstel: number | null; stap: string; stand: string | null; dag: string | null; waarschuwing: string | null }[]) {
+        if (!batches.has(r.batchnummer)) batches.set(r.batchnummer, { batchnummer: r.batchnummer, status: r.status, product: r.product, startdag: r.startdag, voorstel: r.voorstel, cellen: [] });
+        batches.get(r.batchnummer)!.cellen.push({ stap: r.stap, stand: r.stand, dag: r.dag, waarschuwing: r.waarschuwing });
+      }
+      return { stappen, batches: [...batches.values()] } as never;
+    },
+  );
+
+  app.get(
     "/vandaag",
     {
       preHandler: vereist(...IEDEREEN),
@@ -415,10 +521,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["planning"],
-        description: "Wat je in deze stap kunt plannen. 'klaar' = staat nu in de werkvoorraad van de stap.",
-        querystring: Type.Object({ stap: StapCode }),
+        description: "Wat je in deze stap kunt plannen. 'klaar' = staat nu in de werkvoorraad van de stap. 'vorige' = hoe de vorige stap ervoor staat als je het op 'dag' plant (standaard vandaag).",
+        querystring: Type.Object({ stap: StapCode, dag: Type.Optional(Dag) }),
         response: {
-          200: Type.Array(Type.Object({ soort: Type.String(), nummer: Type.String(), klaar: Type.Boolean(), toelichting: OptTekst })),
+          200: Type.Array(Type.Object({ soort: Type.String(), nummer: Type.String(), klaar: Type.Boolean(), toelichting: OptTekst, vorige: Type.Optional(Type.Union([Type.Null(), Vorige])) })),
         },
       },
     },
@@ -429,6 +535,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         [req.query.stap],
       );
       if (!stap) throw niet("Stap");
+      const dag = req.query.dag ?? null;
       if (stap.is_lot_stap) {
         return lees(
           app.db,
@@ -436,28 +543,31 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                   NOT EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
                                WHERE x.voorstel_id = v.id AND b.batchnummer NOT IN (SELECT nummer FROM werkvoorraad($1))) AS klaar,
                   (SELECT string_agg(b.batchnummer, ', ' ORDER BY b.batchnummer) FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
-                    WHERE x.voorstel_id = v.id) AS toelichting
+                    WHERE x.voorstel_id = v.id) AS toelichting,
+                  ${vorigeSql("$2::uuid", "NULL::uuid", "NULL::uuid", "v.id", "coalesce($3::date, current_date)")} AS vorige
              FROM lot_voorstel v WHERE v.status = 'open' ORDER BY v.nummer`,
-          [req.query.stap],
+          [req.query.stap, stap.id, dag],
         ) as never;
       }
       if (stap.niveau === "lot") {
         return lees(
           app.db,
-          `SELECT 'lot' AS soort, l.lotnummer AS nummer, l.lotnummer IN (SELECT nummer FROM werkvoorraad($1)) AS klaar, NULL AS toelichting
+          `SELECT 'lot' AS soort, l.lotnummer AS nummer, l.lotnummer IN (SELECT nummer FROM werkvoorraad($1)) AS klaar, NULL AS toelichting,
+                  ${vorigeSql("$2::uuid", "NULL::uuid", "l.id", "NULL::uuid", "coalesce($3::date, current_date)")} AS vorige
              FROM lot l WHERE l.status = 'in_productie' ORDER BY 3 DESC, l.lotnummer`,
-          [req.query.stap],
+          [req.query.stap, stap.id, dag],
         ) as never;
       }
       return lees(
         app.db,
         `SELECT 'batch' AS soort, b.batchnummer AS nummer, b.batchnummer IN (SELECT nummer FROM werkvoorraad($1)) AS klaar,
-                concat_ws(' · ', p.code, CASE WHEN b.status = 'gepland' THEN 'gepland voor ' || to_char(b.geplande_dag, 'DD-MM') END) AS toelichting
+                concat_ws(' · ', p.code, CASE WHEN b.status = 'gepland' THEN 'gepland voor ' || to_char(b.geplande_dag, 'DD-MM') END) AS toelichting,
+                ${vorigeSql("$2::uuid", "b.id", "NULL::uuid", "NULL::uuid", "coalesce($3::date, current_date)")} AS vorige
            FROM batch b LEFT JOIN product p ON p.id = b.product_id
           WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling')
             AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = $2 AND r.status = 'afgerond')
           ORDER BY 3 DESC, coalesce(b.geplande_dag, b.aangemaakt_op::date), b.volgorde NULLS LAST, b.batchnummer`,
-        [req.query.stap, stap.id],
+        [req.query.stap, stap.id, dag],
       ) as never;
     },
   );

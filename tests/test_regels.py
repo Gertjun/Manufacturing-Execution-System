@@ -367,6 +367,45 @@ def main():
     check("Een onleesbaar moment wordt de servertijd",
           abs((met_moment("gisteren", "SELECT apparaat_moment()") - nu).total_seconds()) < 60)
 
+    print("\nPlanning: stand van de vorige stap (D52)")
+    stap = {code: sid for code, sid in con.execute("SELECT code, id FROM processtap")}
+    pl_acc = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'planner1'")
+    vandaag = val("SELECT current_date")
+    morgen_d, overmorgen_d = vandaag + dt.timedelta(days=1), vandaag + dt.timedelta(days=2)
+    gisteren_d = vandaag - dt.timedelta(days=1)
+    nr = val("SELECT plan_batches(1, %s, NULL, NULL, %s)", (morgen_d, pl_acc))
+    pb = val("SELECT id FROM batch WHERE batchnummer = %s", (nr,))
+
+    def vorige(code, dag, batch=None, lot=None):
+        return one("SELECT stand, vorige, dag, nr FROM planning_vorige_stap(%s, %s, %s, %s)", (stap[code], batch or pb, lot, dag))
+
+    check("Eerste stap heeft geen vorige stap", vorige("PS1", morgen_d)[0] == "eerste")
+    r = vorige("PS2", morgen_d)
+    check("PS2 op de startdag: vorige stap dezelfde dag (startdag uit de weekplanning)", r[0] == "vandaag" and r[1] == "PS1" and r[3] == 1, str(r))
+    check("PS2 vóór de startdag: vorige stap pas later gepland", vorige("PS2", vandaag)[0] == "later")
+    r = vorige("PS2", overmorgen_d)
+    check("PS2 na de startdag die nog moet komen: in orde (eerder)", r[0] == "eerder" and r[2] == morgen_d, str(r))
+    check("PS3 terwijl PS2 nergens gepland is: niet gepland", vorige("PS3", overmorgen_d)[0] == "niet_gepland")
+    con.execute("INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door) VALUES (%s,%s,%s,3,%s)",
+                (overmorgen_d, stap["PS2"], pb, pl_acc))
+    r = vorige("PS3", overmorgen_d)
+    check("PS3 op dezelfde dag als de geplande PS2: vandaag, met de plek in de volgorde", r[0] == "vandaag" and r[3] == 3, str(r))
+    con.execute("INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door) VALUES (%s,%s,%s,1,%s)",
+                (gisteren_d, stap["PS3"], pb, pl_acc))
+    r = vorige("PS4", vandaag)
+    check("PS4 vandaag terwijl PS3 gisteren gepland stond en niet klaar is: achter", r[0] == "achter" and r[2] == gisteren_d, str(r))
+    los = nieuwe_batch("B-2026-0901")
+    check("Ongeplande batch zonder PS1: niet gepland", vorige("PS2", vandaag, batch=los)[0] == "niet_gepland")
+    reg = val("SELECT start_stap('PS1', %s, NULL, %s, %s)", (los, pc, op))
+    check("PS1 staat open: bezig", vorige("PS2", vandaag, batch=los)[0] == "bezig")
+    vul_in(reg, 1)
+    con.execute("SELECT rond_stap_af(%s)", (reg,))
+    check("PS1 afgerond: klaar", vorige("PS2", gisteren_d, batch=los)[0] == "klaar")
+    lot_id = val("SELECT id FROM lot LIMIT 1")
+    if lot_id:
+        check("Eerste stap na het lot: vorige stap (lot samenstellen) is klaar", vorige("PS17", vandaag, batch=None, lot=lot_id)[0] == "klaar")
+    con.execute("DELETE FROM stapplanning WHERE batch_id = %s", (pb,))
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
