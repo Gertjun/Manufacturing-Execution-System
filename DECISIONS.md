@@ -1,7 +1,7 @@
 # Besluiten – waarom is iets zo gekozen
 
 > **Dit bestand:** de besluiten en waarom. Alleen aanvullen: oude besluiten pas je niet aan, een nieuw besluit vervangt een oud ("vervangt D3").
-> **Niet hier:** wat er gebouwd is → [`CHANGELOG.md`](CHANGELOG.md); wat er nog moet → [`WISHLIST.md`](WISHLIST.md).
+> **Niet hier:** wat er gebouwd is → [`CHANGELOG.md`](CHANGELOG.md); wat er nog moet → [`ROADMAP.md`](ROADMAP.md).
 
 Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; een nieuw besluit vervangt een oud ("vervangt D3"). D1–D16 zijn achteraf vastgelegd uit de gesprekken van november 2026.
 
@@ -184,3 +184,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D47 – Decimalen per veld en een 0 blijft een 0 (20 nov 2026, 0.23.0)
 - **Besluit:** elk veld heeft een optioneel aantal decimalen (0–6) dat alleen het tonen bepaalt; de meetwaarde wordt niet afgerond opgeslagen. Leeg = automatisch (tot 3 decimalen). Statistiek op de regelkaart toont één decimaal meer. Velden in de API die een getal of leeg mogen zijn, gebruiken een schema met twee types (`NulGetal`, `NulGeheel`) in plaats van `anyOf`, omdat de invoercontrole van Fastify bij `anyOf [null, getal]` een 0 omzette naar leeg.
 - **Waarom:** het certificaat en de regelkaart moeten de afgesproken nauwkeurigheid tonen, ongeacht wat het scherm toevallig afrondt. De omzetting van 0 naar leeg was een stille fout die echte metingen (een setting van 0) zou aantasten.
+
+### D48 – Documenten naar verleden, heden en toekomst (20 nov 2026)
+- **Besluit:** vier bestanden houden het project bij. Heden: `README.md`, met bovenaan het blok "Stand" (vervangt `NOTES.md`). Toekomst: `ROADMAP.md`, de enige takenlijst met fasen, poorten en planning (neemt `WISHLIST.md` op). Verleden: `CHANGELOG.md` (wat, met achter elke versie de nummers van de gebouwde roadmappunten; de lijst "Gerealiseerd" vervalt) en `DECISIONS.md` (waarom). Punten houden hun nummer. De valkuilen voor een volgende sessie staan in `CLAUDE.md`. Handleidingen voor een bepaalde lezer blijven apart: `docs/SERVER.md`, `tools/pakket/README.md`, `CLAUDE.md`. Vervangt de indeling van NOTES en WISHLIST in D17, D20, D41 en D42; oudere besluiten die naar "WISHLIST #n" verwijzen, bedoelen nu roadmappunt #n. Geert wil deze indeling ook in zijn andere projecten.
+- **Waarom:** zeven bestanden waren te veel en liepen uit de pas (de roadmap noemde nog 0.22.0, de wishlist nog laptoppakket 0.19.0, en "Gerealiseerd" herhaalde de changelog). De indeling sluit aan bij wat in softwareprojecten gebruikelijk is: README voor het heden, changelog en besluitenlog voor het verleden, één takenlijst of roadmap voor de toekomst.

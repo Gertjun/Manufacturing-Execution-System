@@ -4,21 +4,34 @@ Platform om per batch en per lot de productiegegevens van de fabriek vast te leg
 
 ## Waar vind je wat
 
-Elk onderwerp staat op één plek; de andere bestanden verwijzen ernaar.
+Elk onderwerp staat op één plek; de andere bestanden verwijzen ernaar (D48).
 
-| Vraag | Bestand |
-| --- | --- |
-| Hoe zit het in elkaar, hoe start en test je het? | dit bestand, `README.md` |
-| Wat is de stand nu (versie, wat draait waar, laatste test)? | [`NOTES.md`](NOTES.md) |
-| Wat moet er nog gebeuren (functies, tests, acties, open vragen)? | [`WISHLIST.md`](WISHLIST.md) |
-| In welke volgorde en wanneer? Fasen en poorten tot en na de pilot | [`ROADMAP.md`](ROADMAP.md) |
-| Wat is er per versie veranderd? | [`CHANGELOG.md`](CHANGELOG.md) |
-| Waarom is iets zo gekozen? | [`DECISIONS.md`](DECISIONS.md) |
-| Hoe installeert IT de fabrieksserver? | [`docs/SERVER.md`](docs/SERVER.md) |
-| Hoe gebruik je het laptoppakket? | [`tools/pakket/README.md`](tools/pakket/README.md) |
-| Hoe werkt Claude in dit project? | [`CLAUDE.md`](CLAUDE.md) |
+| | Vraag | Bestand |
+| --- | --- | --- |
+| Heden | Waar staan we nu, hoe zit het in elkaar, hoe start en test je het? | dit bestand, `README.md` |
+| Toekomst | Wat moet er nog gebeuren, in welke volgorde en wanneer? | [`ROADMAP.md`](ROADMAP.md) |
+| Verleden | Wat is er per versie veranderd? | [`CHANGELOG.md`](CHANGELOG.md) |
+| Verleden | Waarom is iets zo gekozen? | [`DECISIONS.md`](DECISIONS.md) |
 
-Buiten de repository (op claude.ai): het projectdocument in het Claude-project (korte instap met links), het Whiteboard met het eerste projectplan, de browserdemo, en drie momentopnamen die niet meer worden bijgewerkt: advies fabrieksserver, datamodel v1 en de doorlichting van 19-11-2026. De links staan in `NOTES.md`.
+Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT installeert de fabrieksserver), [`tools/pakket/README.md`](tools/pakket/README.md) (het laptoppakket, gaat mee in de zip) en [`CLAUDE.md`](CLAUDE.md) (werkafspraken voor Claude).
+
+## Stand
+
+Bijgewerkt: 20 november 2026 · versie **0.23.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd (0.20.0 tot en met 0.23.0); in de software staat niets meer open vóór de pilot. De volgende stappen liggen bij Geert: fase B (praktijktests, #33) en C (echte velden via het sjabloon, #2).
+- **Laptop:** Geert draait 0.7.1; 0.23.0 is als zip geleverd (`batch-gui-laptop-0.23.0-windows.zip`).
+- **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
+- **Browserdemo:** versie 0.23.0 gepubliceerd.
+- **Releases op GitHub:** haperen sinds 0.21.1; 0.21.1 en later hebben nog geen tag en release (#40). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
+- **Laatste testronde (0.23.0, 20 november 2026):** geslaagd: databaseregels (94), API (75), migraties (tot en met 15), beheertools, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo). Praktijktests zijn nog niet gedaan (#33).
+- **Gegevens:** alles fictief (D1).
+
+**Links**
+- Code: https://github.com/Gertjun/batch-input-gui (privé)
+- Browserdemo (blijft actueel): https://claude.ai/artifact/AvBGewCSnACg6h6CeUKZQN
+- Projectdocument in het Claude-project: `claude/architectuur-en-besluiten.md` (korte instap met links)
+- Momentopnamen, worden niet bijgewerkt: Whiteboard eerste projectplan https://claude.ai/artifact/Nm9L5rFHZY6Dtgk2JMncnF · advies fabrieksserver https://claude.ai/artifact/XbFZ7nQRDn18zSS5tnQhUf · datamodel v1 https://claude.ai/artifact/54cg2QSsWQ3j6hbkzYBVTA · doorlichting 19-11-2026 https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i
 
 ## Het platform in het kort
 

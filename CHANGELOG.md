@@ -1,41 +1,42 @@
 # Changelog – wat is er per versie veranderd
 
 > **Dit bestand:** per versie wat er nieuw of anders is, in gewone taal. Het is de enige geschiedenis van het project.
-> **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`WISHLIST.md`](WISHLIST.md).
+> **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`ROADMAP.md`](ROADMAP.md).
 
-Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
+Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Zonder nieuwe versie (na 0.23.0)
 - Handleiding van het laptoppakket noemt nu ook Portaal Planning en het wandscherm. Overbodige notitie `gedeeld/README.md` weggehaald (de README beschrijft de map al).
+- Documenten opnieuw ingedeeld naar verleden, heden en toekomst (D48): de stand staat nu bovenaan de README (`NOTES.md` vervalt), de wishlist is opgegaan in de roadmap (`WISHLIST.md` vervalt), en de changelog noemt achter elke versie de nummers van de gebouwde punten. Nieuw roadmappunt #40: releases op GitHub weer laten werken.
 
-## 0.23.0 — 20 november 2026
+## 0.23.0 — 20 november 2026 · #39
 - Nieuw: per veld het **aantal decimalen** (0 tot en met 6) in Beheer → Stappen en velden en in het Excel-sjabloon (kolom Decimalen). Het invoerscherm, het lotpaspoort, de afwijkingen, het certificaat en de regelkaart tonen de waarden dan met precies zoveel cijfers achter de komma; gemiddelde en spreiding op de regelkaart met één cijfer meer. Leeg = zoals voorheen. De opgeslagen meetwaarde verandert niet. In de fictieve configuratie hebben temperaturen 1 decimaal, druk en vochtgehalte 2 en het toerental 0.
 - Een sjabloon zonder kolom Decimalen (van vóór deze versie) laat de decimalen ongemoeid.
 - **Opgelost:** een 0 werd door de server soms als leeg opgeslagen, bijvoorbeeld een setting van 0, een ondergrens van 0 of decimalen 0. Elke 0 blijft nu een 0.
 - Beheer → Server: actieve testaccounts met wachtwoord "demo" staan nu als opmerking onder de status en tellen niet meer als waarschuwing; met testdata blijft de status "In orde".
 - Technisch: database-update 15 (`0015_decimalen`) wordt bij de start automatisch uitgevoerd.
 
-## 0.22.2 — 20 november 2026
+## 0.22.2 — 20 november 2026 · #38
 - Inlogpogingen worden 90 dagen bewaard. Oudere ruimt het onderhoud op: op de server de back-up (elk uur), op de laptop het opstarten. Het onderhoudslogboek in Beheer → Server noemt hoeveel er zijn opgeruimd.
 - Technisch: database-update 14 (`0014_opruimen`) met de functie `ruim_inlogpogingen_op()`; alleen het onderhoud kan die aanroepen, de applicatie niet.
 
-## 0.22.1 — 20 november 2026
+## 0.22.1 — 20 november 2026 · #37
 - De startpagina (`/`) noemt "Testomgeving met fictieve gegevens" en de testaccounts alleen nog als die accounts er echt zijn. In een lege fabriek of een echte installatie staan alleen de applicaties en het versienummer.
 - Beheer → Server waarschuwt als er testaccounts met wachtwoord "demo" actief zijn. Met testdata is dat normaal; in een echte installatie zet je ze uit.
 - De startpagina noemt nu ook Planning, het wandscherm en de testaccounts planner1 en scherm1.
 
-## 0.22.0 — 19 november 2026
+## 0.22.0 — 19 november 2026 · #35
 - Nieuw in Beheer → Stappen en velden: **Sjabloon downloaden** geeft een Excel-bestand met alle velden van alle stappen (ook uitgezette). Daarin kun je velden aanpassen en nieuwe velden toevoegen (Code leeg laten).
 - **Sjabloon inlezen** controleert het bestand eerst: per regel zie je of het een nieuw veld, een wijziging (met oud en nieuw) of ongewijzigd is, en welke regels een fout hebben. Er wordt pas iets opgeslagen als je op "wijzigingen opslaan" klikt, en alleen als geen enkele regel een fout heeft. Alles komt in het logboek.
 - Een veld verandert niet van stap of soort via het sjabloon, en velden die niet in het bestand staan blijven zoals ze zijn. Nieuwe velden krijgen de volgende vrije code, zoals altijd.
 - Technisch: geen database-update. De controle gebruikt de echte databaseregels in een transactie die wordt teruggedraaid (D46).
 
-## 0.21.1 — 19 november 2026
+## 0.21.1 — 19 november 2026 · #27
 - Voor IT: `migreer.mjs` maakt vóór een database-update eerst een back-up (`batchgui_<datum_tijd>_voor-migratie-<nummer>.dump`) als er een back-upmap is ingesteld. Mislukt die back-up, dan verandert er niets.
 - Het draaiboek voor de fabrieksserver (`docs/SERVER.md`) is bijgewerkt tot deze versie, met de klok en tijdzone, de inlogbeveiliging en de beveiligingskoppen.
 - De schermtests in Chrome (invoerscherm, alle portalen en de browserdemo) draaien nu ook automatisch op GitHub (`tests/test_schermen.sh`). Twee tests wachten nu tot het scherm klaar is in plaats van te snel te tellen.
 
-## 0.21.0 — 19 november 2026
+## 0.21.0 — 19 november 2026 · #28
 - Na 5 verkeerde wachtwoorden voor dezelfde gebruikersnaam binnen 15 minuten moet je 1 minuut wachten. Het scherm zegt hoe lang.
 - Elke inlogpoging wordt vastgelegd (gebruikersnaam, pc, gelukt of niet; nooit het wachtwoord). Beheer → Server waarschuwt bij 20 of meer mislukte pogingen in 24 uur.
 - Hoofdletters in de gebruikersnaam tellen niet meer mee: "Kwaliteit1" is hetzelfde account als "kwaliteit1".
@@ -43,18 +44,18 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - De server stuurt beveiligingskoppen mee: pagina's laden alleen scripts en gegevens van de eigen server en kunnen niet in een andere site worden ingebed.
 - Technisch: database-update 13 (`0013_inloggen`) wordt bij de start automatisch uitgevoerd (D45).
 
-## 0.20.2 — 19 november 2026
+## 0.20.2 — 19 november 2026 · #29
 - Een regelkaart met minder dan 20 metingen staat als "voorlopig": de grenzen en signalen zijn dan een eerste indruk en er staat geen Cpk. In het overzicht staat "nog te weinig metingen" in plaats van een Cpk.
 - Lijsten die op hun maximale lengte zitten, zeggen dat nu: afwijkingen (500), trend per veld (5000), grondstoffen terugzoeken (1000), logboek (300) en meldingen (200). Ook in de Excel-export staan dan alleen die regels.
 - De trend per veld toont bij heel veel metingen de nieuwste 5000 (eerst waren het de oudste).
 
-## 0.20.1 — 19 november 2026
+## 0.20.1 — 19 november 2026 · #25, #26
 - De tijdzone staat vast op die van de fabriek (Europe/Amsterdam). Ploegen, "vandaag" en de weekindeling volgden de tijdzone van de computer waarop de database draait; op een server met UTC schoven de ploegen een of twee uur.
 - De nachtploeg rond de wisseling van zomer- en wintertijd klopt. In de nacht van de wintertijd duurt hij 9 uur (05:30 hoorde eerst bij geen enkele ploeg), in de nacht van de zomertijd 7 uur (eerst overlapte hij een uur met de ochtendploeg).
 - De periodekeuze in de portalen (bijvoorbeeld "laatste 7 dagen") gaf tussen middernacht en 01:00 of 02:00 een dag te vroeg als begin.
 - Technisch: database-update 12 (`0012_tijdzone`) wordt bij de start automatisch uitgevoerd; de opgeslagen tijden veranderen niet (D44).
 
-## 0.20.0 — 19 november 2026
+## 0.20.0 — 19 november 2026 · #23, #24
 - Wat offline is ingevoerd, krijgt nu het moment van invoer op de pc in plaats van het moment van versturen. Dat geldt voor het starten en afronden van een stap, meetwaarden en grondstoffen. Doorlooptijden, wachttijden en ploegcijfers kloppen daardoor ook na een periode zonder verbinding.
 - Loopt de klok van een pc voor of achter, dan wordt dat gecorrigeerd. Een moment in de toekomst, of van meer dan 7 dagen geleden, wordt de servertijd. Een stap start nooit vóór het afronden van de vorige, en wordt nooit afgerond vóór hij gestart is.
 - De wachtrij onthoudt wie iets invoerde. Logt operator A uit terwijl er nog acties wachten en logt B in, dan blijft het werk van A op naam van A. Het wachtrijscherm toont per actie de naam.
@@ -67,25 +68,25 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - Roadmap toegevoegd (`ROADMAP.md`, D42): fasen A tot en met G met poorten en een globale planning tot na de pilot. Nieuwe wishlistpunten #35 (velden importeren uit Excel) en #36 (training en handleiding).
 - Schermtests portaal en grondstoffen bijgewerkt; de browserdemo maakt zijn database opnieuw als schema of testdata nieuwer is.
 
-## 0.19.0 — 19 november 2026
+## 0.19.0 — 19 november 2026 · #20
 - Nieuw: boven elke tabel in de portalen staat de knop "Naar Excel". Die maakt direct een Excel-bestand (.xlsx) van de tabel zoals je hem ziet, met de kop van de pagina en de datum in de bestandsnaam.
 - Aantallen en meetwaarden worden echte getallen in Excel (ook met een komma als decimaalteken), zodat je er meteen mee kunt rekenen of filteren. De kopregel staat vast en heeft een filter. Knoppen en lege kolommen gaan niet mee.
 - Technisch: geen database-update en geen API-wijziging; het bestand wordt in de browser gemaakt en werkt dus ook offline (D39).
 
-## 0.18.0 — 19 november 2026
+## 0.18.0 — 19 november 2026 · #19
 - Nieuw: Portaal Kwaliteit → Regelkaarten. Het overzicht laat per veld zien hoeveel metingen en signalen er in de periode zijn, en hoeveel marge er is tot de specificatie (Cpk). Velden met signalen staan bovenaan.
 - Per veld een regelkaart met de metingen, het gemiddelde, de regelgrenzen (3 sigma) en de zones van 1 en 2 sigma. Bij een procesparameter tekent de kaart het verschil tussen gemeten en setting; bij andere velden de gemeten waarde, met de specificatie erbij.
 - Een signaal (rood ruitje) volgt de vier Western Electric-regels: één punt buiten 3 sigma; 2 van 3 punten buiten 2 sigma; 4 van 5 punten buiten 1 sigma; 8 punten op rij aan dezelfde kant. Een signaal betekent dat het proces verandert, vaak al vóórdat er een afwijking is. Onder de kaart staat een lijst met de signalen.
 - Technisch: geen database-update; de berekening zit in de API (`api/src/regelkaart.ts`, met eigen tests).
 
-## 0.17.0 — 19 november 2026
+## 0.17.0 — 19 november 2026 · #18
 - Nieuw: certificaat per lot (analysecertificaat voor de klant). In het lotpaspoort staat "Certificaat". Daar zie je per kenmerk de specificatie, het resultaat (bij batchkenmerken van laag tot hoog, met het gemiddelde over de 4 batches) en of het lot voldoet. Ook staan erop: de batches, het product en de grondstofpartijen, en de verklaring van het bedrijf.
 - Kwaliteit geeft het certificaat uit met "Uitgeven". Dat kan alleen als het lot gereed is, alle kenmerken gemeten zijn en binnen de specificatie vallen, en geen batch is afgekeurd. Het certificaat krijgt een volgnummer en wordt bewaard zoals het is uitgegeven, zodat een herdruk precies gelijk is. Tot het uitgeven staat er "CONCEPT" op.
 - Afdrukken of als pdf bewaren gaat via de browser; er komt alleen het certificaat op papier.
 - Nieuw in Portaal Beheer: bij elk veld kies je of het op het certificaat komt. Onder "Bedrijfsgegevens" stel je de bedrijfsnaam, het adres en de verklaring in. De fictieve configuratie zet druk (S3.3), toerental (S7.3), gewicht (S17.2, S18.2) en vochtgehalte (S18.3) op het certificaat.
 - Technisch: database-update 10 (`0010_certificaat`).
 
-## 0.16.0 — 19 november 2026
+## 0.16.0 — 19 november 2026 · #17
 - Nieuw: capaciteit in de planning. In Portaal Planning → Capaciteit leg je per weekdag vast hoeveel batches de fabriek aankan. Daarnaast kun je afwijkende dagen vastleggen met een reden, zoals een feestdag of onderhoud.
 - In de weekplanning staat per dag hoe vol hij is ("4 / 6" met een balk). Een dag met meer batches dan de capaciteit wordt geel met ⚠. Bovenaan zie je hoeveel ruimte er deze week nog is.
 - Plannen boven de capaciteit kan nog steeds. Het scherm vraagt dan eerst of je het zeker weet, en meldt het daarna nog eens.
@@ -95,13 +96,13 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 ## 0.15.1 — 19 november 2026
 - Opgelost: het laptoppakket startte sinds 0.14.0 niet bij de eerste start met testdata. Bij het verschuiven van de testdata naar vandaag lag het einde van een stilstand even vóór het begin. Nu schuiven alle tijden van een tabel tegelijk. De browserdemo had hetzelfde probleem.
 
-## 0.15.0 — 19 november 2026
+## 0.15.0 — 19 november 2026 · #5
 - Nieuw: etiketten met barcode (Code 128). In Portaal Planning staat bij elke dag "Etiketten" voor de geplande batches. In het lotpaspoort staat "Etiket" voor het lot. In het invoerscherm staat in elke registratie "Etiket printen".
 - Twee formaten: een etiketprinter (100 × 50 mm, één etiket per pagina) of een A4-vel met 3 × 7 etiketten (63,5 × 38,1 mm). Afdrukken gaat via de browser, zonder extra software. Het invoerscherm onthoudt per pc welk formaat je gebruikt.
 - Nieuw: scannen met een gewone handscanner (die werkt als toetsenbord). In een stap opent een scan de batch als die al bezig is, of start hem als hij klaarstaat. In de lot-stap vinkt een scan de batch aan. Op andere schermen zoekt een scan de batch of het lot op. Ook een partijnummer van een grondstof kun je in het invoerveld scannen.
 - Verbeterd: een fout in de schermtest van het invoerscherm (0.14.0) is hersteld.
 
-## 0.14.0 — 19 november 2026
+## 0.14.0 — 19 november 2026 · #16
 - Nieuw: stilstand melden. In het invoerscherm staat bij elke stap "Stilstand melden": kies de oorzaak (storing, wachten, gepland of overig) en eventueel een toelichting. Een rode balk laat zien dat de stap stilligt, tot iemand op "Stilstand beëindigen" drukt. Dat werkt ook zonder verbinding.
 - Bij een storing krijgt de ploegleider een melding. Op het wandscherm wordt de stap rood met ⛔.
 - Nieuw: Portaal Productie → Stilstand. Je ziet wat nu stilligt, de stilstand per stap en per oorzaak, en de beschikbaarheid per stap. Daarnaast de kwaliteit: het deel van de gestarte batches dat niet is afgekeurd. Samen is dat het begin van OEE. Voor de prestatie (snelheid) zijn nog normtijden per stap nodig.
@@ -109,7 +110,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - De testdata bevat fictieve stilstand: dagelijks schoonmaken, wekelijks onderhoud, en storingen (PS7 vaker). In PS7 loopt nu een storing.
 - Technisch: database-update 8 (`0008_stilstand`).
 
-## 0.13.0 — 19 november 2026
+## 0.13.0 — 19 november 2026 · #15
 - Nieuw: meldingen. De database maakt zelf een melding als iemand iets moet weten:
   - een waarde buiten de grens (ook na een correctie): naar ploegleider en Kwaliteit;
   - een batch in beoordeling: naar ploegleider en Kwaliteit;
@@ -121,7 +122,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - Meldingen gaan niet per mail of Teams: het platform werkt zonder internet (D33).
 - Technisch: database-update 7 (`0007_meldingen`).
 
-## 0.12.0 — 19 november 2026
+## 0.12.0 — 19 november 2026 · #14
 - Nieuw: ploegoverdracht. In het invoerscherm staat onder "Overdracht" wat deze ploeg tot nu toe heeft gedaan: afgeronde stappen per stap, gestarte batches, lots, afwijkingen en wat nog open staat. Daar schrijf je de bijzonderheden van de ploeg en de aandachtspunten voor de volgende ploeg. Dat werkt ook zonder verbinding.
 - Nieuw: bovenaan het stappenoverzicht staat de overdracht van de vorige ploeg, met de aandachtspunten vet. Met "Gelezen" klap je hem op deze pc in.
 - Nieuw: Portaal Productie → Ploegoverdracht. Per dag de drie ploegen met hun cijfers, overdrachten en wat open bleef aan het eind.
@@ -130,7 +131,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - Fictieve ploegen: ochtend 06–14, middag 14–22, nacht 22–06. In de testdata schrijft ongeveer driekwart van de ploegen een overdracht.
 - Technisch: database-update 6 (`0006_ploegoverdracht`).
 
-## 0.11.0 — 19 november 2026
+## 0.11.0 — 19 november 2026 · #13
 - Nieuw: grondstoffen per batch. In een stap voert de operator per grondstof het partijnummer van de leverancier in, en eventueel de hoeveelheid. Een verplichte grondstof moet zijn ingevuld voordat de stap kan worden afgerond. Een ploegleider kan een partijnummer achteraf corrigeren; het origineel blijft bewaard.
 - Nieuw: Portaal Kwaliteit → Grondstoffen terugzoeken. Zoek op (een deel van) een partijnummer en zie in welke batches en lots die partij zit. Zonder zoekterm: de laatst gebruikte partijen.
 - Nieuw: het lotpaspoort toont welke grondstofpartijen in het lot en zijn batches zitten.
@@ -139,7 +140,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - Let op: een ouder invoerscherm (van vóór 0.11.0) kan geen grondstoffen invoeren. Werk alle pc's bij voordat je een grondstof verplicht maakt in een stap die al in gebruik is.
 - Technisch: database-update 5 (`0005_grondstoffen`).
 
-## 0.10.0 — 19 november 2026
+## 0.10.0 — 19 november 2026 · #12
 - Nieuw: wandscherm voor een tv in de hal (`/portaal/#/wandscherm`). Per stap zie je wat bezig is (▶ blauw), wat klaarstaat (● wit) en wat gepland is maar nog niet klaar (○ grijs), in de volgorde van de planner. Een gele rand met ⚠ betekent: wacht of loopt langer dan normaal (langer dan 90% van de keren in de laatste 30 dagen). Bovenaan: batches gestart tegenover gepland, lots gereed en batches in beoordeling.
 - Het wandscherm ververst elke 30 seconden. Valt de verbinding weg, dan blijft de laatste stand staan met de melding "Geen verbinding sinds …".
 - Per hal: `#/wandscherm/Hal 1` toont alleen de stappen van de pc's in die hal.
@@ -147,7 +148,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - Iedereen met een persoonlijk account opent het wandscherm via de link onder in het menu.
 - Technisch: database-update 4 (`0004_wandscherm`): de nieuwe rol.
 
-## 0.9.0 — 19 november 2026
+## 0.9.0 — 19 november 2026 · #4
 - Nieuw: Portaal Planning voor de planner (account `planner1` in de testdata).
   - Per week: batches plannen per dag, met product en opmerking. Het systeem geeft de batchnummers uit (doornummeren per jaar). Volgorde op de dag aanpassen, verschuiven naar een andere dag, of laten vervallen met een reden. Geplande batches die niet op tijd gestart zijn, staan bovenaan.
   - Per stap: per dag en per stap welke batches of lots er gedaan moeten worden, in volgorde, met een opmerking voor de operator. Je ziet meteen wat gedaan, bezig of nog te doen is.
@@ -181,7 +182,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegeve
 - Verbeterd: waarschuwing als het pakket in OneDrive staat.
 - Technisch: het pakket heet nu `batch-gui-laptop-<versie>-windows.zip`. De vingerafdrukken van Node.js en de Visual C++-runtime worden bij het bouwen gecontroleerd. GitHub test het pakket (Linux-variant) bij elke push.
 
-## 0.6.0 — 18 november 2026
+## 0.6.0 — 18 november 2026 · #1
 - Nieuw: advies voor de fabrieksserver (apart document) en een draaiboek voor IT in `docs/SERVER.md`: installeren op Windows Server of Ubuntu, als service, back-ups, updates en herstel.
 - Nieuw: serverpakket `batch-gui-server-<versie>.zip` met de applicatie, de beheertools en voorbeeldbestanden voor de Windows-service en de instellingen.
 - Nieuw: back-ups met `tools/backup.mjs`. Bewaart 48 uur elk uur, 30 dagen één per dag en 12 maanden één per maand, en ruimt de rest op.
