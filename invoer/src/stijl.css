@@ -172,6 +172,9 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
   transition: opacity .2s, transform .2s;
 }
 .melding.zichtbaar { opacity: 1; transform: translate(-50%, 0); }
+.melding.met-actie { pointer-events: auto; display: flex; align-items: center; gap: var(--space-4); }
+.melding-knop { font: inherit; font-weight: 700; color: var(--op-kleur); background: transparent; border: 1.5px solid var(--op-kleur); border-radius: var(--radius-sm); min-height: var(--doel-min); padding: 0 var(--space-3); cursor: pointer; }
+.melding-knop:hover { background: var(--menu-hover); }
 .melding-fout { background: var(--grens); }
 .melding-ok { background: var(--ok); }
 

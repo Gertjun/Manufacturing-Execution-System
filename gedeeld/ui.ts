@@ -92,16 +92,29 @@ export function toon(...inhoud: (Node | null | undefined | false)[]) {
 }
 
 let toastTimer: number | undefined;
-export function melding(tekst: string, soort: "ok" | "fout" | "info" = "info") {
+/** Korte melding onderin. Met `ongedaan` krijgt de melding een knop "Ongedaan maken" en blijft hij 6 s staan
+ *  (langer zolang de muis erop staat of de knop focus heeft). Alleen voor acties die je makkelijk terugdraait (D50). */
+export function melding(tekst: string, soort: "ok" | "fout" | "info" = "info", ongedaan?: () => unknown) {
   let el = document.getElementById("melding");
   if (!el) {
     el = h("div", { id: "melding", role: "status", "aria-live": "polite" });
     document.body.append(el);
   }
-  el.className = `melding melding-${soort} zichtbaar`;
-  el.textContent = tekst;
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => el!.classList.remove("zichtbaar"), soort === "fout" ? 7000 : 3500);
+  const m = el;
+  m.className = `melding melding-${soort} zichtbaar${ongedaan ? " met-actie" : ""}`;
+  m.replaceChildren(h("span", {}, tekst));
+  const verberg = () => m.classList.remove("zichtbaar", "met-actie");
+  const duur = ongedaan ? 6000 : soort === "fout" ? 7000 : 3500;
+  const start = () => { clearTimeout(toastTimer); toastTimer = window.setTimeout(verberg, duur); };
+  if (ongedaan) {
+    const knop = h("button", { class: "melding-knop", type: "button", onclick: () => { verberg(); return ongedaan(); } }, "Ongedaan maken");
+    knop.onfocus = m.onmouseenter = () => clearTimeout(toastTimer);
+    knop.onblur = m.onmouseleave = start;
+    m.append(knop);
+  } else {
+    m.onmouseenter = m.onmouseleave = null;
+  }
+  start();
 }
 
 /** Modaal venster; geeft true bij bevestigen. */

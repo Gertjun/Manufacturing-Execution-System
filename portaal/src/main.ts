@@ -19,11 +19,27 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
     return;
   }
   const portalen = portalenVoor(sessie.rol);
+  // Op een smal scherm (tablet) staat het menu dicht achter een knop, zodat de inhoud meteen zichtbaar is (#44).
+  const huidig = portalen.find((p) => p.id === actiefPortaal);
+  const onderdeel = huidig?.onderdelen.find((o) => o.pad === actiefOnderdeel);
+  const inhoud = h("div", { id: "menu-inhoud", "data-dicht": "" });
+  const knop = h("button", {
+    class: "menu-knop", type: "button", "aria-expanded": "false", "aria-controls": "menu-inhoud",
+    onclick: () => {
+      const open = inhoud.hasAttribute("data-dicht");
+      inhoud.toggleAttribute("data-dicht", !open);
+      knop.setAttribute("aria-expanded", String(open));
+      knop.firstChild!.textContent = open ? "Menu sluiten" : "Menu";
+    },
+  }, "Menu", h("span", { class: "menu-knop-waar" }, [huidig?.naam, onderdeel?.naam].filter(Boolean).join(" · ") || (actiefPortaal === "meldingen" ? "Meldingen" : "")));
+  // Meldingen staan buiten het inklapbare deel: de teller blijft ook op een smal scherm zichtbaar.
   menu.replaceChildren(
-    h("div", { class: "merk" }, "Portalen"),
+    h("div", { class: "menu-kop" }, h("div", { class: "merk" }, "Portalen"), knop),
     ...(heeftMeldingen()
       ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
       : []),
+    inhoud);
+  inhoud.replaceChildren(
     ...portalen.map((p) =>
       h("div", { class: "menu-groep" },
         h("a", { class: "menu-portaal", href: `#/${p.id}`, "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,

@@ -159,6 +159,15 @@ try {
   await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
   await page.locator(".grafiek > svg").waitFor();
   await shot("12-smal");
+  // Smal scherm: menu dicht achter een knop, inhoud meteen in beeld (#44).
+  check("Smal: menu staat dicht", !(await page.getByRole("link", { name: "Lotpaspoort" }).isVisible()));
+  check("Smal: titel boven in beeld", (await page.getByRole("heading", { level: 1 }).boundingBox()).y < 200);
+  await page.getByRole("button", { name: /^Menu/ }).click();
+  check("Smal: menu gaat open", await page.getByRole("link", { name: "Lotpaspoort" }).isVisible());
+  await page.getByRole("link", { name: "Lotpaspoort" }).click();
+  await page.waitForFunction(() => location.hash.includes("lotpaspoort") || location.hash.includes("lots"));
+  check("Smal: na kiezen is het menu weer dicht", !(await page.getByRole("link", { name: "Afwijkingen" }).isVisible()));
+  await page.setViewportSize({ width: 1440, height: 900 });
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

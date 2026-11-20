@@ -5,6 +5,11 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.25.0 — 20 november 2026 · #44
+- Nieuw: **Ongedaan maken.** Na het uitzetten van een veld, grondstof, operator, ploeg, oorzaak van stilstand of pc staat in de melding een knop "Ongedaan maken" (6 seconden, langer zolang de muis erop staat). Velden en grondstoffen uitzetten vraagt daarom niet meer vooraf om bevestiging. Accounts uitzetten blijft wel vooraf bevestigen, net als alles wat daarna vastligt (D50).
+- Nieuw: op een smal scherm of tablet staat het menu van de portalen dicht achter de knop "Menu", met de naam van het scherm waar je bent. De inhoud staat meteen bovenaan; Meldingen blijven altijd zichtbaar.
+- De UI/UX-review is hiermee verwerkt (#41–#44). Nog niet in de praktijk getest: het menu en de knoppen op een echte tablet (#33).
+
 ## 0.24.1 — 20 november 2026 · #43
 - Vaste woorden (D51): "Instelling" in plaats van "Setting" in het invoerscherm, de afwijkingen, het lotpaspoort en Beheer. In de database en de API blijft het `setting`.
 - Foutmeldingen staan nu direct onder het veld, met ⚠ en een uitleg hoe je het oplost ("Vul een getal in, bijvoorbeeld 86,5"). Ze verschijnen pas als je de rij verlaat, niet tijdens het typen; de markering binnen of buiten tolerantie blijft wel direct zichtbaar (D50). Onderin staat ook waarom "Stap afronden" nog niet kan.

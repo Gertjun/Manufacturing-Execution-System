@@ -17,21 +17,22 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 20 november 2026 · versie **0.23.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 20 november 2026 · versie **0.25.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd (0.20.0 tot en met 0.23.0); in de software staat niets meer open vóór de pilot. De volgende stappen liggen bij Geert: fase B (praktijktests, #33) en C (echte velden via het sjabloon, #2).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd (0.20.0 tot en met 0.23.0), en daarna de UI/UX-review van 20 november (0.23.2 tot en met 0.25.0, #41–#44, D50, D51). In de software staat niets meer open vóór de pilot. De volgende stappen liggen bij Geert: fase B (praktijktests, #33) en C (echte velden via het sjabloon, #2).
+- **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.23.1 gepubliceerd; start weer in Chrome.
-- **Releases op GitHub:** werken weer, met de eigen sleutel `RELEASE_TOKEN` (#40); elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.23.0, 20 november 2026; in 0.23.1 alleen de browserdemo opnieuw getest, ook op claude.ai):** geslaagd: databaseregels (94), API (75), migraties (tot en met 15), beheertools, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo). Praktijktests zijn nog niet gedaan (#33).
+- **Browserdemo:** versie 0.25.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
+- **Laatste testronde (0.25.0, 20 november 2026):** geslaagd: databaseregels (94), API, migraties (tot en met 15), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor foutmeldingen bij het veld, getalkolommen, ongedaan maken en het menu op een smal scherm. Praktijktests zijn nog niet gedaan (#33), ook niet op een echte tablet.
 - **Gegevens:** alles fictief (D1).
 
 **Links**
 - Code: https://github.com/Gertjun/batch-input-gui (privé)
 - Browserdemo (blijft actueel): https://claude.ai/artifact/AvBGewCSnACg6h6CeUKZQN
 - Projectdocument in het Claude-project: `claude/architectuur-en-besluiten.md` (korte instap met links)
-- Momentopnamen, worden niet bijgewerkt: Whiteboard eerste projectplan https://claude.ai/artifact/Nm9L5rFHZY6Dtgk2JMncnF · advies fabrieksserver https://claude.ai/artifact/XbFZ7nQRDn18zSS5tnQhUf · datamodel v1 https://claude.ai/artifact/54cg2QSsWQ3j6hbkzYBVTA · doorlichting 19-11-2026 https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i
+- Momentopnamen, worden niet bijgewerkt: Whiteboard eerste projectplan https://claude.ai/artifact/Nm9L5rFHZY6Dtgk2JMncnF · advies fabrieksserver https://claude.ai/artifact/XbFZ7nQRDn18zSS5tnQhUf · datamodel v1 https://claude.ai/artifact/54cg2QSsWQ3j6hbkzYBVTA · doorlichting 19-11-2026 https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i · UI/UX-review 20-11-2026 https://claude.ai/artifact/EK83QWUsor3w4ofFDzBra4
 
 ## Het platform in het kort
 

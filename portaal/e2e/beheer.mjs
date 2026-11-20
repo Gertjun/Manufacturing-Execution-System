@@ -83,8 +83,14 @@ try {
   await page.locator("tr", { hasText: "S3.1" }).getByText("±8 °C").waitFor();
   check("Tolerantie S3.1 is 8", true);
 
+  // Uitzetten is terug te draaien: geen vraag vooraf, wel "Ongedaan maken" in de melding (#44, D50).
   await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Uitzetten" }).click();
-  await dialoog().getByRole("button", { name: "Uitzetten" }).click();
+  await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Weer aanzetten" }).waitFor();
+  check("Uitzetten zonder vraag vooraf", (await dialoog().count()) === 0);
+  await page.locator("#melding").getByRole("button", { name: "Ongedaan maken" }).click();
+  await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Uitzetten" }).waitFor();
+  check("Ongedaan maken zet S3.4 weer aan", !(await page.locator("tr", { hasText: "S3.4" }).innerText()).includes("(uit)"));
+  await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Uitzetten" }).click();
   await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Weer aanzetten" }).waitFor();
   await shot("01-stappen-en-velden");
   check("S3.4 staat uit", (await page.locator("tr", { hasText: "S3.4" }).innerText()).includes("(uit)"));

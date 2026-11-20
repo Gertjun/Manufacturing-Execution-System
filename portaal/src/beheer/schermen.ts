@@ -21,10 +21,10 @@ const SOORTEN: [string, string][] = [["procesparameter", "Procesparameter (inste
 const jaNee = (b: boolean) => (b ? "Ja" : "Nee");
 
 /** Voert een wijziging uit, meldt het resultaat en tekent het scherm opnieuw. */
-async function wijzig(actie: () => Promise<unknown>, gelukt: string, opnieuw: () => void) {
+async function wijzig(actie: () => Promise<unknown>, gelukt: string, opnieuw: () => void, terug?: () => Promise<unknown>) {
   try {
     await actie();
-    melding(gelukt, "ok");
+    melding(gelukt, "ok", terug ? () => wijzig(terug, "Ongedaan gemaakt", opnieuw) : undefined);
     opnieuw();
   } catch (e) {
     melding((e as Error).message, "fout");
@@ -102,8 +102,8 @@ export async function stappen(code?: string) {
   };
 
   const zetActief = async (v: Veld, actief: boolean) => {
-    if (!actief && !(await bevestig(`${v.code} uitzetten?`, "Het veld verdwijnt uit het invoerscherm. Bestaande metingen blijven bewaard, en je kunt het later weer aanzetten. De code wordt nooit opnieuw gebruikt.", "Uitzetten", true))) return;
-    await wijzig(() => stuur("PATCH", `/beheer/velden/${encodeURIComponent(v.code)}`, { actief }), actief ? `${v.code} weer actief` : `${v.code} uitgezet`, opnieuw);
+    const zet = (a: boolean) => () => stuur("PATCH", `/beheer/velden/${encodeURIComponent(v.code)}`, { actief: a });
+    await wijzig(zet(actief), actief ? `${v.code} weer actief` : `${v.code} uitgezet; bestaande metingen blijven bewaard`, opnieuw, zet(!actief));
   };
 
   const hernoem = async () => {
@@ -346,7 +346,7 @@ export async function operators() {
           if (r) await wijzig(() => stuur("PATCH", `/beheer/operators/${o.id}`, { naam: r.naam }), "Naam opgeslagen", opnieuw);
         } }, "Naam wijzigen"),
         h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-          wijzig(() => stuur("PATCH", `/beheer/operators/${o.id}`, { actief: !o.actief }), o.actief ? `${o.naam} staat niet meer in de lijst` : `${o.naam} weer in de lijst`, opnieuw) },
+          wijzig(() => stuur("PATCH", `/beheer/operators/${o.id}`, { actief: !o.actief }), o.actief ? `${o.naam} staat niet meer in de lijst` : `${o.naam} weer in de lijst`, opnieuw, () => stuur("PATCH", `/beheer/operators/${o.id}`, { actief: o.actief })) },
           o.actief ? "Uit de lijst halen" : "Weer in de lijst")),
     ])),
   );
@@ -416,8 +416,7 @@ export async function grondstoffen() {
               if (r) await wijzig(() => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { naam: r.naam, eenheid: r.eenheid || null }), "Opgeslagen", opnieuw);
             } }, "Wijzigen") : null,
             h("button", { class: "knop knop-klein knop-stil", onclick: async () => {
-              if (g.actief && !(await bevestig(`${g.code} uitzetten?`, "De grondstof verdwijnt uit het invoerscherm. Wat al is ingevoerd blijft bewaard en terug te zoeken.", "Uitzetten", true))) return;
-              await wijzig(() => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { actief: !g.actief }), g.actief ? `${g.code} uitgezet` : `${g.code} weer actief`, opnieuw);
+              await wijzig(() => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { actief: !g.actief }), g.actief ? `${g.code} uitgezet` : `${g.code} weer actief`, opnieuw, () => stuur("PATCH", `/beheer/grondstoffen/${encodeURIComponent(g.code)}`, { actief: g.actief }));
             } }, g.actief ? "Uitzetten" : "Weer aanzetten")),
         ]), "compact")
       : h("p", { class: "leeg" }, "Nog geen grondstoffen. Voeg er een toe."),
@@ -448,7 +447,7 @@ export async function ploegen() {
           if (r) await wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, r), "Ploeg opgeslagen", ploegen);
         } }, "Wijzigen"),
         h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-          wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, ploegen) },
+          wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, ploegen, () => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: p.actief })) },
           p.actief ? "Uitzetten" : "Weer aanzetten")),
     ]), "compact"),
   );
@@ -483,7 +482,7 @@ export async function oorzaken() {
           if (r) await wijzig(() => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, r), "Opgeslagen", oorzaken);
         } }, "Wijzigen") : null,
         h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-          wijzig(() => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, { actief: !o.actief }), o.actief ? `${o.naam} uitgezet` : `${o.naam} weer actief`, oorzaken) },
+          wijzig(() => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, { actief: !o.actief }), o.actief ? `${o.naam} uitgezet` : `${o.naam} weer actief`, oorzaken, () => stuur("PATCH", `/stilstand/oorzaken/${encodeURIComponent(o.code)}`, { actief: o.actief })) },
           o.actief ? "Uitzetten" : "Weer aanzetten")),
     ]), "compact"),
   );
@@ -564,7 +563,7 @@ export async function pcs() {
           if (r) await wijzig(() => stuur("PATCH", `/beheer/pcs/${p.naam}`, { locatie: r.locatie || null }), "Locatie opgeslagen", opnieuw);
         } }, "Locatie"),
         h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-          wijzig(() => stuur("PATCH", `/beheer/pcs/${p.naam}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, opnieuw) },
+          wijzig(() => stuur("PATCH", `/beheer/pcs/${p.naam}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, opnieuw, () => stuur("PATCH", `/beheer/pcs/${p.naam}`, { actief: p.actief })) },
           p.actief ? "Uitzetten" : "Weer aanzetten")),
     ])),
   );
