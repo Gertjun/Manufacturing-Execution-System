@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 20 november 2026 · versie **0.28.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 20 november 2026 · versie **0.29.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54) en de route per product (0.28.0, #51, D55) zijn gebouwd; volgende stappen zijn de productkiezer met grenzen per product (#52) en capaciteit per stap en product (#53). Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) en grenzen per product met productkiezer (0.29.0, #52, D55) zijn gebouwd; volgende stap is capaciteit per stap en product (#53), daarna grenzen per product in het sjabloon (#73). Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.28.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.29.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.28.0, 20 november 2026):** geslaagd: databaseregels (145), API, migraties (tot en met 18), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor routes per product en de route-editor. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes (#2).
+- **Laatste testronde (0.29.0, 20 november 2026):** geslaagd: databaseregels (155), API, migraties (tot en met 19, ook het invullen van het product bij bestaande registraties), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de productkiezer en grenzen per product. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -63,6 +63,8 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 - **Zonder verbinding** gaat de invoer door: alles wordt op de pc bewaard en daarna op volgorde verstuurd, met het moment van invoer en de naam van wie het invoerde (D43). De statusbalk toont hoeveel acties wachten; afmelden met wachtende acties vraagt eerst om bevestiging. Correcties, besluiten, zoeken en inloggen vragen wel verbinding.
 
 ### Portaal Kwaliteit
+Bij de analyses staat bovenin het menu een productkiezer: alle producten of één product, onthouden op deze computer (D55). Hetzelfde geldt voor doorlooptijden, productie per week en correcties in Productieanalyse.
+
 | Onderdeel | Wat je ziet |
 | --- | --- |
 | Overzicht | Kerncijfers, afwijkingen per week, velden met de meeste afwijkingen |
@@ -100,7 +102,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 ### Portaal Beheer
 | Onderdeel | Wat je kunt doen |
 | --- | --- |
-| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen. Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46) |
+| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen, en eigen grenzen per product (D55). Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46) |
 | Accounts, operators, pc's | Aanmaken, wijzigen, uitzetten; per pc de stappen |
 | Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |

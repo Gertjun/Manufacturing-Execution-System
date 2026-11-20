@@ -66,7 +66,7 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 ### A2. Uit de eerste demo — eind november 2026 tot januari 2027
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten.
 - #54 **Wandscherm per processtap** (klein) — Een wandscherm instellen voor één of enkele stappen, zodat je alleen de planning en het werk van die stap ziet.
-- #52 **Productkiezer en grenzen per product** (groot, D55) — Bovenin de portalen een productkiezer die onthouden wordt (ook "Alle producten"). Toleranties en grenzen per veld per product, zodat Kwaliteit (overzicht, trends, regelkaarten, afwijkingen) per product klopt, ook als producten door elkaar draaien.
+- #73 **Grenzen per product in het Excel-sjabloon** (klein) — Grenzen per product (D55) kun je nu alleen per veld in Beheer instellen. Voor het aanleveren van de echte velden (#2) is een extra tabblad in het sjabloon handig: per veld en product de grenzen en tolerantie.
 - #53 **Capaciteit per stap en product** (middel) — Bijvoorbeeld PS1: 8 batches per dag van product A, of 3 van product B. Planning waarschuwt dan per stap, niet alleen per dag.
 - #56 **Lotpaspoort: klik op een afwijking** (klein) — Bij "Buiten tolerantie" of "Buiten grens" de meting zien, en of er een beoordeling en keurresultaat met reden is.
 - #57 **Uitleg meting en signaal bij de regelkaarten** (klein) — Wat een signaal is en de vier regels, bij het scherm zelf.
@@ -77,7 +77,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 - #62 **Ploegoverdracht: afgerond van gepland** (klein) — "28 / 32 stappen afgerond".
 - #64 **Invoer voor Kwaliteit en soort meting** (groot) — Een invoerscherm voor de metingen van Kwaliteit, en per veld wie meet (Productie of Kwaliteit) en wat het is (procesparameter of producteigenschap). Een meting kan leiden tot vrijgave voor de volgende stap, herbewerking of afkeur (bouwt voort op D7). Vóór of na de pilot: zie #71.
 
-**Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
+**Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
 
 
 ### B. Proof of concept en praktijk — december 2026
@@ -89,7 +89,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 **Poort B:** elke praktijktest heeft een uitkomst; wat misging is opgelost of bewust geaccepteerd.
 
 ### C. Echte configuratie — december 2026 tot half januari 2027
-- #2 **Echte velden per stap** (middel, *Geert*) — Pas na #51 en #52: de velden en grenzen gelden dan per product. Per processtap de echte invoervelden aanleveren, het liefst in het sjabloon uit Beheer → Stappen en velden: veld, soort, eenheid, verplicht, tolerantie, grenzen, decimalen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand, grondstoffen, producten met hun route (welke stappen, in welke volgorde; D55), operators en pc's. Daarna samen inrichten via het sjabloon en controleren in een lege fabriek.
+- #2 **Echte velden per stap** (middel, *Geert*) — De velden en grenzen kunnen nu per product (D55); het liefst na #73. Per processtap de echte invoervelden aanleveren, het liefst in het sjabloon uit Beheer → Stappen en velden: veld, soort, eenheid, verplicht, tolerantie, grenzen, decimalen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand, grondstoffen, producten met hun route (welke stappen, in welke volgorde; D55), operators en pc's. Daarna samen inrichten via het sjabloon en controleren in een lege fabriek.
 
 **Poort C:** alle 18 stappen ingericht en door een ploegleider op de laptop doorlopen met een proefbatch.
 

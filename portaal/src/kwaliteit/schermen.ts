@@ -5,7 +5,7 @@ import { tabelNaarExcel } from "../excel";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../../../gedeeld/ui";
 import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
-import { ApiFout, haal, periode, PERIODES, qs, sessie, stuur } from "../basis";
+import { ApiFout, gekozenProduct, haal, periode, PERIODES, qs, sessie, stuur } from "../basis";
 import { afwijkingenPerWeek, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
 
 // ---------- kleine bouwstenen ----------
@@ -18,10 +18,13 @@ export function kop(titel: string, sub?: string | Node | null, ...rechts: (Node 
   return h("div", { class: "kop" }, h("div", {}, h("h1", {}, titel), sub ? h("p", { class: "sub" }, sub) : null), h("div", { class: "kop-rechts" }, ...rechts));
 }
 
-export function periodeKeuze(opnieuw: () => void) {
+/** Periodekeuze; met een gekozen product (D55) staat dat erachter, zodat je ziet waarover de cijfers gaan. */
+export function periodeKeuze(opnieuw: () => void, metProduct = true) {
   const sel = h("select", { id: "periode", onchange: (e: Event) => { periode.id = (e.target as HTMLSelectElement).value; opnieuw(); } },
     PERIODES.map((p) => h("option", { value: p.id, selected: p.id === periode.id }, p.naam))) as HTMLSelectElement;
-  return h("label", { for: "periode", class: "filter" }, "Periode", sel);
+  const label = h("label", { for: "periode", class: "filter" }, "Periode", sel);
+  if (!metProduct || !gekozenProduct.code) return label;
+  return h("div", { class: "filter-groep" }, label, h("span", { class: "filter-product" }, "Product ", h("strong", {}, gekozenProduct.code)));
 }
 
 export function tabel(koppen: string[], rijen: (Node | string | number | null)[][], klasse = "") {
@@ -291,7 +294,7 @@ export async function batch(nummer: string) {
 }
 
 // ---------- Afwijkingen ----------
-interface Afwijking extends Regel { lotnummer: string | null; ingevoerd_op: string }
+interface Afwijking extends Regel { lotnummer: string | null; ingevoerd_op: string; product?: string | null }
 let filterStap = "", filterSoort = "";
 
 export async function afwijkingen() {
@@ -316,11 +319,12 @@ export async function afwijkingen() {
       h("span", { class: "sub" }, `${rijen.length} ${rijen.length === 1 ? "meting" : "metingen"}`)),
     afgekapt(rijen.length, 500, "afwijkende metingen"),
     rijen.length
-      ? tabel(["Ingevoerd", "Batch of lot", "Lot", "Stap", "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", ""],
+      ? tabel(["Ingevoerd", "Batch of lot", "Lot", ...(gekozenProduct.code ? [] : ["Product"]), "Stap", "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", ""],
           rijen.map((r) => [
             kort(r.ingevoerd_op),
             h("a", { href: r.batch_of_lot.startsWith("L-") ? `#/kwaliteit/lotpaspoort/${r.batch_of_lot}` : `#/kwaliteit/batch/${r.batch_of_lot}` }, r.batch_of_lot),
             r.lotnummer ? h("a", { href: `#/kwaliteit/lotpaspoort/${r.lotnummer}` }, r.lotnummer) : "",
+            ...(gekozenProduct.code ? [] : [r.product ?? ""]),
             `${r.stap}${r.poging > 1 ? ` (${r.poging})` : ""}`, `${r.veld} ${r.veldnaam}`,
             h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting, r.decimalen) : ""),
             h("span", { class: "getal" }, `${toonGetal(r.gemeten, r.decimalen)}${r.eenheid ? ` ${r.eenheid}` : ""}`),
@@ -367,7 +371,10 @@ export async function trendScherm(veldcode?: string) {
             h("div", {}, h("dt", {}, "Gemiddelde"), h("dd", {}, `${toonGetal(Number(gem.toFixed(2)))}${e}`)),
             h("div", {}, h("dt", {}, "Eerste kwart, laatste kwart"), h("dd", {}, `${toonGetal(Number(gemBegin.toFixed(2)))}${e} naar ${toonGetal(Number(gemEind.toFixed(2)))}${e}`)),
           ),
-          trend(data.veld, p)),
+          trend(data.veld, p),
+          data.veld.grenzen_per_product && !gekozenProduct.code
+            ? h("p", { class: "sub" }, "Dit veld heeft eigen grenzen per product. De lijnen zijn de grenzen van het veld; elk punt is gekleurd naar de grenzen van zijn eigen product. Kies bovenin een product om de grenzen van dat product te zien.")
+            : null),
   );
 }
 
@@ -463,9 +470,9 @@ export async function grondstoffen(partij?: string) {
 }
 
 // ---------- Regelkaarten ----------
-interface RkOverzicht { veld: string; naam: string; stap: string; soort: string; eenheid: string | null; n: number; voorlopig: boolean; signalen: number; laatste_signaal: string | null; cpk: number | null }
+interface RkOverzicht { veld: string; naam: string; stap: string; soort: string; eenheid: string | null; n: number; voorlopig: boolean; signalen: number; laatste_signaal: string | null; cpk: number | null; grenzen_per_product?: boolean }
 interface RkDetail {
-  veld: { code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; decimalen: number | null };
+  veld: { code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; decimalen: number | null; grenzen_per_product?: boolean };
   getekend: "gemeten" | "afwijking_van_setting";
   punten: RkPunt[]; gemiddelde: number | null; sigma: number | null; bovengrens: number | null; ondergrens: number | null;
   mr_gemiddeld: number | null; mr_bovengrens: number | null; cpk: number | null; voorlopig: boolean; min_metingen: number; regels: Record<string, string>;
@@ -494,7 +501,9 @@ export async function regelkaarten(veld?: string) {
       h("a", { class: "sterk", href: `#/kwaliteit/regelkaarten/${x.veld}` }, `${x.veld} ${x.naam}`), x.stap,
       h("span", { class: "getal" }, x.n), h("span", { class: x.signalen ? "getal let-op" : "getal" }, x.signalen),
       x.laatste_signaal ? kort(x.laatste_signaal) : "",
-      x.voorlopig && x.n >= 2 && x.soort !== "procesparameter" ? h("span", { class: "sub" }, "nog te weinig metingen") : cpkLabel(x.cpk)]), "compact"),
+      x.voorlopig && x.n >= 2 && x.soort !== "procesparameter" ? h("span", { class: "sub" }, "nog te weinig metingen")
+        : x.grenzen_per_product && !gekozenProduct.code && x.soort !== "procesparameter" ? h("span", { class: "sub" }, "grenzen per product: kies een product")
+        : cpkLabel(x.cpk)]), "compact"),
     h("p", { class: "sub" }, "Cpk: hoe ver het gemiddelde van de dichtstbijzijnde specificatiegrens ligt, gedeeld door 3 keer de spreiding. Vanaf 1,33 is er ruim marge. Bij een procesparameter staat geen Cpk: daar tekent de kaart het verschil met de setting. Onder 20 metingen is een regelkaart voorlopig en staat er geen Cpk."),
   );
 }
@@ -528,7 +537,10 @@ async function regelkaartDetail(code: string) {
             ? h("p", { class: "blok let-op-blok voorlopig" }, `Voorlopig: nog maar ${r.punten.length} metingen in deze periode. Vanaf ${r.min_metingen} zijn de grenzen betrouwbaar; tot die tijd zijn signalen een eerste indruk en staat er geen Cpk. Kies eventueel een langere periode.`)
             : null,
           h("section", { class: "blok" }, h("h2", {}, "Metingen"),
-            regelkaartGrafiek(r.punten, r, e, r.getekend === "gemeten" ? { min: v.grens_min, max: v.grens_max } : undefined, `Regelkaart ${v.code}`)),
+            regelkaartGrafiek(r.punten, r, e, r.getekend === "gemeten" && !(v.grenzen_per_product && !gekozenProduct.code) ? { min: v.grens_min, max: v.grens_max } : undefined, `Regelkaart ${v.code}`),
+            v.grenzen_per_product && !gekozenProduct.code && r.getekend === "gemeten"
+              ? h("p", { class: "sub" }, "Dit veld heeft eigen grenzen per product: kies bovenin een product voor de specificatie en de Cpk.")
+              : null),
           signalen.length
             ? h("section", { class: "blok" }, h("h2", {}, "Signalen"),
                 tabel(["Wanneer", "Batch of lot", "Waarde", "Regel"], signalen.slice(-50).reverse().map((p) => [

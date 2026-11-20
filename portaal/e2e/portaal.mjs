@@ -100,6 +100,37 @@ try {
   await page.waitForTimeout(300);
   await shot("04-trend-S9.2", false);
 
+  console.log("\nProductkiezer en grenzen per product (D55)");
+  const metingen = async () => Number((await page.locator(".feiten div", { hasText: "Metingen" }).locator("dd").innerText()).trim());
+  const alleN = await metingen();
+  check("Alle producten: uitleg over grenzen per product bij S9.2", (await page.locator("main p", { hasText: "eigen grenzen per product" }).count()) === 1);
+  await page.selectOption("#product-keuze", "PRD-C");
+  await page.locator(".filter-product", { hasText: "PRD-C" }).waitFor();
+  await page.locator(".grafiek > svg").waitFor();
+  const cN = await metingen();
+  const [db9] = await q(`SELECT count(*)::int AS n FROM fabriek.waarde_actueel w JOIN fabriek.veld v ON v.id = w.veld_id
+                          JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.product p ON p.id = r.product_id
+                         WHERE v.code = 'S9.2' AND p.code = 'PRD-C' AND w.ingevoerd_op >= current_date - 89`);
+  check("PRD-C: alleen de metingen van dat product", cN > 0 && cN < alleN && cN === db9.n, `${cN} van ${alleN}, database ${db9.n}`);
+  check("PRD-C: geen uitleg meer nodig, de grenzen zijn die van PRD-C", (await page.locator("main p", { hasText: "eigen grenzen per product" }).count()) === 0);
+  await page.waitForTimeout(300);
+  await shot("04b-trend-S9.2-PRD-C", false);
+  await page.getByRole("link", { name: "Regelkaarten" }).click();
+  await page.locator(".tabel tbody tr").first().waitFor();
+  check("Productkiezer onthouden bij een ander scherm", (await page.locator("#product-keuze").inputValue()) === "PRD-C");
+  const rij92 = await page.locator(".tabel tbody tr", { hasText: "S9.2 Gewicht" }).innerText();
+  check("Regelkaarten met PRD-C: S9.2 heeft een Cpk", /\d,\d\d/.test(rij92) && !rij92.includes("kies een product"), rij92);
+  await page.reload();
+  await page.locator(".tabel tbody tr").first().waitFor();
+  check("Ook na herladen nog PRD-C", (await page.locator("#product-keuze").inputValue()) === "PRD-C");
+  await page.selectOption("#product-keuze", "");
+  await page.locator(".tabel tbody tr", { hasText: "kies een product" }).first().waitFor();
+  check("Alle producten: bij S9.2 staat 'kies een product' in plaats van een Cpk",
+    (await page.locator(".tabel tbody tr", { hasText: "S9.2 Gewicht" }).innerText()).includes("kies een product"));
+  await page.getByRole("link", { name: "Lotpaspoort" }).click();
+  await page.getByRole("heading", { name: "Lotpaspoort" }).waitFor();
+  check("Geen productkiezer bij het lotpaspoort", (await page.locator("#product-keuze").count()) === 0);
+
   console.log("\nTe beoordelen");
   await page.getByRole("link", { name: /Te beoordelen/ }).click();
   await page.getByRole("heading", { name: "Te beoordelen" }).waitFor();
@@ -173,7 +204,8 @@ try {
   await shot("12-smal");
   // Smal scherm: menu dicht achter een knop, inhoud meteen in beeld (#44).
   check("Smal: menu staat dicht", !(await page.getByRole("link", { name: "Lotpaspoort" }).isVisible()));
-  check("Smal: titel boven in beeld", (await page.getByRole("heading", { level: 1 }).boundingBox()).y < 200);
+  // Onder het menu staan Meldingen en (bij analyses) de productkiezer (D55): samen nog geen kwart van het scherm.
+  check("Smal: titel boven in beeld", (await page.getByRole("heading", { level: 1 }).boundingBox()).y < 250);
   await page.getByRole("button", { name: /^Menu/ }).click();
   check("Smal: menu gaat open", await page.getByRole("link", { name: "Lotpaspoort" }).isVisible());
   await page.getByRole("link", { name: "Lotpaspoort" }).click();

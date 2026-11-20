@@ -18,6 +18,16 @@ export interface Veld {
   op_certificaat?: boolean;
   /** Aantal decimalen bij het tonen; leeg = automatisch (sinds 0.23.0). */
   decimalen?: number | null;
+  /** Eigen grenzen per product; vervangen dan alle vier de grenswaarden (sinds 0.29.0, D55). */
+  per_product?: GrensPerProduct[];
+}
+
+export interface GrensPerProduct {
+  product: string;
+  grens_min: number | null;
+  grens_max: number | null;
+  tolerantie: number | null;
+  tolerantie_soort: string;
 }
 
 export interface Stap {
@@ -81,6 +91,8 @@ export interface Registratie {
   afgerond_op: string | null;
   velden?: VeldMetWaarde[];
   grondstoffen?: GrondstofMetGebruik[];
+  /** Productcode van de batch of het lot (sinds 0.29.0, D55). */
+  product?: string | null;
   /** Alleen lokaal: er wachten nog acties voor deze registratie. */
   lokaal?: boolean;
 }

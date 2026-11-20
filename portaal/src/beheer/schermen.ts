@@ -112,12 +112,53 @@ export async function stappen(code?: string) {
     await wijzig(() => stuur("PATCH", `/beheer/stappen/${s.code}`, { naam: r.naam }), "Naam opgeslagen", opnieuw);
   };
 
-  const grenzen = (v: Veld) => {
-    const e = v.eenheid ? ` ${v.eenheid}` : "";
+  const grenzen = (v: { grens_min: number | null; grens_max: number | null }, eenheid: string | null) => {
+    const e = eenheid ? ` ${eenheid}` : "";
     if (v.grens_min !== null && v.grens_max !== null) return `${toonGetal(v.grens_min)} tot ${toonGetal(v.grens_max)}${e}`;
     if (v.grens_max !== null) return `max ${toonGetal(v.grens_max)}${e}`;
     if (v.grens_min !== null) return `min ${toonGetal(v.grens_min)}${e}`;
     return "";
+  };
+  const tolerantieTekst = (t: { tolerantie: number | null; tolerantie_soort: string }, eenheid: string | null) =>
+    t.tolerantie !== null ? `±${toonGetal(t.tolerantie)}${t.tolerantie_soort === "procent" ? " %" : eenheid ? ` ${eenheid}` : ""}` : "";
+
+  // Grenzen per product (D55): eerst het product kiezen, dan de grenzen; "Zelfde als het veld" haalt ze weg.
+  const perProduct = async (v: Veld) => {
+    let lijst: { code: string; naam: string }[];
+    try { lijst = await haal<{ code: string; naam: string }[]>("/planning/producten"); } catch (e) { return melding((e as Error).message, "fout"); }
+    if (!lijst.length) return melding("Er zijn nog geen producten. Voeg ze toe in Planning → Producten.", "fout");
+    const keuze = await vraag(`${v.code} ${v.naam}: grenzen per product`, [{
+      naam: "product", label: "Product",
+      opties: lijst.map((p): [string, string] => [p.code, `${p.code} – ${p.naam}${v.per_product?.some((x) => x.product === p.code) ? " (eigen grenzen)" : ""}`]),
+    }], "Verder", "Een product zonder eigen grenzen volgt de grenzen van het veld.");
+    if (!keuze) return;
+    const eigen = v.per_product?.find((x) => x.product === keuze.product);
+    const bron = eigen ?? v;
+    const isParameter = v.soort === "procesparameter";
+    const r = await vraag(`${v.code} voor ${keuze.product}`, [
+      { naam: "gebruik", label: "Grenzen voor dit product", opties: [["eigen", "Eigen grenzen (hieronder)"], ["veld", "Zelfde als het veld"]], waarde: "eigen" },
+      { naam: "grens_min", label: "Ondergrens", type: "getal", waarde: tekst(bron.grens_min), optioneel: true },
+      { naam: "grens_max", label: "Bovengrens", type: "getal", waarde: tekst(bron.grens_max), optioneel: true },
+      ...(isParameter
+        ? [
+            { naam: "tolerantie", label: "Tolerantie (max. verschil tussen instelling en gemeten)", type: "getal", waarde: tekst(bron.tolerantie), optioneel: true },
+            { naam: "tolerantie_soort", label: "Tolerantie in", opties: [["absoluut", "Eenheid van het veld"], ["procent", "Procent van de setting"]] as [string, string][], waarde: bron.tolerantie_soort ?? "absoluut" },
+          ]
+        : []),
+    ], "Opslaan", `Het veld zelf: ${grenzen(v, v.eenheid) || "geen grenzen"}${isParameter && v.tolerantie !== null ? `, ${tolerantieTekst(v, v.eenheid)}` : ""}. Nieuwe grenzen gelden voor metingen vanaf nu; eerdere metingen houden de grenzen van toen.`);
+    if (!r) return;
+    const pad = `/beheer/velden/${encodeURIComponent(v.code)}/producten/${encodeURIComponent(keuze.product)}`;
+    if (r.gebruik === "veld") {
+      if (!eigen) return melding(`${keuze.product} volgt al de grenzen van het veld`, "ok");
+      return wijzig(() => stuur("DELETE", pad), `${keuze.product} volgt weer de grenzen van ${v.code}`, opnieuw);
+    }
+    const min = getalOfNull(r.grens_min), max = getalOfNull(r.grens_max);
+    if (min !== null && max !== null && min > max) return melding("De ondergrens is hoger dan de bovengrens", "fout");
+    await wijzig(() => stuur("PUT", pad, {
+      grens_min: min, grens_max: max,
+      tolerantie: isParameter ? getalOfNull(r.tolerantie) : null,
+      ...(isParameter ? { tolerantie_soort: r.tolerantie_soort } : {}),
+    }), `Grenzen van ${v.code} voor ${keuze.product} opgeslagen`, opnieuw);
   };
 
   toon(
@@ -145,12 +186,15 @@ export async function stappen(code?: string) {
               h("strong", { class: v.actief ? "" : "inactief" }, v.code),
               h("span", { class: v.actief ? "" : "inactief" }, v.naam, v.actief ? "" : " (uit)"),
               SOORTEN.find(([k]) => k === v.soort)?.[1].replace(/ \(.*\)/, "") ?? v.soort,
-              grenzen(v),
-              v.tolerantie !== null ? `±${toonGetal(v.tolerantie)}${v.tolerantie_soort === "procent" ? " %" : v.eenheid ? ` ${v.eenheid}` : ""}` : "",
+              h("div", {}, grenzen(v, v.eenheid),
+                (v.per_product ?? []).map((p) => h("div", { class: "sub per-product" }, `${p.product}: ${grenzen(p, v.eenheid) || "geen grenzen"}`))),
+              h("div", {}, tolerantieTekst(v, v.eenheid),
+                v.soort === "procesparameter" ? (v.per_product ?? []).map((p) => h("div", { class: "sub per-product" }, `${p.product}: ${tolerantieTekst(p, v.eenheid) || "geen"}`)) : null),
               jaNee(v.verplicht),
               v.op_certificaat ? "Ja" : "",
               h("div", { class: "knoppen-klein" },
                 v.actief ? h("button", { class: "knop knop-klein", onclick: () => veldWijzigen(v) }, "Wijzigen") : null,
+                v.actief ? h("button", { class: "knop knop-klein", "aria-label": `${v.code} grenzen per product`, onclick: () => perProduct(v) }, "Per product") : null,
                 h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(v, !v.actief) }, v.actief ? "Uitzetten" : "Weer aanzetten")),
             ]), "compact")
           : h("p", { class: "leeg" }, "Deze stap heeft nog geen velden.")),

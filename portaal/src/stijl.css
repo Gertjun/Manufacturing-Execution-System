@@ -154,6 +154,8 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
   .menu-kop .merk { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   #menu-inhoud[data-dicht] { display: none; }
   #scherm { padding: var(--space-4) var(--space-4) var(--space-7); }
+  /* Productkiezer op één regel, zodat de inhoud hoog in beeld blijft. */
+  .menu-product { grid-template-columns: auto 1fr; align-items: center; gap: var(--space-3); margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .melding { transition: none; } }
 
@@ -330,6 +332,10 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 
 /* Meldingen */
 .menu-meldingen { margin-bottom: var(--space-1); border: 1px solid var(--lijn-op-donker); }
+/* Productkiezer bovenin het menu (D55) */
+.menu-product { display: grid; gap: var(--space-1); margin: var(--space-1) 0 var(--space-2); }
+.menu-product label { color: var(--menu-zacht); font-size: var(--text-sm); }
+.menu-product select { width: 100%; }
 .meldingen { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-2); }
 .melding-rij { display: grid; grid-template-columns: 30px 1fr auto; gap: var(--space-3); align-items: center; background: var(--vlak); border: 1px solid var(--lijn); border-left: 6px solid var(--lijn); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
 .melding-rij p { margin: 0; }
@@ -480,3 +486,8 @@ a.merk:hover { text-decoration: underline; }
 .route-nr { min-width: 2ch; text-align: right; color: var(--inkt-zacht); font-variant-numeric: tabular-nums; }
 .route-stap { flex: 1; }
 .routelijst-buiten .route-stap { color: var(--inkt-zacht); }
+
+/* Periode met het gekozen product erachter (D55) */
+.filter-groep { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; }
+.filter-product { padding-bottom: var(--space-2); color: var(--inkt-zacht); }
+.filter-product strong { color: var(--inkt); }

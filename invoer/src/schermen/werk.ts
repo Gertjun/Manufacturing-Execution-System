@@ -248,7 +248,7 @@ export async function stapScherm(code: string) {
                   {
                     class: "knop knop-hoofd",
                     onclick: async () => {
-                      const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer });
+                      const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer }, x.product);
                       location.hash = `#/reg/${reg.id}`;
                     },
                   },
@@ -280,7 +280,7 @@ export async function stapScherm(code: string) {
       if (vink) { vink.checked = !vink.checked; vink.dispatchEvent(new Event("change")); melding(`${code} ${vink.checked ? "gekozen" : "niet meer gekozen"}`, "info"); }
       return;
     }
-    const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer });
+    const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer }, x.product);
     melding(`${code} gestart`, "ok");
     location.hash = `#/reg/${reg.id}`;
   });
@@ -359,7 +359,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
     );
     if (!ok) return;
     try {
-      const reg = await maakLot(lotnr.value, batches, reden);
+      const reg = await maakLot(lotnr.value, batches, reden, w.wachtend.find((y) => y.nummer === batches[0])?.product);
       location.hash = `#/reg/${reg.id}`;
     } catch (e) {
       melding(e instanceof ApiFout ? e.message : "Opslaan mislukt", "fout");

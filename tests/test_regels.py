@@ -511,6 +511,47 @@ def main():
     check("Routewijzigingen staan in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'product_stap' AND record_id = %s", (prd["PRD-C"],)) >= 15)
 
+    print("\nGrenzen per product (D55)")
+    def markering_van(reg, code):
+        return one("""SELECT markering, grens_min::float, grens_max::float, tolerantie::float FROM waarde
+                       WHERE stapregistratie_id = %s AND veld_id = %s""", (reg, veld[code]))
+    con.execute("SELECT zet_route(%s, %s)", (prd["PRD-C"], route_c))  # weer de eigen route (hierboven leeggemaakt)
+    gc = batch_met("B-2026-0711", prd["PRD-C"])
+    for code in ["PS1", "PS2", "PS3", "PS4", "PS5", "PS7", "PS8"]:
+        doe(gc, code)
+    reg9 = val("SELECT start_stap('PS9', %s, NULL, %s, %s)", (gc, pc, op))
+    check("Registratie onthoudt het product", val("SELECT product_id FROM stapregistratie WHERE id = %s", (reg9,)) == prd["PRD-C"])
+    vul_in(reg9, 9, {"S9.2": (None, 455)})
+    m = markering_van(reg9, "S9.2")
+    check("PRD-C: 455 kg in PS9 is binnen de eigen grens (400-460)", m[0] == "ok" and m[1:3] == (400.0, 460.0), m)
+    ga = batch_met("B-2026-0712", prd["PRD-A"])
+    doorloop(ga, 1, 8)
+    reg9a = val("SELECT start_stap('PS9', %s, NULL, %s, %s)", (ga, pc, op))
+    vul_in(reg9a, 9, {"S9.2": (None, 455)})
+    check("PRD-A: 455 kg is buiten de grens van het veld (380-440)", markering_van(reg9a, "S9.2")[0] == "buiten_grens")
+    gb = batch_met("B-2026-0713", prd["PRD-B"])
+    doorloop(gb, 1, 4)
+    reg5b = val("SELECT start_stap('PS5', %s, NULL, %s, %s)", (gb, pc, op))
+    vul_in(reg5b, 5, {"S5.1": (80, 84)})
+    check("PRD-B: 4 graden verschil is buiten de eigen tolerantie (3)", markering_van(reg5b, "S5.1")[0] == "buiten_tolerantie")
+    reg5a = val("SELECT id FROM stapregistratie WHERE batch_id = %s AND processtap_id = %s", (ga, sid["PS5"]))
+    con.execute("""INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)
+                   SELECT stapregistratie_id, veld_id, 80, 84, id, 'tikfout', %s FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s""",
+                (pl, reg5a, veld["S5.1"]))
+    check("PRD-A: 4 graden verschil is binnen de tolerantie van het veld (5)",
+          val("SELECT markering FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (reg5a, veld["S5.1"])) == "ok")
+    faalt("Tolerantie per product bij een gewicht", "INSERT INTO veld_product (veld_id, product_id, tolerantie) VALUES (%s, %s, 1)",
+          (veld["S9.2"], prd["PRD-A"]), "procesparameter")
+    faalt("Ondergrens boven bovengrens per product", "INSERT INTO veld_product (veld_id, product_id, grens_min, grens_max) VALUES (%s, %s, 10, 5)",
+          (veld["S9.2"], prd["PRD-A"]), "check")
+    con.execute("UPDATE veld_product SET grens_max = 470 WHERE veld_id = %s AND product_id = %s", (veld["S9.2"], prd["PRD-C"]))
+    check("Gewijzigde grens per product geldt niet voor eerdere metingen", markering_van(reg9, "S9.2")[2] == 460.0)
+    con.execute("DELETE FROM veld_product WHERE veld_id = %s AND product_id = %s", (veld["S9.2"], prd["PRD-C"]))
+    check("Weghalen: daarna gelden de grenzen van het veld",
+          one("SELECT grens_min::float, grens_max::float FROM grenzen_van(%s, %s)", (veld["S9.2"], prd["PRD-C"])) == (380.0, 440.0))
+    check("Grenzen per product staan in het logboek",
+          val("SELECT count(*) FROM config_log WHERE tabel = 'veld_product' AND actie = 'DELETE'") == 1)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

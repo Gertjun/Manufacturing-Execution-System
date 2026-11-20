@@ -144,6 +144,7 @@ function vorm(k: keyof typeof KLEUR, x: number, y: number, r: number) {
 export interface TrendVeld {
   code: string; naam: string; eenheid: string | null; soort: string;
   grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string;
+  grenzen_per_product?: boolean;
 }
 export interface TrendPunt { tijd: string; setting: number | null; gemeten: number; markering: "ok" | "buiten_tolerantie" | "buiten_grens"; batch_of_lot: string; operator: string }
 

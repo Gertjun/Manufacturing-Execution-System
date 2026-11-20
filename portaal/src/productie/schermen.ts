@@ -272,7 +272,7 @@ export async function stilstand() {
   const slechtst = [...metB].sort((x, y) => x.beschikbaarheid! - y.beschikbaarheid!)[0];
   const lopend = a.lijst.filter((x) => !x.eind_op);
   toon(
-    kop("Stilstand", `Wanneer en waarom er niet gewerkt kon worden, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}. Operators melden stilstand in het invoerscherm.`, periodeKeuze(stilstand)),
+    kop("Stilstand", `Wanneer en waarom er niet gewerkt kon worden, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}. Operators melden stilstand in het invoerscherm.`, periodeKeuze(stilstand, false)),
     lopend.length
       ? h("section", { class: "blok stil-blok" }, h("h2", {}, `Nu stil (${lopend.length})`),
           tabel(["Stap", "Oorzaak", "Sinds", "Duur", "Toelichting", "Gemeld door"], lopend.map((x) => [`${x.stap} ${x.stapnaam}`, x.oorzaaknaam, kort(x.begin_op), minuten(x.minuten), x.toelichting ?? "", x.operator ?? ""]), "compact"))

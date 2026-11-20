@@ -52,6 +52,7 @@ operators = {naam: oid for oid, naam in con.execute("SELECT id, naam FROM operat
 opnamen = sorted(operators)
 gebruiker = {n: i for i, n in con.execute("SELECT id, gebruikersnaam FROM gebruiker")}
 producten = [r[0] for r in con.execute("SELECT id FROM product WHERE actief ORDER BY code")]
+productcode = {i: c for i, c in con.execute("SELECT id, code FROM product")}
 stap_grondstoffen: dict = {}
 for stap, gid, gcode, eenheid in con.execute(
     """SELECT s.code, g.id, g.code, g.eenheid FROM stap_grondstof x JOIN processtap s ON s.id = x.processtap_id
@@ -95,7 +96,7 @@ def volgnummer(soort, jaar):
     return f"{'B' if soort == 'batch' else 'L'}-{jaar}-{teller[soort][jaar]:04d}"
 
 
-def waarde_voor(stapcode, veldcode, naam, soort, moment, operator, nat=False):
+def waarde_voor(stapcode, veldcode, naam, soort, moment, operator, nat=False, product=None):
     """Fictieve meting met ruis en de ingebouwde patronen."""
     fractie = (moment - begin) / (eind - begin)
     if naam == "Temperatuur":
@@ -107,7 +108,8 @@ def waarde_voor(stapcode, veldcode, naam, soort, moment, operator, nat=False):
     if naam == "Gewicht":
         if stapcode in ("PS16", "PS17", "PS18"):
             return None, round(rnd.gauss(1640, 22), 1)
-        g = rnd.gauss(410, 7)
+        # PRD-C (grof) is zwaarder na PS9 en heeft daar eigen grenzen (D55).
+        g = rnd.gauss(430, 7) if stapcode == "PS9" and productcode.get(product) == "PRD-C" else rnd.gauss(410, 7)
         if stapcode == "PS9" and operator == "Operator F" and zware_periode[0] <= moment < zware_periode[1]:
             g += rnd.gauss(28, 4)
         return None, round(g, 1)
@@ -120,7 +122,7 @@ def waarde_voor(stapcode, veldcode, naam, soort, moment, operator, nat=False):
     return None, round(rnd.uniform(1, 10), 2)
 
 
-def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerking=None, nat=False):
+def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerking=None, nat=False, product=None):
     pc = pcs[(int(stapcode[2:]) - 1) % len(pcs)]
     oid = operators[operator]
     if herbewerking:
@@ -129,7 +131,7 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
         reg = con.execute("SELECT start_stap(%s, %s, %s, %s, %s)", (stapcode, batch_id, lot_id, pc, oid)).fetchone()[0]
     duur = dt.timedelta(minutes=rnd.randint(20, 70))
     for code, vid, naam, soort in velden.get(stapcode, []):
-        setting, gemeten = waarde_voor(stapcode, code, naam, soort, moment, operator, nat)
+        setting, gemeten = waarde_voor(stapcode, code, naam, soort, moment, operator, nat, product)
         con.execute(
             "INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
             (reg, vid, setting if soort == "procesparameter" else None, gemeten, oid),
@@ -232,7 +234,7 @@ while dag < eind:
                 tot = n - 1
                 break
             operator = rnd.choice(opnamen)
-            _, moment = doe_stap(code, moment, operator, batch_id=bid)
+            _, moment = doe_stap(code, moment, operator, batch_id=bid, product=product)
             if beoordeel_bij == n:
                 stats["beoordeling"] += 1
                 besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "steekproef", "afwijkende geur", "visuele afwijking"]), "ploegleider1", moment)

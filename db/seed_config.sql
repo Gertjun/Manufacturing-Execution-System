@@ -51,6 +51,14 @@ SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS6','PS7','PS8','PS9'
 SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS7','PS8','PS9','PS11','PS10','PS12','PS13','PS15','PS16','PS18'])
   FROM product WHERE code = 'PRD-C';
 
+-- Fictieve grenzen per product (D55): PRD-B fijn heeft een krappere temperatuur in PS5 en mag minder vocht
+-- bevatten; PRD-C grof is zwaarder na PS9. De andere velden en producten volgen de grenzen van het veld.
+INSERT INTO veld_product (veld_id, product_id, grens_min, grens_max, tolerantie, tolerantie_soort)
+SELECT v.id, p.id, x.min, x.max, x.tol, 'absoluut'
+  FROM (VALUES ('S5.1', 'PRD-B', 20, 120, 3), ('S18.3', 'PRD-B', NULL, 3.5, NULL), ('S9.2', 'PRD-C', 400, 460, NULL))
+       x(veld, product, min, max, tol)
+  JOIN veld v ON v.code = x.veld JOIN product p ON p.code = x.product;
+
 -- Fictieve grondstoffen en in welke stap ze worden ingevoerd (sinds 0.11.0).
 INSERT INTO grondstof (code, naam, eenheid) VALUES
   ('GS-A', 'Grondstof A', 'kg'),

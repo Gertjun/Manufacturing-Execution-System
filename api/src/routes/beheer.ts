@@ -102,6 +102,65 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  // Grenzen per product (0.29.0, D55): een regel vervangt voor dat product alle vier de grenswaarden van het veld.
+  const GrensPerProduct = Type.Object({
+    product: Type.String(), grens_min: NulGetal(), grens_max: NulGetal(), tolerantie: NulGetal(), tolerantie_soort: Type.String(),
+  });
+  const VeldProduct = Type.Object({ code: Type.String(), product: Type.String() });
+  app.put(
+    "/velden/:code/producten/:product",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        description: "Eigen grenzen en tolerantie van een veld voor één product. Geldt voor metingen vanaf nu; eerdere metingen houden hun grenzen.",
+        params: VeldProduct,
+        body: Type.Object({
+          grens_min: NulGetal(), grens_max: NulGetal(), tolerantie: NulGetal(),
+          tolerantie_soort: Type.Optional(Type.Union([Type.Literal("absoluut"), Type.Literal("procent")])),
+        }, { additionalProperties: false }),
+        response: { 200: GrensPerProduct },
+      },
+    },
+    async (req) =>
+      inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows } = await tx.query(
+          `INSERT INTO veld_product (veld_id, product_id, grens_min, grens_max, tolerantie, tolerantie_soort)
+           SELECT v.id, p.id, $3, $4, $5, $6 FROM veld v, product p WHERE v.code = $1 AND p.code = $2
+           ON CONFLICT (veld_id, product_id) DO UPDATE
+              SET grens_min = EXCLUDED.grens_min, grens_max = EXCLUDED.grens_max,
+                  tolerantie = EXCLUDED.tolerantie, tolerantie_soort = EXCLUDED.tolerantie_soort
+           RETURNING $2::text AS product, grens_min, grens_max, tolerantie, tolerantie_soort`,
+          [req.params.code, req.params.product, req.body.grens_min, req.body.grens_max, req.body.tolerantie, req.body.tolerantie_soort ?? "absoluut"],
+        );
+        if (!rows[0]) throw niet("Veld of product");
+        return rows[0];
+      }),
+  );
+
+  app.delete(
+    "/velden/:code/producten/:product",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        description: "Eigen grenzen voor een product weghalen: daarna gelden de grenzen van het veld.",
+        params: VeldProduct,
+        response: { 204: Type.Null() },
+      },
+    },
+    async (req, reply) => {
+      const n = await inTransactie(app.db, req.user.naam, async (tx) =>
+        (await tx.query(
+          `DELETE FROM veld_product vp USING veld v, product p
+            WHERE vp.veld_id = v.id AND vp.product_id = p.id AND v.code = $1 AND p.code = $2`,
+          [req.params.code, req.params.product],
+        )).rowCount);
+      if (!n) throw niet("Eigen grenzen voor dit product");
+      return reply.status(204).send(null);
+    },
+  );
+
   // Velden importeren uit het Excel-sjabloon (0.22.0, D46). Eerst altijd een proefronde: alles wordt in een
   // transactie uitgevoerd (dus ook door de databaseregels gecontroleerd) en teruggedraaid. Pas met
   // uitvoeren=true en zonder fouten blijft het staan. Velden die niet in het bestand staan, blijven ongewijzigd.

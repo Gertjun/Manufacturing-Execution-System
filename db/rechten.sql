@@ -27,11 +27,14 @@ BEGIN
     GRANT DELETE ON fabriek.stapplanning, fabriek.lot_voorstel_batch TO batchgui_app;
   END IF;
 END $$;
--- Een route vervangen: de stappen van een product (sinds 0.28.0).
+-- Een route vervangen (sinds 0.28.0) en grenzen per product weghalen (sinds 0.29.0).
 DO $$
 BEGIN
   IF to_regclass('fabriek.product_stap') IS NOT NULL THEN
     GRANT DELETE ON fabriek.product_stap TO batchgui_app;
+  END IF;
+  IF to_regclass('fabriek.veld_product') IS NOT NULL THEN
+    GRANT DELETE ON fabriek.veld_product TO batchgui_app;   -- terug naar de grenzen van het veld (sinds 0.29.0)
   END IF;
 END $$;
 -- Inlogpogingen alleen vastleggen, niet wijzigen.

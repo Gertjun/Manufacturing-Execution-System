@@ -100,6 +100,29 @@ try {
   await shot("01-stappen-en-velden");
   check("S3.4 staat uit", (await page.locator("tr", { hasText: "S3.4" }).innerText()).includes("(uit)"));
 
+  console.log("\nGrenzen per product (D55)");
+  await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "S3.1 grenzen per product" }).click();
+  await dialoog().getByLabel("Product").selectOption("PRD-B");
+  await dialoog().getByRole("button", { name: "Verder" }).click();
+  check("Grenzen per product: voorgevuld met de grenzen van het veld", (await dialoog().getByLabel(/Tolerantie \(/).inputValue()) === "8");
+  await dialoog().getByLabel(/Tolerantie \(/).fill("2,5");
+  await dialoog().getByLabel("Bovengrens").fill("100");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("tr", { hasText: "S3.1" }).getByText("PRD-B: ±2,5 °C").waitFor();
+  check("PRD-B heeft eigen grenzen voor S3.1", (await page.locator("tr", { hasText: "S3.1" }).innerText()).includes("PRD-B: 20 tot 100 °C"));
+  const [vp] = await q(`SELECT vp.tolerantie::float AS t, vp.grens_max::float AS m FROM fabriek.veld_product vp JOIN fabriek.veld v ON v.id = vp.veld_id
+                         JOIN fabriek.product p ON p.id = vp.product_id WHERE v.code = 'S3.1' AND p.code = 'PRD-B'`);
+  check("Opgeslagen in de database", vp?.t === 2.5 && vp?.m === 100, JSON.stringify(vp));
+  await shot("01b-grenzen-per-product");
+  await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "S3.1 grenzen per product" }).click();
+  await dialoog().getByLabel("Product").selectOption("PRD-B");
+  await dialoog().getByRole("button", { name: "Verder" }).click();
+  await dialoog().getByLabel("Grenzen voor dit product").selectOption("veld");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("#melding", { hasText: "volgt weer de grenzen" }).waitFor();
+  await page.waitForFunction(() => ![...document.querySelectorAll("tr")].some((r) => r.textContent.includes("S3.1") && r.textContent.includes("PRD-B:")));
+  check("Zelfde als het veld: eigen grenzen weg", (await q("SELECT count(*)::int AS n FROM fabriek.veld_product vp JOIN fabriek.veld v ON v.id = vp.veld_id WHERE v.code = 'S3.1'"))[0].n === 0);
+
   console.log("\nAccounts");
   await page.getByRole("link", { name: "Accounts" }).click();
   await page.getByRole("button", { name: "Account toevoegen" }).click();

@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.29.0 — 20 november 2026 · #52
+- Nieuw: **grenzen en tolerantie per product** (D55). Bij Beheer → Stappen en velden zet je met **Per product** voor één product eigen grenzen en tolerantie van een veld. De tabel toont ze onder de grenzen van het veld, bijvoorbeeld "PRD-C: 400 tot 460 kg". Kies je "Zelfde als het veld", dan vervallen ze weer.
+  - Een nieuwe meting krijgt de grenzen van het product van de batch of het lot; eerdere metingen houden de grenzen van toen. Het invoerscherm toont het product bij de batch en kleurt de invoer naar de grenzen van dat product, ook zonder verbinding.
+- Nieuw: **productkiezer** in het menu van Kwaliteit en Productieanalyse, bij de schermen die per product kunnen: overzicht, regelkaarten, afwijkingen, trend, herbewerkingen en afkeur, doorlooptijden, productie per week en correcties. "Alle producten" of één product; de keuze wordt op deze computer onthouden. Naast de periode staat welk product je ziet.
+  - Trend en regelkaart tonen bij een gekozen product de grenzen van dat product. Met "Alle producten" en een veld met grenzen per product staat er geen Cpk en een uitleg ("kies een product").
+  - Afwijkingen tonen het product in een eigen kolom als je alle producten bekijkt.
+- Fictieve grenzen per product in de testdata: PRD-B heeft een krappere temperatuur in PS5 (±3 °C) en mag hoogstens 3,5 % vocht bevatten; PRD-C is zwaarder na PS9 (400 tot 460 kg).
+- Database: migratie 0019 voegt de tabel `veld_product` en de functie `grenzen_van` toe, en onthoudt bij elke stapregistratie het product (bestaande registraties worden ingevuld). Er hoeft niemand iets te doen; oudere invoerschermen blijven werken (D18).
+- Nog niet in het Excel-sjabloon: grenzen per product (#73).
+
 ## 0.28.0 — 20 november 2026 · #51
 - Nieuw: **elk product heeft zijn eigen route** (D55): welke stappen het doorloopt en in welke volgorde. Stappen kunnen door producten gedeeld worden.
   - Planning → Producten toont per product de route ("Alle stappen" of bijvoorbeeld "15 stappen, zonder PS6, PS14 en PS17, eigen volgorde"). Met **Route wijzigen** haal je stappen weg, voeg je ze toe en zet je ze eerder of later. De lotstap blijft altijd in de route; eerst komen de batchstappen, dan de lotstap, dan de lotstappen.

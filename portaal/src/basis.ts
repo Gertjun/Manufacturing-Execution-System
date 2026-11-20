@@ -164,13 +164,41 @@ let periodeId: string = "30";
 export const periode = {
   get id() { return periodeId; },
   set id(v: string) { periodeId = v; },
-  /** { van } als datum, tot = morgen (dus vandaag inbegrepen). */
-  bereik(): { van: string | null } {
+  /** { van } als datum, tot = morgen (dus vandaag inbegrepen), plus het gekozen product (D55). */
+  bereik(): { van: string | null; product: string | null } {
     const p = PERIODES.find((x) => x.id === periodeId)!;
-    if (p.dagen === null) return { van: null };
+    const product = gekozenProduct.code;
+    if (p.dagen === null) return { van: null, product };
     const d = new Date();
     d.setDate(d.getDate() - p.dagen + 1);
     // Lokale datum (toISOString zou tussen middernacht en 01:00/02:00 de dag ervoor geven).
-    return { van: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` };
+    return { van: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, product };
   },
 };
+
+// ---------- Productkiezer (D55): bovenin Kwaliteit en Productieanalyse, onthouden op deze computer ----------
+const PRODUCT_SLEUTEL = "portaal.product";
+/** Schermen waarvan de analyse per product kan; alleen daar staat de productkiezer. */
+export const ONDERDELEN_MET_PRODUCT: Record<string, string[]> = {
+  kwaliteit: ["overzicht", "regelkaarten", "afwijkingen", "trend", "herbewerkingen"],
+  productie: ["doorlooptijden", "week", "correcties"],
+};
+export const gekozenProduct = {
+  get code(): string | null {
+    try { return localStorage.getItem(PRODUCT_SLEUTEL) || null; } catch { return null; }
+  },
+  set code(c: string | null) {
+    try { c ? localStorage.setItem(PRODUCT_SLEUTEL, c) : localStorage.removeItem(PRODUCT_SLEUTEL); } catch { /* alleen deze sessie */ }
+  },
+};
+let productenCache: { code: string; naam: string }[] | null = null;
+/** Actieve producten (één keer per sessie opgehaald). Een onthouden product dat niet meer bestaat, vervalt. */
+export async function producten(): Promise<{ code: string; naam: string }[]> {
+  if (!productenCache) {
+    productenCache = await haal<{ code: string; naam: string }[]>("/planning/producten");
+    if (gekozenProduct.code && !productenCache.some((p) => p.code === gekozenProduct.code)) gekozenProduct.code = null;
+  }
+  return productenCache;
+}
+/** Korte tekst voor in een kop: "PRD-B" of "alle producten". */
+export const productTekst = () => gekozenProduct.code ?? "alle producten";

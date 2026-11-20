@@ -13,14 +13,18 @@ export async function registratieDetail(db: Db, id: string) {
   const velden = await lees(
     db,
     `SELECT v.code, v.naam, v.soort, v.eenheid, v.decimalen,
-            coalesce(w.grens_min, v.grens_min) AS grens_min, coalesce(w.grens_max, v.grens_max) AS grens_max,
-            coalesce(w.tolerantie, v.tolerantie) AS tolerantie, coalesce(w.tolerantie_soort, v.tolerantie_soort) AS tolerantie_soort,
+            -- Grenzen van de meting als die er is, anders wat nu geldt voor het product (D55).
+            CASE WHEN w.id IS NULL THEN g.grens_min ELSE w.grens_min END AS grens_min,
+            CASE WHEN w.id IS NULL THEN g.grens_max ELSE w.grens_max END AS grens_max,
+            CASE WHEN w.id IS NULL THEN g.tolerantie ELSE w.tolerantie END AS tolerantie,
+            coalesce(CASE WHEN w.id IS NULL THEN g.tolerantie_soort ELSE w.tolerantie_soort END, v.tolerantie_soort) AS tolerantie_soort,
             v.verplicht,
             CASE WHEN w.id IS NULL THEN NULL ELSE json_build_object(
               'id', w.id, 'setting', w.setting, 'gemeten', w.gemeten, 'markering', w.markering,
               'gecorrigeerd', w.vervangt_waarde_id IS NOT NULL, 'ingevoerd_op', w.ingevoerd_op) END AS waarde
        FROM stapregistratie r
        JOIN veld v ON v.processtap_id = r.processtap_id
+       CROSS JOIN LATERAL grenzen_van(v.id, r.product_id) g
        LEFT JOIN waarde_actueel w ON w.stapregistratie_id = r.id AND w.veld_id = v.id
       WHERE r.id = $1 AND (v.actief OR w.id IS NOT NULL)
       ORDER BY v.volgnummer`,

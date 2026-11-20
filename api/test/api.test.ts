@@ -430,6 +430,45 @@ describe("Portaal Beheer", () => {
   });
 });
 
+describe("grenzen per product (D55)", () => {
+  test("beheerder zet eigen grenzen per product; analyses filteren op product", async () => {
+    const beheer = await login("beheerder1");
+    const kw = await login("kwaliteit1");
+    assert.equal((await verzoek("PUT", "/beheer/velden/S9.2/producten/PRD-A", kw, { grens_min: 300, grens_max: 500, tolerantie: null })).status, 403);
+    const fout = await verzoek("PUT", "/beheer/velden/S9.2/producten/PRD-A", beheer, { grens_min: 500, grens_max: 300, tolerantie: null });
+    assert.equal(fout.status, 422);
+    assert.match(fout.body.fout, /ondergrens is hoger/);
+    const tol = await verzoek("PUT", "/beheer/velden/S9.2/producten/PRD-A", beheer, { grens_min: 300, grens_max: 500, tolerantie: 2 });
+    assert.equal(tol.status, 422);
+    assert.match(tol.body.fout, /procesparameter/);
+    const goed = await verzoek("PUT", "/beheer/velden/S9.2/producten/PRD-A", beheer, { grens_min: 300, grens_max: 500, tolerantie: null });
+    assert.equal(goed.status, 200, JSON.stringify(goed.body));
+    assert.deepEqual([goed.body.product, goed.body.grens_min, goed.body.grens_max], ["PRD-A", 300, 500]);
+    assert.equal((await verzoek("PUT", "/beheer/velden/S9.2/producten/PRD-X", beheer, { grens_min: 1, grens_max: 2, tolerantie: null })).status, 404);
+    const cfg = await verzoek("GET", "/config/stappen", kw);
+    const s92 = cfg.body.find((s: any) => s.code === "PS9").velden.find((v: any) => v.code === "S9.2");
+    assert.deepEqual(s92.per_product.map((x: any) => x.product), ["PRD-A", "PRD-C"]);
+    assert.equal((await verzoek("DELETE", "/beheer/velden/S9.2/producten/PRD-A", beheer)).status, 204);
+    assert.equal((await verzoek("DELETE", "/beheer/velden/S9.2/producten/PRD-A", beheer)).status, 404);
+
+    const trend = await verzoek("GET", "/analyse/trend?veld=S9.2&product=PRD-C", kw);
+    assert.equal(trend.status, 200);
+    assert.deepEqual([trend.body.veld.grens_min, trend.body.veld.grens_max, trend.body.veld.grenzen_per_product], [400, 460, true]);
+    assert.equal((await verzoek("GET", "/analyse/trend?veld=S9.2", kw)).body.veld.grens_max, 440);
+    const alle = await verzoek("GET", "/analyse/samenvatting", kw);
+    const c = await verzoek("GET", "/analyse/samenvatting?product=PRD-C", kw);
+    assert.equal(c.status, 200);
+    assert.ok(c.body.waarden <= alle.body.waarden && c.body.batches <= alle.body.batches);
+    const rk = await verzoek("GET", "/analyse/regelkaarten", kw);
+    assert.equal(rk.body.find((r: any) => r.veld === "S9.2").grenzen_per_product, true);
+    assert.equal(rk.body.find((r: any) => r.veld === "S9.2").cpk, null);
+    for (const pad of ["afwijkingen", "herbewerkingen", "afkeur", "doorlooptijden", "productie", "correcties", "regelkaarten"]) {
+      assert.equal((await verzoek("GET", `/analyse/${pad}?product=PRD-B`, kw)).status, 200, pad);
+    }
+    assert.equal((await verzoek("GET", "/analyse/regelkaart?veld=S5.1&product=PRD-B", kw)).status, 200);
+  });
+});
+
 describe("documentatie", () => {
   test("OpenAPI-beschrijving bevat alle onderdelen", async () => {
     const r = await app.inject({ method: "GET", url: "/docs/json" });

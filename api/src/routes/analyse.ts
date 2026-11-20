@@ -14,6 +14,11 @@ const Periode = {
   van: Type.Optional(Type.String({ format: "date", description: "Vanaf (inclusief), bv. 2026-11-01" })),
   tot: Type.Optional(Type.String({ format: "date", description: "Tot (exclusief)" })),
 };
+/** Periode plus product (D55): leeg = alle producten. */
+const Filter = {
+  ...Periode,
+  product: Type.Optional(Type.String({ description: "Productcode, bijvoorbeeld PRD-B. Leeg = alle producten (D55)" })),
+};
 const Tijd = Type.String({ format: "date-time" });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 const OptGetal = NulGetal();
@@ -25,9 +30,11 @@ const WAARDEN_SQL = `
          s.code AS stap, s.volgorde, r.poging, v.code AS veld, v.naam AS veldnaam, v.eenheid, v.decimalen,
          w.setting, w.gemeten, w.grens_min, w.grens_max, w.tolerantie, w.tolerantie_soort,
          w.markering, w.ingevoerd_op, o.naam AS operator, p.naam AS pc,
-         (w.vervangt_waarde_id IS NOT NULL) AS gecorrigeerd
+         (w.vervangt_waarde_id IS NOT NULL) AS gecorrigeerd,
+         r.product_id, pr.code AS product
     FROM waarde_actueel w
     JOIN stapregistratie r ON r.id = w.stapregistratie_id
+    LEFT JOIN product pr ON pr.id = r.product_id
     JOIN processtap s ON s.id = r.processtap_id
     JOIN veld v ON v.id = w.veld_id
     JOIN operator o ON o.id = r.operator_id
@@ -38,6 +45,9 @@ const WAARDEN_SQL = `
 
 const PERIODE_SQL = (kolom: string, a: number, b: number) =>
   `($${a}::date IS NULL OR ${kolom} >= $${a}::date) AND ($${b}::date IS NULL OR ${kolom} < $${b}::date)`;
+/** Alleen dit product ($n = productcode of NULL voor alle producten). */
+const PRODUCT_SQL = (kolom: string, n: number) =>
+  `($${n}::text IS NULL OR ${kolom} = (SELECT id FROM product WHERE code = $${n}))`;
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // ---------- Overzicht ----------
@@ -48,7 +58,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description: "Kerncijfers over een periode, plus afwijkingen per week en de velden met de meeste afwijkingen.",
-        querystring: Type.Object(Periode),
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Object({
             batches: Type.Integer(),
@@ -70,18 +80,21 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const p = [req.query.van ?? null, req.query.tot ?? null];
+      const p = [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null];
+      // Waarden met hun registratie, zodat er op product gefilterd kan worden.
+      const W = `(SELECT w.* FROM waarde_actueel w JOIN stapregistratie r ON r.id = w.stapregistratie_id WHERE ${PRODUCT_SQL("r.product_id", 3)})`;
       const [k] = await lees<Record<string, number>>(
         app.db,
         `SELECT
-           (SELECT count(*) FROM batch WHERE gestart_op IS NOT NULL AND ${PERIODE_SQL("gestart_op", 1, 2)}) AS batches,
-           (SELECT count(*) FROM lot WHERE ${PERIODE_SQL("aangemaakt_op", 1, 2)}) AS lots,
-           (SELECT count(*) FROM waarde_actueel WHERE ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS waarden,
-           (SELECT count(*) FROM waarde_actueel WHERE markering = 'buiten_tolerantie' AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS buiten_tolerantie,
-           (SELECT count(*) FROM waarde_actueel WHERE markering = 'buiten_grens' AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS buiten_grens,
-           (SELECT count(*) FROM stapregistratie WHERE herbewerking_start AND ${PERIODE_SQL("gestart_op", 1, 2)}) AS herbewerkingen,
-           (SELECT count(*) FROM batch_besluit WHERE besluit = 'afgekeurd' AND ${PERIODE_SQL("besloten_op", 1, 2)}) AS afgekeurd,
-           (SELECT count(*) FROM batch WHERE status = 'in_beoordeling') AS te_beoordelen`,
+           (SELECT count(*) FROM batch WHERE gestart_op IS NOT NULL AND ${PERIODE_SQL("gestart_op", 1, 2)} AND ${PRODUCT_SQL("product_id", 3)}) AS batches,
+           (SELECT count(*) FROM lot WHERE ${PERIODE_SQL("aangemaakt_op", 1, 2)} AND ${PRODUCT_SQL("lot_product(lot.id)", 3)}) AS lots,
+           (SELECT count(*) FROM ${W} x WHERE ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS waarden,
+           (SELECT count(*) FROM ${W} x WHERE markering = 'buiten_tolerantie' AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS buiten_tolerantie,
+           (SELECT count(*) FROM ${W} x WHERE markering = 'buiten_grens' AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}) AS buiten_grens,
+           (SELECT count(*) FROM stapregistratie WHERE herbewerking_start AND ${PERIODE_SQL("gestart_op", 1, 2)} AND ${PRODUCT_SQL("product_id", 3)}) AS herbewerkingen,
+           (SELECT count(*) FROM batch_besluit d JOIN batch b ON b.id = d.batch_id
+             WHERE d.besluit = 'afgekeurd' AND ${PERIODE_SQL("d.besloten_op", 1, 2)} AND ${PRODUCT_SQL("b.product_id", 3)}) AS afgekeurd,
+           (SELECT count(*) FROM batch WHERE status = 'in_beoordeling' AND ${PRODUCT_SQL("product_id", 3)}) AS te_beoordelen`,
         p,
       );
       const per_week = await lees(
@@ -89,7 +102,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `SELECT date_trunc('week', ingevoerd_op)::date AS week, count(*) AS waarden,
                 count(*) FILTER (WHERE markering = 'buiten_tolerantie') AS buiten_tolerantie,
                 count(*) FILTER (WHERE markering = 'buiten_grens') AS buiten_grens
-           FROM waarde_actueel WHERE ${PERIODE_SQL("ingevoerd_op", 1, 2)}
+           FROM ${W} x WHERE ${PERIODE_SQL("ingevoerd_op", 1, 2)}
           GROUP BY 1 ORDER BY 1`,
         p,
       );
@@ -97,7 +110,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `SELECT v.code AS veld, v.naam AS veldnaam, s.code AS stap,
                 count(*) FILTER (WHERE w.markering <> 'ok') AS afwijkend, count(*) AS waarden
-           FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id JOIN processtap s ON s.id = v.processtap_id
+           FROM ${W} w JOIN veld v ON v.id = w.veld_id JOIN processtap s ON s.id = v.processtap_id
           WHERE ${PERIODE_SQL("w.ingevoerd_op", 1, 2)}
           GROUP BY v.code, v.naam, s.code, v.volgnummer, s.volgorde
          HAVING count(*) FILTER (WHERE w.markering <> 'ok') > 0
@@ -155,7 +168,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["analyse"],
         description: "Actuele waarden buiten tolerantie of grens, nieuwste eerst.",
         querystring: Type.Object({
-          ...Periode,
+          ...Filter,
           stapcode: Type.Optional(StapCode),
           veld: Type.Optional(Type.String({ examples: ["S5.1"] })),
           markering: Type.Optional(Type.Union([Type.Literal("buiten_tolerantie"), Type.Literal("buiten_grens")])),
@@ -183,6 +196,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               pc: Type.String(),
               gecorrigeerd: Type.Boolean(),
               ingevoerd_op: Tijd,
+              product: Type.Optional(OptTekst),
             }),
           ),
         },
@@ -195,8 +209,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `SELECT * FROM (${WAARDEN_SQL}) x
           WHERE markering <> 'ok' AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}
             AND ($3::text IS NULL OR stap = $3) AND ($4::text IS NULL OR veld = $4) AND ($5::text IS NULL OR markering = $5)
+            AND ${PRODUCT_SQL("product_id", 7)}
           ORDER BY ingevoerd_op DESC LIMIT $6`,
-        [q.van ?? null, q.tot ?? null, q.stapcode ?? null, q.veld ?? null, q.markering ?? null, q.limiet ?? 500],
+        [q.van ?? null, q.tot ?? null, q.stapcode ?? null, q.veld ?? null, q.markering ?? null, q.limiet ?? 500, q.product ?? null],
       ) as never;
     },
   );
@@ -208,8 +223,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["analyse"],
-        description: "Alle actuele waarden van één veld door de tijd, met de huidige grenzen van het veld.",
-        querystring: Type.Object({ ...Periode, veld: Type.String({ examples: ["S5.1"] }) }),
+        description:
+          "Alle actuele waarden van één veld door de tijd, met de grenzen die nu gelden: van het gekozen product, anders van het veld. " +
+          "grenzen_per_product = er zijn producten met eigen grenzen (D55); zonder gekozen product passen de getoonde grenzen dan niet op elke meting.",
+        querystring: Type.Object({ ...Filter, veld: Type.String({ examples: ["S5.1"] }) }),
         response: {
           200: Type.Object({
             veld: Type.Object({
@@ -223,6 +240,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               tolerantie: OptGetal,
               tolerantie_soort: Type.String(),
               decimalen: NulGeheel(),
+              grenzen_per_product: Type.Optional(Type.Boolean()),
             }),
             punten: Type.Array(
               Type.Object({
@@ -241,19 +259,22 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [veld] = await lees(
         app.db,
-        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min, v.grens_max, v.tolerantie, v.tolerantie_soort, v.decimalen
-           FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.code = $1`,
-        [req.query.veld],
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, g.grens_min, g.grens_max, g.tolerantie, g.tolerantie_soort, v.decimalen,
+                EXISTS (SELECT 1 FROM veld_product vp WHERE vp.veld_id = v.id) AS grenzen_per_product
+           FROM veld v JOIN processtap s ON s.id = v.processtap_id
+           CROSS JOIN LATERAL grenzen_van(v.id, (SELECT id FROM product WHERE code = $2)) g
+          WHERE v.code = $1`,
+        [req.query.veld, req.query.product ?? null],
       );
       if (!veld) throw niet("Veld");
       const punten = await lees(
         app.db,
         `SELECT * FROM (
            SELECT ingevoerd_op AS tijd, setting, gemeten, markering, batch_of_lot, operator
-             FROM (${WAARDEN_SQL}) x WHERE veld = $3 AND ${PERIODE_SQL("ingevoerd_op", 1, 2)}
+             FROM (${WAARDEN_SQL}) x WHERE veld = $3 AND ${PERIODE_SQL("ingevoerd_op", 1, 2)} AND ${PRODUCT_SQL("product_id", 4)}
             ORDER BY ingevoerd_op DESC LIMIT 5000) n
           ORDER BY tijd`,
-        [req.query.van ?? null, req.query.tot ?? null, req.query.veld],
+        [req.query.van ?? null, req.query.tot ?? null, req.query.veld, req.query.product ?? null],
       );
       return { veld, punten } as never;
     },
@@ -266,7 +287,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["analyse"],
-        querystring: Type.Object(Periode),
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Array(
             Type.Object({ lotnummer: Type.String(), stap: Type.String(), poging: Type.Integer(), reden: Type.String(), gestart_op: Tijd }),
@@ -279,9 +300,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `SELECT l.lotnummer, s.code AS stap, r.poging, r.reden, r.gestart_op
            FROM stapregistratie r JOIN lot l ON l.id = r.lot_id JOIN processtap s ON s.id = r.processtap_id
-          WHERE r.herbewerking_start AND ${PERIODE_SQL("r.gestart_op", 1, 2)}
+          WHERE r.herbewerking_start AND ${PERIODE_SQL("r.gestart_op", 1, 2)} AND ${PRODUCT_SQL("r.product_id", 3)}
           ORDER BY r.gestart_op DESC`,
-        [req.query.van ?? null, req.query.tot ?? null],
+        [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null],
       ) as never,
   );
 
@@ -293,7 +314,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description: "Afgekeurde batches (keurresultaat NOK) met reden en verloop.",
-        querystring: Type.Object(Periode),
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Array(
             Type.Object({
@@ -321,9 +342,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            JOIN gebruiker g ON g.id = d.besloten_door
            LEFT JOIN LATERAL (SELECT * FROM batch_besluit x WHERE x.batch_id = b.id AND x.besluit = 'in_beoordeling'
                                AND x.besloten_op <= d.besloten_op ORDER BY x.besloten_op DESC LIMIT 1) ib ON true
-          WHERE d.besluit = 'afgekeurd' AND ${PERIODE_SQL("d.besloten_op", 1, 2)}
+          WHERE d.besluit = 'afgekeurd' AND ${PERIODE_SQL("d.besloten_op", 1, 2)} AND ${PRODUCT_SQL("b.product_id", 3)}
           ORDER BY d.besloten_op DESC`,
-        [req.query.van ?? null, req.query.tot ?? null],
+        [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null],
       ) as never,
   );
 
@@ -336,7 +357,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["analyse"],
         description:
           "Per stap de bewerkingstijd (gestart tot afgerond) en de wachttijd ervoor (vorige afgeronde stap tot start), in minuten; plus de doorlooptijd van batches (PS1 tot de laatste batchstap) en lots (lot-stap tot gereed) per week, in uren. Medianen, zodat uitschieters het beeld niet vertekenen.",
-        querystring: Type.Object(Periode),
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Object({
             stappen: Type.Array(
@@ -365,7 +386,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const p = [req.query.van ?? null, req.query.tot ?? null];
+      const p = [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null];
       const stappen = await lees(
         app.db,
         `WITH alle AS (
@@ -383,7 +404,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                   extract(epoch FROM a.afgerond_op - a.gestart_op) / 60 AS bewerking,
                   extract(epoch FROM a.gestart_op - coalesce(a.vorige_klaar, CASE WHEN a.is_lot_stap THEN lk.klaar END)) / 60 AS wachten
              FROM alle a LEFT JOIN lot_klaar lk ON lk.lot_id = a.lot_id
-            WHERE a.status = 'afgerond' AND ${PERIODE_SQL("a.afgerond_op", 1, 2)})
+            WHERE a.status = 'afgerond' AND ${PERIODE_SQL("a.afgerond_op", 1, 2)} AND ${PRODUCT_SQL("a.product_id", 3)})
          SELECT code AS stap, naam AS stapnaam, niveau, count(*) AS aantal,
                 round(percentile_cont(0.5) WITHIN GROUP (ORDER BY bewerking)::numeric, 1) AS bewerking_mediaan,
                 round(percentile_cont(0.9) WITHIN GROUP (ORDER BY bewerking)::numeric, 1) AS bewerking_p90,
@@ -403,14 +424,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                   JOIN grens g ON g.product_id IS NOT DISTINCT FROM bt.product_id AND e.processtap_id = g.laatste_batchstap
                   JOIN stapregistratie s ON s.batch_id = e.batch_id AND s.processtap_id = g.eerste_batchstap
                  WHERE e.status = 'afgerond'
-                   AND ${PERIODE_SQL("e.afgerond_op", 1, 2)}),
+                   AND ${PERIODE_SQL("e.afgerond_op", 1, 2)} AND ${PRODUCT_SQL("bt.product_id", 3)}),
               l AS (
                 SELECT date_trunc('week', g.klaar)::date AS week, extract(epoch FROM g.klaar - lot.aangemaakt_op) / 3600 AS uren
                   FROM lot
                   JOIN LATERAL (SELECT max(r.afgerond_op) AS klaar FROM stapregistratie r
                                  WHERE r.lot_id = lot.id AND r.processtap_id = route_laatste(lot_product(lot.id), 'lot')
                                    AND r.status = 'afgerond') g ON g.klaar IS NOT NULL
-                 WHERE lot.status = 'gereed' AND ${PERIODE_SQL("g.klaar", 1, 2)}),
+                 WHERE lot.status = 'gereed' AND ${PERIODE_SQL("g.klaar", 1, 2)} AND ${PRODUCT_SQL("lot_product(lot.id)", 3)}),
               weken AS (SELECT week FROM b UNION SELECT week FROM l)
          SELECT w.week,
                 (SELECT count(*) FROM b WHERE b.week = w.week) AS batches,
@@ -432,7 +453,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description: "Per week: batches gestart, batches klaar met de batchstappen, lots gereed en batches afgekeurd.",
-        querystring: Type.Object(Periode),
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Array(
             Type.Object({
@@ -452,18 +473,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `WITH grens AS (SELECT * FROM route_grenzen),  -- laatste stap per product (D55)
               lotgrens AS (SELECT l.id AS lot_id, gr.laatste_lotstap FROM lot l JOIN grens gr ON gr.product_id IS NOT DISTINCT FROM lot_product(l.id)),
               g AS (
-                SELECT 'gestart' AS soort, gestart_op AS t FROM batch WHERE gestart_op IS NOT NULL
+                SELECT 'gestart' AS soort, gestart_op AS t FROM batch WHERE gestart_op IS NOT NULL AND ${PRODUCT_SQL("product_id", 3)}
                 UNION ALL
                 SELECT 'klaar', r.afgerond_op FROM stapregistratie r
                   JOIN batch bt ON bt.id = r.batch_id
                   JOIN grens gr ON gr.product_id IS NOT DISTINCT FROM bt.product_id AND r.processtap_id = gr.laatste_batchstap
-                 WHERE r.status = 'afgerond'
+                 WHERE r.status = 'afgerond' AND ${PRODUCT_SQL("bt.product_id", 3)}
                 UNION ALL
                 SELECT 'lot', r.afgerond_op FROM stapregistratie r
                   JOIN lotgrens lg ON lg.lot_id = r.lot_id AND r.processtap_id = lg.laatste_lotstap
-                 WHERE r.status = 'afgerond' AND r.poging = 1
+                 WHERE r.status = 'afgerond' AND r.poging = 1 AND ${PRODUCT_SQL("r.product_id", 3)}
                 UNION ALL
-                SELECT 'afgekeurd', besloten_op FROM batch_besluit WHERE besluit = 'afgekeurd')
+                SELECT 'afgekeurd', d.besloten_op FROM batch_besluit d JOIN batch bd ON bd.id = d.batch_id
+                 WHERE d.besluit = 'afgekeurd' AND ${PRODUCT_SQL("bd.product_id", 3)})
          SELECT date_trunc('week', t)::date AS week,
                 count(*) FILTER (WHERE soort = 'gestart') AS batches_gestart,
                 count(*) FILTER (WHERE soort = 'klaar') AS batches_klaar,
@@ -471,7 +493,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 count(*) FILTER (WHERE soort = 'afgekeurd') AS afgekeurd
            FROM g WHERE ${PERIODE_SQL("t", 1, 2)}
           GROUP BY 1 ORDER BY 1`,
-        [req.query.van ?? null, req.query.tot ?? null],
+        [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null],
       ) as never,
   );
 
@@ -483,7 +505,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description: "Alle correcties van waarden: oude en nieuwe waarde, reden en wie corrigeerde. Nieuwste eerst.",
-        querystring: Type.Object(Periode),
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Array(
             Type.Object({
@@ -525,9 +547,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            LEFT JOIN operator op ON op.id = o.ingevoerd_door
            LEFT JOIN batch b ON b.id = r.batch_id
            LEFT JOIN lot l ON l.id = r.lot_id
-          WHERE ${PERIODE_SQL("n.ingevoerd_op", 1, 2)}
+          WHERE ${PERIODE_SQL("n.ingevoerd_op", 1, 2)} AND ${PRODUCT_SQL("r.product_id", 3)}
           ORDER BY n.ingevoerd_op DESC`,
-        [req.query.van ?? null, req.query.tot ?? null],
+        [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null],
       ) as never,
   );
 
@@ -715,7 +737,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       LEFT JOIN batch b ON b.id = r.batch_id
       LEFT JOIN lot l ON l.id = r.lot_id
      WHERE v.actief AND r.status = 'afgerond' AND ($1::text IS NULL OR v.code = $1)
-       AND ${PERIODE_SQL("w.ingevoerd_op", 2, 3)}
+       AND ${PERIODE_SQL("w.ingevoerd_op", 2, 3)} AND ${PRODUCT_SQL("r.product_id", 4)}
      ORDER BY v.code, w.ingevoerd_op`;
   type Rij = { veld: string; gemeten: number; setting: number | null; tijd: string; nummer: string; markering: string };
   const reeks = (rijen: Rij[], soort: string) =>
@@ -727,24 +749,31 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["analyse"],
-        description: "Per veld: aantal metingen, signalen volgens de Western Electric-regels en het procesvermogen (Cpk) in de periode. Velden met signalen eerst.",
-        querystring: Type.Object(Periode),
+        description:
+          "Per veld: aantal metingen, signalen volgens de Western Electric-regels en het procesvermogen (Cpk) in de periode. Velden met signalen eerst. " +
+          "Heeft een veld eigen grenzen per product (D55), dan staat er alleen een Cpk als er één product gekozen is.",
+        querystring: Type.Object(Filter),
         response: {
           200: Type.Array(Type.Object({
             veld: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst,
             n: Type.Integer(), voorlopig: Type.Boolean({ description: "Minder dan 20 metingen: nog geen betrouwbare grenzen, geen Cpk" }),
             signalen: Type.Integer(), laatste_signaal: Type.Union([Type.Null(), Tijd]), cpk: OptGetal,
+            grenzen_per_product: Type.Optional(Type.Boolean()),
           })),
         },
       },
     },
     async (req) => {
-      const velden = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null }>(
+      const velden = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; grenzen_per_product: boolean }>(
         app.db,
-        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min::float AS grens_min, v.grens_max::float AS grens_max
-           FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.actief ORDER BY s.volgorde, v.volgnummer`,
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, g.grens_min::float AS grens_min, g.grens_max::float AS grens_max,
+                EXISTS (SELECT 1 FROM veld_product vp WHERE vp.veld_id = v.id) AS grenzen_per_product
+           FROM veld v JOIN processtap s ON s.id = v.processtap_id
+           CROSS JOIN LATERAL grenzen_van(v.id, (SELECT id FROM product WHERE code = $1)) g
+          WHERE v.actief ORDER BY s.volgorde, v.volgnummer`,
+        [req.query.product ?? null],
       );
-      const rijen = await lees<Rij>(app.db, REEKS_SQL, [null, req.query.van ?? null, req.query.tot ?? null]);
+      const rijen = await lees<Rij>(app.db, REEKS_SQL, [null, req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null]);
       const perVeld = new Map<string, Rij[]>();
       for (const r of rijen) perVeld.set(r.veld, [...(perVeld.get(r.veld) ?? []), r]);
       const uit = velden.map((v) => {
@@ -753,9 +782,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         const laatste = k.signalen.at(-1);
         // Cpk alleen voor velden waar de gemeten waarde zelf getekend wordt (de specificatie gaat over de gemeten waarde).
         // en pas vanaf MIN_PUNTEN metingen.
-        const c = v.soort === "procesparameter" || k.voorlopig ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max);
+        // Met eigen grenzen per product en alle producten door elkaar is er geen eenduidige specificatie: geen Cpk (D55).
+        const c = v.soort === "procesparameter" || k.voorlopig || (v.grenzen_per_product && !req.query.product) ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max);
         return { veld: v.code, naam: v.naam, stap: v.stap, soort: v.soort, eenheid: v.eenheid, n: k.n, voorlopig: k.voorlopig, signalen: k.signalen.length,
-          laatste_signaal: laatste ? new Date(p[laatste.index].tijd).toISOString() : null, cpk: c };
+          laatste_signaal: laatste ? new Date(p[laatste.index].tijd).toISOString() : null, cpk: c, grenzen_per_product: v.grenzen_per_product };
       });
       uit.sort((a, b) => (b.signalen > 0 ? 1 : 0) - (a.signalen > 0 ? 1 : 0) || (b.laatste_signaal ?? "").localeCompare(a.laatste_signaal ?? ""));
       return uit as never;
@@ -769,10 +799,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description: "Regelkaart van één veld: punten, middenlijn, regelgrenzen (3 sigma), bewegend bereik en signalen.",
-        querystring: Type.Object({ ...Periode, veld: Type.String({ examples: ["S5.1"] }) }),
+        querystring: Type.Object({ ...Filter, veld: Type.String({ examples: ["S5.1"] }) }),
         response: {
           200: Type.Object({
-            veld: Type.Object({ code: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst, grens_min: OptGetal, grens_max: OptGetal, decimalen: NulGeheel(), }),
+            veld: Type.Object({ code: Type.String(), naam: Type.String(), stap: Type.String(), soort: Type.String(), eenheid: OptTekst, grens_min: OptGetal, grens_max: OptGetal, decimalen: NulGeheel(),
+              grenzen_per_product: Type.Optional(Type.Boolean()) }),
             getekend: Type.Union([Type.Literal("gemeten"), Type.Literal("afwijking_van_setting")]),
             punten: Type.Array(Type.Object({ tijd: Tijd, nummer: Type.String(), waarde: Type.Number(), signaal: NulGeheel() })),
             gemiddelde: OptGetal, sigma: OptGetal, bovengrens: OptGetal, ondergrens: OptGetal,
@@ -785,14 +816,17 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const [v] = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; decimalen: number | null }>(
+      const [v] = await lees<{ code: string; naam: string; stap: string; soort: string; eenheid: string | null; grens_min: number | null; grens_max: number | null; decimalen: number | null; grenzen_per_product: boolean }>(
         app.db,
-        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, v.grens_min::float AS grens_min, v.grens_max::float AS grens_max, v.decimalen
-           FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.code = $1`,
-        [req.query.veld],
+        `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, g.grens_min::float AS grens_min, g.grens_max::float AS grens_max, v.decimalen,
+                EXISTS (SELECT 1 FROM veld_product vp WHERE vp.veld_id = v.id) AS grenzen_per_product
+           FROM veld v JOIN processtap s ON s.id = v.processtap_id
+           CROSS JOIN LATERAL grenzen_van(v.id, (SELECT id FROM product WHERE code = $2)) g
+          WHERE v.code = $1`,
+        [req.query.veld, req.query.product ?? null],
       );
       if (!v) throw niet("Veld");
-      const p = reeks(await lees<Rij>(app.db, REEKS_SQL, [v.code, req.query.van ?? null, req.query.tot ?? null]), v.soort);
+      const p = reeks(await lees<Rij>(app.db, REEKS_SQL, [v.code, req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null]), v.soort);
       const k = regelkaart(p.map((x) => x.waarde));
       const sig = new Map(k.signalen.map((s) => [s.index, s.regel]));
       return {
@@ -801,7 +835,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         punten: p.map((x, i) => ({ tijd: new Date(x.tijd).toISOString(), nummer: x.nummer, waarde: x.waarde, signaal: sig.get(i) ?? null })),
         gemiddelde: k.gemiddelde, sigma: k.sigma, bovengrens: k.bovengrens, ondergrens: k.ondergrens,
         mr_gemiddeld: k.mr_gemiddeld, mr_bovengrens: k.mr_bovengrens,
-        cpk: v.soort === "procesparameter" || k.voorlopig ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max),
+        cpk: v.soort === "procesparameter" || k.voorlopig || (v.grenzen_per_product && !req.query.product) ? null : cpk(k.gemiddelde, k.sigma, v.grens_min, v.grens_max),
         voorlopig: k.voorlopig, min_metingen: MIN_PUNTEN,
         regels: REGELS,
       } as never;

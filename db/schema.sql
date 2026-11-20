@@ -117,7 +117,7 @@ DECLARE
     v_oud   jsonb;
     v_nieuw jsonb;
 BEGIN
-    IF TG_OP = 'DELETE' AND TG_TABLE_NAME NOT IN ('pc_stap', 'product_stap') THEN
+    IF TG_OP = 'DELETE' AND TG_TABLE_NAME NOT IN ('pc_stap', 'product_stap', 'veld_product') THEN
         RAISE EXCEPTION 'Configuratie wordt niet verwijderd; zet % op inactief', TG_TABLE_NAME;
     END IF;
     IF TG_OP <> 'INSERT' THEN v_oud := to_jsonb(OLD) - 'wachtwoord_hash'; END IF;
@@ -289,6 +289,42 @@ END $$;
 CREATE TRIGGER batch_besluit_verwerk BEFORE INSERT ON batch_besluit
     FOR EACH ROW EXECUTE FUNCTION verwerk_batch_besluit();
 
+-- Grenzen en tolerantie per product (sinds migratie 0019, D55). Een regel hier vervangt voor dat product
+-- alle vier de waarden van het veld (leeg = geen grens). Zonder regel gelden de grenzen van het veld.
+CREATE TABLE veld_product (
+    veld_id           uuid NOT NULL REFERENCES veld(id),
+    product_id        uuid NOT NULL REFERENCES product(id),
+    grens_min         numeric,
+    grens_max         numeric,
+    tolerantie        numeric CHECK (tolerantie IS NULL OR tolerantie >= 0),
+    tolerantie_soort  text NOT NULL DEFAULT 'absoluut' CHECK (tolerantie_soort IN ('absoluut','procent')),
+    PRIMARY KEY (veld_id, product_id),
+    CHECK (grens_min IS NULL OR grens_max IS NULL OR grens_min <= grens_max)
+);
+CREATE INDEX veld_product_product ON veld_product (product_id);
+CREATE TRIGGER veld_product_log BEFORE INSERT OR UPDATE OR DELETE ON veld_product
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE FUNCTION controleer_veld_product() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.tolerantie IS NOT NULL AND (SELECT soort FROM veld WHERE id = NEW.veld_id) <> 'procesparameter' THEN
+        RAISE EXCEPTION 'Alleen een procesparameter heeft een tolerantie';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER veld_product_controle BEFORE INSERT OR UPDATE ON veld_product
+    FOR EACH ROW EXECUTE FUNCTION controleer_veld_product();
+
+-- De grenzen die voor een veld gelden bij een product (NULL = geen product: de grenzen van het veld).
+CREATE FUNCTION grenzen_van(p_veld uuid, p_product uuid)
+RETURNS TABLE (grens_min numeric, grens_max numeric, tolerantie numeric, tolerantie_soort text) LANGUAGE sql STABLE AS $$
+    SELECT CASE WHEN vp.veld_id IS NULL THEN v.grens_min ELSE vp.grens_min END,
+           CASE WHEN vp.veld_id IS NULL THEN v.grens_max ELSE vp.grens_max END,
+           CASE WHEN vp.veld_id IS NULL THEN v.tolerantie ELSE vp.tolerantie END,
+           CASE WHEN vp.veld_id IS NULL THEN v.tolerantie_soort ELSE vp.tolerantie_soort END
+      FROM veld v LEFT JOIN veld_product vp ON vp.veld_id = v.id AND vp.product_id = p_product
+     WHERE v.id = p_veld
+$$;
+
 -- ---------------------------------------------------------------------
 -- Stapregistraties
 -- ---------------------------------------------------------------------
@@ -311,6 +347,8 @@ CREATE TABLE stapregistratie (
     -- zijn het moment op het apparaat.
     gestart_ontvangen_op  timestamptz DEFAULT clock_timestamp(),
     afgerond_ontvangen_op timestamptz,
+    -- Product van de batch of het lot bij de start (sinds migratie 0019, D55): voor grenzen en analyses per product.
+    product_id          uuid REFERENCES product(id),
     CHECK ((batch_id IS NULL) <> (lot_id IS NULL)),
     CHECK (NOT herbewerking_start OR length(trim(coalesce(reden,''))) > 0),
     CHECK ((status <> 'open') = (afgerond_op IS NOT NULL))
@@ -322,6 +360,7 @@ CREATE INDEX stapreg_batch ON stapregistratie (batch_id, afgerond_op) WHERE batc
 CREATE INDEX stapreg_lot   ON stapregistratie (lot_id, afgerond_op)   WHERE lot_id IS NOT NULL;
 CREATE INDEX stapreg_open  ON stapregistratie (processtap_id)         WHERE status = 'open';
 CREATE INDEX stapreg_afgerond ON stapregistratie (afgerond_op);
+CREATE INDEX stapreg_product ON stapregistratie (product_id);
 
 -- ---------------------------------------------------------------------
 -- Route per product (sinds migratie 0018, D55)
@@ -470,6 +509,7 @@ BEGIN
     IF NOT in_route(v_product, v_stap.id) THEN
         RAISE EXCEPTION 'Stap % hoort niet bij de route van product %', v_stap.code, (SELECT code FROM product WHERE id = v_product);
     END IF;
+    NEW.product_id := v_product;   -- vastgelegd voor grenzen en analyses per product (sinds 0019)
 
     -- Batchstatus.
     IF NEW.batch_id IS NOT NULL THEN
@@ -637,6 +677,7 @@ DECLARE
     v_reg   stapregistratie%ROWTYPE;
     v_oud   waarde%ROWTYPE;
     v_rol   text;
+    v_grens record;
 BEGIN
     SELECT * INTO v_veld FROM veld WHERE id = NEW.veld_id;
     SELECT * INTO v_reg  FROM stapregistratie WHERE id = NEW.stapregistratie_id;
@@ -659,9 +700,10 @@ BEGIN
         IF NOT v_veld.actief THEN
             RAISE EXCEPTION 'Veld % is inactief', v_veld.code;
         END IF;
-        -- Grenzen kopiëren zoals ze nu gelden.
-        NEW.grens_min := v_veld.grens_min;  NEW.grens_max := v_veld.grens_max;
-        NEW.tolerantie := v_veld.tolerantie; NEW.tolerantie_soort := v_veld.tolerantie_soort;
+        -- Grenzen kopiëren zoals ze nu gelden, voor het product van de batch of het lot (sinds 0019).
+        SELECT * INTO v_grens FROM grenzen_van(NEW.veld_id, v_reg.product_id);
+        NEW.grens_min := v_grens.grens_min;  NEW.grens_max := v_grens.grens_max;
+        NEW.tolerantie := v_grens.tolerantie; NEW.tolerantie_soort := v_grens.tolerantie_soort;
     ELSE
         -- Correctie: ploegleider of hoger, zelfde registratie en veld,
         -- alleen de nieuwste waarde kan vervangen worden.
@@ -1827,7 +1869,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

@@ -26,24 +26,29 @@ export function vergeetConfig() {
   stappenCache = null;
 }
 
-function veldenUit(s: Stap): VeldMetWaarde[] {
+/** Velden voor een nieuwe registratie, met de grenzen van het product als dat eigen grenzen heeft (D55). */
+function veldenUit(s: Stap, product?: string | null): VeldMetWaarde[] {
   return s.velden
     .filter((v) => v.actief)
-    .map((v) => ({
-      code: v.code,
-      naam: v.naam,
-      soort: v.soort,
-      eenheid: v.eenheid,
-      grens_min: v.grens_min,
-      grens_max: v.grens_max,
-      tolerantie: v.tolerantie,
-      tolerantie_soort: v.tolerantie_soort,
-      verplicht: v.verplicht,
-      waarde: null,
-    }));
+    .map((v) => {
+      const g = (product && v.per_product?.find((x) => x.product === product)) || v;
+      return {
+        code: v.code,
+        naam: v.naam,
+        soort: v.soort,
+        eenheid: v.eenheid,
+        grens_min: g.grens_min,
+        grens_max: g.grens_max,
+        tolerantie: g.tolerantie,
+        tolerantie_soort: g.tolerantie_soort,
+        verplicht: v.verplicht,
+        decimalen: v.decimalen,
+        waarde: null,
+      };
+    });
 }
 
-function lokaal(s: Stap, id: string, nummer: { batchnummer?: string; lotnummer?: string }, extra: Partial<Registratie> = {}): Registratie {
+function lokaal(s: Stap, id: string, nummer: { batchnummer?: string; lotnummer?: string }, extra: Partial<Registratie> = {}, product?: string | null): Registratie {
   return {
     id,
     stapcode: s.code,
@@ -59,7 +64,8 @@ function lokaal(s: Stap, id: string, nummer: { batchnummer?: string; lotnummer?:
     pc: sessie.pc ?? "",
     gestart_op: new Date().toISOString(),
     afgerond_op: null,
-    velden: veldenUit(s),
+    velden: veldenUit(s, product),
+    product: product ?? null,
     grondstoffen: (s.grondstoffen ?? []).map((g) => ({ ...g, gebruik: null })),
     lokaal: true,
     ...extra,
@@ -67,10 +73,10 @@ function lokaal(s: Stap, id: string, nummer: { batchnummer?: string; lotnummer?:
 }
 
 /** Start een stap voor een batch of lot. Geeft de (lokale) registratie terug. */
-export async function startStap(stapcode: string, nummer: { batchnummer?: string; lotnummer?: string }) {
+export async function startStap(stapcode: string, nummer: { batchnummer?: string; lotnummer?: string }, product?: string | null) {
   const s = await stap(stapcode);
   const id = nieuwId();
-  const reg = lokaal(s, id, nummer);
+  const reg = lokaal(s, id, nummer, {}, product);
   await opslag.zet("registraties", reg);
   await voegToe({
     omschrijving: `${stapcode} starten voor ${nummer.batchnummer ?? nummer.lotnummer}`,
@@ -94,10 +100,10 @@ export async function nieuweBatch(batchnummer: string, eersteStap: string) {
 }
 
 /** Lot-stap: 4 batches samenvoegen. Opent de registratie van de lot-stap. */
-export async function maakLot(lotnummer: string, batchnummers: string[], afwijkingReden?: string) {
+export async function maakLot(lotnummer: string, batchnummers: string[], afwijkingReden?: string, product?: string | null) {
   const lotStap = (await stappen()).find((s) => s.is_lot_stap)!;
   const registratieId = nieuwId();
-  const reg = lokaal(lotStap, registratieId, { lotnummer }, { poging: 1 });
+  const reg = lokaal(lotStap, registratieId, { lotnummer }, { poging: 1 }, product);
   await opslag.zet("registraties", reg);
   await opslag.zet("cache", batchnummers, `lot-in-wacht:${lotnummer}`);
   await voegToe({

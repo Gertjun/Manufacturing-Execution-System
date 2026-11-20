@@ -315,7 +315,7 @@ function teken(reg: Registratie) {
         h(
           "p",
           { class: "sub" },
-          `${reg.niveau === "batch" ? "Batch" : "Lot"}, gestart ${tijd(reg.gestart_op)} door ${reg.operator} op ${reg.pc}`,
+          `${reg.niveau === "batch" ? "Batch" : "Lot"}${reg.product ? ` ${reg.product}` : ""}, gestart ${tijd(reg.gestart_op)} door ${reg.operator} op ${reg.pc}`,
           reg.poging && reg.poging > 1 ? `, poging ${reg.poging}` : "",
         ),
         reg.herbewerking_start ? h("p", { class: "waarschuwing" }, `Herbewerking: ${reg.reden}`) : null,
