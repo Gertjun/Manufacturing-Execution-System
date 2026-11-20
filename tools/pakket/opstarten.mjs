@@ -299,6 +299,13 @@ if (opnieuw || !(await bestaatDatabase())) await bouwDatabase(!args.has("--leeg"
   for (const x of r.stdout.split(/\r?\n/)) if (/^Migratie|uitgevoerd/.test(x)) console.log(x);
 }
 
+// Inlogpogingen ouder dan 90 dagen opruimen (sinds 0.22.2).
+{
+  const c = await verbind(inst.db.database);
+  await c.query("SELECT fabriek.ruim_inlogpogingen_op()").catch(() => {});
+  await c.end();
+}
+
 // Back-up van deze start vastleggen, zodat Beheer → Server hem toont.
 if (backupVoorLog) {
   const c = await verbind(inst.db.database);

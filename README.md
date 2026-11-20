@@ -112,7 +112,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | --- | --- |
 | `node tools/start-server.mjs` | applicatie starten (controleert eerst de schemaversie) |
 | `node tools/migreer.mjs [--status]` | database aanmaken of bijwerken met `db/migraties/` en `db/rechten.sql` |
-| `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden) |
+| `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden); ruimt ook inlogpogingen ouder dan 90 dagen op |
 | `node tools/herstel.mjs --controle` / `<bestand>` | hersteltest of echt herstel |
 | `node tools/beheerder.mjs` | eerste beheerder, of noodsleutel bij een vergeten wachtwoord (D28) |
 

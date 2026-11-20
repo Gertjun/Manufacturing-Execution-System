@@ -10,7 +10,7 @@
 
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { argumenten, leesInstellingen, logOnderhoud, pgProgramma, stop, tijdstempel, verbindingArgs, VERSIE, voerUit } from "./lib.mjs";
+import { argumenten, leesInstellingen, logOnderhoud, pgProgramma, stop, tijdstempel, verbind, verbindingArgs, VERSIE, voerUit } from "./lib.mjs";
 import { teBewaren } from "./rotatie.mjs";
 
 const PATROON = /^batchgui_.*\.dump$/;
@@ -49,12 +49,28 @@ if (!opties["niet-opruimen"]) {
   }
 }
 
+// Inlogpogingen ouder dan 90 dagen opruimen (sinds 0.22.2; op een oudere database bestaat de functie nog niet).
+let pogingen = 0;
+if (!opties["niet-opruimen"]) {
+  const c = await verbind(inst.beheerDb);
+  try {
+    const { rows } = await c.query(
+      "SELECT CASE WHEN to_regprocedure('fabriek.ruim_inlogpogingen_op(integer)') IS NULL THEN 0 ELSE fabriek.ruim_inlogpogingen_op() END AS n");
+    pogingen = rows[0].n;
+  } catch (e) {
+    console.log(`Let op: oude inlogpogingen opruimen lukte niet: ${e.message}`);
+  } finally {
+    await c.end();
+  }
+}
+
+const opmerkingen = [opgeruimd ? `${opgeruimd} oude back-up(s) opgeruimd` : "", pogingen ? `${pogingen} oude inlogpoging(en) opgeruimd` : ""].filter(Boolean);
 await logOnderhoud(inst, {
   soort: "backup",
   gestart_op: start,
   gelukt: true,
   bestand: naam,
   grootte_bytes: grootte,
-  melding: opgeruimd ? `${opgeruimd} oude back-up(s) opgeruimd` : null,
+  melding: opmerkingen.length ? opmerkingen.join("; ") : null,
 });
-console.log(`Back-up gemaakt: ${doel} (${(grootte / 1024).toFixed(0)} kB)${opgeruimd ? `, ${opgeruimd} oude opgeruimd` : ""}.`);
+console.log(`Back-up gemaakt: ${doel} (${(grootte / 1024).toFixed(0)} kB)${opgeruimd ? `, ${opgeruimd} oude opgeruimd` : ""}${pogingen ? `, ${pogingen} oude inlogpogingen opgeruimd` : ""}.`);

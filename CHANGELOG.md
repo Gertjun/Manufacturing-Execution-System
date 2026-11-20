@@ -5,6 +5,10 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.22.2 — 20 november 2026
+- Inlogpogingen worden 90 dagen bewaard. Oudere ruimt het onderhoud op: op de server de back-up (elk uur), op de laptop het opstarten. Het onderhoudslogboek in Beheer → Server noemt hoeveel er zijn opgeruimd.
+- Technisch: database-update 14 (`0014_opruimen`) met de functie `ruim_inlogpogingen_op()`; alleen het onderhoud kan die aanroepen, de applicatie niet.
+
 ## 0.22.1 — 20 november 2026
 - De startpagina (`/`) noemt "Testomgeving met fictieve gegevens" en de testaccounts alleen nog als die accounts er echt zijn. In een lege fabriek of een echte installatie staan alleen de applicaties en het versienummer.
 - Beheer → Server waarschuwt als er testaccounts met wachtwoord "demo" actief zijn. Met testdata is dat normaal; in een echte installatie zet je ze uit.

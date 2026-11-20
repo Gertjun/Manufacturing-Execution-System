@@ -26,7 +26,9 @@ NR=$(psql -Atc "SELECT n FROM (SELECT gebruikersnaam, row_number() OVER (ORDER B
 printf "$NR\\nnieuwwachtwoord\\nnieuwwachtwoord\\n" | node tools/beheerder.mjs | grep -q "is gewijzigd" || fout "beheerder.mjs: nieuw wachtwoord"
 [ "$(psql -Atc "SELECT count(*) FROM fabriek.controleer_login('beheerder1','nieuwwachtwoord')" -d $DB)" = "1" ] || fout "nieuw wachtwoord werkt niet"
 
-node tools/backup.mjs | grep -q "Back-up gemaakt" || fout "back-up"
+psql -q -d $DB -c "INSERT INTO fabriek.inlogpoging (gebruikersnaam, uitkomst, op) VALUES ('oud', 'mislukt', now() - interval '100 days'), ('recent', 'mislukt', now() - interval '10 days')"
+node tools/backup.mjs | grep -q "Back-up gemaakt.*1 oude inlogpogingen opgeruimd" || fout "back-up (met opruimen van oude inlogpogingen)"
+[ "$(psql -Atc "SELECT string_agg(gebruikersnaam, ',') FROM fabriek.inlogpoging" -d $DB)" = "recent" ] || fout "oude inlogpoging niet opgeruimd of recente weg"
 ls "$T"/backups/batchgui_*.dump >/dev/null || fout "geen back-upbestand"
 node tools/herstel.mjs --controle | grep -q "Hersteltest geslaagd" || fout "hersteltest"
 [ -z "$(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}_hersteltest%'")" ] || fout "tijdelijke database niet opgeruimd"
@@ -60,4 +62,4 @@ echo "$L" | grep -q "herstel:t" || fout "onderhoudslogboek mist het herstel ($L)
 
 for d in $(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}%'"); do psql -q -c "DROP DATABASE \"$d\" WITH (FORCE)"; done
 rm -rf "$T"
-echo "Beheertools: alle controles geslaagd ($N waarden, noodsleutel, back-up, hersteltest, herstel, terugval, back-up vóór database-update)."
+echo "Beheertools: alle controles geslaagd ($N waarden, noodsleutel, back-up, hersteltest, herstel, terugval, back-up vóór database-update, oude inlogpogingen opruimen)."

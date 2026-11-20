@@ -1513,6 +1513,22 @@ ALTER FUNCTION inlogpoging_vast() SET search_path = fabriek, public;
 ALTER FUNCTION wachtwoord_hash(text) SET search_path = fabriek, public;
 ALTER FUNCTION inloggen(text, text, text) SET search_path = fabriek, public;
 
+-- Oude inlogpogingen opruimen (sinds migratie 0014, versie 0.22.2): 90 dagen bewaren; het onderhoud
+-- (back-up op de server, opstarten van de laptop) roept dit aan, de applicatie zelf niet.
+CREATE FUNCTION ruim_inlogpogingen_op(p_dagen int DEFAULT 90) RETURNS int LANGUAGE plpgsql AS $$
+DECLARE
+    v_aantal int;
+BEGIN
+    IF p_dagen < 30 THEN
+        RAISE EXCEPTION 'Inlogpogingen worden minstens 30 dagen bewaard';
+    END IF;
+    DELETE FROM inlogpoging WHERE op < clock_timestamp() - make_interval(days => p_dagen);
+    GET DIAGNOSTICS v_aantal = ROW_COUNT;
+    RETURN v_aantal;
+END $$;
+ALTER FUNCTION ruim_inlogpogingen_op(int) SET search_path = fabriek, public;
+REVOKE EXECUTE ON FUNCTION ruim_inlogpogingen_op(int) FROM PUBLIC;
+
 -- ---------------------------------------------------------------------
 -- Onderhoud (sinds migratie 0002, versie 0.6.0)
 -- ---------------------------------------------------------------------
@@ -1538,7 +1554,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

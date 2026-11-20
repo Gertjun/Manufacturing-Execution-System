@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.22.1",
+    "version": "0.22.2",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
