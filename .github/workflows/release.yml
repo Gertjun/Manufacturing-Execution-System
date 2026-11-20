@@ -39,8 +39,11 @@ jobs:
           git fetch --tags --force
           node tools/release.mjs ontbrekend > /tmp/nieuw.txt
           if [ ! -s /tmp/nieuw.txt ]; then echo "Geen nieuwe versies."; exit 0; fi
+          mislukt=""
           while read -r versie commit; do
             echo "Versie $versie op $commit"
             node tools/release.mjs notities "$versie" > "/tmp/notities-$versie.md"
-            gh release create "v$versie" --target "$commit" --title "Versie $versie" --notes-file "/tmp/notities-$versie.md"
+            gh release create "v$versie" --target "$commit" --title "Versie $versie" --notes-file "/tmp/notities-$versie.md" \
+              || mislukt="$mislukt $versie"
           done < /tmp/nieuw.txt
+          if [ -n "$mislukt" ]; then echo "::error::Niet gelukt voor:$mislukt"; exit 1; fi
