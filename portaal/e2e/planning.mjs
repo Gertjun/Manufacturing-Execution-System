@@ -124,8 +124,27 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.locator("#melding", { hasText: "Capaciteit opgeslagen" }).waitFor();
   const [za] = await q("SELECT max_batches FROM fabriek.capaciteit WHERE weekdag = 6");
   check("Capaciteit zaterdag opgeslagen", za.max_batches === 2);
+
+  console.log("\nCapaciteit per stap en product (D55)");
+  check("Regels uit de instellingen staan erbij", (await page.locator("tr", { hasText: "PS1" }).filter({ hasText: "PRD-B" }).innerText()).includes("3"));
+  await page.getByRole("button", { name: "Regel toevoegen" }).click();
+  await dialoog().locator("#v-stap").selectOption("PS1");
+  await dialoog().locator("#v-product").selectOption("PRD-A");
+  await dialoog().getByLabel("Per dag").fill("5");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("tr", { hasText: "PS1" }).filter({ hasText: "PRD-A" }).waitFor();
+  const [cs] = await q(`SELECT c.max_per_dag FROM fabriek.capaciteit_stap c JOIN fabriek.processtap s ON s.id = c.processtap_id
+                         JOIN fabriek.product p ON p.id = c.product_id WHERE s.code = 'PS1' AND p.code = 'PRD-A'`);
+  check("Capaciteit PS1 voor PRD-A opgeslagen", cs?.max_per_dag === 5);
+  await shot("05c-capaciteit-per-stap");
+  // Wat de database als belasting van PS1 vandaag geeft (elk product naar rato van zijn capaciteit).
+  const belastingPS1 = async () => (await q(`SELECT round(100 * sum(aantal::numeric / max_per_dag))::int AS p
+      FROM fabriek.stap_belasting((SELECT id FROM fabriek.processtap WHERE code = 'PS1'), current_date) WHERE max_per_dag IS NOT NULL`))[0].p;
+  let verwacht = await belastingPS1();
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
+  const vol = (await page.locator(".dagkaart.vandaag .stap-vol").count()) ? await page.locator(".dagkaart.vandaag .stap-vol").innerText() : "";
+  check("Weekplanning: vandaag PS1 te vol", verwacht > 100 && vol.includes(`PS1 ${verwacht} %`), `${verwacht}: ${vol}`);
 
   console.log("\nPer stap");
   await page.locator(".dagkaart.vandaag").getByRole("link", { name: "Per stap" }).click();
@@ -142,6 +161,9 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   const rijen = await page.locator("tbody tr strong").allInnerTexts();
   check("PS1 heeft 2 batches in de gekozen volgorde", rijen.join() === [nummers[2], nummers[0]].join(), rijen.join());
   check("Teller in de stappenlijst", (await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS1$/ }) }).innerText()).includes("2"));
+  verwacht = await belastingPS1();
+  check("Per stap: capaciteit van PS1 met waarschuwing", (await page.locator(".capaciteit-stap").innerText()).includes(`${verwacht} % van de capaciteit: te vol`),
+    await page.locator(".capaciteit-stap").innerText());
   await shot("02-per-stap");
 
   console.log("\nWaarschuwing: vorige stap niet op tijd (D52)");
@@ -238,7 +260,7 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   check("Ploegleider ziet de planning zonder knoppen om te plannen",
     (await page.getByRole("button", { name: "Batches plannen" }).count()) === 0 && (await page.locator(".planrij").count()) === 8);
 } catch (e) {
-  console.log("  AFGEBROKEN", e.message.split("\n")[0]);
+  console.log("  AFGEBROKEN", e.message.split("\n").slice(0, 8).join(" | "));
   await shot("fout").catch(() => {});
   fouten++;
 } finally {

@@ -36,6 +36,9 @@ BEGIN
   IF to_regclass('fabriek.veld_product') IS NOT NULL THEN
     GRANT DELETE ON fabriek.veld_product TO batchgui_app;   -- terug naar de grenzen van het veld (sinds 0.29.0)
   END IF;
+  IF to_regclass('fabriek.capaciteit_stap') IS NOT NULL THEN
+    GRANT DELETE ON fabriek.capaciteit_stap TO batchgui_app;   -- capaciteit per stap weghalen (sinds 0.30.0)
+  END IF;
 END $$;
 -- Inlogpogingen alleen vastleggen, niet wijzigen.
 DO $$

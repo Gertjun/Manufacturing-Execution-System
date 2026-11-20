@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.30.0 — 20 november 2026 · #53
+- Nieuw: **capaciteit per stap en product** (D55). Bij Planning → Capaciteit leg je per stap vast hoeveel batches (of lots) hij per dag aankan, voor alle producten of voor één product. Bijvoorbeeld PS1: 8 per dag, maar 3 van PRD-B.
+  - Draaien er producten door elkaar, dan telt elk item voor zijn deel: 6 van PRD-A (max 8) en 1 van PRD-B (max 3) is 108 %.
+  - Planning per stap toont hoe vol de stap is, per product, en waarschuwt boven de 100 %. In de stappenlijst staat dan het percentage. De batches die die dag starten volgens de weekplanning tellen mee in de eerste stap.
+  - Het Dagoverzicht toont per stap het percentage; de weekplanning toont per dag welke stappen te vol zitten, met een link naar die stap.
+  - Plannen boven de capaciteit kan nog steeds; je krijgt alleen een waarschuwing.
+- Fictieve capaciteit in de testdata: PS1 8 batches per dag (PRD-B 3), PS9 6 batches, PS16 2 lots.
+- Opgelost: getal- en datumvelden in de vensters van de portalen (zoals bij Afwijkende dagen) hadden geen opmaak en waren heel smal.
+- Database: migratie 0020 voegt de tabel `capaciteit_stap` en de functies `capaciteit_stap_voor` en `stap_belasting` toe. Er hoeft niemand iets te doen.
+
 ## 0.29.0 — 20 november 2026 · #52
 - Nieuw: **grenzen en tolerantie per product** (D55). Bij Beheer → Stappen en velden zet je met **Per product** voor één product eigen grenzen en tolerantie van een veld. De tabel toont ze onder de grenzen van het veld, bijvoorbeeld "PRD-C: 400 tot 460 kg". Kies je "Zelfde als het veld", dan vervallen ze weer.
   - Een nieuwe meting krijgt de grenzen van het product van de batch of het lot; eerdere metingen houden de grenzen van toen. Het invoerscherm toont het product bij de batch en kleurt de invoer naar de grenzen van dat product, ook zonder verbinding.

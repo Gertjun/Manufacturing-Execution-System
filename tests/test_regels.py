@@ -552,6 +552,29 @@ def main():
     check("Grenzen per product staan in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'veld_product' AND actie = 'DELETE'") == 1)
 
+    print("\nCapaciteit per stap en product (D55)")
+    check("PS1: 8 per dag voor alle producten, 3 voor PRD-B",
+          val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS1"], prd["PRD-A"])) == 8 and val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS1"], prd["PRD-B"])) == 3)
+    check("PS2: niet ingesteld", val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS2"], prd["PRD-A"])) is None)
+    faalt("Twee regels voor alle producten in één stap", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 5)", (sid["PS1"],), "unique")
+    faalt("Capaciteit 0", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 0)", (sid["PS2"],), "check")
+    capdag = val("SELECT current_date + 20")
+    na = [r[0] for r in con.execute("SELECT plan_batches(2, %s, %s, NULL, %s)", (capdag, prd["PRD-A"], pl_acc2))]
+    nb = [r[0] for r in con.execute("SELECT plan_batches(1, %s, %s, NULL, %s)", (capdag, prd["PRD-B"], pl_acc2))]
+    def belasting(stap, dag):
+        return {r[0]: r[1:] for r in con.execute(
+            "SELECT coalesce(p.code, '-'), aantal, van_week, max_per_dag FROM stap_belasting(%s, %s) b LEFT JOIN product p ON p.id = b.product_id",
+            (sid[stap], dag))}
+    check("Weekplanning telt mee in de eerste stap", belasting("PS1", capdag) == {"PRD-A": (2, 2, 8), "PRD-B": (1, 1, 3)}, belasting("PS1", capdag))
+    con.execute("""INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door)
+                   SELECT %s, %s, id, 1, %s FROM batch WHERE batchnummer = %s""", (capdag, sid["PS1"], pl_acc2, nb[0]))
+    check("Een batch die ook in de stapplanning staat, telt één keer", belasting("PS1", capdag)["PRD-B"] == (1, 0, 3))
+    con.execute("""INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door)
+                   SELECT %s, %s, id, 1, %s FROM batch WHERE batchnummer = %s""", (capdag, sid["PS9"], pl_acc2, na[0]))
+    check("Andere stap: alleen de stapplanning, met de regel voor alle producten", belasting("PS9", capdag) == {"PRD-A": (1, 0, 6)})
+    check("Vervallen batch telt niet mee", (con.execute("UPDATE batch SET status = 'vervallen', vervallen_reden = 'test' WHERE batchnummer = %s", (na[1],)) and
+          belasting("PS1", capdag)["PRD-A"] == (1, 1, 8)))
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

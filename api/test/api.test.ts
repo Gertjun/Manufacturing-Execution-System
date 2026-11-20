@@ -737,6 +737,36 @@ describe("Portaal Planning", () => {
     await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS6", items: [] });
   });
 
+  test("capaciteit per stap en product (D55): gemengde producten tellen naar rato", async () => {
+    const cap = await verzoek("GET", "/planning/capaciteit", planner);
+    assert.deepEqual(cap.body.per_stap.filter((c: any) => c.stap === "PS1").map((c: any) => [c.product, c.max_per_dag]), [[null, 8], ["PRD-B", 3]]);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", op, { product: null, max_per_dag: 4 })).status, 403);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product: null, max_per_dag: 4 })).status, 204);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product: "PRD-X", max_per_dag: 4 })).status, 404);
+    const prod = (await verzoek("GET", "/planning/producten", planner)).body;
+    const a = prod.find((p: any) => p.code === "PRD-A").id;
+    const b = prod.find((p: any) => p.code === "PRD-B").id;
+    const na = (await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 2, productId: a })).body.batchnummers;
+    const nb = (await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 1, productId: b })).body.batchnummers;
+    const plan = await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS2", items: [...na, ...nb].map((nummer: string) => ({ nummer })) });
+    assert.equal(plan.status, 200, JSON.stringify(plan.body));
+    const stap = async () => (await verzoek("GET", `/planning/stappen?dag=${morgen}`, planner)).body.find((s: any) => s.code === "PS2").capaciteit;
+    let c = await stap();
+    assert.equal(c.procent, 75);  // 3 batches, capaciteit 4
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product: "PRD-B", max_per_dag: 1 })).status, 204);
+    c = await stap();
+    assert.equal(c.procent, 150);  // 2/4 PRD-A + 1/1 PRD-B
+    assert.deepEqual(c.regels.map((r: any) => [r.product, r.aantal, r.max]), [["PRD-A", 2, 4], ["PRD-B", 1, 1]]);
+    const week = await verzoek("GET", `/planning/week?van=${vandaag}`, planner);
+    assert.deepEqual(week.body.dagen.find((d: any) => d.dag === morgen).stappen_vol, [{ stap: "PS2", procent: 150 }]);
+    assert.equal((await verzoek("GET", `/planning/stappen?dag=${morgen}`, planner)).body.find((s: any) => s.code === "PS3").capaciteit, null);
+    for (const product of ["PRD-B", null]) {
+      assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product, max_per_dag: null })).status, 204);
+    }
+    assert.equal(await stap(), null);
+    await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS2", items: [] });
+  });
+
   test("ongeplande batch blijft mogelijk en is zichtbaar als niet gepland", async () => {
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0900" })).status, 201);
     await doorloop(op, "B-2026-0900", "batch", 1, 1);

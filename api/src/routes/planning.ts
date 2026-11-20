@@ -263,6 +263,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               capaciteit: NulGeheel({ description: "Hoeveel batches deze dag aankan (null = niet ingesteld)" }),
               bezet: Type.Integer({ description: "Batches op deze dag, zonder vervallen" }),
               reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
+              stappen_vol: Type.Optional(Type.Array(Type.Object({ stap: Type.String(), procent: Type.Integer() }), {
+                description: "Stappen die deze dag boven hun capaciteit per stap en product zitten (D55)",
+              })),
             })),
             achterstand: Type.Array(BatchPlan),
             vrij: Type.Integer({ description: "Ruimte in deze periode vanaf vandaag (dagen boven de capaciteit tellen niet negatief mee)" }),
@@ -291,9 +294,26 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            FROM generate_series($1::date, $1::date + ($2 - 1), interval '1 day') d`,
         [req.query.van, dagen],
       );
+      const vol = await lees<{ dag: string; stap: string; procent: number }>(
+        app.db,
+        `SELECT to_char(d, 'YYYY-MM-DD') AS dag, s.code AS stap,
+                round(100 * sum(b.aantal::numeric / b.max_per_dag))::int AS procent
+           FROM generate_series($1::date, $1::date + ($2 - 1), interval '1 day') d
+           CROSS JOIN processtap s
+           CROSS JOIN LATERAL stap_belasting(s.id, d::date) b
+          WHERE s.actief AND b.max_per_dag IS NOT NULL
+            AND EXISTS (SELECT 1 FROM capaciteit_stap c WHERE c.processtap_id = s.id)
+          GROUP BY d, s.code, s.volgorde
+         HAVING sum(b.aantal::numeric / b.max_per_dag) > 1
+          ORDER BY d, s.volgorde`,
+        [req.query.van, dagen],
+      );
       const lijst = cap.map((c) => {
         const batches = rijen.filter((r) => r.dag === c.dag);
-        return { dag: c.dag, batches, capaciteit: c.capaciteit, reden: c.reden, bezet: batches.filter((b) => b.status !== "vervallen").length };
+        return {
+          dag: c.dag, batches, capaciteit: c.capaciteit, reden: c.reden, bezet: batches.filter((b) => b.status !== "vervallen").length,
+          stappen_vol: vol.filter((v) => v.dag === c.dag).map(({ stap, procent }) => ({ stap, procent })),
+        };
       });
       const vrij = lijst.reduce((t, d, i) => t + (cap[i].vandaag && d.capaciteit !== null ? Math.max(0, d.capaciteit - d.bezet) : 0), 0);
       return { dagen: lijst, achterstand, vrij } as never;
@@ -441,6 +461,31 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  // ---------- Capaciteit per stap en product (D55) ----------
+  const StapCapaciteit = Type.Union([
+    Type.Null(),
+    Type.Object({
+      procent: Type.Integer({ description: "Hoe vol de stap is: de som van aantal/max per product, in procenten" }),
+      regels: Type.Array(Type.Object({
+        product: OptTekst,
+        aantal: Type.Integer(),
+        van_week: Type.Integer({ description: "Batches die deze dag starten volgens de weekplanning (alleen bij hun eerste stap)" }),
+        max: NulGeheel({ description: "Capaciteit per dag voor dit product; null = niet ingesteld (telt niet mee)" }),
+      })),
+    }),
+  ], { description: "Capaciteit van de stap op deze dag; null als er voor de stap geen capaciteit is ingesteld" });
+  /** Per actieve stap de belasting op dag $1 (zie stap_belasting). */
+  const STAP_CAPACITEIT_SQL = `
+    SELECT s.code,
+           CASE WHEN EXISTS (SELECT 1 FROM capaciteit_stap c WHERE c.processtap_id = s.id) THEN json_build_object(
+             'procent', coalesce((SELECT round(100 * sum(b.aantal::numeric / b.max_per_dag)) FROM stap_belasting(s.id, $1::date) b
+                                   WHERE b.max_per_dag IS NOT NULL), 0)::int,
+             'regels', coalesce((SELECT json_agg(json_build_object('product', p.code, 'aantal', b.aantal, 'van_week', b.van_week, 'max', b.max_per_dag)
+                                                 ORDER BY p.code NULLS LAST)
+                                   FROM stap_belasting(s.id, $1::date) b LEFT JOIN product p ON p.id = b.product_id), '[]'))
+           END AS capaciteit
+      FROM processtap s WHERE s.actief`;
+
   // ---------- Dagplanning per stap ----------
   app.get(
     "/stappen",
@@ -452,7 +497,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         querystring: Type.Object({ dag: Dag }),
         response: {
           200: Type.Array(
-            Type.Object({ code: Type.String(), naam: Type.String(), niveau: Type.String(), is_lot_stap: Type.Boolean(), items: Type.Array(PlanItem) }),
+            Type.Object({
+              code: Type.String(), naam: Type.String(), niveau: Type.String(), is_lot_stap: Type.Boolean(), items: Type.Array(PlanItem),
+              capaciteit: Type.Optional(StapCapaciteit),
+            }),
           ),
         },
       },
@@ -460,7 +508,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const stappen = await lees<{ code: string }>(app.db, "SELECT code, naam, niveau, is_lot_stap FROM processtap WHERE actief ORDER BY volgorde");
       const items = await lees<{ stap: string }>(app.db, `${PLAN_ITEMS_SQL} WHERE sp.dag = $1 ORDER BY s.volgorde, sp.volgorde`, [req.query.dag]);
-      return stappen.map((s) => ({ ...s, items: items.filter((i) => i.stap === s.code) })) as never;
+      const cap = new Map((await lees<{ code: string; capaciteit: unknown }>(app.db, STAP_CAPACITEIT_SQL, [req.query.dag])).map((c) => [c.code, c.capaciteit]));
+      return stappen.map((s) => ({ ...s, items: items.filter((i) => i.stap === s.code), capaciteit: cap.get(s.code) ?? null })) as never;
     },
   );
 
@@ -672,6 +721,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             weekdagen: Type.Array(Type.Object({ weekdag: Type.Integer(), max_batches: Type.Integer() })),
             uitzonderingen: Type.Array(Type.Object({ dag: Dag, max_batches: Type.Integer(), reden: Type.String() })),
             dag: Type.Union([Type.Null(), Type.Object({ dag: Dag, capaciteit: NulGeheel(), bezet: Type.Integer() })]),
+            per_stap: Type.Optional(Type.Array(Type.Object({ stap: Type.String(), stapnaam: Type.String(), product: OptTekst, max_per_dag: Type.Integer() }), {
+              description: "Capaciteit per stap en product (D55); product null = voor alle producten zonder eigen regel",
+            })),
           }),
         },
       },
@@ -685,7 +737,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         const [b] = await lees<{ capaciteit: number | null; bezet: number }>(app.db, BEZETTING_SQL, [req.query.dag]);
         dag = { dag: req.query.dag, ...b };
       }
-      return { weekdagen, uitzonderingen, dag } as never;
+      const per_stap = await lees(app.db,
+        `SELECT s.code AS stap, s.naam AS stapnaam, p.code AS product, c.max_per_dag
+           FROM capaciteit_stap c JOIN processtap s ON s.id = c.processtap_id LEFT JOIN product p ON p.id = c.product_id
+          ORDER BY s.volgorde, p.code NULLS FIRST`);
+      return { weekdagen, uitzonderingen, dag, per_stap } as never;
     },
   );
 
@@ -744,6 +800,45 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       await inTransactie(app.db, req.user.naam, (tx) => tx.query("UPDATE capaciteit_dag SET actief = false WHERE dag = $1 AND actief", [req.params.dag]));
+      return reply.status(204).send(null);
+    },
+  );
+
+  app.put(
+    "/capaciteit/stappen/:stap",
+    {
+      preHandler: vereist(...PLANNEN),
+      schema: {
+        tags: ["planning"],
+        description:
+          "Capaciteit van een stap per dag (D55), voor één product of (product null) voor alle producten zonder eigen regel. " +
+          "max_per_dag null haalt de regel weg. Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
+        params: Type.Object({ stap: StapCode }),
+        body: Type.Object({
+          product: Type.Union([Type.Null(), Type.String()]),
+          max_per_dag: Type.Union([Type.Null(), Type.Integer({ minimum: 1, maximum: 500 })]),
+        }),
+        response: { 204: Type.Null() },
+      },
+    },
+    async (req, reply) => {
+      await inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows } = await tx.query(
+          `SELECT s.id AS stap, p.id AS product FROM processtap s LEFT JOIN product p ON p.code = $2 WHERE s.code = $1 AND s.actief`,
+          [req.params.stap, req.body.product],
+        );
+        if (!rows[0]) throw niet("Stap");
+        if (req.body.product && !rows[0].product) throw niet("Product");
+        if (req.body.max_per_dag === null) {
+          await tx.query("DELETE FROM capaciteit_stap WHERE processtap_id = $1 AND product_id IS NOT DISTINCT FROM $2", [rows[0].stap, rows[0].product]);
+        } else {
+          await tx.query(
+            `INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag) VALUES ($1, $2, $3)
+             ON CONFLICT (processtap_id, product_id) DO UPDATE SET max_per_dag = EXCLUDED.max_per_dag`,
+            [rows[0].stap, rows[0].product, req.body.max_per_dag],
+          );
+        }
+      });
       return reply.status(204).send(null);
     },
   );

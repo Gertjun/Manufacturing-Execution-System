@@ -67,7 +67,6 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten.
 - #54 **Wandscherm per processtap** (klein) — Een wandscherm instellen voor één of enkele stappen, zodat je alleen de planning en het werk van die stap ziet.
 - #73 **Grenzen per product in het Excel-sjabloon** (klein) — Grenzen per product (D55) kun je nu alleen per veld in Beheer instellen. Voor het aanleveren van de echte velden (#2) is een extra tabblad in het sjabloon handig: per veld en product de grenzen en tolerantie.
-- #53 **Capaciteit per stap en product** (middel) — Bijvoorbeeld PS1: 8 batches per dag van product A, of 3 van product B. Planning waarschuwt dan per stap, niet alleen per dag.
 - #56 **Lotpaspoort: klik op een afwijking** (klein) — Bij "Buiten tolerantie" of "Buiten grens" de meting zien, en of er een beoordeling en keurresultaat met reden is.
 - #57 **Uitleg meting en signaal bij de regelkaarten** (klein) — Wat een signaal is en de vier regels, bij het scherm zelf.
 - #58 **Resolutie en afgelopen jaar** (middel) — Naast Periode een keuze per dag, per week of per maand voor alle grafieken met tijd; periode "Afgelopen jaar" erbij.
@@ -77,7 +76,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 - #62 **Ploegoverdracht: afgerond van gepland** (klein) — "28 / 32 stappen afgerond".
 - #64 **Invoer voor Kwaliteit en soort meting** (groot) — Een invoerscherm voor de metingen van Kwaliteit, en per veld wie meet (Productie of Kwaliteit) en wat het is (procesparameter of producteigenschap). Een meting kan leiden tot vrijgave voor de volgende stap, herbewerking of afkeur (bouwt voort op D7). Vóór of na de pilot: zie #71.
 
-**Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
+**Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0, #53 in 0.30.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
 
 
 ### B. Proof of concept en praktijk — december 2026
@@ -114,7 +113,7 @@ Wat Kwaliteit en Productie het meest helpt zodra er echte data is. De volgorde k
 - #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden.
 - #55 **Een gestarte stap overnemen** (klein) — Operator B kon een stap die operator H startte niet overnemen. Na #49 opnieuw bekijken: wat moet er gebeuren als iemand anders een stap afmaakt? (Geert: later oppakken.)
 - #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten.
-- #67 **Productieoptimalisatie** (middel) — Knelpunten, doorlooptijden en stilstand bestaan al; erbij: benutting van de capaciteit per stap en product (#53), en welke stap de doorstroom bepaalt.
+- #67 **Productieoptimalisatie** (middel) — Knelpunten, doorlooptijden en stilstand bestaan al, en capaciteit per stap en product (D55); erbij: hoe vol elke stap werkelijk was (benutting), en welke stap de doorstroom bepaalt.
 
 ### G. Uitbreiden na de pilot — vanaf eind april 2027
 Uitrol naar alle hallen. Daarna, als het nodig blijkt:
