@@ -23,7 +23,7 @@ Bijgewerkt: 20 november 2026 · versie **0.23.0**. Dit blok wordt aan het eind v
 - **Laptop:** Geert draait 0.7.1; 0.23.0 is als zip geleverd (`batch-gui-laptop-0.23.0-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
 - **Browserdemo:** versie 0.23.0 gepubliceerd.
-- **Releases op GitHub:** haperen sinds 0.21.1; 0.21.1 en later hebben nog geen tag en release (#40). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
+- **Releases op GitHub:** 0.21.1 en later hebben nog geen tag en release. De workflow is klaar; hij wacht op de eigen sleutel `RELEASE_TOKEN` die Geert als secret instelt (#40). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
 - **Laatste testronde (0.23.0, 20 november 2026):** geslaagd: databaseregels (94), API (75), migraties (tot en met 15), beheertools, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo). Praktijktests zijn nog niet gedaan (#33).
 - **Gegevens:** alles fictief (D1).
 
