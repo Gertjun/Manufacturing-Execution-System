@@ -43,7 +43,11 @@ jobs:
           while read -r versie commit; do
             echo "Versie $versie op $commit"
             node tools/release.mjs notities "$versie" > "/tmp/notities-$versie.md"
-            gh release create "v$versie" --target "$commit" --title "Versie $versie" --notes-file "/tmp/notities-$versie.md" \
+            if ! git rev-parse -q --verify "refs/tags/v$versie" >/dev/null; then
+              git tag "v$versie" "$commit" && git push origin "refs/tags/v$versie" \
+                || { mislukt="$mislukt $versie"; git tag -d "v$versie" 2>/dev/null; continue; }
+            fi
+            gh release create "v$versie" --verify-tag --title "Versie $versie" --notes-file "/tmp/notities-$versie.md" \
               || mislukt="$mislukt $versie"
           done < /tmp/nieuw.txt
           if [ -n "$mislukt" ]; then echo "::error::Niet gelukt voor:$mislukt"; exit 1; fi
