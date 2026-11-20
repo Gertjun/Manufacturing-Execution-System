@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## Zonder nieuwe versie (na 0.23.0)
+- Handleiding van het laptoppakket noemt nu ook Portaal Planning en het wandscherm. Overbodige notitie `gedeeld/README.md` weggehaald (de README beschrijft de map al).
+
 ## 0.23.0 — 20 november 2026
 - Nieuw: per veld het **aantal decimalen** (0 tot en met 6) in Beheer → Stappen en velden en in het Excel-sjabloon (kolom Decimalen). Het invoerscherm, het lotpaspoort, de afwijkingen, het certificaat en de regelkaart tonen de waarden dan met precies zoveel cijfers achter de komma; gemiddelde en spreiding op de regelkaart met één cijfer meer. Leeg = zoals voorheen. De opgeslagen meetwaarde verandert niet. In de fictieve configuratie hebben temperaturen 1 decimaal, druk en vochtgehalte 2 en het toerental 0.
 - Een sjabloon zonder kolom Decimalen (van vóór deze versie) laat de decimalen ongemoeid.

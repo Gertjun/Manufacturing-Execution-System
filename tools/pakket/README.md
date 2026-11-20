@@ -1,6 +1,6 @@
 # Batch input GUI – proof of concept op je laptop
 
-Dit pakket draait het hele platform op één Windows-laptop: invoerscherm, portalen Kwaliteit, Productie en Beheer, de server en de database. **Je hoeft niets te installeren en geen beheerdersrechten te hebben**: Node.js en PostgreSQL zitten in het pakket. Er is geen internet nodig.
+Dit pakket draait het hele platform op één Windows-laptop: invoerscherm, portalen Kwaliteit, Productie, Planning en Beheer, het wandscherm, de server en de database. **Je hoeft niets te installeren en geen beheerdersrechten te hebben**: Node.js en PostgreSQL zitten in het pakket. Er is geen internet nodig.
 
 Bij de start staan er 90 dagen fictieve productie in. Je kunt ook met een lege fabriek beginnen en zelf stappen en velden inrichten.
 
@@ -34,6 +34,8 @@ Met de fictieve testdata zijn er testaccounts; het wachtwoord is steeds `demo`. 
 - **Offline:** stop de applicatie terwijl het invoerscherm open is. Het invoerscherm blijft werken en verstuurt alles zodra je START.bat weer start.
 - **Kwaliteit:** de batches die op een keurresultaat wachten, de trend van S5.1 die langzaam oploopt, het lotpaspoort.
 - **Productie:** werkvoorraad, doorlooptijden en de correcties.
+- **Planning:** log in als `planner1`, plan batches voor de komende dagen, bekijk de planning per stap en de lotvoorstellen.
+- **Wandscherm:** log in als `scherm1` voor het overzicht dat later op een tv in de hal komt.
 - **Beheer:** wijzig een grens of koppel een stap aan een pc en kijk wat er in het invoerscherm en het logboek verandert. Onder **Server** zie je de versie en de laatste back-up.
 
 ## Je eigen proces inrichten
