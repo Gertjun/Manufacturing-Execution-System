@@ -144,7 +144,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | `api/` | API (Fastify, TypeScript); `api/openapi.json` is de volledige beschrijving |
 | `invoer/` | Invoerscherm (PWA) |
 | `portaal/` | Portalen en wandscherm |
-| `gedeeld/` | Onderdelen die invoerscherm en portalen delen |
+| `gedeeld/` | Onderdelen die invoerscherm en portalen delen, waaronder `tokens.css` (alle kleuren, afstanden, tekstgroottes en rondingen) en `knoppen.css` (bezig-stand en klikzone) |
 | `demo/` | Browserdemo |
 | `tools/` | Pakketten bouwen, beheertools, versie zetten |
 | `tests/`, `api/test/`, `invoer/e2e/`, `portaal/e2e/` | Tests |

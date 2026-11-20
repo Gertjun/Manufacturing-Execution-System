@@ -1,0 +1,106 @@
+/* Design tokens voor invoerscherm en portalen (D50, ROADMAP #42).
+   Componenten gebruiken alleen deze waarden; geen losse kleuren, afstanden of lettergroottes.
+   Kleuren zijn genoemd naar hun functie. Bij een vlakkleur hoort een "op"-kleur voor tekst erop.
+   Contrast op wit: tekst minstens 4,5 : 1, randen, lijnen en grafieken minstens 3 : 1.
+   Groen, oranje en rood betekenen altijd: binnen grenzen, buiten tolerantie (of: let op), buiten grens (of: storing). */
+:root {
+  /* Afstanden: 4/8-puntsraster */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+
+  /* Tekst (rem: schaalt mee met de lettergrootte van de browser) */
+  --font-sans: "Atkinson Hyperlegible", system-ui, sans-serif; /* bewuste afwijking A, D50 */
+  --text-xs: 0.75rem;   /* labels, badges, aslabels */
+  --text-sm: 0.875rem;  /* secundaire tekst */
+  --text-md: 1rem;      /* lopende tekst */
+  --text-lg: 1.25rem;   /* sectietitels */
+  --text-xl: 1.5rem;    /* schermtitel */
+  --text-2xl: 2rem;     /* grote kerncijfers */
+
+  /* Hoekradius */
+  --radius-xs: 4px;  /* kleine details: blokjes, etiketten */
+  --radius-sm: 8px;  --radius-md: 12px;  --radius-lg: 16px;  --radius-full: 999px;
+
+  /* Aanraakdoelen */
+  --doel-min: 44px;        /* kleinste klikbare zone */
+  --doel-klein: 36px;      /* zichtbare hoogte van een kleine knop; de klikzone blijft 44 px */
+
+  /* Basis */
+  --staal: #e6e9ec;          /* achtergrond van het scherm */
+  --vlak: #ffffff;           /* kaarten, velden */
+  --vlak-2: #f3f5f7;         /* hover, rustig vlak */
+  --vlak-3: #eef1f4;         /* voorbij, niet actief */
+  --inkt: #1b2430;           /* tekst; ook het donkere menu en de statusbalk */
+  --inkt-zacht: #4a5563;     /* secundaire tekst, randen van invoervelden */
+  --op-kleur: #ffffff;       /* tekst en iconen op inkt, actie, ok, grens */
+  --op-donker-zacht: #b8c2cc;/* secundaire tekst op inkt */
+  --lijn: #c9d0d7;           /* randen van kaarten (decoratief) */
+  --lijn-zacht: #e3e7eb;     /* tabelregels, raster */
+  --lijn-sterk: #6b7785;     /* randen van stille knoppen: minstens 3 : 1 */
+  --lijn-op-donker: #36414f; /* scheidingslijnen op inkt */
+  --menu-tekst: #d5dbe2;     /* menu-items op inkt */
+  --menu-zacht: #9aa6b2;     /* bijzaken in het menu */
+  --menu-hover: rgba(255, 255, 255, .08);
+  --menu-actief: rgba(255, 255, 255, .14);
+  --backdrop: rgba(27, 36, 48, .55);
+  --schaduw: 0 4px 14px rgba(0, 0, 0, .18);
+
+  /* Interactie */
+  --actie: #1f5fbf;
+  --actie-donker: #174a95;
+  --actie-vlak: #eef4fc;     /* gekozen rij, zachte band */
+  --focus: #1f5fbf;
+
+  /* Status */
+  --ok: #2e7d4f;
+  --ok-vlak: #f1f8f4;
+  --ok-lijn: #b9dcc7;
+  --ok-op-donker: #8fdca9;
+  --tol: #a35f00;                     /* oranje als tekst (5 : 1) */
+  --status-waarschuwing: #c27803;     /* oranje voor lijnen, staven en randen (3,5 : 1) */
+  --status-waarschuwing-vlak: #e0960b;/* oranje vlak achter inkt */
+  --grens: #b3261e;                   /* rood als tekst en vlak achter wit */
+  --grens-donker: #8f1d17;
+  --grens-vlak: #fbeceb;
+  --status-kritiek: #d03b3b;          /* rood in grafieken en tekens */
+  --signaal: #f2c200;                 /* geel: wacht, knelpunt, teller; altijd met inkt erop */
+  --signaal-vlak: #fff6dc;
+
+  /* Grafieken */
+  --reeks-1: #2a78d6;
+  --grafiek-grijs: #7d8a99;
+  --grafiek-grijs-donker: #5f6b7a;
+  --band: #eef3f8;
+  --band-2: #f6f8fb;
+
+  /* Wandscherm (donker, op 5 meter leesbaar) */
+  --wand-bg: #10161f;
+  --wand-vlak: #1c2531;
+  --wand-vlak-leeg: #161d27;
+  --wand-rand: #2c3746;
+  --wand-rand-leeg: #232c38;
+  --wand-rand-gepland: #3a4554;
+  --wand-tekst: #f3f5f7;
+  --wand-tekst-2: #dfe5eb;
+  --wand-tekst-3: #c7cfd8;
+  --wand-zacht: #aeb8c3;
+  --wand-leeg: #9aa6b2;
+  --wand-actief: #3d82e0;
+  --wand-bezig: #2459a8;
+  --wand-bezig-tekst: #dbe7fb;
+  --wand-bezig-legenda: #8fb8f0;
+  --wand-klaar-tekst: #3c4652;
+  --wand-let-op: #ffcc33;
+  --wand-opmerking: #ffe08a;
+  --wand-stil: #e5484d;
+  --wand-stil-vlak: #3a1d22;
+  --wand-stil-tekst: #ffb4b6;
+
+  /* Afdrukken (certificaat, lotpaspoort) */
+  --print-inkt: #111111;
+  --print-zacht: #555555;
+  --print-lijn: #cccccc;
+  --print-nee: #aa1111;
+  --print-concept: rgba(200, 40, 40, .12);
+  --print-schaduw: 0 1px 3px rgba(0, 0, 0, .08);
+}

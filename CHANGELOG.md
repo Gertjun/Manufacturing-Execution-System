@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.24.0 — 20 november 2026 · #42
+- Nieuw: één gedeeld bestand met alle kleuren, afstanden, tekstgroottes en rondingen (`gedeeld/tokens.css`) voor invoerscherm en portalen. Beide apps gebruiken alleen nog die waarden; afstanden liggen op een raster van 4 en 8 px. Kleine verschillen tussen de apps (twee grijzen voor randen) zijn weg.
+- Knoppen die iets versturen zijn meteen niet nogmaals te klikken tot het antwoord er is; duurt het langer dan 0,4 s, dan verschijnt een draaiend rondje. Zo kan een dubbele klik geen dubbele invoer meer geven.
+- Knoppen in de portalen zijn minstens 44 px hoog; kleine knoppen (zoals "Naar Excel" en de pijltjes in Planning) zijn 36 px om te zien, maar hun klikzone is 44 px. Menu-items in de portalen zijn ook 44 px hoog.
+- De tekstgrootte volgt nu de instelling van de browser (bij de standaardinstelling blijft alles even groot). Titels in de portalen zijn iets kleiner (24 px), volgens de vaste tekstschaal.
+
 ## 0.23.2 — 20 november 2026 · #41
 Eerste versie uit de UI/UX-review van 0.23.1. Alle schermen zijn nagelopen tegen de richtlijnen in het Claude-project; wat eruit volgde staat als #41–#44 in de roadmap, de bewuste afwijkingen in D50 en de vaste woorden in D51. Nieuwe roadmappunten voor later: talenkeuze (#45), donkere modus (#46) en invoer via telefoon of tablet (#47).
 - Grafieken beter leesbaar: oranje, grijs en de rand van "Gepland" halen nu minstens 3 : 1 op wit. "Buiten grens" en "Storing" zijn rood met witte strepen, zodat ze ook zonder kleurenzien te onderscheiden zijn van oranje; "Gepland" is een open staaf. Afwijkingen per week toont het totaal boven elke staaf.

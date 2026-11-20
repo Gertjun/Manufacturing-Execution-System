@@ -3,7 +3,7 @@ import { ApiFout, GeenVerbinding, haal, nieuwId, stuur } from "../api";
 import { sessie } from "../sessie";
 import { lokaleRegistraties, maakLot, nieuweBatch, startStap, stappen } from "../registraties";
 import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
-import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
+import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 import { acties, voegToe } from "../wachtrij";
 import { vorigeOverdrachtBlok } from "./overdracht";
 import { zetScanActie } from "../scan";
@@ -336,7 +336,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
     knop.disabled = gekozen.size !== 4;
   };
 
-  knop.addEventListener("click", async () => {
+  knop.addEventListener("click", bezigBij(async () => {
     lotnr.value = lotnr.value.trim().toUpperCase();
     if (!lotnr.reportValidity()) return;
     if (await bestaatAl(`/lots/${lotnr.value}`)) return melding(`Lot ${lotnr.value} bestaat al`, "fout");
@@ -364,7 +364,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
     } catch (e) {
       melding(e instanceof ApiFout ? e.message : "Opslaan mislukt", "fout");
     }
-  });
+  }));
 
   const vinken = new Map<string, HTMLInputElement>();
   const klaarSet = new Set(w.wachtend.map((x) => x.nummer));

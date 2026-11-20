@@ -8,7 +8,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (v === undefined || v === null || v === false) continue;
-    if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v as EventListener);
+    if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), metBezig(el, k.slice(2), v as (e: Event) => unknown));
     else if (k === "class") el.className = String(v);
     else if (v === true) el.setAttribute(k, "");
     else el.setAttribute(k, String(v));
@@ -18,6 +18,58 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
     el.append(kind instanceof Node ? kind : document.createTextNode(String(kind)));
   }
   return el;
+}
+
+/** Geeft een klik- of verzendfunctie een promise terug, dan is de knop "bezig" tot die klaar is. */
+function metBezig(el: HTMLElement, soort: string, fn: (e: Event) => unknown): EventListener {
+  if (soort !== "click" && soort !== "submit") return fn as EventListener;
+  return (e: Event) => {
+    const r = fn(e);
+    if (!(r instanceof Promise)) return;
+    const knop = soort === "click" ? el : ((e as SubmitEvent).submitter ?? el.querySelector("button[type=submit], button:not([type])"));
+    if (knop instanceof HTMLButtonElement) bezigTijdens(knop, r);
+  };
+}
+
+/** Zet een knop op "bezig" zolang het werk loopt: niet nogmaals te klikken of te verzenden (geen dubbele invoer),
+ *  na 0,4 s een draaiend rondje (gedeeld/knoppen.css), en voor schermlezers aria-busy en aria-disabled.
+ *  De knop wordt niet "disabled" gemaakt, zodat een scherm dat zelf bepaalt of een knop uit staat, niet in de war raakt. */
+export function bezigTijdens<T>(knop: HTMLButtonElement, werk: Promise<T>): Promise<T> {
+  if (knop.classList.contains("bezig")) return werk;
+  blokkeerBezig();
+  knop.classList.add("bezig");
+  knop.setAttribute("aria-busy", "true");
+  knop.setAttribute("aria-disabled", "true");
+  const klaar = () => {
+    knop.classList.remove("bezig");
+    knop.removeAttribute("aria-busy");
+    knop.removeAttribute("aria-disabled");
+  };
+  werk.then(klaar, klaar);
+  return werk;
+}
+
+/** Voor knoppen met addEventListener: knop.addEventListener("click", bezigBij(async () => { … })). */
+export function bezigBij(fn: (e: Event) => unknown): EventListener {
+  return (e: Event) => {
+    const r = fn(e);
+    if (r instanceof Promise && e.currentTarget instanceof HTMLButtonElement) bezigTijdens(e.currentTarget, r);
+  };
+}
+
+// Eén keer: klikken op een bezige knop en verzenden met een bezige knop worden tegengehouden,
+// nog vóór de eigen klikfunctie van het scherm (capture op document).
+let geblokkeerd = false;
+function blokkeerBezig() {
+  if (geblokkeerd) return;
+  geblokkeerd = true;
+  document.addEventListener("click", (e) => {
+    if ((e.target as Element | null)?.closest?.(".bezig")) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  document.addEventListener("submit", (e) => {
+    const f = e.target as HTMLFormElement;
+    if (f.querySelector?.(".bezig")) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
 }
 
 // Elke navigatie krijgt een volgnummer. Een scherm dat nog aan het laden was

@@ -6,7 +6,7 @@ import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../
 import { corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
 import type { Markering, Registratie, VeldMetWaarde } from "../types";
-import { bevestig, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
+import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 
 function grensTekst(v: VeldMetWaarde): string {
   const e = v.eenheid ? ` ${v.eenheid}` : "";
@@ -223,7 +223,7 @@ function teken(reg: Registratie) {
     return rij;
   });
 
-  opslaan.addEventListener("click", async () => {
+  opslaan.addEventListener("click", bezigBij(async () => {
     const klaar = reg.velden!.map((v) => (invoer.has(v.code) ? lees(v).invoer : null)).filter((x): x is Invoer => !!x);
     const gsKlaar = leesGs().klaar;
     const regels = klaar.map((i) => {
@@ -260,15 +260,15 @@ function teken(reg: Registratie) {
     if (gsKlaar.length) reg = await slaGrondstoffenOp(reg, gsKlaar);
     teken(reg);
     melding("Opgeslagen", "ok");
-  });
+  }));
 
-  afronden.addEventListener("click", async () => {
+  afronden.addEventListener("click", bezigBij(async () => {
     const ok = await bevestig(`${reg.stapnaam} afronden?`, "Daarna kan de batch of het lot door naar de volgende stap.", "Afronden");
     if (!ok) return;
     await rondAf(reg);
     melding(`${reg.stapnaam} afgerond voor ${reg.batchnummer ?? reg.lotnummer}`, "ok");
     location.hash = `#/stap/${reg.stapcode}`;
-  });
+  }));
 
   const statusLabel = reg.lokaal
     ? h("span", { class: "label label-wacht" }, "Nog niet verstuurd")

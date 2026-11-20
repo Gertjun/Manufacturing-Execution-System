@@ -1,0 +1,24 @@
+/* Gedeeld door invoerscherm en portalen: staten en klikzone van knoppen (ROADMAP #42, richtlijnen §5). */
+
+/* Kleine knoppen zijn kleiner om te zien, maar de klikzone is altijd minstens 44 px hoog. */
+.knop-klein, .knop-mini, .excel-knop { position: relative; min-height: var(--doel-klein); }
+.knop-klein::before, .knop-mini::before, .excel-knop::before {
+  content: ""; position: absolute; left: 0; right: 0;
+  top: calc((var(--doel-klein) - var(--doel-min)) / 2); bottom: calc((var(--doel-klein) - var(--doel-min)) / 2);
+}
+
+/* Bezig: de knop is meteen niet nogmaals te klikken (klik wordt tegengehouden, de knop blijft er gewoon uitzien) (gedeeld/ui.ts, bezigTijdens);
+   het draaiende rondje verschijnt pas na 0,4 s, zodat een snelle actie geen flits geeft. */
+.knop.bezig { cursor: progress; }
+.knop.bezig::after {
+  content: ""; display: inline-block; width: .9em; height: .9em; margin-left: var(--space-2); vertical-align: -0.1em;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  opacity: 0; animation: knop-draai .8s linear infinite, knop-verschijn 0s .4s forwards;
+}
+@keyframes knop-draai { to { transform: rotate(360deg); } }
+@keyframes knop-verschijn { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .knop.bezig::after { animation: knop-verschijn 0s .4s forwards; border-right-color: currentColor; border-style: dotted; }
+}
+/* Wacht de knop op een keuze in een venster ("Klopt dit?"), dan geen rondje achter het venster. */
+body:has(dialog[open]) .knop.bezig::after { visibility: hidden; }

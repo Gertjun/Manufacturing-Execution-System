@@ -19,6 +19,7 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
   - **`CHANGELOG.md`** bijwerken in gewone taal, met achter de datum de nummers van de roadmappunten die erin zijn gebouwd (`## 0.23.0 — 20 november 2026 · #39`). Die punten haal je weg uit **`ROADMAP.md`**.
   - Een download of pakket draagt het versienummer in de bestandsnaam (`batch-gui-laptop-0.5.1.zip`).
 - **Oudere invoerschermen blijven werken.** Een pc kan offline zijn en een wachtrij hebben uit een oudere versie. Een wijziging aan de API moet die oudere invoer nog accepteren, of het is een MAJOR-versie met de melding "werk alle pc's bij" (D18).
+- **Schermen volgen de UI/UX-richtlijnen** (`ui-ux-richtlijnen.md` in het Claude-project) met de afwijkingen en woorden uit D50 en D51. Kleuren, afstanden en maten alleen via `gedeeld/tokens.css`; loop de checklist (§13) na bij elk nieuw of gewijzigd scherm.
 - **Regels horen in de database**, niet in de schermen (D9).
 - **Databasewijziging = migratie** (D23): nieuw bestand `db/migraties/NNNN_naam.sql`, dezelfde wijziging in `db/schema.sql` plus de regel in `schema_versie`, en `tests/test_migraties.sh` moet slagen. Migraties nooit achteraf aanpassen.
 - **Beperkte databasegebruiker** (D24): de applicatie draait als `batchgui_app`. Heeft een nieuwe functie extra rechten nodig, pas dan `db/rechten.sql` aan; de API-tests draaien met die gebruiker.

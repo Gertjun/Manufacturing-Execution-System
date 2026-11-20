@@ -108,7 +108,7 @@ function arcering() {
   const defs = s("defs");
   const p = s("pattern", { id: "arcering-kritiek", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
   p.append(s("rect", { width: 6, height: 6, style: "fill: var(--status-kritiek)" }));
-  p.append(s("rect", { width: 2, height: 6, fill: "#fff" }));
+  p.append(s("rect", { width: 2, height: 6, style: "fill: var(--vlak)" }));
   defs.append(p);
   return defs;
 }
