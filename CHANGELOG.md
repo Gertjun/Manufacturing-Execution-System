@@ -5,6 +5,11 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Alle gegevens zijn fictief.
 
+## 0.22.1 — 20 november 2026
+- De startpagina (`/`) noemt "Testomgeving met fictieve gegevens" en de testaccounts alleen nog als die accounts er echt zijn. In een lege fabriek of een echte installatie staan alleen de applicaties en het versienummer.
+- Beheer → Server waarschuwt als er testaccounts met wachtwoord "demo" actief zijn. Met testdata is dat normaal; in een echte installatie zet je ze uit.
+- De startpagina noemt nu ook Planning, het wandscherm en de testaccounts planner1 en scherm1.
+
 ## 0.22.0 — 19 november 2026
 - Nieuw in Beheer → Stappen en velden: **Sjabloon downloaden** geeft een Excel-bestand met alle velden van alle stappen (ook uitgezette). Daarin kun je velden aanpassen en nieuwe velden toevoegen (Code leeg laten).
 - **Sjabloon inlezen** controleert het bestand eerst: per regel zie je of het een nieuw veld, een wijziging (met oud en nieuw) of ongewijzigd is, en welke regels een fout hebben. Er wordt pas iets opgeslagen als je op "wijzigingen opslaan" klikt, en alleen als geen enkele regel een fout heeft. Alles komt in het logboek.

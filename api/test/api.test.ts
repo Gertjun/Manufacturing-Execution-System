@@ -4,7 +4,7 @@ import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { bouwApp, type App } from "../src/app.js";
+import { bouwApp, startpagina, type App } from "../src/app.js";
 import { maakPool, type Db } from "../src/db.js";
 
 const DB_URL = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
@@ -463,7 +463,7 @@ describe("server en onderhoud", () => {
     const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
     assert.equal(r.body.laatsteBackup.bestand, "nieuw.dump");
     assert.equal(r.body.laatsteHersteltest.melding, "10 batches");
-    assert.deepEqual(r.body.waarschuwingen, []);
+    assert.deepEqual(r.body.waarschuwingen.filter((w: { tekst: string }) => !/testaccount/.test(w.tekst)), [], "alleen de melding over testaccounts (testdata)");
   });
   test("mislukte back-up geeft een fout", async () => {
     await beheerDb.query("INSERT INTO fabriek.onderhoud_log (soort, gestart_op, gelukt, melding) VALUES ('backup', now(), false, 'schijf vol')");
@@ -1140,5 +1140,21 @@ describe("Velden importeren uit het Excel-sjabloon (D46)", () => {
     assert.match(r.body.regels[3].fout, /Onbekende stap/);
     const kw = await login("kwaliteit1");
     assert.equal((await verzoek("POST", "/beheer/velden/import", kw, { uitvoeren: false, regels: [] })).status, 403);
+  });
+});
+
+describe("Startpagina en testaccounts (0.22.1)", () => {
+  test("met testdata noemt de startpagina de testaccounts, zonder niet", async () => {
+    const r = await app.inject({ method: "GET", url: "/" });
+    assert.match(r.body, /Testomgeving met fictieve gegevens/);
+    assert.match(r.body, /planner1/);
+    const echt = startpagina(false);
+    assert.doesNotMatch(echt, /Testaccounts|demo|Testomgeving/);
+  });
+
+  test("Beheer > Server waarschuwt voor testaccounts met wachtwoord demo", async () => {
+    const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
+    assert.equal(r.status, 200);
+    assert.ok(r.body.waarschuwingen.some((w: { tekst: string }) => /testaccount/.test(w.tekst)), JSON.stringify(r.body.waarschuwingen));
   });
 });

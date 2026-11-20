@@ -1,3 +1,4 @@
+import { TESTACCOUNTS } from "./testaccounts.js";
 import { VERSIE } from "./versie.js";
 import type { FastifyInstance } from "fastify";
 import Fastify from "fastify";
@@ -100,7 +101,21 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   if (invoerMap && existsSync(invoerMap)) {
     await app.register(fastifyStatic, { root: invoerMap, prefix: "/invoer/", index: "index.html" });
   }
-  app.get("/", { schema: { hide: true } }, (_req, reply) => reply.type("text/html; charset=utf-8").send(STARTPAGINA));
+  // De startpagina noemt de testaccounts alleen als ze er echt zijn (testomgeving, laptop met testdata).
+  let testCache: { op: number; ja: boolean } | null = null;
+  const isTestomgeving = async () => {
+    if (testCache && Date.now() - testCache.op < 60_000) return testCache.ja;
+    let ja = false;
+    try {
+      const { rows } = await db.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM fabriek.gebruiker WHERE actief AND lower(gebruikersnaam) = ANY($1)", [TESTACCOUNTS.map(([n]) => n)]);
+      ja = (rows[0]?.n ?? 0) >= 3;
+    } catch { ja = false; }
+    testCache = { op: Date.now(), ja };
+    return ja;
+  };
+  app.get("/", { schema: { hide: true } }, async (_req, reply) =>
+    reply.type("text/html; charset=utf-8").send(startpagina(await isTestomgeving())));
   if (portaalMap && existsSync(portaalMap)) {
     await app.register(fastifyStatic, { root: portaalMap, prefix: "/portaal/", index: "index.html", decorateReply: false });
   }
@@ -135,8 +150,9 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-/** Eenvoudige startpagina met de twee applicaties van het platform. */
-const STARTPAGINA = `<!doctype html><html lang="nl"><head><meta charset="utf-8">
+/** Eenvoudige startpagina met de applicaties van het platform. */
+export function startpagina(test: boolean): string {
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Batch input GUI</title>
 <style>
 body{font:16px/1.5 system-ui,"Segoe UI",sans-serif;margin:0;background:#f3f5f7;color:#1d2733}
@@ -148,11 +164,11 @@ a.app strong{display:block;font-size:18px;color:#1f5fae}
 table{border-collapse:collapse;margin-top:8px;font-size:14px}td{padding:2px 16px 2px 0}
 small{color:#52606d}
 </style></head><body><main>
-<h1>Batch input GUI</h1><p>Testomgeving met fictieve gegevens · versie ${VERSIE}</p>
+<h1>Batch input GUI</h1><p>${test ? "Testomgeving met fictieve gegevens · " : ""}versie ${VERSIE}</p>
 <a class="app" href="/invoer/"><strong>Invoerscherm</strong>Voor operators op de vloer: stappen invoeren, lot samenstellen.</a>
-<a class="app" href="/portaal/"><strong>Portalen</strong>Kwaliteit, Productie en Beheer.</a>
+<a class="app" href="/portaal/"><strong>Portalen</strong>Kwaliteit, Productie, Planning en Beheer, en het wandscherm.</a>
 <a class="app" href="/docs"><strong>API-documentatie</strong>Alle functies van de server.</a>
-<small>Testaccounts, wachtwoord steeds <b>demo</b>:</small>
-<table><tr><td>operator</td><td>invoerscherm</td></tr><tr><td>ploegleider1</td><td>invoerscherm en Portaal Productie</td></tr>
-<tr><td>kwaliteit1</td><td>Portaal Kwaliteit</td></tr><tr><td>beheerder1</td><td>Portaal Beheer</td></tr><tr><td>analist1</td><td>portalen, alleen lezen</td></tr></table>
+${test ? `<small>Testaccounts, wachtwoord steeds <b>demo</b>:</small>
+<table>${TESTACCOUNTS.map(([n, w]) => `<tr><td>${n}</td><td>${w}</td></tr>`).join("")}</table>` : ""}
 </main></body></html>`;
+}

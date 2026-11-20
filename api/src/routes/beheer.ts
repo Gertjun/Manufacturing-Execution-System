@@ -2,6 +2,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { BEHEER, vereist } from "../auth.js";
 import { inTransactie, lees, type Tx } from "../db.js";
+import { TESTACCOUNTS } from "../testaccounts.js";
 import { ApiFout, leesbaar, niet } from "../fouten.js";
 import { Veld } from "./config.js";
 import { StapCode } from "./schemas.js";
@@ -634,6 +635,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `SELECT count(*)::int AS n, string_agg(DISTINCT gebruikersnaam, ', ') AS namen FROM inlogpoging
           WHERE uitkomst <> 'gelukt' AND op > now() - interval '24 hours'`,
       );
+      // Testaccounts met wachtwoord "demo" horen niet in een echte installatie (D28).
+      const demo = await lees<{ gebruikersnaam: string }>(
+        app.db,
+        `SELECT gebruikersnaam FROM gebruiker WHERE actief AND lower(gebruikersnaam) = ANY($1)
+            AND wachtwoord_hash = public.crypt('demo', wachtwoord_hash) ORDER BY gebruikersnaam`,
+        [TESTACCOUNTS.map(([n]) => n)],
+      );
+      if (demo.length)
+        waarschuwingen.push({ niveau: "let_op", tekst: `${demo.length} testaccount${demo.length === 1 ? "" : "s"} met wachtwoord "demo" actief (${demo.map((d) => d.gebruikersnaam).join(", ")}). Prima met testdata; zet ze uit in een echte installatie.` });
       if (pogingen && pogingen.n >= 20)
         waarschuwingen.push({ niveau: "let_op", tekst: `${pogingen.n} mislukte inlogpogingen in de laatste 24 uur (${(pogingen.namen ?? "").slice(0, 200)}).` });
       return {

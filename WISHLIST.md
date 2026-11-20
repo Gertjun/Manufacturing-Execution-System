@@ -5,11 +5,10 @@
 
 Elk punt houdt zijn nummer. Is een punt klaar, dan gaat het naar Gerealiseerd met alleen het versienummer; de uitleg staat in de changelog.
 
-Laatst bijgewerkt: 19 november 2026 (versie 0.22.0)
+Laatst bijgewerkt: 19 november 2026 (versie 0.22.1)
 
 ## Vóór de pilot
 Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting en adviezen", https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i).
-- #37 **Startpagina zonder testaccounts in een echte installatie** (klein) — De startpagina (`/`) noemt altijd "Testomgeving met fictieve gegevens" en de testaccounts, ook in een lege fabriek of op de server. Alleen tonen als de testaccounts echt bestaan.
 - #38 **Oude inlogpogingen opruimen** (klein) — Inlogpogingen ouder dan bijvoorbeeld 90 dagen laten opruimen door het nachtelijke onderhoud.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.19 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
 - #36 **Training en handleiding** (klein) — Korte handleiding per rol (operator, ploegleider, Kwaliteit, planner, beheerder) en een trainingsmoment vóór de pilot, met de laptop of de server en fictieve data.
@@ -36,6 +35,7 @@ Uit de doorlichting van 19-11-2026 (rapport: "Batch input GUI – doorlichting e
 
 ## Gerealiseerd
 Details per versie staan in [`CHANGELOG.md`](CHANGELOG.md).
+- #37 Startpagina zonder testaccounts in een echte installatie — 0.22.1
 - #35 Velden importeren uit een Excel-sjabloon — 0.22.0
 - #27 Schermtests op GitHub, draaiboek bijgewerkt, back-up vóór database-update — 0.21.1
 - #28 Inloggen beveiligen — 0.21.0
