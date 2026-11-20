@@ -15,6 +15,7 @@
   --tol: #a35f00;
   --grens: #b3261e;
   --signaal: #f2c200;
+  --lijn-sterk: #6b7785; /* randen van velden en knoppen: minstens 3 : 1 */
   --ruimte: 16px;
   font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
   font-size: 18px;
@@ -70,7 +71,7 @@ a { color: var(--actie); }
 .knop-hoofd { background: var(--actie); border-color: var(--actie); color: #fff; }
 .knop-hoofd:hover { background: var(--actie-donker); }
 .knop-gevaar { background: var(--grens); border-color: var(--grens); color: #fff; }
-.knop-stil { border-color: var(--lijn); }
+.knop-stil { border-color: var(--lijn-sterk); }
 .knop:disabled { opacity: .45; cursor: not-allowed; }
 .knop-klein { min-height: 40px; padding: 0 14px; font-size: .9rem; }
 .knoppen { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; margin-top: 20px; }
@@ -217,7 +218,7 @@ input[aria-invalid="true"] { border-color: var(--grens); }
 .overdracht-vorm { display: grid; gap: 14px; max-width: 720px; margin-top: 20px; }
 .overdracht-vorm label { display: grid; gap: 4px; font-weight: 700; }
 .overdracht-vorm .hint { font-weight: 400; color: var(--inkt-zacht); }
-.overdracht-vorm textarea { font: inherit; padding: 10px 12px; border: 2px solid var(--lijn); border-radius: 8px; resize: vertical; }
+.overdracht-vorm textarea { font: inherit; padding: 10px 12px; border: 2px solid var(--inkt-zacht); border-radius: 8px; resize: vertical; }
 .overdracht-vorm button { justify-self: start; }
 
 /* Meldingen (ploegleider) */

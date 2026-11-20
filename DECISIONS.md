@@ -192,3 +192,12 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D49 – Laptoppakket als bijlage bij elke release (20 nov 2026)
 - **Besluit:** de workflow `laptoppakket.yml` bouwt na elke release het laptoppakket voor Windows met de code en het bouwscript van die tag, en hangt het als bijlage aan de release. Met de hand gestart maakt hij ontbrekende pakketten van eerdere versies (vanaf 0.7.0; niet 0.14.0 en 0.15.0, die niet gebruikt mogen worden). Een bijlage toevoegen is de enige wijziging aan een bestaande release die mag; tag en tekst blijven zoals ze zijn (aanvulling op D19).
 - **Waarom:** Geert wil elke versie zelf van GitHub kunnen downloaden in plaats van een zip in de chat. Het pakket bevat alleen fictieve testdata en testaccounts en de repository is privé.
+
+### D50 – Schermen volgen de UI/UX-richtlijnen, met vijf bewuste afwijkingen (20 nov 2026)
+- **Besluit:** nieuwe en gewijzigde schermen volgen `ui-ux-richtlijnen.md` in het Claude-project (Apple HIG, Material Design 3, WCAG 2.2 AA). De review van 0.23.1 leverde #41–#44 op. Bewust anders dan de richtlijnen: (A) het lettertype Atkinson Hyperlegible in plaats van het systeemlettertype; (B) nog geen donkere modus (#46); (C) de markering binnen of buiten tolerantie verschijnt al tijdens het typen; (D) "Klopt dit?" vóór opslaan, afronden, lot samenstellen en keurresultaat in plaats van "Ongedaan maken"; (E) ontworpen voor pc en tablet, niet mobile-first en zonder safe-area.
+- **Kanttekening (Geert):** later kunnen er portalen komen waarmee op een telefoon of tablet wordt ingevoerd (#47). Dan vervalt afwijking E voor die schermen.
+- **Waarom:** (A) beter onderscheid tussen 0 en O, 1 en l, en het werkt offline; (B) hal en kantoor zijn fel verlicht; (C) de operator moet een afwijking zien vóór hij opslaat; (D) opgeslagen waarden liggen vast en alleen een ploegleider corrigeert (D6, D9); (E) er zijn nu alleen pc's en tablets.
+
+### D51 – Vaste woorden in de schermen (20 nov 2026)
+- **Besluit:** "Instelling" (niet "Setting") naast "Gemeten". Een stap heet in lopende tekst "Stap 5" en in tabellen en op tegels "PS5"; een veld heet "S5.1". In de database en de API blijft het `setting`. Alle schermteksten blijven Nederlands; een talenkeuze komt later (#45) en gebruikt deze woorden als basis.
+- **Waarom:** één woord per begrip (richtlijnen §12), en Geert wil later meer talen.

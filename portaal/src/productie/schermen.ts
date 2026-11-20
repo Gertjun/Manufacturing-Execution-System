@@ -299,7 +299,7 @@ export async function stilstand() {
               tip: [`${x.stap} ${x.stapnaam}`, `Storing: ${minuten(x.storing)}`, `Wachten: ${minuten(x.wachten)}`, `Overig: ${minuten(x.overig)}`, `Gepland: ${minuten(x.gepland)}`, `Beschikbaarheid: ${procent(x.beschikbaarheid)}`],
             })),
             (n) => minuten(n),
-            [{ naam: "Storing", klasse: "deel-storing" }, { naam: "Wachten", klasse: "deel-wacht" }, { naam: "Overig", klasse: "deel-overig" }, { naam: "Gepland", klasse: "deel-gepland" }],
+            [{ naam: "Storing (gearceerd)", klasse: "deel-storing" }, { naam: "Wachten", klasse: "deel-wacht" }, { naam: "Overig", klasse: "deel-overig" }, { naam: "Gepland (open)", klasse: "deel-gepland" }],
             [30, 60, 120, 240, 480, 960, 1920, 3840],
             "Stilstand per stap")
         : h("p", { class: "leeg" }, "Geen stilstand in deze periode."),

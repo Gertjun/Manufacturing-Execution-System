@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 20 november 2026 · huidige versie 0.23.0
+Bijgewerkt: 20 november 2026 · huidige versie 0.23.2
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -53,7 +53,12 @@ gantt
 ### A. Pilotklaar maken (software) — gebouwd
 Alle punten zijn gebouwd in 0.20.0 tot en met 0.23.0, sneller dan gepland (wat er per versie veranderde: changelog). In de software staat niets meer open vóór de pilot.
 
-**Poort A:** gehaald zodra Geert het laptoppakket 0.23.0 draait.
+Daarna, uit de UI/UX-review van 20 november 2026 (D50), vóór de training (#36):
+- #42 **Gedeelde tokens en knoppen** (middel) — Eén bestand met kleuren, afstanden, tekstgroottes en rondingen voor invoer en portaal; knoppen tonen "Bezig…" en zijn dan niet nogmaals te klikken; knoppen in de portalen minstens 44 px; tekstgrootte volgt de browserinstelling.
+- #43 **Consistentie** (middel) — Eén oranje en één rood met één betekenis; kolomkoppen rechts boven getallen; één primaire knop per scherm; vaste woorden (D51); foutmelding direct onder het veld; rustigere lege stappen.
+- #44 **Ongedaan maken en tabletmenu** (klein) — "Ongedaan maken" in de melding bij acties die je makkelijk terugdraait; inklapbaar menu in de portalen op een smal scherm.
+
+**Poort A:** gehaald zodra Geert het laptoppakket van de nieuwste versie draait.
 
 ### B. Proof of concept en praktijk — december 2026
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket 0.23.0 draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
@@ -91,6 +96,9 @@ Uitrol naar alle hallen. Daarna, als het nodig blijkt:
 - #6 **Koppeling met Exact** (groot) — Gegevens uitwisselen met Exact.
 - #21 **Meldingen per mail of Teams** (klein) — Kan pas als de server bij een mailserver of Teams mag; nu bewust alleen in de schermen (D33).
 - #7 **Installeerbare apps** (groot) — Invoerscherm en portalen als installeerbare applicaties op dezelfde server en API.
+- #45 **Talenkeuze** (middel) — De schermen in meer talen, met een keuze per gebruiker of per pc. Vraagt dat alle schermteksten uit de code naar taalbestanden gaan; de woordenlijst van D51 is daarvoor de basis.
+- #46 **Donkere modus** (klein) — Voor invoer en portalen, via de gedeelde tokens (#42). Bewust later (D50).
+- #47 **Invoer via telefoon of tablet** (middel) — Portalen of schermen waarmee ook op een telefoon of tablet wordt ingevoerd. Dan gelden de richtlijnen voor smalle schermen en de safe-area (notch) wél (D50, afwijking E).
 
 ## Te besluiten (*Geert*)
 Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een besluit in `DECISIONS.md`.
@@ -99,7 +107,7 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
 - #34 **Open vragen planning** — Moet de planner ook ploegen of pc's toewijzen? Mag een operator een lotvoorstel zelf aanpassen? Is "per stap per dag" zo bruikbaar?
 
 ## Hoe we deze roadmap bijhouden
-- Nieuwe taken, adviezen, open vragen en praktijktests komen hier met het volgende vrije nummer (nu #41), in de fase waar ze horen.
+- Nieuwe taken, adviezen, open vragen en praktijktests komen hier met het volgende vrije nummer (nu #48), in de fase waar ze horen.
 - Is een punt gebouwd, dan haal je het hier weg en zet je het nummer in de changelog achter de versie.
 - De tijdlijn en de fasen pas je aan als een fase klaar is, een poort niet gehaald wordt of de volgorde verandert.
 - Rapporten op claude.ai zijn momentopnamen; wat eruit volgt komt hier als punt.

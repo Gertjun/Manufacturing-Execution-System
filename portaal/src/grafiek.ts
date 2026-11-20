@@ -61,6 +61,7 @@ export function afwijkingenPerWeek(weken: Week[]): HTMLElement {
   const breedte = Math.min(28, kolom * 0.6);
 
   const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": "Afwijkingen per week, gestapeld naar soort" });
+  svg.append(arcering());
   for (const t of ticks) {
     svg.append(s("line", { x1: m.l, x2: B - m.r, y1: y(t), y2: y(t), class: t === 0 ? "as" : "raster" }));
     svg.append(s("text", { x: m.l - 8, y: y(t) + 4, "text-anchor": "end", class: "as-tekst" }, String(t)));
@@ -71,11 +72,12 @@ export function afwijkingenPerWeek(weken: Week[]): HTMLElement {
     const x = m.l + i * kolom + (kolom - breedte) / 2;
     const tol = w.buiten_tolerantie, gr = w.buiten_grens;
     // Grens onderaan (het ernstigste), tolerantie erboven; 2px ruimte tussen de delen.
-    if (gr > 0) svg.append(s("path", { d: staafPad(x, y(gr), breedte, y(0) - y(gr), tol === 0), fill: KLEUR.grens }));
+    if (gr > 0) svg.append(s("path", { d: staafPad(x, y(gr), breedte, y(0) - y(gr), tol === 0), fill: "url(#arcering-kritiek)" }));
     if (tol > 0) {
       const onder = y(gr) - (gr > 0 ? 2 : 0);
       svg.append(s("path", { d: staafPad(x, y(gr + tol), breedte, onder - y(gr + tol), true), fill: KLEUR.tol }));
     }
+    if (tol + gr > 0) svg.append(s("text", { x: x + breedte / 2, y: y(gr + tol) - 5, "text-anchor": "middle", class: "as-tekst" }, String(tol + gr)));
     const d = new Date(w.week);
     if (weken.length <= 14 || i % 2 === 0) svg.append(s("text", { x: x + breedte / 2, y: H - m.b + 18, "text-anchor": "middle", class: "as-tekst" }, datumKort(d)));
     const vlak = s("rect", { x: m.l + i * kolom, y: m.t, width: kolom, height: bh, fill: "transparent", tabindex: 0, "aria-label": `Week van ${datumKort(d)}: ${tol} buiten tolerantie, ${gr} buiten grens` });
@@ -92,8 +94,23 @@ export function afwijkingenPerWeek(weken: Week[]): HTMLElement {
     doel.append(vlak);
   });
   svg.append(doel);
-  const kaderEl = h("div", { class: "grafiek" }, legenda([["tol", "Buiten tolerantie"], ["grens", "Buiten grens"]]), svg as unknown as Node, tip.el);
+  const kaderEl = h("div", { class: "grafiek" },
+    h("div", { class: "legenda" },
+      h("span", {}, h("i", { class: "blokje reeks-tol", "aria-hidden": "true" }), "Buiten tolerantie"),
+      h("span", {}, h("i", { class: "blokje arcering-kritiek", "aria-hidden": "true" }), "Buiten grens (gearceerd)")),
+    svg as unknown as Node, tip.el);
   return kaderEl;
+}
+
+/** Arcering voor het ernstigste deel van een staaf (buiten grens, storing): rood met witte schuine strepen,
+ *  zodat het ook zonder kleurenzien te onderscheiden is van oranje. Zelfde id in elke grafiek; inhoud is gelijk. */
+function arcering() {
+  const defs = s("defs");
+  const p = s("pattern", { id: "arcering-kritiek", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+  p.append(s("rect", { width: 6, height: 6, style: "fill: var(--status-kritiek)" }));
+  p.append(s("rect", { width: 2, height: 6, fill: "#fff" }));
+  defs.append(p);
+  return defs;
 }
 
 /** Staaf met afgeronde bovenkant (4px), vlak op de basislijn. */
@@ -240,6 +257,7 @@ export function liggendeStaven(rijen: { label: string; delen: Deel[]; tip: strin
   const top = ticks[ticks.length - 1];
   const X = (v: number) => m.l + (v / top) * (B - m.l - m.r);
   const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": titel });
+  svg.append(arcering());
   for (const t of ticks) {
     svg.append(s("line", { x1: X(t), x2: X(t), y1: m.t, y2: H - m.b, class: t === 0 ? "as" : "raster" }));
     svg.append(s("text", { x: X(t), y: H - 8, "text-anchor": "middle", class: "as-tekst" }, eenheid(t)));

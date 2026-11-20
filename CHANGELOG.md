@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.23.2 — 20 november 2026 · #41
+Eerste versie uit de UI/UX-review van 0.23.1. Alle schermen zijn nagelopen tegen de richtlijnen in het Claude-project; wat eruit volgde staat als #41–#44 in de roadmap, de bewuste afwijkingen in D50 en de vaste woorden in D51. Nieuwe roadmappunten voor later: talenkeuze (#45), donkere modus (#46) en invoer via telefoon of tablet (#47).
+- Grafieken beter leesbaar: oranje, grijs en de rand van "Gepland" halen nu minstens 3 : 1 op wit. "Buiten grens" en "Storing" zijn rood met witte strepen, zodat ze ook zonder kleurenzien te onderscheiden zijn van oranje; "Gepland" is een open staaf. Afwijkingen per week toont het totaal boven elke staaf.
+- Invoervelden in Planning → Capaciteit en Beheer → Bedrijfsgegevens, en het tekstvak van de ploegoverdracht, hebben dezelfde duidelijke rand als de andere velden. Stille knoppen hebben een donkerdere rand.
+- Wandscherm: stappen zonder werk zijn rustig maar weer leesbaar (geen doorzichtigheid meer).
+- Beheer → Stappen en velden: de knop "Sjabloon inlezen" staat recht.
+
 ## Zonder nieuwe versie (na 0.23.0)
 - Handleiding van het laptoppakket noemt nu ook Portaal Planning en het wandscherm. Overbodige notitie `gedeeld/README.md` weggehaald (de README beschrijft de map al).
 - Documenten opnieuw ingedeeld naar verleden, heden en toekomst (D48): de stand staat nu bovenaan de README (`NOTES.md` vervalt), de wishlist is opgegaan in de roadmap (`WISHLIST.md` vervalt), en de changelog noemt achter elke versie de nummers van de gebouwde punten. Nieuw roadmappunt #40: releases op GitHub weer laten werken.
