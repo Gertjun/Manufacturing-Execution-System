@@ -186,7 +186,20 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     wijzigingen: Type.Array(Type.String()), fout: Type.Union([Type.Null(), Type.String()]),
   });
   type ImportRij = { regel: number; stapcode: string; code: string | null; naam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null };
-  class Terugdraaien extends Error { constructor(public rijen: ImportRij[]) { super("terugdraaien"); } }
+  // Tweede blad "Grenzen per product" (0.31.0, D55). Staat het blad in het bestand, dan is het de volledige lijst:
+  // eigen grenzen die er niet (meer) in staan, worden weggehaald. Zonder blad (ouder sjabloon) blijven ze staan.
+  const GrensRegel = Type.Object({
+    regel: Type.Integer(), veld: Type.String(), product: Type.String(),
+    grens_min: OptGetal, grens_max: OptGetal, tolerantie: OptGetal,
+    tolerantie_soort: Type.Optional(Type.Union([Type.Null(), Type.String()])),
+  }, { additionalProperties: false });
+  const GrensUitkomst = Type.Object({
+    regel: Type.Integer({ description: "0 = staat niet in het bestand (weghalen)" }), veld: Type.String(), product: Type.String(),
+    actie: Type.Union(["nieuw", "wijzigen", "gelijk", "weghalen", "fout"].map((a) => Type.Literal(a))),
+    wijzigingen: Type.Array(Type.String()), fout: Type.Union([Type.Null(), Type.String()]),
+  });
+  type GrensRij = { regel: number; veld: string; product: string; actie: "nieuw" | "wijzigen" | "gelijk" | "weghalen" | "fout"; wijzigingen: string[]; fout: string | null };
+  class Terugdraaien extends Error { constructor(public rijen: ImportRij[], public grenzen: GrensRij[]) { super("terugdraaien"); } }
   const KOLOMMEN: [string, string][] = [
     ["naam", "naam"], ["eenheid", "eenheid"], ["verplicht", "verplicht"], ["tolerantie", "tolerantie"], ["tolerantie_soort", "tolerantie in"],
     ["grens_min", "ondergrens"], ["grens_max", "bovengrens"], ["decimalen", "decimalen"], ["op_certificaat", "op certificaat"], ["actief", "actief"],
@@ -199,9 +212,22 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...BEHEER),
       schema: {
         tags: ["beheer"],
-        description: "Velden toevoegen en wijzigen vanuit het Excel-sjabloon. uitvoeren=false is een proefronde (niets wordt opgeslagen).",
-        body: Type.Object({ uitvoeren: Type.Boolean(), regels: Type.Array(ImportRegel, { maxItems: 2000 }) }, { additionalProperties: false }),
-        response: { 200: Type.Object({ uitgevoerd: Type.Boolean(), nieuw: Type.Integer(), gewijzigd: Type.Integer(), gelijk: Type.Integer(), fouten: Type.Integer(), regels: Type.Array(ImportUitkomst) }) },
+        description:
+          "Velden toevoegen en wijzigen vanuit het Excel-sjabloon. uitvoeren=false is een proefronde (niets wordt opgeslagen). " +
+          "Met grenzen_per_product (tweede blad, sinds 0.31.0) is dat de volledige lijst eigen grenzen per product: wat er niet in staat, wordt weggehaald.",
+        body: Type.Object({
+          uitvoeren: Type.Boolean(),
+          regels: Type.Array(ImportRegel, { maxItems: 2000 }),
+          grenzen_per_product: Type.Optional(Type.Array(GrensRegel, { maxItems: 5000 })),
+        }, { additionalProperties: false }),
+        response: {
+          200: Type.Object({
+            uitgevoerd: Type.Boolean(), nieuw: Type.Integer(), gewijzigd: Type.Integer(), gelijk: Type.Integer(), fouten: Type.Integer(), regels: Type.Array(ImportUitkomst),
+            grenzen: Type.Optional(Type.Object({
+              nieuw: Type.Integer(), gewijzigd: Type.Integer(), gelijk: Type.Integer(), weghalen: Type.Integer(), fouten: Type.Integer(), regels: Type.Array(GrensUitkomst),
+            })),
+          }),
+        },
       },
     },
     async (req) => {
@@ -268,21 +294,86 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         }
         return uit;
       };
+      // Na de velden, zodat een in hetzelfde bestand gewijzigd veld al zijn nieuwe soort en naam heeft.
+      const verwerkGrenzen = async (tx: Tx): Promise<GrensRij[]> => {
+        const lijst = req.body.grenzen_per_product;
+        if (!lijst) return [];
+        const uit: GrensRij[] = [];
+        const gezien = new Set<string>();
+        for (const r of lijst) {
+          const veld = r.veld.trim().toUpperCase(), product = r.product.trim().toUpperCase();
+          const rij: GrensRij = { regel: r.regel, veld, product, actie: "gelijk", wijzigingen: [], fout: null };
+          uit.push(rij);
+          await tx.query("SAVEPOINT grens");
+          try {
+            const sleutel = `${veld}|${product}`;
+            if (gezien.has(sleutel)) throw new ApiFout(422, `${veld} voor ${product} staat twee keer in het blad`);
+            gezien.add(sleutel);
+            const tsoort = (r.tolerantie_soort ?? "absoluut").trim().toLowerCase() || "absoluut";
+            if (!["absoluut", "procent"].includes(tsoort)) throw new ApiFout(422, `Tolerantie in "${r.tolerantie_soort}" is onbekend (absoluut of procent)`);
+            const { rows: v } = await tx.query("SELECT id FROM veld WHERE code = $1", [veld]);
+            if (!v[0]) throw new ApiFout(422, `Veld ${veld} bestaat niet. Een nieuw veld krijgt pas bij opslaan een code: sla eerst de velden op en lees het bestand daarna opnieuw in`);
+            const { rows: p } = await tx.query("SELECT id FROM product WHERE upper(code) = $1", [product]);
+            if (!p[0]) throw new ApiFout(422, `Onbekend product ${product}; voeg het eerst toe in Planning → Producten`);
+            const nieuw = { grens_min: r.grens_min ?? null, grens_max: r.grens_max ?? null, tolerantie: r.tolerantie ?? null, tolerantie_soort: tsoort };
+            const { rows: oud } = await tx.query(
+              "SELECT grens_min::float, grens_max::float, tolerantie::float, tolerantie_soort FROM veld_product WHERE veld_id = $1 AND product_id = $2",
+              [v[0].id, p[0].id]);
+            const labels: [keyof typeof nieuw, string][] = [["grens_min", "ondergrens"], ["grens_max", "bovengrens"], ["tolerantie", "tolerantie"], ["tolerantie_soort", "tolerantie in"]];
+            if (!oud[0]) rij.actie = "nieuw";
+            else {
+              const anders = labels.filter(([k]) => (k === "tolerantie_soort" && nieuw.tolerantie === null && oud[0].tolerantie === null ? false : (oud[0][k] ?? null) !== (nieuw[k] ?? null)));
+              if (anders.length) {
+                rij.actie = "wijzigen";
+                rij.wijzigingen = anders.map(([k, label]) => `${label}: ${toonWaarde(oud[0][k])} → ${toonWaarde(nieuw[k])}`);
+              }
+            }
+            if (rij.actie !== "gelijk") {
+              await tx.query(
+                `INSERT INTO veld_product (veld_id, product_id, grens_min, grens_max, tolerantie, tolerantie_soort) VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (veld_id, product_id) DO UPDATE SET grens_min = EXCLUDED.grens_min, grens_max = EXCLUDED.grens_max,
+                   tolerantie = EXCLUDED.tolerantie, tolerantie_soort = EXCLUDED.tolerantie_soort`,
+                [v[0].id, p[0].id, nieuw.grens_min, nieuw.grens_max, nieuw.tolerantie, nieuw.tolerantie_soort]);
+            }
+            await tx.query("RELEASE SAVEPOINT grens");
+          } catch (e) {
+            await tx.query("ROLLBACK TO SAVEPOINT grens");
+            rij.actie = "fout";
+            rij.wijzigingen = [];
+            rij.fout = leesbaar(e);
+          }
+        }
+        // Wat niet in het blad staat, gaat weg (het blad is de volledige lijst).
+        const { rows: weg } = await tx.query(
+          `DELETE FROM veld_product vp USING veld v, product p
+            WHERE vp.veld_id = v.id AND vp.product_id = p.id AND NOT ((v.code || '|' || upper(p.code)) = ANY($1::text[]))
+          RETURNING v.code AS veld, p.code AS product`,
+          [[...gezien]]);
+        for (const w of weg) uit.push({ regel: 0, veld: w.veld, product: w.product, actie: "weghalen", wijzigingen: ["eigen grenzen weg; daarna gelden die van het veld"], fout: null });
+        return uit;
+      };
       let rijen: ImportRij[];
+      let grenzen: GrensRij[];
       try {
-        rijen = await inTransactie(app.db, req.user.naam, async (tx) => {
+        [rijen, grenzen] = await inTransactie(app.db, req.user.naam, async (tx) => {
           const uit = await verwerk(tx);
-          if (!uitvoeren || uit.some((x) => x.actie === "fout")) throw new Terugdraaien(uit);
-          return uit;
+          const gr = await verwerkGrenzen(tx);
+          if (!uitvoeren || uit.some((x) => x.actie === "fout") || gr.some((x) => x.actie === "fout")) throw new Terugdraaien(uit, gr);
+          return [uit, gr] as const;
         });
       } catch (e) {
         if (!(e instanceof Terugdraaien)) throw e;
         rijen = e.rijen;
+        grenzen = e.grenzen;
       }
       const tel = (a: ImportRij["actie"]) => rijen.filter((x) => x.actie === a).length;
+      const telG = (a: GrensRij["actie"]) => grenzen.filter((x) => x.actie === a).length;
       return {
-        uitgevoerd: uitvoeren && tel("fout") === 0,
+        uitgevoerd: uitvoeren && tel("fout") === 0 && telG("fout") === 0,
         nieuw: tel("nieuw"), gewijzigd: tel("wijzigen"), gelijk: tel("gelijk"), fouten: tel("fout"), regels: rijen,
+        ...(req.body.grenzen_per_product
+          ? { grenzen: { nieuw: telG("nieuw"), gewijzigd: telG("wijzigen"), gelijk: telG("gelijk"), weghalen: telG("weghalen"), fouten: telG("fout"), regels: grenzen } }
+          : {}),
       } as never;
     },
   );

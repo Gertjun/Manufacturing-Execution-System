@@ -66,7 +66,6 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 ### A2. Uit de eerste demo — eind november 2026 tot januari 2027
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten.
 - #54 **Wandscherm per processtap** (klein) — Een wandscherm instellen voor één of enkele stappen, zodat je alleen de planning en het werk van die stap ziet.
-- #73 **Grenzen per product in het Excel-sjabloon** (klein) — Grenzen per product (D55) kun je nu alleen per veld in Beheer instellen. Voor het aanleveren van de echte velden (#2) is een extra tabblad in het sjabloon handig: per veld en product de grenzen en tolerantie.
 - #56 **Lotpaspoort: klik op een afwijking** (klein) — Bij "Buiten tolerantie" of "Buiten grens" de meting zien, en of er een beoordeling en keurresultaat met reden is.
 - #57 **Uitleg meting en signaal bij de regelkaarten** (klein) — Wat een signaal is en de vier regels, bij het scherm zelf.
 - #58 **Resolutie en afgelopen jaar** (middel) — Naast Periode een keuze per dag, per week of per maand voor alle grafieken met tijd; periode "Afgelopen jaar" erbij.
@@ -88,7 +87,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 **Poort B:** elke praktijktest heeft een uitkomst; wat misging is opgelost of bewust geaccepteerd.
 
 ### C. Echte configuratie — december 2026 tot half januari 2027
-- #2 **Echte velden per stap** (middel, *Geert*) — De velden en grenzen kunnen nu per product (D55); het liefst na #73. Per processtap de echte invoervelden aanleveren, het liefst in het sjabloon uit Beheer → Stappen en velden: veld, soort, eenheid, verplicht, tolerantie, grenzen, decimalen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand, grondstoffen, producten met hun route (welke stappen, in welke volgorde; D55), operators en pc's. Daarna samen inrichten via het sjabloon en controleren in een lege fabriek.
+- #2 **Echte velden per stap** (middel, *Geert*) — De velden en grenzen kunnen nu per product (D55), ook via het sjabloon (blad "Grenzen per product"). Per processtap de echte invoervelden aanleveren, het liefst in het sjabloon uit Beheer → Stappen en velden: veld, soort, eenheid, verplicht, tolerantie, grenzen, decimalen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand, grondstoffen, producten met hun route (welke stappen, in welke volgorde; D55), operators en pc's. Daarna samen inrichten via het sjabloon en controleren in een lege fabriek.
 
 **Poort C:** alle 18 stappen ingericht en door een ploegleider op de laptop doorlopen met een proefbatch.
 

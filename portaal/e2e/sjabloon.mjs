@@ -52,7 +52,8 @@ const leesXlsx = (pad) => JSON.parse(execFileSync("python3", ["-c", `
 import sys, json, openpyxl
 wb = openpyxl.load_workbook(sys.argv[1])
 ws = wb.active
-print(json.dumps({"blad": ws.title, "rijen": [[c for c in r] for r in ws.iter_rows(values_only=True)]}, default=str))`, pad]).toString());
+print(json.dumps({"blad": ws.title, "rijen": [[c for c in r] for r in ws.iter_rows(values_only=True)],
+  "bladen": {b.title: [[c for c in r] for r in b.iter_rows(values_only=True)] for b in wb.worksheets}}, default=str))`, pad]).toString());
 // Zelf de database klaarzetten: alleen configuratie en testaccounts.
 const PSQL = (bestand) => execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL(`../../db/${bestand}`, import.meta.url).pathname], { stdio: "ignore" });
 const bewerk = (pad, uit, python) => execFileSync("python3", ["-c", `
@@ -83,6 +84,9 @@ try {
   check("Kolommen van het sjabloon", x.rijen[0].join("|") === "Stap|Code|Naam|Soort|Eenheid|Verplicht|Tolerantie|Tolerantie in|Ondergrens|Bovengrens|Decimalen|Op certificaat|Actief", x.rijen[0].join("|"));
   const s51 = x.rijen.find((r) => r[1] === "S5.1");
   check("Grenzen zijn getallen in Excel", typeof s51[8] === "number" || s51[8] === null, JSON.stringify(s51));
+  const gb = x.bladen["Grenzen per product"];
+  check("Tweede blad met de grenzen per product", gb?.[0].join("|") === "Veld|Product|Ondergrens|Bovengrens|Tolerantie|Tolerantie in" && gb.length === 4,
+    JSON.stringify(gb));
 
   console.log("\nBestand met een fout");
   const fout1 = `${SHOTS}/met-fout.xlsx`;
@@ -107,19 +111,31 @@ ws.append(["PS4", None, "Verkeerde grenzen", "overig", None, "ja", None, None, 1
   bewerk(pad, goed, `
 for r in ws.iter_rows(min_row=2):
     if r[1].value == "S3.1": r[2].value = "Temperatuur menger"
-ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, "100", "400,5", 1, "ja", "ja"])`);
+ws.append(["PS3", None, "Viscositeit", "overig", "mPa·s", "nee", None, None, "100", "400,5", 1, "ja", "ja"])
+g = wb["Grenzen per product"]
+for r in list(g.iter_rows(min_row=2)):
+    if r[0].value == "S9.2": r[3].value = 470
+    if r[0].value == "S18.3": g.delete_rows(r[0].row)
+g.append(["S3.1", "PRD-A", 20, 120, "4", "absoluut"])`);
   await page.locator("#sjabloon-bestand").setInputFiles(goed);
-  await page.getByRole("button", { name: "2 wijzigingen opslaan" }).waitFor();
+  await page.getByRole("button", { name: "5 wijzigingen opslaan" }).waitFor();
+  const grensTabel = page.locator("section", { hasText: "Grenzen per product" });
+  check("Grenzen per product: nieuw, gewijzigd en weghalen", (await grensTabel.locator("tr", { hasText: "S18.3" }).innerText()).includes("Weghalen")
+    && (await grensTabel.locator("tr", { hasText: "S9.2" }).innerText()).includes("bovengrens: 460 → 470")
+    && (await grensTabel.locator("tr", { hasText: "S3.1" }).innerText()).includes("Nieuw"));
   check("Controle toont 1 nieuw en 1 gewijzigd", (await page.locator(".tegel").first().innerText()).startsWith("1") && (await page.locator(".tegel").nth(1).innerText()).startsWith("1"));
-  check("Wijziging met oude en nieuwe naam", (await page.locator("tr", { hasText: "S3.1" }).innerText()).includes("→ Temperatuur menger"));
+  check("Wijziging met oude en nieuwe naam", (await page.locator("tr", { hasText: "S3.1" }).first().innerText()).includes("→ Temperatuur menger"));
   await shot("02-controle");
-  await page.getByRole("button", { name: "2 wijzigingen opslaan" }).click();
+  await page.getByRole("button", { name: "5 wijzigingen opslaan" }).click();
   await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
   await page.waitForTimeout(500);
   const [nieuw] = await q("SELECT code, eenheid, verplicht, grens_min::float, grens_max::float, op_certificaat, decimalen FROM fabriek.veld WHERE naam = 'Viscositeit'");
   check("Nieuw veld opgeslagen met alle gegevens", nieuw?.eenheid === "mPa·s" && nieuw.verplicht === false && nieuw.grens_min === 100 && nieuw.grens_max === 400.5 && nieuw.op_certificaat === true && nieuw.decimalen === 1, JSON.stringify(nieuw));
   const [s31] = await q("SELECT naam FROM fabriek.veld WHERE code = 'S3.1'");
   check("Bestaand veld hernoemd", s31.naam === "Temperatuur menger");
+  const gp = (await q(`SELECT v.code || ' ' || p.code || ' ' || coalesce(vp.grens_max::text, '-') || ' ' || coalesce(vp.tolerantie::text, '-') AS r
+                         FROM fabriek.veld_product vp JOIN fabriek.veld v ON v.id = vp.veld_id JOIN fabriek.product p ON p.id = vp.product_id ORDER BY 1`)).map((r) => r.r);
+  check("Grenzen per product opgeslagen", gp.join("|") === "S3.1 PRD-A 120 4|S5.1 PRD-B 120 3|S9.2 PRD-C 470 -", gp.join("|"));
   const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel = 'veld' AND gewijzigd_door = 'beheerder1'");
   check("Wijzigingen in het logboek", log.n >= 2, String(log.n));
   await shot("03-opgeslagen");

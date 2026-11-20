@@ -467,6 +467,41 @@ describe("grenzen per product (D55)", () => {
     }
     assert.equal((await verzoek("GET", "/analyse/regelkaart?veld=S5.1&product=PRD-B", kw)).status, 200);
   });
+
+  test("sjabloon: tweede blad met grenzen per product is de volledige lijst (0.31.0)", async () => {
+    const beheer = await login("beheerder1");
+    const s51 = { regel: 3, veld: "S5.1", product: "PRD-B", grens_min: 20, grens_max: 120, tolerantie: 3, tolerantie_soort: "absoluut" };
+    const s92 = { regel: 2, veld: "S9.2", product: "prd-c", grens_min: 400, grens_max: 470, tolerantie: null, tolerantie_soort: null };
+    const s183 = { regel: 4, veld: "S18.3", product: "PRD-B", grens_min: null, grens_max: 3.5, tolerantie: null, tolerantie_soort: null };
+    const proef = await verzoek("POST", "/beheer/velden/import", beheer, { uitvoeren: false, regels: [], grenzen_per_product: [s92, s51] });
+    assert.equal(proef.status, 200, JSON.stringify(proef.body));
+    assert.equal(proef.body.uitgevoerd, false);
+    const per = Object.fromEntries(proef.body.grenzen.regels.map((r: any) => [`${r.veld} ${r.product}`, r]));
+    assert.equal(per["S9.2 PRD-C"].actie, "wijzigen");
+    assert.deepEqual(per["S9.2 PRD-C"].wijzigingen, ["bovengrens: 460 → 470"]);
+    assert.equal(per["S5.1 PRD-B"].actie, "gelijk");
+    assert.equal(per["S18.3 PRD-B"].actie, "weghalen");
+    assert.equal(proef.body.grenzen.weghalen, 1);
+    // Proefronde: niets veranderd.
+    const cfg = async () => (await verzoek("GET", "/config/stappen", beheer)).body.flatMap((x: any) => x.velden).filter((v: any) => v.per_product?.length)
+      .flatMap((v: any) => v.per_product.map((p: any) => `${v.code} ${p.product} ${p.grens_max}`)).sort();
+    assert.deepEqual(await cfg(), ["S18.3 PRD-B 3.5", "S5.1 PRD-B 120", "S9.2 PRD-C 460"]);
+    const fout = await verzoek("POST", "/beheer/velden/import", beheer, { uitvoeren: true, regels: [],
+      grenzen_per_product: [s51, s183, { ...s92, product: "PRD-X" }, { regel: 5, veld: "S9.2", product: "PRD-A", grens_min: null, grens_max: null, tolerantie: 2, tolerantie_soort: null }] });
+    assert.equal(fout.body.uitgevoerd, false);
+    assert.equal(fout.body.grenzen.fouten, 2);
+    assert.match(fout.body.grenzen.regels.find((r: any) => r.product === "PRD-X").fout, /Onbekend product/);
+    assert.match(fout.body.grenzen.regels.find((r: any) => r.product === "PRD-A").fout, /procesparameter/);
+    assert.deepEqual(await cfg(), ["S18.3 PRD-B 3.5", "S5.1 PRD-B 120", "S9.2 PRD-C 460"]);
+    const echt = await verzoek("POST", "/beheer/velden/import", beheer, { uitvoeren: true, regels: [], grenzen_per_product: [s51, s92, s183] });
+    assert.equal(echt.body.uitgevoerd, true);
+    assert.deepEqual(await cfg(), ["S18.3 PRD-B 3.5", "S5.1 PRD-B 120", "S9.2 PRD-C 470"]);
+    // Zonder tweede blad (ouder sjabloon) blijven de grenzen per product staan.
+    const oud = await verzoek("POST", "/beheer/velden/import", beheer, { uitvoeren: true, regels: [] });
+    assert.equal(oud.body.grenzen, undefined);
+    assert.deepEqual(await cfg(), ["S18.3 PRD-B 3.5", "S5.1 PRD-B 120", "S9.2 PRD-C 470"]);
+    await verzoek("POST", "/beheer/velden/import", beheer, { uitvoeren: true, regels: [], grenzen_per_product: [s51, { ...s92, grens_max: 460 }, s183] });
+  });
 });
 
 describe("documentatie", () => {

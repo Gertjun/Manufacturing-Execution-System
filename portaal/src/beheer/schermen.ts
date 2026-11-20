@@ -5,7 +5,7 @@ import { leesGetal, toonGetal } from "../../../gedeeld/markering";
 import type { Stap, Veld } from "../../../gedeeld/types";
 import { haal, qs, sessie, stuur } from "../basis";
 import { datum, fout, kop, tabel, afgekapt } from "../kwaliteit/schermen";
-import { downloadXlsx, leesNlGetal, leesXlsx, vandaag, xlsx, type Cel } from "../excel";
+import { downloadXlsx, leesNlGetal, leesXlsxBladen, vandaag, xlsxBladen, type Cel } from "../excel";
 
 const ROLLEN: [string, string][] = [
   ["operator", "Operator"],
@@ -213,8 +213,20 @@ function sjabloonDownloaden(alle: Stap[]) {
     v.decimalen === null || v.decimalen === undefined ? "" : String(v.decimalen),
     v.op_certificaat ? "ja" : "nee", v.actief ? "ja" : "nee",
   ]));
-  downloadXlsx(xlsx("Velden", SJABLOON, rijen), `Velden per stap ${vandaag()}.xlsx`);
+  // Tweede blad (0.31.0, D55): eigen grenzen per product. Dit blad is de volledige lijst; een regel weghalen haalt de eigen grenzen weg.
+  const grenzen = alle.flatMap((s) => s.velden.flatMap((v) => (v.per_product ?? []).map((p) => [
+    v.code, p.product, nl(p.grens_min), nl(p.grens_max), nl(p.tolerantie), v.soort === "procesparameter" ? p.tolerantie_soort : "",
+  ])));
+  downloadXlsx(xlsxBladen([
+    { naam: "Velden", koppen: SJABLOON, rijen },
+    { naam: GRENZEN_BLAD, koppen: SJABLOON_GRENZEN, rijen: grenzen },
+  ]), `Velden per stap ${vandaag()}.xlsx`);
 }
+
+const GRENZEN_BLAD = "Grenzen per product";
+const SJABLOON_GRENZEN = ["Veld", "Product", "Ondergrens", "Bovengrens", "Tolerantie", "Tolerantie in"];
+interface GrensRegel { regel: number; veld: string; product: string; grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string | null }
+interface GrensUitkomst { regel: number; veld: string; product: string; actie: "nieuw" | "wijzigen" | "gelijk" | "weghalen" | "fout"; wijzigingen: string[]; fout: string | null }
 
 interface ImportRegel {
   regel: number; stapcode: string; code: string | null; naam: string; soort: string; eenheid: string | null; verplicht: boolean;
@@ -222,7 +234,46 @@ interface ImportRegel {
   decimalen?: number | null;
 }
 interface ImportUitkomst { regel: number; stapcode: string; code: string | null; naam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null }
-interface ImportAntwoord { uitgevoerd: boolean; nieuw: number; gewijzigd: number; gelijk: number; fouten: number; regels: ImportUitkomst[] }
+interface ImportAntwoord {
+  uitgevoerd: boolean; nieuw: number; gewijzigd: number; gelijk: number; fouten: number; regels: ImportUitkomst[];
+  grenzen?: { nieuw: number; gewijzigd: number; gelijk: number; weghalen: number; fouten: number; regels: GrensUitkomst[] };
+}
+
+/** Getal uit een cel: getal, of tekst met komma of punt. */
+function celGetal(c: Cel, naam: string, problemen: string[]): number | null {
+  if (c === null || c === "") return null;
+  if (typeof c === "number") return c;
+  const n = leesNlGetal(String(c)) ?? leesGetal(String(c));
+  if (n === null) problemen.push(`${naam} "${c}" is geen getal`);
+  return n;
+}
+
+/** Het tweede blad: per veld en product de eigen grenzen. Lege regels tellen niet. */
+function leesGrenzenBlad(rijen: Cel[][]): { regels: GrensRegel[]; fouten: GrensUitkomst[] } {
+  const kop = (rijen[0] ?? []).map((c) => String(c ?? "").trim().toLowerCase());
+  const kolom = (naam: string) => kop.indexOf(naam.toLowerCase());
+  const ontbreekt = ["Veld", "Product"].filter((k) => kolom(k) < 0);
+  if (ontbreekt.length) throw new Error(`Blad "${GRENZEN_BLAD}": kolom ${ontbreekt.join(", ")} ontbreekt. Gebruik het sjabloon dat je hier downloadt.`);
+  const regels: GrensRegel[] = [], fouten: GrensUitkomst[] = [];
+  for (let i = 1; i < rijen.length; i++) {
+    const r = rijen[i] ?? [];
+    if (r.every((c) => c === null || c === "")) continue;
+    const cel = (naam: string): Cel => (kolom(naam) >= 0 ? r[kolom(naam)] ?? null : null);
+    const tekst = (naam: string) => { const c = cel(naam); return c === null ? null : String(c).trim() || null; };
+    const problemen: string[] = [];
+    const regel: GrensRegel = {
+      regel: i + 1, veld: tekst("Veld") ?? "", product: tekst("Product") ?? "",
+      grens_min: celGetal(cel("Ondergrens"), "Ondergrens", problemen), grens_max: celGetal(cel("Bovengrens"), "Bovengrens", problemen),
+      tolerantie: celGetal(cel("Tolerantie"), "Tolerantie", problemen),
+      tolerantie_soort: (tekst("Tolerantie in") ?? "absoluut").toLowerCase().replace("%", "procent"),
+    };
+    if (!regel.veld) problemen.push("Veld ontbreekt");
+    if (!regel.product) problemen.push("Product ontbreekt");
+    if (problemen.length) fouten.push({ regel: regel.regel, veld: regel.veld, product: regel.product, actie: "fout", wijzigingen: [], fout: problemen.join("; ") });
+    else regels.push(regel);
+  }
+  return { regels, fouten };
+}
 
 /** Zet de rijen van het blad om naar regels voor de server; fouten in het bestand zelf komen meteen terug. */
 function leesSjabloon(rijen: Cel[][]): { regels: ImportRegel[]; fouten: ImportUitkomst[] } {
@@ -238,14 +289,7 @@ function leesSjabloon(rijen: Cel[][]): { regels: ImportRegel[]; fouten: ImportUi
     if (r.every((c) => c === null || c === "")) continue;
     const tekst = (naam: string) => { const c = cel(naam); return c === null ? null : String(c).trim() || null; };
     const problemen: string[] = [];
-    const getal = (naam: string): number | null => {
-      const c = cel(naam);
-      if (c === null || c === "") return null;
-      if (typeof c === "number") return c;
-      const n = leesNlGetal(String(c)) ?? leesGetal(String(c));
-      if (n === null) problemen.push(`${naam} "${c}" is geen getal`);
-      return n;
-    };
+    const getal = (naam: string): number | null => celGetal(cel(naam), naam, problemen);
     const jaNeeCel = (naam: string, standaard: boolean): boolean => {
       const c = cel(naam);
       if (c === null || c === "") return standaard;
@@ -277,20 +321,31 @@ async function sjabloonInlezen(bestand: File, terugNaar: string) {
   const actueel = vastHouden();
   toon(kop("Sjabloon inlezen"), laden());
   let regels: ImportRegel[], fouten: ImportUitkomst[], antwoord: ImportAntwoord | null = null;
+  // Tweede blad (0.31.0): zonder dat blad (ouder sjabloon) blijven de grenzen per product zoals ze zijn.
+  let grensRegels: GrensRegel[] | undefined, grensFouten: GrensUitkomst[] = [];
   try {
-    ({ regels, fouten } = leesSjabloon(await leesXlsx(bestand)));
-    if (!fouten.length && regels.length) antwoord = await stuur<ImportAntwoord>("POST", "/beheer/velden/import", { uitvoeren: false, regels });
+    const bladen = await leesXlsxBladen(bestand);
+    const [eerste] = bladen.values();
+    ({ regels, fouten } = leesSjabloon(bladen.get("Velden") ?? eerste));
+    const gb = [...bladen.entries()].find(([n]) => n.trim().toLowerCase() === GRENZEN_BLAD.toLowerCase())?.[1];
+    if (gb) ({ regels: grensRegels, fouten: grensFouten } = leesGrenzenBlad(gb));
+    if (!fouten.length && !grensFouten.length && (regels.length || grensRegels))
+      antwoord = await stuur<ImportAntwoord>("POST", "/beheer/velden/import", { uitvoeren: false, regels, ...(grensRegels ? { grenzen_per_product: grensRegels } : {}) });
   } catch (e) { return fout(e, "Sjabloon inlezen"); }
   if (!actueel()) return;
   const uitkomsten = antwoord?.regels ?? fouten;
-  const teOpslaan = antwoord ? antwoord.nieuw + antwoord.gewijzigd : 0;
-  const kanOpslaan = !!antwoord && antwoord.fouten === 0 && teOpslaan > 0;
+  const grensUitkomsten = antwoord?.grenzen?.regels ?? grensFouten;
+  const g = antwoord?.grenzen;
+  const teOpslaan = antwoord ? antwoord.nieuw + antwoord.gewijzigd + (g ? g.nieuw + g.gewijzigd + g.weghalen : 0) : 0;
+  const metFout = uitkomsten.some((x) => x.actie === "fout") || grensUitkomsten.some((x) => x.actie === "fout");
+  const kanOpslaan = !!antwoord && !metFout && teOpslaan > 0;
   const WAT: Record<ImportUitkomst["actie"], string> = { nieuw: "Nieuw veld", wijzigen: "Wijzigen", gelijk: "Ongewijzigd", fout: "Fout" };
   const opslaan = async () => {
     try {
-      const r = await stuur<ImportAntwoord>("POST", "/beheer/velden/import", { uitvoeren: true, regels });
-      if (!r.uitgevoerd) { melding(`Niet opgeslagen: ${r.fouten} ${r.fouten === 1 ? "regel" : "regels"} met een fout. Lees het bestand opnieuw in.`, "fout"); return; }
-      melding(`${r.nieuw} nieuw, ${r.gewijzigd} gewijzigd`, "ok");
+      const r = await stuur<ImportAntwoord>("POST", "/beheer/velden/import", { uitvoeren: true, regels, ...(grensRegels ? { grenzen_per_product: grensRegels } : {}) });
+      const nFout = r.fouten + (r.grenzen?.fouten ?? 0);
+      if (!r.uitgevoerd) { melding(`Niet opgeslagen: ${nFout} ${nFout === 1 ? "regel" : "regels"} met een fout. Lees het bestand opnieuw in.`, "fout"); return; }
+      melding(`${r.nieuw} nieuw, ${r.gewijzigd} gewijzigd` + (r.grenzen ? `; grenzen per product: ${r.grenzen.nieuw} nieuw, ${r.grenzen.gewijzigd} gewijzigd, ${r.grenzen.weghalen} weggehaald` : ""), "ok");
       location.hash = `#/beheer/stappen/${terugNaar}`;
       void stappen(terugNaar);
     } catch (e) { melding((e as Error).message, "fout"); }
@@ -298,28 +353,46 @@ async function sjabloonInlezen(bestand: File, terugNaar: string) {
   const volgorde = { fout: 0, nieuw: 1, wijzigen: 2, gelijk: 3 };
   toon(
     h("p", { class: "terug" }, h("a", { href: `#/beheer/stappen/${terugNaar}` }, "Terug naar stappen en velden")),
-    kop("Sjabloon inlezen", `${bestand.name}. Dit is een controle: er is nog niets opgeslagen. Velden die niet in het bestand staan, blijven zoals ze zijn.`),
+    kop("Sjabloon inlezen", `${bestand.name}. Dit is een controle: er is nog niets opgeslagen. Velden die niet in het bestand staan, blijven zoals ze zijn.` +
+      (grensRegels ? ` Het blad "${GRENZEN_BLAD}" is wel de volledige lijst: zie onderaan.` : "")),
     h("div", { class: "tegels" },
       h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.nieuw ?? 0), h("span", { class: "tegel-tekst" }, "nieuwe velden")),
       h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gewijzigd ?? 0), h("span", { class: "tegel-tekst" }, "velden gewijzigd")),
       h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gelijk ?? 0), h("span", { class: "tegel-tekst" }, "ongewijzigd")),
-      h("div", { class: `tegel${uitkomsten.some((x) => x.actie === "fout") ? " let-op" : ""}` },
-        h("span", { class: "tegel-getal" }, uitkomsten.filter((x) => x.actie === "fout").length), h("span", { class: "tegel-tekst" }, "regels met een fout"))),
-    uitkomsten.some((x) => x.actie === "fout")
+      g ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, g.nieuw + g.gewijzigd + g.weghalen), h("span", { class: "tegel-tekst" }, "grenzen per product gewijzigd")) : null,
+      h("div", { class: `tegel${metFout ? " let-op" : ""}` },
+        h("span", { class: "tegel-getal" }, uitkomsten.filter((x) => x.actie === "fout").length + grensUitkomsten.filter((x) => x.actie === "fout").length),
+        h("span", { class: "tegel-tekst" }, "regels met een fout"))),
+    metFout
       ? h("p", { class: "afgekapt" }, "Er wordt niets opgeslagen zolang er een regel met een fout is. Pas het bestand aan en lees het opnieuw in.")
-      : !teOpslaan ? h("p", { class: "leeg" }, regels.length ? "Alles in het bestand is al zo ingesteld." : "Het bestand bevat geen velden.") : null,
+      : !teOpslaan ? h("p", { class: "leeg" }, regels.length || grensRegels ? "Alles in het bestand is al zo ingesteld." : "Het bestand bevat geen velden.") : null,
     h("div", { class: "knoppen", style: "justify-content:flex-start;margin-bottom:8px" },
       kanOpslaan ? h("button", { class: "knop knop-hoofd", type: "button", onclick: opslaan }, `${teOpslaan} ${teOpslaan === 1 ? "wijziging" : "wijzigingen"} opslaan`) : null,
       h("a", { class: "knop", href: `#/beheer/stappen/${terugNaar}` }, "Annuleren")),
     uitkomsten.length
       ? tabel(["Regel", "Stap", "Code", "Naam", "Wat", "Toelichting"], [...uitkomsten].sort((a, b) => volgorde[a.actie] - volgorde[b.actie] || a.regel - b.regel).map((x) => [
           h("span", { class: "getal" }, x.regel), x.stapcode, x.code ?? "", x.naam,
-          h("span", { class: `label ${x.actie === "fout" ? "label-grens" : x.actie === "gelijk" ? "" : "label-ok"}` }, WAT[x.actie]),
+          h("span", { class: `label ${x.actie === "fout" ? "label-buiten_grens" : x.actie === "gelijk" ? "" : "label-ok"}` }, WAT[x.actie]),
           x.fout ?? (x.actie === "nieuw" ? "Krijgt deze code bij opslaan" : x.wijzigingen.join("; ")),
         ]), "compact")
       : null,
+    grensRegels || grensFouten.length
+      ? h("section", { class: "blok" },
+          h("h2", {}, GRENZEN_BLAD),
+          h("p", { class: "sub" }, "Dit blad is de volledige lijst met eigen grenzen per product. Wat er niet (meer) in staat, wordt weggehaald; voor dat product gelden dan de grenzen van het veld."),
+          grensUitkomsten.length
+            ? tabel(["Regel", "Veld", "Product", "Wat", "Toelichting"], [...grensUitkomsten]
+                .sort((a, b) => GRENS_VOLGORDE[a.actie] - GRENS_VOLGORDE[b.actie] || a.regel - b.regel).map((x) => [
+                  h("span", { class: "getal" }, x.regel || "–"), x.veld, x.product,
+                  h("span", { class: `label ${x.actie === "fout" ? "label-buiten_grens" : x.actie === "weghalen" ? "label-buiten_tolerantie" : x.actie === "gelijk" ? "" : "label-ok"}` }, GRENS_WAT[x.actie]),
+                  x.fout ?? (x.actie === "nieuw" ? "Eigen grenzen voor dit product" : x.wijzigingen.join("; ")),
+                ]), "compact")
+            : h("p", { class: "leeg" }, "Geen eigen grenzen per product."))
+      : null,
   );
 }
+const GRENS_WAT: Record<GrensUitkomst["actie"], string> = { nieuw: "Nieuw", wijzigen: "Wijzigen", gelijk: "Ongewijzigd", weghalen: "Weghalen", fout: "Fout" };
+const GRENS_VOLGORDE: Record<GrensUitkomst["actie"], number> = { fout: 0, weghalen: 1, nieuw: 2, wijzigen: 3, gelijk: 4 };
 
 // ---------- Accounts ----------
 interface Account { gebruikersnaam: string; rol: string; actief: boolean; naam?: string | null; gedeeld?: boolean }

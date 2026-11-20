@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.31.0 — 20 november 2026 · #73
+- Nieuw: het **Excel-sjabloon** bij Beheer → Stappen en velden heeft een tweede blad **"Grenzen per product"**: per veld en product de onder- en bovengrens en de tolerantie (D55). Bij het inlezen zie je in de controle vooraf wat er nieuw is, wat wijzigt en wat weggaat.
+  - Dit blad is de volledige lijst: haal je een regel weg, dan gelden voor dat product weer de grenzen van het veld. Een sjabloon zonder dit blad (van vóór deze versie) laat de grenzen per product zoals ze zijn.
+  - Een nieuw veld krijgt pas bij opslaan een code. Grenzen per product voor dat veld lees je daarna in een tweede ronde in.
+- Opgelost: bij het inlezen van het sjabloon hadden de labels "Fout" geen kleur.
+
 ## 0.30.0 — 20 november 2026 · #53
 - Nieuw: **capaciteit per stap en product** (D55). Bij Planning → Capaciteit leg je per stap vast hoeveel batches (of lots) hij per dag aankan, voor alle producten of voor één product. Bijvoorbeeld PS1: 8 per dag, maar 3 van PRD-B.
   - Draaien er producten door elkaar, dan telt elk item voor zijn deel: 6 van PRD-A (max 8) en 1 van PRD-B (max 3) is 108 %.

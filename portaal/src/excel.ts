@@ -81,17 +81,26 @@ function kolomLetter(i: number): string {
   return s;
 }
 
+export interface Blad { naam: string; koppen: string[]; rijen: string[][] }
+
+/** Eén werkblad met een kopregel. */
 export function xlsx(blad: string, koppen: string[], rijen: string[][]): Uint8Array {
-  const naam = xml(blad.replace(/[\\/?*[\]:]/g, " ").slice(0, 31) || "Blad1");
-  const breedte = koppen.map((k, i) => Math.min(60, Math.max(k.length, ...rijen.map((r) => (r[i] ?? "").length)) + 2));
-  const cel = (r: number, c: number, v: string, kop = false) => {
-    const ref = `${kolomLetter(c)}${r + 1}`;
-    const n = kop ? null : leesNlGetal(v);
-    if (n !== null) return `<c r="${ref}"><v>${n}</v></c>`;
-    if (v === "") return "";
-    return `<c r="${ref}" t="inlineStr"${kop ? ' s="1"' : ""}><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
-  };
-  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  return xlsxBladen([{ naam: blad, koppen, rijen }]);
+}
+
+/** Een werkmap met een of meer werkbladen, elk met een vaste kopregel en een filter. */
+export function xlsxBladen(bladen: Blad[]): Uint8Array {
+  const namen = bladen.map((b, i) => xml(b.naam.replace(/[\\/?*[\]:]/g, " ").slice(0, 31) || `Blad${i + 1}`));
+  const werkblad = ({ koppen, rijen }: Blad) => {
+    const breedte = koppen.map((k, i) => Math.min(60, Math.max(k.length, ...rijen.map((r) => (r[i] ?? "").length)) + 2));
+    const cel = (r: number, c: number, v: string, kop = false) => {
+      const ref = `${kolomLetter(c)}${r + 1}`;
+      const n = kop ? null : leesNlGetal(v);
+      if (n !== null) return `<c r="${ref}"><v>${n}</v></c>`;
+      if (v === "") return "";
+      return `<c r="${ref}" t="inlineStr"${kop ? ' s="1"' : ""}><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
+    };
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
 <cols>${breedte.map((b, i) => `<col min="${i + 1}" max="${i + 1}" width="${b}" customWidth="1"/>`).join("")}</cols>
@@ -101,13 +110,14 @@ ${rijen.map((r, i) => `<row r="${i + 2}">${r.map((v, c) => cel(i + 1, c, v)).joi
 </sheetData>
 <autoFilter ref="A1:${kolomLetter(Math.max(0, koppen.length - 1))}${rijen.length + 1}"/>
 </worksheet>`;
+  };
   return zip([
     { naam: "[Content_Types].xml", inhoud: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+${bladen.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("\n")}
 <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>` },
     { naam: "_rels/.rels", inhoud: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -116,13 +126,13 @@ ${rijen.map((r, i) => `<row r="${i + 2}">${r.map((v, c) => cel(i + 1, c, v)).joi
 </Relationships>` },
     { naam: "xl/workbook.xml", inhoud: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="${naam}" sheetId="1" r:id="rId1"/></sheets>
-<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${naam.replace(/'/g, "''")}'!$A$1:$${kolomLetter(Math.max(0, koppen.length - 1))}$${rijen.length + 1}</definedName></definedNames>
+<sheets>${namen.map((n, i) => `<sheet name="${n}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets>
+<definedNames>${bladen.map((b, i) => `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${namen[i].replace(/'/g, "''")}'!$A$1:$${kolomLetter(Math.max(0, b.koppen.length - 1))}$${b.rijen.length + 1}</definedName>`).join("")}</definedNames>
 </workbook>` },
     { naam: "xl/_rels/workbook.xml.rels", inhoud: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+${bladen.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("\n")}
+<Relationship Id="rId${bladen.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>` },
     { naam: "xl/styles.xml", inhoud: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -133,7 +143,7 @@ ${rijen.map((r, i) => `<row r="${i + 2}">${r.map((v, c) => cel(i + 1, c, v)).joi
 <cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>` },
-    { naam: "xl/worksheets/sheet1.xml", inhoud: sheet },
+    ...bladen.map((b, i) => ({ naam: `xl/worksheets/sheet${i + 1}.xml`, inhoud: werkblad(b) })),
   ]);
 }
 
@@ -198,47 +208,60 @@ function kolomNummer(ref: string): number {
 
 /** Leest het eerste blad van een .xlsx als rijen met cellen (tekst, getal, ja/nee of leeg). */
 export async function leesXlsx(bestand: Blob): Promise<Cel[][]> {
+  const bladen = await leesXlsxBladen(bestand);
+  const eerste = bladen.values().next();
+  if (eerste.done) throw new Error("Geen werkblad gevonden in het Excel-bestand.");
+  return eerste.value;
+}
+
+/** Leest alle bladen van een .xlsx, op naam en in de volgorde van de werkmap. */
+export async function leesXlsxBladen(bestand: Blob): Promise<Map<string, Cel[][]>> {
   const delen = await pakUit(await bestand.arrayBuffer());
   const dec = new TextDecoder();
   const xmlVan = (naam: string) => {
     const d = delen.get(naam);
     return d ? new DOMParser().parseFromString(dec.decode(d), "application/xml") : null;
   };
-  // Eerste blad volgens workbook.xml en de relaties; anders sheet1.xml.
-  let bladPad = "xl/worksheets/sheet1.xml";
-  const wb = xmlVan("xl/workbook.xml"), rels = xmlVan("xl/_rels/workbook.xml.rels");
-  const eerste = wb?.getElementsByTagName("sheet")[0];
-  const rid = eerste?.getAttribute("r:id") ?? eerste?.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
-  if (rid && rels) {
-    const rel = [...rels.getElementsByTagName("Relationship")].find((r) => r.getAttribute("Id") === rid);
-    const doel = rel?.getAttribute("Target");
-    if (doel) bladPad = doel.startsWith("/") ? doel.slice(1) : `xl/${doel.replace(/^\.\//, "")}`;
-  }
-  const blad = xmlVan(bladPad);
-  if (!blad) throw new Error("Geen werkblad gevonden in het Excel-bestand.");
   const gedeeld = [...(xmlVan("xl/sharedStrings.xml")?.getElementsByTagName("si") ?? [])].map((si) =>
     [...si.getElementsByTagName("t")].map((t) => t.textContent ?? "").join(""));
-  const rijen: Cel[][] = [];
-  for (const rij of blad.getElementsByTagName("row")) {
-    const nr = Number(rij.getAttribute("r") ?? rijen.length + 1) - 1;
-    const cellen: Cel[] = [];
-    for (const c of rij.getElementsByTagName("c")) {
-      const kol = kolomNummer(c.getAttribute("r") ?? "A");
-      const t = c.getAttribute("t");
-      const w = c.getElementsByTagName("v")[0]?.textContent ?? null;
-      let waarde: Cel = null;
-      if (t === "s") waarde = w === null ? null : gedeeld[Number(w)] ?? null;
-      else if (t === "inlineStr") waarde = [...c.getElementsByTagName("t")].map((x) => x.textContent ?? "").join("");
-      else if (t === "str" || t === "e") waarde = w;
-      else if (t === "b") waarde = w === "1";
-      else if (w !== null && w !== "") waarde = Number(w);
-      while (cellen.length < kol) cellen.push(null);
-      cellen[kol] = typeof waarde === "string" && waarde.trim() === "" ? null : waarde;
-    }
-    while (rijen.length < nr) rijen.push([]);
-    rijen[nr] = cellen;
+  // Bladen volgens workbook.xml en de relaties; zonder werkmapgegevens alleen sheet1.xml.
+  const wb = xmlVan("xl/workbook.xml"), rels = xmlVan("xl/_rels/workbook.xml.rels");
+  const paden: [string, string][] = [];
+  for (const sh of wb?.getElementsByTagName("sheet") ?? []) {
+    const rid = sh.getAttribute("r:id") ?? sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const rel = rels ? [...rels.getElementsByTagName("Relationship")].find((r) => r.getAttribute("Id") === rid) : undefined;
+    const doel = rel?.getAttribute("Target");
+    if (doel) paden.push([sh.getAttribute("name") ?? `Blad${paden.length + 1}`, doel.startsWith("/") ? doel.slice(1) : `xl/${doel.replace(/^\.\//, "")}`]);
   }
-  return rijen;
+  if (!paden.length) paden.push(["Blad1", "xl/worksheets/sheet1.xml"]);
+  const uit = new Map<string, Cel[][]>();
+  for (const [naam, pad] of paden) {
+    const blad = xmlVan(pad);
+    if (!blad) continue;
+    const rijen: Cel[][] = [];
+    for (const rij of blad.getElementsByTagName("row")) {
+      const nr = Number(rij.getAttribute("r") ?? rijen.length + 1) - 1;
+      const cellen: Cel[] = [];
+      for (const c of rij.getElementsByTagName("c")) {
+        const kol = kolomNummer(c.getAttribute("r") ?? "A");
+        const t = c.getAttribute("t");
+        const w = c.getElementsByTagName("v")[0]?.textContent ?? null;
+        let waarde: Cel = null;
+        if (t === "s") waarde = w === null ? null : gedeeld[Number(w)] ?? null;
+        else if (t === "inlineStr") waarde = [...c.getElementsByTagName("t")].map((x) => x.textContent ?? "").join("");
+        else if (t === "str" || t === "e") waarde = w;
+        else if (t === "b") waarde = w === "1";
+        else if (w !== null && w !== "") waarde = Number(w);
+        while (cellen.length < kol) cellen.push(null);
+        cellen[kol] = typeof waarde === "string" && waarde.trim() === "" ? null : waarde;
+      }
+      while (rijen.length < nr) rijen.push([]);
+      rijen[nr] = cellen;
+    }
+    uit.set(naam, rijen);
+  }
+  if (!uit.size) throw new Error("Geen werkblad gevonden in het Excel-bestand.");
+  return uit;
 }
 
 /** Leest een tabel van het scherm (kop en zichtbare tekst per cel) en biedt hem aan als download. */
