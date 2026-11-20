@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## Zonder nieuwe versie (na 0.25.0)
+- Schermtest portaal: de controle "menu weer dicht na kiezen" wacht nu tot het menu opnieuw getekend is (faalde op GitHub doordat hij te vroeg keek).
+
 ## 0.25.0 — 20 november 2026 · #44
 - Nieuw: **Ongedaan maken.** Na het uitzetten van een veld, grondstof, operator, ploeg, oorzaak van stilstand of pc staat in de melding een knop "Ongedaan maken" (6 seconden, langer zolang de muis erop staat). Velden en grondstoffen uitzetten vraagt daarom niet meer vooraf om bevestiging. Accounts uitzetten blijft wel vooraf bevestigen, net als alles wat daarna vastligt (D50).
 - Nieuw: op een smal scherm of tablet staat het menu van de portalen dicht achter de knop "Menu", met de naam van het scherm waar je bent. De inhoud staat meteen bovenaan; Meldingen blijven altijd zichtbaar.

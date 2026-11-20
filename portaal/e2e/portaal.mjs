@@ -166,7 +166,9 @@ try {
   check("Smal: menu gaat open", await page.getByRole("link", { name: "Lotpaspoort" }).isVisible());
   await page.getByRole("link", { name: "Lotpaspoort" }).click();
   await page.waitForFunction(() => location.hash.includes("lotpaspoort") || location.hash.includes("lots"));
-  check("Smal: na kiezen is het menu weer dicht", !(await page.getByRole("link", { name: "Afwijkingen" }).isVisible()));
+  // Het menu wordt na de navigatie opnieuw getekend; wacht daarop in plaats van meteen te kijken.
+  const dicht = await page.getByRole("link", { name: "Afwijkingen" }).waitFor({ state: "hidden", timeout: 5000 }).then(() => true, () => false);
+  check("Smal: na kiezen is het menu weer dicht", dicht);
   await page.setViewportSize({ width: 1440, height: 900 });
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
