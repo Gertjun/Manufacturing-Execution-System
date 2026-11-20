@@ -50,7 +50,8 @@ const datumKort = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", m
 // ---------------------------------------------------------------------------
 export interface Week { week: string; waarden: number; buiten_tolerantie: number; buiten_grens: number }
 
-export function afwijkingenPerWeek(weken: Week[]): HTMLElement {
+/** Gestapelde staven per week. Met `kies` is elke week te kiezen (klik, Enter of spatie), bijvoorbeeld voor de lijst eronder (#59). */
+export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void): HTMLElement {
   const B = 760, H = 260, m = { l: 44, r: 12, t: 12, b: 34 };
   const bw = B - m.l - m.r, bh = H - m.t - m.b;
   const max = Math.max(1, ...weken.map((w) => w.buiten_tolerantie + w.buiten_grens));
@@ -60,7 +61,8 @@ export function afwijkingenPerWeek(weken: Week[]): HTMLElement {
   const kolom = bw / Math.max(1, weken.length);
   const breedte = Math.min(28, kolom * 0.6);
 
-  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": "Afwijkingen per week, gestapeld naar soort" });
+  // Met kies zijn de weken knoppen; een "img" zou die verbergen voor schermlezers.
+  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: kies ? "group" : "img", "aria-label": "Afwijkingen per week, gestapeld naar soort" });
   svg.append(arcering());
   for (const t of ticks) {
     svg.append(s("line", { x1: m.l, x2: B - m.r, y1: y(t), y2: y(t), class: t === 0 ? "as" : "raster" }));
@@ -80,7 +82,22 @@ export function afwijkingenPerWeek(weken: Week[]): HTMLElement {
     if (tol + gr > 0) svg.append(s("text", { x: x + breedte / 2, y: y(gr + tol) - 5, "text-anchor": "middle", class: "as-tekst" }, String(tol + gr)));
     const d = new Date(w.week);
     if (weken.length <= 14 || i % 2 === 0) svg.append(s("text", { x: x + breedte / 2, y: H - m.b + 18, "text-anchor": "middle", class: "as-tekst" }, datumKort(d)));
-    const vlak = s("rect", { x: m.l + i * kolom, y: m.t, width: kolom, height: bh, fill: "transparent", tabindex: 0, "aria-label": `Week van ${datumKort(d)}: ${tol} buiten tolerantie, ${gr} buiten grens` });
+    const kiesbaar = !!kies && tol + gr > 0;
+    const vlak = s("rect", {
+      x: m.l + i * kolom, y: m.t, width: kolom, height: bh, fill: "transparent", tabindex: 0,
+      ...(kiesbaar ? { class: "kiesbaar", role: "button" } : {}),
+      "aria-label": `Week van ${datumKort(d)}: ${tol} buiten tolerantie, ${gr} buiten grens${kiesbaar ? ". Kies voor de lijst" : ""}`,
+    });
+    if (kiesbaar) {
+      const kiesDeze = () => {
+        svg.querySelectorAll(".gekozen").forEach((x) => { x.classList.remove("gekozen"); x.removeAttribute("aria-pressed"); });
+        vlak.classList.add("gekozen");
+        vlak.setAttribute("aria-pressed", "true");
+        kies!(w.week);
+      };
+      vlak.addEventListener("click", kiesDeze);
+      vlak.addEventListener("keydown", (ev) => { if ((ev as KeyboardEvent).key === "Enter" || (ev as KeyboardEvent).key === " ") { ev.preventDefault(); kiesDeze(); } });
+    }
     const toon = (ev: MouseEvent | FocusEvent) => {
       const kader = kaderEl.getBoundingClientRect();
       const px = ev instanceof MouseEvent ? ev.clientX - kader.left : ((x + breedte) / B) * kader.width;

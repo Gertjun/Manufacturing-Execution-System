@@ -272,6 +272,19 @@ describe("productie van batch tot lot", () => {
     const alleen = await verzoek("GET", "/lots/L-2026-0001/paspoort?alleenAfwijkingen=true", op);
     assert.equal(alleen.body.regels.length, 1);
 
+    // Eén meting met alles eromheen (#56).
+    const m18 = await verzoek("GET", "/lots/L-2026-0001/meting?nummer=L-2026-0001&stap=PS18&poging=1&veld=S18.3", op);
+    assert.equal(m18.status, 200, JSON.stringify(m18.body));
+    assert.equal(m18.body.versies.length, 1);
+    assert.equal(m18.body.versies[0].markering, "buiten_grens");
+    assert.deepEqual(m18.body.herbewerkingen.map((h: any) => [h.stap, h.reden]), [["PS17", "te nat na verpakken"]]);
+    const s11 = pas.body.regels.find((r: any) => r.veld === "S1.1" && r.gecorrigeerd);
+    const m11 = await verzoek("GET", `/lots/L-2026-0001/meting?nummer=${s11.batch_of_lot}&stap=PS1&poging=1&veld=S1.1`, op);
+    assert.equal(m11.body.versies.length, 2);
+    assert.ok(m11.body.versies[1].correctie_reden);
+    assert.ok(Array.isArray(m11.body.besluiten));
+    assert.equal((await verzoek("GET", `/lots/L-2026-0001/meting?nummer=B-2026-9999&stap=PS1&poging=1&veld=S1.1`, op)).status, 404);
+
     const herbLijst = await verzoek("GET", "/analyse/herbewerkingen", op);
     assert.equal(herbLijst.body.length, 1);
     assert.equal(herbLijst.body[0].reden, "te nat na verpakken");

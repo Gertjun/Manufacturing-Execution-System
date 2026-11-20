@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.32.0 — 20 november 2026 · #56 #57 #59
+- Nieuw: in het **lotpaspoort** klik je bij een afwijking op het resultaat ("Buiten tolerantie" of "Buiten grens"). Onder de regel klapt de meting open: de waarde met de instelling, de grenzen die toen golden, wie het invoerde op welke pc, alle correcties met reden, en het keurresultaat van de batch (of de herbewerking van het lot). Nog een klik klapt hem weer dicht.
+- Nieuw: bij de **regelkaarten** (overzicht en één kaart) staat uitleg op het scherm: wat een meting, specificatiegrens, regelgrens en signaal zijn, en de vier regels.
+- Nieuw: in het **Kwaliteit-overzicht** klik je op een staaf van "Afwijkingen per week"; eronder staan dan de afwijkingen van die week, met batch, product, stap, veld en waarde. Werkt ook met het toetsenbord (Tab en Enter).
+- API: nieuw `GET /lots/{lotnummer}/meting` met één meting uit het lotpaspoort, de versies, besluiten en herbewerkingen. Bestaande aanroepen blijven gelijk.
+
 ## 0.31.0 — 20 november 2026 · #73
 - Nieuw: het **Excel-sjabloon** bij Beheer → Stappen en velden heeft een tweede blad **"Grenzen per product"**: per veld en product de onder- en bovengrens en de tolerantie (D55). Bij het inlezen zie je in de controle vooraf wat er nieuw is, wat wijzigt en wat weggaat.
   - Dit blad is de volledige lijst: haal je een regel weg, dan gelden voor dat product weer de grenzen van het veld. Een sjabloon zonder dit blad (van vóór deze versie) laat de grenzen per product zoals ze zijn.

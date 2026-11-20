@@ -71,6 +71,21 @@ try {
   check(`Teller in het menu toont ${inBeoordeling} te beoordelen`, inBeoordeling >= 2 && (await page.getByRole("link", { name: /Te beoordelen/ }).locator(".teller:not(:empty)").innerText()) === String(inBeoordeling));
   check("Grafiek afwijkingen per week staat er", (await page.locator(".grafiek > svg path").count()) > 3);
   check("S5.1 staat bovenaan bij de velden met afwijkingen", (await page.locator(".tabel tbody tr").first().innerText()).includes("S5.1"));
+  // #59: een week kiezen geeft de lijst met afwijkingen van die week.
+  const week = page.locator(".grafiek rect.kiesbaar").last();
+  const weekLabel = await week.getAttribute("aria-label");
+  const [, wTol, wGr] = weekLabel.match(/(\d+) buiten tolerantie, (\d+) buiten grens/);
+  await week.click();
+  await page.locator(".week-lijst h3").waitFor();
+  const weekRijen = await page.locator(".week-lijst tbody tr").count();
+  check("Klik op een week: lijst met precies de afwijkingen van die week (#59)", weekRijen === Number(wTol) + Number(wGr), `${weekRijen} vs ${weekLabel}`);
+  check("De gekozen week is gemarkeerd", (await page.locator(".grafiek rect.gekozen[aria-pressed='true']").count()) === 1);
+  await page.locator(".week-lijst").scrollIntoViewIfNeeded();
+  await shot("01b-overzicht-week-gekozen");
+  await page.locator(".grafiek rect.kiesbaar").first().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction((l) => document.querySelector(".week-lijst h3") && document.querySelector(".grafiek rect.gekozen")?.getAttribute("aria-label") !== l, weekLabel);
+  check("Ook met het toetsenbord een week kiezen", true);
   await page.selectOption("#periode", "90");
   await page.locator(".tegel").first().waitFor();
   await page.waitForTimeout(400);
@@ -169,6 +184,16 @@ try {
   await shot("08-lotpaspoort");
   check("Lotpaspoort toont de herbewerking", (await page.locator(".feiten").innerText()).includes("te nat na verpakken"));
   check("Afwijking (vochtgehalte) bovenaan", (await page.locator(".blok").first().innerText()).includes("S18.3"));
+  // #56: klik op een resultaat voor de meting, correcties en het keurresultaat.
+  const knopMeting = page.locator(".blok").first().locator("button.label-knop").first();
+  await knopMeting.click();
+  await page.locator("tr.meting-detail .feiten").first().waitFor();
+  const detail = await page.locator("tr.meting-detail").first().innerText();
+  check("Resultaat openklikken: meting met grenzen van toen en wie het invoerde (#56)", detail.includes("Grenzen toen") && detail.includes("Ingevoerd"), detail.slice(0, 200));
+  check("Knop zegt dat hij open is", (await knopMeting.getAttribute("aria-expanded")) === "true");
+  await shot("08b-lotpaspoort-meting");
+  await knopMeting.click();
+  check("Nog een klik: weer dicht", (await page.locator("tr.meting-detail").count()) === 0);
   const [n] = await q("SELECT count(*)::int AS n FROM fabriek.lotpaspoort WHERE lotnummer = $1", [herb.lotnummer]);
   await page.getByText(/metingen binnen grenzen tonen/).click();
   const getoond = await page.locator(".blok", { hasNot: page.getByRole("heading", { name: "Grondstoffen", exact: true }) }).locator(".tabel tbody tr").count();

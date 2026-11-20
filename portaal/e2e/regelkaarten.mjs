@@ -58,6 +58,11 @@ try {
   const [{ n }] = await q("SELECT count(*)::int AS n FROM fabriek.veld WHERE actief");
   check("Eén regel per actief veld", (await page.locator("tbody tr").count()) === n, String(n));
   await page.screenshot({ path: `${SHOTS}/01-overzicht.png`, fullPage: true });
+  // #57: uitleg bij de regelkaarten op het scherm.
+  await page.locator("details.uitleg summary").click();
+  check("Uitleg bij de regelkaarten: wat een signaal is en de vier regels (#57)",
+    (await page.locator("details.uitleg[open]").innerText()).includes("Signaal") && (await page.locator("details.uitleg .uitleg-regels li").count()) === 4);
+  await page.locator("details.uitleg summary").click();
   const eerste = page.locator("tbody tr").first();
   const signalen = Number(await eerste.locator("td").nth(3).innerText());
   check("Velden met signalen staan bovenaan", signalen > 0, String(signalen));

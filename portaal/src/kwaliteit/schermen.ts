@@ -112,6 +112,27 @@ export async function overzicht() {
   if (!actueel()) return;
   const afwijkend = d.buiten_tolerantie + d.buiten_grens;
   const pct = d.waarden ? (afwijkend / d.waarden) * 100 : 0;
+  // #59: klik op een week in de grafiek, dan staan de afwijkingen van die week eronder.
+  const weekLijst = h("div", { class: "week-lijst", "aria-live": "polite" });
+  const toonWeek = async (week: string) => {
+    const bereik = periode.bereik();
+    const tot = new Date(`${week}T12:00:00`);
+    tot.setDate(tot.getDate() + 7);
+    const totIso = `${tot.getFullYear()}-${String(tot.getMonth() + 1).padStart(2, "0")}-${String(tot.getDate()).padStart(2, "0")}`;
+    const van = bereik.van && bereik.van > week ? bereik.van : week;
+    weekLijst.replaceChildren(laden());
+    let rijen: Afwijking[];
+    try { rijen = await haal<Afwijking[]>(`/analyse/afwijkingen${qs({ van, tot: totIso, product: bereik.product })}`); } catch (e) {
+      weekLijst.replaceChildren(h("p", { class: "leeg" }, `De lijst kon niet worden geladen: ${e instanceof Error ? e.message : String(e)}`)); return;
+    }
+    if (!actueel()) return;
+    const titel = `Afwijkingen in de week van ${new Date(`${week}T12:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}`;
+    weekLijst.replaceChildren(...([
+      h("h3", {}, titel),
+      afgekapt(rijen.length, 500, "afwijkende metingen"),
+      rijen.length ? afwijkingTabel(rijen) : h("p", { class: "leeg" }, "Geen afwijkingen in deze week."),
+    ] as (Node | null)[]).filter((x): x is Node => x !== null));
+  };
   const tegel = (getal: number | string, tekst: string, link?: string, nadruk = false) =>
     h(link ? "a" : "div", { class: nadruk ? "tegel nadruk" : "tegel", href: link }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst));
   toon(
@@ -125,7 +146,9 @@ export async function overzicht() {
     ),
     h("section", { class: "blok" },
       h("h2", {}, "Afwijkingen per week"),
-      d.per_week.some((w) => w.buiten_grens + w.buiten_tolerantie > 0) ? afwijkingenPerWeek(d.per_week) : h("p", { class: "leeg" }, "Geen afwijkingen in deze periode.")),
+      d.per_week.some((w) => w.buiten_grens + w.buiten_tolerantie > 0)
+        ? [h("p", { class: "sub" }, "Klik op een staaf voor de afwijkingen van die week."), afwijkingenPerWeek(d.per_week, (week) => void toonWeek(week)), weekLijst]
+        : h("p", { class: "leeg" }, "Geen afwijkingen in deze periode.")),
     h("section", { class: "blok" },
       h("h2", {}, "Velden met de meeste afwijkingen"),
       d.top_velden.length
@@ -168,19 +191,82 @@ interface Regel {
   markering: Markering; gecorrigeerd: boolean; operator: string; pc: string; afgerond_op: string | null; decimalen?: number | null;
 }
 
-function regelsTabel(regels: Regel[], metBatch: boolean) {
+/** Tabel met metingen. Met een lotnummer is het resultaat van een afwijking een knop die de meting openklapt (#56). */
+function regelsTabel(regels: Regel[], metBatch: boolean, lotnummer?: string) {
+  const koppen = ["Stap", ...(metBatch ? ["Batch of lot"] : []), "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", "Afgerond"];
   return tabel(
-    ["Stap", ...(metBatch ? ["Batch of lot"] : []), "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", "Afgerond"],
+    koppen,
     regels.map((r) => [
       `${r.stap}${r.poging > 1 ? ` (poging ${r.poging})` : ""}`,
       ...(metBatch ? [r.batch_of_lot] : []),
       `${r.veld} ${r.veldnaam}`,
       h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting, r.decimalen) : ""),
       h("span", { class: "getal" }, `${toonGetal(r.gemeten, r.decimalen)}${r.eenheid ? ` ${r.eenheid}` : ""}`, r.gecorrigeerd ? h("span", { class: "noot" }, " gecorrigeerd") : ""),
-      grenzen(r), label(r.markering), r.operator, kort(r.afgerond_op),
+      grenzen(r), lotnummer && r.markering !== "ok" ? metingKnop(lotnummer, r, koppen.length) : label(r.markering), r.operator, kort(r.afgerond_op),
     ]),
     "compact",
   );
+}
+
+interface MetingDetail {
+  batch_of_lot: string; stap: string; stapnaam: string; poging: number; herbewerking_reden: string | null; veld: string; veldnaam: string; soort: string;
+  eenheid: string | null; decimalen: number | null; operator: string; pc: string; gestart_op: string; afgerond_op: string | null; product: string | null;
+  versies: { setting: number | null; gemeten: number; grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string | null;
+    markering: Markering; ingevoerd_op: string; door: string; correctie_reden: string | null }[];
+  besluiten: { besluit: string; reden: string; besloten_door: string; besloten_op: string }[];
+  herbewerkingen: { stap: string; poging: number; reden: string | null; gestart_op: string }[];
+}
+
+/** Knop op het resultaat: klapt onder de regel de meting open, met correcties en het keurresultaat. */
+function metingKnop(lotnummer: string, r: Regel, kolommen: number): Node {
+  const knop = h("button", { type: "button", class: "label-knop", "aria-expanded": "false", "aria-label": `${markeringTekst[r.markering]}: ${r.veld} van ${r.batch_of_lot} bekijken` },
+    label(r.markering), h("span", { class: "label-pijl", "aria-hidden": "true" }, "▸")) as HTMLButtonElement;
+  knop.addEventListener("click", async () => {
+    const rij = knop.closest("tr")!;
+    const open = rij.nextElementSibling?.classList.contains("meting-detail") ? rij.nextElementSibling : null;
+    if (open) { open.remove(); knop.setAttribute("aria-expanded", "false"); return; }
+    const vak = h("td", { colspan: String(kolommen) }, laden());
+    rij.after(h("tr", { class: "meting-detail" }, vak));
+    knop.setAttribute("aria-expanded", "true");
+    try {
+      const m = await haal<MetingDetail>(`/lots/${encodeURIComponent(lotnummer)}/meting${qs({ nummer: r.batch_of_lot, stap: r.stap, poging: r.poging, veld: r.veld })}`);
+      vak.replaceChildren(metingDetail(m));
+    } catch (e) { vak.replaceChildren(h("p", { class: "leeg" }, (e as Error).message)); }
+  });
+  return knop;
+}
+
+function metingDetail(m: MetingDetail): Node {
+  const nu = m.versies[m.versies.length - 1];
+  const g = (n: number | null) => (n === null ? "" : toonGetal(n, m.decimalen));
+  const eenheid = m.eenheid ? ` ${m.eenheid}` : "";
+  const verschil = nu.setting !== null ? nu.gemeten - nu.setting : null;
+  const isBatch = m.batch_of_lot.startsWith("B-");
+  return h("div", { class: "meting-vak" },
+    h("dl", { class: "feiten" },
+      h("div", {}, h("dt", {}, "Meting"), h("dd", {}, `${m.veld} ${m.veldnaam}, ${m.stap} ${m.stapnaam}${m.poging > 1 ? ` (poging ${m.poging})` : ""}`)),
+      h("div", {}, h("dt", {}, "Gemeten"), h("dd", {}, `${g(nu.gemeten)}${eenheid}`,
+        nu.setting !== null ? ` bij instelling ${g(nu.setting)}${eenheid} (verschil ${verschil! > 0 ? "+" : ""}${toonGetal(verschil!, m.decimalen)}${eenheid})` : "")),
+      h("div", {}, h("dt", {}, "Grenzen toen"), h("dd", {}, grenzen({ ...nu, eenheid: m.eenheid }) || "Geen")),
+      h("div", {}, h("dt", {}, "Ingevoerd"), h("dd", {}, `${kort(m.versies[0].ingevoerd_op)} door ${m.operator} op ${m.pc}${m.product ? `, product ${m.product}` : ""}`))),
+    m.versies.length > 1
+      ? h("div", {}, h("h3", {}, "Correcties"),
+          h("ol", { class: "meting-versies" }, m.versies.map((v, i) =>
+            h("li", {}, `${kort(v.ingevoerd_op)}: ${g(v.gemeten)}${eenheid} `, label(v.markering), ` door ${v.door}`,
+              i > 0 && v.correctie_reden ? h("div", { class: "sub" }, `Reden: ${v.correctie_reden}`) : null))))
+      : null,
+    isBatch
+      ? h("div", {}, h("h3", {}, "Beoordeling van de batch"),
+          m.besluiten.length
+            ? h("ul", { class: "meting-versies" }, m.besluiten.map((b) =>
+                h("li", {}, h("strong", {}, besluitTekst[b.besluit] ?? b.besluit), ` op ${kort(b.besloten_op)} door ${b.besloten_door}`, h("div", { class: "sub" }, `Reden: ${b.reden}`))))
+            : h("p", { class: "sub" }, "Deze batch is niet in beoordeling geweest; er is geen keurresultaat."),
+          h("p", {}, h("a", { href: `#/kwaliteit/batch/${m.batch_of_lot}` }, `Batch ${m.batch_of_lot} bekijken`)))
+      : h("div", {}, h("h3", {}, "Herbewerking van het lot"),
+          m.herbewerkingen.length
+            ? h("ul", { class: "meting-versies" }, m.herbewerkingen.map((x) =>
+                h("li", {}, h("strong", {}, `${x.stap} opnieuw (poging ${x.poging})`), ` vanaf ${kort(x.gestart_op)}`, x.reden ? h("div", { class: "sub" }, `Reden: ${x.reden}`) : null)))
+            : h("p", { class: "sub" }, "Het lot is niet herbewerkt.")));
 }
 
 interface Lot { lotnummer: string; status: string; aangemaakt_op: string; batches: string[]; afwijkingen?: number; herbewerkingen?: number }
@@ -243,7 +329,8 @@ async function toonLotpaspoort(nummer: string) {
       h("div", {}, h("dt", {}, "Metingen"), h("dd", {}, String(pas.regels.length))),
     ),
     h("section", { class: "blok" }, h("h2", {}, "Afwijkingen"),
-      afw.length ? regelsTabel(afw, true) : h("p", { class: "leeg goed" }, "Geen afwijkingen in dit lot en zijn batches.")),
+      afw.length ? [h("p", { class: "sub" }, "Klik op een resultaat voor de meting, correcties en het keurresultaat."), regelsTabel(afw, true, lot.lotnummer)]
+        : h("p", { class: "leeg goed" }, "Geen afwijkingen in dit lot en zijn batches.")),
     pas.grondstoffen?.length
       ? h("section", { class: "blok" }, h("h2", {}, "Grondstoffen"),
           tabel(["Stap", "Batch of lot", "Grondstof", "Partij", "Hoeveelheid"], pas.grondstoffen.map((g) => [
@@ -319,7 +406,14 @@ export async function afwijkingen() {
       h("span", { class: "sub" }, `${rijen.length} ${rijen.length === 1 ? "meting" : "metingen"}`)),
     afgekapt(rijen.length, 500, "afwijkende metingen"),
     rijen.length
-      ? tabel(["Ingevoerd", "Batch of lot", "Lot", ...(gekozenProduct.code ? [] : ["Product"]), "Stap", "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", ""],
+      ? afwijkingTabel(rijen)
+      : h("p", { class: "leeg goed" }, "Geen afwijkingen met deze filters."),
+  );
+}
+
+/** Tabel met afwijkende metingen (scherm Afwijkingen en de weeklijst in het overzicht). */
+function afwijkingTabel(rijen: Afwijking[]) {
+  return tabel(["Ingevoerd", "Batch of lot", "Lot", ...(gekozenProduct.code ? [] : ["Product"]), "Stap", "Veld", "Instelling", "Gemeten", "Grenzen", "Resultaat", "Operator", ""],
           rijen.map((r) => [
             kort(r.ingevoerd_op),
             h("a", { href: r.batch_of_lot.startsWith("L-") ? `#/kwaliteit/lotpaspoort/${r.batch_of_lot}` : `#/kwaliteit/batch/${r.batch_of_lot}` }, r.batch_of_lot),
@@ -329,9 +423,7 @@ export async function afwijkingen() {
             h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting, r.decimalen) : ""),
             h("span", { class: "getal" }, `${toonGetal(r.gemeten, r.decimalen)}${r.eenheid ? ` ${r.eenheid}` : ""}`),
             grenzen(r), label(r.markering), r.operator, h("a", { href: `#/kwaliteit/trend/${r.veld}` }, "Trend"),
-          ]), "compact")
-      : h("p", { class: "leeg goed" }, "Geen afwijkingen met deze filters."),
-  );
+          ]), "compact");
 }
 
 // ---------- Trend per veld ----------
@@ -484,6 +576,28 @@ function cpkLabel(c: number | null) {
   return h("span", { class: `label ${klasse}` }, `${toonGetal(c)} ${tekst}`);
 }
 
+/** Uitleg bij de regelkaarten, op het scherm zelf (#57). De regels zelf staan in de API (REGELS); dit is de uitleg erbij. */
+function regelkaartUitleg(): Node {
+  return h("details", { class: "meer uitleg" },
+    h("summary", {}, "Wat is een meting, een regelgrens en een signaal?"),
+    h("dl", { class: "uitleg-lijst" },
+      h("dt", {}, "Meting"),
+      h("dd", {}, "Eén ingevulde waarde van een veld bij één batch of lot. Elk punt op de kaart is één meting, in de volgorde waarin ze zijn ingevoerd. Bij een procesparameter is het punt het verschil tussen gemeten en instelling, omdat de instelling per batch anders kan zijn."),
+      h("dt", {}, "Specificatiegrens"),
+      h("dd", {}, "Wat het product mag: de onder- en bovengrens van het veld (of van het product). Een meting daarbuiten is een afwijking: \"Buiten grens\". Op de kaart een rode stippellijn."),
+      h("dt", {}, "Regelgrens"),
+      h("dd", {}, "Wat het proces normaal doet: het gemiddelde plus en min 3 keer de spreiding (sigma), berekend uit de metingen zelf. Dit zegt niets over goed of fout, alleen over gewoon of ongewoon."),
+      h("dt", {}, "Signaal"),
+      h("dd", {}, "Een patroon dat bij een stabiel proces bijna nooit toevallig voorkomt. Het wijst op een verandering: een andere grondstof, slijtage, een andere instelling. Een signaal is geen afwijking; het kan ruim binnen de specificatie vallen. Het is een reden om te kijken, vóórdat er afwijkingen komen.")),
+    h("p", {}, h("strong", {}, "De vier regels")),
+    h("ol", { class: "uitleg-regels" },
+      h("li", {}, h("strong", {}, "Eén punt buiten de regelgrens. "), "Er was iets ongewoons bij die ene batch of dat lot."),
+      h("li", {}, h("strong", {}, "2 van 3 punten ver aan dezelfde kant "), "(buiten 2 sigma). Een plotselinge verschuiving."),
+      h("li", {}, h("strong", {}, "4 van 5 punten aan dezelfde kant buiten 1 sigma. "), "Een kleinere, maar blijvende verschuiving."),
+      h("li", {}, h("strong", {}, "8 punten op rij aan dezelfde kant van het gemiddelde. "), "Het proces is langzaam weggelopen, ook al is elke meting op zich normaal.")),
+    h("p", { class: "sub" }, "Onder 20 metingen zijn de regelgrenzen nog onzeker: dan is de kaart voorlopig."));
+}
+
 export async function regelkaarten(veld?: string) {
   if (veld) return regelkaartDetail(veld);
   const actueel = vastHouden();
@@ -505,6 +619,7 @@ export async function regelkaarten(veld?: string) {
         : x.grenzen_per_product && !gekozenProduct.code && x.soort !== "procesparameter" ? h("span", { class: "sub" }, "grenzen per product: kies een product")
         : cpkLabel(x.cpk)]), "compact"),
     h("p", { class: "sub" }, "Cpk: hoe ver het gemiddelde van de dichtstbijzijnde specificatiegrens ligt, gedeeld door 3 keer de spreiding. Vanaf 1,33 is er ruim marge. Bij een procesparameter staat geen Cpk: daar tekent de kaart het verschil met de setting. Onder 20 metingen is een regelkaart voorlopig en staat er geen Cpk."),
+    regelkaartUitleg(),
   );
 }
 
@@ -545,6 +660,7 @@ async function regelkaartDetail(code: string) {
             ? h("section", { class: "blok" }, h("h2", {}, "Signalen"),
                 tabel(["Wanneer", "Batch of lot", "Waarde", "Regel"], signalen.slice(-50).reverse().map((p) => [
                   kort(p.tijd), p.nummer, `${toonGetal(p.waarde, v.decimalen)}${e}`, `${p.signaal}: ${r.regels[String(p.signaal)]}`]), "compact"))
-            : h("p", { class: r.voorlopig ? "leeg" : "leeg goed" }, r.voorlopig ? "Geen signalen in deze metingen; met zo weinig metingen zegt dat nog niet veel." : "Geen signalen: het proces is stabiel in deze periode.")),
+            : h("p", { class: r.voorlopig ? "leeg" : "leeg goed" }, r.voorlopig ? "Geen signalen in deze metingen; met zo weinig metingen zegt dat nog niet veel." : "Geen signalen: het proces is stabiel in deze periode."),
+          regelkaartUitleg()),
   );
 }

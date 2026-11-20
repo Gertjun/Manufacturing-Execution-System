@@ -491,3 +491,28 @@ a.merk:hover { text-decoration: underline; }
 .filter-groep { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; }
 .filter-product { padding-bottom: var(--space-2); color: var(--inkt-zacht); }
 .filter-product strong { color: var(--inkt); }
+
+/* Lotpaspoort: afwijking openklappen (#56) */
+.label-knop { display: inline-flex; align-items: center; gap: var(--space-1); background: none; border: 1px solid transparent; border-radius: var(--radius-sm); padding: var(--space-1); min-height: var(--doel-min); cursor: pointer; font: inherit; color: inherit; }
+.label-knop:hover { border-color: var(--lijn); }
+.label-knop .label-pijl { transition: transform 0.15s; color: var(--inkt-zacht); }
+.label-knop[aria-expanded="true"] .label-pijl { transform: rotate(90deg); }
+.meting-detail > td { background: var(--vlak-2); }
+.meting-vak { display: grid; gap: var(--space-3); padding: var(--space-2) 0; }
+.meting-vak h3 { margin: 0 0 var(--space-1); font-size: var(--text-md); }
+.meting-versies { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); }
+@media (prefers-reduced-motion: reduce) { .label-knop .label-pijl { transition: none; } }
+
+/* Uitleg bij de regelkaarten (#57) */
+.uitleg { margin-top: var(--space-4); max-width: 75ch; }
+.uitleg-lijst { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0; }
+.uitleg-lijst dt { font-weight: 700; }
+.uitleg-lijst dd { margin: 0; }
+.uitleg-regels { display: grid; gap: var(--space-1); }
+@media (max-width: 600px) { .uitleg-lijst { grid-template-columns: 1fr; } .uitleg-lijst dd { margin-bottom: var(--space-2); } }
+
+/* #59: een week in "Afwijkingen per week" kiezen */
+.grafiek rect.kiesbaar { cursor: pointer; }
+.grafiek rect.gekozen { stroke: var(--actie); stroke-width: 2; }
+.week-lijst:not(:empty) { margin-top: var(--space-4); }
+.week-lijst h3 { font-size: var(--text-md); margin: 0 0 var(--space-2); }

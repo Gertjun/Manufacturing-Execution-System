@@ -66,10 +66,7 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 ### A2. Uit de eerste demo — eind november 2026 tot januari 2027
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten.
 - #54 **Wandscherm per processtap** (klein) — Een wandscherm instellen voor één of enkele stappen, zodat je alleen de planning en het werk van die stap ziet.
-- #56 **Lotpaspoort: klik op een afwijking** (klein) — Bij "Buiten tolerantie" of "Buiten grens" de meting zien, en of er een beoordeling en keurresultaat met reden is.
-- #57 **Uitleg meting en signaal bij de regelkaarten** (klein) — Wat een signaal is en de vier regels, bij het scherm zelf.
 - #58 **Resolutie en afgelopen jaar** (middel) — Naast Periode een keuze per dag, per week of per maand voor alle grafieken met tijd; periode "Afgelopen jaar" erbij.
-- #59 **Afwijkingen per week: klik op een staaf** (klein) — Lijst met batch, product, stap, veld en waarde achter die staaf.
 - #60 **Batches gestart per week** (klein) — Dezelfde grafiek als "Lots gereed per week" in Productie per week.
 - #61 **Herbewerkingen met stand** (middel) — Kolom met de stand van de herbewerking (nog te plannen, gepland, bezig, klaar), en ook herbewerkingen die nog niet gestart zijn.
 - #62 **Ploegoverdracht: afgerond van gepland** (klein) — "28 / 32 stappen afgerond".

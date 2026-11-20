@@ -164,6 +164,79 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  // Eén meting uit het lotpaspoort met alles eromheen (0.32.0, #56): de versies (met correcties), wie wat deed,
+  // en het keurresultaat van de batch of de herbewerkingen van het lot.
+  const OptT = Type.Union([Type.Null(), Type.String()]);
+  const OptN = Type.Union([Type.Null(), Type.Number()]);
+  app.get(
+    "/:lotnummer/meting",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["lots", "analyse"],
+        description: "Eén meting uit het lotpaspoort: alle versies (de laatste geldt), en het keurresultaat van de batch of de herbewerkingen van het lot.",
+        params: Type.Object({ lotnummer: LotNummer }),
+        querystring: Type.Object({ nummer: Type.String({ description: "Batch- of lotnummer zoals in het lotpaspoort" }), stap: StapCode, poging: Type.Integer({ minimum: 1 }), veld: Type.String() }),
+        response: {
+          200: Type.Object({
+            batch_of_lot: Type.String(), stap: Type.String(), stapnaam: Type.String(), poging: Type.Integer(), herbewerking_reden: OptT,
+            veld: Type.String(), veldnaam: Type.String(), soort: Type.String(), eenheid: OptT, decimalen: Type.Union([Type.Null(), Type.Integer()]),
+            operator: Type.String(), pc: Type.String(), gestart_op: Type.String({ format: "date-time" }), afgerond_op: Type.Union([Type.Null(), Type.String({ format: "date-time" })]),
+            product: OptT,
+            versies: Type.Array(Type.Object({
+              setting: OptN, gemeten: Type.Number(), grens_min: OptN, grens_max: OptN, tolerantie: OptN, tolerantie_soort: OptT,
+              markering: Type.String(), ingevoerd_op: Type.String({ format: "date-time" }), door: Type.String(), correctie_reden: OptT,
+            }), { description: "Oudste eerst; de laatste geldt" }),
+            besluiten: Type.Array(Type.Object({ besluit: Type.String(), reden: Type.String(), besloten_door: Type.String(), besloten_op: Type.String({ format: "date-time" }) })),
+            herbewerkingen: Type.Array(Type.Object({ stap: Type.String(), poging: Type.Integer(), reden: OptT, gestart_op: Type.String({ format: "date-time" }) })),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const q = req.query;
+      const [r] = await lees<{ id: string; batch_id: string | null; lot_id: string }>(
+        app.db,
+        `SELECT r.id, r.batch_id, l.id AS lot_id, coalesce(b.batchnummer, l.lotnummer) AS batch_of_lot, s.code AS stap, s.naam AS stapnaam,
+                r.poging, r.reden AS herbewerking_reden, v.code AS veld, v.naam AS veldnaam, v.soort, v.eenheid, v.decimalen,
+                o.naam AS operator, p.naam AS pc, r.gestart_op, r.afgerond_op, pr.code AS product
+           FROM lot l
+           JOIN stapregistratie r ON r.lot_id = l.id OR r.batch_id IN (SELECT id FROM batch WHERE lot_id = l.id)
+           LEFT JOIN batch b ON b.id = r.batch_id
+           JOIN processtap s ON s.id = r.processtap_id
+           JOIN veld v ON v.processtap_id = s.id AND v.code = $5
+           JOIN operator o ON o.id = r.operator_id
+           JOIN pc p ON p.id = r.pc_id
+           LEFT JOIN product pr ON pr.id = r.product_id
+          WHERE l.lotnummer = $1 AND coalesce(b.batchnummer, l.lotnummer) = $2 AND s.code = $3 AND r.poging = $4`,
+        [req.params.lotnummer, q.nummer, q.stap, q.poging, q.veld],
+      );
+      if (!r) throw niet("Meting");
+      const versies = await lees(
+        app.db,
+        `SELECT w.setting, w.gemeten, w.grens_min, w.grens_max, w.tolerantie, w.tolerantie_soort, w.markering, w.ingevoerd_op,
+                coalesce(g.gebruikersnaam, o.naam, '?') AS door, w.correctie_reden
+           FROM waarde w JOIN veld v ON v.id = w.veld_id
+           LEFT JOIN operator o ON o.id = w.ingevoerd_door LEFT JOIN gebruiker g ON g.id = w.gecorrigeerd_door
+          WHERE w.stapregistratie_id = $1 AND v.code = $2
+          ORDER BY w.ingevoerd_op, w.vervangt_waarde_id NULLS FIRST`,
+        [r.id, q.veld],
+      );
+      const besluiten = r.batch_id
+        ? await lees(app.db,
+            `SELECT d.besluit, d.reden, g.gebruikersnaam AS besloten_door, d.besloten_op
+               FROM batch_besluit d JOIN gebruiker g ON g.id = d.besloten_door WHERE d.batch_id = $1 ORDER BY d.besloten_op`, [r.batch_id])
+        : [];
+      const herbewerkingen = r.batch_id
+        ? []
+        : await lees(app.db,
+            `SELECT s.code AS stap, x.poging, x.reden, x.gestart_op FROM stapregistratie x JOIN processtap s ON s.id = x.processtap_id
+              WHERE x.lot_id = $1 AND x.herbewerking_start ORDER BY x.gestart_op`, [r.lot_id]);
+      const { id: _id, batch_id: _b, lot_id: _l, ...rest } = r;
+      return { ...rest, versies, besluiten, herbewerkingen } as never;
+    },
+  );
+
   // Lotpaspoort: alle actuele waarden van het lot en zijn 4 batches.
   app.get(
     "/:lotnummer/paspoort",
