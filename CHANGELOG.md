@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Zonder nieuwe versie (na 0.25.0)
+- Roadmap #11: verwijst naar het laptoppakket van de nieuwste versie in plaats van 0.23.0.
 - Schermtest portaal: de controle "menu weer dicht na kiezen" wacht nu tot het menu opnieuw getekend is (faalde op GitHub doordat hij te vroeg keek).
 
 ## 0.25.0 — 20 november 2026 · #44

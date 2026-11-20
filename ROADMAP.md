@@ -58,7 +58,7 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 **Poort A:** gehaald zodra Geert het laptoppakket van de nieuwste versie draait.
 
 ### B. Proof of concept en praktijk — december 2026
-- #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket 0.23.0 draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
+- #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie (nu 0.25.0) draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
 
 **Poort B:** elke praktijktest heeft een uitkomst; wat misging is opgelost of bewust geaccepteerd.
