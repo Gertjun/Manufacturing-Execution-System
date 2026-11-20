@@ -87,7 +87,7 @@ export interface Registratie {
 
 export interface Werkvoorraad {
   open: Registratie[];
-  wachtend: { soort: "batch" | "lot"; nummer: string; sinds: string | null }[];
+  wachtend: { soort: "batch" | "lot"; nummer: string; sinds: string | null; product?: string | null }[];
 }
 
 export interface Overzicht {

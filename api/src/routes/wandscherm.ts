@@ -132,9 +132,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `SELECT (SELECT count(*) FROM batch WHERE geplande_dag = current_date AND status <> 'vervallen')::int AS gepland_vandaag,
                 (SELECT count(*) FROM batch WHERE gestart_op >= current_date)::int AS gestart_vandaag,
-                (SELECT count(*) FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id
-                  WHERE s.id = (SELECT id FROM processtap WHERE actief AND niveau = 'lot' ORDER BY volgorde DESC LIMIT 1)
-                    AND r.status = 'afgerond' AND r.afgerond_op >= current_date)::int AS lots_gereed_vandaag,
+                (SELECT count(*) FROM stapregistratie r
+                  WHERE r.lot_id IS NOT NULL AND r.status = 'afgerond' AND r.afgerond_op >= current_date
+                    AND r.processtap_id = route_laatste(lot_product(r.lot_id), 'lot'))::int AS lots_gereed_vandaag,
                 (SELECT count(*) FROM batch WHERE status = 'in_beoordeling')::int AS in_beoordeling`,
       );
 

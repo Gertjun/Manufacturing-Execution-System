@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 20 november 2026 · versie **0.27.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 20 november 2026 · versie **0.28.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina zijn gebouwd in 0.27.0 (#49, #50, D53, D54); volgende stap is de route per product (#51–#53, D55). Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54) en de route per product (0.28.0, #51, D55) zijn gebouwd; volgende stappen zijn de productkiezer met grenzen per product (#52) en capaciteit per stap en product (#53). Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.27.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.28.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.27.0, 20 november 2026):** geslaagd: databaseregels (119), API, migraties (tot en met 17), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor eigen inlog, de startpagina en de overstap naar het invoerscherm. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, en niet met een pc die offline is bij het begin van een dienst.
+- **Laatste testronde (0.28.0, 20 november 2026):** geslaagd: databaseregels (145), API, migraties (tot en met 18), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor routes per product en de route-editor. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes (#2).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -93,7 +93,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 | Dagoverzicht (proef) | Alle stappen van één dag onder elkaar, met ⚠ waar de vorige stap niet op tijd is (D52, #48) |
 | Batchroute (proef) | Per batch die nog niet in een lot zit: per stap klaar, bezig of de geplande dag, met ⚠ en een filter (D52, #48) |
 | Lotvoorstellen | Voorstellen welke 4 batches samen een lot worden |
-| Producten | Producten toevoegen, hernoemen of uitzetten |
+| Producten | Producten toevoegen, hernoemen of uitzetten, en per product de route: welke stappen het doorloopt en in welke volgorde (D55) |
 | Capaciteit | Batches per weekdag en afwijkende dagen; waarschuwing bij te vol (D36) |
 | Etiketten | Etiketten per dag printen: etiketprinter 100 × 50 mm of A4-vel 3 × 7 (D35) |
 

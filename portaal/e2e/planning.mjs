@@ -202,6 +202,33 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.locator("tr", { hasText: "PRD-D" }).waitFor();
   check("Product toegevoegd", (await q("SELECT count(*)::int AS n FROM fabriek.product"))[0].n === 4);
 
+  console.log("\nRoute per product (D55)");
+  const routeTekst = async (code) => (await page.locator("tr", { hasText: code }).locator(".product-route").innerText()).trim();
+  check("Producten: route als samenvatting",
+    (await routeTekst("PRD-A")) === "Alle stappen" && (await routeTekst("PRD-C")) === "15 stappen, zonder PS6, PS14 en PS17, eigen volgorde",
+    `${await routeTekst("PRD-A")} | ${await routeTekst("PRD-C")}`);
+  await page.locator("tr", { hasText: "PRD-D" }).getByRole("link", { name: "Route wijzigen" }).click();
+  await page.getByRole("heading", { name: "Route van PRD-D" }).waitFor();
+  check("Nieuw product: alle stappen", (await page.locator(".routelijst-buiten").count()) === 0 && (await page.getByRole("button", { name: "Route opslaan" }).isDisabled()));
+  await page.getByRole("button", { name: "PS6 weghalen uit de route" }).click();
+  check("Na weghalen staat de focus op Toevoegen van die stap",
+    await page.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "PS6 toevoegen aan de route");
+  await page.getByRole("button", { name: "PS7 weghalen uit de route" }).click();
+  await page.getByRole("button", { name: "PS11 eerder" }).click();
+  check("Na Eerder blijft de focus op die knop", await page.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "PS11 eerder");
+  check("PS15 kan niet later dan de lotstap", await page.getByRole("button", { name: "PS15 later" }).isDisabled());
+  check("De lotstap kun je niet weghalen", (await page.getByRole("button", { name: "PS16 weghalen uit de route" }).count()) === 0);
+  await page.getByRole("button", { name: "PS7 toevoegen aan de route" }).click();
+  await shot("08-route");
+  const volgorde = await page.locator(".routelijst").first().locator(".route-stap strong").allInnerTexts();
+  check("Toevoegen zet de stap op zijn eigen plek", volgorde.slice(4, 10).join(",") === "PS5,PS7,PS8,PS9,PS11,PS10", volgorde.join(","));
+  await page.getByRole("button", { name: "Route opslaan" }).click();
+  await page.getByRole("heading", { name: "Producten" }).waitFor();
+  await page.locator("tr", { hasText: "PRD-D" }).locator(".product-route", { hasText: "17 stappen" }).waitFor();
+  const [rd] = await q(`SELECT array_agg(s.code ORDER BY ps.plek) AS r FROM fabriek.product_stap ps JOIN fabriek.processtap s ON s.id = ps.processtap_id
+                         JOIN fabriek.product p ON p.id = ps.product_id WHERE p.code = 'PRD-D'`);
+  check("Route opgeslagen in de database", rd.r.join(",") === "PS1,PS2,PS3,PS4,PS5,PS7,PS8,PS9,PS11,PS10,PS12,PS13,PS14,PS15,PS16,PS17,PS18", rd.r.join(","));
+
   console.log("\nPloegleider kijkt mee");
   await page.evaluate(() => localStorage.clear());
   await inloggen("ploegleider1");

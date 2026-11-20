@@ -5,6 +5,18 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.28.0 — 20 november 2026 · #51
+- Nieuw: **elk product heeft zijn eigen route** (D55): welke stappen het doorloopt en in welke volgorde. Stappen kunnen door producten gedeeld worden.
+  - Planning → Producten toont per product de route ("Alle stappen" of bijvoorbeeld "15 stappen, zonder PS6, PS14 en PS17, eigen volgorde"). Met **Route wijzigen** haal je stappen weg, voeg je ze toe en zet je ze eerder of later. De lotstap blijft altijd in de route; eerst komen de batchstappen, dan de lotstap, dan de lotstappen.
+  - Het invoerscherm, de werkvoorraad, het wandscherm en de planning volgen de route van het product van de batch. Een stap buiten de route kan niet worden gestart. De werkvoorraad toont het product bij elke batch.
+  - Een lot bestaat uit 4 batches van hetzelfde product; het invoerscherm zegt het als je batches van verschillende producten kiest. Lotvoorstellen ook.
+  - Planning: in de Batchroute zijn stappen buiten de route grijs gearceerd. Plan je toch een batch in zo'n stap, dan zie je "⚠ Deze stap hoort niet bij de route van PRD-C".
+  - Productieanalyse: doorlooptijden en productie per week gebruiken de eerste en laatste stap van elk product.
+- Fictieve routes in de testdata: PRD-A doet alle stappen, PRD-B slaat PS12 en PS13 over, PRD-C slaat PS6, PS14 en PS17 over en doet PS11 vóór PS10. Een product zonder eigen route doet alle stappen, net als batches zonder product.
+- Database: migratie 0018 voegt de tabel `product_stap` en de routefuncties toe, en past de regels voor stappen, lots, werkvoorraad en planning aan. Bestaande producten krijgen geen route en doen dus alle stappen zoals voorheen; er hoeft niemand iets te doen. De API geeft het product en de route erbij; oudere invoerschermen negeren dat (D18).
+- Opgelost: op het invoerscherm kon je niet klikken op de tegel van een stap waar iets bezig was. De tegel had dezelfde kenmerknaam als een knop die bezig is, en zulke klikken worden tegengehouden (tegen dubbele invoer). De schermtest controleert dit nu.
+- Nog niet in de praktijk getest: echte routes van de pilothal (#2).
+
 ## 0.27.0 — 20 november 2026 · #49 #50
 - Nieuw: **iedereen logt in met een eigen account** (D53). Wat je invoert, komt vast op jouw naam; naam kiezen is er alleen nog voor het oude gedeelde account "operator". Dat blijft werken tot de beheerder het uitzet, zodat de overstap zonder stilstand kan.
   - Beheer → Accounts: bij een nieuw account voor een operator of ploegleider kies je de naam bij de invoer, of je koppelt een bestaande naam uit de namenlijst. De lijst toont welke naam bij welk account hoort, en waarschuwt zolang het gedeelde account aan staat. Beheer → Operators toont welke namen een eigen account hebben.

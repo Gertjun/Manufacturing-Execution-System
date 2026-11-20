@@ -91,6 +91,7 @@ export const Batch = Type.Object({
   aangemaakt_op: Tijd,
   laatst_afgeronde_stap: OptTekst,
   open_stap: OptTekst,
+  product: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Productcode (D55)" })),
 });
 
 export const Besluit = Type.Object({

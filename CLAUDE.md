@@ -75,3 +75,5 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 - Browserdemo op claude.ai: bestanden groter dan ongeveer 10 MB en ingepakte pakketten kwamen daar niet goed door ("File is corrupted"), lokaal wel. De demo laadt de database daarom in delen van 4 MB met controlesom; houd de eigen databestanden onder 4 MB en test na publiceren de echte link.
 - Het gedeelde account `operator` pas laten uitzetten als de wachtrijen op de pc's leeg zijn: invoer op een naam zonder recente inlog op die pc weigert de server (D53).
 - Links tussen startpagina/portalen en invoerscherm zijn relatief (`../invoer/index.html`), anders werken ze niet in de browserdemo.
+- De klasse `bezig` hoort bij tegels op het invoerscherm (stap met werk dat loopt). Een knop die bezig is heet `knop-bezig`; klikken daarop worden tegengehouden. Niet door elkaar halen.
+- Een lot en een lotvoorstel bestaan uit batches van één product (D55). Testdata en tests die lots maken, moeten batches van hetzelfde product nemen.

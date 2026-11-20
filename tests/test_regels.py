@@ -437,6 +437,80 @@ def main():
     check("Uitgezet account heeft geen naam meer", val("SELECT operator_van_account(%s)", (acc_b,)) is None)
     con.execute("UPDATE gebruiker SET actief = true WHERE id = %s", (acc_b,))
 
+    print("\nRoute per product (D55)")
+    prd = {c: i for c, i in con.execute("SELECT code, id FROM product")}
+    sid = {c: i for c, i in con.execute("SELECT code, id FROM processtap")}
+
+    def routecodes(p):
+        return [r[0] for r in con.execute(
+            "SELECT s.code FROM route(%s) r JOIN processtap s ON s.id = r.processtap_id ORDER BY r.plek", (p,))]
+    check("Zonder product: alle 18 stappen", routecodes(None) == [f"PS{i}" for i in range(1, 19)])
+    check("PRD-A zonder eigen route volgt de standaardroute", routecodes(prd["PRD-A"]) == routecodes(None))
+    route_c = ["PS1", "PS2", "PS3", "PS4", "PS5", "PS7", "PS8", "PS9", "PS11", "PS10", "PS12", "PS13", "PS15", "PS16", "PS18"]
+    check("PRD-C: eigen volgorde (PS11 vóór PS10), zonder PS6, PS14 en PS17", routecodes(prd["PRD-C"]) == route_c, routecodes(prd["PRD-C"]))
+    faalt("Route zonder lotstap", "SELECT zet_route(%s, ARRAY['PS1','PS2'])", (prd["PRD-A"],), "lotstap PS16")
+    faalt("Route met de lotstap vóór een batchstap", "SELECT zet_route(%s, ARRAY['PS1','PS16','PS2'])", (prd["PRD-A"],), "eerst de batchstappen")
+    faalt("Route met een lotstap vóór de lotstap", "SELECT zet_route(%s, ARRAY['PS1','PS17','PS16'])", (prd["PRD-A"],), "eerst de batchstappen")
+    faalt("Route zonder batchstap", "SELECT zet_route(%s, ARRAY['PS16','PS17'])", (prd["PRD-A"],), "minstens één batchstap")
+    faalt("Route met een onbekende stap", "SELECT zet_route(%s, ARRAY['PS1','PS99','PS16'])", (prd["PRD-A"],), "Onbekende")
+    faalt("Route met een stap twee keer", "SELECT zet_route(%s, ARRAY['PS1','PS1','PS16'])", (prd["PRD-A"],), "twee keer")
+    check("Na een geweigerde route nog steeds de standaardroute", routecodes(prd["PRD-A"]) == routecodes(None))
+
+    def batch_met(nr, product):
+        return val("INSERT INTO batch (batchnummer, aangemaakt_door, product_id) VALUES (%s, %s, %s) RETURNING id", (nr, op, product))
+
+    def doe(b, code, lot=None):
+        reg = val("SELECT start_stap(%s, %s, %s, %s, %s)", (code, b, lot, pc, op))
+        vul_in(reg, int(code[2:]))
+        con.execute("SELECT rond_stap_af(%s)", (reg,))
+
+    def voorraad(code):
+        return {r[0] for r in con.execute("SELECT nummer FROM werkvoorraad(%s)", (code,))}
+
+    c = [batch_met(f"B-2026-07{i:02d}", prd["PRD-C"]) for i in range(1, 5)]
+    for code in route_c[:8]:
+        doe(c[0], code)
+    faalt("PRD-C: PS6 hoort niet bij de route", "SELECT start_stap('PS6', %s, NULL, %s, %s)", (c[0], pc, op), "hoort niet bij de route van product PRD-C")
+    faalt("PRD-C: PS10 kan niet vóór PS11", "SELECT start_stap('PS10', %s, NULL, %s, %s)", (c[0], pc, op), "PS11 moet eerst afgerond")
+    check("Werkvoorraad PS11 volgt de route (na PS9)", "B-2026-0701" in voorraad("PS11") and "B-2026-0701" not in voorraad("PS10"))
+    check("Werkvoorraad PS6 toont geen PRD-C-batches", not any(n.startswith("B-2026-07") for n in voorraad("PS6")))
+    for code in route_c[8:13]:
+        doe(c[0], code)
+    check("Klaar voor een lot na de batchstappen van de eigen route", val("SELECT batch_klaar_voor_lot(%s)", (c[0],)))
+    check("Werkvoorraad PS16 bevat de batch", "B-2026-0701" in voorraad("PS16"))
+    v = one("SELECT stand, vorige FROM planning_vorige_stap(%s, %s, NULL, current_date)", (sid["PS6"], c[1]))
+    check("Planning: PS6 voor een PRD-C-batch = niet in de route", v[0] == "niet_in_route" and v[1] == "PRD-C", v)
+    v = one("SELECT stand, vorige FROM planning_vorige_stap(%s, %s, NULL, current_date)", (sid["PS10"], c[1]))
+    check("Planning: de vorige stap van PS10 is bij PRD-C PS11", v[1] == "PS11", v)
+    for b in c[1:]:
+        for code in route_c[:13]:
+            doe(b, code)
+    zonder = batch_met("B-2026-0705", None)
+    doorloop(zonder, 1, 15)
+    faalt("Lot van verschillende producten", "SELECT maak_lot('L-2026-0701', %s, %s, %s)", (c[:3] + [zonder], pc, op), "hetzelfde product")
+    lot_c = val("SELECT maak_lot('L-2026-0701', %s, %s, %s)", (c, pc, op))
+    reg = val("SELECT id FROM stapregistratie WHERE lot_id = %s AND status = 'open'", (lot_c,))
+    vul_in(reg, 16)
+    con.execute("SELECT rond_stap_af(%s)", (reg,))
+    check("Werkvoorraad: het lot slaat PS17 over", "L-2026-0701" not in voorraad("PS17") and "L-2026-0701" in voorraad("PS18"))
+    faalt("PRD-C-lot: PS17 hoort niet bij de route", "SELECT start_stap('PS17', NULL, %s, %s, %s)", (lot_c, pc, op), "hoort niet bij de route")
+    doe(None, "PS18", lot_c)
+    check("Lot gereed na de laatste lotstap van zijn route (PS18)", val("SELECT status FROM lot WHERE id = %s", (lot_c,)) == "gereed")
+    pl_acc2 = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'planner1'")
+    nrs = [r[0] for r in con.execute("SELECT plan_batches(3, current_date + 5, %s, NULL, %s)", (prd["PRD-B"], pl_acc2))]
+    gepl = [val("SELECT id FROM batch WHERE batchnummer = %s", (n,)) for n in nrs]
+    nr_a = val("SELECT plan_batches(1, current_date + 5, %s, NULL, %s)", (prd["PRD-A"], pl_acc2))
+    gepl_a = val("SELECT id FROM batch WHERE batchnummer = %s", (nr_a,))
+    faalt("Lotvoorstel van verschillende producten", "SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (gepl + [gepl_a], pl_acc2), "hetzelfde product")
+    con.execute("UPDATE batch SET product_id = %s WHERE id = %s", (prd["PRD-B"], gepl_a))
+    con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (gepl + [gepl_a], pl_acc2))
+    faalt("Product wijzigen van een batch in een open lotvoorstel", "UPDATE batch SET product_id = %s WHERE id = %s",
+          (prd["PRD-A"], gepl_a), "open lotvoorstel")
+    con.execute("SELECT zet_route(%s, NULL)", (prd["PRD-C"],))
+    check("Route leegmaken = standaardroute", routecodes(prd["PRD-C"]) == routecodes(None))
+    check("Routewijzigingen staan in het logboek",
+          val("SELECT count(*) FROM config_log WHERE tabel = 'product_stap' AND record_id = %s", (prd["PRD-C"],)) >= 15)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

@@ -68,6 +68,12 @@ try {
   await shot("04-stappen");
   check("Stappenoverzicht toont 18 stappen", (await page.locator(".tegel").count()) === 18);
   check("PS7 staat als bezig", (await page.locator(".tegel.bezig").count()) === 1);
+  // Een tegel met werk dat loopt moet klikbaar blijven (de klasse "bezig" van knoppen blokkeert klikken).
+  await page.locator(".tegel.bezig").click();
+  await page.getByRole("heading", { name: "Process Step 7" }).waitFor({ timeout: 5000 });
+  check("Tegel van een stap die bezig is opent de stap", true);
+  await page.getByRole("link", { name: "Stappen" }).click();
+  await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
 
   console.log("\nPlanning in PS1");
   await page.locator(".tegel", { hasText: "Process Step 1" }).first().click();

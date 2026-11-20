@@ -35,13 +35,13 @@ function metBezig(el: HTMLElement, soort: string, fn: (e: Event) => unknown): Ev
  *  na 0,4 s een draaiend rondje (gedeeld/knoppen.css), en voor schermlezers aria-busy en aria-disabled.
  *  De knop wordt niet "disabled" gemaakt, zodat een scherm dat zelf bepaalt of een knop uit staat, niet in de war raakt. */
 export function bezigTijdens<T>(knop: HTMLButtonElement, werk: Promise<T>): Promise<T> {
-  if (knop.classList.contains("bezig")) return werk;
+  if (knop.classList.contains("knop-bezig")) return werk;
   blokkeerBezig();
-  knop.classList.add("bezig");
+  knop.classList.add("knop-bezig");
   knop.setAttribute("aria-busy", "true");
   knop.setAttribute("aria-disabled", "true");
   const klaar = () => {
-    knop.classList.remove("bezig");
+    knop.classList.remove("knop-bezig");
     knop.removeAttribute("aria-busy");
     knop.removeAttribute("aria-disabled");
   };
@@ -64,11 +64,11 @@ function blokkeerBezig() {
   if (geblokkeerd) return;
   geblokkeerd = true;
   document.addEventListener("click", (e) => {
-    if ((e.target as Element | null)?.closest?.(".bezig")) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if ((e.target as Element | null)?.closest?.(".knop-bezig")) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
   document.addEventListener("submit", (e) => {
     const f = e.target as HTMLFormElement;
-    if (f.querySelector?.(".bezig")) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (f.querySelector?.(".knop-bezig")) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
 }
 

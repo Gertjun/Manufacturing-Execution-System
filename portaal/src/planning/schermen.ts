@@ -37,7 +37,7 @@ async function wijzig(actie: () => Promise<unknown>, gelukt: string, opnieuw: ()
   }
 }
 
-interface Product { id: string; code: string; naam: string; actief: boolean }
+interface Product { id: string; code: string; naam: string; actief: boolean; route?: string[] | null }
 interface BatchPlan {
   batchnummer: string; status: string; gepland: boolean; dag: string | null; volgorde: number | null;
   product_id: string | null; product: string | null; opmerking: string | null; vervallen_reden: string | null;
@@ -200,8 +200,8 @@ interface Kandidaat { soort: string; nummer: string; klaar: boolean; toelichting
 
 // ---------- Stand van de vorige stap (D52) ----------
 // De database zegt hoe de vorige stap ervoor staat; het scherm waarschuwt, maar weigert niets (D29).
-interface Vorige { stand: "eerste" | "klaar" | "bezig" | "vandaag" | "eerder" | "achter" | "later" | "niet_gepland" | "niet_klaar"; stap: string | null; dag: string | null; nr: number | null }
-const NIET_OP_TIJD = new Set<Vorige["stand"]>(["achter", "later", "niet_gepland", "niet_klaar"]);
+interface Vorige { stand: "eerste" | "klaar" | "bezig" | "vandaag" | "eerder" | "achter" | "later" | "niet_gepland" | "niet_klaar" | "niet_in_route"; stap: string | null; dag: string | null; nr: number | null }
+const NIET_OP_TIJD = new Set<Vorige["stand"]>(["achter", "later", "niet_gepland", "niet_klaar", "niet_in_route"]);
 const korteDag = (dag: string) => new Date(`${dag}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "numeric" });
 function vorigeTekst(v: Vorige | null | undefined): string {
   if (!v || !v.stap) return "";
@@ -214,6 +214,7 @@ function vorigeTekst(v: Vorige | null | undefined): string {
     case "later": return `${v.stap} is pas gepland op ${korteDag(v.dag!)}`;
     case "niet_gepland": return `${v.stap} is nog niet gepland`;
     case "niet_klaar": return `Nog niet alle batches hebben ${v.stap} afgerond`;
+    case "niet_in_route": return `Deze stap hoort niet bij de route van ${v.stap}`;
     default: return "";
   }
 }
@@ -363,7 +364,7 @@ export async function overzicht(datum?: string) {
   );
 }
 
-interface RouteCel { stap: string; stand: "klaar" | "bezig" | "gepland" | null; dag: string | null; waarschuwing: string | null }
+interface RouteCel { stap: string; stand: "klaar" | "bezig" | "gepland" | "niet_in_route" | null; dag: string | null; waarschuwing: string | null }
 interface Route {
   stappen: { code: string; naam: string; is_lot_stap: boolean }[];
   batches: { batchnummer: string; status: string; product: string | null; startdag: string | null; voorstel: number | null; cellen: RouteCel[] }[];
@@ -380,6 +381,7 @@ export async function route(filter?: string) {
   const batches = alleenLetOp ? letOp : r.batches;
   const cel = (c: RouteCel) => {
     if (!c.stand) return h("td", { class: "route-leeg" }, h("span", { "aria-hidden": "true" }, "–"), h("span", { class: "verborgen" }, "niet gepland"));
+    if (c.stand === "niet_in_route") return h("td", { class: "route-buiten" }, h("span", { class: "verborgen" }, "hoort niet bij de route"));
     if (c.stand === "klaar") return h("td", { class: "route-klaar" }, h("span", { "aria-hidden": "true" }, "✓ "), c.dag ? korteDag(c.dag) : "klaar", h("span", { class: "verborgen" }, " klaar"));
     if (c.stand === "bezig") return h("td", { class: "route-bezig" }, h("span", { "aria-hidden": "true" }, "▶ "), "bezig");
     return h("td", { class: c.waarschuwing ? "route-let-op" : "route-gepland", title: c.waarschuwing ?? undefined },
@@ -397,7 +399,8 @@ export async function route(filter?: string) {
       h("a", { class: `knop knop-klein ${alleenLetOp ? "knop-hoofd" : "knop-stil"}`, href: "#/planning/route/let-op", "aria-current": alleenLetOp ? "page" : undefined }, `Met waarschuwing (${letOp.length})`)),
     h("p", { class: "legenda route-legenda" },
       h("span", {}, "✓ klaar"), h("span", {}, "▶ bezig"), h("span", {}, "ma 23-11 gepland"),
-      h("span", { class: "plan-waarschuwing" }, "⚠ vorige stap niet op tijd"), h("span", {}, "– niet gepland")),
+      h("span", { class: "plan-waarschuwing" }, "⚠ vorige stap niet op tijd"), h("span", {}, "– niet gepland"),
+      h("span", {}, h("span", { class: "route-buiten route-buiten-staal", "aria-hidden": "true" }), " niet in de route van het product")),
     batches.length
       ? h("div", { class: "route-scroll", tabindex: "0", role: "region", "aria-label": "Batchroute, schuift opzij" },
           h("table", { class: "tabel route-tabel" },
@@ -530,18 +533,31 @@ export async function lots() {
   );
 }
 
-// ---------- Producten ----------
-export async function producten() {
+// ---------- Producten en hun route (D55) ----------
+interface StapKort { code: string; naam: string; volgorde: number; niveau: "batch" | "lot"; is_lot_stap: boolean }
+
+/** Korte beschrijving van een route ten opzichte van alle stappen: "Alle stappen" of "15 stappen, zonder PS6 en PS14". */
+function routeSamenvatting(route: string[] | null | undefined, alle: StapKort[]): string {
+  if (!route) return "Alle stappen";
+  const zonder = alle.filter((s) => !route.includes(s.code)).map((s) => s.code);
+  const natuurlijk = alle.filter((s) => route.includes(s.code)).map((s) => s.code);
+  const anders = natuurlijk.some((c, i) => c !== route[i]);
+  const lijst = (x: string[]) => (x.length > 1 ? `${x.slice(0, -1).join(", ")} en ${x[x.length - 1]}` : x[0]);
+  return [`${route.length} stappen`, zonder.length ? `zonder ${lijst(zonder)}` : null, anders ? "eigen volgorde" : null].filter(Boolean).join(", ");
+}
+
+export async function producten(code?: string) {
+  if (code) return routeBewerken(code);
   const actueel = vastHouden();
   toon(kop("Producten"), laden());
-  let p: Product[];
-  try { p = await haal<Product[]>("/planning/producten?ookInactief=true"); } catch (e) { return fout(e); }
+  let p: Product[], alle: StapKort[];
+  try { [p, alle] = await Promise.all([haal<Product[]>("/planning/producten?ookInactief=true"), haal<StapKort[]>("/config/stappen")]); } catch (e) { return fout(e); }
   if (!actueel()) return;
   const toevoegen = async () => {
     const r = await vraag("Product toevoegen", [
       { naam: "code", label: "Code", hint: "Kort, zonder spaties. Bijvoorbeeld PRD-D", controle: (v) => (/^[A-Za-z0-9._-]{1,20}$/.test(v) ? null : "Alleen letters, cijfers, punt, streepje of liggend streepje; hoogstens 20 tekens") },
       { naam: "naam", label: "Naam" },
-    ], "Toevoegen", "De code ligt daarna vast; de naam kun je later wijzigen.");
+    ], "Toevoegen", "De code ligt daarna vast; de naam kun je later wijzigen. Een nieuw product doorloopt alle stappen tot je een eigen route kiest.");
     if (!r) return;
     await wijzig(() => stuur("POST", "/planning/producten", r), `${r.code} toegevoegd`, producten);
   };
@@ -553,17 +569,122 @@ export async function producten() {
   const zetActief = (x: Product, actief: boolean) =>
     wijzig(() => stuur("PATCH", `/planning/producten/${x.id}`, { actief }), actief ? `${x.code} weer actief` : `${x.code} uitgezet`, producten);
   toon(
-    kop("Producten", "Het product of recept dat je bij een batch plant. Een uitgezet product kun je niet meer kiezen; eerdere batches houden het.",
+    kop("Producten", "Het product of recept dat je bij een batch plant, en de route: welke stappen het doorloopt en in welke volgorde. Een uitgezet product kun je niet meer kiezen; eerdere batches houden het.",
       magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Product toevoegen") : null),
     p.length
-      ? tabel(["Code", "Naam", ""], p.map((x) => [
+      ? tabel(["Code", "Naam", "Route", ""], p.map((x) => [
           h("strong", { class: x.actief ? "" : "inactief" }, x.code),
           h("span", { class: x.actief ? "" : "inactief" }, x.naam, x.actief ? "" : " (uit)"),
-          magPlannen() ? h("div", { class: "knoppen-klein" },
-            x.actief ? h("button", { class: "knop knop-klein", onclick: () => hernoem(x) }, "Naam wijzigen") : null,
-            h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(x, !x.actief) }, x.actief ? "Uitzetten" : "Weer aanzetten")) : null]), "compact")
+          h("span", { class: "product-route", title: x.route ? x.route.join(" → ") : undefined }, routeSamenvatting(x.route, alle)),
+          h("div", { class: "knoppen-klein" },
+            x.actief ? h("a", { class: "knop knop-klein", href: `#/planning/producten/${encodeURIComponent(x.code)}` }, magPlannen() ? "Route wijzigen" : "Route bekijken") : null,
+            magPlannen() && x.actief ? h("button", { class: "knop knop-klein", onclick: () => hernoem(x) }, "Naam wijzigen") : null,
+            magPlannen() ? h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(x, !x.actief) }, x.actief ? "Uitzetten" : "Weer aanzetten") : null)]), "compact")
       : h("p", { class: "leeg" }, "Nog geen producten. Voeg er een toe."),
   );
+}
+
+/** Route van één product: stappen erin of eruit, en de volgorde. Eerst batchstappen, dan de lotstap, dan lotstappen. */
+async function routeBewerken(code: string) {
+  const actueel = vastHouden();
+  toon(kop(`Route van ${code}`), laden());
+  let p: Product[], alle: StapKort[];
+  try { [p, alle] = await Promise.all([haal<Product[]>("/planning/producten"), haal<StapKort[]>("/config/stappen")]); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const product = p.find((x) => x.code === code);
+  if (!product) return fout(new Error(`Product ${code} bestaat niet of staat uit`));
+  const bewerken = magPlannen();
+  const lotstap = alle.find((s) => s.is_lot_stap);
+  const stap = new Map(alle.map((s) => [s.code, s]));
+  let route = (product.route ?? alle.map((s) => s.code)).filter((c) => stap.has(c));
+  let gewijzigd = false;
+  const groep = (c: string) => (stap.get(c)!.niveau === "batch" ? 0 : stap.get(c)!.is_lot_stap ? 1 : 2);
+  const verplaats = (c: string, richting: -1 | 1) => {
+    const i = route.indexOf(c), j = i + richting;
+    if (j < 0 || j >= route.length || groep(route[j]) !== groep(c)) return;
+    [route[i], route[j]] = [route[j], route[i]];
+    gewijzigd = true;
+    teken(`${c} ${richting < 0 ? "eerder" : "later"}`, [`${c} ${richting < 0 ? "eerder" : "later"}`, `${c} ${richting < 0 ? "later" : "eerder"}`]);
+  };
+  const weg = (c: string) => { route = route.filter((x) => x !== c); gewijzigd = true; teken(`${c} weggehaald`, [`${c} toevoegen aan de route`]); };
+  const erbij = (c: string) => {
+    // Op de natuurlijke plek: na de laatste gekozen stap van hetzelfde niveau met een lager stapnummer.
+    const s = stap.get(c)!;
+    let plek = route.findIndex((x) => groep(x) > groep(c) || (groep(x) === groep(c) && stap.get(x)!.volgorde > s.volgorde));
+    if (plek < 0) plek = route.length;
+    route.splice(plek, 0, c);
+    gewijzigd = true;
+    teken(`${c} toegevoegd`, [`${c} weghalen uit de route`]);
+  };
+  const standaard = () => alle.map((s) => s.code);
+  const isStandaard = () => route.length === alle.length && route.every((c, i) => c === standaard()[i]);
+  const status = h("p", { class: "verborgen", "aria-live": "polite" });
+
+  const rij = (c: string, nr: number) => {
+    const s = stap.get(c)!;
+    const i = route.indexOf(c);
+    const eerderKan = i > 0 && groep(route[i - 1]) === groep(c);
+    const laterKan = i < route.length - 1 && groep(route[i + 1]) === groep(c);
+    return h("li", { class: "route-rij" },
+      h("span", { class: "route-nr", "aria-hidden": "true" }, String(nr)),
+      h("span", { class: "route-stap" }, h("strong", {}, s.code), ` ${s.naam}`),
+      bewerken && !s.is_lot_stap
+        ? h("span", { class: "knoppen-klein" },
+            h("button", { class: "knop knop-klein knop-stil", disabled: !eerderKan, "aria-label": `${s.code} eerder`, onclick: () => verplaats(c, -1) }, h("span", { "aria-hidden": "true" }, "↑ "), "Eerder"),
+            h("button", { class: "knop knop-klein knop-stil", disabled: !laterKan, "aria-label": `${s.code} later`, onclick: () => verplaats(c, 1) }, h("span", { "aria-hidden": "true" }, "↓ "), "Later"),
+            h("button", { class: "knop knop-klein knop-stil", "aria-label": `${s.code} weghalen uit de route`, onclick: () => weg(c) }, "Weghalen"))
+        : s.is_lot_stap ? h("span", { class: "sub" }, "Altijd in de route: hier worden 4 batches één lot") : null);
+  };
+
+  const opslaan = async () => {
+    const stappen = isStandaard() ? null : route;
+    try {
+      await stuur("PUT", `/planning/producten/${product.id}/route`, { stappen });
+      melding(`Route van ${code} opgeslagen`, "ok");
+      location.hash = "#/planning/producten";
+    } catch (e) {
+      melding((e as Error).message, "fout");
+    }
+  };
+
+  /** Tekent het scherm opnieuw; zet de focus op de eerste knop uit `focus` die werkt, zodat toetsenbordgebruikers hun plek houden. */
+  function teken(gemeld?: string, focus: string[] = []) {
+    const batch = route.filter((c) => groep(c) === 0);
+    const lot = route.filter((c) => groep(c) === 2);
+    const buiten = alle.filter((s) => !route.includes(s.code));
+    toon(
+      kop(`Route van ${code}`,
+        `${product!.naam}. Welke stappen dit product doorloopt en in welke volgorde. Eerst de batchstappen, dan ${lotstap?.code ?? "de lotstap"} (4 batches worden één lot), dan de lotstappen. ` +
+        "Lopende batches van dit product volgen een gewijzigde route meteen; wat al gedaan is, blijft staan.",
+        h("a", { class: "knop knop-stil", href: "#/planning/producten" }, "Terug naar producten")),
+      h("p", { class: "sub" }, isStandaard() ? "Nu: alle stappen (de standaardroute)." : `Nu: ${routeSamenvatting(route, alle)}.`),
+      h("section", { class: "blok" }, h("h2", {}, `Batchstappen (${batch.length})`),
+        batch.length ? h("ol", { class: "routelijst" }, batch.map((c, i) => rij(c, i + 1))) : h("p", { class: "leeg" }, "Kies minstens één batchstap.")),
+      h("section", { class: "blok" }, h("h2", {}, "Lot samenstellen"),
+        h("ol", { class: "routelijst", start: batch.length + 1 }, route.filter((c) => groep(c) === 1).map((c) => rij(c, batch.length + 1)))),
+      h("section", { class: "blok" }, h("h2", {}, `Lotstappen (${lot.length})`),
+        lot.length ? h("ol", { class: "routelijst", start: batch.length + 2 }, lot.map((c, i) => rij(c, batch.length + 2 + i))) : h("p", { class: "leeg" }, "Geen lotstappen na het samenstellen.")),
+      buiten.length
+        ? h("section", { class: "blok" }, h("h2", {}, `Niet in de route (${buiten.length})`),
+            h("ul", { class: "routelijst routelijst-buiten" }, buiten.map((s) => h("li", { class: "route-rij" },
+              h("span", { class: "route-stap" }, h("strong", {}, s.code), ` ${s.naam}`),
+              bewerken ? h("button", { class: "knop knop-klein", "aria-label": `${s.code} toevoegen aan de route`, onclick: () => erbij(s.code) }, "Toevoegen") : null))))
+        : null,
+      bewerken
+        ? h("div", { class: "knoppen knoppen-links" },
+            h("button", { class: "knop knop-hoofd", disabled: !gewijzigd, onclick: opslaan }, "Route opslaan"),
+            !isStandaard() ? h("button", { class: "knop knop-stil", onclick: () => { route = standaard(); gewijzigd = true; teken("Alle stappen gekozen"); } }, "Alle stappen kiezen") : null,
+            h("a", { class: "knop knop-stil", href: "#/planning/producten" }, "Annuleren"))
+        : null,
+      status,
+    );
+    if (gemeld) status.textContent = gemeld;
+    for (const label of focus) {
+      const knop = [...document.querySelectorAll<HTMLButtonElement>("main button[aria-label]")].find((b) => b.getAttribute("aria-label") === label && !b.disabled);
+      if (knop) { knop.focus(); break; }
+    }
+  }
+  teken();
 }
 
 // ---------- Capaciteit ----------

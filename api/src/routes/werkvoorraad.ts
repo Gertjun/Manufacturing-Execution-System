@@ -57,6 +57,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 soort: Type.Union([Type.Literal("batch"), Type.Literal("lot")]),
                 nummer: Type.String(),
                 sinds: Type.Union([Type.Null(), Type.String({ format: "date-time" })]),
+                product: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Productcode (D55)" })),
               }),
             ),
           }),
@@ -67,7 +68,17 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const open = await lees(app.db, `${REGISTRATIE_SQL} WHERE s.code = $1 AND r.status = 'open' ORDER BY r.gestart_op`, [
         req.params.stapcode,
       ]);
-      const wachtend = await lees(app.db, "SELECT * FROM werkvoorraad($1)", [req.params.stapcode]);
+      const wachtend = await lees(
+        app.db,
+        `SELECT w.soort, w.nummer, w.sinds, coalesce(pb.code, pl.code) AS product
+           FROM werkvoorraad($1) w
+           LEFT JOIN batch b ON w.soort = 'batch' AND b.batchnummer = w.nummer
+           LEFT JOIN product pb ON pb.id = b.product_id
+           LEFT JOIN lot l ON w.soort = 'lot' AND l.lotnummer = w.nummer
+           LEFT JOIN product pl ON pl.id = lot_product(l.id)
+          ORDER BY w.sinds`,
+        [req.params.stapcode],
+      );
       return { open, wachtend } as never;
     },
   );

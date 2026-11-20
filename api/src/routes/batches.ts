@@ -8,10 +8,11 @@ import { Batch, BatchNummer, Besluit, PaspoortRegel, RegistratieKort, REGISTRATI
 const BATCH_SQL = `
   SELECT b.batchnummer, b.status, b.bron, l.lotnummer, b.aangemaakt_op,
          (SELECT s.code FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id
-           WHERE r.batch_id = b.id AND r.status = 'afgerond' ORDER BY s.volgorde DESC LIMIT 1) AS laatst_afgeronde_stap,
+           WHERE r.batch_id = b.id AND r.status = 'afgerond' ORDER BY r.afgerond_op DESC LIMIT 1) AS laatst_afgeronde_stap,
          (SELECT s.code FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id
-           WHERE r.batch_id = b.id AND r.status = 'open' LIMIT 1) AS open_stap
-    FROM batch b LEFT JOIN lot l ON l.id = b.lot_id`;
+           WHERE r.batch_id = b.id AND r.status = 'open' LIMIT 1) AS open_stap,
+         p.code AS product
+    FROM batch b LEFT JOIN lot l ON l.id = b.lot_id LEFT JOIN product p ON p.id = b.product_id`;
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // Batch aanmaken (in PS1, tot de planner-app er is).
@@ -59,7 +60,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["batches"],
         querystring: Type.Object({
           status: Type.Optional(Type.String({ description: "gepland, in_productie, in_beoordeling, in_lot, afgekeurd" })),
-          gereedVoorLot: Type.Optional(Type.Boolean({ description: "Alleen batches die PS1-PS15 afrondden en in productie zijn" })),
+          gereedVoorLot: Type.Optional(Type.Boolean({ description: "Alleen batches die de batchstappen van hun route afrondden en in productie zijn" })),
           limiet: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 100 })),
         }),
         response: { 200: Type.Array(Batch) },
@@ -73,9 +74,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         voorwaarden.push(`b.status = $${params.length}`);
       }
       if (req.query.gereedVoorLot) {
-        voorwaarden.push(`b.status = 'in_productie' AND NOT EXISTS (
-          SELECT 1 FROM processtap s WHERE s.actief AND s.niveau = 'batch' AND NOT EXISTS (
-            SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond'))`);
+        voorwaarden.push(`b.status = 'in_productie' AND batch_klaar_voor_lot(b.id)`);
       }
       params.push(req.query.limiet ?? 100);
       const where = voorwaarden.length ? `WHERE ${voorwaarden.join(" AND ")}` : "";
@@ -101,7 +100,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1`, [req.params.batchnummer]);
       if (!batch) throw niet("Batch");
-      const registraties = await lees(app.db, `${REGISTRATIE_SQL} WHERE b.batchnummer = $1 ORDER BY s.volgorde, r.poging`, [
+      const registraties = await lees(app.db, `${REGISTRATIE_SQL} WHERE b.batchnummer = $1 ORDER BY r.gestart_op, s.volgorde`, [
         req.params.batchnummer,
       ]);
       const besluiten = await lees(

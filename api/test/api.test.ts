@@ -660,6 +660,44 @@ describe("Portaal Planning", () => {
     assert.equal(v.body[0].status, "gedaan");
   });
 
+  test("route per product (D55): PRD-C slaat PS6 over; alleen planners wijzigen een route", async () => {
+    const prod = await verzoek("GET", "/planning/producten", op);
+    const c = prod.body.find((p: any) => p.code === "PRD-C");
+    assert.deepEqual(c.route, ["PS1", "PS2", "PS3", "PS4", "PS5", "PS7", "PS8", "PS9", "PS11", "PS10", "PS12", "PS13", "PS15", "PS16", "PS18"]);
+    assert.equal(prod.body.find((p: any) => p.code === "PRD-A").route, null);
+    assert.equal((await verzoek("PUT", `/planning/producten/${c.id}/route`, op, { stappen: null })).status, 403);
+    const fout = await verzoek("PUT", `/planning/producten/${c.id}/route`, planner, { stappen: ["PS1", "PS2"] });
+    assert.equal(fout.status, 422);
+    assert.match(fout.body.fout, /lotstap PS16/);
+    const a = prod.body.find((p: any) => p.code === "PRD-A");
+    const goed = await verzoek("PUT", `/planning/producten/${a.id}/route`, planner, { stappen: ["PS1", "PS2", "PS16", "PS18"] });
+    assert.equal(goed.status, 200, JSON.stringify(goed.body));
+    assert.deepEqual(goed.body.route, ["PS1", "PS2", "PS16", "PS18"]);
+    assert.equal((await verzoek("PUT", `/planning/producten/${a.id}/route`, planner, { stappen: null })).body.route, null);
+
+    const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 1, productId: c.id });
+    const [nr] = r.body.batchnummers;
+    await doorloop(op, nr, "batch", 1, 5);
+    const ps6 = await verzoek("POST", "/registraties", op, { stapcode: "PS6", batchnummer: nr });
+    assert.equal(ps6.status, 422);
+    assert.match(ps6.body.fout, /PS6 hoort niet bij de route van product PRD-C/);
+    const w7 = await verzoek("GET", "/werkvoorraad/PS7", op);
+    assert.equal(w7.body.wachtend.find((w: any) => w.nummer === nr)?.product, "PRD-C");
+    assert.ok(!(await verzoek("GET", "/werkvoorraad/PS6", op)).body.wachtend.some((w: any) => w.nummer === nr));
+    assert.ok(!(await verzoek("GET", "/planning/kandidaten?stap=PS6", planner)).body.some((k: any) => k.nummer === nr));
+    assert.ok((await verzoek("GET", "/planning/kandidaten?stap=PS7", planner)).body.some((k: any) => k.nummer === nr));
+    const route = await verzoek("GET", "/planning/route", planner);
+    const cellen = route.body.batches.find((b: any) => b.batchnummer === nr).cellen;
+    assert.equal(cellen.find((x: any) => x.stap === "PS6").stand, "niet_in_route");
+    assert.equal(cellen.find((x: any) => x.stap === "PS5").stand, "klaar");
+    assert.equal((await verzoek("GET", `/batches/${nr}`, op)).body.product, "PRD-C");
+    // Planning in een stap buiten de route: de waarschuwing zegt het (D52 blijft: niets geweigerd).
+    const plan = await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS6", items: [{ nummer: nr }] });
+    assert.equal(plan.status, 200, JSON.stringify(plan.body));
+    assert.deepEqual([plan.body[0].vorige.stand, plan.body[0].vorige.stap], ["niet_in_route", "PRD-C"]);
+    await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS6", items: [] });
+  });
+
   test("ongeplande batch blijft mogelijk en is zichtbaar als niet gepland", async () => {
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0900" })).status, 201);
     await doorloop(op, "B-2026-0900", "batch", 1, 1);

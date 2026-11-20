@@ -60,6 +60,12 @@ for stap, gid, gcode, eenheid in con.execute(
 planner = gebruiker["planner1"]
 batchstappen = [s for s in stappen if s[2] == "batch"]
 lotstappen = [s for s in stappen if s[2] == "lot"]
+# Route per product (D55): batchstappen en lotstappen na de lotstap, in de volgorde van de route.
+route_van: dict = {}
+for pid in producten + [None]:
+    codes = con.execute("""SELECT s.code, s.niveau, s.is_lot_stap FROM route(%s) r JOIN processtap s ON s.id = r.processtap_id
+                            ORDER BY r.plek""", (pid,)).fetchall()
+    route_van[pid] = ([c for c, n, _ in codes if n == "batch"], [c for c, n, l in codes if n == "lot" and not l])
 
 eind = dt.datetime.now().replace(minute=0, second=0, microsecond=0) - dt.timedelta(hours=2)
 begin = (eind - dt.timedelta(days=args.dagen)).replace(hour=6)
@@ -146,69 +152,20 @@ def besluit(batch_id, soort, reden, door, moment):
     tijd_besluit.append((bid, moment))
 
 
-wachtrij_lot = []  # (batch_id, klaar_op)
-dag = begin
-laatste_dag = eind - dt.timedelta(days=1)
-print(f"Genereren van {args.dagen} dagen vanaf {begin:%d-%m-%Y} ...")
-while dag < eind:
-    for i in range(args.per_dag):
-        start = dag + dt.timedelta(hours=i * 2.5 + rnd.uniform(0, 1))
-        if start >= eind:
-            break
-        nummer = volgnummer("batch", start.year)
-        operator = rnd.choice(opnamen)
-        if rnd.random() < 0.05:  # uitzondering: ongeplande batch, door de operator aangemaakt
-            bid = con.execute("INSERT INTO batch (batchnummer, aangemaakt_door) VALUES (%s,%s) RETURNING id", (nummer, operators[operator])).fetchone()[0]
-        else:
-            bid = con.execute(
-                """INSERT INTO batch (batchnummer, bron, status, geplande_dag, volgorde, product_id, gepland_door)
-                   VALUES (%s, 'planner', 'gepland', %s, %s, %s, %s) RETURNING id""",
-                (nummer, start.date(), i + 1, rnd.choice(producten) if producten else None, planner)).fetchone()[0]
-        tijd_batch[bid] = start
-        stats["batches"] += 1
-        # Batches van de laatste dag zijn nog onderweg.
-        tot = len(batchstappen) if start < laatste_dag else rnd.randint(0, len(batchstappen) - 1)
-        moment = start
-        afgekeurd = False
-        beoordeel_bij = rnd.randint(2, 14) if rnd.random() < 0.02 and tot == len(batchstappen) else None
-        for n, (code, *_rest) in enumerate(batchstappen[:tot], start=1):
-            if moment >= eind - dt.timedelta(hours=1):  # niets na het eind van de gesimuleerde periode
-                tot = n - 1
-                break
-            operator = rnd.choice(opnamen)
-            _, moment = doe_stap(code, moment, operator, batch_id=bid)
-            if beoordeel_bij == n:
-                stats["beoordeling"] += 1
-                besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "steekproef", "afwijkende geur", "visuele afwijking"]), "ploegleider1", moment)
-                moment += dt.timedelta(hours=rnd.uniform(2, 20))
-                if rnd.random() < 0.35:
-                    besluit(bid, "afgekeurd", rnd.choice(["buiten specificatie", "vervuiling", "kleur buiten specificatie"]), "kwaliteit1", moment)
-                    stats["afgekeurd"] += 1
-                    afgekeurd = True
-                    break
-                besluit(bid, "vrijgegeven", "binnen specificatie", "kwaliteit1", moment)
-        if not afgekeurd and tot == len(batchstappen):
-            wachtrij_lot.append((bid, moment))
-        elif not afgekeurd and tot < len(batchstappen) and rnd.random() < 0.5 and moment < eind:
-            # Laatste dag: de helft van de lopende batches staat midden in een stap.
-            code = batchstappen[tot][0]
-            pc = pcs[(int(code[2:]) - 1) % len(pcs)]
-            reg = con.execute("SELECT start_stap(%s, %s, NULL, %s, %s)", (code, bid, pc, operators[rnd.choice(opnamen)])).fetchone()[0]
-            tijd_reg[reg] = (min(moment, eind - dt.timedelta(minutes=10)), None)
-
-    # Lots maken van batches die klaar zijn.
-    wachtrij_lot.sort(key=lambda x: x[1])
-    while len(wachtrij_lot) >= 4:
-        groep, wachtrij_lot = wachtrij_lot[:4], wachtrij_lot[4:]
+wachtrij_lot: dict = {}  # product -> [(batch_id, klaar_op)]; een lot heeft batches van één product (D55)
+def maak_lots(lot_prod, wachtrij):
+    route_l = route_van[lot_prod][1]
+    while len(wachtrij) >= 4:
+        groep, wachtrij = wachtrij[:4], wachtrij[4:]
         moment = max(t for _, t in groep) + dt.timedelta(minutes=rnd.randint(10, 120))
         if moment >= eind:
-            wachtrij_lot = groep + wachtrij_lot
+            wachtrij = groep + wachtrij
             break
         operator = rnd.choice(opnamen)
         lotnr = volgnummer("lot", moment.year)
         # De planner stelde het lot voor; soms wijkt de operator af (met reden).
-        afwijken = rnd.random() < 0.08 and wachtrij_lot
-        voorstel = [b for b, _ in groep[:3]] + [wachtrij_lot[0][0] if afwijken else groep[3][0]]
+        afwijken = rnd.random() < 0.08 and wachtrij
+        voorstel = [b for b, _ in groep[:3]] + [wachtrij[0][0] if afwijken else groep[3][0]]
         vid = con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (voorstel, planner)).fetchone()[0]
         reden = rnd.choice(["batch nog niet klaar", "batch eerst nagekeken", "volgorde in de droger anders"]) if afwijken else None
         lot = con.execute("SELECT maak_lot(%s, %s, %s, %s, NULL, NULL, %s)",
@@ -228,18 +185,78 @@ while dag < eind:
         moment += duur + dt.timedelta(minutes=rnd.randint(10, 60))
         nat = natte_week[0] <= moment < natte_week[1]
         if moment >= eind - dt.timedelta(hours=2):
-            continue  # lot staat klaar voor PS17
-        _, moment = doe_stap("PS17", moment, rnd.choice(opnamen), lot_id=lot)
-        _, moment = doe_stap("PS18", moment, rnd.choice(opnamen), lot_id=lot, nat=nat)
+            continue  # lot staat klaar voor de eerste lotstap
+        for code in route_l:
+            _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot, nat=nat and code == "PS18")
         vocht = con.execute(
             """SELECT w.gemeten FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id JOIN stapregistratie r ON r.id = w.stapregistratie_id
                 WHERE r.lot_id = %s AND v.code = 'S18.3' ORDER BY w.ingevoerd_op DESC LIMIT 1""", (lot,)).fetchone()
         if vocht and vocht[0] > 4.0 and moment < eind - dt.timedelta(hours=2):
             stats["herbewerkingen"] += 1
             moment += dt.timedelta(hours=rnd.uniform(1, 6))
-            _, moment = doe_stap("PS17", moment, rnd.choice(opnamen), lot_id=lot, herbewerking="te nat na verpakken")
-            _, moment = doe_stap("PS18", moment, rnd.choice(opnamen), lot_id=lot)
+            _, moment = doe_stap(route_l[0], moment, rnd.choice(opnamen), lot_id=lot, herbewerking="te nat na verpakken")
+            for code in route_l[1:]:
+                _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot)
+    return wachtrij
+
+
+dag = begin
+laatste_dag = eind - dt.timedelta(days=1)
+print(f"Genereren van {args.dagen} dagen vanaf {begin:%d-%m-%Y} ...")
+while dag < eind:
+    for i in range(args.per_dag):
+        start = dag + dt.timedelta(hours=i * 2.5 + rnd.uniform(0, 1))
+        if start >= eind:
+            break
+        nummer = volgnummer("batch", start.year)
+        operator = rnd.choice(opnamen)
+        if rnd.random() < 0.05:  # uitzondering: ongeplande batch, door de operator aangemaakt
+            product = None
+            bid = con.execute("INSERT INTO batch (batchnummer, aangemaakt_door) VALUES (%s,%s) RETURNING id", (nummer, operators[operator])).fetchone()[0]
+        else:
+            product = rnd.choice(producten) if producten else None
+            bid = con.execute(
+                """INSERT INTO batch (batchnummer, bron, status, geplande_dag, volgorde, product_id, gepland_door)
+                   VALUES (%s, 'planner', 'gepland', %s, %s, %s, %s) RETURNING id""",
+                (nummer, start.date(), i + 1, product, planner)).fetchone()[0]
+        route_b = route_van[product][0]
+        tijd_batch[bid] = start
+        stats["batches"] += 1
+        # Batches van de laatste dag zijn nog onderweg.
+        tot = len(route_b) if start < laatste_dag else rnd.randint(0, len(route_b) - 1)
+        moment = start
+        afgekeurd = False
+        beoordeel_bij = rnd.randint(2, len(route_b) - 1) if rnd.random() < 0.02 and tot == len(route_b) else None
+        for n, code in enumerate(route_b[:tot], start=1):
+            if moment >= eind - dt.timedelta(hours=1):  # niets na het eind van de gesimuleerde periode
+                tot = n - 1
+                break
+            operator = rnd.choice(opnamen)
+            _, moment = doe_stap(code, moment, operator, batch_id=bid)
+            if beoordeel_bij == n:
+                stats["beoordeling"] += 1
+                besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "steekproef", "afwijkende geur", "visuele afwijking"]), "ploegleider1", moment)
+                moment += dt.timedelta(hours=rnd.uniform(2, 20))
+                if rnd.random() < 0.35:
+                    besluit(bid, "afgekeurd", rnd.choice(["buiten specificatie", "vervuiling", "kleur buiten specificatie"]), "kwaliteit1", moment)
+                    stats["afgekeurd"] += 1
+                    afgekeurd = True
+                    break
+                besluit(bid, "vrijgegeven", "binnen specificatie", "kwaliteit1", moment)
+        if not afgekeurd and tot == len(route_b):
+            wachtrij_lot.setdefault(product, []).append((bid, moment))
+        elif not afgekeurd and tot < len(route_b) and rnd.random() < 0.5 and moment < eind:
+            # Laatste dag: de helft van de lopende batches staat midden in een stap.
+            code = route_b[tot]
+            pc = pcs[(int(code[2:]) - 1) % len(pcs)]
+            reg = con.execute("SELECT start_stap(%s, %s, NULL, %s, %s)", (code, bid, pc, operators[rnd.choice(opnamen)])).fetchone()[0]
+            tijd_reg[reg] = (min(moment, eind - dt.timedelta(minutes=10)), None)
+
+    # Lots maken van batches die klaar zijn, per product.
+    for lot_prod in list(wachtrij_lot):
+        wachtrij_lot[lot_prod] = maak_lots(lot_prod, sorted(wachtrij_lot[lot_prod], key=lambda x: x[1]))
     dag += dt.timedelta(days=1)
+
 
 # ---------- tijdstippen terugzetten ----------
 print("Tijdstippen terugzetten ...")
@@ -328,18 +345,26 @@ for _ in range(5):
         plan_dag += dt.timedelta(days=1)
     gepland_vooruit += len(con.execute("SELECT plan_batches(%s, %s, %s, NULL, %s)",
                                        (args.per_dag, plan_dag, rnd.choice(producten) if producten else None, planner)).fetchall())
-open_batches = [r[0] for r in con.execute(
-    """SELECT b.id FROM batch b WHERE b.status IN ('in_productie', 'gepland')
-        ORDER BY (SELECT count(*) FROM stapregistratie r WHERE r.batch_id = b.id AND r.status = 'afgerond') DESC, b.batchnummer""")]
+open_batches = con.execute(
+    """SELECT b.id, b.product_id FROM batch b WHERE b.status IN ('in_productie', 'gepland')
+        ORDER BY (SELECT count(*) FROM stapregistratie r WHERE r.batch_id = b.id AND r.status = 'afgerond') DESC, b.batchnummer""").fetchall()
+# Lotvoorstellen per product (D55): de verste batches eerst, hoogstens 3 voorstellen.
+per_product: dict = {}
+for bid, pid in open_batches:
+    per_product.setdefault(pid, []).append(bid)
 n_voorstellen = 0
-for k in range(0, min(len(open_batches), 12) - 3, 4):
-    con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (open_batches[k:k + 4], planner))
-    n_voorstellen += 1
+for bid, pid in open_batches:
+    groep = per_product[pid]
+    if n_voorstellen < 3 and len(groep) >= 4 and groep[0] == bid:
+        con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (groep[:4], planner))
+        per_product[pid] = groep[4:]
+        n_voorstellen += 1
 # Dagplanning voor vandaag: elke lopende batch in zijn volgende stap.
 volgende = con.execute(
-    """SELECT b.id, (SELECT s.id FROM processtap s WHERE s.actief AND s.niveau = 'batch'
-                       AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond')
-                     ORDER BY s.volgorde LIMIT 1) AS stap
+    """SELECT b.id, (SELECT s.id FROM route(b.product_id) rt JOIN processtap s ON s.id = rt.processtap_id
+                      WHERE s.niveau = 'batch'
+                        AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond')
+                      ORDER BY rt.plek LIMIT 1) AS stap
          FROM batch b WHERE b.status IN ('in_productie', 'gepland') AND (b.geplande_dag IS NULL OR b.geplande_dag <= %s)
         ORDER BY b.batchnummer""", (vandaag,)).fetchall()
 plek: dict = {}

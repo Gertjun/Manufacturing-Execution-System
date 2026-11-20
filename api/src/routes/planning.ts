@@ -11,7 +11,18 @@ export const PLANNEN: Rol[] = ["planner", "beheerder"];
 const Dag = Type.String({ format: "date", examples: ["2026-11-20"] });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 
-const Product = Type.Object({ id: Type.String(), code: Type.String(), naam: Type.String(), actief: Type.Boolean() });
+const Product = Type.Object({
+  id: Type.String(), code: Type.String(), naam: Type.String(), actief: Type.Boolean(),
+  route: Type.Optional(Type.Union([Type.Null(), Type.Array(Type.String())], {
+    description: "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
+  })),
+});
+/** Product met zijn route: de stapcodes in volgorde, of null bij de standaardroute. */
+const PRODUCT_SQL = `
+  SELECT p.id::text, p.code, p.naam, p.actief,
+         (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
+           WHERE ps.product_id = p.id AND s.actief) AS route
+    FROM product p`;
 
 const BatchPlan = Type.Object({
   batchnummer: Type.String(),
@@ -44,12 +55,16 @@ const BATCH_PLAN_SQL = `
 /** Hoe de vorige stap ervoor staat (D52). Een waarschuwing, geen weigering: de planning blijft een richtlijn (D29). */
 const Vorige = Type.Object(
   {
-    stand: Type.Union(["eerste", "klaar", "bezig", "vandaag", "eerder", "achter", "later", "niet_gepland", "niet_klaar"].map((x) => Type.Literal(x))),
+    stand: Type.Union(["eerste", "klaar", "bezig", "vandaag", "eerder", "achter", "later", "niet_gepland", "niet_klaar", "niet_in_route"].map((x) => Type.Literal(x))),
     stap: OptTekst,
     dag: Type.Union([Type.Null(), Dag]),
     nr: NulGeheel(),
   },
-  { description: "achter/later/niet_gepland (en bij een lotvoorstel niet_klaar) = de vorige stap is niet op tijd: waarschuwen" },
+  {
+    description:
+      "achter/later/niet_gepland (en bij een lotvoorstel niet_klaar) = de vorige stap is niet op tijd: waarschuwen. " +
+      "niet_in_route = de stap hoort niet bij de route van het product (D55); 'stap' is dan de productcode.",
+  },
 );
 
 /** SQL voor de kolom "vorige": stapId, batchId, lotId, voorstelId en dag als SQL-uitdrukkingen. */
@@ -59,11 +74,11 @@ function vorigeSql(stap: string, batch: string, lot: string, voorstel: string, d
               'stand', CASE WHEN EXISTS (
                          SELECT 1 FROM lot_voorstel_batch vx JOIN batch vb ON vb.id = vx.batch_id
                           WHERE vx.voorstel_id = ${voorstel}
-                            AND EXISTS (SELECT 1 FROM processtap vs WHERE vs.actief AND vs.niveau = 'batch'
-                                          AND NOT EXISTS (SELECT 1 FROM stapregistratie vr
-                                                           WHERE vr.batch_id = vb.id AND vr.processtap_id = vs.id AND vr.status = 'afgerond')))
+                            AND NOT batch_klaar_voor_lot(vb.id))
                        THEN 'niet_klaar' ELSE 'klaar' END,
-              'stap', (SELECT code FROM processtap WHERE actief AND niveau = 'batch' ORDER BY volgorde DESC LIMIT 1),
+              'stap', (SELECT code FROM processtap WHERE id = route_laatste(
+                         (SELECT vb.product_id FROM lot_voorstel_batch vx JOIN batch vb ON vb.id = vx.batch_id
+                           WHERE vx.voorstel_id = ${voorstel} LIMIT 1), 'batch')),
               'dag', NULL, 'nr', NULL)
           ELSE (SELECT json_build_object('stand', x.stand, 'stap', x.vorige, 'dag', to_char(x.dag, 'YYYY-MM-DD'), 'nr', x.nr)
                   FROM planning_vorige_stap(${stap}, ${batch}, ${lot}, ${dag}) x)
@@ -122,9 +137,7 @@ const VOORSTEL_SQL = `
   SELECT v.nummer, v.status, v.opmerking, v.aangemaakt_op, g.gebruikersnaam AS door, l.lotnummer, v.afwijking_reden,
          (SELECT json_agg(json_build_object(
                    'batchnummer', b.batchnummer, 'status', b.status,
-                   'klaar_voor_lot', b.status = 'in_productie' AND NOT EXISTS (
-                       SELECT 1 FROM processtap s WHERE s.actief AND s.niveau = 'batch'
-                          AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = s.id AND r.status = 'afgerond')),
+                   'klaar_voor_lot', b.status = 'in_productie' AND batch_klaar_voor_lot(b.id),
                    'laatste_stap', (SELECT s.code FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id
                                      WHERE r.batch_id = b.id ORDER BY r.gestart_op DESC LIMIT 1))
                    ORDER BY b.batchnummer)
@@ -160,7 +173,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      lees(app.db, `SELECT id::text, code, naam, actief FROM product ${req.query.ookInactief ? "" : "WHERE actief"} ORDER BY code`) as never,
+      lees(app.db, `${PRODUCT_SQL} ${req.query.ookInactief ? "" : "WHERE p.actief"} ORDER BY p.code`) as never,
   );
 
   app.post(
@@ -175,7 +188,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const p = await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("INSERT INTO product (code, naam) VALUES ($1, $2) RETURNING id::text, code, naam, actief", [
+        const { rows } = await tx.query("INSERT INTO product (code, naam) VALUES ($1, $2) RETURNING id::text, code, naam, actief, NULL::text[] AS route", [
           req.body.code.trim(),
           req.body.naam.trim(),
         ]);
@@ -199,10 +212,36 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) =>
       inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query(
-          "UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief) WHERE id = $1 RETURNING id::text, code, naam, actief",
+          `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief) WHERE id = $1
+           RETURNING id::text, code, naam, actief,
+                     (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
+                       WHERE ps.product_id = product.id AND s.actief) AS route`,
           [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null],
         );
         if (!rows[0]) throw niet("Product");
+        return rows[0];
+      }),
+  );
+
+  app.put(
+    "/producten/:id/route",
+    {
+      preHandler: vereist(...PLANNEN),
+      schema: {
+        tags: ["planning"],
+        description:
+          "Zet de route van een product (D55): de stapcodes in volgorde. Eerst batchstappen, dan de lotstap, dan lotstappen. " +
+          "null of een lege lijst = de standaardroute (alle actieve stappen). Lopende batches volgen de nieuwe route meteen.",
+        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+        body: Type.Object({ stappen: Type.Union([Type.Null(), Type.Array(StapCode, { maxItems: 100 })]) }),
+        response: { 200: Product },
+      },
+    },
+    async (req) =>
+      inTransactie(app.db, req.user.naam, async (tx) => {
+        await tx.query("SELECT zet_route($1, $2)", [req.params.id, req.body.stappen?.length ? req.body.stappen : null]);
+        await tx.query("SET CONSTRAINTS ALL IMMEDIATE");
+        const { rows } = await tx.query(`${PRODUCT_SQL} WHERE p.id = $1`, [req.params.id]);
         return rows[0];
       }),
   );
@@ -432,7 +471,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["planning"],
         description:
-          "Proef (D52): per batch die nog niet in een lot zit de stand van elke batchstap: klaar (met dag), bezig, gepland (met dag) of niets. " +
+          "Proef (D52): per batch die nog niet in een lot zit de stand van elke batchstap: klaar (met dag), bezig, gepland (met dag) of niets; " +
+          "niet_in_route als de stap niet bij de route van het product hoort (D55). " +
           "'waarschuwing' = gepland terwijl de vorige stap niet op tijd is. De lotstap toont het lotvoorstel.",
         response: {
           200: Type.Object({
@@ -441,7 +481,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               batchnummer: Type.String(), status: Type.String(), product: OptTekst, startdag: Type.Union([Type.Null(), Dag]), voorstel: NulGeheel(),
               cellen: Type.Array(Type.Object({
                 stap: Type.String(),
-                stand: Type.Union([Type.Null(), Type.Literal("klaar"), Type.Literal("bezig"), Type.Literal("gepland")]),
+                stand: Type.Union([Type.Null(), Type.Literal("klaar"), Type.Literal("bezig"), Type.Literal("gepland"), Type.Literal("niet_in_route")]),
                 dag: Type.Union([Type.Null(), Dag]),
                 waarschuwing: OptTekst,
               })),
@@ -456,16 +496,16 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const rijen = await lees<{ batchnummer: string; stap: string; stand: string | null; dag: string | null; waarschuwing: string | null }>(
         app.db,
         `WITH bb AS (
-           SELECT b.id, b.batchnummer, b.status, b.geplande_dag, b.volgorde, b.aangemaakt_op, p.code AS product,
+           SELECT b.id, b.batchnummer, b.status, b.geplande_dag, b.volgorde, b.aangemaakt_op, p.code AS product, b.product_id,
                   (SELECT v.nummer FROM lot_voorstel_batch x JOIN lot_voorstel v ON v.id = x.voorstel_id
                     WHERE x.batch_id = b.id AND v.status = 'open' LIMIT 1) AS voorstel
              FROM batch b LEFT JOIN product p ON p.id = b.product_id
             WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling') AND b.lot_id IS NULL
          ), st AS (
-           SELECT id, code, volgorde, (volgorde = (SELECT min(volgorde) FROM processtap WHERE actief AND niveau = 'batch')) AS eerste
-             FROM processtap WHERE actief AND niveau = 'batch'
+           SELECT id, code, volgorde FROM processtap WHERE actief AND niveau = 'batch'
          ), cel AS (
            SELECT bb.*, st.id AS stap_id, st.code AS stap, st.volgorde AS stapvolgorde,
+                  in_route(bb.product_id, st.id) AS in_route,
                   (SELECT r.status FROM stapregistratie r
                     WHERE r.batch_id = bb.id AND r.processtap_id = st.id AND r.status <> 'afgebroken'
                     ORDER BY r.poging DESC LIMIT 1) AS reg,
@@ -473,14 +513,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                     WHERE r.batch_id = bb.id AND r.processtap_id = st.id AND r.status = 'afgerond'
                     ORDER BY r.poging DESC LIMIT 1) AS klaar_op,
                   (SELECT min(d) FROM (SELECT sp.dag AS d FROM stapplanning sp WHERE sp.batch_id = bb.id AND sp.processtap_id = st.id
-                                        UNION ALL SELECT bb.geplande_dag WHERE st.eerste) z) AS plandag
+                                        UNION ALL SELECT bb.geplande_dag WHERE st.id = route_eerste(bb.product_id, 'batch')) z) AS plandag
              FROM bb CROSS JOIN st
          )
          SELECT batchnummer, status, product, voorstel, to_char(coalesce(geplande_dag, aangemaakt_op::date), 'YYYY-MM-DD') AS startdag,
                 stap,
-                CASE reg WHEN 'afgerond' THEN 'klaar' WHEN 'open' THEN 'bezig' ELSE CASE WHEN plandag IS NOT NULL THEN 'gepland' END END AS stand,
+                CASE reg WHEN 'afgerond' THEN 'klaar' WHEN 'open' THEN 'bezig'
+                  ELSE CASE WHEN NOT in_route THEN 'niet_in_route' WHEN plandag IS NOT NULL THEN 'gepland' END END AS stand,
                 to_char(CASE reg WHEN 'afgerond' THEN klaar_op WHEN 'open' THEN NULL ELSE plandag END, 'YYYY-MM-DD') AS dag,
-                CASE WHEN reg IS NULL AND plandag IS NOT NULL THEN
+                CASE WHEN reg IS NULL AND plandag IS NOT NULL AND in_route THEN
                   (SELECT CASE x.stand
                             WHEN 'achter' THEN x.vorige || ' stond op ' || to_char(x.dag, 'DD-MM') || ' en is nog niet klaar'
                             WHEN 'later' THEN x.vorige || ' is pas gepland op ' || to_char(x.dag, 'DD-MM')
@@ -554,7 +595,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           app.db,
           `SELECT 'lot' AS soort, l.lotnummer AS nummer, l.lotnummer IN (SELECT nummer FROM werkvoorraad($1)) AS klaar, NULL AS toelichting,
                   ${vorigeSql("$2::uuid", "NULL::uuid", "l.id", "NULL::uuid", "coalesce($3::date, current_date)")} AS vorige
-             FROM lot l WHERE l.status = 'in_productie' ORDER BY 3 DESC, l.lotnummer`,
+             FROM lot l WHERE l.status = 'in_productie' AND in_route(lot_product(l.id), $2) ORDER BY 3 DESC, l.lotnummer`,
           [req.query.stap, stap.id, dag],
         ) as never;
       }
@@ -565,6 +606,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 ${vorigeSql("$2::uuid", "b.id", "NULL::uuid", "NULL::uuid", "coalesce($3::date, current_date)")} AS vorige
            FROM batch b LEFT JOIN product p ON p.id = b.product_id
           WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling')
+            AND in_route(b.product_id, $2)
             AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = $2 AND r.status = 'afgerond')
           ORDER BY 3 DESC, coalesce(b.geplande_dag, b.aangemaakt_op::date), b.volgorde NULLS LAST, b.batchnummer`,
         [req.query.stap, stap.id, dag],
@@ -779,10 +821,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       lees(
         app.db,
         `SELECT x.batchnummer, x.status, x.product, x.dag, x.laatste_stap, x.voorstel,
-                x.status = 'in_productie' AND NOT EXISTS (
-                  SELECT 1 FROM processtap s WHERE s.actief AND s.niveau = 'batch'
-                     AND NOT EXISTS (SELECT 1 FROM stapregistratie r JOIN batch b ON b.id = r.batch_id
-                                      WHERE b.batchnummer = x.batchnummer AND r.processtap_id = s.id AND r.status = 'afgerond')) AS klaar_voor_lot
+                x.status = 'in_productie' AND batch_klaar_voor_lot((SELECT id FROM batch WHERE batchnummer = x.batchnummer)) AS klaar_voor_lot
            FROM (${BATCH_PLAN_SQL} WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling')) x
           ORDER BY 7 DESC, x.dag, x.volgorde NULLS LAST, x.batchnummer`,
       ) as never,

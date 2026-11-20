@@ -134,6 +134,15 @@ try {
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   await shot("08-stilstand");
 
+  console.log("\nRoute per product in de Batchroute (D55)");
+  await page.goto(`${BASIS}/portaal/#/planning/route`);
+  await page.locator(".route-tabel").waitFor();
+  const [buiten] = await q(`SELECT count(*)::int AS n FROM fabriek.batch b JOIN fabriek.product p ON p.id = b.product_id
+                             WHERE b.status IN ('gepland','in_productie','in_beoordeling') AND b.lot_id IS NULL AND p.code IN ('PRD-B','PRD-C')`);
+  check("Stappen buiten de route zijn gearceerd (PRD-B en PRD-C)", buiten.n > 0 && (await page.locator("td.route-buiten").count()) >= buiten.n * 2,
+    `${buiten.n} batches, ${await page.locator("td.route-buiten").count()} cellen`);
+  await shot("10-batchroute-producten", false);
+
   console.log("\nStartpagina en overstap naar het invoerscherm (D54)");
   await page.goto(`${BASIS}/`);
   await page.locator(".startpagina").waitFor();

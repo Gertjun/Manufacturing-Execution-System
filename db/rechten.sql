@@ -27,6 +27,13 @@ BEGIN
     GRANT DELETE ON fabriek.stapplanning, fabriek.lot_voorstel_batch TO batchgui_app;
   END IF;
 END $$;
+-- Een route vervangen: de stappen van een product (sinds 0.28.0).
+DO $$
+BEGIN
+  IF to_regclass('fabriek.product_stap') IS NOT NULL THEN
+    GRANT DELETE ON fabriek.product_stap TO batchgui_app;
+  END IF;
+END $$;
 -- Inlogpogingen alleen vastleggen, niet wijzigen.
 DO $$
 BEGIN

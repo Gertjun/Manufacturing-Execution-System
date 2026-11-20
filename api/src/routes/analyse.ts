@@ -394,21 +394,22 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       );
       const per_week = await lees(
         app.db,
-        `WITH laatste_batchstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'batch' ORDER BY volgorde DESC LIMIT 1),
-              eerste_batchstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'batch' ORDER BY volgorde LIMIT 1),
-              laatste_lotstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'lot' ORDER BY volgorde DESC LIMIT 1),
+        `WITH grens AS (SELECT * FROM route_grenzen),  -- eerste en laatste stap per product (D55)
               b AS (
                 SELECT date_trunc('week', e.afgerond_op)::date AS week,
                        extract(epoch FROM e.afgerond_op - s.gestart_op) / 3600 AS uren
                   FROM stapregistratie e
-                  JOIN stapregistratie s ON s.batch_id = e.batch_id AND s.processtap_id = (SELECT id FROM eerste_batchstap)
-                 WHERE e.processtap_id = (SELECT id FROM laatste_batchstap) AND e.status = 'afgerond'
+                  JOIN batch bt ON bt.id = e.batch_id
+                  JOIN grens g ON g.product_id IS NOT DISTINCT FROM bt.product_id AND e.processtap_id = g.laatste_batchstap
+                  JOIN stapregistratie s ON s.batch_id = e.batch_id AND s.processtap_id = g.eerste_batchstap
+                 WHERE e.status = 'afgerond'
                    AND ${PERIODE_SQL("e.afgerond_op", 1, 2)}),
               l AS (
                 SELECT date_trunc('week', g.klaar)::date AS week, extract(epoch FROM g.klaar - lot.aangemaakt_op) / 3600 AS uren
                   FROM lot
                   JOIN LATERAL (SELECT max(r.afgerond_op) AS klaar FROM stapregistratie r
-                                 WHERE r.lot_id = lot.id AND r.processtap_id = (SELECT id FROM laatste_lotstap) AND r.status = 'afgerond') g ON g.klaar IS NOT NULL
+                                 WHERE r.lot_id = lot.id AND r.processtap_id = route_laatste(lot_product(lot.id), 'lot')
+                                   AND r.status = 'afgerond') g ON g.klaar IS NOT NULL
                  WHERE lot.status = 'gereed' AND ${PERIODE_SQL("g.klaar", 1, 2)}),
               weken AS (SELECT week FROM b UNION SELECT week FROM l)
          SELECT w.week,
@@ -448,16 +449,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) =>
       lees(
         app.db,
-        `WITH laatste_batchstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'batch' ORDER BY volgorde DESC LIMIT 1),
-              laatste_lotstap AS (SELECT id FROM processtap WHERE actief AND niveau = 'lot' ORDER BY volgorde DESC LIMIT 1),
+        `WITH grens AS (SELECT * FROM route_grenzen),  -- laatste stap per product (D55)
+              lotgrens AS (SELECT l.id AS lot_id, gr.laatste_lotstap FROM lot l JOIN grens gr ON gr.product_id IS NOT DISTINCT FROM lot_product(l.id)),
               g AS (
                 SELECT 'gestart' AS soort, gestart_op AS t FROM batch WHERE gestart_op IS NOT NULL
                 UNION ALL
                 SELECT 'klaar', r.afgerond_op FROM stapregistratie r
-                 WHERE r.processtap_id = (SELECT id FROM laatste_batchstap) AND r.status = 'afgerond'
+                  JOIN batch bt ON bt.id = r.batch_id
+                  JOIN grens gr ON gr.product_id IS NOT DISTINCT FROM bt.product_id AND r.processtap_id = gr.laatste_batchstap
+                 WHERE r.status = 'afgerond'
                 UNION ALL
                 SELECT 'lot', r.afgerond_op FROM stapregistratie r
-                 WHERE r.processtap_id = (SELECT id FROM laatste_lotstap) AND r.status = 'afgerond' AND r.poging = 1
+                  JOIN lotgrens lg ON lg.lot_id = r.lot_id AND r.processtap_id = lg.laatste_lotstap
+                 WHERE r.status = 'afgerond' AND r.poging = 1
                 UNION ALL
                 SELECT 'afgekeurd', besloten_op FROM batch_besluit WHERE besluit = 'afgekeurd')
          SELECT date_trunc('week', t)::date AS week,

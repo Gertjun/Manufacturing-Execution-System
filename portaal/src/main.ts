@@ -179,7 +179,7 @@ async function route() {
       case "overzicht": return planning.overzicht(a1);
       case "route": return planning.route(a1);
       case "lots": return planning.lots();
-      case "producten": return planning.producten();
+      case "producten": return planning.producten(a1);
       case "capaciteit": return planning.capaciteit();
       default: return void (location.hash = "#/planning");
     }

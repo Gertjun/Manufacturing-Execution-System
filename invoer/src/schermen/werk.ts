@@ -242,7 +242,7 @@ export async function stapScherm(code: string) {
                 "li",
                 { class: "rij" },
                 h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer, plek.has(x.nummer) ? h("span", { class: "label label-plan" }, `Gepland, nr ${plek.get(x.nummer)}`) : null),
-                  h("div", { class: "rij-info" }, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : "")),
+                  h("div", { class: "rij-info" }, [x.product, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))),
                 !kanInvoeren ? null : h(
                   "button",
                   {
@@ -402,11 +402,18 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
             const vink = h("input", { type: "checkbox", value: x.nummer }) as HTMLInputElement;
             vinken.set(x.nummer, vink);
             const rij = h("label", { class: "rij" }, h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer),
-              h("div", { class: "rij-info" }, x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : "")), vink);
+              h("div", { class: "rij-info" }, [x.product, x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))), vink);
             vink.addEventListener("change", () => {
               if (vink.checked && gekozen.size >= 4) {
                 vink.checked = false;
                 melding("Een lot bestaat uit precies 4 batches");
+                return;
+              }
+              // Eén product per lot (D55).
+              const ander = [...gekozen].map((nr) => w.wachtend.find((y) => y.nummer === nr)).find((y) => (y?.product ?? null) !== (x.product ?? null));
+              if (vink.checked && ander) {
+                vink.checked = false;
+                melding(`Een lot bestaat uit batches van hetzelfde product. ${ander.nummer} is ${ander.product ?? "zonder product"}, ${x.nummer} is ${x.product ?? "zonder product"}.`);
                 return;
               }
               vink.checked ? gekozen.add(x.nummer) : gekozen.delete(x.nummer);

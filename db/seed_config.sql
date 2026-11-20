@@ -44,6 +44,13 @@ INSERT INTO product (code, naam) VALUES
   ('PRD-B', 'Product B fijn'),
   ('PRD-C', 'Product C grof');
 
+-- Fictieve routes (D55): PRD-A volgt de standaardroute (alle stappen); PRD-B slaat PS12 en PS13 over;
+-- PRD-C slaat PS6, PS14 en PS17 over en doet PS11 vóór PS10.
+SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS6','PS7','PS8','PS9','PS10','PS11','PS14','PS15','PS16','PS17','PS18'])
+  FROM product WHERE code = 'PRD-B';
+SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS7','PS8','PS9','PS11','PS10','PS12','PS13','PS15','PS16','PS18'])
+  FROM product WHERE code = 'PRD-C';
+
 -- Fictieve grondstoffen en in welke stap ze worden ingevoerd (sinds 0.11.0).
 INSERT INTO grondstof (code, naam, eenheid) VALUES
   ('GS-A', 'Grondstof A', 'kg'),
