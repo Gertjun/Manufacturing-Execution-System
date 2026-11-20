@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.26.1 — 20 november 2026
+- Kwaliteit → Trend per veld: de waarde onder de muis klopt weer. De grafiek rekende de muispositie uit ten opzichte van een icoontje in de legenda, waardoor altijd de laatste meting verscheen. In dezelfde uitleg staat nu "instelling" in plaats van "setting" (D51). De schermtest controleert dit nu.
+
 ## 0.26.0 — 20 november 2026
 - Nieuw: **Planning waarschuwt als de vorige stap niet op tijd is** (D52). Plannen mag nog steeds; je ziet alleen een ⚠ met uitleg, zoals "PS1 is nog niet gepland", "PS1 is pas gepland op ma 23-11" of "PS1 stond op do 19-11 en is nog niet klaar".
   - Bij Toevoegen in Per stap staat wat je kunt plannen in drie groepen: "Staat klaar", "Komt op tijd klaar" en "⚠ Vorige stap niet op tijd". De melding na het toevoegen zegt erbij als er iets met waarschuwing tussen zit.

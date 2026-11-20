@@ -79,6 +79,12 @@ try {
   await page.locator(".tip:not([hidden])").waitFor();
   await shot("03-trend-S5.1", false);
   check("Tooltip toont batch en meting", /B-\d{4}-\d{4}/.test(await page.locator(".tip").innerText()));
+  const rechts = await page.locator(".tip").innerText();
+  await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.5);
+  await page.waitForFunction((r) => document.querySelector(".tip:not([hidden])")?.textContent !== r.replace(/\n/g, ""), rechts, { timeout: 3000 }).catch(() => {});
+  const links = await page.locator(".tip").innerText();
+  check("Tooltip volgt de muis: links een andere meting dan rechts", links !== rechts, `${links} | ${rechts}`);
+  check("Tooltip zegt 'instelling', niet 'setting'", !/setting/.test(links + rechts));
   const feiten = await page.locator(".feiten").innerText();
   check("Trend laat zien dat S5.1 oploopt (gemiddelde eind hoger dan begin)", (() => {
     const m = feiten.match(/([\d,]+) °C naar ([\d,]+) °C/); return m && parseFloat(m[2].replace(",", ".")) > parseFloat(m[1].replace(",", ".")) + 2;

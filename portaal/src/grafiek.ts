@@ -215,7 +215,8 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
     legenda([["ok", "Binnen grenzen"], ["tol", "Buiten tolerantie"], ["grens", "Buiten grens"]]),
     svg as unknown as Node, tip.el);
   vlak.addEventListener("mousemove", (ev) => {
-    const kader = kaderEl.querySelector("svg")!.getBoundingClientRect();
+    // De grafiek zelf, niet het eerste svg-icoontje in de legenda (dat gaf altijd de laatste dag, roadmap-bevinding 20-11).
+    const kader = (svg as unknown as SVGSVGElement).getBoundingClientRect();
     const tx = t0 + ((((ev.clientX - kader.left) / kader.width) * B - m.l) / bw) * (t1 - t0);
     let beste = 0;
     for (let i = 1; i < tijden.length; i++) if (Math.abs(tijden[i] - tx) < Math.abs(tijden[beste] - tx)) beste = i;
@@ -227,7 +228,7 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
     tip.toon(ev.clientX - buiten.left, ev.clientY - buiten.top, [
       h("strong", {}, p.batch_of_lot),
       new Date(p.tijd).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
-      `${p.setting !== null ? `setting ${getal(p.setting)}, ` : ""}gemeten ${getal(p.gemeten)}${veld.eenheid ? ` ${veld.eenheid}` : ""}`,
+      `${p.setting !== null ? `instelling ${getal(p.setting)}, ` : ""}gemeten ${getal(p.gemeten)}${veld.eenheid ? ` ${veld.eenheid}` : ""}`,
       p.markering === "ok" ? "Binnen grenzen" : p.markering === "buiten_tolerantie" ? "Buiten tolerantie" : "Buiten grens",
       p.operator,
     ], buiten);
