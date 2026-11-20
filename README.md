@@ -19,7 +19,7 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 Bijgewerkt: 20 november 2026 · versie **0.26.1**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd (0.20.0 tot en met 0.23.0), en daarna de UI/UX-review van 20 november (0.23.2 tot en met 0.25.0, #41–#44, D50, D51). Planning waarschuwt sinds 0.26.0 als de vorige stap niet op tijd is (D52); Geert kiest tussen twee proefoverzichten (#48). De volgende stappen liggen bij Geert: fase B (praktijktests, #33) en C (echte velden via het sjabloon, #2).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd, daarna de UI/UX-review (0.23.2 tot en met 0.25.0, D50, D51) en de planningwaarschuwing (0.26.0, D52). Na de eerste demo staat er weer software open vóór de pilot: fase A2 (#49–#64), eerst eigen inlog en startpagina (D53, D54), dan routes per product (D55). Geert kiest nog tussen Dagoverzicht en Batchroute (#48) en bevestigt de nieuwe pilotdatum (#70).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).

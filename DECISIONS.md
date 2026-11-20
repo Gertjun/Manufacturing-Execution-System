@@ -22,7 +22,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D5 – Lot alleen zonder open stappen; afkeur na overleg (nov 2026)
 - **Besluit:** PS16 kan geen lot maken als een batch nog open stappen heeft. Een afgekeurde batch wordt na overleg fysiek afgevoerd; de gegevens blijven bewaard.
 
-### D6 – Eén operatoraccount, correcties door ploegleider (nov 2026)
+### D6 – Eén operatoraccount, correcties door ploegleider (nov 2026) — *gedeeld account vervalt met #49, zie D53*
 - **Besluit:** operators loggen in met één gedeeld account en kiezen daarna hun naam. Waarden corrigeren mag alleen een ploegleider of hoger; het origineel blijft zichtbaar.
 
 ### D7 – Beoordeling en keurresultaat (18 nov 2026)
@@ -35,7 +35,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** API in Node.js/TypeScript (Fastify, OpenAPI), PostgreSQL. Alle bedrijfsregels zitten in de database; de schermen bevatten geen bedrijfslogica.
 - **Waarom:** dezelfde regels gelden voor elk scherm en elke toekomstige app.
 
-### D10 – Eén platform met een portaal per afdeling (nov 2026)
+### D10 – Eén platform met een portaal per afdeling (nov 2026) — *invoerscherm wordt een portaal met #50, zie D54*
 - **Besluit:** één applicatie met één login en per afdeling een portaal (Kwaliteit, Productie, Beheer; Planning later). Het invoerscherm blijft een aparte, eenvoudige app op hetzelfde platform. Nieuwe afdelingen meldt Geert.
 
 ### D11 – Beheer: logboek en altijd een beheerder (18 nov 2026)
@@ -206,3 +206,17 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** de database-functie `planning_vorige_stap` zegt per gepland item hoe de vorige stap ervoor staat: klaar, bezig, dezelfde dag gepland, op een eerdere dag gepland die nog komt (in orde), *achter* (stond op een dag die voorbij is en is niet klaar), pas *later* gepland, of *niet gepland*. Bij een lotvoorstel: alle 4 batches klaar of niet. De laatste drie (en "niet alle batches klaar") geven een ⚠ in Per stap, het keuzevenster bij Toevoegen, het Dagoverzicht en de Batchroute. Plannen blijft mogen. De startdag uit Per week telt als planning van de eerste stap.
 - **Waarom:** Geert kon een batch in stap 2 plannen terwijl stap 1 nog niet klaar of zelfs niet gepland was, zonder dat hij het zag. Weigeren past niet bij D29: de planning is een richtlijn en de fabriek moet kunnen doordraaien. Geert koos voor waarschuwen.
 - **Proef:** om de planning overzichtelijker te maken staan twee overzichten naast elkaar, Dagoverzicht (alle stappen van één dag) en Batchroute (per batch alle stappen). Geert kiest er één (#48).
+
+### D53 – Eigen inlog per persoon, vóór de pilot (20 nov 2026)
+- **Besluit:** iedereen logt in met een eigen account (naam en wachtwoord); de beheerder maakt de accounts en kent de rollen toe. Het gedeelde operatoraccount met "naam kiezen" (D6) vervalt; correcties blijven alleen voor ploegleider of hoger. Komt vóór de pilot (#49).
+- **Waarom:** met een gedeeld account kan iedereen onder elke naam invoeren; dat is fraudegevoelig en met echte data niet te verdedigen.
+- **Let op:** inloggen gaat via de server. Wie al is ingelogd kan offline doorwerken (zoals nu); een pc die offline is bij het begin van een dienst kan niemand nieuw laten inloggen. Dat hoort bij de praktijktests (#33).
+
+### D54 – Eén app met startpagina; invoerscherm en wandscherm als portaal (20 nov 2026)
+- **Besluit:** na het openen eerst inloggen, daarna de portalen waar je account toegang toe heeft. Het invoerscherm (tot nu een aparte app, D10) en het wandscherm (een link onderin, D30) worden portalen. Het portaal Productie krijgt een naam die laat zien dat het voor de productieleiding is (voorstel: Productieanalyse). Het invoerscherm blijft offline werken.
+- **Waarom:** Geerts voorstel; één ingang is duidelijker en past bij eigen inlog (D53).
+
+### D55 – Producten hebben een eigen route, vóór de pilot (20 nov 2026)
+- **Besluit:** per product ligt vast welke stappen het doorloopt en in welke volgorde; stappen kunnen door producten gedeeld worden. Grenzen en toleranties per veld per product; capaciteit per stap en product. In de portalen staat bovenin een productkiezer die onthouden wordt, met ook "Alle producten"; operators kiezen niets, het product volgt uit de batch. Komt vóór de pilot (#51–#53), en vóór de echte velden worden aangeleverd (#2).
+- **Waarom:** de pilothal maakt meerdere producten met verschillende stappen; één vaste route van 18 stappen voor alles klopt dan niet, en analyses van producten door elkaar zeggen weinig.
+- **Gekozen boven:** een apart keuzescherm voor het product na het inloggen (Geerts eerste idee). Een kiezer bovenin is één klik minder en laat ook "Alle producten" toe, bijvoorbeeld voor de weekplanning.

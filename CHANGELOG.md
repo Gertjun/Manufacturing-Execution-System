@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## Zonder nieuwe versie (na 0.26.1)
+- Geerts lijst met 21 ideeën na de eerste demo verwerkt in de roadmap: nieuwe fase A2 (#49–#62, #64) en punten in F, G en Te besluiten (#55, #63, #65–#71). Punt 13 (trend per veld) zat in 0.26.1. Besluiten D53 (eigen inlog), D54 (één app met startpagina) en D55 (route per product). De pilotdatum schuift naar schatting twee weken (#70).
+
 ## 0.26.1 — 20 november 2026
 - Kwaliteit → Trend per veld: de waarde onder de muis klopt weer. De grafiek rekende de muispositie uit ten opzichte van een icoontje in de legenda, waardoor altijd de laatste meting verscheen. In dezelfde uitleg staat nu "instelling" in plaats van "setting" (D51). De schermtest controleert dit nu.
 
