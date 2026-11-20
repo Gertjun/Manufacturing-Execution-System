@@ -77,3 +77,4 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 - Links tussen startpagina/portalen en invoerscherm zijn relatief (`../invoer/index.html`), anders werken ze niet in de browserdemo.
 - De klasse `bezig` hoort bij tegels op het invoerscherm (stap met werk dat loopt). Een knop die bezig is heet `knop-bezig`; klikken daarop worden tegengehouden. Niet door elkaar halen.
 - Een lot en een lotvoorstel bestaan uit batches van één product (D55). Testdata en tests die lots maken, moeten batches van hetzelfde product nemen.
+- Nieuwe schermtests: geef de browsercontext `timezoneId: "Europe/Amsterdam"` mee (zoals de bestaande). Anders faalt een test rond middernacht op GitHub, waar Chrome in UTC draait.

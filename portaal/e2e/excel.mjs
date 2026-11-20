@@ -32,7 +32,7 @@ for (let i = 0; i < 40; i++) {
 }
 
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", acceptDownloads: true });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam", acceptDownloads: true });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
 const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });

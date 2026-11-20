@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## Zonder nieuwe versie (na 0.32.0)
+- Schermtests: Chrome draait nu in de tijdzone van de fabriek (Europe/Amsterdam), net als de database. Op GitHub draaide Chrome in UTC; tussen middernacht en 01:00 (Nederlandse tijd) was "vandaag" in de browser dan een andere dag dan in de database, en faalden drie controles. Aan de schermen zelf verandert niets: in de fabriek staan pc en server in dezelfde tijdzone.
+
 ## 0.32.0 — 20 november 2026 · #56 #57 #59
 - Nieuw: in het **lotpaspoort** klik je bij een afwijking op het resultaat ("Buiten tolerantie" of "Buiten grens"). Onder de regel klapt de meting open: de waarde met de instelling, de grenzen die toen golden, wie het invoerde op welke pc, alle correcties met reden, en het keurresultaat van de batch (of de herbewerking van het lot). Nog een klik klapt hem weer dicht.
 - Nieuw: bij de **regelkaarten** (overzicht en één kaart) staat uitleg op het scherm: wat een meting, specificatiegrens, regelgrens en signaal zijn, en de vier regels.

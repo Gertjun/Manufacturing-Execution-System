@@ -5,7 +5,7 @@ const URL_ = process.env.DEMO_URL ?? "http://localhost:4173/";
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-demo";
 mkdirSync(SHOTS, { recursive: true });
 const b = await chromium.launch({ executablePath: "/usr/bin/google-chrome" });
-const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const p = await b.newPage({ viewport: { width: 1440, height: 900 }, timezoneId: "Europe/Amsterdam" });
 const fouten = [];
 p.on("pageerror", (e) => fouten.push(String(e)));
 let ok = 0, mis = 0;
