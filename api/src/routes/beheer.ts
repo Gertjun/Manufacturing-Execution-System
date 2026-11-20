@@ -293,13 +293,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
 
   // ---------- Accounts ----------
   const Rol = Type.Union(["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "scherm"].map((r) => Type.Literal(r)));
-  const Account = Type.Object({ gebruikersnaam: Type.String(), rol: Type.String(), actief: Type.Boolean() });
+  const Account = Type.Object({
+    gebruikersnaam: Type.String(), rol: Type.String(), actief: Type.Boolean(),
+    naam: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Naam bij de invoer (operator en ploegleider, D53)" })),
+    gedeeld: Type.Optional(Type.Boolean({ description: "Het oude gedeelde operatoraccount: kiest een naam (D6); uitzetten zodra iedereen een eigen account heeft" })),
+  });
+  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, o.naam
+                         FROM gebruiker g LEFT JOIN operator o ON o.gebruiker_id = g.id`;
   const Wachtwoord = Type.String({ minLength: 8, description: "Minstens 8 tekens" });
 
   app.get(
     "/gebruikers",
     { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Account) } } },
-    async () => (await lees(app.db, "SELECT gebruikersnaam, rol, actief FROM gebruiker ORDER BY actief DESC, rol, gebruikersnaam")) as never,
+    async () => (await lees(app.db, `${ACCOUNT_SQL} ORDER BY g.actief DESC, g.rol, g.gebruikersnaam`)) as never,
   );
 
   app.post(
@@ -312,15 +318,27 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           gebruikersnaam: Type.String({ pattern: "^[a-z0-9._-]{3,40}$", description: "Kleine letters, cijfers, punt, streepje; 3 tot 40 tekens" }),
           rol: Rol,
           wachtwoord: Wachtwoord,
+          naam: Type.Optional(Type.String({ minLength: 1, maxLength: 60, description: "Operator en ploegleider: nieuwe naam bij de invoer (leeg = de gebruikersnaam)" })),
+          bestaandeNaam: Type.Optional(Type.String({ format: "uuid", description: "Operator en ploegleider: koppel aan een bestaande naam zonder account, zodat de geschiedenis doorloopt" })),
         }, { additionalProperties: false }),
         response: { 201: Account },
       },
     },
     async (req, reply) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query(
-          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, $2, wachtwoord_hash($3)) RETURNING gebruikersnaam, rol, actief",
-          [req.body.gebruikersnaam, req.body.rol, req.body.wachtwoord]));
+      const { gebruikersnaam, rol, wachtwoord, naam, bestaandeNaam } = req.body;
+      const invoer = rol === "operator" || rol === "ploegleider";
+      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows: [g] } = await tx.query<{ id: string }>(
+          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, $2, wachtwoord_hash($3)) RETURNING id",
+          [gebruikersnaam, rol, wachtwoord]);
+        if (invoer && bestaandeNaam) {
+          const k = await tx.query("UPDATE operator SET gebruiker_id = $1, actief = true WHERE id = $2 AND gebruiker_id IS NULL", [g.id, bestaandeNaam]);
+          if (!k.rowCount) throw new ApiFout(422, "Deze naam bestaat niet of hoort al bij een ander account");
+        } else if (invoer && naam) {
+          await tx.query("INSERT INTO operator (naam, gebruiker_id) VALUES ($1, $2)", [naam.trim(), g.id]);
+        }
+        return tx.query(`${ACCOUNT_SQL} WHERE g.id = $1`, [g.id]);
+      });
       return reply.status(201).send(r.rows[0]);
     },
   );
@@ -346,19 +364,23 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tx.query(
           `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
                   wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END
-            WHERE gebruikersnaam = $1 RETURNING gebruikersnaam, rol, actief`,
+            WHERE gebruikersnaam = $1 RETURNING gebruikersnaam`,
           [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord ?? null]));
       if (!r.rows[0]) throw niet("Account");
-      return r.rows[0];
+      return (await lees(app.db, `${ACCOUNT_SQL} WHERE g.gebruikersnaam = $1`, [req.params.gebruikersnaam]))[0] as never;
     },
   );
 
   // ---------- Operators (namenlijst op het invoerscherm) ----------
-  const Operator = Type.Object({ id: Type.String({ format: "uuid" }), naam: Type.String(), actief: Type.Boolean() });
+  const Operator = Type.Object({
+    id: Type.String({ format: "uuid" }), naam: Type.String(), actief: Type.Boolean(),
+    account: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Gebruikersnaam van het eigen account (D53); leeg = alleen een naam" })),
+  });
   app.get(
     "/operators",
     { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
-    async () => (await lees(app.db, "SELECT id, naam, actief FROM operator ORDER BY actief DESC, naam")) as never,
+    async () => (await lees(app.db,
+      "SELECT o.id, o.naam, o.actief, g.gebruikersnaam AS account FROM operator o LEFT JOIN gebruiker g ON g.id = o.gebruiker_id ORDER BY o.actief DESC, o.naam")) as never,
   );
   app.post(
     "/operators",

@@ -47,6 +47,11 @@ try {
   await page.getByLabel("Gebruikersnaam").fill("beheerder1");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
+  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
+  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
+    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
+    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
+  })}`).click();
   await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
   check("Beheerder komt in het Portaal Beheer", page.url().includes("#/beheer"));
 
@@ -110,9 +115,21 @@ try {
   await page.locator("tr", { hasText: "kwaliteit2" }).getByRole("button", { name: "Uitzetten" }).click();
   await dialoog().getByRole("button", { name: "Uitzetten" }).click();
   await page.locator("tr", { hasText: "kwaliteit2" }).getByRole("button", { name: "Weer aanzetten" }).waitFor();
-  await shot("02-accounts");
   const [acc] = await q("SELECT actief FROM fabriek.gebruiker WHERE gebruikersnaam = 'kwaliteit2'");
   check("kwaliteit2 bestaat en staat uit", acc && acc.actief === false);
+  // Eigen account voor een operator, gekoppeld aan een bestaande naam (D53).
+  check("Waarschuwing: gedeeld account nog actief", (await page.locator(".proef-melding", { hasText: "Gedeeld account nog actief" }).count()) === 1);
+  await page.getByRole("button", { name: "Account toevoegen" }).click();
+  await dialoog().getByLabel("Gebruikersnaam").fill("operator.e");
+  await dialoog().getByLabel("Rol").selectOption("operator");
+  await dialoog().getByLabel("Wachtwoord").fill("geheim-123");
+  await dialoog().getByLabel("Of: bestaande naam").selectOption({ label: "Operator E" });
+  await dialoog().getByRole("button", { name: "Account toevoegen" }).click();
+  await page.locator("tr", { hasText: "operator.e" }).waitFor();
+  check("Account toont de naam bij de invoer", (await page.locator("tr", { hasText: "operator.e" }).innerText()).includes("Operator E"));
+  const [kop] = await q("SELECT o.naam FROM fabriek.operator o JOIN fabriek.gebruiker g ON g.id = o.gebruiker_id WHERE g.gebruikersnaam = 'operator.e'");
+  check("Operator E is gekoppeld aan operator.e", kop?.naam === "Operator E");
+  await shot("02-accounts");
 
   console.log("\nOperators en pc's");
   await page.getByRole("link", { name: "Operators" }).click();
@@ -171,7 +188,7 @@ try {
   await invoer.getByLabel("Wachtwoord").fill("demo");
   await invoer.getByRole("button", { name: "Inloggen" }).click();
   await invoer.getByRole("heading", { name: "Wie ben je?" }).waitFor();
-  await invoer.getByRole("button", { name: "Operator A" }).waitFor();
+  await invoer.getByRole("button", { name: "Operator C" }).waitFor();
   check("Operator I staat in de namenlijst, Operator H niet",
     (await invoer.getByRole("button", { name: "Operator I" }).count()) === 1 && (await invoer.getByRole("button", { name: "Operator H" }).count()) === 0);
   await invoer.getByRole("button", { name: "Operator I" }).click();

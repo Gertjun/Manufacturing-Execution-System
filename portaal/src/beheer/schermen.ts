@@ -8,7 +8,7 @@ import { datum, fout, kop, tabel, afgekapt } from "../kwaliteit/schermen";
 import { downloadXlsx, leesNlGetal, leesXlsx, vandaag, xlsx, type Cel } from "../excel";
 
 const ROLLEN: [string, string][] = [
-  ["operator", "Operator (gedeeld invoeraccount)"],
+  ["operator", "Operator"],
   ["ploegleider", "Ploegleider"],
   ["kwaliteit", "Kwaliteit"],
   ["beheerder", "Beheerder"],
@@ -278,33 +278,49 @@ async function sjabloonInlezen(bestand: File, terugNaar: string) {
 }
 
 // ---------- Accounts ----------
-interface Account { gebruikersnaam: string; rol: string; actief: boolean }
+interface Account { gebruikersnaam: string; rol: string; actief: boolean; naam?: string | null; gedeeld?: boolean }
 
 export async function accounts() {
   const actueel = vastHouden();
   toon(kop("Accounts"), laden());
   let lijst: Account[];
-  try { lijst = await haal<Account[]>("/beheer/gebruikers"); } catch (e) { return fout(e); }
+  let namen: Operator[];
+  try { [lijst, namen] = await Promise.all([haal<Account[]>("/beheer/gebruikers"), haal<Operator[]>("/beheer/operators")]); } catch (e) { return fout(e); }
   if (!actueel()) return;
   const opnieuw = () => accounts();
+  const vrijeNamen = namen.filter((o) => !o.account);
   const wachtwoord: VraagVeld = { naam: "wachtwoord", label: "Wachtwoord", type: "password", hint: "Minstens 8 tekens", controle: (w) => (w.length < 8 ? "Minstens 8 tekens" : null) };
   const toevoegen = async () => {
     const r = await vraag("Account toevoegen", [
       { naam: "gebruikersnaam", label: "Gebruikersnaam", hint: "Kleine letters, cijfers, punt of streepje",
         controle: (n) => (/^[a-z0-9._-]{3,40}$/.test(n) ? null : "Alleen kleine letters, cijfers, punt of streepje; 3 tot 40 tekens") },
-      { naam: "rol", label: "Rol", opties: ROLLEN, waarde: "kwaliteit" },
+      { naam: "rol", label: "Rol", opties: ROLLEN, waarde: "operator" },
       wachtwoord,
-    ], "Account toevoegen", "Geef het wachtwoord persoonlijk door. Het wordt alleen versleuteld bewaard.");
+      { naam: "naam", label: "Naam bij de invoer (operator en ploegleider)", optioneel: true,
+        hint: "Bijvoorbeeld Jan de Vries. Deze naam staat bij alles wat dit account invoert. Leeg = zelfde als de inlognaam." },
+      { naam: "bestaandeNaam", label: "Of: bestaande naam uit de namenlijst", optioneel: true, waarde: "",
+        opties: [["", "Geen, nieuwe naam"], ...vrijeNamen.map((o): [string, string] => [o.id, o.naam])],
+        hint: "Kies dit als iemand al een naam heeft in de namenlijst; dan loopt zijn geschiedenis door." },
+    ], "Account toevoegen", "Iedereen logt in met een eigen account (D53). Geef het wachtwoord persoonlijk door; het wordt alleen versleuteld bewaard.");
     if (!r) return;
-    await wijzig(() => stuur("POST", "/beheer/gebruikers", r), `Account ${r.gebruikersnaam} toegevoegd`, opnieuw);
+    const invoer = r.rol === "operator" || r.rol === "ploegleider";
+    const body = { gebruikersnaam: r.gebruikersnaam, rol: r.rol, wachtwoord: r.wachtwoord,
+      ...(invoer && r.bestaandeNaam ? { bestaandeNaam: r.bestaandeNaam } : invoer && r.naam ? { naam: r.naam } : {}) };
+    await wijzig(() => stuur("POST", "/beheer/gebruikers", body), `Account ${r.gebruikersnaam} toegevoegd`, opnieuw);
   };
   const zelf = sessie.naam;
   toon(
-    kop("Accounts", "Persoonlijke accounts voor de portalen, en het gedeelde operator-account voor het invoerscherm.",
+    kop("Accounts", "Iedereen logt in met een eigen account. Bij operators en ploegleiders staat de naam die bij hun invoer verschijnt.",
       h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Account toevoegen")),
-    tabel(["Gebruikersnaam", "Rol", "Actief", ""], lijst.map((a) => [
+    lijst.some((a) => a.gedeeld && a.actief)
+      ? h("p", { class: "proef-melding" }, h("strong", {}, "Gedeeld account nog actief. "),
+          "Wie hiermee inlogt kiest zelf een naam; dat is fraudegevoelig (D53). Geef iedereen een eigen account en zet het gedeelde account uit zodra de invoerschermen niets meer te versturen hebben.")
+      : null,
+    tabel(["Gebruikersnaam", "Rol", "Naam bij de invoer", "Actief", ""], lijst.map((a) => [
       h("strong", { class: a.actief ? "" : "inactief" }, a.gebruikersnaam, a.gebruikersnaam === zelf ? h("span", { class: "noot" }, " (jij)") : ""),
-      rolNaam(a.rol), jaNee(a.actief),
+      rolNaam(a.rol),
+      a.gedeeld ? h("span", { class: "plan-waarschuwing" }, h("span", { "aria-hidden": "true" }, "⚠ "), "Gedeeld: kiest een naam") : a.naam ?? (a.rol === "operator" || a.rol === "ploegleider" ? h("span", { class: "sub" }, "Bij eerste inlog: de gebruikersnaam") : ""),
+      jaNee(a.actief),
       h("div", { class: "knoppen-klein" },
         h("button", { class: "knop knop-klein", disabled: a.gebruikersnaam === zelf, onclick: async () => {
           const r = await vraag(`Rol van ${a.gebruikersnaam}`, [{ naam: "rol", label: "Rol", opties: ROLLEN, waarde: a.rol }], "Opslaan");
@@ -323,7 +339,7 @@ export async function accounts() {
 }
 
 // ---------- Operators ----------
-interface Operator { id: string; naam: string; actief: boolean }
+interface Operator { id: string; naam: string; actief: boolean; account?: string | null }
 
 export async function operators() {
   const actueel = vastHouden();
@@ -333,13 +349,13 @@ export async function operators() {
   if (!actueel()) return;
   const opnieuw = () => operators();
   toon(
-    kop("Operators", "De namenlijst waaruit operators kiezen na het inloggen op het invoerscherm.",
+    kop("Operators", "Alle namen die bij invoer kunnen staan. Een naam met een eigen account hoort bij die persoon (D53); namen zonder account zijn nog te kiezen met het oude gedeelde account. Een nieuwe persoon voeg je toe bij Accounts.",
       h("button", { class: "knop knop-hoofd", onclick: async () => {
         const r = await vraag("Operator toevoegen", [{ naam: "naam", label: "Naam" }], "Toevoegen");
         if (r) await wijzig(() => stuur("POST", "/beheer/operators", r), `${r.naam} toegevoegd`, opnieuw);
       } }, "Operator toevoegen")),
-    tabel(["Naam", "Actief", ""], lijst.map((o) => [
-      h("strong", { class: o.actief ? "" : "inactief" }, o.naam), jaNee(o.actief),
+    tabel(["Naam", "Eigen account", "Actief", ""], lijst.map((o) => [
+      h("strong", { class: o.actief ? "" : "inactief" }, o.naam), o.account ?? h("span", { class: "sub" }, "Geen"), jaNee(o.actief),
       h("div", { class: "knoppen-klein" },
         h("button", { class: "knop knop-klein", onclick: async () => {
           const r = await vraag("Naam wijzigen", [{ naam: "naam", label: "Naam", waarde: o.naam }], "Opslaan", "Eerdere registraties tonen daarna ook de nieuwe naam.");

@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { Type, type TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { registreerAuth } from "./auth.js";
 import type { Db } from "./db.js";
 import { foutAfhandeling } from "./fouten.js";
@@ -114,8 +114,22 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     testCache = { op: Date.now(), ja };
     return ja;
   };
+  // Eén ingang (D54): de startpagina van de portalen, met inloggen en daarna je portalen.
+  // Zonder gebouwde portalen (alleen de API, zoals in de tests) de eenvoudige pagina met links.
+  const metPortalen = !!portaalMap && existsSync(portaalMap);
   app.get("/", { schema: { hide: true } }, async (_req, reply) =>
-    reply.type("text/html; charset=utf-8").send(startpagina(await isTestomgeving())));
+    metPortalen ? reply.redirect("/portaal/") : reply.type("text/html; charset=utf-8").send(startpagina(await isTestomgeving())));
+  // Testaccounts tonen op het inlogscherm, alleen in een testomgeving (D28).
+  app.get("/auth/omgeving", {
+    schema: {
+      tags: ["inloggen"], security: [],
+      description: "Of dit een testomgeving is (testaccounts met wachtwoord demo), voor het inlogscherm.",
+      response: { 200: Type.Object({ test: Type.Boolean(), testaccounts: Type.Array(Type.Object({ naam: Type.String(), wat: Type.String() })) }) },
+    },
+  }, async () => {
+    const test = await isTestomgeving();
+    return { test, testaccounts: test ? TESTACCOUNTS.map(([naam, wat]) => ({ naam, wat })) : [] };
+  });
   if (portaalMap && existsSync(portaalMap)) {
     await app.register(fastifyStatic, { root: portaalMap, prefix: "/portaal/", index: "index.html", decorateReply: false });
   }

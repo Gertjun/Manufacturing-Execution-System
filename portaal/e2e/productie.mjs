@@ -44,6 +44,11 @@ try {
   await page.getByLabel("Gebruikersnaam").fill("ploegleider1");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
+  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
+  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
+    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
+    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
+  })}`).click();
   await page.getByRole("heading", { name: "Productie", exact: true }).waitFor();
   await page.locator(".staptegel").first().waitFor();
   await shot("01-werkvoorraad");
@@ -128,6 +133,28 @@ try {
   check("PS7 heeft de laagste beschikbaarheid", (await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText()).includes("PS7"), rijPs7);
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   await shot("08-stilstand");
+
+  console.log("\nStartpagina en overstap naar het invoerscherm (D54)");
+  await page.goto(`${BASIS}/`);
+  await page.locator(".startpagina").waitFor();
+  const tegels = await page.locator(".starttegel strong").allInnerTexts();
+  check("Ploegleider: invoerscherm, portalen en wandscherm als tegels",
+    tegels[0] === "Invoerscherm" && tegels.includes("Productieanalyse") && tegels.includes("Wandscherm") && !tegels.includes("Beheer"), tegels.join(", "));
+  await shot("09-startpagina");
+  await page.locator(".starttegel-invoer").click();
+  await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
+  await page.getByRole("button", { name: /^PC-03/ }).click();
+  await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
+  check("Invoerscherm zonder opnieuw in te loggen, met de eigen naam", (await page.locator(".balk-eigen-naam").innerText()) === "ploegleider1");
+  const [pcInlog] = await q("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'ploegleider1' AND pc = 'PC-03' AND uitkomst = 'gelukt'");
+  check("Telt als inlog op PC-03", pcInlog.n >= 1);
+  await page.getByRole("link", { name: "Portalen" }).click();
+  await page.locator(".startpagina").waitFor();
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  await page.goto(`${BASIS}/invoer/`);
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  check("Afmelden in de portalen meldt ook het invoerscherm af", true);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

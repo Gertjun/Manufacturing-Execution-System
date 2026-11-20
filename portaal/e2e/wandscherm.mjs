@@ -41,6 +41,11 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
+  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
+  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
+    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
+    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
+  })}`).click();
 };
 
 try {
@@ -65,7 +70,8 @@ try {
   await page.evaluate(() => localStorage.clear());
   await inloggen("ploegleider1");
   await page.getByRole("heading", { name: "Productie" }).first().waitFor();
-  await page.getByRole("link", { name: "Wandscherm" }).click();
+  await page.goto(`${BASIS}/portaal/#/`);
+  await page.locator(".starttegel-wandscherm").click();
   await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
   await page.getByRole("link", { name: "Hal 1" }).click();
   await page.getByRole("heading", { name: "Vandaag in Hal 1" }).waitFor();

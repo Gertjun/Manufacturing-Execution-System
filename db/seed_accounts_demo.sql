@@ -15,6 +15,14 @@ FROM (VALUES ('operator',     'operator'),
              ('beheerder1',   'beheerder'),
              ('analist1',     'analist'),
              ('planner1',     'planner'),
-             ('scherm1',      'scherm')) v(naam, rol);
+             ('scherm1',      'scherm'),
+             ('operator.a',   'operator'),
+             ('operator.b',   'operator')) v(naam, rol);
+
+-- Het oude gedeelde operatoraccount (naam kiezen, D6) blijft in de demo om de overgang te laten zien (D53).
+UPDATE gebruiker SET gedeeld = true WHERE gebruikersnaam = 'operator';
+-- Eigen accounts, gekoppeld aan een bestaande naam: hun invoer staat op Operator A en Operator B.
+UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.a') WHERE naam = 'Operator A';
+UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.b') WHERE naam = 'Operator B';
 
 COMMIT;

@@ -5,6 +5,17 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.27.0 — 20 november 2026 · #49 #50
+- Nieuw: **iedereen logt in met een eigen account** (D53). Wat je invoert, komt vast op jouw naam; naam kiezen is er alleen nog voor het oude gedeelde account "operator". Dat blijft werken tot de beheerder het uitzet, zodat de overstap zonder stilstand kan.
+  - Beheer → Accounts: bij een nieuw account voor een operator of ploegleider kies je de naam bij de invoer, of je koppelt een bestaande naam uit de namenlijst. De lijst toont welke naam bij welk account hoort, en waarschuwt zolang het gedeelde account aan staat. Beheer → Operators toont welke namen een eigen account hebben.
+  - Een ploegleider die voor het eerst inlogt zonder naam, krijgt automatisch een naam gelijk aan zijn gebruikersnaam.
+  - Wissel van persoon op een pc: wat er nog in de wachtrij staat, gaat mee op de naam van wie het invoerde, als die de laatste 7 dagen op die pc heeft ingelogd. Anders weigert de server het met uitleg, en kan een ploegleider het in de wachtrij bekijken.
+- Nieuw: **startpagina** (D54). Na het inloggen zie je tegels voor alles waar je account bij mag: Invoerscherm, Kwaliteit, Productieanalyse, Planning, Beheer en Wandscherm. Een operator gaat meteen door naar het invoerscherm. Vanaf de startpagina hoef je op het invoerscherm niet opnieuw in te loggen; op het invoerscherm brengt "Portalen" een ploegleider terug. Afmelden geldt voor beide.
+- Het portaal Productie heet nu **Productieanalyse** (naam door Geert te bevestigen, #72).
+- Testaccounts in de demo: operator.a en operator.b (eigen inlog), naast het oude gedeelde account operator. Het inlogscherm van een testomgeving toont ze.
+- Database: migratie 0017 voegt toe dat een account gedeeld kan zijn en dat een naam bij een account hoort, plus de functies `operator_van_account` en `mag_invoeren_namens`. Bestaande gegevens blijven gelijk; het account "operator" wordt als gedeeld gemarkeerd. Oudere invoerschermen blijven werken: hun wachtrij wordt nog geaccepteerd (D18).
+- Nog niet in de praktijk getest: een pc die offline is bij het begin van een dienst (nieuwe inlog kan dan niet), en de startpagina op een echte tablet (#33).
+
 ## Zonder nieuwe versie (na 0.26.1)
 - Geerts lijst met 21 ideeën na de eerste demo verwerkt in de roadmap: nieuwe fase A2 (#49–#62, #64) en punten in F, G en Te besluiten (#55, #63, #65–#71). Punt 13 (trend per veld) zat in 0.26.1. Besluiten D53 (eigen inlog), D54 (één app met startpagina) en D55 (route per product). De pilotdatum schuift naar schatting twee weken (#70).
 

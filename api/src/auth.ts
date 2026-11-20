@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { ApiFout } from "./fouten.js";
-import { inTransactie, type Db, type Tx } from "./db.js";
+import { inTransactie, lees, type Db, type Tx } from "./db.js";
 
 export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm";
 
@@ -10,7 +10,8 @@ export interface Sessie {
   naam: string;         // gebruikersnaam
   rol: Rol;
   pcId?: string;        // pc waarop is ingelogd
-  operatorId?: string;  // gekozen naam uit de operatorlijst
+  operatorId?: string;  // eigen naam van het account (D53), of bij een gedeeld account de gekozen naam
+  gedeeld?: boolean;    // het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
 }
 
 declare module "@fastify/jwt" {
@@ -77,12 +78,23 @@ export function invoerTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) =>
   return inTransactie(db, req.user.naam, fn, apparaatMoment(req));
 }
 
-/** Voor invoer: het token moet een pc bevatten, en er moet een operator bekend zijn. */
-export function invoerContext(req: FastifyRequest): { pcId: string; operatorId: string } {
+/**
+ * Voor invoer: het token moet een pc bevatten, en er moet een operator bekend zijn.
+ * Staat de invoer op een andere naam dan die van het account (de wachtrij na een persoonswissel),
+ * dan beslist de database of dat mag (mag_invoeren_namens, D53).
+ */
+export async function invoerContext(db: Db, req: FastifyRequest): Promise<{ pcId: string; operatorId: string }> {
   const { pcId } = req.user;
   const operatorId = operatorVan(req);
   if (!pcId) throw new ApiFout(400, "Geen pc bekend; log in vanaf een geregistreerde pc");
-  if (!operatorId) throw new ApiFout(400, "Kies eerst je naam");
+  if (!operatorId) throw new ApiFout(400, req.user.gedeeld ? "Kies eerst je naam" : "Je account heeft geen naam; log opnieuw in");
+  if (operatorId !== req.user.operatorId) {
+    const [r] = await lees<{ mag: boolean; naam: string | null }>(db,
+      "SELECT mag_invoeren_namens($1, $2, $3) AS mag, (SELECT naam FROM operator WHERE id = $2) AS naam", [req.user.sub, operatorId, pcId]);
+    if (!r?.mag) {
+      throw new ApiFout(403, `Deze invoer staat op naam van ${r?.naam ?? "een onbekende naam"}, die de laatste 7 dagen niet op deze pc heeft ingelogd. Een ploegleider kan hem bekijken.`);
+    }
+  }
   return { pcId, operatorId };
 }
 

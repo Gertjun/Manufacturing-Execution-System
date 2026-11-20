@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 20 november 2026 · versie **0.26.1**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 20 november 2026 · versie **0.27.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A van de roadmap is gebouwd, daarna de UI/UX-review (0.23.2 tot en met 0.25.0, D50, D51) en de planningwaarschuwing (0.26.0, D52). Na de eerste demo staat er weer software open vóór de pilot: fase A2 (#49–#64), eerst eigen inlog en startpagina (D53, D54), dan routes per product (D55). Geert kiest nog tussen Dagoverzicht en Batchroute (#48) en bevestigt de nieuwe pilotdatum (#70).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina zijn gebouwd in 0.27.0 (#49, #50, D53, D54); volgende stap is de route per product (#51–#53, D55). Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.26.1 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.27.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.26.1, 20 november 2026):** geslaagd: databaseregels (105), API, migraties (tot en met 16), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de planningwaarschuwing en de twee proefoverzichten. Praktijktests zijn nog niet gedaan (#33), ook niet op een echte tablet.
+- **Laatste testronde (0.27.0, 20 november 2026):** geslaagd: databaseregels (119), API, migraties (tot en met 17), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor eigen inlog, de startpagina en de overstap naar het invoerscherm. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, en niet met een pc die offline is bij het begin van een dienst.
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -36,23 +36,24 @@ Bijgewerkt: 20 november 2026 · versie **0.26.1**. Dit blok wordt aan het eind v
 
 ## Het platform in het kort
 
-Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoerscherm voor de vloer is een aparte, eenvoudige app. Alles gebruikt dezelfde server, accounts en database; de rol bepaalt wat iemand ziet (D10).
+Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) een tegel voor elk onderdeel waar je account bij mag; een operator gaat meteen naar het invoerscherm. Elke afdeling heeft een eigen portaal; het invoerscherm voor de vloer is technisch een aparte, eenvoudige app die offline werkt. Alles gebruikt dezelfde server, accounts en database; de rol bepaalt wat iemand ziet (D10).
 
 | Onderdeel | Adres | Voor wie |
 | --- | --- | --- |
 | Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer; werkt offline |
 | Portaal Kwaliteit | `/portaal/` | Kwaliteit |
-| Portaal Productie | `/portaal/` | Ploegleiders, productieleiding |
+| Startpagina | `/` (stuurt door naar `/portaal/`) | Iedereen, na het inloggen |
+| Portaal Productieanalyse | `/portaal/` | Ploegleiders, productieleiding |
 | Portaal Planning | `/portaal/` | Planners (ploegleiders kijken mee) |
 | Portaal Beheer | `/portaal/` | Beheerder |
 | Wandscherm | `/portaal/#/wandscherm` | Tv in de hal |
 | API-documentatie | `/docs` | Ontwikkelaars, latere koppelingen |
 
-**Rollen:** operator (gedeeld account, daarna naam kiezen), ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
+**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
 
 **Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
 
-**Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator`, `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
+**Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator.a` en `operator.b` (eigen account, D53), `operator` (het oude gedeelde account, kiest een naam), `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
 
 ### Invoerscherm
 - Per stap zie je wat bezig is, wat klaarstaat en wat gepland is voor vandaag. Het formulier komt uit de velden die per stap zijn ingesteld; tijdens het typen zie je of een waarde buiten tolerantie of grens valt.
@@ -74,7 +75,7 @@ Eén platform met één login. Elke afdeling krijgt een eigen portaal; het invoe
 | Trend per veld | Eén veld door de tijd, met tolerantieband en grenzen |
 | Herbewerkingen en afkeur | Hoe vaak, in welke stap en met welke redenen |
 
-### Portaal Productie
+### Portaal Productieanalyse
 | Onderdeel | Wat je ziet |
 | --- | --- |
 | Werkvoorraad | Per stap wat bezig is en klaarstaat, met de langste wachttijd |
@@ -177,7 +178,7 @@ set DATABASE_URL=postgres://postgres@localhost:5432/batchgui
 set JWT_GEHEIM=<willekeurige tekst van minstens 32 tekens>
 npm start
 ```
-Inloggen: `POST /auth/login` met gebruikersnaam, wachtwoord en pc-naam; operators kiezen daarna hun naam (`POST /auth/operator`). Het token gaat mee als `Authorization: Bearer <token>`.
+Inloggen: `POST /auth/login` met gebruikersnaam, wachtwoord en (op het invoerscherm) de pc-naam. Een eigen account van een operator of ploegleider krijgt meteen zijn naam in het token; alleen het oude gedeelde account kiest daarna een naam (`POST /auth/operator`, D53). Van de startpagina naar het invoerscherm: `POST /auth/pc` geeft hetzelfde account met de pc erbij (D54). Invoeren kan alleen met een pc in het token. Het token gaat mee als `Authorization: Bearer <token>`.
 
 ### Testdata
 ```

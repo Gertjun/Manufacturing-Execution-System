@@ -44,13 +44,19 @@ async function login(naam) {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
+  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
+  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
+    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
+    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
+  })}`).click();
 }
 
 try {
   console.log("\nInloggen");
-  await login("operator");
-  await page.getByText("Het operator-account is voor het invoerscherm").waitFor();
-  check("Operator-account wordt naar het invoerscherm verwezen", true);
+  await login("operator.a");
+  await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
+  check("Operator met alleen het invoerscherm gaat daar meteen heen", page.url().includes("/invoer/"));
+  await page.evaluate(() => localStorage.clear());
 
   await login("kwaliteit1");
   await page.getByRole("heading", { name: "Kwaliteit", exact: true }).waitFor();

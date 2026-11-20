@@ -46,14 +46,23 @@ try {
   await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
   await shot("01-pc-kiezen");
   await page.getByRole("button", { name: /^PC-01/ }).click();
+  // Het oude gedeelde account kiest nog een naam (D6); namen met een eigen account staan er niet tussen (D53).
   await page.getByLabel("Gebruikersnaam").fill("operator");
   await page.getByLabel("Wachtwoord").fill("demo");
   await shot("02-inloggen");
   await page.getByRole("button", { name: "Inloggen" }).click();
   await page.getByRole("heading", { name: "Wie ben je?" }).waitFor();
   await shot("03-naam-kiezen");
-  await page.getByRole("button", { name: "Operator A" }).click();
+  check("Gedeeld account: Operator A (eigen account) staat niet in de namenlijst", (await page.getByRole("button", { name: "Operator A" }).count()) === 0);
+  check("Gedeeld account: uitleg om een eigen account te vragen", (await page.getByText("gedeelde account").count()) === 1);
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  // Eigen account (D53): meteen naar de stappen, naam vast in de balk.
+  await page.getByLabel("Gebruikersnaam").fill("operator.a");
+  await page.getByLabel("Wachtwoord").fill("demo");
+  await page.getByRole("button", { name: "Inloggen" }).click();
   await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
+  check("Eigen account: geen naam kiezen, naam in de balk", (await page.locator(".balk-eigen-naam").innerText()) === "Operator A");
   await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor();
   await page.locator(".tegel").first().waitFor();
   await shot("04-stappen");
@@ -288,7 +297,7 @@ try {
   await page.getByLabel("Gebruikersnaam").fill("ploegleider1");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  await page.getByRole("button", { name: "Operator B" }).click();
+  await page.locator(".balk-eigen-naam", { hasText: "ploegleider1" }).waitFor();
   await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
   await page.waitForTimeout(1500);
   const [ps3] = await q(`SELECT o.naam FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id

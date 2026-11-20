@@ -29,7 +29,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const { operatorId } = invoerContext(req);
+      const { operatorId } = await invoerContext(app.db, req);
       const { id, batchnummer } = req.body;
       if (id) {
         const [bestaand] = await lees<{ batchnummer: string }>(app.db, "SELECT batchnummer FROM batch WHERE id = $1", [id]);

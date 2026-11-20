@@ -15,6 +15,8 @@ const UNIEK: Record<string, string> = {
   waarde_een_origineel: "Dit veld is al ingevuld; een ploegleider kan corrigeren",
   gebruiker_gebruikersnaam_key: "Deze gebruikersnaam bestaat al",
   gebruiker_naam_klein: "Deze gebruikersnaam bestaat al (hoofdletters tellen niet mee)",
+  operator_naam_key: "Deze naam bestaat al in de namenlijst; kies hem bij \"Bestaande naam\" of gebruik een andere",
+  operator_gebruiker_id_key: "Dit account heeft al een naam",
 };
 
 interface PgFout {

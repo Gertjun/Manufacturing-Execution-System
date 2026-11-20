@@ -456,3 +456,15 @@ label.knop:has(+ .verborgen:focus-visible) { outline: 3px solid var(--focus, var
 .route-let-op a { color: var(--tol); font-weight: 700; }
 .route-let-op { background: var(--signaal-vlak); }
 .route-legenda { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+
+/* Startpagina (D54): tegels voor het invoerscherm, de portalen en het wandscherm. */
+.startpagina { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); max-width: 960px; }
+.starttegel { display: grid; gap: var(--space-2); min-height: 120px; padding: var(--space-5); background: var(--vlak); border: 1.5px solid var(--lijn-sterk); border-radius: var(--radius-md); color: var(--inkt); text-decoration: none; align-content: start; }
+.starttegel strong { font-size: var(--text-lg); color: var(--actie); }
+.starttegel span { color: var(--inkt-zacht); }
+.starttegel:hover { border-color: var(--actie); background: var(--actie-vlak); }
+.starttegel:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.starttegel-invoer { border-left: 6px solid var(--actie); }
+.testaccounts { margin-top: var(--space-5); }
+a.merk { color: inherit; text-decoration: none; }
+a.merk:hover { text-decoration: underline; }

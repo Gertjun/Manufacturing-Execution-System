@@ -63,7 +63,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const { pcId, operatorId } = invoerContext(req);
+      const { pcId, operatorId } = await invoerContext(app.db, req);
       const { id, stapcode, batchnummer, lotnummer } = req.body;
       if (!batchnummer === !lotnummer) throw new ApiFout(400, "Geef een batchnummer óf een lotnummer");
 
@@ -159,7 +159,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const { operatorId } = invoerContext(req);
+      const { operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
         for (const w of req.body.waarden) {
           if (w.id) {
@@ -198,7 +198,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     "/:id/afronden",
     { preHandler: vereist(...INVOER), schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
     async (req) => {
-      invoerContext(req);
+      await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, (tx) => tx.query("SELECT rond_stap_af($1)", [req.params.id]));
       return (await registratieDetail(app.db, req.params.id)) as never;
     },
@@ -227,7 +227,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const { operatorId } = invoerContext(req);
+      const { operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
         for (const g of req.body.grondstoffen) {
           if (g.id) {

@@ -1,7 +1,9 @@
 import "./stijl.css";
 import { sessie } from "./sessie";
 import { bevestig, h, nieuweRoute } from "./ui";
-import { acties, opStatus, startWachtrij, type Status } from "./wachtrij";
+import { acties, inloggenGelukt, opStatus, startWachtrij, type Status } from "./wachtrij";
+import { stuur } from "./api";
+import { vergeetConfig } from "./registraties";
 import { loginScherm, naamScherm, pcScherm } from "./schermen/start";
 import { stapScherm, stappenScherm } from "./schermen/werk";
 import { registratieScherm } from "./schermen/registratie";
@@ -44,8 +46,15 @@ function tekenBalk() {
                 "Meldingen", ongelezen() ? h("span", { class: "balk-teller" }, ongelezen()) : null)
             : null)
       : null,
+    // Gedeeld account (D6): naam is te wisselen. Eigen account (D53): de naam ligt vast; wisselen = afmelden.
     ingelogd && sessie.operatornaam
-      ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
+      ? sessie.inhoud()?.gedeeld
+        ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
+        : h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
+      : null,
+    // Ploegleiders gebruiken ook de portalen: terug naar de startpagina (D54).
+    ingelogd && sessie.rol === "ploegleider"
+      ? h("a", { class: "balk-wie", href: "../portaal/index.html#/" }, "Portalen")
       : null,
     ingelogd
       ? h("button", { class: "balk-wie", onclick: () => void afmelden() }, "Afmelden")
@@ -67,6 +76,24 @@ async function afmelden() {
   location.hash = "#/login";
 }
 
+/** Overstap van de startpagina: vraag een token met deze pc erbij (/auth/pc). Lukt dat niet, dan gewoon inloggen. */
+async function vanStartpagina(): Promise<boolean> {
+  const t = sessie.portaalToken();
+  if (!t || !sessie.pc) return false;
+  try {
+    const r = await stuur<{ token: string; naamKiezen: boolean; operator?: { id: string; naam: string } | null }>(
+      "POST", "/auth/pc", { pc: sessie.pc }, { authorization: `Bearer ${t}` });
+    sessie.token = r.token;
+    sessie.operatornaam = r.operator?.naam ?? null;
+    vergeetConfig();
+    inloggenGelukt();
+    location.hash = r.naamKiezen ? "#/naam" : "#/stappen";
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------- Navigatie ----------
 async function route() {
   nieuweRoute();
@@ -77,12 +104,18 @@ async function route() {
   if (!sessie.pc && scherm !== "pc") return void (location.hash = "#/pc");
   if (scherm === "pc") return pcScherm();
   if (scherm === "login" || !sessie.geldig()) {
+    // Al ingelogd op de startpagina (D54)? Dan hetzelfde account op deze pc, zonder opnieuw in te loggen.
+    if (await vanStartpagina()) return;
     if (scherm !== "login") return void (location.hash = "#/login");
     return loginScherm();
   }
   const rol = sessie.rol;
-  if (scherm === "naam") return naamScherm();
-  if ((rol === "operator" || rol === "ploegleider") && !sessie.heeftNaam()) return void (location.hash = "#/naam");
+  if (scherm === "naam") return sessie.inhoud()?.gedeeld ? naamScherm() : void (location.hash = "#/stappen");
+  if ((rol === "operator" || rol === "ploegleider") && !sessie.heeftNaam()) {
+    // Eigen account zonder naam in het token (bijvoorbeeld een token van vóór 0.27): opnieuw inloggen.
+    if (!sessie.inhoud()?.gedeeld) { sessie.afmelden(); return void (location.hash = "#/login"); }
+    return void (location.hash = "#/naam");
+  }
 
   switch (scherm) {
     case "stap": return stapScherm(decodeURIComponent(arg));

@@ -234,3 +234,7 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .stilstand-blok h2 { margin: 0 0 var(--space-1); color: var(--grens); }
 .stilstand-blok p { margin: 0; }
 .kop-rechts { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+
+/* Eigen account (D53): de naam is geen knop. */
+.balk-eigen-naam { cursor: default; border-color: transparent; font-weight: 700; }
+a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }

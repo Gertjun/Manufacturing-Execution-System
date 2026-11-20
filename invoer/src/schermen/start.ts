@@ -24,7 +24,9 @@ export async function pcScherm() {
               class: "keuze",
               onclick: () => {
                 sessie.pc = pc.naam;
-                sessie.afmelden();
+                // Alleen het token van deze pc vervalt; wie op de startpagina is ingelogd, blijft dat (D54).
+                sessie.token = null;
+                sessie.operatornaam = null;
                 location.hash = "#/login";
               },
             },
@@ -52,16 +54,17 @@ export function loginScherm() {
         e.preventDefault();
         fout.textContent = "";
         try {
-          const r = await stuur<{ token: string; naamKiezen: boolean }>("POST", "/auth/login", {
+          const r = await stuur<{ token: string; naamKiezen: boolean; operator?: { id: string; naam: string } | null }>("POST", "/auth/login", {
             gebruikersnaam: naam.value.trim(),
             wachtwoord: ww.value,
             pc: sessie.pc ?? undefined,
           });
           sessie.token = r.token;
-          sessie.operatornaam = null;
+          // Eigen account: de naam ligt vast (D53). Gedeeld account: daarna een naam kiezen.
+          sessie.operatornaam = r.operator?.naam ?? null;
           vergeetConfig();
           inloggenGelukt();
-          location.hash = r.naamKiezen || sessie.rol === "ploegleider" ? "#/naam" : "#/stappen";
+          location.hash = r.naamKiezen ? "#/naam" : "#/stappen";
         } catch (e) {
           fout.textContent =
             e instanceof GeenVerbinding ? "Geen verbinding met de server. Inloggen kan alleen met verbinding." : (e as Error).message;
@@ -75,6 +78,7 @@ export function loginScherm() {
   );
   toon(
     h("h1", {}, "Inloggen"),
+    h("p", { class: "sub" }, "Log in met je eigen gebruikersnaam en wachtwoord. Alles wat je invoert, komt op jouw naam."),
     h("p", { class: "sub" }, `Deze pc: ${sessie.pc}. `, h("a", { href: "#/pc" }, "Andere pc kiezen")),
     vorm,
   );
@@ -95,6 +99,7 @@ export async function naamScherm() {
   toon(
     h("h1", {}, "Wie ben je?"),
     h("p", { class: "sub" }, "Je naam komt bij alles wat je invoert."),
+    h("p", { class: "label-wacht" }, "Je bent ingelogd met het gedeelde account. Vraag de beheerder om een eigen account; dan hoef je hier niet meer te kiezen."),
     h(
       "div",
       { class: "raster" },

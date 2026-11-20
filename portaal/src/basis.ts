@@ -23,6 +23,11 @@ export const sessie = {
   },
   get rol(): Rol | null { return this.inhoud()?.rol ?? null; },
   get naam(): string { return this.inhoud()?.naam ?? ""; },
+  /** Afmelden geldt voor de hele app (D54): ook het invoerscherm op deze pc meldt af. */
+  afmelden() {
+    this.token = null;
+    try { localStorage.removeItem("invoer.token"); localStorage.removeItem("invoer.operatornaam"); } catch { /* geen opslag */ }
+  },
 };
 
 export class ApiFout extends Error {
@@ -79,7 +84,7 @@ export const PORTALEN: Portaal[] = [
   },
   {
     id: "productie",
-    naam: "Productie",
+    naam: "Productieanalyse",
     rollen: ["ploegleider", "beheerder", "analist"],
     klaar: true,
     onderdelen: [
@@ -127,6 +132,25 @@ export const PORTALEN: Portaal[] = [
 ];
 
 export const portalenVoor = (rol: Rol | null) => PORTALEN.filter((p) => rol && p.rollen.includes(rol));
+
+/** Tegels op de startpagina (D54): het invoerscherm, de portalen en het wandscherm, voor zover je rol ze mag. */
+export interface Tegel { id: string; naam: string; uitleg: string; href: string }
+export function tegelsVoor(rol: Rol | null): Tegel[] {
+  if (!rol) return [];
+  const UITLEG: Record<string, string> = {
+    kwaliteit: "Beoordelen, lotpaspoort, regelkaarten, afwijkingen en trends.",
+    productie: "Voor de productieleiding: werkvoorraad, doorlooptijden, ploegoverdracht en stilstand.",
+    planning: "Batches plannen, planning per stap, lotvoorstellen en capaciteit.",
+    beheer: "Stappen en velden, accounts, namen, pc's, keuzelijsten, logboek en server.",
+  };
+  return [
+    ...(rol === "operator" || rol === "ploegleider"
+      ? [{ id: "invoer", naam: "Invoerscherm", uitleg: "Voor de vloer: stappen invoeren, lot samenstellen, stilstand en ploegoverdracht. Werkt ook offline.", href: "../invoer/index.html" }]
+      : []),
+    ...portalenVoor(rol).map((p) => ({ id: p.id, naam: p.naam, uitleg: UITLEG[p.id] ?? "", href: `#/${p.id}` })),
+    ...(rol === "operator" ? [] : [{ id: "wandscherm", naam: "Wandscherm", uitleg: "Voor de tv in de hal: wat er per stap te doen staat. Alleen kijken.", href: "#/wandscherm" }]),
+  ];
+}
 
 // ---------- Periode (één filterrij boven de analyses) ----------
 export const PERIODES = [

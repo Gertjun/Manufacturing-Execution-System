@@ -1,7 +1,7 @@
 import { VERSIE } from "../../gedeeld/versie";
 import "./stijl.css";
 import { h, nieuweRoute, toon } from "../../gedeeld/ui";
-import { ApiFout, portalenVoor, PORTALEN, sessie, stuur } from "./basis";
+import { ApiFout, haal, portalenVoor, PORTALEN, sessie, stuur, tegelsVoor } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
@@ -34,7 +34,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   }, "Menu", h("span", { class: "menu-knop-waar" }, [huidig?.naam, onderdeel?.naam].filter(Boolean).join(" · ") || (actiefPortaal === "meldingen" ? "Meldingen" : "")));
   // Meldingen staan buiten het inklapbare deel: de teller blijft ook op een smal scherm zichtbaar.
   menu.replaceChildren(
-    h("div", { class: "menu-kop" }, h("div", { class: "merk" }, "Portalen"), knop),
+    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, "Portalen"), knop),
     ...(heeftMeldingen()
       ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
       : []),
@@ -53,9 +53,8 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
           : null)),
     h("div", { class: "menu-voet" },
       h("div", {}, sessie.naam, h("span", { class: "sub" }, ` (${sessie.rol})`)),
-      h("button", { class: "knop-link", onclick: () => { sessie.token = null; location.hash = "#/login"; } }, "Afmelden"),
-      h("a", { href: "/invoer/" }, "Naar het invoerscherm"),
-      h("a", { href: "#/wandscherm" }, "Wandscherm"),
+      h("button", { class: "knop-link", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden"),
+      h("a", { href: "#/" }, "Startpagina"),
       h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
   );
 }
@@ -65,36 +64,52 @@ function loginScherm() {
   const naam = h("input", { id: "gebruikersnaam", type: "text", autocomplete: "username", required: true }) as HTMLInputElement;
   const ww = h("input", { id: "wachtwoord", type: "password", autocomplete: "current-password", required: true }) as HTMLInputElement;
   const fout = h("p", { class: "foutmelding", role: "alert" });
+  const testaccounts = h("div", { class: "testaccounts" });
   toon(
     h("div", { class: "inlog" },
       h("h1", {}, "Inloggen"),
-      h("p", { class: "sub" }, "Met je persoonlijke account. Operators gebruiken het invoerscherm."),
+      h("p", { class: "sub" }, "Met je eigen account. Daarna kies je het invoerscherm of een portaal."),
       h("form", {
         onsubmit: async (e: Event) => {
           e.preventDefault();
           fout.textContent = "";
           try {
             const r = await stuur<{ token: string; rol: string }>("POST", "/auth/login", { gebruikersnaam: naam.value.trim(), wachtwoord: ww.value });
-            if (r.rol === "operator") {
-              fout.textContent = "Het operator-account is voor het invoerscherm. Log hier in met je persoonlijke account.";
-              return;
-            }
             sessie.token = r.token;
             location.hash = "#/";
           } catch (e) {
             fout.textContent =
-              e instanceof ApiFout && e.status === 401 ? "Onjuiste gebruikersnaam of wachtwoord." :
-              /Operators loggen in/.test((e as Error).message) ? "Het operator-account is voor het invoerscherm. Log hier in met je persoonlijke account." :
-              (e as Error).message;
+              e instanceof ApiFout && e.status === 401 ? "Onjuiste gebruikersnaam of wachtwoord." : (e as Error).message;
           }
         },
       },
         h("label", { for: "gebruikersnaam" }, "Gebruikersnaam", naam),
         h("label", { for: "wachtwoord" }, "Wachtwoord", ww),
         fout,
-        h("button", { class: "knop knop-hoofd", type: "submit" }, "Inloggen"))),
+        h("button", { class: "knop knop-hoofd", type: "submit" }, "Inloggen")),
+      testaccounts),
   );
   naam.focus();
+  // In een testomgeving: de testaccounts onder het formulier (nooit in een echte installatie, D28).
+  haal<{ test: boolean; testaccounts: { naam: string; wat: string }[] }>("/auth/omgeving").then((o) => {
+    if (!o.test) return;
+    testaccounts.replaceChildren(h("p", { class: "sub" }, "Testomgeving met fictieve gegevens. Testaccounts, wachtwoord steeds demo:"),
+      h("table", { class: "tabel compact" }, h("tbody", {}, o.testaccounts.map((t) => h("tr", {}, h("td", {}, h("strong", {}, t.naam)), h("td", {}, t.wat))))));
+  }).catch(() => {});
+}
+
+// ---------- Startpagina (D54) ----------
+function startScherm() {
+  const tegels = tegelsVoor(sessie.rol);
+  // Maar één bestemming (bijvoorbeeld een operator: alleen het invoerscherm): meteen daarheen.
+  if (tegels.length === 1) return void location.assign(tegels[0].href);
+  toon(
+    h("div", { class: "kop" }, h("div", {}, h("h1", {}, `Welkom, ${sessie.naam}`), h("p", { class: "sub" }, "Kies waar je wilt werken."))),
+    tegels.length
+      ? h("ul", { class: "startpagina" }, tegels.map((t) =>
+          h("li", {}, h("a", { class: `starttegel starttegel-${t.id}`, href: t.href }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
+      : h("p", { class: "leeg" }, "Voor jouw rol is (nog) geen portaal beschikbaar. Vraag de beheerder om een andere rol."),
+  );
 }
 
 function volgtScherm(naam: string) {
@@ -126,15 +141,16 @@ async function route() {
     await tekenMenu("meldingen", "");
     return meldingenScherm(onderdeel === "alle");
   }
-  const toegestaan = portalenVoor(sessie.rol);
-  if (!toegestaan.length) {
+  if (!portaal || portaal === "start") {
     await tekenMenu("", "");
-    return toon(h("h1", {}, "Geen portaal"), h("p", { class: "leeg" }, "Voor jouw rol is (nog) geen portaal beschikbaar."));
+    return startScherm();
   }
+  const toegestaan = portalenVoor(sessie.rol);
+  if (!toegestaan.length) return void (location.hash = "#/");
   const p = toegestaan.find((x) => x.id === portaal);
   // Eerste portaal dat bij de rol hoort (ploegleider: Productie, kwaliteit: Kwaliteit).
   const standaard = sessie.rol === "ploegleider" ? "productie" : sessie.rol === "beheerder" ? "beheer" : sessie.rol === "planner" ? "planning" : toegestaan.find((x) => x.klaar)?.id ?? toegestaan[0].id;
-  if (!p) return void (location.hash = `#/${standaard}`);
+  if (!p) return void (location.hash = toegestaan.some((x) => x.id === standaard) ? `#/${standaard}` : "#/");
   if (!p.klaar) { await tekenMenu(p.id, ""); return volgtScherm(p.naam); }
   const deel = onderdeel || "overzicht";
   const a = arg ? decodeURIComponent(arg) : undefined;

@@ -65,8 +65,6 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 
 ### A2. Uit de eerste demo — eind november 2026 tot januari 2027
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten.
-- #49 **Eigen inlog per persoon** (groot, D53) — Iedereen logt in met eigen naam en wachtwoord; de beheerder maakt de accounts en kent de rollen toe. Vervangt het gedeelde operatoraccount met naam kiezen (D6). Inloggen gaat via de server; wie al ingelogd is, kan offline doorwerken. Ook: wat gebeurt er met operators die nu alleen een naam zijn (omzetten naar accounts), en wissel van persoon op dezelfde pc midden in een dienst.
-- #50 **Eén app met een startpagina** (middel, D54) — Na het openen eerst inloggen, daarna de portalen waar jouw account toegang toe heeft. Het invoerscherm en het wandscherm (punt 5) worden portalen. Het portaal Productie wordt "Productieanalyse" (naam door Geert te bevestigen).
 - #54 **Wandscherm per processtap** (klein) — Een wandscherm instellen voor één of enkele stappen, zodat je alleen de planning en het werk van die stap ziet.
 - #51 **Eigen route per product** (groot, D55) — Per product welke stappen het doorloopt en in welke volgorde; stappen kunnen door meerdere producten gedeeld worden. De batch kent zijn product, dus het invoerscherm, de werkvoorraad, de planningswaarschuwing (D52) en de lotstap volgen de route van dat product. Vraagt van Geert per product de lijst met stappen (fictief tot de pilot).
 - #52 **Productkiezer en grenzen per product** (groot, D55) — Bovenin de portalen een productkiezer die onthouden wordt (ook "Alle producten"). Toleranties en grenzen per veld per product, zodat Kwaliteit (overzicht, trends, regelkaarten, afwijkingen) per product klopt, ook als producten door elkaar draaien.
@@ -80,7 +78,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 - #62 **Ploegoverdracht: afgerond van gepland** (klein) — "28 / 32 stappen afgerond".
 - #64 **Invoer voor Kwaliteit en soort meting** (groot) — Een invoerscherm voor de metingen van Kwaliteit, en per veld wie meet (Productie of Kwaliteit) en wat het is (procesparameter of producteigenschap). Een meting kan leiden tot vrijgave voor de volgende stap, herbewerking of afkeur (bouwt voort op D7). Vóór of na de pilot: zie #71.
 
-**Poort A2:** #49–#53 gebouwd en door Geert in de demo bekeken; de routes per product staan erin (fictief).
+**Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
 
 
 ### B. Proof of concept en praktijk — december 2026
@@ -137,6 +135,7 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
 - #9 **Portalen voor andere afdelingen** — Welke afdelingen hebben nog een portaal nodig?
 - #63 **Productiviteit per ploeg** — Punt 15 uit Geerts lijst. Per ploeg is minder gevoelig dan per persoon, maar bij kleine ploegen herken je toch personen; raakt D12 en mogelijk de ondernemingsraad. Wat telt als productiviteit: batches, stappen of uren per ploeg?
 - #70 **Nieuwe pilotdatum** — Door #49–#53 vóór de pilot schuift de poort naar schatting van 8 naar 22 februari 2027. Geert bevestigt de datum.
+- #72 **Naam "Productieanalyse"** — Het portaal Productie heet nu Productieanalyse (D54). Geert bevestigt de naam of kiest een andere.
 - #71 **Invoer voor Kwaliteit vóór of na de pilot?** — Moeten de metingen van Kwaliteit (#64) in de pilot al in het systeem, of blijft dat voorlopig op papier?
 - #34 **Open vragen planning** — Moet de planner ook ploegen of pc's toewijzen? Mag een operator een lotvoorstel zelf aanpassen? Is "per stap per dag" zo bruikbaar?
 

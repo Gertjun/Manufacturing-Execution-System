@@ -48,6 +48,11 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
+  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
+  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
+    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
+    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
+  })}`).click();
 };
 
 try {
@@ -164,9 +169,11 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   const letOpCel = page.locator(".route-tabel tr", { hasText: nummers[1] }).locator("td.route-let-op");
   check("Batchroute: geplande PS3 met ⚠", (await letOpCel.count()) === 1 && (await letOpCel.getAttribute("title")).includes("PS2 is nog niet gepland"));
   await shot("07-batchroute");
+  const metWaarschuwing = Number((await page.getByRole("link", { name: /^Met waarschuwing/ }).innerText()).match(/\((\d+)\)/)[1]);
   await page.getByRole("link", { name: /^Met waarschuwing/ }).click();
   await page.waitForFunction(() => location.hash.endsWith("/let-op"));
-  await page.locator(".route-tabel").waitFor();
+  // Wacht tot het gefilterde overzicht er staat (de oude tabel heeft dezelfde opmaak).
+  await page.waitForFunction((n) => document.querySelectorAll(".route-tabel tbody tr").length === n, metWaarschuwing);
   check("Batchroute: filter alleen met waarschuwing", (await page.locator(".route-tabel tbody tr").count()) >= 1 && (await page.locator(".route-tabel tbody tr", { hasText: nummers[1] }).count()) === 1);
   // Weer weghalen, zodat de rest van de test niet verandert.
   await letOpCel.locator("a").click();

@@ -1,13 +1,16 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist, type Rol, type Sessie } from "../auth.js";
+import { IEDEREEN, INVOER, vereist, type Rol, type Sessie } from "../auth.js";
 import { ApiFout } from "../fouten.js";
 import { inTransactie, lees } from "../db.js";
 
 const TokenAntwoord = Type.Object({
   token: Type.String(),
   rol: Type.String(),
-  naamKiezen: Type.Boolean({ description: "true: kies eerst een naam via /auth/operator" }),
+  naamKiezen: Type.Boolean({ description: "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)" }),
+  operator: Type.Optional(Type.Union([Type.Null(), Type.Object({ id: Type.String(), naam: Type.String() })], {
+    description: "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
+  })),
 });
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
@@ -44,17 +47,66 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         if (!rij) throw new ApiFout(400, `Onbekende pc ${pc}`);
         pcId = rij.id;
       }
-      if (gebruiker.rol === "operator" && !pcId) {
-        throw new ApiFout(400, "Operators loggen in vanaf een geregistreerde pc");
-      }
-      const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, pcId };
+      // Zonder pc mag ook (startpagina, D54); invoeren vraagt een pc (invoerContext), die komt via /auth/pc.
+      // Eigen account: de naam waaronder je invoert ligt vast (D53). Gedeeld account: naam kiezen (D6).
+      // Twee stappen: operator_van_account kan een naam aanmaken, die een query pas in de volgende stap ziet.
+      const [ac] = await inTransactie(app.db, gebruiker.naam, async (tx) => {
+        const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [gebruiker.id]);
+        return (await tx.query<{ gedeeld: boolean; operator_id: string | null; operatornaam: string | null }>(
+          `SELECT g.gedeeld, o.id AS operator_id, o.naam AS operatornaam
+             FROM gebruiker g LEFT JOIN operator o ON o.id = $2
+            WHERE g.id = $1`, [gebruiker.id, o?.id ?? null])).rows;
+      });
+      const gedeeld = !!ac?.gedeeld;
+      const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, pcId,
+        ...(ac?.operator_id ? { operatorId: ac.operator_id } : {}), ...(gedeeld ? { gedeeld } : {}) };
       // Een wandscherm blijft dagen aan staan: langer geldig token (het mag alleen het wandscherm lezen).
       const token = gebruiker.rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie);
-      return { token, rol: gebruiker.rol, naamKiezen: gebruiker.rol === "operator" };
+      return {
+        token, rol: gebruiker.rol,
+        naamKiezen: gedeeld && INVOER.includes(gebruiker.rol),
+        operator: ac?.operator_id ? { id: ac.operator_id, naam: ac.operatornaam as string } : null,
+      };
     },
   );
 
-  // Namenlijst om uit te kiezen na het inloggen.
+  // Van de startpagina naar het invoerscherm (D54): hetzelfde account, nu met de pc erbij.
+  // Telt als inlog op die pc, zodat de wachtrij van de pc na een persoonswissel nog mag (D53).
+  app.post(
+    "/pc",
+    {
+      preHandler: vereist(...INVOER),
+      schema: {
+        tags: ["inloggen"],
+        description: "Geeft een token met de pc erbij, voor het invoerscherm. Voor wie al op de startpagina is ingelogd.",
+        body: Type.Object({ pc: Type.String({ minLength: 1, maxLength: 100 }) }),
+        response: { 200: TokenAntwoord },
+      },
+    },
+    async (req) => {
+      const [rij] = await lees<{ id: string }>(app.db, "SELECT id FROM pc WHERE naam = $1 AND actief", [req.body.pc]);
+      if (!rij) throw new ApiFout(400, `Onbekende pc ${req.body.pc}`);
+      const [ac] = await inTransactie(app.db, req.user.naam, async (tx) => {
+        await tx.query("INSERT INTO inlogpoging (gebruikersnaam, pc, uitkomst) VALUES ($1, $2, 'gelukt')", [req.user.naam, req.body.pc]);
+        const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [req.user.sub]);
+        return (await tx.query<{ actief: boolean; gedeeld: boolean; operator_id: string | null; operatornaam: string | null }>(
+          `SELECT g.actief, g.gedeeld, o.id AS operator_id, o.naam AS operatornaam
+             FROM gebruiker g LEFT JOIN operator o ON o.id = $2 WHERE g.id = $1`, [req.user.sub, o?.id ?? null])).rows;
+      });
+      if (!ac?.actief) throw new ApiFout(401, "Dit account staat uit");
+      const { sub, naam, rol } = req.user;
+      const sessie: Sessie = { sub, naam, rol, pcId: rij.id,
+        ...(ac.operator_id ? { operatorId: ac.operator_id } : {}), ...(ac.gedeeld ? { gedeeld: true } : {}) };
+      return {
+        token: app.jwt.sign(sessie), rol,
+        naamKiezen: ac.gedeeld,
+        operator: ac.operator_id ? { id: ac.operator_id, naam: ac.operatornaam as string } : null,
+      };
+    },
+  );
+
+  // Namenlijst om uit te kiezen na het inloggen met het gedeelde account. Namen met een eigen account
+  // staan er niet in: die personen loggen zelf in (D53).
   app.get(
     "/operators",
     {
@@ -64,7 +116,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: Type.Array(Type.Object({ id: Type.String(), naam: Type.String() })) },
       },
     },
-    async () => (await lees(app.db, "SELECT id, naam FROM operator WHERE actief ORDER BY naam")) as never,
+    async () => (await lees(app.db, "SELECT id, naam FROM operator WHERE actief AND gebruiker_id IS NULL ORDER BY naam")) as never,
   );
 
   // Naam kiezen: geeft een nieuw token met de gekozen operator.
@@ -79,11 +131,16 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const [rij] = await lees(app.db, "SELECT 1 FROM operator WHERE id = $1 AND actief", [req.body.operatorId]);
+      if (!req.user.gedeeld) {
+        throw new ApiFout(403, "Je logt in met je eigen account; je naam ligt al vast. Een andere naam kiezen kan niet.");
+      }
+      const [rij] = await lees<{ naam: string; gebruiker_id: string | null }>(app.db,
+        "SELECT naam, gebruiker_id FROM operator WHERE id = $1 AND actief", [req.body.operatorId]);
       if (!rij) throw new ApiFout(400, "Onbekende naam");
+      if (rij.gebruiker_id) throw new ApiFout(403, `${rij.naam} heeft een eigen account. Log in met je eigen naam en wachtwoord.`);
       const { sub, naam, rol, pcId } = req.user;
-      const sessie: Sessie = { sub, naam, rol, pcId, operatorId: req.body.operatorId };
-      return { token: app.jwt.sign(sessie), rol, naamKiezen: false };
+      const sessie: Sessie = { sub, naam, rol, pcId, operatorId: req.body.operatorId, gedeeld: true };
+      return { token: app.jwt.sign(sessie), rol, naamKiezen: false, operator: { id: req.body.operatorId, naam: rij.naam } };
     },
   );
 };

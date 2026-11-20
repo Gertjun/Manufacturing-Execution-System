@@ -4,6 +4,7 @@ import type { Rol } from "./types";
 const PC = "invoer.pc";
 const TOKEN = "invoer.token";
 const NAAM = "invoer.operatornaam";
+const PORTAAL_TOKEN = "portaal.token";
 
 interface TokenInhoud {
   sub: string;
@@ -11,6 +12,7 @@ interface TokenInhoud {
   rol: Rol;
   pcId?: string;
   operatorId?: string;
+  gedeeld?: boolean;    // het oude gedeelde operatoraccount: kiest een naam (D53)
   exp: number;
 }
 
@@ -75,8 +77,22 @@ export const sessie = {
     return !!this.inhoud()?.operatorId;
   },
 
+  /** Afmelden geldt voor de hele app (D54): ook de startpagina en de portalen op deze pc melden af. */
   afmelden() {
     this.token = null;
     this.operatornaam = null;
+    schrijf(PORTAAL_TOKEN, null);
+  },
+
+  /** Token van de startpagina (zelfde server, D54), als dat nog geldig is en bij een invoerrol hoort. */
+  portaalToken(): string | null {
+    const t = lees(PORTAAL_TOKEN);
+    if (!t) return null;
+    try {
+      const i = JSON.parse(decodeURIComponent(escape(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")))));
+      return i.exp * 1000 > Date.now() + 15 * 60 * 1000 && (i.rol === "operator" || i.rol === "ploegleider") ? t : null;
+    } catch {
+      return null;
+    }
   },
 };

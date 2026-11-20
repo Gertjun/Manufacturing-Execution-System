@@ -17,7 +17,7 @@ export class GeenVerbinding extends Error {
 export async function stuur<T>(methode: string, pad: string, body?: unknown, extra?: Record<string, string>): Promise<T> {
   const headers: Record<string, string> = { ...extra };
   if (body !== undefined) headers["content-type"] = "application/json";
-  if (sessie.token) headers.authorization = `Bearer ${sessie.token}`;
+  if (sessie.token && !headers.authorization) headers.authorization = `Bearer ${sessie.token}`;
   let r: Response;
   try {
     r = await fetch(pad, { method: methode, headers, body: body === undefined ? undefined : JSON.stringify(body) });

@@ -42,7 +42,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const { pcId, operatorId } = invoerContext(req);
+      const { pcId, operatorId } = await invoerContext(app.db, req);
       const antwoord = async (status: 200 | 201) => {
         const [lot] = await lees(app.db, `${LOT_SQL} WHERE l.lotnummer = $1 GROUP BY l.id`, [req.body.lotnummer]);
         const [ps16] = await lees<{ id: string }>(app.db, `${REGISTRATIE_SQL} WHERE l.lotnummer = $1 AND s.is_lot_stap ORDER BY r.poging LIMIT 1`, [
@@ -146,7 +146,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const { pcId, operatorId } = invoerContext(req);
+      const { pcId, operatorId } = await invoerContext(app.db, req);
       const id = await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id FROM lot WHERE lotnummer = $1", [req.params.lotnummer]);
         if (!rows[0]) throw niet("Lot");
