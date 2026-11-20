@@ -20,7 +20,6 @@ gantt
     Gebouwd in 0.20 tot en met 0.23          :done, a1, 2026-11-19, 2d
 
     section B Praktijk
-    Releases op GitHub, Geert (40)           :b0, 2026-11-23, 7d
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
     Praktijktests (33)                       :b2, 2026-12-07, 28d
 
@@ -57,7 +56,6 @@ Alle punten zijn gebouwd in 0.20.0 tot en met 0.23.0, sneller dan gepland (wat e
 **Poort A:** gehaald zodra Geert het laptoppakket 0.23.0 draait.
 
 ### B. Proof of concept en praktijk — december 2026
-- #40 **Releases op GitHub weer laten werken** (klein, *Geert*) — Oorzaak gevonden: GitHub laat de ingebouwde workflow-sleutel geen tag zetten op een versie waarin de workflowbestanden anders zijn dan nu ("refusing to allow a GitHub App to create or update workflow … without `workflows` permission"). Dat gebeurt telkens als een workflow verandert; een instelling lost het niet op. `release.yml` gebruikt daarom de eigen sleutel `RELEASE_TOKEN` als die bestaat. Geert maakt een fine-grained token aan voor alleen deze repository, met de rechten Contents en Workflows (lezen en schrijven), en zet die als repository-secret `RELEASE_TOKEN`. Daarna de workflow Release handmatig starten: hij maakt de ontbrekende tags en releases vanzelf. Het token verloopt; zet een herinnering om het te vernieuwen.
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket 0.23.0 draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
 
