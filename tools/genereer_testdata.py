@@ -43,14 +43,17 @@ if not args.forceer and con.execute("SELECT count(*) FROM batch").fetchone()[0] 
 # ---------- configuratie ophalen ----------
 stappen = con.execute("SELECT code, volgorde, niveau, is_lot_stap FROM processtap WHERE actief ORDER BY volgorde").fetchall()
 velden = {}
-for code, vid, naam, soort, stap in con.execute(
-    "SELECT v.code, v.id, v.naam, v.soort, s.code FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.actief ORDER BY v.volgnummer"
+velden_kwaliteit = {}  # wat Kwaliteit meet na het afronden (#64)
+for code, vid, naam, soort, stap, door in con.execute(
+    "SELECT v.code, v.id, v.naam, v.soort, s.code, v.gemeten_door FROM veld v JOIN processtap s ON s.id = v.processtap_id WHERE v.actief ORDER BY v.volgnummer"
 ):
-    velden.setdefault(stap, []).append((code, vid, naam, soort))
+    (velden_kwaliteit if door == "kwaliteit" else velden).setdefault(stap, []).append((code, vid, naam, soort))
 pcs = [r[0] for r in con.execute("SELECT id FROM pc ORDER BY naam")]
 operators = {naam: oid for oid, naam in con.execute("SELECT id, naam FROM operator ORDER BY naam")}
 opnamen = sorted(operators)
 gebruiker = {n: i for i, n in con.execute("SELECT id, gebruikersnaam FROM gebruiker")}
+# Kwaliteit meet in het lab onder een eigen naam (#64); niet in de lijst van operators op de vloer.
+kwaliteit_op = con.execute("SELECT operator_van_account(%s)", (gebruiker["kwaliteit1"],)).fetchone()[0]
 producten = [r[0] for r in con.execute("SELECT id FROM product WHERE actief ORDER BY code")]
 productcode = {i: c for i, c in con.execute("SELECT id, code FROM product")}
 stap_grondstoffen: dict = {}
@@ -82,6 +85,7 @@ tijd_besluit: list = []  # (besluit-id, tijd)
 tijd_voorstel: list = []  # (voorstel-id, gemaakt, afgesloten)
 tijd_grondstof: list = []  # (registratie-id, tijd)
 tijd_herbewerking: list = []  # (herbewerking-id, tijd)
+tijd_keuring: list = []  # (keuring-id, aangemaakt, besloten of None)
 
 
 def partij_voor(gcode, moment):
@@ -148,7 +152,28 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
         tijd_grondstof.append((reg, moment + duur * 0.3))
     con.execute("SELECT rond_stap_af(%s)", (reg,))
     tijd_reg[reg] = (moment, moment + duur)
-    return reg, moment + duur + dt.timedelta(minutes=rnd.randint(5, 90))
+    klaar = moment + duur + dt.timedelta(minutes=rnd.randint(5, 90))
+    # Keuring (#64): Kwaliteit meet na het afronden; alles binnen de grenzen = vrijgeven. Anders blijft hij open en
+    # beslist de aanroeper (herbewerken).
+    if stapcode in velden_kwaliteit and moment + duur >= eind - dt.timedelta(hours=3):
+        # Net afgerond: Kwaliteit heeft nog niet gemeten (staat in "Wacht op Kwaliteit").
+        k = con.execute("SELECT id FROM keuring WHERE stapregistratie_id = %s", (reg,)).fetchone()[0]
+        tijd_keuring.append((k, moment + duur, None))
+    elif stapcode in velden_kwaliteit:
+        k = con.execute("SELECT id FROM keuring WHERE stapregistratie_id = %s", (reg,)).fetchone()[0]
+        for code, vid, naam, soort in velden_kwaliteit[stapcode]:
+            setting, gemeten = waarde_voor(stapcode, code, naam, soort, moment, operator, nat, product)
+            con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
+                        (reg, vid, setting if soort == "procesparameter" else None, gemeten, kwaliteit_op))
+            tijd_waarde.append((reg, moment + duur + dt.timedelta(minutes=40)))
+        buiten = con.execute("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND markering = 'buiten_grens'", (reg,)).fetchone()[0]
+        if buiten == 0:
+            con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k, gebruiker["kwaliteit1"]))
+            tijd_keuring.append((k, moment + duur, moment + duur + dt.timedelta(minutes=50)))
+        else:
+            tijd_keuring.append((k, moment + duur, None))
+        klaar = max(klaar, moment + duur + dt.timedelta(minutes=60))
+    return reg, klaar
 
 
 def besluit(batch_id, soort, reden, door, moment):
@@ -195,15 +220,25 @@ def maak_lots(lot_prod, wachtrij):
             continue  # lot staat klaar voor de eerste lotstap
         for code in route_l:
             _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot, nat=nat and code == "PS18")
-        vocht = con.execute(
-            """SELECT w.gemeten FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id JOIN stapregistratie r ON r.id = w.stapregistratie_id
-                WHERE r.lot_id = %s AND v.code = 'S18.3' ORDER BY w.ingevoerd_op DESC LIMIT 1""", (lot,)).fetchone()
-        if vocht and vocht[0] > 4.0 and moment < eind - dt.timedelta(hours=2):
+        # Te nat (buiten de grens): Kwaliteit stuurt het lot terug naar de eerste lotstap (#64, #61). Vlak voor het
+        # einde blijft het lot op Kwaliteit wachten.
+        open_k = con.execute("""SELECT k.id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
+                                 WHERE r.lot_id = %s AND k.status = 'open'""", (lot,)).fetchone()
+        if open_k and moment < eind - dt.timedelta(hours=2):
             stats["herbewerkingen"] += 1
             moment += dt.timedelta(hours=rnd.uniform(1, 6))
-            _, moment = doe_stap(route_l[0], moment, rnd.choice(opnamen), lot_id=lot, herbewerking="te nat na verpakken")
-            for code in route_l[1:]:
+            con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te nat na verpakken', %s, %s)", (open_k[0], gebruiker["kwaliteit1"], route_l[0]))
+            tijd_keuring[:] = [(k, a, moment - dt.timedelta(minutes=20)) if k == open_k[0] else (k, a, b) for k, a, b in tijd_keuring]
+            hid = con.execute("SELECT herbewerking_id FROM keuring WHERE id = %s", (open_k[0],)).fetchone()[0]
+            tijd_herbewerking.append((hid, moment - dt.timedelta(minutes=20)))
+            for code in route_l:
                 _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot)
+            # Na de herbewerking: Kwaliteit geeft vrij, ook als het net niet binnen de grens is (na overleg).
+            nog = con.execute("""SELECT k.id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
+                                  WHERE r.lot_id = %s AND k.status = 'open'""", (lot,)).fetchone()
+            if nog:
+                con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'na herbewerking en overleg vrijgegeven', %s)", (nog[0], gebruiker["kwaliteit1"]))
+                tijd_keuring[:] = [(k, a, moment) if k == nog[0] else (k, a, b) for k, a, b in tijd_keuring]
     return wachtrij
 
 
@@ -278,6 +313,8 @@ with con.transaction():
         c.executemany("UPDATE batch_besluit SET besloten_op = %s WHERE id = %s", [(t, b) for b, t in tijd_besluit])
         c.executemany("UPDATE grondstof_gebruik SET ingevoerd_op = %s WHERE stapregistratie_id = %s", [(t, r) for r, t in tijd_grondstof])
         c.executemany("UPDATE herbewerking SET aangemaakt_op = %s WHERE id = %s", [(t, h) for h, t in tijd_herbewerking])
+        c.executemany("UPDATE keuring SET aangemaakt_op = %s, besloten_op = CASE WHEN besloten_op IS NULL THEN NULL ELSE %s::timestamptz END WHERE id = %s",
+                      [(a, b or a, k) for k, a, b in tijd_keuring])
         c.executemany("UPDATE lot_voorstel SET aangemaakt_op = %s, afgesloten_op = %s WHERE id = %s", [(g, a, v) for v, g, a in tijd_voorstel])
     # Gestart = begin van de eerste stap.
     con.execute("""UPDATE batch b SET gestart_op = r.t
@@ -401,6 +438,16 @@ for (nr, bid, stap), (door, reden) in zip(herb_kandidaten, [("productiemanager1"
     with con.transaction():
         con.execute("SET LOCAL session_replication_role = replica")
         con.execute("UPDATE herbewerking SET aangemaakt_op = %s WHERE id = %s", (eind - dt.timedelta(hours=4), hid))
+# Het nieuwste lot wacht nog op de meting van Kwaliteit (#64): zijn keuring gaat terug naar "open".
+laatste_k = con.execute("""SELECT k.id, r.id, r.lot_id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
+                            WHERE k.status = 'vrijgegeven' ORDER BY r.afgerond_op DESC LIMIT 1""").fetchone()
+if laatste_k:
+    with con.transaction():
+        con.execute("SET LOCAL session_replication_role = replica")
+        con.execute("""DELETE FROM waarde WHERE stapregistratie_id = %s
+                        AND veld_id IN (SELECT id FROM veld WHERE gemeten_door = 'kwaliteit')""", (laatste_k[1],))
+        con.execute("UPDATE keuring SET status = 'open', besloten_door = NULL, besloten_op = NULL, reden = NULL WHERE id = %s", (laatste_k[0],))
+        con.execute("UPDATE lot SET status = 'in_productie' WHERE id = %s", (laatste_k[2],))
 # Planning is gemaakt vóór de laatste invoer, niet "nu", en de configuratie vóór de eerste batch.
 # Zo is de laatste invoer het laatste tijdstip, en schuift het laptoppakket alles goed naar vandaag.
 with con.transaction():
@@ -460,7 +507,8 @@ with con.transaction():
                        (SELECT besloten_op FROM batch_besluit WHERE id = m.bron_id),
                        (SELECT afgesloten_op FROM lot_voorstel WHERE id = m.bron_id),
                        (SELECT begin_op FROM stilstand WHERE id = m.bron_id),
-                       (SELECT aangemaakt_op FROM herbewerking WHERE id = m.bron_id), m.aangemaakt_op)""")
+                       (SELECT aangemaakt_op FROM herbewerking WHERE id = m.bron_id),
+                       (SELECT aangemaakt_op FROM keuring WHERE id = m.bron_id), m.aangemaakt_op)""")
 con.execute("""INSERT INTO melding_gelezen (melding_id, gebruiker_id, gelezen_op)
                SELECT m.id, g.id, m.aangemaakt_op + interval '2 hours' FROM melding m JOIN gebruiker g ON g.rol = ANY(m.voor_rollen)
                 WHERE m.aangemaakt_op < %s""", (eind - dt.timedelta(days=1),))

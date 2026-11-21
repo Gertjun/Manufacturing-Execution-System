@@ -73,7 +73,11 @@ export const PORTALEN: Portaal[] = [
     klaar: true,
     onderdelen: [
       { pad: "overzicht", naam: "Overzicht" },
-      { pad: "beoordelen", naam: "Te beoordelen", teller: async () => (await haal<unknown[]>("/analyse/te-beoordelen")).length },
+      // Teller: batches in beoordeling plus stappen die op een meting van Kwaliteit wachten (#64).
+      { pad: "beoordelen", naam: "Te beoordelen", teller: async () => {
+        const [a, b] = await Promise.all([haal<unknown[]>("/analyse/te-beoordelen"), haal<unknown[]>("/keuringen")]);
+        return a.length + b.length;
+      } },
       { pad: "lotpaspoort", naam: "Lotpaspoort" },
       { pad: "grondstoffen", naam: "Grondstoffen terugzoeken" },
       { pad: "regelkaarten", naam: "Regelkaarten" },
@@ -146,7 +150,9 @@ export function tegelsVoor(rol: Rol | null): Tegel[] {
   return [
     ...(rol === "operator" || rol === "ploegleider"
       ? [{ id: "invoer", naam: "Invoerscherm", uitleg: "Voor de vloer: stappen invoeren, lot samenstellen, stilstand en ploegoverdracht. Werkt ook offline.", href: "../invoer/index.html" }]
-      : []),
+      : rol === "kwaliteit"
+        ? [{ id: "invoer", naam: "Invoerscherm", uitleg: "Op de lab-pc: de metingen van Kwaliteit invoeren en vrijgeven, herbewerken of afkeuren. Werkt ook offline.", href: "../invoer/index.html" }]
+        : []),
     ...portalenVoor(rol).map((p) => ({ id: p.id, naam: p.naam, uitleg: UITLEG[p.id] ?? "", href: `#/${p.id}` })),
     ...(rol === "operator" ? [] : [{ id: "wandscherm", naam: "Wandscherm", uitleg: "Voor de tv in de hal: wat er per stap te doen staat. Alleen kijken.", href: "#/wandscherm" }]),
   ];

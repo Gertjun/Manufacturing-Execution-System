@@ -87,6 +87,13 @@ try {
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
   await page.locator("tr", { hasText: "S3.1" }).getByText("±8 °C").waitFor();
   check("Tolerantie S3.1 is 8", true);
+  // #64: wie meet. Het nieuwe veld S3.4 laat Kwaliteit meten.
+  await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Wijzigen" }).click();
+  await dialoog().getByLabel("Wie meet").selectOption("kwaliteit");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("tr", { hasText: "S3.4" }).getByText("Kwaliteit", { exact: true }).waitFor();
+  const [{ door }] = await q("SELECT gemeten_door AS door FROM fabriek.veld WHERE code = 'S3.4'");
+  check("Wie meet: Kwaliteit opgeslagen (#64)", door === "kwaliteit");
 
   // Uitzetten is terug te draaien: geen vraag vooraf, wel "Ongedaan maken" in de melding (#44, D50).
   await page.locator("tr", { hasText: "S3.4" }).getByRole("button", { name: "Uitzetten" }).click();

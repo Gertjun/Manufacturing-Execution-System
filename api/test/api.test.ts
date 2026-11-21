@@ -82,6 +82,8 @@ before(async () => {
   await beheerDb.query(readFileSync(new URL("../../db/seed_config.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/seed_accounts_demo.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/rechten.sql", import.meta.url), "utf8"));
+  // De meeste tests zijn van vóór de keuring (#64): daar meet de operator alles. De keuring heeft een eigen test.
+  await beheerDb.query("UPDATE fabriek.veld SET gemeten_door = 'productie'");
   db = APP_DB_URL === DB_URL ? beheerDb : maakPool(APP_DB_URL);
   app = await bouwApp({ db, jwtGeheim: "test-geheim-dat-lang-genoeg-is-0123456789" });
 });
@@ -117,7 +119,7 @@ describe("inloggen en rollen", () => {
     const t = await login("analist1");
     assert.equal((await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0999" })).status, 403);
   });
-  test("kwaliteit mag lezen maar niet invoeren of beheren", async () => {
+  test("kwaliteit mag lezen en meten, maar geen batch maken of beheren", async () => {
     const t = await login("kwaliteit1");
     assert.equal((await verzoek("GET", "/analyse/afwijkingen", t)).status, 200);
     assert.equal((await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0998" })).status, 403);
@@ -290,6 +292,42 @@ describe("productie van batch tot lot", () => {
     assert.equal(herbLijst.body[0].reden, "te nat na verpakken");
     const afw = await verzoek("GET", "/analyse/afwijkingen", op);
     assert.ok(afw.body.some((a: any) => a.veld === "S18.3" && a.lotnummer === "L-2026-0001"));
+  });
+
+  test("keuring: Kwaliteit meet na het afronden en geeft vrij; daarna pas de volgende stap (#64)", async () => {
+    const bh = await login("beheerder1");
+    assert.equal((await verzoek("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "kwaliteit" })).status, 200);
+    const cfg = await verzoek("GET", "/config/stappen", op);
+    assert.equal(cfg.body.find((s: any) => s.code === "PS2").velden.find((v: any) => v.code === "S2.2").gemeten_door, "kwaliteit");
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0120" })).status, 201);
+    await doorloop(op, "B-2026-0120", "batch", 1, 1);
+    const start = await verzoek("POST", "/registraties", op, { stapcode: "PS2", batchnummer: "B-2026-0120" });
+    assert.equal(start.body.velden.find((v: any) => v.code === "S2.2").gemeten_door, "kwaliteit");
+    const fout = await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: [{ veldcode: "S2.2", gemeten: 410 }] });
+    assert.equal(fout.status, 422);
+    assert.match(fout.body.fout, /meet Kwaliteit/);
+    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: [{ veldcode: "S2.1", setting: 80, gemeten: 81 }] })).status, 200);
+    const af = await verzoek("POST", `/registraties/${start.body.id}/afronden`, op);
+    assert.equal(af.status, 200, JSON.stringify(af.body));
+    assert.equal(af.body.keuring.status, "open");
+    const lijst = await verzoek("GET", "/keuringen?stap=PS2", op);
+    const k = lijst.body.find((x: any) => x.nummer === "B-2026-0120");
+    assert.equal(k.te_meten, 1);
+    assert.ok(!(await verzoek("GET", "/werkvoorraad/PS3", op)).body.wachtend.some((w: any) => w.nummer === "B-2026-0120"));
+    const kw = await login("kwaliteit1", "PC-01");
+    const vroeg = await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven" });
+    assert.equal(vroeg.status, 422);
+    assert.match(vroeg.body.fout, /Nog niet gemeten: S2.2/);
+    assert.equal((await verzoek("POST", `/keuringen/${k.id}/besluit`, op, { besluit: "vrijgegeven" })).status, 403);
+    const meet = await verzoek("POST", `/registraties/${start.body.id}/waarden`, kw, { waarden: [{ veldcode: "S2.2", gemeten: 412 }] });
+    assert.equal(meet.status, 200, JSON.stringify(meet.body));
+    const vrij = await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven" });
+    assert.equal(vrij.status, 200, JSON.stringify(vrij.body));
+    assert.equal(vrij.body.keuring.status, "vrijgegeven");
+    assert.equal(vrij.body.keuring.besloten_door, "kwaliteit1");
+    assert.equal((await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven" })).status, 200);
+    assert.ok((await verzoek("GET", "/werkvoorraad/PS3", op)).body.wachtend.some((w: any) => w.nummer === "B-2026-0120"));
+    await verzoek("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "productie" });
   });
 
   test("herbewerking met opdracht: Kwaliteit of productiemanager maakt hem, de operator start hem in de stap (#61)", async () => {
@@ -1292,7 +1330,11 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     const [p] = (await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'operator.a' AND pc = 'PC-10' AND uitkomst = 'gelukt'")).rows;
     assert.ok(p.n >= 1, "telt als inlog op PC-10");
     assert.equal((await verzoek("POST", "/auth/pc", zonderPc, { pc: "PC-99" })).status, 400);
-    assert.equal((await verzoek("POST", "/auth/pc", await login("kwaliteit1"), { pc: "PC-10" })).status, 403, "alleen invoerrollen");
+    // Kwaliteit mag ook (de lab-pc, #64), met een eigen naam voor de metingen; een planner niet.
+    const kwPc = await verzoek("POST", "/auth/pc", await login("kwaliteit1"), { pc: "PC-10" });
+    assert.equal(kwPc.status, 200);
+    assert.equal(kwPc.body.operator.naam, "kwaliteit1");
+    assert.equal((await verzoek("POST", "/auth/pc", await login("planner1"), { pc: "PC-10" })).status, 403, "alleen invoerrollen");
   });
 
   test("inlogscherm: testaccounts alleen in een testomgeving", async () => {

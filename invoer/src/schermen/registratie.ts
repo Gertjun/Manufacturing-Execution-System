@@ -3,7 +3,7 @@
 import { GeenVerbinding, stuur } from "../api";
 import { berekenMarkering, leesGetal, markeringTekst, toonGetal } from "../markering";
 import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../../gedeeld/etiket";
-import { corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, type GrondstofInvoer, type Invoer } from "../registraties";
+import { beslisKeuring, corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, stappen, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
 import type { Markering, Registratie, VeldMetWaarde } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
@@ -39,7 +39,14 @@ export async function registratieScherm(id: string) {
 }
 
 function teken(reg: Registratie) {
-  const magInvoeren = reg.status === "open" && (sessie.rol === "operator" || sessie.rol === "ploegleider");
+  const opVloer = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const isKwaliteit = sessie.rol === "kwaliteit";
+  // Keuring (#64): velden die Kwaliteit meet, vult Kwaliteit in; ook nog als de stap afgerond is en op Kwaliteit wacht.
+  const keuringOpen = reg.keuring?.status === "open";
+  const vanKwaliteit = (v: VeldMetWaarde) => v.gemeten_door === "kwaliteit";
+  const magVeld = (v: VeldMetWaarde) => (vanKwaliteit(v) ? isKwaliteit && (reg.status === "open" || keuringOpen) : opVloer && reg.status === "open");
+  const metKwaliteit = reg.velden!.some(vanKwaliteit);
+  const magInvoeren = reg.status === "open" && opVloer;
   const magCorrigeren = (sessie.rol === "ploegleider" || sessie.rol === "beheerder") && !reg.lokaal;
   const invoer = new Map<string, { setting?: HTMLInputElement; gemeten: HTMLInputElement; label: HTMLElement; rij: HTMLElement; fout: HTMLElement }>();
   // Rijen die de operator al heeft verlaten: daar tonen we een foutmelding onder het veld (niet tijdens het typen, D50).
@@ -54,6 +61,7 @@ function teken(reg: Registratie) {
 
   const opslaan = h("button", { class: "knop knop-hoofd", disabled: true }, "Opslaan") as HTMLButtonElement;
   const afronden = h("button", { class: "knop" }, "Stap afronden") as HTMLButtonElement;
+  const vrijgeven = h("button", { class: "knop knop-hoofd" }, "Vrijgeven") as HTMLButtonElement;
   const hint = h("span", { class: "hint" });
 
   /** Lees één veld; geeft null als het (nog) niet compleet of ongeldig is. */
@@ -119,11 +127,18 @@ function teken(reg: Registratie) {
     const gs = leesGs();
     klaar += gs.klaar.length;
     if (gs.fout) half++;
-    const ontbreekt = reg.velden!.filter((v) => v.verplicht && !v.waarde).length + (reg.grondstoffen ?? []).filter((g) => g.verplicht && !g.gebruik).length;
+    const ontbreekt = isKwaliteit
+      ? reg.velden!.filter((v) => vanKwaliteit(v) && v.verplicht && !v.waarde).length
+      : reg.velden!.filter((v) => !vanKwaliteit(v) && v.verplicht && !v.waarde).length + (reg.grondstoffen ?? []).filter((g) => g.verplicht && !g.gebruik).length;
     opslaan.disabled = klaar === 0 || half > 0;
     afronden.disabled = ontbreekt > 0 || reg.status !== "open";
-    hint.textContent =
-      half > 0 ? (gs.fout ? "Vul bij een grondstof het partijnummer in, en een geldige hoeveelheid" : "Vul bij een procesparameter zowel instelling als gemeten waarde in") :
+    vrijgeven.disabled = ontbreekt > 0 || !keuringOpen;
+    hint.textContent = isKwaliteit
+      ? (half > 0 ? "Vul een geldig getal in" :
+         klaar > 0 ? `${klaar} ${klaar === 1 ? "meting" : "metingen"} klaar om op te slaan` :
+         ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "meting" : "metingen"} van Kwaliteit; daarna kun je vrijgeven` :
+         keuringOpen ? "Alle metingen zijn ingevuld: vrijgeven, herbewerken of afkeuren" : "De operator rondt de stap nog af; daarna kun je beslissen")
+      : half > 0 ? (gs.fout ? "Vul bij een grondstof het partijnummer in, en een geldige hoeveelheid" : "Vul bij een procesparameter zowel instelling als gemeten waarde in") :
       klaar > 0 ? `${klaar} ${klaar === 1 ? "invoer" : "invoeren"} klaar om op te slaan${ontbreekt > 0 ? "; de stap afronden kan als alle verplichte velden zijn opgeslagen" : ""}` :
       ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "veld" : "velden"} in te vullen; daarna kun je de stap afronden` :
       reg.status === "open" ? "Alle velden zijn ingevuld" : "";
@@ -172,7 +187,7 @@ function teken(reg: Registratie) {
           }, "Corrigeer"),
         );
       }
-    } else if (magInvoeren) {
+    } else if (magVeld(v)) {
       const gemeten = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", id: `g-${v.code}`, "aria-describedby": `f-${v.code}`, oninput: werkBij }) as HTMLInputElement;
       const setting =
         v.soort === "procesparameter"
@@ -192,6 +207,10 @@ function teken(reg: Registratie) {
       );
       rechts.append(label);
       if (!v.verplicht) rechts.append(h("span", { class: "veld-grens" }, "Niet verplicht"));
+      if (vanKwaliteit(v)) rechts.append(h("span", { class: "label label-kwaliteit" }, "Kwaliteit"));
+    } else if (vanKwaliteit(v)) {
+      midden = h("div", { class: "sub" }, reg.status === "open" || keuringOpen ? "Meet Kwaliteit" : "Niet gemeten");
+      rechts.append(h("span", { class: "label label-kwaliteit" }, "Kwaliteit"));
     } else {
       midden = h("div", { class: "sub" }, "Niet ingevuld");
     }
@@ -290,12 +309,47 @@ function teken(reg: Registratie) {
   }));
 
   afronden.addEventListener("click", bezigBij(async () => {
-    const ok = await bevestig(`${reg.stapnaam} afronden?`, "Daarna kan de batch of het lot door naar de volgende stap.", "Afronden");
+    const ok = await bevestig(`${reg.stapnaam} afronden?`,
+      metKwaliteit ? "Daarna wacht de batch of het lot op de metingen en de vrijgave van Kwaliteit." : "Daarna kan de batch of het lot door naar de volgende stap.", "Afronden");
     if (!ok) return;
     await rondAf(reg);
     melding(`${reg.stapnaam} afgerond voor ${reg.batchnummer ?? reg.lotnummer}`, "ok");
     location.hash = `#/stap/${reg.stapcode}`;
   }));
+
+  // Kwaliteit beslist (#64): vrijgeven, herbewerken of afkeuren. Ook offline: het besluit gaat in de wachtrij.
+  const nummer = reg.batchnummer ?? reg.lotnummer;
+  const besluit = async (b: "vrijgegeven" | "herbewerken" | "afgekeurd", reden: string | null, stap?: string) => {
+    reg = await beslisKeuring(reg, b, reden, stap);
+    melding(b === "vrijgegeven" ? `${nummer} vrijgegeven` : b === "herbewerken" ? `${nummer}: herbewerking aangemaakt` : `${nummer} afgekeurd`, b === "afgekeurd" ? "info" : "ok");
+    teken(reg);
+  };
+  vrijgeven.addEventListener("click", bezigBij(async () => {
+    const afw = reg.velden!.filter((v) => v.waarde && v.waarde.markering !== "ok").length;
+    const ok = await bevestig(`${nummer} vrijgeven?`,
+      `${afw ? `Let op: ${afw} ${afw === 1 ? "meting wijkt" : "metingen wijken"} af. ` : ""}Daarna kan de batch of het lot door naar de volgende stap.`, "Vrijgeven");
+    if (ok) await besluit("vrijgegeven", null);
+  }));
+  const herbewerken = h("button", { class: "knop", onclick: bezigBij(async () => {
+    const alle = (await stappen()).filter((s) => s.niveau === reg.niveau && !s.is_lot_stap);
+    const tot = alle.findIndex((s) => s.code === reg.stapcode);
+    const keuze = (tot >= 0 ? alle.slice(0, tot + 1) : alle).reverse();
+    const r = await vraag(`${nummer} herbewerken`, [
+      { naam: "stap", label: "Terug naar stap", opties: keuze.map((s): [string, string] => [s.code, `${s.code} ${s.naam}`]), waarde: reg.stapcode },
+      { naam: "reden", label: "Reden" },
+    ], "Herbewerken", "De batch of het lot gaat terug naar de gekozen stap en doet daarna alle volgende stappen opnieuw.");
+    if (r) await besluit("herbewerken", r.reden, r.stap);
+  }) }, "Herbewerken");
+  const afkeuren = h("button", { class: "knop knop-gevaar", onclick: bezigBij(async () => {
+    const r = await vraag(`${nummer} afkeuren`, [{ naam: "reden", label: "Reden van afkeur" }], "Afkeuren",
+      reg.niveau === "batch" ? "Dit is het keurresultaat NOK: de batch wordt afgevoerd." : "Het lot wordt geblokkeerd.");
+    if (r) await besluit("afgekeurd", r.reden);
+  }) }, "Afkeuren");
+  const KEURING: Record<string, string> = { open: "Wacht op Kwaliteit", vrijgegeven: "Vrijgegeven", herbewerken: "Herbewerken", afgekeurd: "Afgekeurd" };
+  const keuringLabel = reg.keuring
+    ? h("span", { class: `label label-keuring-${reg.keuring.status}` }, KEURING[reg.keuring.status],
+        reg.keuring.wacht ? " (nog niet verstuurd)" : reg.keuring.besloten_door ? ` door ${reg.keuring.besloten_door}` : "")
+    : null;
 
   const statusLabel = reg.lokaal
     ? h("span", { class: "label label-wacht" }, "Nog niet verstuurd")
@@ -320,14 +374,18 @@ function teken(reg: Registratie) {
         ),
         reg.herbewerking_start ? h("p", { class: "waarschuwing" }, `Herbewerking: ${reg.reden}`) : null,
         reg.status === "afgebroken" ? h("p", { class: "waarschuwing" }, reg.reden ?? "Afgebroken") : null,
+        reg.keuring && reg.keuring.status !== "open" && reg.keuring.reden ? h("p", { class: "sub" }, `Kwaliteit: ${reg.keuring.reden}`) : null,
       ),
-      h("div", { class: "kop-rechts" }, statusLabel,
+      h("div", { class: "kop-rechts" }, statusLabel, keuringLabel,
         h("button", { class: "knop knop-klein", onclick: () => etiketPrinten(reg.batchnummer ?? reg.lotnummer!, reg.niveau === "batch" ? "batch" : "lot") }, "Etiket printen")),
     ),
     h("div", { class: "formulier" }, velden),
     grondstoffen.length ? h("h2", { class: "tussenkop-invoer" }, "Grondstoffen") : null,
     grondstoffen.length ? h("div", { class: "formulier" }, grondstoffen) : null,
     reg.status === "open" && magInvoeren ? h("div", { class: "balk-onder" }, h("div", {}, hint, opslaan, afronden)) : null,
+    isKwaliteit && (reg.status === "open" || keuringOpen) && metKwaliteit
+      ? h("div", { class: "balk-onder" }, h("div", {}, hint, opslaan, keuringOpen ? [vrijgeven, herbewerken, afkeuren] : null))
+      : null,
   );
   werkBij();
 }

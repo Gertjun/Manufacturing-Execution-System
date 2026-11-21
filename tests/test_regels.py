@@ -28,6 +28,8 @@ def main():
 
     con = psycopg.connect(DSN, autocommit=True)
     con.execute("SET search_path = fabriek")
+    # De meeste regels hieronder zijn van vóór de keuring (#64): daar meet de operator alles. De keuring zelf staat onderaan.
+    con.execute("UPDATE veld SET gemeten_door = 'productie'")
 
     def one(sql, p=()):
         return con.execute(sql, p).fetchone()
@@ -394,7 +396,7 @@ def main():
                 (gisteren_d, stap["PS3"], pb, pl_acc))
     r = vorige("PS4", vandaag)
     check("PS4 vandaag terwijl PS3 gisteren gepland stond en niet klaar is: achter", r[0] == "achter" and r[2] == gisteren_d, str(r))
-    los = nieuwe_batch("B-2026-0901")
+    los = nieuwe_batch("B-2026-0961")
     check("Ongeplande batch zonder PS1: niet gepland", vorige("PS2", vandaag, batch=los)[0] == "niet_gepland")
     reg = val("SELECT start_stap('PS1', %s, NULL, %s, %s)", (los, pc, op))
     check("PS1 staat open: bezig", vorige("PS2", vandaag, batch=los)[0] == "bezig")
@@ -422,7 +424,7 @@ def main():
           val("SELECT naam FROM operator WHERE id = %s", (pl_op,)) == "ploegleider1")
     check("Daarna steeds dezelfde naam", val("SELECT operator_van_account(%s)", (pl,)) == pl_op)
     check("Tweede keer dezelfde naam, geen nieuwe", val("SELECT count(*) FROM operator WHERE gebruiker_id = %s", (pl,)) == 1)
-    check("Kwaliteit heeft geen operatornaam", val("SELECT operator_van_account(%s)", (kw,)) is None)
+    check("Planner heeft geen operatornaam", val("SELECT operator_van_account((SELECT id FROM gebruiker WHERE gebruikersnaam = 'planner1'))") is None)
     check("Eigen naam: mag", val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_a, pc1)))
     check("Naam van een ander zonder inlog op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
     con.execute("SELECT * FROM inloggen('operator.b', 'demo', 'PC-01')")
@@ -641,6 +643,74 @@ def main():
     check("Start via de oude functie koppelt aan de opdracht", val("SELECT stapregistratie_id FROM herbewerking WHERE id = %s", (hl,)) == rl)
     check("Herbewerkingen zonder opdracht (van vóór #61) staan er ook in, zonder aanmaker",
           val("SELECT count(*) FROM herbewerking_stand WHERE lot_id = %s AND door IS NULL", (lot,)) >= 1)
+
+    print("\nKeuring door Kwaliteit (#64)")
+    con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code IN ('S18.3', 'S5.2')")
+    kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    check("Kwaliteit heeft een naam voor de invoer", kw_op is not None)
+    kb = batch_met("B-2026-0971", prd["PRD-A"])
+    for k in range(1, 5):
+        doe(kb, f"PS{k}")
+    r5 = val("SELECT start_stap('PS5', %s, NULL, %s, %s)", (kb, pc, op))
+    faalt("Operator vult een veld van Kwaliteit niet in",
+          "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,410,%s)", (r5, veld["S5.2"], op), "meet Kwaliteit")
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,80,81,%s)", (r5, veld["S5.1"], op))
+    con.execute("SELECT rond_stap_af(%s)", (r5,))
+    check("Afronden kan zonder de meting van Kwaliteit", val("SELECT status FROM stapregistratie WHERE id = %s", (r5,)) == "afgerond")
+    k5 = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5,))
+    check("Na afronden wacht de stap op Kwaliteit, met een melding", k5 is not None
+          and val("SELECT count(*) FROM melding WHERE bron_id = %s AND 'kwaliteit' = ANY(voor_rollen)", (k5,)) == 1)
+    check("Volgende stap nog niet in de werkvoorraad", "B-2026-0971" not in voorraad("PS6"))
+    check("... en PS5 ook niet opnieuw", "B-2026-0971" not in voorraad("PS5"))
+    faalt("PS6 starten kan niet", "SELECT start_stap('PS6', %s, NULL, %s, %s)", (kb, pc, op), "Wacht op Kwaliteit")
+    faalt("Vrijgeven zonder meting", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw), "Nog niet gemeten: S5.2")
+    faalt("Ploegleider beslist niet over een keuring", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, pl), "Alleen Kwaliteit")
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,412,%s)", (r5, veld["S5.2"], kw_op))
+    check("Kwaliteit meet na het afronden", val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (r5, veld["S5.2"])) == 1)
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw))
+    check("Vrijgegeven (twee keer versturen mag): PS6 in de werkvoorraad", "B-2026-0971" in voorraad("PS6"))
+    faalt("Na de vrijgave meet Kwaliteit niet meer zonder correctie",
+          "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,1,%s)", (r5, veld["S5.1"], kw_op), "")
+    # Herbewerken: terug naar PS5.
+    doe(kb, "PS6"); doe(kb, "PS7")
+    kb2 = batch_met("B-2026-0972", prd["PRD-A"])
+    for k in range(1, 5):
+        doe(kb2, f"PS{k}")
+    r5b = val("SELECT start_stap('PS5', %s, NULL, %s, %s)", (kb2, pc, op))
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,80,81,%s)", (r5b, veld["S5.1"], op))
+    con.execute("SELECT rond_stap_af(%s)", (r5b,))
+    k5b = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5b,))
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,470,%s)", (r5b, veld["S5.2"], kw_op))
+    faalt("Herbewerken zonder reden", "SELECT beslis_keuring(%s, 'herbewerken', '', %s)", (k5b, kw), "reden")
+    con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te zwaar', %s, 'PS5')", (k5b, kw))
+    check("Herbewerken: opdracht terug naar PS5, batch staat daar klaar",
+          val("SELECT stand FROM herbewerking_stand WHERE id = (SELECT herbewerking_id FROM keuring WHERE id = %s)", (k5b,)) == "te_plannen"
+          and "B-2026-0972" in voorraad("PS5") and "B-2026-0972" not in voorraad("PS6"))
+    r5c = val("SELECT start_stap('PS5', %s, NULL, %s, %s)", (kb2, pc, op))
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,80,80.5,%s)", (r5c, veld["S5.1"], op))
+    con.execute("SELECT rond_stap_af(%s)", (r5c,))
+    k5c = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5c,))
+    check("De herbewerkte stap wacht opnieuw op Kwaliteit", k5c is not None and k5c != k5b)
+    # Afkeuren: keurresultaat NOK.
+    con.execute("SELECT beslis_keuring(%s, 'afgekeurd', 'veel te zwaar', %s)", (k5c, kw))
+    check("Afkeuren: batch afgekeurd, met in beoordeling ervoor",
+          val("SELECT status FROM batch WHERE id = %s", (kb2,)) == "afgekeurd"
+          and [r[0] for r in con.execute("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op", (kb2,))][-2:] == ["in_beoordeling", "afgekeurd"])
+    # Lot: na PS18 pas gereed na de vrijgave.
+    lots = {r[0]: r[1] for r in con.execute("SELECT lotnummer, id FROM lot WHERE status = 'gereed'")}
+    lk = next(iter(lots.values()))
+    hk = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS18', 'opnieuw meten', %s)", (lk, kw))
+    r18k = val("SELECT start_stap('PS18', NULL, %s, %s, %s)", (lk, pc, op))
+    for code in ("S18.1", "S18.2"):
+        con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
+                    (r18k, veld[code], 80 if soort[code] == "procesparameter" else None, 81 if code.endswith(".1") else 1640, op))
+    con.execute("SELECT rond_stap_af(%s)", (r18k,))
+    check("Lot na PS18 nog niet gereed: wacht op Kwaliteit", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "in_productie")
+    k18 = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r18k,))
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,3.1,%s)", (r18k, veld["S18.3"], kw_op))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'droog genoeg', %s)", (k18, kw))
+    check("Na de vrijgave is het lot gereed", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "gereed")
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

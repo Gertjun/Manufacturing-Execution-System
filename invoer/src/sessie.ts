@@ -84,13 +84,13 @@ export const sessie = {
     schrijf(PORTAAL_TOKEN, null);
   },
 
-  /** Token van de startpagina (zelfde server, D54), als dat nog geldig is en bij een invoerrol hoort. */
+  /** Token van de startpagina (zelfde server, D54), als dat nog geldig is en bij een invoerrol hoort (Kwaliteit sinds 0.37.0: de lab-pc). */
   portaalToken(): string | null {
     const t = lees(PORTAAL_TOKEN);
     if (!t) return null;
     try {
       const i = JSON.parse(decodeURIComponent(escape(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")))));
-      return i.exp * 1000 > Date.now() + 15 * 60 * 1000 && (i.rol === "operator" || i.rol === "ploegleider") ? t : null;
+      return i.exp * 1000 > Date.now() + 15 * 60 * 1000 && (i.rol === "operator" || i.rol === "ploegleider" || i.rol === "kwaliteit") ? t : null;
     } catch {
       return null;
     }

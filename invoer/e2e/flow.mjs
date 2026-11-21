@@ -383,6 +383,47 @@ try {
   check("Open PS7 is afgebroken met de reden", ps7.status === "afgebroken" && ps7.reden === "Batch afgekeurd: kleur buiten specificatie", JSON.stringify(ps7));
   check("Geschiedenis toont 'Afgebroken'", (await page.locator(".rij", { hasText: "Process Step 7" }).getByText("Afgebroken").count()) === 1);
 
+  console.log("\nKwaliteit meet en geeft vrij op de lab-pc (#64)");
+  const api = async (methode, pad, token, body) => {
+    const r = await fetch(`${BASIS}${pad}`, { method: methode, headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  };
+  const bh = (await api("POST", "/auth/login", null, { gebruikersnaam: "beheerder1", wachtwoord: "demo" })).body.token;
+  check("Beheerder zet S2.2 op 'Kwaliteit meet'", (await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "kwaliteit" })).status === 200);
+  // B-2026-0006 staat nog voor PS1: de operator doet PS1, en PS2 zonder S2.2.
+  const kb = { batchnummer: "B-2026-0006" };
+  const opT = (await api("POST", "/auth/login", null, { gebruikersnaam: "operator.a", wachtwoord: "demo", pc: "PC-02" })).body.token;
+  const regPs1 = await api("POST", "/registraties", opT, { stapcode: "PS1", batchnummer: kb.batchnummer });
+  await api("POST", `/registraties/${regPs1.body.id}/waarden`, opT, { waarden: [{ veldcode: "S1.1", setting: 80, gemeten: 81 }, { veldcode: "S1.2", gemeten: 410 }] });
+  await api("POST", `/registraties/${regPs1.body.id}/grondstoffen`, opT, { grondstoffen: [{ code: "GS-A", partij: "LEV-TEST-01" }] });
+  await api("POST", `/registraties/${regPs1.body.id}/afronden`, opT);
+  const regPs2 = await api("POST", "/registraties", opT, { stapcode: "PS2", batchnummer: kb.batchnummer });
+  await api("POST", `/registraties/${regPs2.body.id}/waarden`, opT, { waarden: [{ veldcode: "S2.1", setting: 80, gemeten: 81 }] });
+  const afPs2 = await api("POST", `/registraties/${regPs2.body.id}/afronden`, opT);
+  check("Operator rondt PS2 af zonder S2.2; de stap wacht op Kwaliteit", afPs2.body?.keuring?.status === "open", JSON.stringify([regPs1.status, regPs2.status, regPs2.body?.fout, afPs2.body?.fout ?? afPs2.body?.keuring]));
+  await page.goto(`${BASIS}/invoer/#/stappen`);
+  await page.getByRole("heading", { name: "Wacht op Kwaliteit (1)" }).waitFor();
+  check("Lab-pc: lijst 'Wacht op Kwaliteit' bovenaan", (await page.locator(".keuring-blok").innerText()).includes(kb.batchnummer));
+  await shot("14c-wacht-op-kwaliteit");
+  await page.locator(".keuring-blok a", { hasText: kb.batchnummer }).click();
+  await page.locator("#g-S2\\.2").fill("412");
+  check("Vrijgeven kan pas als alles gemeten is", await page.getByRole("button", { name: "Vrijgeven" }).isDisabled());
+  await page.getByRole("button", { name: "Opslaan" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
+  await page.getByRole("button", { name: "Vrijgeven" }).and(page.locator(":not([disabled])")).waitFor();
+  await shot("14d-meting-kwaliteit");
+  await page.getByRole("button", { name: "Vrijgeven" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Vrijgeven" }).click();
+  await page.locator(".label-keuring-vrijgegeven").waitFor();
+  let vrij = null;
+  for (let i = 0; i < 20 && vrij?.status !== "vrijgegeven"; i++) {
+    [vrij] = await q("SELECT k.status FROM fabriek.keuring k WHERE k.stapregistratie_id = $1", [regPs2.body.id]);
+    if (vrij?.status !== "vrijgegeven") await page.waitForTimeout(250);
+  }
+  check("Vrijgegeven, ook in de database (via de wachtrij)", vrij?.status === "vrijgegeven", JSON.stringify(vrij));
+  await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "productie" });
+
   // Smal scherm
   await page.setViewportSize({ width: 420, height: 860 });
   await page.goto(`${BASIS}/invoer/#/stappen`);

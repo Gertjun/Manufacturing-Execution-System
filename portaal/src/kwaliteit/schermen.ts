@@ -228,12 +228,22 @@ export async function overzicht() {
 // ---------- Te beoordelen ----------
 interface TeBeoordelen { batchnummer: string; sinds: string; reden: string; door: string; laatst_afgeronde_stap: string | null; afwijkingen: number }
 
+interface KeuringRij { id: string; registratie_id: string; soort: "batch" | "lot"; nummer: string; product: string | null; stap: string; stapnaam: string; sinds: string; te_meten: number; afwijkingen: number }
+
 export async function beoordelen() {
   const actueel = vastHouden();
   toon(kop("Te beoordelen"), laden());
-  let rijen: TeBeoordelen[];
-  try { rijen = await haal<TeBeoordelen[]>("/analyse/te-beoordelen"); } catch (e) { return fout(e); }
+  let rijen: TeBeoordelen[], keuringen: KeuringRij[];
+  try { [rijen, keuringen] = await Promise.all([haal<TeBeoordelen[]>("/analyse/te-beoordelen"), haal<KeuringRij[]>("/keuringen")]); } catch (e) { return fout(e); }
   if (!actueel()) return;
+  // #64: stappen die op de metingen en de vrijgave van Kwaliteit wachten. Meten en beslissen gebeurt in het invoerscherm (lab-pc).
+  const wachtOpKwaliteit = h("section", { class: "blok" }, h("h2", {}, `Wacht op meting van Kwaliteit (${keuringen.length})`),
+    keuringen.length
+      ? [h("p", { class: "sub" }, "Deze batches en lots zijn afgerond maar gaan pas verder na de vrijgave. Meten en vrijgeven doe je in het invoerscherm, op de lab-pc."),
+         tabel(["Batch of lot", "Product", "Stap", "Afgerond", "Nog te meten", "Afwijkend"], keuringen.map((k) => [
+           h("a", { href: k.soort === "lot" ? `#/kwaliteit/lotpaspoort/${k.nummer}` : `#/kwaliteit/batch/${k.nummer}`, class: "sterk" }, k.nummer),
+           k.product ?? "", `${k.stap} ${k.stapnaam}`, datum(k.sinds), h("span", { class: "getal" }, k.te_meten), h("span", { class: "getal" }, k.afwijkingen)]), "compact")]
+      : h("p", { class: "leeg goed" }, "Er wacht niets op een meting van Kwaliteit."));
   toon(
     kop("Te beoordelen", magKeuren()
       ? "Batches die in beoordeling staan. OK geeft de batch vrij voor de volgende stap, NOK keurt hem af, Herbewerken stuurt hem terug naar een eerdere stap."
@@ -246,6 +256,7 @@ export async function beoordelen() {
             magKeuren() ? h("div", { class: "knoppen-klein" }, keurKnoppen(r.batchnummer, beoordelen), herbewerkingKnop(r.batchnummer, beoordelen, true)) : "",
           ]))
       : h("p", { class: "leeg" }, "Er staan geen batches in beoordeling."),
+    wachtOpKwaliteit,
   );
 }
 

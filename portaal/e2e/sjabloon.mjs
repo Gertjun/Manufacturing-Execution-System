@@ -81,7 +81,7 @@ try {
   const x = leesXlsx(pad);
   const [{ n }] = await q("SELECT count(*)::int AS n FROM fabriek.veld");
   check("Alle velden staan erin, ook uitgezette", x.rijen.length === n + 1, `${x.rijen.length - 1} / ${n}`);
-  check("Kolommen van het sjabloon", x.rijen[0].join("|") === "Stap|Code|Naam|Soort|Eenheid|Verplicht|Tolerantie|Tolerantie in|Ondergrens|Bovengrens|Decimalen|Op certificaat|Actief", x.rijen[0].join("|"));
+  check("Kolommen van het sjabloon", x.rijen[0].join("|") === "Stap|Code|Naam|Soort|Eenheid|Verplicht|Tolerantie|Tolerantie in|Ondergrens|Bovengrens|Decimalen|Op certificaat|Actief|Gemeten door", x.rijen[0].join("|"));
   const s51 = x.rijen.find((r) => r[1] === "S5.1");
   check("Grenzen zijn getallen in Excel", typeof s51[8] === "number" || s51[8] === null, JSON.stringify(s51));
   const gb = x.bladen["Grenzen per product"];

@@ -93,6 +93,8 @@ CREATE TABLE veld (
     actief            boolean NOT NULL DEFAULT true,
     op_certificaat    boolean NOT NULL DEFAULT false,   -- sinds migratie 0010
     decimalen         smallint CHECK (decimalen BETWEEN 0 AND 6),   -- sinds migratie 0015; leeg = automatisch
+    -- Wie meet (sinds migratie 0022, #64): de operator, of Kwaliteit na het afronden van de stap.
+    gemeten_door      text NOT NULL DEFAULT 'productie' CHECK (gemeten_door IN ('productie','kwaliteit')),
     UNIQUE (processtap_id, volgnummer),
     CHECK (grens_min IS NULL OR grens_max IS NULL OR grens_min <= grens_max),
     CHECK (tolerantie IS NULL OR soort = 'procesparameter')
@@ -286,6 +288,9 @@ BEGIN
            SET status = 'afgebroken', afgerond_op = clock_timestamp(),
                reden = 'Batch afgekeurd: ' || NEW.reden
          WHERE batch_id = NEW.batch_id AND status = 'open';
+        -- Wat nog op Kwaliteit wachtte, is ook afgekeurd (sinds 0022).
+        UPDATE keuring k SET status = 'afgekeurd', besloten_door = NEW.besloten_door, besloten_op = now(), reden = NEW.reden
+          FROM stapregistratie r WHERE r.id = k.stapregistratie_id AND r.batch_id = NEW.batch_id AND k.status = 'open';
         -- Een herbewerking die nog niet gestart is, vervalt (sinds 0021).
         UPDATE herbewerking
            SET status = 'ingetrokken', ingetrokken_door = NEW.besloten_door, ingetrokken_op = now(),
@@ -392,6 +397,28 @@ CREATE TABLE herbewerking (
 CREATE UNIQUE INDEX herbewerking_open_batch ON herbewerking (batch_id) WHERE status = 'open' AND batch_id IS NOT NULL;
 CREATE UNIQUE INDEX herbewerking_open_lot   ON herbewerking (lot_id)   WHERE status = 'open' AND lot_id IS NOT NULL;
 CREATE INDEX herbewerking_tijd ON herbewerking (aangemaakt_op);
+
+-- Keuring door Kwaliteit (sinds migratie 0022, #64): een stap met velden die Kwaliteit meet. Na het afronden
+-- door de operator wacht de batch of het lot op Kwaliteit: meten en dan vrijgeven, herbewerken of afkeuren.
+-- Pas na de vrijgave telt de stap als gedaan en kan de volgende stap starten.
+CREATE TABLE keuring (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    stapregistratie_id  uuid NOT NULL UNIQUE REFERENCES stapregistratie(id),
+    status              text NOT NULL DEFAULT 'open' CHECK (status IN ('open','vrijgegeven','herbewerken','afgekeurd')),
+    aangemaakt_op       timestamptz NOT NULL DEFAULT now(),
+    besloten_door       uuid REFERENCES gebruiker(id),
+    besloten_op         timestamptz,
+    reden               text,
+    herbewerking_id     uuid REFERENCES herbewerking(id),
+    CHECK ((status = 'open') = (besloten_op IS NULL)),
+    CHECK (status NOT IN ('herbewerken','afgekeurd') OR length(trim(coalesce(reden, ''))) > 0)
+);
+CREATE INDEX keuring_open ON keuring (aangemaakt_op) WHERE status = 'open';
+
+-- Meet Kwaliteit iets in deze stap (sinds 0022)?
+CREATE FUNCTION stap_meet_kwaliteit(p_stap uuid) RETURNS boolean LANGUAGE sql STABLE AS $$
+    SELECT EXISTS (SELECT 1 FROM veld WHERE processtap_id = p_stap AND actief AND gemeten_door = 'kwaliteit')
+$$;
 CREATE INDEX stapreg_open  ON stapregistratie (processtap_id)         WHERE status = 'open';
 CREATE INDEX stapreg_afgerond ON stapregistratie (afgerond_op);
 CREATE INDEX stapreg_product ON stapregistratie (product_id);
@@ -445,6 +472,7 @@ CREATE FUNCTION batch_stap_gedaan(p_batch uuid, p_stap uuid) RETURNS boolean LAN
     SELECT EXISTS (
         SELECT 1 FROM stapregistratie x
          WHERE x.batch_id = p_batch AND x.processtap_id = p_stap AND x.status = 'afgerond'
+           AND NOT EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = x.id AND k.status <> 'vrijgegeven')   -- sinds 0022
            AND NOT EXISTS (
                SELECT 1 FROM stapregistratie h JOIN rt ON rt.processtap_id = h.processtap_id
                 WHERE h.batch_id = p_batch AND h.herbewerking_start AND h.id <> x.id
@@ -601,6 +629,14 @@ BEGIN
         END IF;
     END IF;
 
+    -- Wacht de batch of het lot op Kwaliteit, dan kan er niets starten (sinds 0022, #64).
+    IF EXISTS (SELECT 1 FROM keuring k JOIN stapregistratie x ON x.id = k.stapregistratie_id
+                WHERE k.status = 'open' AND (x.batch_id = NEW.batch_id OR x.lot_id = NEW.lot_id)) THEN
+        RAISE EXCEPTION 'Wacht op Kwaliteit: eerst de keuring van stap %',
+            (SELECT s.code FROM keuring k JOIN stapregistratie x ON x.id = k.stapregistratie_id JOIN processtap s ON s.id = x.processtap_id
+              WHERE k.status = 'open' AND (x.batch_id = NEW.batch_id OR x.lot_id = NEW.lot_id) LIMIT 1);
+    END IF;
+
     -- Herbewerking: een stap die al eens doorlopen is, zonder open stap (batch sinds 0021, D4).
     IF NEW.herbewerking_start THEN
         IF v_max_poging IS NULL THEN
@@ -628,6 +664,10 @@ BEGIN
     -- Batch (sinds 0021): de vorige stap gedaan en deze nog niet, met herbewerkingen meegerekend.
     IF NEW.batch_id IS NOT NULL THEN
         IF v_vorige_id IS NOT NULL AND NOT batch_stap_gedaan(NEW.batch_id, v_vorige_id) THEN
+            IF EXISTS (SELECT 1 FROM keuring k JOIN stapregistratie x ON x.id = k.stapregistratie_id
+                        WHERE x.batch_id = NEW.batch_id AND x.processtap_id = v_vorige_id AND k.status = 'open') THEN
+                RAISE EXCEPTION 'Stap % wacht op Kwaliteit', (SELECT code FROM processtap WHERE id = v_vorige_id);
+            END IF;
             RAISE EXCEPTION 'Stap % moet eerst afgerond zijn', (SELECT code FROM processtap WHERE id = v_vorige_id);
         END IF;
         IF batch_stap_gedaan(NEW.batch_id, v_stap.id) THEN
@@ -644,6 +684,10 @@ BEGIN
          ORDER BY poging DESC LIMIT 1;
         IF NOT FOUND OR v_vorige_reg.status <> 'afgerond' THEN
             RAISE EXCEPTION 'Stap % moet eerst afgerond zijn', v_vorige.code;
+        END IF;
+        -- Meet Kwaliteit in de vorige stap, dan eerst de vrijgave (sinds 0022).
+        IF EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = v_vorige_reg.id AND k.status <> 'vrijgegeven') THEN
+            RAISE EXCEPTION 'Stap % wacht op Kwaliteit', v_vorige.code;
         END IF;
 
         SELECT * INTO v_deze_laatst FROM stapregistratie
@@ -692,7 +736,8 @@ BEGIN
         UPDATE lot SET status = 'in_productie' WHERE id = NEW.lot_id AND status = 'gereed';
     ELSIF TG_OP = 'UPDATE' AND NEW.status = 'afgerond' AND OLD.status = 'open' THEN
         v_laatste := route_laatste(lot_product(NEW.lot_id), 'lot');
-        IF NEW.processtap_id = v_laatste THEN
+        -- Meet Kwaliteit in die stap, dan pas gereed na de vrijgave (beslis_keuring, sinds 0022).
+        IF NEW.processtap_id = v_laatste AND NOT stap_meet_kwaliteit(NEW.processtap_id) THEN
             UPDATE lot SET status = 'gereed' WHERE id = NEW.lot_id;
         END IF;
     END IF;
@@ -767,8 +812,18 @@ BEGIN
     END IF;
 
     IF NEW.vervangt_waarde_id IS NULL THEN
+        -- Een veld dat Kwaliteit meet (sinds 0022, #64): alleen door iemand van Kwaliteit, in een open stap
+        -- of zolang de stap op Kwaliteit wacht.
+        IF v_veld.gemeten_door = 'kwaliteit' THEN
+            IF NOT EXISTS (SELECT 1 FROM operator o JOIN gebruiker g ON g.id = o.gebruiker_id
+                            WHERE o.id = NEW.ingevoerd_door AND g.rol = 'kwaliteit') THEN
+                RAISE EXCEPTION 'Veld % meet Kwaliteit', v_veld.code;
+            END IF;
+            IF v_reg.status <> 'open' AND NOT EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = v_reg.id AND k.status = 'open') THEN
+                RAISE EXCEPTION 'Stap wacht niet meer op Kwaliteit; wijzigen kan alleen als correctie';
+            END IF;
         -- Gewone invoer: alleen in een open stap, met actief veld.
-        IF v_reg.status <> 'open' THEN
+        ELSIF v_reg.status <> 'open' THEN
             RAISE EXCEPTION 'Stap is al afgerond; wijzigen kan alleen als correctie door een ploegleider';
         END IF;
         IF NOT v_veld.actief THEN
@@ -833,6 +888,7 @@ BEGIN
         SELECT v.code AS x, 1 AS n, v.volgnummer AS v
           FROM stapregistratie r
           JOIN veld v ON v.processtap_id = r.processtap_id AND v.actief AND v.verplicht
+                      AND v.gemeten_door = 'productie'   -- wat Kwaliteit meet, komt na het afronden (sinds 0022)
          WHERE r.id = p_registratie
            AND NOT EXISTS (SELECT 1 FROM waarde w WHERE w.stapregistratie_id = r.id AND w.veld_id = v.id)
         UNION ALL
@@ -1018,6 +1074,8 @@ BEGIN
                AND (b.status = 'in_productie' OR (v.vorige IS NULL AND b.geplande_dag <= current_date))
                AND in_route(b.product_id, v_stap.id)
                AND NOT EXISTS (SELECT 1 FROM herbewerking h WHERE h.batch_id = b.id AND h.status = 'open')
+               AND NOT EXISTS (SELECT 1 FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
+                                WHERE r.batch_id = b.id AND k.status = 'open')   -- wacht op Kwaliteit (sinds 0022)
                AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = v_stap.id AND r.status = 'open')
                AND NOT batch_stap_gedaan(b.id, v_stap.id)
                AND (v.vorige IS NULL OR batch_stap_gedaan(b.id, v.vorige))
@@ -1039,6 +1097,7 @@ BEGIN
               CROSS JOIN LATERAL (SELECT route_vorige(lot_product(l.id), v_stap.id) AS vorige) v
               JOIN LATERAL (SELECT r.* FROM stapregistratie r WHERE r.lot_id = l.id AND r.processtap_id = v.vorige
                              ORDER BY r.poging DESC LIMIT 1) vr ON vr.status = 'afgerond'
+                     AND NOT EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = vr.id AND k.status <> 'vrijgegeven')
               LEFT JOIN LATERAL (SELECT r.* FROM stapregistratie r WHERE r.lot_id = l.id AND r.processtap_id = v_stap.id
                                   ORDER BY r.poging DESC LIMIT 1) dr ON true
              WHERE l.status = 'in_productie'
@@ -1507,7 +1566,7 @@ CREATE TRIGGER overdracht_vast BEFORE UPDATE OR DELETE ON overdracht
 -- ---------------------------------------------------------------------
 CREATE TABLE melding (
     id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    soort          text NOT NULL CHECK (soort IN ('buiten_grens','beoordeling','vrijgegeven','afgekeurd','lot_afgeweken','storing','herbewerking')),
+    soort          text NOT NULL CHECK (soort IN ('buiten_grens','beoordeling','vrijgegeven','afgekeurd','lot_afgeweken','storing','herbewerking','keuring')),
     ernst          text NOT NULL DEFAULT 'let_op' CHECK (ernst IN ('info','let_op','kritiek')),
     tekst          text NOT NULL,
     batchnummer    text,
@@ -1928,7 +1987,7 @@ DECLARE
     v_n     int := 1;
 BEGIN
     SELECT * INTO v_g FROM gebruiker WHERE id = p_gebruiker AND actief;
-    IF NOT FOUND OR v_g.gedeeld OR v_g.rol NOT IN ('operator', 'ploegleider') THEN RETURN NULL; END IF;
+    IF NOT FOUND OR v_g.gedeeld OR v_g.rol NOT IN ('operator', 'ploegleider', 'kwaliteit') THEN RETURN NULL; END IF;
     SELECT id INTO v_id FROM operator WHERE gebruiker_id = p_gebruiker;
     IF FOUND THEN RETURN v_id; END IF;
     -- Nog geen naam: maak er een met de gebruikersnaam (de beheerder kan hem later wijzigen).
@@ -2121,7 +2180,9 @@ CREATE FUNCTION plan_stand(p_plan uuid) RETURNS text LANGUAGE sql STABLE AS $$
              WHEN EXISTS (SELECT 1 FROM stapregistratie r WHERE r.processtap_id = sp.processtap_id
                            AND (r.batch_id = sp.batch_id OR r.lot_id = sp.lot_id) AND r.status = 'open') THEN 'bezig'
              WHEN sp.batch_id IS NOT NULL THEN CASE WHEN batch_stap_gedaan(sp.batch_id, sp.processtap_id) THEN 'gedaan' ELSE 'gepland' END
-             ELSE coalesce((SELECT CASE r.status WHEN 'afgerond' THEN 'gedaan' ELSE 'gepland' END
+             ELSE coalesce((SELECT CASE WHEN r.status = 'afgerond'
+                                         AND NOT EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = r.id AND k.status <> 'vrijgegeven')
+                                        THEN 'gedaan' WHEN r.status = 'afgerond' THEN 'bezig' ELSE 'gepland' END
                               FROM stapregistratie r
                              WHERE r.processtap_id = sp.processtap_id AND r.lot_id = sp.lot_id AND r.status <> 'afgebroken'
                              ORDER BY r.poging DESC LIMIT 1), 'gepland')
@@ -2161,6 +2222,108 @@ SELECT h.id, h.batch_id, h.lot_id,
                         AND sp.dag >= (h.aangemaakt_op AT TIME ZONE fabriekstijdzone())::date) p ON true;
 
 -- ---------------------------------------------------------------------
+-- Keuring door Kwaliteit (sinds migratie 0022, #64)
+-- ---------------------------------------------------------------------
+-- Een afgeronde stap waarin Kwaliteit meet, wacht op Kwaliteit (sinds 0022, #64).
+CREATE FUNCTION maak_keuring() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.status = 'afgerond' AND OLD.status = 'open' AND stap_meet_kwaliteit(NEW.processtap_id) THEN
+        INSERT INTO keuring (stapregistratie_id) VALUES (NEW.id) ON CONFLICT (stapregistratie_id) DO NOTHING;
+    END IF;
+    RETURN NULL;
+END $$;
+CREATE TRIGGER stapregistratie_keuring AFTER UPDATE ON stapregistratie
+    FOR EACH ROW EXECUTE FUNCTION maak_keuring();
+
+-- Kwaliteit beslist (sinds 0022, #64): vrijgeven (alle verplichte metingen van Kwaliteit ingevuld), herbewerken
+-- (terug naar deze of een eerdere stap, D57) of afkeuren (batch: keurresultaat NOK, D7; lot: geblokkeerd).
+-- Nog een keer hetzelfde besluit versturen (offline wachtrij) doet niets.
+CREATE FUNCTION beslis_keuring(p_keuring uuid, p_besluit text, p_reden text, p_door uuid, p_stapcode text DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+    v_k        keuring%ROWTYPE;
+    v_reg      stapregistratie%ROWTYPE;
+    v_stap     processtap%ROWTYPE;
+    v_rol      text;
+    v_nummer   text;
+    v_status   text;
+    v_mist     text;
+    v_h        uuid;
+BEGIN
+    SELECT rol INTO v_rol FROM gebruiker WHERE id = p_door AND actief;
+    IF v_rol IS DISTINCT FROM 'kwaliteit' THEN
+        RAISE EXCEPTION 'Alleen Kwaliteit beslist over een keuring';
+    END IF;
+    IF p_besluit NOT IN ('vrijgegeven', 'herbewerken', 'afgekeurd') THEN
+        RAISE EXCEPTION 'Onbekend besluit %', p_besluit;
+    END IF;
+    SELECT * INTO v_k FROM keuring WHERE id = p_keuring FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Keuring bestaat niet'; END IF;
+    IF v_k.status = p_besluit THEN RETURN; END IF;
+    IF v_k.status <> 'open' THEN
+        RAISE EXCEPTION 'Over deze stap is al beslist';
+    END IF;
+    SELECT * INTO v_reg FROM stapregistratie WHERE id = v_k.stapregistratie_id;
+    SELECT * INTO v_stap FROM processtap WHERE id = v_reg.processtap_id;
+    v_nummer := coalesce((SELECT batchnummer FROM batch WHERE id = v_reg.batch_id), (SELECT lotnummer FROM lot WHERE id = v_reg.lot_id));
+    IF p_besluit <> 'vrijgegeven' AND length(trim(coalesce(p_reden, ''))) = 0 THEN
+        RAISE EXCEPTION 'Geef de reden';
+    END IF;
+
+    IF p_besluit = 'vrijgegeven' THEN
+        SELECT string_agg(v.code, ', ' ORDER BY v.volgnummer) INTO v_mist
+          FROM veld v WHERE v.processtap_id = v_reg.processtap_id AND v.actief AND v.verplicht AND v.gemeten_door = 'kwaliteit'
+           AND NOT EXISTS (SELECT 1 FROM waarde w WHERE w.stapregistratie_id = v_reg.id AND w.veld_id = v.id);
+        IF v_mist IS NOT NULL THEN
+            RAISE EXCEPTION 'Nog niet gemeten: %', v_mist;
+        END IF;
+        UPDATE keuring SET status = 'vrijgegeven', besloten_door = p_door, besloten_op = now(), reden = nullif(trim(coalesce(p_reden, '')), '')
+         WHERE id = v_k.id;
+        -- De laatste lotstap: nu is het lot gereed.
+        IF v_reg.lot_id IS NOT NULL AND v_reg.processtap_id = route_laatste(lot_product(v_reg.lot_id), 'lot') THEN
+            UPDATE lot SET status = 'gereed' WHERE id = v_reg.lot_id AND status = 'in_productie';
+        END IF;
+    ELSIF p_besluit = 'herbewerken' THEN
+        v_h := maak_herbewerking(v_nummer, coalesce(p_stapcode, v_stap.code), p_reden, p_door);
+        UPDATE keuring SET status = 'herbewerken', besloten_door = p_door, besloten_op = now(), reden = trim(p_reden), herbewerking_id = v_h
+         WHERE id = v_k.id;
+    ELSIF v_reg.batch_id IS NOT NULL THEN
+        SELECT status INTO v_status FROM batch WHERE id = v_reg.batch_id;
+        IF v_status = 'in_productie' THEN
+            INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door)
+            VALUES (v_reg.batch_id, 'in_beoordeling', 'Keuring ' || v_stap.code || ': ' || trim(p_reden), p_door);
+        END IF;
+        -- Het keurresultaat NOK zet ook deze keuring op afgekeurd (verwerk_batch_besluit).
+        INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (v_reg.batch_id, 'afgekeurd', trim(p_reden), p_door);
+        UPDATE keuring SET status = 'afgekeurd', besloten_door = p_door, besloten_op = now(), reden = trim(p_reden)
+         WHERE id = v_k.id AND status = 'open';
+    ELSE
+        UPDATE lot SET status = 'geblokkeerd' WHERE id = v_reg.lot_id;
+        UPDATE keuring SET status = 'afgekeurd', besloten_door = p_door, besloten_op = now(), reden = trim(p_reden) WHERE id = v_k.id;
+        INSERT INTO melding (soort, ernst, tekst, lotnummer, voor_rollen, bron_id)
+        VALUES ('afgekeurd', 'kritiek',
+                format('Lot %s afgekeurd bij %s door %s: %s', v_nummer, v_stap.code, (SELECT gebruikersnaam FROM gebruiker WHERE id = p_door), trim(p_reden)),
+                v_nummer, ARRAY['ploegleider','planner','productiemanager','kwaliteit'], v_k.id);
+    END IF;
+END $$;
+
+-- Kwaliteit krijgt een melding als er iets op een meting wacht.
+CREATE FUNCTION meld_keuring() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v record;
+BEGIN
+    SELECT s.code AS stap, b.batchnummer, l.lotnummer, pc.locatie AS hal INTO v
+      FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id JOIN pc ON pc.id = r.pc_id
+      LEFT JOIN batch b ON b.id = r.batch_id LEFT JOIN lot l ON l.id = r.lot_id
+     WHERE r.id = NEW.stapregistratie_id;
+    INSERT INTO melding (soort, ernst, tekst, batchnummer, lotnummer, hal, voor_rollen, bron_id)
+    VALUES ('keuring', 'let_op', format('%s %s wacht op meting van Kwaliteit', coalesce(v.batchnummer, v.lotnummer), v.stap),
+            v.batchnummer, v.lotnummer, v.hal, ARRAY['kwaliteit'], NEW.id);
+    RETURN NULL;
+END $$;
+CREATE TRIGGER keuring_melding AFTER INSERT ON keuring FOR EACH ROW EXECUTE FUNCTION meld_keuring();
+
+-- ---------------------------------------------------------------------
 -- Onderhoud (sinds migratie 0002, versie 0.6.0)
 -- ---------------------------------------------------------------------
 -- Welke migraties zijn uitgevoerd. Wordt bijgewerkt door tools/migreer.mjs.
@@ -2185,7 +2348,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

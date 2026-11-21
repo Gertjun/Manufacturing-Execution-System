@@ -75,7 +75,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/pc",
     {
-      preHandler: vereist(...INVOER),
+      preHandler: vereist(...INVOER, "kwaliteit"),   // Kwaliteit: de lab-pc (sinds 0.37.0, #64)
       schema: {
         tags: ["inloggen"],
         description: "Geeft een token met de pc erbij, voor het invoerscherm. Voor wie al op de startpagina is ingelogd.",

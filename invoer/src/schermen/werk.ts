@@ -33,14 +33,34 @@ function pasAan(stap: Stap, w: Werkvoorraad, l: Awaited<ReturnType<typeof lokale
   return { open, wachtend };
 }
 
+// ---------- Keuring door Kwaliteit (#64) ----------
+interface KeuringRij { id: string; registratie_id: string; soort: "batch" | "lot"; nummer: string; product: string | null; stap: string; stapnaam: string; sinds: string; te_meten: number; afwijkingen: number }
+
+/** Wat op Kwaliteit wacht (met verbinding vers, anders de laatst bekende lijst). */
+async function keuringen(stap?: string): Promise<KeuringRij[]> {
+  try { return (await haal<KeuringRij[]>(`/keuringen${stap ? `?stap=${encodeURIComponent(stap)}` : ""}`)).data; } catch { return []; }
+}
+
+function keuringLijst(lijst: KeuringRij[], metStap: boolean) {
+  return h("ul", { class: "lijst" }, lijst.map((k) =>
+    h("li", {}, h("a", { class: "rij", href: `#/reg/${k.registratie_id}` },
+      h("div", {},
+        h("div", { class: "rij-hoofd" }, k.nummer, h("span", { class: "label label-keuring-open" }, "Wacht op Kwaliteit")),
+        h("div", { class: "rij-info" }, [metStap ? `${k.stap} ${k.stapnaam}` : null, k.product, `afgerond ${tijd(k.sinds)}`,
+          k.te_meten ? `${k.te_meten} ${k.te_meten === 1 ? "meting" : "metingen"} te doen` : "alles gemeten",
+          k.afwijkingen ? `${k.afwijkingen} afwijkend` : null].filter(Boolean).join(" · "))),
+      h("span", { class: "knop knop-klein" }, sessie.rol === "kwaliteit" ? "Meten" : "Bekijken")))));
+}
+
 export async function stappenScherm() {
   const actueel = vastHouden();
   toon(h("h1", {}, "Kies een stap"), laden());
-  const [{ data: alle }, overzicht, l, overdracht] = await Promise.all([
+  const [{ data: alle }, overzicht, l, overdracht, teKeuren] = await Promise.all([
     haal<Stap[]>("/config/stappen?voorDezePc=true"),
     haal<Overzicht[]>("/werkvoorraad").catch(() => ({ data: [] as Overzicht[], vers: false })),
     lokaleAanpassingen(),
     vorigeOverdrachtBlok(),
+    sessie.rol === "kwaliteit" ? keuringen() : Promise.resolve([] as KeuringRij[]),
   ]);
   if (!actueel()) return;
 
@@ -70,6 +90,11 @@ export async function stappenScherm() {
   toon(
     h("div", { class: "kop" }, h("h1", {}, "Kies een stap"), overzicht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
     overdracht,
+    // Kwaliteit op de lab-pc: eerst wat op een meting wacht (#64).
+    sessie.rol === "kwaliteit"
+      ? h("section", { class: "keuring-blok" }, h("h2", {}, `Wacht op Kwaliteit (${teKeuren.length})`),
+          teKeuren.length ? keuringLijst(teKeuren, true) : h("p", { class: "leeg" }, "Er wacht niets op een meting van Kwaliteit."))
+      : null,
     batch.length ? h("h2", {}, "Per batch") : null,
     batch.length ? h("div", { class: "route" }, batch.map(tegel)) : null,
     lot.length ? h("h2", {}, "Per lot") : null,
@@ -202,7 +227,8 @@ export async function stapScherm(code: string) {
     vers = false;
   }
   w = pasAan(s, w, await lokaleAanpassingen());
-  const [plan, voorstellen, stil] = await Promise.all([planVandaag(code), s.is_lot_stap ? openVoorstellen() : Promise.resolve([]), lopendeStilstand(code)]);
+  const [plan, voorstellen, stil, teKeuren] = await Promise.all([planVandaag(code), s.is_lot_stap ? openVoorstellen() : Promise.resolve([]), lopendeStilstand(code),
+    s.velden.some((v) => v.gemeten_door === "kwaliteit") ? keuringen(code) : Promise.resolve([] as KeuringRij[])]);
   // Wat vandaag gepland is eerst, in de volgorde van de planning.
   const plek = new Map(plan.map((p) => [p.nummer, p.volgorde]));
   w.wachtend.sort((a, b) => (plek.get(a.nummer) ?? 1e6) - (plek.get(b.nummer) ?? 1e6));
@@ -269,7 +295,9 @@ export async function stapScherm(code: string) {
         : null,
     ].filter(Boolean) as Node[];
   }
-  toon(kop, stil ? stilstandBlok(stil, s, opVloer, opnieuw) : null, planBlok(plan), ...bezig, ...klaar);
+  // Afgerond, maar wacht nog op de metingen en de vrijgave van Kwaliteit (#64).
+  const wachtKwaliteit = teKeuren.length ? [h("h2", {}, `Wacht op Kwaliteit (${teKeuren.length})`), keuringLijst(teKeuren, false)] : [];
+  toon(kop, stil ? stilstandBlok(stil, s, opVloer, opnieuw) : null, planBlok(plan), ...bezig, ...wachtKwaliteit, ...klaar);
 
   // Handscanner: een batch die bezig is openen, een batch die klaarstaat starten (of in de lot-stap aanvinken).
   zetScanActie(async (code) => {

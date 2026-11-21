@@ -1,0 +1,80 @@
+import { Type } from "@fastify/type-provider-typebox";
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import { IEDEREEN, vereist } from "../auth.js";
+import { inTransactie, lees } from "../db.js";
+import { niet } from "../fouten.js";
+import { registratieDetail } from "./registraties.js";
+import { RegistratieDetail } from "./schemas.js";
+
+/** Keuring door Kwaliteit (#64, D58): wat op een meting van Kwaliteit wacht, en het besluit. */
+const routes: FastifyPluginAsyncTypebox = async (app) => {
+  app.get(
+    "/",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["keuringen"],
+        description: "Stappen die op Kwaliteit wachten (status open), oudste eerst; met stap alleen die stap.",
+        querystring: Type.Object({ stap: Type.Optional(Type.String()) }),
+        response: {
+          200: Type.Array(Type.Object({
+            id: Type.String({ format: "uuid" }),
+            registratie_id: Type.String({ format: "uuid" }),
+            soort: Type.Union([Type.Literal("batch"), Type.Literal("lot")]),
+            nummer: Type.String(),
+            product: Type.Union([Type.Null(), Type.String()]),
+            stap: Type.String(),
+            stapnaam: Type.String(),
+            sinds: Type.String({ format: "date-time" }),
+            te_meten: Type.Integer({ description: "Verplichte velden van Kwaliteit die nog niet zijn ingevuld" }),
+            afwijkingen: Type.Integer({ description: "Afwijkende metingen in deze stap" }),
+          })),
+        },
+      },
+    },
+    async (req) =>
+      lees(
+        app.db,
+        `SELECT k.id, r.id AS registratie_id, CASE WHEN r.batch_id IS NOT NULL THEN 'batch' ELSE 'lot' END AS soort,
+                coalesce(b.batchnummer, l.lotnummer) AS nummer, p.code AS product, s.code AS stap, s.naam AS stapnaam,
+                coalesce(r.afgerond_op, k.aangemaakt_op) AS sinds,
+                (SELECT count(*) FROM veld v WHERE v.processtap_id = s.id AND v.actief AND v.verplicht AND v.gemeten_door = 'kwaliteit'
+                    AND NOT EXISTS (SELECT 1 FROM waarde w WHERE w.stapregistratie_id = r.id AND w.veld_id = v.id))::int AS te_meten,
+                (SELECT count(*) FROM waarde_actueel w WHERE w.stapregistratie_id = r.id AND w.markering <> 'ok')::int AS afwijkingen
+           FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id JOIN processtap s ON s.id = r.processtap_id
+           LEFT JOIN batch b ON b.id = r.batch_id LEFT JOIN lot l ON l.id = r.lot_id LEFT JOIN product p ON p.id = r.product_id
+          WHERE k.status = 'open' AND ($1::text IS NULL OR s.code = $1)
+          ORDER BY sinds`,
+        [req.query.stap ?? null],
+      ) as never,
+  );
+
+  app.post(
+    "/:id/besluit",
+    {
+      preHandler: vereist("kwaliteit"),
+      schema: {
+        tags: ["keuringen"],
+        description:
+          "Kwaliteit beslist: vrijgegeven (alle verplichte metingen van Kwaliteit zijn er), herbewerken (met reden, terug naar stapcode of deze stap) " +
+          "of afgekeurd (met reden). Hetzelfde besluit opnieuw versturen (offline wachtrij) geeft gewoon de stand terug.",
+        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+        body: Type.Object({
+          besluit: Type.Union([Type.Literal("vrijgegeven"), Type.Literal("herbewerken"), Type.Literal("afgekeurd")]),
+          reden: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
+          stapcode: Type.Optional(Type.String({ description: "Bij herbewerken: terug naar deze stap (standaard de stap van de keuring)" })),
+        }),
+        response: { 200: RegistratieDetail },
+      },
+    },
+    async (req) => {
+      const [k] = await lees<{ stapregistratie_id: string }>(app.db, "SELECT stapregistratie_id FROM keuring WHERE id = $1", [req.params.id]);
+      if (!k) throw niet("Keuring");
+      await inTransactie(app.db, req.user.naam, (tx) =>
+        tx.query("SELECT beslis_keuring($1, $2, $3, $4, $5)", [req.params.id, req.body.besluit, req.body.reden ?? null, req.user.sub, req.body.stapcode ?? null]));
+      return (await registratieDetail(app.db, k.stapregistratie_id)) as never;
+    },
+  );
+};
+
+export default routes;

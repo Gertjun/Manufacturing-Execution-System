@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.36.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.37.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Het wandscherm per stap is gebouwd (0.36.0, #54). Nog open in fase A2: #64 (invoer voor Kwaliteit, vóór of na de pilot: #71); #55 komt later. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Het wandscherm per stap (0.36.0, #54) en de metingen van Kwaliteit met keuring (0.37.0, #64, D58) zijn gebouwd; daarmee is fase A2 gebouwd, op #55 (later) na. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.36.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.37.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.36.0, 21 november 2026):** geslaagd: databaseregels (193), API, migraties (tot en met 21), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor het wandscherm per stap (alleen de gekozen stappen, cijfers over die stappen, de tv onthoudt de keuze, stappen kiezen met de knop) en eerder voor herbewerkingen met opdracht en de rol productiemanager. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
+- **Laatste testronde (0.37.0, 21 november 2026):** geslaagd: databaseregels (211), API, migraties (tot en met 22), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de keuring door Kwaliteit (operator rondt af zonder de meting van Kwaliteit, de stap wacht, Kwaliteit meet en geeft vrij op de lab-pc via de wachtrij, herbewerken en afkeuren in de databaseregels) en "Wie meet" in Beheer en het sjabloon. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -40,7 +40,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 
 | Onderdeel | Adres | Voor wie |
 | --- | --- | --- |
-| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer; werkt offline |
+| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (metingen en keuring, D58); werkt offline |
 | Portaal Kwaliteit | `/portaal/` | Kwaliteit |
 | Startpagina | `/` (stuurt door naar `/portaal/`) | Iedereen, na het inloggen |
 | Portaal Productieanalyse | `/portaal/` | Ploegleiders, productieleiding |
@@ -49,7 +49,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 | Wandscherm | `/portaal/#/wandscherm` | Tv in de hal |
 | API-documentatie | `/docs` | Ontwikkelaars, latere koppelingen |
 
-**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat, herbewerking), productiemanager (portalen Productieanalyse, Kwaliteit en Planning; in beoordeling zetten en herbewerking, D57), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
+**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat, herbewerking; meet en keurt in het invoerscherm op de lab-pc, D58), productiemanager (portalen Productieanalyse, Kwaliteit en Planning; in beoordeling zetten en herbewerking, D57), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
 
 **Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
 
@@ -68,7 +68,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 | Onderdeel | Wat je ziet |
 | --- | --- |
 | Overzicht | Kerncijfers, afwijkingen per week, velden met de meeste afwijkingen |
-| Te beoordelen | Batches in beoordeling; Kwaliteit voert hier OK, NOK of Herbewerken in |
+| Te beoordelen | Batches in beoordeling; Kwaliteit voert hier OK, NOK of Herbewerken in. Daaronder wat op een meting van Kwaliteit wacht (D58) |
 | Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan (klik op het resultaat voor de meting, correcties en keurresultaat), grondstofpartijen, afdrukbaar; met etiket en certificaat |
 | Certificaat | Analysecertificaat per lot: concept, uitgeven met volgnummer, afdrukken of pdf (D37) |
 | Grondstoffen terugzoeken | Op partijnummer: in welke batches en lots zit die partij |
@@ -102,7 +102,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 ### Portaal Beheer
 | Onderdeel | Wat je kunt doen |
 | --- | --- |
-| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen, en eigen grenzen per product (D55). Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46); het tweede blad bevat de grenzen per product |
+| Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen, wie meet (Productie of Kwaliteit, D58) en eigen grenzen per product (D55). Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46); het tweede blad bevat de grenzen per product |
 | Accounts, operators, pc's | Aanmaken, wijzigen, uitzetten; per pc de stappen |
 | Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |

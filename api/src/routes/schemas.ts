@@ -49,6 +49,7 @@ export const VeldMetWaarde = Type.Object({
   tolerantie_soort: Type.String(),
   verplicht: Type.Boolean(),
   decimalen: Type.Optional(NulGeheel({ description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
+  gemeten_door: Type.Optional(Type.Union([Type.Literal("productie"), Type.Literal("kwaliteit")], { description: "Wie meet (sinds 0.37.0, #64)" })),
   waarde: Type.Union([
     Type.Object({
       id: Type.String({ format: "uuid" }),
@@ -79,9 +80,22 @@ export const GrondstofMetGebruik = Type.Object({
   ]),
 });
 
+/** Keuring door Kwaliteit bij deze registratie (sinds 0.37.0, #64); leeg als de stap niets van Kwaliteit heeft. */
+export const Keuring = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  status: Type.Union([Type.Literal("open"), Type.Literal("vrijgegeven"), Type.Literal("herbewerken"), Type.Literal("afgekeurd")]),
+  reden: OptTekst,
+  besloten_door: OptTekst,
+  besloten_op: OptTijd,
+});
+
 export const RegistratieDetail = Type.Intersect([
   RegistratieKort,
-  Type.Object({ velden: Type.Array(VeldMetWaarde), grondstoffen: Type.Array(GrondstofMetGebruik) }),
+  Type.Object({
+    velden: Type.Array(VeldMetWaarde),
+    grondstoffen: Type.Array(GrondstofMetGebruik),
+    keuring: Type.Optional(Type.Union([Type.Null(), Keuring])),
+  }),
 ]);
 
 export const Batch = Type.Object({

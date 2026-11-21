@@ -239,3 +239,11 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 /* Eigen account (D53): de naam is geen knop. */
 .balk-eigen-naam { cursor: default; border-color: transparent; font-weight: 700; }
 a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* Keuring door Kwaliteit (#64): tekst draagt de betekenis, kleur helpt */
+.label-kwaliteit { color: var(--actie); font-size: var(--text-sm); }
+.label-keuring-open { color: var(--tol); margin-left: var(--space-2); }
+.label-keuring-vrijgegeven { color: var(--ok); }
+.label-keuring-herbewerken { color: var(--tol); }
+.label-keuring-afgekeurd { color: var(--grens); background: var(--grens-vlak); }
+.keuring-blok { margin-bottom: var(--space-5); }

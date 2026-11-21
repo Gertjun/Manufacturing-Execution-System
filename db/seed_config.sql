@@ -106,5 +106,7 @@ UPDATE veld SET op_certificaat = true WHERE code IN ('S3.3', 'S7.3', 'S17.2', 'S
 UPDATE veld SET decimalen = 1 WHERE code LIKE 'S%.1';
 UPDATE veld SET decimalen = 2 WHERE code IN ('S3.3', 'S18.3');
 UPDATE veld SET decimalen = 0 WHERE code = 'S7.3';
+-- Het vochtgehalte meet Kwaliteit in het lab (fictief, #64): na PS18 wacht het lot op de keuring.
+UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code = 'S18.3';
 
 COMMIT;

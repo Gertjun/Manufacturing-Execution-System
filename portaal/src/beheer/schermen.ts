@@ -61,7 +61,10 @@ export async function stappen(code?: string) {
             { naam: "tolerantie_soort", label: "Tolerantie in", opties: [["absoluut", "Eenheid van het veld"], ["procent", "Procent van de setting"]] as [string, string][], waarde: v?.tolerantie_soort ?? "absoluut" },
           ]
         : []),
-      { naam: "verplicht", label: "Verplicht om de stap af te ronden", opties: [["ja", "Ja"], ["nee", "Nee"]], waarde: v ? (v.verplicht ? "ja" : "nee") : "ja" },
+      { naam: "gemeten_door", label: "Wie meet", opties: [["productie", "Productie: de operator, bij de stap"], ["kwaliteit", "Kwaliteit: na het afronden, daarna vrijgave"]] as [string, string][],
+        waarde: v?.gemeten_door ?? "productie",
+        hint: "Meet Kwaliteit, dan wacht de batch of het lot na de stap op de metingen en de vrijgave van Kwaliteit." },
+      { naam: "verplicht", label: "Verplicht (om af te ronden, of bij Kwaliteit: om vrij te geven)", opties: [["ja", "Ja"], ["nee", "Nee"]], waarde: v ? (v.verplicht ? "ja" : "nee") : "ja" },
       { naam: "op_certificaat", label: "Op het certificaat per lot", opties: [["nee", "Nee"], ["ja", "Ja"]], waarde: v?.op_certificaat ? "ja" : "nee" },
     ];
   };
@@ -79,6 +82,7 @@ export async function stappen(code?: string) {
       verplicht: r.verplicht === "ja",
       op_certificaat: r.op_certificaat === "ja",
       decimalen,
+      gemeten_door: r.gemeten_door === "kwaliteit" ? "kwaliteit" : "productie",
     };
   };
 
@@ -183,10 +187,11 @@ export async function stappen(code?: string) {
             h("button", { class: "knop", onclick: hernoem }, "Naam wijzigen"),
             h("button", { class: "knop knop-hoofd", onclick: veldToevoegen }, "Veld toevoegen"))),
         s.velden.length
-          ? tabel(["Code", "Naam", "Soort", "Grenzen", "Tolerantie", "Verplicht", "Certificaat", ""], s.velden.map((v) => [
+          ? tabel(["Code", "Naam", "Soort", "Wie meet", "Grenzen", "Tolerantie", "Verplicht", "Certificaat", ""], s.velden.map((v) => [
               h("strong", { class: v.actief ? "" : "inactief" }, v.code),
               h("span", { class: v.actief ? "" : "inactief" }, v.naam, v.actief ? "" : " (uit)"),
               SOORTEN.find(([k]) => k === v.soort)?.[1].replace(/ \(.*\)/, "") ?? v.soort,
+              v.gemeten_door === "kwaliteit" ? h("strong", {}, "Kwaliteit") : "Productie",
               h("div", {}, grenzen(v, v.eenheid),
                 (v.per_product ?? []).map((p) => h("div", { class: "sub per-product" }, `${p.product}: ${grenzen(p, v.eenheid) || "geen grenzen"}`))),
               h("div", {}, tolerantieTekst(v, v.eenheid),
@@ -204,7 +209,7 @@ export async function stappen(code?: string) {
 }
 
 // ---------- Velden via een Excel-sjabloon (0.22.0, D46) ----------
-const SJABLOON = ["Stap", "Code", "Naam", "Soort", "Eenheid", "Verplicht", "Tolerantie", "Tolerantie in", "Ondergrens", "Bovengrens", "Decimalen", "Op certificaat", "Actief"];
+const SJABLOON = ["Stap", "Code", "Naam", "Soort", "Eenheid", "Verplicht", "Tolerantie", "Tolerantie in", "Ondergrens", "Bovengrens", "Decimalen", "Op certificaat", "Actief", "Gemeten door"];
 
 function sjabloonDownloaden(alle: Stap[]) {
   const nl = (n: number | null) => (n === null ? "" : String(n).replace(".", ","));
@@ -213,6 +218,7 @@ function sjabloonDownloaden(alle: Stap[]) {
     nl(v.tolerantie), v.soort === "procesparameter" ? v.tolerantie_soort : "", nl(v.grens_min), nl(v.grens_max),
     v.decimalen === null || v.decimalen === undefined ? "" : String(v.decimalen),
     v.op_certificaat ? "ja" : "nee", v.actief ? "ja" : "nee",
+    v.gemeten_door === "kwaliteit" ? "Kwaliteit" : "Productie",
   ]));
   // Tweede blad (0.31.0, D55): eigen grenzen per product. Dit blad is de volledige lijst; een regel weghalen haalt de eigen grenzen weg.
   const grenzen = alle.flatMap((s) => s.velden.flatMap((v) => (v.per_product ?? []).map((p) => [
@@ -233,6 +239,7 @@ interface ImportRegel {
   regel: number; stapcode: string; code: string | null; naam: string; soort: string; eenheid: string | null; verplicht: boolean;
   tolerantie: number | null; tolerantie_soort: string | null; grens_min: number | null; grens_max: number | null; op_certificaat: boolean; actief: boolean;
   decimalen?: number | null;
+  gemeten_door?: string | null;
 }
 interface ImportUitkomst { regel: number; stapcode: string; code: string | null; naam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null }
 interface ImportAntwoord {
@@ -307,6 +314,8 @@ function leesSjabloon(rijen: Cel[][]): { regels: ImportRegel[]; fouten: ImportUi
       tolerantie_soort: (tekst("Tolerantie in") ?? "absoluut").toLowerCase().replace("%", "procent"),
       grens_min: getal("Ondergrens"), grens_max: getal("Bovengrens"), op_certificaat: jaNeeCel("Op certificaat", false), actief: jaNeeCel("Actief", true),
       ...(kolom("Decimalen") >= 0 ? { decimalen: getal("Decimalen") } : {}),
+      // Zonder kolom "Gemeten door" (sjabloon van vóór 0.37.0) blijft het zoals het is.
+      ...(kolom("Gemeten door") >= 0 ? { gemeten_door: tekst("Gemeten door") } : {}),
     };
     if (regel.decimalen !== undefined && regel.decimalen !== null && (!Number.isInteger(regel.decimalen) || regel.decimalen < 0 || regel.decimalen > 6))
       problemen.push(`Decimalen "${regel.decimalen}" moet een heel getal van 0 tot en met 6 zijn`);
@@ -708,7 +717,7 @@ interface Regel { tabel: string; actie: string; oud: Record<string, unknown> | n
 
 const ONDERDEEL: Record<string, string> = { processtap: "Stap", veld: "Veld", gebruiker: "Account", operator: "Operator", pc: "Pc", pc_stap: "Pc en stap" };
 const KOLOM: Record<string, string> = {
-  naam: "naam", eenheid: "eenheid", grens_min: "ondergrens", grens_max: "bovengrens", tolerantie: "tolerantie", tolerantie_soort: "tolerantie in", decimalen: "decimalen",
+  gemeten_door: "wie meet", naam: "naam", eenheid: "eenheid", grens_min: "ondergrens", grens_max: "bovengrens", tolerantie: "tolerantie", tolerantie_soort: "tolerantie in", decimalen: "decimalen",
   verplicht: "verplicht", actief: "actief", rol: "rol", locatie: "locatie", volgnummer: "volgorde", soort: "soort",
 };
 const toonWaarde = (v: unknown) => (v === null || v === undefined || v === "" ? "leeg" : typeof v === "boolean" ? jaNee(v) : String(v));

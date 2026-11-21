@@ -20,6 +20,8 @@ export interface Veld {
   decimalen?: number | null;
   /** Eigen grenzen per product; vervangen dan alle vier de grenswaarden (sinds 0.29.0, D55). */
   per_product?: GrensPerProduct[];
+  /** Wie meet: de operator of Kwaliteit (sinds 0.37.0, #64). Ontbreekt in een oudere configuratie: productie. */
+  gemeten_door?: "productie" | "kwaliteit";
 }
 
 export interface GrensPerProduct {
@@ -71,7 +73,20 @@ export interface VeldMetWaarde {
   tolerantie_soort: string;
   verplicht: boolean;
   decimalen?: number | null;
+  /** Sinds 0.37.0 (#64); ontbreekt = productie. */
+  gemeten_door?: "productie" | "kwaliteit";
   waarde: Waarde | null;
+}
+
+/** Keuring door Kwaliteit van een stap (sinds 0.37.0, #64). */
+export interface Keuring {
+  id: string;
+  status: "open" | "vrijgegeven" | "herbewerken" | "afgekeurd";
+  reden: string | null;
+  besloten_door: string | null;
+  besloten_op: string | null;
+  /** Alleen lokaal: het besluit is nog niet bij de server. */
+  wacht?: boolean;
 }
 
 export interface Registratie {
@@ -93,6 +108,8 @@ export interface Registratie {
   grondstoffen?: GrondstofMetGebruik[];
   /** Productcode van de batch of het lot (sinds 0.29.0, D55). */
   product?: string | null;
+  /** Keuring door Kwaliteit (sinds 0.37.0, #64). */
+  keuring?: Keuring | null;
   /** Alleen lokaal: er wachten nog acties voor deze registratie. */
   lokaal?: boolean;
 }

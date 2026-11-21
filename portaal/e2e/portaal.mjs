@@ -68,7 +68,9 @@ try {
   check("Kop boven een tekstkolom staat links", (await page.locator("th.rechts", { hasText: "Veld" }).count()) === 0);
   await page.getByRole("link", { name: /Te beoordelen/ }).locator(".teller:not(:empty)").waitFor();
   const inBeoordeling = Number((await q("SELECT count(*) AS n FROM fabriek.batch WHERE status = 'in_beoordeling'"))[0].n);
-  check(`Teller in het menu toont ${inBeoordeling} te beoordelen`, inBeoordeling >= 2 && (await page.getByRole("link", { name: /Te beoordelen/ }).locator(".teller:not(:empty)").innerText()) === String(inBeoordeling));
+  const keuringOpen = Number((await q("SELECT count(*) AS n FROM fabriek.keuring WHERE status = 'open'"))[0].n);
+  check(`Teller in het menu: ${inBeoordeling} in beoordeling + ${keuringOpen} wacht op Kwaliteit (#64)`, inBeoordeling >= 2 && keuringOpen >= 1
+    && (await page.getByRole("link", { name: /Te beoordelen/ }).locator(".teller:not(:empty)").innerText()) === String(inBeoordeling + keuringOpen));
   check("Grafiek afwijkingen per week staat er", (await page.locator(".grafiek > svg path").count()) > 3);
   check("S5.1 staat bovenaan bij de velden met afwijkingen", (await page.locator(".tabel tbody tr").first().innerText()).includes("S5.1"));
   // #59: een week kiezen geeft de lijst met afwijkingen van die week.
@@ -166,19 +168,22 @@ try {
   await page.getByRole("heading", { name: "Te beoordelen" }).waitFor();
   await page.locator(".tabel tbody tr").first().waitFor();
   await shot("05-te-beoordelen");
-  const rijen = await page.locator(".tabel tbody tr").count();
+  // Eerste tabel: batches in beoordeling; daaronder wat op een meting van Kwaliteit wacht (#64).
+  const tabelBeoordeling = page.locator("main .tabel").first();
+  const rijen = await tabelBeoordeling.locator("tbody tr").count();
   check("Alle batches in beoordeling staan in de lijst", rijen === inBeoordeling, String(rijen));
+  check("Wacht op meting van Kwaliteit staat eronder", (await page.locator("section", { hasText: "Wacht op meting van Kwaliteit" }).locator("tbody tr").count()) === keuringOpen);
   const eerste = (await page.locator(".tabel tbody tr").first().locator("a").innerText()).trim();
   const tweede = (await page.locator(".tabel tbody tr").nth(1).locator("a").innerText()).trim();
   await page.locator(".tabel tbody tr").first().getByRole("button", { name: "OK", exact: true }).click();
   await page.getByLabel("Toelichting").fill("binnen specificatie na hermeting");
   await page.getByRole("button", { name: "OK: vrijgeven" }).click();
-  await page.waitForFunction((n) => document.querySelectorAll(".tabel tbody tr").length === n, inBeoordeling - 1);
+  await page.waitForFunction((n) => document.querySelector("main .tabel")?.querySelectorAll("tbody tr").length === n, inBeoordeling - 1);
   await page.locator(".tabel tbody tr").first().getByRole("button", { name: "NOK", exact: true }).click();
   await page.getByLabel("Reden van afkeur").fill("kleur buiten specificatie");
   await page.getByRole("button", { name: "NOK: afkeuren" }).click();
   if (inBeoordeling === 2) await page.getByText("Er staan geen batches in beoordeling.").waitFor();
-  else await page.waitForFunction((n) => document.querySelectorAll(".tabel tbody tr").length === n, inBeoordeling - 2);
+  else await page.waitForFunction((n) => document.querySelector("main .tabel")?.querySelectorAll("tbody tr").length === n, inBeoordeling - 2);
   const st = Object.fromEntries((await q("SELECT batchnummer, status FROM fabriek.batch WHERE batchnummer = ANY($1)", [[eerste, tweede]])).map((r) => [r.batchnummer, r.status]));
   check("OK: batch weer in productie", st[eerste] === "in_productie", JSON.stringify(st));
   check("NOK: batch afgekeurd", st[tweede] === "afgekeurd", JSON.stringify(st));

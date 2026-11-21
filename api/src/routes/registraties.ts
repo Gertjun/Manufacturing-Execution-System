@@ -12,7 +12,7 @@ export async function registratieDetail(db: Db, id: string) {
   if (!reg) throw niet("Registratie");
   const velden = await lees(
     db,
-    `SELECT v.code, v.naam, v.soort, v.eenheid, v.decimalen,
+    `SELECT v.code, v.naam, v.soort, v.eenheid, v.decimalen, v.gemeten_door,
             -- Grenzen van de meting als die er is, anders wat nu geldt voor het product (D55).
             CASE WHEN w.id IS NULL THEN g.grens_min ELSE w.grens_min END AS grens_min,
             CASE WHEN w.id IS NULL THEN g.grens_max ELSE w.grens_max END AS grens_max,
@@ -44,7 +44,13 @@ export async function registratieDetail(db: Db, id: string) {
       ORDER BY g.code`,
     [id],
   );
-  return { ...reg, velden, grondstoffen };
+  const [keuring] = await lees(
+    db,
+    `SELECT k.id, k.status, k.reden, g.gebruikersnaam AS besloten_door, k.besloten_op
+       FROM keuring k LEFT JOIN gebruiker g ON g.id = k.besloten_door WHERE k.stapregistratie_id = $1`,
+    [id],
+  );
+  return { ...reg, velden, grondstoffen, keuring: keuring ?? null };
 }
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
@@ -144,7 +150,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/waarden",
     {
-      preHandler: vereist(...INVOER),
+      // Kwaliteit vult de velden in die Kwaliteit meet (sinds 0.37.0, #64); de database bewaakt welke dat zijn.
+      preHandler: vereist(...INVOER, "kwaliteit"),
       schema: {
         tags: ["registraties"],
         params: Id,

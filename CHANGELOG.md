@@ -5,6 +5,15 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.37.0 — 21 november 2026 · #64 #71
+- Nieuw: **metingen van Kwaliteit en keuring**. Per veld staat nu wie meet: de operator (Productie) of Kwaliteit. In te stellen bij Beheer → Stappen en velden ("Wie meet") of met de kolom "Gemeten door" in het Excel-sjabloon. In de fictieve testdata meet Kwaliteit het vochtgehalte S18.3.
+- Een stap met velden van Kwaliteit: de operator vult zijn eigen velden in en rondt af. Daarna **wacht de batch of het lot op Kwaliteit** en kan nog niet verder. Het invoerscherm laat dat bij de stap zien ("Wacht op Kwaliteit").
+- Kwaliteit werkt in het **invoerscherm op de lab-pc** (ook offline): bovenaan staat "Wacht op Kwaliteit", met per batch of lot wat nog gemeten moet worden. Kwaliteit vult de metingen in en kiest dan **Vrijgeven**, **Herbewerken** (terug naar deze of een eerdere stap, met reden) of **Afkeuren** (batch: keurresultaat NOK; lot: geblokkeerd). Vrijgeven kan pas als alle verplichte metingen er zijn. Pas na de vrijgave gaat de batch of het lot naar de volgende stap; na de laatste lotstap is het lot dan gereed.
+- Kwaliteit heeft daarvoor nu ook een naam bij de invoer (D53) en een tegel "Invoerscherm" op de startpagina. Een melding voor Kwaliteit zodra iets op een meting wacht.
+- Portaal Kwaliteit → Te beoordelen toont ook wat op een meting van Kwaliteit wacht; de teller in het menu telt dat mee.
+- Database: migratie 0022 (wie meet per veld, keuring). Bestaande velden blijven "Productie"; er verandert niets tot de beheerder een veld op Kwaliteit zet. Zet een veld pas op Kwaliteit als de pc's de nieuwe versie hebben (het invoerscherm werkt zichzelf bij na herladen): een ouder invoerscherm laat de operator dat veld nog invullen, en die invoer weigert de server dan.
+- API: nieuw `/keuringen` (lijst en besluit); `gemeten_door` bij de velden en de registratie, `keuring` bij de registratie. Bestaande aanroepen blijven werken.
+
 ## 0.36.0 — 21 november 2026 · #54
 - Nieuw: **wandscherm voor één of enkele stappen**. Onderin het wandscherm staat "Stappen kiezen"; vink een of meer stappen aan en je ziet alleen hun planning en werk, op grotere kaarten met meer regels. De cijfers bovenin gaan dan over die stappen: geplande stappen afgerond, bezig en klaar om te starten.
 - Het adres kun je op de tv als bladwijzer zetten, bijvoorbeeld `…/portaal/#/wandscherm/stappen/PS3,PS4`. Een tv met een schermaccount onthoudt de keuze, ook na opnieuw inloggen; `#/wandscherm/alle` zet hem terug naar de hele fabriek.
