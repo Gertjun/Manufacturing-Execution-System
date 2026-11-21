@@ -366,9 +366,15 @@ CREATE TABLE stapregistratie (
     -- (ploegwissel). Leeg bij stappen van vóór 0023 en bij open stappen.
     afgerond_door       uuid REFERENCES operator(id),
     afgerond_pc_id      uuid REFERENCES pc(id),
+    -- Nageleverd van papier (sinds migratie 0024, #75, D60): wie het nainvoerde, waarom en wanneer.
+    -- gestart_op en afgerond_op zijn dan de tijden van het papier.
+    nageleverd_door     uuid REFERENCES gebruiker(id),
+    nageleverd_reden    text,
+    nageleverd_op       timestamptz,
     CHECK ((batch_id IS NULL) <> (lot_id IS NULL)),
     CHECK (NOT herbewerking_start OR length(trim(coalesce(reden,''))) > 0),
-    CHECK ((status <> 'open') = (afgerond_op IS NOT NULL))
+    CHECK ((status <> 'open') = (afgerond_op IS NOT NULL)),
+    CHECK ((nageleverd_door IS NULL) = (nageleverd_reden IS NULL))
 );
 CREATE UNIQUE INDEX stapreg_uniek_batch ON stapregistratie (processtap_id, batch_id, poging) WHERE batch_id IS NOT NULL;
 CREATE UNIQUE INDEX stapreg_uniek_lot   ON stapregistratie (processtap_id, lot_id, poging)   WHERE lot_id IS NOT NULL;
@@ -1051,6 +1057,104 @@ BEGIN
     RETURN v_reg;
 END $$;
 
+-- Nainvoeren na papier (sinds migratie 0024, #75, D60). Lag de invoer stil (server en pc tegelijk), dan
+-- registreerde de ploeg op papier. Een ploegleider of beheerder voert de stap daarna in met de tijden van
+-- het papier, tot 7 dagen terug, met wie het deed, op welke pc, de waarden, de grondstoffen en een reden.
+-- Alle gewone regels gelden (volgorde, route, grenzen, meldingen). In de lot-stap stelt dit ook het lot
+-- samen (p_nummer is dan het lotnummer, p_batches de 4 batchnummers).
+CREATE FUNCTION lever_stap_na(p_stapcode text, p_nummer text, p_batches text[], p_pc uuid, p_operator uuid,
+                              p_begin timestamptz, p_eind timestamptz, p_reden text, p_gebruiker uuid,
+                              p_waarden jsonb, p_grondstoffen jsonb)
+RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE
+    v_reden  text := nullif(btrim(p_reden), '');
+    v_stap   processtap%ROWTYPE;
+    v_batch  uuid;
+    v_lot    uuid;
+    v_ids    uuid[];
+    v_vorige timestamptz;
+    v_reg    uuid;
+    v_oud    text := current_setting('fabriek.moment', true);
+    v_w      jsonb;
+    v_veld   uuid;
+    v_gs     uuid;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id = p_gebruiker AND actief AND rol IN ('ploegleider', 'beheerder')) THEN
+        RAISE EXCEPTION 'Alleen een ploegleider of beheerder kan nainvoeren';
+    END IF;
+    IF v_reden IS NULL THEN
+        RAISE EXCEPTION 'Geef een reden voor het nainvoeren';
+    END IF;
+    IF p_begin IS NULL OR p_eind IS NULL OR p_eind <= p_begin THEN
+        RAISE EXCEPTION 'Het einde moet na het begin liggen';
+    END IF;
+    IF p_eind > clock_timestamp() THEN
+        RAISE EXCEPTION 'Het einde ligt in de toekomst';
+    END IF;
+    IF p_begin < clock_timestamp() - interval '7 days' THEN
+        RAISE EXCEPTION 'Nainvoeren kan tot 7 dagen terug';
+    END IF;
+    SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stap %', p_stapcode; END IF;
+
+    IF v_stap.is_lot_stap THEN
+        SELECT array_agg(b.id), max((SELECT max(r.afgerond_op) FROM stapregistratie r WHERE r.batch_id = b.id))
+          INTO v_ids, v_vorige
+          FROM batch b WHERE b.batchnummer = ANY(p_batches);
+        IF coalesce(cardinality(v_ids), 0) <> coalesce(cardinality(p_batches), 0) THEN
+            RAISE EXCEPTION 'Onbekend batchnummer: %',
+                (SELECT string_agg(x, ', ') FROM unnest(p_batches) x WHERE NOT EXISTS (SELECT 1 FROM batch WHERE batchnummer = x));
+        END IF;
+    ELSIF v_stap.niveau = 'batch' THEN
+        SELECT id INTO v_batch FROM batch WHERE batchnummer = p_nummer;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend batchnummer %', p_nummer; END IF;
+        SELECT max(afgerond_op) INTO v_vorige FROM stapregistratie WHERE batch_id = v_batch;
+    ELSE
+        SELECT id INTO v_lot FROM lot WHERE lotnummer = p_nummer;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend lotnummer %', p_nummer; END IF;
+        SELECT max(r.afgerond_op) INTO v_vorige FROM stapregistratie r
+         WHERE r.lot_id = v_lot OR r.batch_id IN (SELECT b.id FROM batch b WHERE b.lot_id = v_lot);
+    END IF;
+    IF v_vorige IS NOT NULL AND p_begin < v_vorige THEN
+        RAISE EXCEPTION 'Het begin ligt vóór het einde van de vorige stap (%)', to_char(v_vorige, 'DD-MM-YYYY HH24:MI');
+    END IF;
+
+    -- Starten met de tijd van het papier (zie apparaat_moment).
+    PERFORM set_config('fabriek.moment', p_begin::text, true);
+    IF v_stap.is_lot_stap THEN
+        v_lot := maak_lot(p_nummer, v_ids, p_pc, p_operator, NULL, NULL, 'Nageleverd van papier: ' || v_reden);
+        UPDATE lot SET aangemaakt_op = p_begin WHERE id = v_lot;
+        SELECT id INTO v_reg FROM stapregistratie WHERE lot_id = v_lot AND processtap_id = v_stap.id;
+    ELSE
+        v_reg := start_stap(p_stapcode, v_batch, v_lot, p_pc, p_operator);
+    END IF;
+    UPDATE stapregistratie SET nageleverd_door = p_gebruiker, nageleverd_reden = v_reden, nageleverd_op = clock_timestamp()
+     WHERE id = v_reg;
+
+    -- Waarden, grondstoffen en afronden met het einde van het papier.
+    PERFORM set_config('fabriek.moment', p_eind::text, true);
+    FOR v_w IN SELECT * FROM jsonb_array_elements(coalesce(p_waarden, '[]'::jsonb)) LOOP
+        SELECT id INTO v_veld FROM veld WHERE processtap_id = v_stap.id AND code = v_w ->> 'veldcode' AND actief;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Veld % hoort niet bij stap %', v_w ->> 'veldcode', p_stapcode; END IF;
+        INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door)
+        VALUES (v_reg, v_veld, (v_w ->> 'setting')::numeric, (v_w ->> 'gemeten')::numeric, p_operator);
+    END LOOP;
+    FOR v_w IN SELECT * FROM jsonb_array_elements(coalesce(p_grondstoffen, '[]'::jsonb)) LOOP
+        SELECT id INTO v_gs FROM grondstof WHERE code = v_w ->> 'code';
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende grondstof %', v_w ->> 'code'; END IF;
+        INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, ingevoerd_door)
+        VALUES (v_reg, v_gs, v_w ->> 'partij', (v_w ->> 'hoeveelheid')::numeric, p_operator);
+    END LOOP;
+    PERFORM rond_stap_af(v_reg, p_operator, p_pc);
+
+    INSERT INTO config_log (tabel, record_id, actie, nieuw)
+    VALUES ('nalevering', v_reg, 'INSERT', jsonb_build_object(
+        'stap', p_stapcode, 'nummer', p_nummer, 'batches', p_batches, 'begin', p_begin, 'eind', p_eind, 'reden', v_reden,
+        'operator', (SELECT naam FROM operator WHERE id = p_operator), 'pc', (SELECT naam FROM pc WHERE id = p_pc)));
+    PERFORM set_config('fabriek.moment', coalesce(v_oud, ''), true);
+    RETURN v_reg;
+END $$;
+
 -- ---------------------------------------------------------------------
 -- Werkvoorraad: welke batches of lots klaar staan voor een stap
 -- ---------------------------------------------------------------------
@@ -1149,7 +1253,8 @@ SELECT l.lotnummer,
        o.naam      AS operator,
        p.naam      AS pc,
        r.afgerond_op,
-       v.decimalen   -- sinds migratie 0015
+       v.decimalen,   -- sinds migratie 0015
+       (r.nageleverd_door IS NOT NULL) AS nageleverd   -- van papier, sinds migratie 0024
 FROM lot l
 JOIN stapregistratie r
   ON r.lot_id = l.id
@@ -2361,7 +2466,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

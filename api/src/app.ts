@@ -24,6 +24,7 @@ import certificaatRoutes from "./routes/certificaat.js";
 import werkvoorraadRoutes from "./routes/werkvoorraad.js";
 import herbewerkingRoutes from "./routes/herbewerkingen.js";
 import keuringRoutes from "./routes/keuringen.js";
+import naleveringRoutes from "./routes/nalevering.js";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 
@@ -94,6 +95,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(werkvoorraadRoutes, { prefix: "/werkvoorraad" });
   await app.register(herbewerkingRoutes, { prefix: "/herbewerkingen" });
   await app.register(keuringRoutes, { prefix: "/keuringen" });
+  await app.register(naleveringRoutes, { prefix: "/nalevering" });
   await app.register(planningRoutes, { prefix: "/planning" });
   await app.register(wandschermRoutes, { prefix: "/wandscherm" });
   await app.register(overdrachtRoutes, { prefix: "/overdracht" });

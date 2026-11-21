@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.40.0 — 21 november 2026 · #75
+- Nieuw: **Nainvoeren van papier** (#75), voor de ploegleider en de beheerder, als tegel op de startpagina. Lag de invoer stil (server en pc tegelijk), dan registreert de ploeg op papier. Daarna voer je de stap hier in: de stap, het batchnummer (of het lot), de waarden en grondstoffen, wie het deed, op welke pc, het begin en het einde van het papier, en een reden. Dat kan tot 7 dagen terug. Na het opslaan staat de volgende stap van dezelfde batch al klaar.
+- De gewone regels gelden: de volgorde van de route, verplichte velden, grenzen en meldingen. Een stap kan niet beginnen vóór het einde van de vorige stap van die batch.
+- Ook het **samenstellen van een lot** (stap 16) kan van papier: nieuw lotnummer, de 4 batches en de tijden van toen.
+- Zichtbaar: bij de stap in het invoerscherm ("Nageleverd van papier door …"), bij Zoeken ("van papier"), in het lotpaspoort ("(papier)" achter de naam) en in het logboek.
+- Nieuw: **lege formulieren** per stap om af te drukken, voor een terugvalmap bij elke pc: één A4 per stap met dezelfde velden, eenheden en grenzen als het scherm (de metingen van Kwaliteit staan er niet op). In de lot-stap: lotnummer en 4 batches.
+- Database: migratie 0024 (drie kolommen bij de stapregistratie, een kolom in het lotpaspoort, functie `lever_stap_na`); geen stilstand nodig, oudere invoerschermen merken er niets van.
+
 ## 0.39.0 — 21 november 2026 · #55
 - Nieuw: **een gestarte stap overnemen** (#55). Bij Bezig staat wie de stap startte en op welke pc; is dat een ander, dan heet de knop "Afmaken". In de stap staat dan "Je maakt de stap af die … startte". Wat jij invult en het afronden staan op jouw naam: het systeem legt nu ook vast **wie afrondde en op welke pc**. Dat staat bij de stap ("afgerond door … op …") en bij Zoeken.
 - Verbeterd: start iemand een stap die al open staat (bijvoorbeeld uit de wachtrij van een pc die offline was), dan zegt de melding wie hem startte, op welke pc en wanneer, en dat je hem bij Bezig afmaakt.

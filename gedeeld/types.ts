@@ -107,6 +107,9 @@ export interface Registratie {
   /** Wie afrondde en waar (#55); kan een ander zijn dan wie startte. Ontbreekt bij oudere servers. */
   afgerond_door?: string | null;
   afgerond_pc?: string | null;
+  /** Van papier nageleverd (#75): door wie en waarom. */
+  nageleverd_door?: string | null;
+  nageleverd_reden?: string | null;
   velden?: VeldMetWaarde[];
   grondstoffen?: GrondstofMetGebruik[];
   /** Productcode van de batch of het lot (sinds 0.29.0, D55). */

@@ -65,6 +65,7 @@ function regLijst(regs: Registratie[]) {
             h("div", { class: "rij-hoofd" }, `${r.stapnaam}${r.poging && r.poging > 1 ? `, poging ${r.poging}` : ""}`),
             h("div", { class: "rij-info" }, `${r.batchnummer ?? r.lotnummer}, ${r.operator}, ${tijd(r.gestart_op)}`,
               r.afgerond_door && r.afgerond_door !== r.operator ? `, afgerond door ${r.afgerond_door}` : "",
+              r.nageleverd_door ? ", van papier" : "",
               r.herbewerking_start ? `, herbewerking: ${r.reden}` : "", r.status === "afgebroken" && r.reden ? `, ${r.reden}` : ""),
           ),
           r.status === "afgebroken"

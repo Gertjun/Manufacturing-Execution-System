@@ -38,6 +38,8 @@ export const RegistratieKort = Type.Object({
   product: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Productcode van de batch of het lot (D55)" })),
   afgerond_door: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Wie de stap afrondde; kan een ander zijn dan wie startte (#55). Leeg vóór 0.39.0." })),
   afgerond_pc: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Pc waarop de stap werd afgerond (#55)" })),
+  nageleverd_door: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Gebruiker die de stap van papier nainvoerde (#75); leeg als hij gewoon is ingevoerd" })),
+  nageleverd_reden: Type.Optional(Type.Union([Type.Null(), Type.String()])),
 });
 
 export const VeldMetWaarde = Type.Object({
@@ -138,13 +140,16 @@ export const PaspoortRegel = Type.Object({
   pc: Type.String(),
   afgerond_op: OptTijd,
   decimalen: Type.Optional(NulGeheel({ description: "Aantal decimalen bij het tonen; leeg = automatisch" })),
+  nageleverd: Type.Optional(Type.Boolean({ description: "De stap is van papier nageleverd (#75)" })),
 });
 
 export const REGISTRATIE_SQL = `
   SELECT r.id, s.code AS stapcode, s.naam AS stapnaam, s.niveau, b.batchnummer, l.lotnummer,
          r.poging, r.herbewerking_start, r.reden, r.status, o.naam AS operator, p.naam AS pc,
-         r.gestart_op, r.afgerond_op, pr.code AS product, ao.naam AS afgerond_door, ap.naam AS afgerond_pc
+         r.gestart_op, r.afgerond_op, pr.code AS product, ao.naam AS afgerond_door, ap.naam AS afgerond_pc,
+         ng.gebruikersnaam AS nageleverd_door, r.nageleverd_reden
     FROM stapregistratie r
+    LEFT JOIN gebruiker ng ON ng.id = r.nageleverd_door
     LEFT JOIN operator ao ON ao.id = r.afgerond_door
     LEFT JOIN pc ap ON ap.id = r.afgerond_pc_id
     LEFT JOIN product pr ON pr.id = r.product_id

@@ -379,6 +379,7 @@ function teken(reg: Registratie) {
           ? h("p", { class: "overname" }, `Je maakt de stap af die ${reg.operator} startte. Wat jij invult en het afronden staan op jouw naam.`)
           : null,
         reg.herbewerking_start ? h("p", { class: "waarschuwing" }, `Herbewerking: ${reg.reden}`) : null,
+        reg.nageleverd_door ? h("p", { class: "sub" }, `Nageleverd van papier door ${reg.nageleverd_door}: ${reg.nageleverd_reden ?? ""}`) : null,
         reg.status === "afgebroken" ? h("p", { class: "waarschuwing" }, reg.reden ?? "Afgebroken") : null,
         reg.keuring && reg.keuring.status !== "open" && reg.keuring.reden ? h("p", { class: "sub" }, `Kwaliteit: ${reg.keuring.reden}`) : null,
       ),

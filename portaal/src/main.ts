@@ -10,6 +10,7 @@ import { stopWandscherm, wandscherm } from "./wandscherm";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 import { etikettenScherm } from "./etiketten";
 import { certificaat } from "./kwaliteit/certificaat";
+import { formulieren, nalevering } from "./nalevering";
 import { HULP_ROLLEN, hulpBlad, hulpVoor } from "../../gedeeld/hulp";
 import "../../gedeeld/hulp.css";
 import type { Rol } from "../../gedeeld/types";
@@ -179,6 +180,11 @@ async function route() {
   if (portaal === "meldingen" && heeftMeldingen()) {
     await tekenMenu("meldingen", "");
     return meldingenScherm(onderdeel === "alle");
+  }
+  // Nainvoeren na papier en lege formulieren (#75, D60): ploegleider en beheerder.
+  if (portaal === "nainvoeren" && (sessie.rol === "ploegleider" || sessie.rol === "beheerder")) {
+    await tekenMenu("", "");
+    return onderdeel === "formulier" ? formulieren(arg) : nalevering();
   }
   if (portaal === "hulp") {
     await tekenMenu("", "");

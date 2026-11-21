@@ -47,6 +47,7 @@ Vraagt minstens twee apparaten aan dezelfde laptop of server (A5, of later S2).
 | V6 | Lab-pc offline | Kwaliteit meet op de lab-pc zonder verbinding en geeft vrij. Daarna verbinden. | Meting en vrijgave komen aan; de batch gaat daarna pas door (D58). |
 | V7 | Scherm vergeten | Een pc een nacht laten staan met het invoerscherm open en ingelogd. | De volgende ochtend vraagt hij om opnieuw in te loggen; er gaat geen invoer verloren. |
 | V8 | Ploegwissel: stap overnemen | Operator A start een stap op PC-01 en meldt af. Operator B logt in op PC-02, kiest de stap bij Bezig ("Afmaken") en rondt af. Daarna hetzelfde, maar PC-01 is offline als A start; B start dezelfde batch op PC-02. | Eerste keer: "gestart door A, afgerond door B op PC-02". Tweede keer: bij het versturen van PC-01 een melding wie de stap al startte; de ploegleider ziet dat in de wachtrij. |
+| V9 | Terugval op papier | Lege formulieren afdrukken (Nainvoeren (papier), Lege formulieren). Een paar stappen en een lot op papier bijhouden alsof de invoer stilligt, daarna als ploegleider nainvoeren. | Formulieren leesbaar en goed in te vullen op A4; alles staat daarna in het systeem met de tijden van het papier en "van papier". Hoe lang het nainvoeren duurde, noteren. |
 
 ## T – Tijd
 

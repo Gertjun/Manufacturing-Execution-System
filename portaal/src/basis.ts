@@ -154,6 +154,9 @@ export function tegelsVoor(rol: Rol | null): Tegel[] {
         ? [{ id: "invoer", naam: "Invoerscherm", uitleg: "Op de lab-pc: de metingen van Kwaliteit invoeren en vrijgeven, herbewerken of afkeuren. Werkt ook offline.", href: "../invoer/index.html" }]
         : []),
     ...portalenVoor(rol).map((p) => ({ id: p.id, naam: p.naam, uitleg: UITLEG[p.id] ?? "", href: `#/${p.id}` })),
+    ...(rol === "ploegleider" || rol === "beheerder"
+      ? [{ id: "nainvoeren", naam: "Nainvoeren (papier)", uitleg: "Stappen die op papier zijn bijgehouden later invoeren, en lege formulieren afdrukken.", href: "#/nainvoeren" }]
+      : []),
     ...(rol === "operator" ? [] : [{ id: "wandscherm", naam: "Wandscherm", uitleg: "Voor de tv in de hal: wat er per stap te doen staat. Alleen kijken.", href: "#/wandscherm" }]),
   ];
 }

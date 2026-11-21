@@ -538,3 +538,42 @@ a.merk:hover { text-decoration: underline; }
 .wand-raster.wand-n5, .wand-raster.wand-n6 { grid-template-columns: repeat(3, 1fr); font-size: 1.1em; }
 .wand-kies { background: none; border: none; padding: 0; font: inherit; color: var(--wand-tekst-3); text-decoration: underline; cursor: pointer; }
 .wand-kies[aria-current="page"] { color: var(--op-kleur); font-weight: 700; }
+
+/* ---------- Nainvoeren na papier (#75, D60) ---------- */
+.nalevering { display: grid; gap: var(--space-3); max-width: 960px; }
+.nalevering h2 { font-size: var(--text-lg); margin: var(--space-4) 0 0; }
+.nalevering-rij { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; }
+.nalevering-rij label, .nalevering-reden { display: grid; gap: var(--space-1); font-size: var(--text-sm); color: var(--inkt-zacht); }
+.nalevering-veld { min-width: 16em; flex: 0 0 16em; padding-bottom: var(--space-2); }
+.nalevering input[type="text"] { width: 10em; }
+.nalevering input[type="datetime-local"], .nalevering textarea {
+  font: inherit; color: var(--inkt); background: var(--vlak); border: 1.5px solid var(--inkt-zacht); border-radius: var(--radius-sm); padding: var(--space-2); min-height: var(--doel-min);
+}
+.nalevering textarea { width: min(100%, 40em); }
+.label-nageleverd { background: var(--actie-vlak); color: var(--inkt); }
+
+/* Lege formulieren: op het scherm onder elkaar, afgedrukt één A4 per stap. */
+.papieren { display: grid; gap: var(--space-6); }
+.papier { background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--radius-md); padding: var(--space-5); max-width: 190mm; }
+.papier h2 { margin: 0 0 var(--space-1); font-size: var(--text-lg); }
+.papier table { width: 100%; border-collapse: collapse; margin-top: var(--space-3); }
+.papier th, .papier td { text-align: left; padding: var(--space-1) var(--space-2); vertical-align: bottom; }
+.papier-kop th { width: 9em; font-size: var(--text-sm); color: var(--inkt-zacht); }
+.papier .invul { display: block; border-bottom: 1px solid var(--inkt); min-height: 1.6em; }
+.papier-vier { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-4); }
+.papier-vier span { display: flex; gap: var(--space-1); align-items: end; }
+.papier-vier .invul { flex: 1; }
+.papier-tabel th { font-size: var(--text-sm); color: var(--inkt-zacht); border-bottom: 1.5px solid var(--lijn); }
+.papier-tabel td { border-bottom: 1px solid var(--lijn); height: 2.2em; }
+.papier-tabel .vak { border: 1px solid var(--inkt); width: 7em; text-align: right; color: var(--inkt-zacht); font-size: var(--text-sm); }
+.papier-tabel .vak.leeg { background: var(--lijn); }
+.papier-opmerking { margin-top: var(--space-4); }
+.vak-groot { border: 1px solid var(--inkt); height: 5em; margin-top: var(--space-1); }
+.papier-voet { color: var(--inkt-zacht); font-size: var(--text-sm); margin-top: var(--space-3); }
+
+@media print {
+  .papieren { display: block; }
+  .papier { border: none; padding: 0; max-width: none; font-size: 11pt; break-after: page; }
+  .papier:last-child { break-after: auto; }
+  .papier-tabel .vak.leeg { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

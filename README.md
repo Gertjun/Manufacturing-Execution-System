@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.39.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.40.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): een gestarte stap overnemen is gebouwd (0.39.0, #55, D60); daarna #75 (nainvoeren na papier), #76, #78, #31, #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): een gestarte stap overnemen (0.39.0, #55) en nainvoeren van papier met lege formulieren (0.40.0, #75) zijn gebouwd (D60); daarna #76, #78, #31, #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.39.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.40.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1.
-- **Laatste testronde (0.39.0, 21 november 2026):** geslaagd: databaseregels (215), API, migraties (tot en met 23), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests met sjabloon en hulp, browserdemo). Nieuw: overnemen van een stap (Operator B rondt op een andere pc af wat Operator A startte; melding bij dubbel starten; "Afmaken" in het invoerscherm). Praktijktests zijn nog niet gedaan (#33): ook overnemen bij een echte ploegwissel en dubbel starten met een pc die offline was, zijn nog niet in de praktijk geprobeerd.
+- **Laatste testronde (0.40.0, 21 november 2026):** geslaagd: databaseregels (227), API, migraties (tot en met 24), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests met sjabloon, hulp en nainvoeren, browserdemo). Nieuw: `portaal/e2e/nalevering.mjs` (stap van papier nainvoeren, volgorde bewaakt, lege formulieren één A4 per stap). Praktijktests zijn nog niet gedaan (#33): ook niet een echte ploegwissel, een echte storing met papier en het afdrukken van de formulieren op een echte printer.
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -61,6 +61,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 - Stap 1: een geplande batch starten (een ongeplande batch is een uitzondering). Stap 16: 4 batches samenvoegen tot een lot, volgens het lotvoorstel of met een reden.
 - Grondstofpartijen invoeren, stilstand melden en beëindigen, ploegoverdracht schrijven, etiketten printen, scannen met een handscanner.
 - Ploegleiders corrigeren waarden en zetten een batch in beoordeling; ze zien ook de meldingen.
+- **Nainvoeren van papier:** lag de invoer stil, dan voert de ploegleider of beheerder de stap later in via de tegel "Nainvoeren (papier)", met de tijden van het papier (tot 7 dagen terug); daar ook de lege formulieren per stap (D60).
 - **Overnemen:** een open stap kan iedereen met een invoerrol afmaken, ook die een ander op een andere pc startte ("Afmaken" bij Bezig). Vastgelegd wordt wie startte en waar, en wie afrondde en waar (D60).
 - **Zonder verbinding** gaat de invoer door: alles wordt op de pc bewaard en daarna op volgorde verstuurd, met het moment van invoer en de naam van wie het invoerde (D43). De statusbalk toont hoeveel acties wachten; afmelden met wachtende acties vraagt eerst om bevestiging. Correcties, besluiten, zoeken en inloggen vragen wel verbinding.
 
@@ -206,7 +207,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | Beheertools | `tests/test_tools.sh` | ja |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | ja |
 | Laptoppakket | `tests/test_laptoppakket.sh` (als gewone gebruiker) | ja |
-| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
+| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; nalevering op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
 
 ### Versies
 Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Elke versie krijgt automatisch een tag en release op GitHub (`release.yml`), met het laptoppakket voor Windows als bijlage (`laptoppakket.yml`, D49). Downloaden: repository → Releases → versie → Assets. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).

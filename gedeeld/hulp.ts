@@ -69,10 +69,10 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         kop: "Wat alleen de ploegleider doet",
         punten: [
           "Corrigeren: open de stap, druk bij de waarde of het partijnummer op Corrigeer, geef de nieuwe waarde en een reden (alleen met verbinding).",
-          "In beoordeling zetten: Zoeken, batchnummer, In beoordeling zetten, met een reden. Kwaliteit beslist daarna.",
+          "In beoordeling zetten: Zoeken, batchnummer, In beoordeling zetten, met reden; Kwaliteit beslist.",
           "Meldingen (buiten grens, storing) staan in de balk bovenaan.",
           "Wachtrij: klik rechtsboven op de verbinding voor wat wacht of geweigerd is; Nu versturen probeert opnieuw.",
-          "Portalen: naar de startpagina, met Productieanalyse en het wandscherm.",
+          "Portalen: Productieanalyse, het wandscherm en Nainvoeren (papier) voor wat op papier stond.",
         ],
       },
       stapDoen, eersteEnLot, scannenEnMeer,
@@ -199,6 +199,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         punten: [
           "Pc's: per pc welke stappen er te zien zijn. Grondstoffen, Ploegen, Oorzaken van stilstand en Bedrijfsgegevens (voor het certificaat).",
           "Logboek: elke wijziging, wie, wanneer, oud en nieuw. Server: versie, laatste back-up en hersteltest, waarschuwingen.",
+          "Nainvoeren (papier), op de startpagina: stappen die op papier zijn bijgehouden later invoeren, tot 7 dagen terug. Daar ook de lege formulieren per stap voor de terugvalmap.",
           "Wachtwoord van de beheerder vergeten: op de laptop BEHEERDER HERSTELLEN.bat, op de server tools\\beheerder.mjs.",
         ],
       },

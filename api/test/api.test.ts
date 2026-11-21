@@ -197,6 +197,37 @@ describe("productie van batch tot lot", () => {
     assert.equal(af.body.afgerond_pc, "PC-03");
   });
 
+  test("nainvoeren na papier: ploegleider wel, operator niet (#75)", async () => {
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0956" })).status, 201);
+    const k = await verzoek("GET", "/nalevering/keuzes", pl);
+    assert.equal(k.status, 200);
+    assert.equal((await verzoek("GET", "/nalevering/keuzes", op)).status, 403);
+    const pc = k.body.pcs.find((p: any) => p.naam === "PC-04").id;
+    const wie = k.body.operators.find((o: any) => o.naam === "Operator D").id;
+    const uur = 3600_000;
+    const body = {
+      stapcode: "PS1", nummer: "B-2026-0956", pc, operator: wie,
+      begin: new Date(Date.now() - 3 * uur).toISOString(), eind: new Date(Date.now() - 2 * uur).toISOString(),
+      reden: "server en pc uit door stroomstoring",
+      waarden: [{ veldcode: "S1.1", setting: 80, gemeten: 81 }, { veldcode: "S1.2", gemeten: 410 }],
+      grondstoffen: [{ code: "GS-A", partij: "LEV-PAPIER-75", hoeveelheid: 120 }],
+    };
+    assert.equal((await verzoek("POST", "/nalevering", op, body)).status, 403);
+    const r = await verzoek("POST", "/nalevering", pl, body);
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.equal(r.body.status, "afgerond");
+    assert.equal(r.body.operator, "Operator D");
+    assert.equal(r.body.pc, "PC-04");
+    assert.equal(r.body.nageleverd_door, "ploegleider1");
+    assert.equal(r.body.nageleverd_reden, "server en pc uit door stroomstoring");
+    assert.equal(new Date(r.body.gestart_op).getTime(), new Date(body.begin).getTime());
+    assert.equal(new Date(r.body.afgerond_op).getTime(), new Date(body.eind).getTime());
+    // De volgende stap kan niet vóór het einde van PS1 beginnen.
+    const te = await verzoek("POST", "/nalevering", pl, { ...body, stapcode: "PS2", begin: new Date(Date.now() - 2.5 * uur).toISOString(), waarden: [], grondstoffen: [] });
+    assert.equal(te.status, 422);
+    assert.match(te.body.fout, /vóór het einde van de vorige stap/);
+  });
+
   test("ingevuld veld opnieuw invullen geeft 409 met uitleg", async () => {
     const lijst = await verzoek("GET", "/registraties?status=open&stapcode=PS1", op);
     const r = await verzoek("POST", `/registraties/${lijst.body[0].id}/waarden`, op, {

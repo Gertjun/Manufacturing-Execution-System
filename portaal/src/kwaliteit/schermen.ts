@@ -265,6 +265,7 @@ interface Regel {
   batch_of_lot: string; stap: string; poging: number; herbewerking_reden: string | null; veld: string; veldnaam: string; eenheid: string | null;
   setting: number | null; gemeten: number; grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string | null;
   markering: Markering; gecorrigeerd: boolean; operator: string; pc: string; afgerond_op: string | null; decimalen?: number | null;
+  nageleverd?: boolean;
 }
 
 /** Tabel met metingen. Met een lotnummer is het resultaat van een afwijking een knop die de meting openklapt (#56). */
@@ -278,7 +279,7 @@ function regelsTabel(regels: Regel[], metBatch: boolean, lotnummer?: string) {
       `${r.veld} ${r.veldnaam}`,
       h("span", { class: "getal" }, r.setting !== null ? toonGetal(r.setting, r.decimalen) : ""),
       h("span", { class: "getal" }, `${toonGetal(r.gemeten, r.decimalen)}${r.eenheid ? ` ${r.eenheid}` : ""}`, r.gecorrigeerd ? h("span", { class: "noot" }, " gecorrigeerd") : ""),
-      grenzen(r), lotnummer && r.markering !== "ok" ? metingKnop(lotnummer, r, koppen.length) : label(r.markering), r.operator, kort(r.afgerond_op),
+      grenzen(r), lotnummer && r.markering !== "ok" ? metingKnop(lotnummer, r, koppen.length) : label(r.markering), r.nageleverd ? `${r.operator} (papier)` : r.operator, kort(r.afgerond_op),
     ]),
     "compact",
   );
