@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.43.0 — 21 november 2026
+- Nieuw: **het invoerscherm werkt op een telefoon en een tablet**, staand en liggend (eerste deel van #47, D64).
+  - Telefoon staand: bovenaan alleen de pc, je naam en de verbinding. De knoppen Stappen, Zoeken, Overdracht (en Meldingen voor de ploegleider) staan onderaan, binnen bereik van je duim. Onder "Meer" staan Hulp, Iets melden, Portalen en Afmelden.
+  - Opslaan en Stap afronden blijven onderaan in beeld, boven de navigatie, ook als je naar beneden scrolt.
+  - Telefoon liggend: de balk bovenaan is compacter en scrolt mee weg, zodat er hoogte overblijft voor de invoer.
+  - Tablet: ruimere zijmarge; verder zoals op de pc.
+  - Rekening gehouden met de notch en de thuisbalk van een telefoon.
+  - Batchnummers in een lotvoorstel breken niet meer af bij het streepje.
+- Pc's merken er niets van: op een breed scherm is het invoerscherm hetzelfde als in 0.42.1.
+
 ## 0.42.1 — 21 november 2026
 - Verbeterd: **alle schermen nagelopen op vormgeving**, zodat ze er overal hetzelfde uitzien.
   - "Naar Excel" staat nu altijd rechts in de kopregel van het blok (of van de pagina), naast de andere knoppen. Geen losse regel meer met alleen die knop.

@@ -25,6 +25,13 @@
   --doel-min: 44px;        /* kleinste klikbare zone */
   --doel-klein: 36px;      /* zichtbare hoogte van een kleine knop; de klikzone blijft 44 px */
 
+  /* Schermformaten (D64). Breekpunten staan in de media queries zelf (CSS kent daar geen variabelen):
+     smal < 600 px (telefoon staand), middel 600–839 px (tablet staand), breed vanaf 840 px;
+     laag: hoogte tot 500 px in liggende stand (telefoon liggend). */
+  --marge-smal: var(--space-4);    /* zijmarge op een telefoon */
+  --marge-middel: var(--space-5);  /* zijmarge op een tablet */
+  --onderbalk-hoogte: 56px;        /* navigatie onderaan op een staande telefoon */
+
   /* Basis */
   --staal: #e6e9ec;          /* achtergrond van het scherm */
   --vlak: #ffffff;           /* kaarten, velden */

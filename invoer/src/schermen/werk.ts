@@ -418,7 +418,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
           const klaar = v.batches.every((b) => klaarSet.has(b.batchnummer));
           return h("li", { class: "rij" },
             h("div", {}, h("div", { class: "rij-hoofd" }, `Lotvoorstel ${v.nummer}`),
-              h("div", { class: "rij-info" }, v.batches.map((b) => `${b.batchnummer}${klaarSet.has(b.batchnummer) ? "" : " (nog niet klaar)"}`).join(", ")),
+              h("div", { class: "rij-info" }, v.batches.flatMap((b, i) => [i ? ", " : "", h("span", { class: "nummer" }, b.batchnummer), klaarSet.has(b.batchnummer) ? "" : " (nog niet klaar)"])),
               v.opmerking ? h("div", { class: "rij-info" }, v.opmerking) : null),
             klaar ? h("button", { class: "knop knop-hoofd", type: "button", onclick: () => kiesVoorstel(v) }, "Dit voorstel kiezen") : h("span", { class: "label label-wacht" }, "Nog niet klaar"));
         })))

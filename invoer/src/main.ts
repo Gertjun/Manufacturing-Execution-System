@@ -36,36 +36,87 @@ function tekenBalk() {
     verbinding = h("a", { class: klasse, href: s.inloggenNodig ? "#/login" : "#/wachtrij", title: "Status van de verbinding en de wachtrij" }, h("span", {}, tekst));
   }
 
+  const actief = (r: string) => (route === r || (r === "stappen" && route === "stap") ? "page" : undefined);
+  const gedeeld = !!sessie.inhoud()?.gedeeld;
+  // Gedeeld account (D6): naam is te wisselen. Eigen account (D53): de naam ligt vast; wisselen = afmelden.
+  const naam = () => ingelogd && sessie.operatornaam
+    ? gedeeld
+      ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
+      : h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
+    : null;
+  const meldingenLink = (klasse?: string) => heeftMeldingen()
+    ? h("a", { href: "#/meldingen", class: klasse, "aria-current": actief("meldingen") },
+        "Meldingen", ongelezen() ? h("span", { class: "balk-teller" }, ongelezen()) : null)
+    : null;
+
+  // Breed scherm (pc, tablet, liggende telefoon): alles in de balk bovenaan. Telefoon staand (D64): bovenaan
+  // alleen pc, naam en verbinding; de navigatie staat onderaan binnen duimbereik, de rest onder "Meer".
   const delen: (Node | null)[] = [
-    h("div", { class: "balk-naam" }, "Batch-invoer", sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
+    h("div", { class: "balk-naam" }, h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Batch-invoer"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
     ingelogd
-      ? h("nav", { class: "balk-nav", "aria-label": "Hoofdmenu" },
-          h("a", { href: "#/stappen", "aria-current": route === "stappen" || route === "stap" ? "page" : undefined }, "Stappen"),
-          h("a", { href: "#/zoek", "aria-current": route === "zoek" ? "page" : undefined }, "Zoeken"),
-          h("a", { href: "#/overdracht", "aria-current": route === "overdracht" ? "page" : undefined }, "Overdracht"),
-          h("a", { href: "#/hulp", "aria-current": route === "hulp" ? "page" : undefined }, "Hulp"),
+      ? h("nav", { class: "balk-nav alleen-breed", "aria-label": "Hoofdmenu" },
+          h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),
+          h("a", { href: "#/zoek", "aria-current": actief("zoek") }, "Zoeken"),
+          h("a", { href: "#/overdracht", "aria-current": actief("overdracht") }, "Overdracht"),
+          h("a", { href: "#/hulp", "aria-current": actief("hulp") }, "Hulp"),
           h("button", { class: "balk-knop", type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
-          heeftMeldingen()
-            ? h("a", { href: "#/meldingen", "aria-current": route === "meldingen" ? "page" : undefined },
-                "Meldingen", ongelezen() ? h("span", { class: "balk-teller" }, ongelezen()) : null)
-            : null)
+          meldingenLink())
       : null,
-    // Gedeeld account (D6): naam is te wisselen. Eigen account (D53): de naam ligt vast; wisselen = afmelden.
-    ingelogd && sessie.operatornaam
-      ? sessie.inhoud()?.gedeeld
-        ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
-        : h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
-      : null,
+    naam(),
     // Ploegleiders gebruiken ook de portalen: terug naar de startpagina (D54).
     ingelogd && sessie.rol === "ploegleider"
-      ? h("a", { class: "balk-wie", href: "../portaal/index.html#/" }, "Portalen")
+      ? h("a", { class: "balk-wie alleen-breed", href: "../portaal/index.html#/" }, "Portalen")
       : null,
     ingelogd
-      ? h("button", { class: "balk-wie", onclick: () => void afmelden() }, "Afmelden")
+      ? h("button", { class: "balk-wie alleen-breed", onclick: () => void afmelden() }, "Afmelden")
       : null,
     verbinding,
   ];
   balk.replaceChildren(...(delen.filter(Boolean) as Node[]));
+  tekenOnderbalk(ingelogd ? [
+    h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),
+    h("a", { href: "#/zoek", "aria-current": actief("zoek") }, "Zoeken"),
+    h("a", { href: "#/overdracht", "aria-current": actief("overdracht") }, "Overdracht"),
+    meldingenLink(),
+  ] : null, [
+    h("a", { href: "#/hulp" }, "Hulp"),
+    h("button", { type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
+    gedeeld ? h("a", { href: "#/naam" }, "Andere naam kiezen") : null,
+    sessie.rol === "ploegleider" ? h("a", { href: "../portaal/index.html#/" }, "Portalen") : null,
+    h("button", { type: "button", onclick: () => void afmelden() }, "Afmelden"),
+  ]);
+}
+
+// Het paneel "Meer" sluit bij een tik ernaast.
+document.addEventListener("click", (e) => {
+  const paneel = document.getElementById("meer-paneel");
+  if (paneel && !paneel.hidden && !(e.target as Element).closest("#onderbalk")) {
+    paneel.hidden = true;
+    document.querySelector(".meer-knop")?.setAttribute("aria-expanded", "false");
+  }
+});
+
+/** Navigatie onderaan op een staande telefoon (D64). Op bredere schermen verbergt de CSS hem. */
+function tekenOnderbalk(links: (Node | null)[] | null, meer: (Node | null)[]) {
+  let onder = document.getElementById("onderbalk");
+  if (!links) { onder?.remove(); document.body.classList.remove("met-onderbalk"); return; }
+  if (!onder) {
+    onder = h("nav", { id: "onderbalk", "aria-label": "Hoofdmenu onderaan" });
+    document.body.append(onder);
+  }
+  document.body.classList.add("met-onderbalk");
+  const paneel = h("div", { class: "meer-paneel", id: "meer-paneel", hidden: true }, ...(meer.filter(Boolean) as Node[]));
+  const knop = h("button", { type: "button", class: "meer-knop", "aria-expanded": "false", "aria-controls": "meer-paneel" }, "Meer") as HTMLButtonElement;
+  const sluit = () => { paneel.hidden = true; knop.setAttribute("aria-expanded", "false"); };
+  knop.onclick = () => {
+    const open = paneel.hidden;
+    paneel.hidden = !open;
+    knop.setAttribute("aria-expanded", String(open));
+    if (open) (paneel.querySelector("a, button") as HTMLElement | null)?.focus();
+  };
+  paneel.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest("a, button")) sluit(); });
+  paneel.addEventListener("keydown", (e) => { if (e.key === "Escape") { sluit(); knop.focus(); } });
+  onder.replaceChildren(paneel, ...(links.filter(Boolean) as Node[]), knop);
 }
 
 /** Afmelden; waarschuw als er nog acties wachten (die gaan later mee met de naam van wie ze invoerde). */
