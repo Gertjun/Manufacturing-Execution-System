@@ -5,6 +5,20 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.44.0 — 21 november 2026
+- Nieuw: **de portalen werken op een telefoon en een tablet**, staand en liggend (tweede deel van #47, D64).
+  - Telefoon: tabellen worden kaartjes. Elke regel is een kaart met de kolomnaam voor elke waarde, zodat je niet opzij hoeft te schuiven. Batchroute en Dagoverzicht blijven een raster dat opzij schuift.
+  - Het geopende menu bedekt op een telefoon het hele scherm; de knop "Menu sluiten" staat bovenaan.
+  - Titel, uitleg, filters en knoppen staan onder elkaar; de kerncijfers staan twee naast elkaar.
+  - Grafieken worden niet kleiner dan leesbaar; op een telefoon schuif je ze opzij.
+  - Certificaat en lege formulieren blijven een A4 en schuiven opzij; afdrukken is ongewijzigd.
+  - Het wandscherm toont op een telefoon twee stappen naast elkaar (het blijft bedoeld voor de tv).
+  - Capaciteit per weekdag: de zeven vakjes lopen door over meerdere regels.
+  - Meldingen onderaan het scherm krijgen op een telefoon de volle breedte.
+  - Tablet: ruimere zijmarge; Stappen en velden en de startpagina passen nu ook staand.
+  - Telefoon liggend: het menu scrolt mee weg.
+- Op een pc verandert er niets.
+
 ## 0.43.0 — 21 november 2026
 - Nieuw: **het invoerscherm werkt op een telefoon en een tablet**, staand en liggend (eerste deel van #47, D64).
   - Telefoon staand: bovenaan alleen de pc, je naam en de verbinding. De knoppen Stappen, Zoeken, Overdracht (en Meldingen voor de ploegleider) staan onderaan, binnen bereik van je duim. Onder "Meer" staan Hulp, Iets melden, Portalen en Afmelden.

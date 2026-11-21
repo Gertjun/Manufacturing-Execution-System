@@ -48,9 +48,11 @@ export function tabel(koppen: string[], rijen: (Node | string | number | null)[]
     return ((c instanceof Node ? c.textContent : c === null ? "" : String(c)) ?? "").trim().length <= 13;
   }));
   const klas = (i: number) => [rechts[i] ? "rechts" : "", kort[i] ? "kort" : ""].filter(Boolean).join(" ") || undefined;
-  const t = h("table", { class: `tabel ${klasse}` },
-    h("thead", {}, h("tr", {}, koppen.map((k, i) => h("th", { scope: "col", class: rechts[i] ? "rechts" : undefined }, k)))),
-    h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c, i) => h("td", { class: klas(i) }, c ?? "")))))) as HTMLTableElement;
+  // Op een telefoon wordt elke regel een kaartje met "kop: waarde" (D64). De rollen houden het voor een
+  // schermlezer een tabel, ook als de CSS de regels als blokken toont.
+  const t = h("table", { class: `tabel kaartjes ${klasse}`, role: "table" },
+    h("thead", { role: "rowgroup" }, h("tr", { role: "row" }, koppen.map((k, i) => h("th", { scope: "col", role: "columnheader", class: rechts[i] ? "rechts" : undefined }, k)))),
+    h("tbody", { role: "rowgroup" }, rijen.map((r) => h("tr", { role: "row" }, r.map((c, i) => h("td", { role: "cell", class: klas(i), "data-kop": koppen[i] || undefined }, c ?? "")))))) as HTMLTableElement;
   // Elke tabel kan naar Excel; de naam komt van de dichtstbijzijnde kop (blok of pagina).
   const knop = h("button", {
     class: "knop knop-klein knop-stil excel-knop", type: "button",

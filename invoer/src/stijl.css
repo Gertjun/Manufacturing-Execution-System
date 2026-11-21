@@ -267,10 +267,10 @@ a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }
    Smal (telefoon staand): compacte balk bovenaan, navigatie onderaan binnen duimbereik.
    Laag (telefoon liggend): de balk scrolt mee weg, zodat er hoogte overblijft voor de invoer. */
 #onderbalk { display: none; }
-@media (max-width: 839px) {
+@media screen and (max-width: 839px) {
   :root { --ruimte: var(--marge-middel); }
 }
-@media (max-width: 599px) {
+@media screen and (max-width: 599px) {
   :root { --ruimte: var(--marge-smal); }
   .alleen-breed { display: none !important; }
   #balk { gap: var(--space-2); padding-bottom: var(--space-1); padding-top: max(var(--space-1), env(safe-area-inset-top)); }
@@ -307,7 +307,7 @@ a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }
   .balk-onder .hint { flex-basis: 100%; font-size: var(--text-sm); }
   .balk-onder .knop { flex: 1 1 auto; }
 }
-@media (max-height: 500px) and (orientation: landscape) {
+@media screen and (max-height: 500px) and (orientation: landscape) {
   #balk { position: static; gap: var(--space-1) var(--space-2); padding-block: var(--space-1); font-size: var(--text-sm); }
   .balk-naam .alleen-breed { display: none; }
   .balk-nav a, .balk-knop, .balk-wie, .verbinding { padding: var(--space-1) var(--space-2); }
