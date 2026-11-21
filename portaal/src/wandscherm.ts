@@ -11,13 +11,16 @@ interface Stap {
   stilstand: { oorzaak: string; categorie: string; sinds: string; toelichting: string | null } | null;
 }
 interface Wand {
-  tijd: string; hal: string | null; hallen: string[];
+  tijd: string; hal: string | null; keuze?: string[] | null; hallen: string[];
   kerncijfers: { gepland_vandaag: number; gestart_vandaag: number; lots_gereed_vandaag: number; in_beoordeling: number };
   stappen: Stap[];
 }
 
 const VERVERS = 30_000;
-const MAX_REGELS = 5;
+/** Regels per stapkaart: hoe minder stappen op het scherm, hoe groter de kaarten (#54). */
+const maxRegels = (n: number) => (n <= 2 ? 10 : n <= 4 ? 8 : n <= 6 ? 6 : 5);
+/** Een schermaccount onthoudt op dit apparaat welk wandscherm het toont (hal of stappen), zodat de tv na opnieuw inloggen hetzelfde laat zien. */
+const ONTHOUD = "wandscherm.keuze";
 let timer: number | undefined;
 let wakeLock: { release: () => Promise<void> } | null = null;
 
@@ -38,8 +41,18 @@ export function stopWandscherm() {
   wakeLock = null;
 }
 
-export async function wandscherm(hal?: string) {
+/** #/wandscherm, #/wandscherm/<hal>, #/wandscherm/stappen/PS3,PS4 (#54) of #/wandscherm/alle (vergeet de keuze van de tv). */
+export async function wandscherm(deel?: string, arg?: string) {
   clearTimeout(timer);
+  if (sessie.rol === "scherm") {
+    try {
+      if (deel === "alle") localStorage.removeItem(ONTHOUD);
+      else if (deel) localStorage.setItem(ONTHOUD, location.hash);
+      else if (localStorage.getItem(ONTHOUD)) return void (location.hash = localStorage.getItem(ONTHOUD)!);
+    } catch { /* geen opslag: alleen deze keer */ }
+  }
+  const stappenKeuze = deel === "stappen" && arg ? arg : undefined;
+  const hal = deel && deel !== "stappen" && deel !== "alle" ? deel : undefined;
   document.body.classList.add("wand");
   const scherm = document.getElementById("scherm")!;
   // Scherm niet laten uitgaan (waar de browser dat ondersteunt).
@@ -58,34 +71,46 @@ export async function wandscherm(hal?: string) {
     const w = laatste;
     const k = w.kerncijfers;
     const cijfer = (n: number | string, tekst: string, klasse = "") => h("div", { class: `wand-cijfer ${klasse}` }, h("span", { class: "wand-getal" }, n), h("span", {}, tekst));
+    // Met gekozen stappen gaan de cijfers over die stappen; anders over de fabriek.
+    const som = (f: (s: Stap) => number) => w.stappen.reduce((a, s) => a + f(s), 0);
+    const cijfers = w.keuze
+      ? [cijfer(`${som((s) => s.gepland.filter((g) => g.status === "gedaan").length)} / ${som((s) => s.gepland.length)}`, "geplande stappen afgerond"),
+         cijfer(som((s) => s.bezig.length), "bezig"),
+         cijfer(som((s) => s.klaar.length), "klaar om te starten")]
+      : [cijfer(`${k.gestart_vandaag} / ${k.gepland_vandaag}`, "batches gestart / gepland"),
+         cijfer(k.lots_gereed_vandaag, k.lots_gereed_vandaag === 1 ? "lot gereed" : "lots gereed"),
+         cijfer(k.in_beoordeling, "in beoordeling", k.in_beoordeling ? "let-op" : "")];
+    const titel = w.keuze
+      ? w.stappen.length === 1 ? `Vandaag in ${w.stappen[0].code} ${w.stappen[0].naam}` : `Vandaag in ${w.stappen.map((s) => s.code).join(", ")}`
+      : w.hal ? `Vandaag in ${w.hal}` : "Vandaag in de fabriek";
+    const n = w.stappen.length;
     scherm.replaceChildren(
       h("header", { class: "wand-kop" },
         h("div", {},
-          h("h1", {}, w.hal ? `Vandaag in ${w.hal}` : "Vandaag in de fabriek"),
+          h("h1", {}, titel),
           h("p", { class: "wand-datum" }, new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" }))),
-        h("div", { class: "wand-cijfers" },
-          cijfer(`${k.gestart_vandaag} / ${k.gepland_vandaag}`, "batches gestart / gepland"),
-          cijfer(k.lots_gereed_vandaag, k.lots_gereed_vandaag === 1 ? "lot gereed" : "lots gereed"),
-          cijfer(k.in_beoordeling, "in beoordeling", k.in_beoordeling ? "let-op" : "")),
+        h("div", { class: "wand-cijfers" }, cijfers),
         h("div", { class: "wand-klok" }, h("span", { class: "wand-getal" }, klok()),
           fout
             ? h("span", { class: "wand-storing", role: "status" }, `⚠ Geen verbinding sinds ${laatsteGelukt ? klok(laatsteGelukt) : "–"}`)
             : h("span", {}, `Bijgewerkt ${klok(new Date(w.tijd))}`))),
-      h("div", { class: "wand-raster" }, w.stappen.map(stapKaart)),
+      h("div", { class: `wand-raster${w.keuze && n <= 6 ? ` wand-n${n}` : ""}` }, w.stappen.map((s) => stapKaart(s, maxRegels(w.keuze ? n : 18)))),
       h("footer", { class: "wand-voet" },
         h("span", { class: "wand-uitleg" },
           h("span", { class: "wl wl-bezig" }, "▶ Bezig"), h("span", { class: "wl wl-klaar" }, "● Klaar om te starten"),
           h("span", { class: "wl wl-gepland" }, "○ Gepland, nog niet klaar"), h("span", { class: "wl wl-lang" }, "Gele rand: wacht of loopt langer dan normaal"), h("span", { class: "wl wl-stil" }, "⛔ Stilstand")),
         sessie.rol === "scherm" ? null : h("nav", { class: "wand-hallen", "aria-label": "Hal" },
-          h("a", { href: "#/wandscherm", "aria-current": w.hal ? undefined : "page" }, "Alle hallen"),
+          h("a", { href: "#/wandscherm", "aria-current": w.hal || w.keuze ? undefined : "page" }, "Alle hallen"),
           w.hallen.map((x) => h("a", { href: `#/wandscherm/${encodeURIComponent(x)}`, "aria-current": x === w.hal ? "page" : undefined }, x)),
+          h("button", { class: "wand-kies", type: "button", "aria-current": w.keuze ? "page" : undefined, onclick: () => void kiesStappen(w.keuze ?? []) },
+            w.keuze ? `Stappen: ${w.keuze.join(", ")}` : "Stappen kiezen"),
           h("a", { href: "#/" }, "Terug naar de portalen"))),
     );
   };
 
   const ververs = async () => {
     try {
-      laatste = await haal<Wand>(`/wandscherm${hal ? `?hal=${encodeURIComponent(hal)}` : ""}`);
+      laatste = await haal<Wand>(`/wandscherm${hal ? `?hal=${encodeURIComponent(hal)}` : stappenKeuze ? `?stappen=${encodeURIComponent(stappenKeuze)}` : ""}`);
       laatsteGelukt = new Date();
       teken();
     } catch (e) {
@@ -105,7 +130,30 @@ function regel(i: Item, soort: "bezig" | "klaar") {
     i.opmerking ? h("span", { class: "wr-opm" }, i.opmerking) : null);
 }
 
-function stapKaart(s: Stap) {
+/** Kies de stappen voor dit wandscherm (#54). Het adres kun je als bladwijzer op de tv zetten. */
+async function kiesStappen(nu: string[]) {
+  let alle: { code: string; naam: string }[];
+  try { alle = await haal("/config/stappen"); } catch { return; }
+  const vinken = alle.map((s) => h("input", { type: "checkbox", value: s.code, checked: nu.includes(s.code) }) as HTMLInputElement);
+  const d = h("dialog", { class: "venster" },
+    h("h2", {}, "Stappen op dit wandscherm"),
+    h("p", { class: "sub" }, "Kies één of enkele stappen; dan staan alleen hun planning en werk op het scherm, groter. Niets aangevinkt: alle stappen. Op de tv: open dit adres met het schermaccount, dan onthoudt de tv de keuze."),
+    h("div", { class: "vinklijst" }, alle.map((s, i) => h("label", {}, vinken[i], ` ${s.code} ${s.naam}`))),
+    h("div", { class: "knoppen" },
+      h("button", { class: "knop knop-stil", onclick: () => d.close("nee") }, "Terug"),
+      h("button", { class: "knop knop-hoofd", onclick: () => d.close("ja") }, "Tonen")));
+  d.addEventListener("close", () => {
+    if (d.returnValue === "ja") {
+      const gekozen = vinken.filter((v) => v.checked).map((v) => v.value);
+      location.hash = gekozen.length ? `#/wandscherm/stappen/${gekozen.join(",")}` : "#/wandscherm";
+    }
+    d.remove();
+  });
+  document.body.append(d);
+  (d as HTMLDialogElement).showModal();
+}
+
+function stapKaart(s: Stap, MAX_REGELS: number) {
   const aanwezig = new Set([...s.bezig, ...s.klaar].map((x) => x.nummer));
   const nogNiet = s.gepland.filter((g) => g.status === "gepland" && !aanwezig.has(g.nummer));
   const gedaan = s.gepland.filter((g) => g.status === "gedaan").length;

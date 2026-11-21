@@ -65,7 +65,6 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 
 ### A2. Uit de eerste demo — eind november 2026 tot januari 2027
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten.
-- #54 **Wandscherm per processtap** (klein) — Een wandscherm instellen voor één of enkele stappen, zodat je alleen de planning en het werk van die stap ziet.
 - #64 **Invoer voor Kwaliteit en soort meting** (groot) — Een invoerscherm voor de metingen van Kwaliteit, en per veld wie meet (Productie of Kwaliteit) en wat het is (procesparameter of producteigenschap). Een meting kan leiden tot vrijgave voor de volgende stap, herbewerking of afkeur (bouwt voort op D7). Vóór of na de pilot: zie #71.
 
 **Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0, #53 in 0.30.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).

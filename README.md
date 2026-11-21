@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.35.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.36.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Nog open in fase A2: #54 (wandscherm per stap) en #64 (invoer voor Kwaliteit); #55 komt later. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Het wandscherm per stap is gebouwd (0.36.0, #54). Nog open in fase A2: #64 (invoer voor Kwaliteit, vóór of na de pilot: #71); #55 komt later. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.35.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.36.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.35.0, 21 november 2026):** geslaagd: databaseregels (193), API, migraties (tot en met 21), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor herbewerkingen met opdracht (aanmaken, stand, intrekken, de start in het invoerscherm, batch en lot) en de rol productiemanager. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
+- **Laatste testronde (0.36.0, 21 november 2026):** geslaagd: databaseregels (193), API, migraties (tot en met 21), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor het wandscherm per stap (alleen de gekozen stappen, cijfers over die stappen, de tv onthoudt de keuze, stappen kiezen met de knop) en eerder voor herbewerkingen met opdracht en de rol productiemanager. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -114,7 +114,7 @@ Er blijft altijd minstens één actieve beheerder. Niets wordt verwijderd, allee
 ### Overal
 - **Meldingen** maakt de database zelf: waarde buiten grens, beoordeling, keurresultaat, afwijkend lot, storing (D33).
 - **Naar Excel** staat boven elke tabel in de portalen (D39).
-- **Wandscherm:** per stap bezig, klaar en gepland, met de kerncijfers van vandaag; per hal via `#/wandscherm/Hal 1`. Log in met een account met rol scherm (blijft 30 dagen ingelogd) en zet de browser op volledig scherm (D30).
+- **Wandscherm:** per stap bezig, klaar en gepland, met de kerncijfers van vandaag; per hal via `#/wandscherm/Hal 1`; voor één of enkele stappen via `#/wandscherm/stappen/PS3,PS4` of de knop "Stappen kiezen" onderin (grotere kaarten, cijfers over die stappen). Een tv met een schermaccount onthoudt zijn keuze; `#/wandscherm/alle` zet hem terug. Log in met een account met rol scherm (blijft 30 dagen ingelogd) en zet de browser op volledig scherm (D30).
 
 ## Draaien
 

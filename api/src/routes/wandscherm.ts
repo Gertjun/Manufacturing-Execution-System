@@ -24,12 +24,16 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["wandscherm"],
         description:
-          "Alles voor het wandscherm in één keer: per stap de planning van vandaag, wat bezig is en wat klaarstaat, en de kerncijfers van vandaag. Met hal alleen de stappen van de pc's in die hal.",
-        querystring: Type.Object({ hal: Type.Optional(Type.String({ maxLength: 100 })) }),
+          "Alles voor het wandscherm in één keer: per stap de planning van vandaag, wat bezig is en wat klaarstaat, en de kerncijfers van vandaag. Met hal alleen de stappen van de pc's in die hal; met stappen alleen die stappen (#54).",
+        querystring: Type.Object({
+          hal: Type.Optional(Type.String({ maxLength: 100 })),
+          stappen: Type.Optional(Type.String({ maxLength: 300, description: "Stapcodes met komma's, bijvoorbeeld PS3,PS4", examples: ["PS3,PS4"] })),
+        }),
         response: {
           200: Type.Object({
             tijd: Type.String({ format: "date-time" }),
             hal: Type.Union([Type.Null(), Type.String()]),
+            keuze: Type.Union([Type.Null(), Type.Array(Type.String())], { description: "De gekozen stappen, of leeg voor alle (#54)" }),
             hallen: Type.Array(Type.String()),
             kerncijfers: Type.Object({
               gepland_vandaag: Type.Integer(),
@@ -65,17 +69,25 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         (r) => r.locatie,
       );
       if (hal && !hallen.includes(hal)) throw new ApiFout(404, `Onbekende hal: ${hal}`);
+      // #54: alleen de gekozen stappen (bijvoorbeeld een tv bij PS3 en PS4).
+      const keuze = req.query.stappen ? [...new Set(req.query.stappen.split(",").map((x) => x.trim().toUpperCase()).filter(Boolean))] : null;
+      if (keuze) {
+        const bekend = new Set((await lees<{ code: string }>(app.db, "SELECT code FROM processtap WHERE actief AND code = ANY($1)", [keuze])).map((r) => r.code));
+        const onbekend = keuze.filter((x) => !bekend.has(x));
+        if (onbekend.length) throw new ApiFout(404, `Onbekende of uitgezette stap: ${onbekend.join(", ")}`);
+      }
 
       // Stappen van de hal: wat de pc's daar bedienen. Een pc zonder keuze bedient alle stappen.
       const stappen = await lees<{ id: string; code: string; naam: string; niveau: string }>(
         app.db,
         `SELECT s.id, s.code, s.naam, s.niveau FROM processtap s
-          WHERE s.actief AND ($1::text IS NULL
+          WHERE s.actief AND ($2::text[] IS NULL OR s.code = ANY($2))
+            AND ($1::text IS NULL
              OR EXISTS (SELECT 1 FROM pc WHERE pc.actief AND pc.locatie = $1
                           AND (NOT EXISTS (SELECT 1 FROM pc_stap x WHERE x.pc_id = pc.id)
                                OR EXISTS (SELECT 1 FROM pc_stap x WHERE x.pc_id = pc.id AND x.processtap_id = s.id))))
           ORDER BY s.volgorde`,
-        [hal],
+        [hal, keuze],
       );
 
       // Wat "lang" is per stap: 90% van de wacht- en bewerkingstijden van de laatste 30 dagen.
@@ -99,14 +111,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const plan = await lees<{ stap: string; nummer: string; volgorde: number; status: string; opmerking: string | null }>(
         app.db,
         `SELECT s.code AS stap, coalesce(b.batchnummer, l.lotnummer, 'Lotvoorstel ' || v.nummer) AS nummer, sp.volgorde, sp.opmerking,
-                CASE
-                  WHEN sp.voorstel_id IS NOT NULL THEN CASE WHEN v.status IN ('gebruikt','afgeweken') THEN 'gedaan' ELSE 'gepland' END
-                  ELSE coalesce((SELECT CASE r.status WHEN 'afgerond' THEN 'gedaan' WHEN 'open' THEN 'bezig' ELSE 'gepland' END
-                                   FROM stapregistratie r
-                                  WHERE r.processtap_id = sp.processtap_id AND (r.batch_id = sp.batch_id OR r.lot_id = sp.lot_id)
-                                    AND r.status <> 'afgebroken'
-                                  ORDER BY r.poging DESC LIMIT 1), 'gepland')
-                END AS status
+                plan_stand(sp.id) AS status  -- zoals Planning per stap, met herbewerkingen (#61)
            FROM stapplanning sp JOIN processtap s ON s.id = sp.processtap_id
            LEFT JOIN batch b ON b.id = sp.batch_id LEFT JOIN lot l ON l.id = sp.lot_id LEFT JOIN lot_voorstel v ON v.id = sp.voorstel_id
           WHERE sp.dag = current_date ORDER BY s.volgorde, sp.volgorde`,
@@ -141,6 +146,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       return {
         tijd: new Date().toISOString(),
         hal,
+        keuze,
         hallen,
         kerncijfers: k,
         stappen: stappen.map((s) => {

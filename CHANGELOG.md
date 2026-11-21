@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.36.0 — 21 november 2026 · #54
+- Nieuw: **wandscherm voor één of enkele stappen**. Onderin het wandscherm staat "Stappen kiezen"; vink een of meer stappen aan en je ziet alleen hun planning en werk, op grotere kaarten met meer regels. De cijfers bovenin gaan dan over die stappen: geplande stappen afgerond, bezig en klaar om te starten.
+- Het adres kun je op de tv als bladwijzer zetten, bijvoorbeeld `…/portaal/#/wandscherm/stappen/PS3,PS4`. Een tv met een schermaccount onthoudt de keuze, ook na opnieuw inloggen; `#/wandscherm/alle` zet hem terug naar de hele fabriek.
+- Het wandscherm telt geplande stappen nu op dezelfde manier als Planning per stap, dus ook met herbewerkingen (#61).
+- API: `GET /wandscherm?stappen=PS3,PS4`. Zonder `stappen` blijft alles gelijk.
+
 ## 0.35.0 — 21 november 2026 · #61
 - Nieuw: **herbewerking met opdracht**, voor een batch (zolang hij niet in een lot zit) en voor een lot. Kwaliteit of de productiemanager besluit: welke batch of welk lot, terug naar welke stap die al gedaan is, en waarom. Dat kan bij de batch, in het lotpaspoort, en bij Te beoordelen als derde keurresultaat **Herbewerken** (alleen Kwaliteit).
 - De batch of het lot staat daarna in het invoerscherm klaar in die stap, met het label "Herbewerking" en de reden. De operator start gewoon de stap; daarna doet de batch of het lot alle volgende stappen opnieuw. Andere stappen kunnen pas weer als de herbewerking gestart is. De planner kan de herbewerking inplannen.

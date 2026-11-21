@@ -529,3 +529,12 @@ a.merk:hover { text-decoration: underline; }
 .label-stand-bezig { background: var(--actie-vlak); }
 .label-stand-klaar { color: var(--ok); }
 .label-stand-gestopt, .label-stand-ingetrokken { color: var(--inkt-zacht); border-style: dashed; }
+
+/* #54: wandscherm voor één of enkele stappen: grotere kaarten */
+.wand-raster.wand-n1 { grid-template-columns: 1fr; font-size: 1.7em; }
+.wand-raster.wand-n2 { grid-template-columns: repeat(2, 1fr); font-size: 1.5em; }
+.wand-raster.wand-n3 { grid-template-columns: repeat(3, 1fr); font-size: 1.25em; }
+.wand-raster.wand-n4 { grid-template-columns: repeat(2, 1fr); font-size: 1.2em; }
+.wand-raster.wand-n5, .wand-raster.wand-n6 { grid-template-columns: repeat(3, 1fr); font-size: 1.1em; }
+.wand-kies { background: none; border: none; padding: 0; font: inherit; color: var(--wand-tekst-3); text-decoration: underline; cursor: pointer; }
+.wand-kies[aria-current="page"] { color: var(--op-kleur); font-weight: 700; }

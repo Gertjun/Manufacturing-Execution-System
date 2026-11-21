@@ -146,7 +146,7 @@ async function route() {
   // Wandscherm: volledig scherm, zonder menu. Een schermaccount ziet alleen dit.
   if (portaal === "wandscherm" || sessie.rol === "scherm") {
     if (portaal !== "wandscherm") return void (location.hash = "#/wandscherm");
-    return wandscherm(onderdeel ? decodeURIComponent(onderdeel) : undefined);
+    return wandscherm(onderdeel ? decodeURIComponent(onderdeel) : undefined, arg ? decodeURIComponent(arg) : undefined);
   }
   stopWandscherm();
   if (portaal === "etiketten") {

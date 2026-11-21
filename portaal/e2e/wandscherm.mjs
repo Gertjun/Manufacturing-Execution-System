@@ -64,6 +64,26 @@ try {
   await page.waitForFunction(() => location.hash === "#/wandscherm");
   check("Schermaccount kan niet naar een portaal", true);
 
+  console.log("\nPer stap (#54)");
+  await page.goto(`${BASIS}/portaal/#/wandscherm/stappen/PS3,PS7`);
+  await page.getByRole("heading", { name: "Vandaag in PS3, PS7" }).waitFor();
+  check("Alleen PS3 en PS7, op grote kaarten", (await page.locator(".wand-stap").count()) === 2 && (await page.locator(".wand-raster.wand-n2").count()) === 1);
+  const [{ n: bezig37 }] = await q(`SELECT count(*)::int AS n FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id
+      WHERE r.status = 'open' AND s.code IN ('PS3','PS7')`);
+  check("Cijfers gaan over deze stappen: bezig", Number(await page.locator(".wand-cijfer", { hasText: "bezig" }).locator(".wand-getal").innerText()) === bezig37, `${bezig37}`);
+  await shot("01b-wandscherm-ps3-ps7");
+  await page.goto(`${BASIS}/portaal/#/wandscherm`);
+  await page.getByRole("heading", { name: "Vandaag in PS3, PS7" }).waitFor();
+  check("De tv onthoudt de keuze (schermaccount)", page.url().endsWith("#/wandscherm/stappen/PS3,PS7"));
+  await page.goto(`${BASIS}/portaal/#/wandscherm/stappen/PS99`);
+  await page.locator(".wand-leeg", { hasText: "Onbekende" }).waitFor();
+  check("Onbekende stap: duidelijke melding", true);
+  await page.goto(`${BASIS}/portaal/#/wandscherm/alle`);
+  await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
+  await page.goto(`${BASIS}/portaal/#/wandscherm`);
+  await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
+  check("Met /alle vergeet de tv de keuze weer", (await page.locator(".wand-stap").count()) === 18);
+
   console.log("\nPer hal");
   await q(`INSERT INTO fabriek.pc_stap (pc_id, processtap_id)
            SELECT p.id, s.id FROM fabriek.pc p, fabriek.processtap s WHERE p.locatie = 'Hal 1' AND s.code IN ('PS1','PS2','PS3')`);
@@ -77,6 +97,16 @@ try {
   await page.getByRole("heading", { name: "Vandaag in Hal 1" }).waitFor();
   check("Hal 1 toont alleen de stappen van de pc's daar", (await page.locator(".wand-stap").count()) === 3);
   await shot("02-hal1");
+  await page.getByRole("link", { name: "Terug naar de portalen" }).click();
+  await page.locator("#menu").waitFor({ state: "visible" });
+  // Stappen kiezen via de knop onderin (#54).
+  await page.goto(`${BASIS}/portaal/#/wandscherm`);
+  await page.getByRole("button", { name: "Stappen kiezen" }).click();
+  await page.getByRole("dialog").getByLabel("PS9 ", { exact: false }).first().check();
+  await page.getByRole("dialog").getByRole("button", { name: "Tonen" }).click();
+  await page.getByRole("heading", { name: /^Vandaag in PS9 / }).waitFor();
+  check("Stappen kiezen: één stap op het hele scherm", (await page.locator(".wand-stap").count()) === 1 && page.url().endsWith("#/wandscherm/stappen/PS9"));
+  await shot("02b-een-stap");
   await page.getByRole("link", { name: "Terug naar de portalen" }).click();
   await page.locator("#menu").waitFor({ state: "visible" });
   check("Terug naar de portalen toont het menu weer", true);

@@ -897,6 +897,15 @@ describe("Wandscherm", () => {
     const hal = await verzoek("GET", "/wandscherm?hal=Hal%201", t);
     assert.equal(hal.body.hal, "Hal 1");
     assert.equal((await verzoek("GET", "/wandscherm?hal=Hal%209", t)).status, 404);
+    // #54: alleen gekozen stappen; dubbele en kleine letters maken niet uit.
+    const keuze = await verzoek("GET", "/wandscherm?stappen=ps7,PS3,PS3", t);
+    assert.equal(keuze.status, 200);
+    assert.deepEqual(keuze.body.stappen.map((s: any) => s.code), ["PS3", "PS7"]);
+    assert.deepEqual(keuze.body.keuze, ["PS7", "PS3"]);
+    assert.equal(r.body.keuze, null);
+    const fout = await verzoek("GET", "/wandscherm?stappen=PS3,PS99", t);
+    assert.equal(fout.status, 404);
+    assert.match(fout.body.fout, /PS99/);
     // Operators zien het wandscherm niet (die hebben het invoerscherm).
     assert.equal((await verzoek("GET", "/wandscherm", await login("operator", "PC-01"))).status, 403);
     await beheerDb.query("UPDATE fabriek.gebruiker SET actief = false WHERE gebruikersnaam = 'scherm1'");
