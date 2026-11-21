@@ -24,7 +24,7 @@ Bijgewerkt: 21 november 2026 · versie **0.45.1**. Dit blok wordt aan het eind v
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
 - **Browserdemo:** versie 0.45.1 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
-- **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versies 0.37.0 en 0.45.0 hebben geen release (een schermtest faalde); neem 0.37.1 en 0.45.1.
+- **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1. Bij 0.45.0 faalde de schermtest op GitHub; die release is later alsnog gemaakt, maar neem 0.45.1.
 - **Laatste testronde (0.45.1, 21 november 2026):** geslaagd: databaseregels (236), API, migraties (tot en met 26), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome, nu ook alle schermen in zes formaten (telefoon staand en liggend, tablet staand en liggend, laptop, pc). Niet gedaan: een echte telefoon en tablet via het netwerk (A6, A7), tekst op 200 % en de pc's in de fabriek; praktijktests (#33) staan nog open.
 - **Gegevens:** alles fictief (D1).
 
