@@ -19,6 +19,11 @@ const Filter = {
   ...Periode,
   product: Type.Optional(Type.String({ description: "Productcode, bijvoorbeeld PRD-B. Leeg = alle producten (D55)" })),
 };
+/** Resolutie van de grafieken met tijd (#58). Het veld heet in de antwoorden "week" (zo blijft het gelijk voor wie het al gebruikt); het is het begin van de dag, week of maand. */
+const Per = { per: Type.Optional(Type.Union([Type.Literal("dag"), Type.Literal("week"), Type.Literal("maand")], { description: "Groeperen per dag, week (standaard) of maand" })) };
+const TRUNC = { dag: "day", week: "week", maand: "month" } as const;
+/** Begin van de dag, week (maandag) of maand van een tijdstip; per is door het schema al gecontroleerd. */
+const perBegin = (per: keyof typeof TRUNC | undefined, kolom: string) => `date_trunc('${TRUNC[per ?? "week"]}', ${kolom})::date`;
 const Tijd = Type.String({ format: "date-time" });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 const OptGetal = NulGetal();
@@ -57,8 +62,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["analyse"],
-        description: "Kerncijfers over een periode, plus afwijkingen per week en de velden met de meeste afwijkingen.",
-        querystring: Type.Object(Filter),
+        description: "Kerncijfers over een periode, plus afwijkingen per week (of per dag of maand, met per) en de velden met de meeste afwijkingen.",
+        querystring: Type.Object({ ...Filter, ...Per }),
         response: {
           200: Type.Object({
             batches: Type.Integer(),
@@ -99,7 +104,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       );
       const per_week = await lees(
         app.db,
-        `SELECT date_trunc('week', ingevoerd_op)::date AS week, count(*) AS waarden,
+        `SELECT ${perBegin(req.query.per, "ingevoerd_op")} AS week, count(*) AS waarden,
                 count(*) FILTER (WHERE markering = 'buiten_tolerantie') AS buiten_tolerantie,
                 count(*) FILTER (WHERE markering = 'buiten_grens') AS buiten_grens
            FROM ${W} x WHERE ${PERIODE_SQL("ingevoerd_op", 1, 2)}
@@ -356,8 +361,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description:
-          "Per stap de bewerkingstijd (gestart tot afgerond) en de wachttijd ervoor (vorige afgeronde stap tot start), in minuten; plus de doorlooptijd van batches (PS1 tot de laatste batchstap) en lots (lot-stap tot gereed) per week, in uren. Medianen, zodat uitschieters het beeld niet vertekenen.",
-        querystring: Type.Object(Filter),
+          "Per stap de bewerkingstijd (gestart tot afgerond) en de wachttijd ervoor (vorige afgeronde stap tot start), in minuten; plus de doorlooptijd van batches (PS1 tot de laatste batchstap) en lots (lot-stap tot gereed) per week (of per dag of maand, met per), in uren. Medianen, zodat uitschieters het beeld niet vertekenen.",
+        querystring: Type.Object({ ...Filter, ...Per }),
         response: {
           200: Type.Object({
             stappen: Type.Array(
@@ -417,7 +422,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `WITH grens AS (SELECT * FROM route_grenzen),  -- eerste en laatste stap per product (D55)
               b AS (
-                SELECT date_trunc('week', e.afgerond_op)::date AS week,
+                SELECT ${perBegin(req.query.per, "e.afgerond_op")} AS week,
                        extract(epoch FROM e.afgerond_op - s.gestart_op) / 3600 AS uren
                   FROM stapregistratie e
                   JOIN batch bt ON bt.id = e.batch_id
@@ -426,7 +431,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                  WHERE e.status = 'afgerond'
                    AND ${PERIODE_SQL("e.afgerond_op", 1, 2)} AND ${PRODUCT_SQL("bt.product_id", 3)}),
               l AS (
-                SELECT date_trunc('week', g.klaar)::date AS week, extract(epoch FROM g.klaar - lot.aangemaakt_op) / 3600 AS uren
+                SELECT ${perBegin(req.query.per, "g.klaar")} AS week, extract(epoch FROM g.klaar - lot.aangemaakt_op) / 3600 AS uren
                   FROM lot
                   JOIN LATERAL (SELECT max(r.afgerond_op) AS klaar FROM stapregistratie r
                                  WHERE r.lot_id = lot.id AND r.processtap_id = route_laatste(lot_product(lot.id), 'lot')
@@ -452,8 +457,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["analyse"],
-        description: "Per week: batches gestart, batches klaar met de batchstappen, lots gereed en batches afgekeurd.",
-        querystring: Type.Object(Filter),
+        description: "Per week (of per dag of maand, met per): batches gestart, batches klaar met de batchstappen, lots gereed en batches afgekeurd.",
+        querystring: Type.Object({ ...Filter, ...Per }),
         response: {
           200: Type.Array(
             Type.Object({
@@ -486,7 +491,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 UNION ALL
                 SELECT 'afgekeurd', d.besloten_op FROM batch_besluit d JOIN batch bd ON bd.id = d.batch_id
                  WHERE d.besluit = 'afgekeurd' AND ${PRODUCT_SQL("bd.product_id", 3)})
-         SELECT date_trunc('week', t)::date AS week,
+         SELECT ${perBegin(req.query.per, "t")} AS week,
                 count(*) FILTER (WHERE soort = 'gestart') AS batches_gestart,
                 count(*) FILTER (WHERE soort = 'klaar') AS batches_klaar,
                 count(*) FILTER (WHERE soort = 'lot') AS lots_gereed,

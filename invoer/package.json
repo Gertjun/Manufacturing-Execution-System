@@ -1,6 +1,6 @@
 {
   "name": "batch-gui-invoer",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "private": true,
   "type": "module",
   "description": "Invoerapplicatie (browser/PWA) voor de Batch input GUI",

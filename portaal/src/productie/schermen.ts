@@ -4,6 +4,7 @@ import { h, laden, toon, vastHouden } from "../../../gedeeld/ui";
 import { toonGetal } from "../../../gedeeld/markering";
 import { haal, periode, PERIODES, qs } from "../basis";
 import { liggendeStaven, staven } from "../grafiek";
+import { aanvullen, perCel, perKop, perTekst, perWoord, resolutie } from "../resolutie";
 import { datum, fout, kop, kort, label, periodeKeuze, tabel } from "../kwaliteit/schermen";
 import type { Markering } from "../../../gedeeld/types";
 
@@ -103,18 +104,19 @@ export async function doorlooptijden() {
   const actueel = vastHouden();
   toon(kop("Doorlooptijden"), laden());
   let d: Doorloop;
-  try { d = await haal<Doorloop>(`/analyse/doorlooptijden${qs(periode.bereik())}`); } catch (e) { return fout(e); }
+  const per = resolutie.per;
+  try { d = await haal<Doorloop>(`/analyse/doorlooptijden${qs({ ...periode.bereik(), per })}`); } catch (e) { return fout(e); }
   if (!actueel()) return;
   const langste = [...d.stappen].sort((a, b) => (b.wachten_mediaan ?? 0) + b.bewerking_mediaan - ((a.wachten_mediaan ?? 0) + a.bewerking_mediaan))[0];
   const meestWachten = [...d.stappen].sort((a, b) => (b.wachten_mediaan ?? 0) - (a.wachten_mediaan ?? 0))[0];
   const laatste = [...d.per_week].reverse().find((w) => w.batch_uren_mediaan !== null);
   toon(
-    kop("Doorlooptijden", `Medianen over ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}: de helft van de stappen was sneller, de helft trager.`, periodeKeuze(doorlooptijden)),
+    kop("Doorlooptijden", `Medianen over ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}: de helft van de stappen was sneller, de helft trager.`, periodeKeuze(doorlooptijden, true, true)),
     d.stappen.length === 0
       ? h("p", { class: "leeg" }, "Geen afgeronde stappen in deze periode.")
       : h("div", {}, ...[
           h("div", { class: "tegels" },
-            laatste ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, uren(laatste.batch_uren_mediaan)), h("span", { class: "tegel-tekst" }, "doorlooptijd batch, stap 1 tot 15 (laatste week)")) : null,
+            laatste ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, uren(laatste.batch_uren_mediaan)), h("span", { class: "tegel-tekst" }, `doorlooptijd batch, eerste tot laatste batchstap (laatste ${per})`)) : null,
             langste ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, langste.stap), h("span", { class: "tegel-tekst" }, `langste stap: ${minuten((langste.wachten_mediaan ?? 0) + langste.bewerking_mediaan)} inclusief wachten`)) : null,
             meestWachten?.wachten_mediaan ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, meestWachten.stap), h("span", { class: "tegel-tekst" }, `langste wachttijd ervoor: ${minuten(meestWachten.wachten_mediaan)}`)) : null),
           h("section", { class: "blok" }, h("h2", {}, "Tijd per stap"),
@@ -136,9 +138,9 @@ export async function doorlooptijden() {
               h("a", { href: `#/productie/stap/${s.stap}`, class: "sterk" }, `${s.stap} ${s.stapnaam}`), h("span", { class: "getal" }, s.aantal),
               h("span", { class: "getal" }, minuten(s.wachten_mediaan)), h("span", { class: "getal" }, minuten(s.wachten_p90)),
               h("span", { class: "getal" }, minuten(s.bewerking_mediaan)), h("span", { class: "getal" }, minuten(s.bewerking_p90))]), "compact")),
-          h("section", { class: "blok" }, h("h2", {}, "Doorlooptijd per week"),
-            tabel(["Week van", "Batches klaar", "Batch: stap 1 tot 15 (mediaan)", "Lots gereed", "Lot: samenstellen tot gereed (mediaan)"],
-              [...d.per_week].reverse().map((w) => [new Date(w.week).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" }),
+          h("section", { class: "blok" }, h("h2", {}, `Doorlooptijd ${perWoord(per)}`),
+            tabel([perKop(per), "Batches klaar", "Batch: eerste tot laatste batchstap (mediaan)", "Lots gereed", "Lot: samenstellen tot gereed (mediaan)"],
+              [...d.per_week].reverse().map((w) => [perCel(w.week, per),
                 h("span", { class: "getal" }, w.batches), h("span", { class: "getal" }, uren(w.batch_uren_mediaan)),
                 h("span", { class: "getal" }, w.lots), h("span", { class: "getal" }, uren(w.lot_uren_mediaan))]), "compact")),
         ]),
@@ -152,24 +154,26 @@ export async function perWeek() {
   const actueel = vastHouden();
   toon(kop("Productie per week"), laden());
   let w: Week[];
-  try { w = await haal<Week[]>(`/analyse/productie${qs(periode.bereik())}`); } catch (e) { return fout(e); }
+  const per = resolutie.per;
+  try { w = await haal<Week[]>(`/analyse/productie${qs({ ...periode.bereik(), per })}`); } catch (e) { return fout(e); }
   if (!actueel()) return;
+  w = aanvullen(w, per, periode.bereik().van, (week) => ({ week, batches_gestart: 0, batches_klaar: 0, lots_gereed: 0, afgekeurd: 0 }));
   const som = (k: keyof Week) => w.reduce((a, x) => a + (x[k] as number), 0);
-  const weekTekst = (iso: string) => `Week van ${new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}`;
+  const weekTekst = (iso: string) => perTekst(iso, per);
   toon(
-    kop("Productie per week", undefined, periodeKeuze(perWeek)),
+    kop(`Productie ${perWoord(per)}`, undefined, periodeKeuze(perWeek, true, true)),
     h("div", { class: "tegels" },
       ...([["batches_gestart", "batches gestart"], ["batches_klaar", "batches klaar voor een lot"], ["lots_gereed", "lots gereed"], ["afgekeurd", "batches afgekeurd"]] as [keyof Week, string][])
         .map(([k, t]) => h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, som(k)), h("span", { class: "tegel-tekst" }, t)))),
-    h("section", { class: "blok" }, h("h2", {}, "Lots gereed per week"),
-      w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.lots_gereed, tip: [weekTekst(x.week), `${x.lots_gereed} lots gereed`, `${x.batches_gestart} batches gestart`] })), "Lots gereed per week")
+    h("section", { class: "blok" }, h("h2", {}, `Lots gereed ${perWoord(per)}`),
+      w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.lots_gereed, tip: [weekTekst(x.week), `${x.lots_gereed} lots gereed`, `${x.batches_gestart} batches gestart`] })), `Lots gereed ${perWoord(per)}`, per)
         : h("p", { class: "leeg" }, "Geen productie in deze periode.")),
-    h("section", { class: "blok" }, h("h2", {}, "Batches gestart per week"),
-      w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.batches_gestart, tip: [weekTekst(x.week), `${x.batches_gestart} batches gestart`, `${x.batches_klaar} batches klaar voor een lot`] })), "Batches gestart per week")
+    h("section", { class: "blok" }, h("h2", {}, `Batches gestart ${perWoord(per)}`),
+      w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.batches_gestart, tip: [weekTekst(x.week), `${x.batches_gestart} batches gestart`, `${x.batches_klaar} batches klaar voor een lot`] })), `Batches gestart ${perWoord(per)}`, per)
         : h("p", { class: "leeg" }, "Geen productie in deze periode.")),
-    h("section", { class: "blok" }, h("h2", {}, "Per week in cijfers"),
-      tabel(["Week van", "Batches gestart", "Batches klaar", "Lots gereed", "Afgekeurd"], [...w].reverse().map((x) => [
-        new Date(x.week).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" }),
+    h("section", { class: "blok" }, h("h2", {}, `${perWoord(per).replace("p", "P")} in cijfers`),
+      tabel([perKop(per), "Batches gestart", "Batches klaar", "Lots gereed", "Afgekeurd"], [...w].reverse().map((x) => [
+        perCel(x.week, per),
         h("span", { class: "getal" }, x.batches_gestart), h("span", { class: "getal" }, x.batches_klaar),
         h("span", { class: "getal" }, x.lots_gereed), h("span", { class: x.afgekeurd ? "getal let-op" : "getal" }, x.afgekeurd)]), "compact")),
   );

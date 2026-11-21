@@ -391,6 +391,20 @@ describe("analyses voor Productie", () => {
     assert.ok(dl.body.per_week.length >= 1 && dl.body.per_week.some((w: any) => w.lots >= 1));
     const pr = await verzoek("GET", "/analyse/productie", t);
     assert.ok(pr.body.reduce((a: number, w: any) => a + w.batches_gestart, 0) >= 5);
+    // #58: per dag, week of maand geeft andere groepen, maar dezelfde totalen; elk begin is een maandag of de eerste van de maand.
+    const som = (b: any[], k: string) => b.reduce((a: number, w: any) => a + w[k], 0);
+    const sam = await verzoek("GET", "/analyse/samenvatting", t);
+    for (const per of ["dag", "maand"]) {
+      const x = await verzoek("GET", `/analyse/productie?per=${per}`, t);
+      assert.equal(x.status, 200);
+      for (const k of ["batches_gestart", "batches_klaar", "lots_gereed", "afgekeurd"]) assert.equal(som(x.body, k), som(pr.body, k), `${per} ${k}`);
+      const sx = await verzoek("GET", `/analyse/samenvatting?per=${per}`, t);
+      assert.equal(som(sx.body.per_week, "waarden"), som(sam.body.per_week, "waarden"));
+    }
+    assert.ok(pr.body.every((w: any) => new Date(`${w.week}T12:00:00`).getDay() === 1));
+    const maand = await verzoek("GET", "/analyse/productie?per=maand", t);
+    assert.ok(maand.body.every((w: any) => w.week.endsWith("-01")));
+    assert.equal((await verzoek("GET", "/analyse/productie?per=jaar", t)).status, 400);
     const cor = await verzoek("GET", "/analyse/correcties", t);
     const c = cor.body.find((x: any) => x.batch_of_lot === "B-2026-0100" && x.veld === "S1.1");
     assert.ok(c, JSON.stringify(cor.body));

@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.34.0 — 21 november 2026 · #58
+- Nieuw: naast **Periode** staat **Groeperen**: per dag, per week of per maand. Dat geldt voor de grafiek in het Kwaliteit-overzicht (afwijkingen; klik op een dag of maand voor de lijst eronder), voor Productie per week (beide grafieken en de tabel) en voor de tabel onderaan Doorlooptijden. Standaard blijft per week.
+- Nieuw: periode **Afgelopen jaar**.
+- Dagen, weken of maanden zonder gegevens staan nu ook in de grafiek en de tabel, met nul. Vroeger vielen ze weg, waardoor een stille week niet opviel.
+- Doorlooptijden: "stap 1 tot 15" heet nu "eerste tot laatste batchstap", omdat elk product zijn eigen route heeft (D55).
+- Schermtest Ploegoverdracht wacht nu op de kop van vandaag; op GitHub keek hij soms nog naar de vorige dag (de testrun van 0.33.0 faalde daardoor; de software zelf was in orde).
+- API: de analyses samenvatting, doorlooptijden en productie kennen de parameter `per` (dag, week of maand). Zonder `per` blijft alles per week, zoals het was (D56).
+
 ## 0.33.0 — 21 november 2026 · #60 #62
 - Nieuw: in **Productie per week** staat onder "Lots gereed per week" nu ook de grafiek **Batches gestart per week**.
 - Nieuw: de **Ploegoverdracht** laat bovenaan zien hoeveel van de planning van die dag klaar is, bijvoorbeeld "28 / 32 geplande stappen afgerond, 2 bezig", met een balk. De planning is per dag, niet per ploeg; daarom staat dit getal één keer boven de ploegen. Een geplande stap die al op een eerdere dag is afgerond, telt ook mee.

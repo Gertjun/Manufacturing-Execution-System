@@ -92,6 +92,29 @@ try {
   const gestartTegel = Number((await page.locator(".tegel").nth(0).locator(".tegel-getal").innerText()).trim());
   const somRij = (await page.locator("section", { hasText: "Per week in cijfers" }).locator("tbody tr").evaluateAll((rs) => rs.reduce((a, r) => a + Number(r.children[1].textContent), 0)));
   check("Batches gestart: tabel telt op tot de tegel", somRij === gestartTegel, `${somRij} vs ${gestartTegel}`);
+  // #58: per dag, week of maand verandert de groepen, niet de totalen.
+  const totalen = async () => (await page.locator(".tegel .tegel-getal").allInnerTexts()).join("|");
+  const perWeekTotalen = await totalen();
+  await page.selectOption("#per", "maand");
+  await page.getByRole("heading", { name: "Batches gestart per maand" }).waitFor();
+  check("Per maand: dezelfde totalen als per week (#58)", (await totalen()) === perWeekTotalen, `${await totalen()} vs ${perWeekTotalen}`);
+  const [{ m }] = await q("SELECT count(DISTINCT date_trunc('month', d))::int AS m FROM generate_series(current_date - 89, current_date, '1 day') d");
+  check(`Per maand: ${m} maanden in 90 dagen`, (await page.locator("section", { hasText: "Per maand in cijfers" }).locator("tbody tr").count()) === m);
+  await page.selectOption("#per", "dag");
+  await page.getByRole("heading", { name: "Batches gestart per dag" }).waitFor();
+  check("Per dag: dezelfde totalen", (await totalen()) === perWeekTotalen);
+  check("Per dag: 90 dagen, ook dagen zonder productie", (await page.locator("section", { hasText: "Per dag in cijfers" }).locator("tbody tr").count()) === 90);
+  await page.selectOption("#periode", "365");
+  await page.getByRole("heading", { name: "Batches gestart per dag" }).waitFor();
+  await page.waitForFunction(() => document.querySelectorAll("section tbody tr").length >= 365);
+  await shot("04b-per-dag-jaar");
+  await page.selectOption("#per", "maand");
+  await page.getByRole("heading", { name: "Batches gestart per maand" }).waitFor();
+  const [{ n: gestartJaar }] = await q("SELECT count(*)::int AS n FROM fabriek.batch WHERE gestart_op >= current_date - 364");
+  check("Afgelopen jaar per maand: alle batches gestart", Number(await page.locator(".tegel").nth(0).locator(".tegel-getal").innerText()) === gestartJaar);
+  await shot("04c-per-maand-jaar");
+  await page.selectOption("#per", "week");
+  await page.selectOption("#periode", "30");
 
   console.log("\nCorrecties");
   await page.getByRole("link", { name: "Correcties" }).click();
@@ -128,7 +151,9 @@ try {
   check("Alle overdrachten van die dag staan erbij", (await page.locator("section.ploeg .notities li").count()) === nOd.n, `${nOd.n}`);
   await shot("07-overdracht");
   await page.getByRole("link", { name: "Vandaag" }).click();
-  await page.locator("section.ploeg-nu, .leeg").first().waitFor();
+  // Wachten op de kop van vandaag: de vorige dag staat er misschien nog (die heeft ook een .leeg).
+  const vandaagKop = new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Amsterdam" });
+  await page.getByRole("heading", { name: `Ploegoverdracht ${vandaagKop}` }).waitFor();
   check("Vandaag: de lopende ploeg is gemarkeerd", (await page.locator("section.ploeg-nu").count()) <= 1);
   // #62: hoeveel van de planning van vandaag klaar is, gelijk aan de database.
   const [pl] = await q(`SELECT count(*)::int AS gepland FROM fabriek.stapplanning WHERE dag = current_date`);

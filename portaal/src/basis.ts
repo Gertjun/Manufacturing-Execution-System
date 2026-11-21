@@ -157,6 +157,7 @@ export const PERIODES = [
   { id: "7", naam: "Laatste 7 dagen", dagen: 7 },
   { id: "30", naam: "Laatste 30 dagen", dagen: 30 },
   { id: "90", naam: "Laatste 90 dagen", dagen: 90 },
+  { id: "365", naam: "Afgelopen jaar", dagen: 365 },
   { id: "alles", naam: "Alles", dagen: null },
 ] as const;
 

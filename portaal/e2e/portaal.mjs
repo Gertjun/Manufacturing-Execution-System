@@ -86,6 +86,21 @@ try {
   await page.keyboard.press("Enter");
   await page.waitForFunction((l) => document.querySelector(".week-lijst h3") && document.querySelector(".grafiek rect.gekozen")?.getAttribute("aria-label") !== l, weekLabel);
   check("Ook met het toetsenbord een week kiezen", true);
+  // #58: per dag; een dag kiezen geeft de afwijkingen van die dag.
+  await page.selectOption("#per", "dag");
+  await page.getByRole("heading", { name: "Afwijkingen per dag" }).waitFor();
+  const dagen = await page.locator(".grafiek rect[tabindex]").count();
+  check("Per dag: elke dag van de periode een staaf, ook zonder afwijkingen (#58)", dagen === 30, `${dagen}`);
+  const dag = page.locator(".grafiek rect.kiesbaar").last();
+  const dagLabel = await dag.getAttribute("aria-label");
+  const [, dTol, dGr] = dagLabel.match(/(\d+) buiten tolerantie, (\d+) buiten grens/);
+  await dag.click();
+  await page.waitForFunction(() => document.querySelector(".week-lijst h3"));
+  await page.waitForFunction((n) => document.querySelectorAll(".week-lijst tbody tr").length === n, Number(dTol) + Number(dGr), { timeout: 5000 }).catch(() => {});
+  check("Klik op een dag: de afwijkingen van die dag", (await page.locator(".week-lijst tbody tr").count()) === Number(dTol) + Number(dGr), dagLabel);
+  await shot("01c-overzicht-per-dag");
+  await page.selectOption("#per", "week");
+  await page.getByRole("heading", { name: "Afwijkingen per week" }).waitFor();
   await page.selectOption("#periode", "90");
   await page.locator(".tegel").first().waitFor();
   await page.waitForTimeout(400);

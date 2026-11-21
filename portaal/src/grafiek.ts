@@ -3,6 +3,7 @@
 // tolerantie, rood = buiten grens. Elke status heeft ook een eigen vorm en een
 // legenda, zodat kleur nooit de enige drager is.
 import { h } from "../../gedeeld/ui";
+import { perAs, perTekst, type Per } from "./resolutie";
 
 const NS = "http://www.w3.org/2000/svg";
 type A = Record<string, string | number>;
@@ -51,7 +52,7 @@ const datumKort = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", m
 export interface Week { week: string; waarden: number; buiten_tolerantie: number; buiten_grens: number }
 
 /** Gestapelde staven per week. Met `kies` is elke week te kiezen (klik, Enter of spatie), bijvoorbeeld voor de lijst eronder (#59). */
-export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void): HTMLElement {
+export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void, per: Per = "week"): HTMLElement {
   const B = 760, H = 260, m = { l: 44, r: 12, t: 12, b: 34 };
   const bw = B - m.l - m.r, bh = H - m.t - m.b;
   const max = Math.max(1, ...weken.map((w) => w.buiten_tolerantie + w.buiten_grens));
@@ -62,7 +63,8 @@ export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void)
   const breedte = Math.min(28, kolom * 0.6);
 
   // Met kies zijn de weken knoppen; een "img" zou die verbergen voor schermlezers.
-  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: kies ? "group" : "img", "aria-label": "Afwijkingen per week, gestapeld naar soort" });
+  const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: kies ? "group" : "img", "aria-label": `Afwijkingen per ${per}, gestapeld naar soort` });
+  const elke = Math.ceil(weken.length / 14); // hooguit ongeveer 14 teksten onder de as
   svg.append(arcering());
   for (const t of ticks) {
     svg.append(s("line", { x1: m.l, x2: B - m.r, y1: y(t), y2: y(t), class: t === 0 ? "as" : "raster" }));
@@ -79,14 +81,13 @@ export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void)
       const onder = y(gr) - (gr > 0 ? 2 : 0);
       svg.append(s("path", { d: staafPad(x, y(gr + tol), breedte, onder - y(gr + tol), true), fill: KLEUR.tol }));
     }
-    if (tol + gr > 0) svg.append(s("text", { x: x + breedte / 2, y: y(gr + tol) - 5, "text-anchor": "middle", class: "as-tekst" }, String(tol + gr)));
-    const d = new Date(w.week);
-    if (weken.length <= 14 || i % 2 === 0) svg.append(s("text", { x: x + breedte / 2, y: H - m.b + 18, "text-anchor": "middle", class: "as-tekst" }, datumKort(d)));
+    if (tol + gr > 0 && weken.length <= 40) svg.append(s("text", { x: x + breedte / 2, y: y(gr + tol) - 5, "text-anchor": "middle", class: "as-tekst" }, String(tol + gr)));
+    if (i % elke === 0) svg.append(s("text", { x: x + breedte / 2, y: H - m.b + 18, "text-anchor": "middle", class: "as-tekst" }, perAs(w.week, per)));
     const kiesbaar = !!kies && tol + gr > 0;
     const vlak = s("rect", {
       x: m.l + i * kolom, y: m.t, width: kolom, height: bh, fill: "transparent", tabindex: 0,
       ...(kiesbaar ? { class: "kiesbaar", role: "button" } : {}),
-      "aria-label": `Week van ${datumKort(d)}: ${tol} buiten tolerantie, ${gr} buiten grens${kiesbaar ? ". Kies voor de lijst" : ""}`,
+      "aria-label": `${perTekst(w.week, per)}: ${tol} buiten tolerantie, ${gr} buiten grens${kiesbaar ? ". Kies voor de lijst" : ""}`,
     });
     if (kiesbaar) {
       const kiesDeze = () => {
@@ -102,7 +103,7 @@ export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void)
       const kader = kaderEl.getBoundingClientRect();
       const px = ev instanceof MouseEvent ? ev.clientX - kader.left : ((x + breedte) / B) * kader.width;
       const py = ev instanceof MouseEvent ? ev.clientY - kader.top : (y(gr + tol) / H) * kader.height;
-      tip.toon(px, py, [h("strong", {}, `Week van ${datumKort(d)}`), `${tol} buiten tolerantie`, `${gr} buiten grens`, `${w.waarden} metingen`], kader);
+      tip.toon(px, py, [h("strong", {}, perTekst(w.week, per)), `${tol} buiten tolerantie`, `${gr} buiten grens`, `${w.waarden} metingen`], kader);
     };
     vlak.addEventListener("mousemove", toon);
     vlak.addEventListener("focus", toon);
@@ -315,7 +316,7 @@ export function liggendeStaven(rijen: { label: string; delen: Deel[]; tip: strin
 }
 
 /** Staande staven, één reeks (geen legenda nodig: de titel noemt de reeks). */
-export function staven(punten: { week: string; waarde: number; tip: string[] }[], naam: string): HTMLElement {
+export function staven(punten: { week: string; waarde: number; tip: string[] }[], naam: string, per: Per = "week"): HTMLElement {
   const B = 760, H = 220, m = { l: 40, r: 12, t: 12, b: 30 };
   const bw = B - m.l - m.r, bh = H - m.t - m.b;
   const max = Math.max(1, ...punten.map((p) => p.waarde));
@@ -332,7 +333,7 @@ export function staven(punten: { week: string; waarde: number; tip: string[] }[]
   punten.forEach((p, i) => {
     const x = m.l + i * kolom + (kolom - breedte) / 2;
     if (p.waarde > 0) svg.append(s("path", { class: "reeks-1", d: staafPad(x, Y(p.waarde), breedte, Y(0) - Y(p.waarde), true) }));
-    if (punten.length <= 14 || i % 2 === 0) svg.append(s("text", { x: x + breedte / 2, y: H - 10, "text-anchor": "middle", class: "as-tekst" }, datumKort(new Date(p.week))));
+    if (i % Math.ceil(punten.length / 14) === 0) svg.append(s("text", { x: x + breedte / 2, y: H - 10, "text-anchor": "middle", class: "as-tekst" }, perAs(p.week, per)));
     const vlak = s("rect", { x: m.l + i * kolom, y: m.t, width: kolom, height: bh, fill: "transparent", tabindex: 0, "aria-label": p.tip.join(", ") });
     const toon = (ev: MouseEvent | FocusEvent) => {
       const kader = kaderEl.getBoundingClientRect();

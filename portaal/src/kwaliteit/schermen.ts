@@ -7,6 +7,7 @@ import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
 import { ApiFout, gekozenProduct, haal, periode, PERIODES, qs, sessie, stuur } from "../basis";
 import { afwijkingenPerWeek, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
+import { aanvullen, perTekst, perWoord, resolutie, RESOLUTIES, volgende, type Per } from "../resolutie";
 
 // ---------- kleine bouwstenen ----------
 export const label = (m: Markering) => h("span", { class: `label label-${m}` }, markeringTekst[m]);
@@ -19,12 +20,19 @@ export function kop(titel: string, sub?: string | Node | null, ...rechts: (Node 
 }
 
 /** Periodekeuze; met een gekozen product (D55) staat dat erachter, zodat je ziet waarover de cijfers gaan. */
-export function periodeKeuze(opnieuw: () => void, metProduct = true) {
+/** Filterrij boven een analyse: periode, bij grafieken met tijd ook per dag, week of maand (#58), en het gekozen product. */
+export function periodeKeuze(opnieuw: () => void, metProduct = true, metPer = false) {
   const sel = h("select", { id: "periode", onchange: (e: Event) => { periode.id = (e.target as HTMLSelectElement).value; opnieuw(); } },
     PERIODES.map((p) => h("option", { value: p.id, selected: p.id === periode.id }, p.naam))) as HTMLSelectElement;
   const label = h("label", { for: "periode", class: "filter" }, "Periode", sel);
-  if (!metProduct || !gekozenProduct.code) return label;
-  return h("div", { class: "filter-groep" }, label, h("span", { class: "filter-product" }, "Product ", h("strong", {}, gekozenProduct.code)));
+  const perSel = metPer
+    ? h("label", { for: "per", class: "filter" }, "Groeperen",
+        h("select", { id: "per", onchange: (e: Event) => { resolutie.per = (e.target as HTMLSelectElement).value as Per; opnieuw(); } },
+          RESOLUTIES.map((r) => h("option", { value: r.id, selected: r.id === resolutie.per }, r.naam))))
+    : null;
+  const product = metProduct && gekozenProduct.code ? h("span", { class: "filter-product" }, "Product ", h("strong", {}, gekozenProduct.code)) : null;
+  if (!perSel && !product) return label;
+  return h("div", { class: "filter-groep" }, label, perSel, product);
 }
 
 export function tabel(koppen: string[], rijen: (Node | string | number | null)[][], klasse = "") {
@@ -108,17 +116,17 @@ export async function overzicht() {
   const actueel = vastHouden();
   toon(kop("Kwaliteit"), laden());
   let d: Samenvatting;
-  try { d = await haal<Samenvatting>(`/analyse/samenvatting${qs(periode.bereik())}`); } catch (e) { return fout(e); }
+  const per = resolutie.per;
+  try { d = await haal<Samenvatting>(`/analyse/samenvatting${qs({ ...periode.bereik(), per })}`); } catch (e) { return fout(e); }
   if (!actueel()) return;
+  const groepen = aanvullen(d.per_week, per, periode.bereik().van, (week) => ({ week, waarden: 0, buiten_tolerantie: 0, buiten_grens: 0 }));
   const afwijkend = d.buiten_tolerantie + d.buiten_grens;
   const pct = d.waarden ? (afwijkend / d.waarden) * 100 : 0;
-  // #59: klik op een week in de grafiek, dan staan de afwijkingen van die week eronder.
+  // #59: klik op een week (of dag of maand) in de grafiek, dan staan de afwijkingen daarvan eronder.
   const weekLijst = h("div", { class: "week-lijst", "aria-live": "polite" });
   const toonWeek = async (week: string) => {
     const bereik = periode.bereik();
-    const tot = new Date(`${week}T12:00:00`);
-    tot.setDate(tot.getDate() + 7);
-    const totIso = `${tot.getFullYear()}-${String(tot.getMonth() + 1).padStart(2, "0")}-${String(tot.getDate()).padStart(2, "0")}`;
+    const totIso = volgende(week, per);
     const van = bereik.van && bereik.van > week ? bereik.van : week;
     weekLijst.replaceChildren(laden());
     let rijen: Afwijking[];
@@ -126,17 +134,17 @@ export async function overzicht() {
       weekLijst.replaceChildren(h("p", { class: "leeg" }, `De lijst kon niet worden geladen: ${e instanceof Error ? e.message : String(e)}`)); return;
     }
     if (!actueel()) return;
-    const titel = `Afwijkingen in de week van ${new Date(`${week}T12:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}`;
+    const titel = `Afwijkingen: ${perTekst(week, per, false)}`;
     weekLijst.replaceChildren(...([
       h("h3", {}, titel),
       afgekapt(rijen.length, 500, "afwijkende metingen"),
-      rijen.length ? afwijkingTabel(rijen) : h("p", { class: "leeg" }, "Geen afwijkingen in deze week."),
+      rijen.length ? afwijkingTabel(rijen) : h("p", { class: "leeg" }, "Geen afwijkingen in deze periode."),
     ] as (Node | null)[]).filter((x): x is Node => x !== null));
   };
   const tegel = (getal: number | string, tekst: string, link?: string, nadruk = false) =>
     h(link ? "a" : "div", { class: nadruk ? "tegel nadruk" : "tegel", href: link }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst));
   toon(
-    kop("Kwaliteit", `Afwijkingen, beoordelingen en herbewerkingen, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}.`, periodeKeuze(overzicht)),
+    kop("Kwaliteit", `Afwijkingen, beoordelingen en herbewerkingen, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}.`, periodeKeuze(overzicht, true, true)),
     h("div", { class: "tegels" },
       tegel(d.te_beoordelen, d.te_beoordelen === 1 ? "batch wacht op keurresultaat" : "batches wachten op keurresultaat", "#/kwaliteit/beoordelen", d.te_beoordelen > 0),
       tegel(afwijkend, `afwijkende metingen (${pct.toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%)`, "#/kwaliteit/afwijkingen"),
@@ -145,9 +153,9 @@ export async function overzicht() {
       tegel(d.lots, "lots gemaakt", "#/kwaliteit/lotpaspoort"),
     ),
     h("section", { class: "blok" },
-      h("h2", {}, "Afwijkingen per week"),
-      d.per_week.some((w) => w.buiten_grens + w.buiten_tolerantie > 0)
-        ? [h("p", { class: "sub" }, "Klik op een staaf voor de afwijkingen van die week."), afwijkingenPerWeek(d.per_week, (week) => void toonWeek(week)), weekLijst]
+      h("h2", {}, `Afwijkingen ${perWoord(per)}`),
+      groepen.some((w) => w.buiten_grens + w.buiten_tolerantie > 0)
+        ? [h("p", { class: "sub" }, `Klik op een staaf voor de afwijkingen van die ${per}.`), afwijkingenPerWeek(groepen, (week) => void toonWeek(week), per), weekLijst]
         : h("p", { class: "leeg" }, "Geen afwijkingen in deze periode.")),
     h("section", { class: "blok" },
       h("h2", {}, "Velden met de meeste afwijkingen"),
