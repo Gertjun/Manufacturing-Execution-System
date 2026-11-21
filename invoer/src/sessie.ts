@@ -90,7 +90,14 @@ export const sessie = {
     if (!t) return null;
     try {
       const i = JSON.parse(decodeURIComponent(escape(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")))));
-      return i.exp * 1000 > Date.now() + 15 * 60 * 1000 && (i.rol === "operator" || i.rol === "ploegleider" || i.rol === "kwaliteit") ? t : null;
+      // Kwaliteit alleen als ze net op de startpagina voor het invoerscherm koos (de lab-pc, D58). Anders zou een
+      // pc waarop iemand van Kwaliteit in een portaal werkt, het invoerscherm ongevraagd als Kwaliteit openen.
+      // De keuze geldt één keer, voor elke rol, zodat hij niet blijft liggen voor een volgende inlog.
+      const gekozen = Number(lees("invoer.vanStart") ?? 0);
+      schrijf("invoer.vanStart", null);
+      if (i.exp * 1000 <= Date.now() + 15 * 60 * 1000) return null;
+      if (i.rol === "operator" || i.rol === "ploegleider") return t;
+      return i.rol === "kwaliteit" && Date.now() - gekozen < 2 * 60 * 1000 ? t : null;
     } catch {
       return null;
     }

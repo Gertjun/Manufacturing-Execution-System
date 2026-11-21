@@ -5,6 +5,10 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.37.1 — 21 november 2026
+- Verbeterd: het invoerscherm neemt de inlog van **Kwaliteit** uit de portalen alleen over als Kwaliteit op de startpagina zelf de tegel "Invoerscherm" kiest. Daarvoor opende een pc waarop iemand van Kwaliteit in een portaal werkte het invoerscherm ongevraagd als Kwaliteit. Operators en ploegleiders gaan zoals voorheen.
+- 0.37.0 heeft geen GitHub Release gekregen: een schermtest van de browserdemo faalde daarop. Deze versie bevat alles van 0.37.0.
+
 ## 0.37.0 — 21 november 2026 · #64 #71
 - Nieuw: **metingen van Kwaliteit en keuring**. Per veld staat nu wie meet: de operator (Productie) of Kwaliteit. In te stellen bij Beheer → Stappen en velden ("Wie meet") of met de kolom "Gemeten door" in het Excel-sjabloon. In de fictieve testdata meet Kwaliteit het vochtgehalte S18.3.
 - Een stap met velden van Kwaliteit: de operator vult zijn eigen velden in en rondt af. Daarna **wacht de batch of het lot op Kwaliteit** en kan nog niet verder. Het invoerscherm laat dat bij de stap zien ("Wacht op Kwaliteit").

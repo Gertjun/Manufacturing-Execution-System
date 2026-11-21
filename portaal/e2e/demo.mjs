@@ -25,7 +25,7 @@ await port.getByLabel("Gebruikersnaam").fill("kwaliteit1");
 await port.getByLabel("Wachtwoord").fill("demo");
 await port.getByRole("button", { name: "Inloggen" }).click();
 await port.locator(".startpagina").waitFor({ timeout: 20000 });
-check((await port.locator(".starttegel").count()) === 2, "startpagina met Kwaliteit en Wandscherm voor kwaliteit1");
+check((await port.locator(".starttegel").count()) === 3, "startpagina met Kwaliteit, Invoerscherm en Wandscherm voor kwaliteit1");
 await port.locator(".starttegel-kwaliteit").click();
 await port.getByText("te beoordelen", { exact: false }).first().waitFor({ timeout: 20000 });
 await p.waitForTimeout(800);

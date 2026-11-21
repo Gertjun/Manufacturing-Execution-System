@@ -200,6 +200,23 @@ try {
   await page.goto(`${BASIS}/invoer/`);
   await page.getByLabel("Gebruikersnaam").waitFor();
   check("Afmelden in de portalen meldt ook het invoerscherm af", true);
+
+  console.log("\nKwaliteit: invoerscherm alleen via de tegel (lab-pc, D58)");
+  await page.goto(`${BASIS}/portaal/#/login`);
+  await page.getByLabel("Gebruikersnaam").fill("kwaliteit1");
+  await page.getByLabel("Wachtwoord").fill("demo");
+  await page.getByRole("button", { name: "Inloggen" }).click();
+  await page.locator(".startpagina").waitFor();
+  await page.goto(`${BASIS}/invoer/`);
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  check("Zonder de tegel neemt het invoerscherm de inlog van Kwaliteit niet over", true);
+  await page.goto(`${BASIS}/`);
+  await page.locator(".starttegel-invoer").click();
+  const pcKeuze = page.getByRole("button", { name: /^PC-03/ });
+  await Promise.race([pcKeuze.waitFor(), page.locator(".balk-eigen-naam").waitFor()]);
+  if (await pcKeuze.isVisible()) await pcKeuze.click();
+  await page.locator(".balk-eigen-naam").waitFor();
+  check("Via de tegel: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

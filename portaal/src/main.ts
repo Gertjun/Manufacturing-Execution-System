@@ -123,7 +123,11 @@ function startScherm() {
     h("div", { class: "kop" }, h("div", {}, h("h1", {}, `Welkom, ${sessie.naam}`), h("p", { class: "sub" }, "Kies waar je wilt werken."))),
     tegels.length
       ? h("ul", { class: "startpagina" }, tegels.map((t) =>
-          h("li", {}, h("a", { class: `starttegel starttegel-${t.id}`, href: t.href }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
+          h("li", {}, h("a", {
+            class: `starttegel starttegel-${t.id}`, href: t.href,
+            // Kwaliteit neemt de inlog alleen mee als ze zelf voor het invoerscherm kiest (lab-pc, D58); zie invoer/src/sessie.ts.
+            onclick: t.id === "invoer" ? () => { try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ } } : undefined,
+          }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
       : h("p", { class: "leeg" }, "Voor jouw rol is (nog) geen portaal beschikbaar. Vraag de beheerder om een andere rol."),
   );
 }

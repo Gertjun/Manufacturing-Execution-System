@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.37.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.37.1**. Dit blok wordt aan het eind van elke sessie overschreven.
 
 - **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Het wandscherm per stap (0.36.0, #54) en de metingen van Kwaliteit met keuring (0.37.0, #64, D58) zijn gebouwd; daarmee is fase A2 gebouwd, op #55 (later) na. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.37.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.37.1 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.37.0, 21 november 2026):** geslaagd: databaseregels (211), API, migraties (tot en met 22), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de keuring door Kwaliteit (operator rondt af zonder de meting van Kwaliteit, de stap wacht, Kwaliteit meet en geeft vrij op de lab-pc via de wachtrij, herbewerken en afkeuren in de databaseregels) en "Wie meet" in Beheer en het sjabloon. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
+- **Laatste testronde (0.37.1, 21 november 2026):** geslaagd: databaseregels (211), API, migraties (tot en met 22), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de keuring door Kwaliteit (operator rondt af zonder de meting van Kwaliteit, de stap wacht, Kwaliteit meet en geeft vrij op de lab-pc via de wachtrij, herbewerken en afkeuren in de databaseregels) en "Wie meet" in Beheer en het sjabloon. Ook getest: het invoerscherm neemt de inlog van Kwaliteit alleen over via de tegel op de startpagina. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
