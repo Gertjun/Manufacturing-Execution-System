@@ -298,12 +298,12 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 .wand-cijfer.let-op .wand-getal { color: var(--wand-let-op); }
 .wand-klok { display: grid; justify-items: end; color: var(--wand-zacht); }
 .wand-storing { color: var(--wand-bg); background: var(--wand-let-op); font-weight: 700; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); }
-.wand-raster { display: grid; grid-template-columns: repeat(6, 1fr); gap: .8vw; flex: 1; align-content: start; }
-.wand-stap { background: var(--wand-vlak); border: 2px solid var(--wand-rand); border-radius: var(--radius-md); padding: .7em .8em; display: grid; grid-template-rows: auto 1fr; gap: .4em; min-height: 12em; }
+.wand-raster { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .8vw; flex: 1; align-content: start; }
+.wand-stap { min-width: 0; background: var(--wand-vlak); border: 2px solid var(--wand-rand); border-radius: var(--radius-md); padding: .7em .8em; display: grid; grid-template-rows: auto 1fr; gap: .4em; min-height: 12em; }
 .wand-stap-actief { border-color: var(--wand-actief); }
 .wand-stap-leeg { background: var(--wand-vlak-leeg); border-color: var(--wand-rand-leeg); }
 .wand-stap-leeg .wand-code, .wand-stap-leeg .wand-naam { color: var(--wand-leeg); }
-.wand-stap-kop { display: flex; gap: .5em; align-items: baseline; }
+.wand-stap-kop { display: flex; flex-wrap: wrap; gap: 0 .5em; align-items: baseline; min-width: 0; }
 .wand-code { font-size: 1.8em; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .wand-naam { font-weight: 700; flex: 1; color: var(--wand-tekst-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wand-voortgang { color: var(--ok-op-donker); font-weight: 700; white-space: nowrap; }
@@ -328,7 +328,7 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 .wand-hallen { display: flex; gap: 1em; }
 .wand-hallen a { color: var(--wand-tekst-3); }
 .wand-hallen a[aria-current="page"] { color: var(--op-kleur); font-weight: 700; }
-@media (max-width: 1100px) { .wand-raster { grid-template-columns: repeat(3, 1fr); } .wand-kop { grid-template-columns: 1fr; } .wand-klok { justify-items: start; } }
+@media (max-width: 1100px) { .wand-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); } .wand-kop { grid-template-columns: 1fr; } .wand-klok { justify-items: start; } }
 .keuze-raster { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-4); max-height: 55vh; overflow-y: auto; margin-bottom: var(--space-2); }
 .keuze-raster label { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
 .keuze-raster select { font: inherit; padding: var(--space-1) var(--space-1); }

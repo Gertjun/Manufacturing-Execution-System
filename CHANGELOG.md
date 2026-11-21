@@ -5,6 +5,10 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.45.1 — 21 november 2026
+- Opgelost: het wandscherm kon op een liggende tablet net iets breder worden dan het scherm, als een stapnaam en de teller niet naast elkaar pasten. De teller gaat dan naar de volgende regel. Op de tv verandert niets.
+- Versie 0.45.0 heeft daardoor geen release op GitHub (de nieuwe schermtest in zes formaten faalde daar); neem 0.45.1.
+
 ## 0.45.0 — 21 november 2026 · #47
 - Afgerond: **alle schermen werken op telefoon en tablet**, staand en liggend (#47, D64; samen met 0.43.0 en 0.44.0).
   - Stappen en velden (Beheer) en Per stap (Planning): op een telefoon staat een keuzelijst met de stappen in plaats van de lange lijst links.
