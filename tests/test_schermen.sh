@@ -40,7 +40,7 @@ draai invoer flow.mjs
 
 # Portalen op maanden testdata. Deze tests veranderen de gegevens; in deze volgorde passen ze bij elkaar.
 testdata
-for t in portaal productie wandscherm grondstoffen meldingen certificaat regelkaarten excel hulp nalevering; do
+for t in formaten portaal productie wandscherm grondstoffen meldingen certificaat regelkaarten excel hulp nalevering; do
   draai portaal "$t.mjs"
 done
 # Beheer en planning zetten zelf hun database klaar.

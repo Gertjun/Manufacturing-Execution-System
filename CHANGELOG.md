@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.45.0 — 21 november 2026 · #47
+- Afgerond: **alle schermen werken op telefoon en tablet**, staand en liggend (#47, D64; samen met 0.43.0 en 0.44.0).
+  - Stappen en velden (Beheer) en Per stap (Planning): op een telefoon staat een keuzelijst met de stappen in plaats van de lange lijst links.
+  - Batch- en lotnummers breken nergens meer af bij het streepje, in het invoerscherm en in de portalen.
+  - Tablet staand: geen lege donkere strook meer onder het menu op korte pagina's.
+- Nieuwe schermtest: alle 44 portaalpagina's en 8 schermen van het invoerscherm in zes formaten (telefoon staand en liggend, tablet staand en liggend, laptop, pc). De test controleert dat niets breder is dan het scherm, dat tabellen op een telefoon kaartjes zijn en dat de navigatie op de goede plek staat. Hij draait ook op GitHub.
+- Praktijktests: A6 (telefoon) en A7 (tablet) toegevoegd.
+
 ## 0.44.0 — 21 november 2026
 - Nieuw: **de portalen werken op een telefoon en een tablet**, staand en liggend (tweede deel van #47, D64).
   - Telefoon: tabellen worden kaartjes. Elke regel is een kaart met de kolomnaam voor elke waarde, zodat je niet opzij hoeft te schuiven. Batchroute en Dagoverzicht blijven een raster dat opzij schuift.

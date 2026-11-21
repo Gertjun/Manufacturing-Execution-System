@@ -22,6 +22,7 @@ p { margin: 0 0 var(--space-2); max-width: 75ch; }
 a { color: var(--actie); }
 :focus-visible { outline: 3px solid var(--actie); outline-offset: 2px; }
 .getal { font-variant-numeric: tabular-nums; }
+.nummer { white-space: nowrap; }
 .sub { color: var(--inkt-zacht); }
 .sterk { font-weight: 700; }
 .noot { color: var(--inkt-zacht); font-size: .85em; }
@@ -603,11 +604,15 @@ a.merk:hover { text-decoration: underline; }
 .filter-vink { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--doel-min); cursor: pointer; }
 .filter-vink input { width: 20px; height: 20px; margin: 0; }
 
+/* Keuzelijst in plaats van de stappenlijst, alleen op een staande telefoon (stappenkeuze.ts). */
+.stappenkeuze { display: none; }
+
 /* ---------- Schermformaten (D64) ----------
    Breed: menu links. Tot 900 px: menu dicht achter een knop (#44). Middel (tablet staand): zijmarge 24 px.
    Smal (telefoon staand): zijmarge 16 px, open menu als paneel over het hele scherm, kop onder elkaar,
    tabellen als kaartjes. Laag (telefoon liggend): het menu scrolt mee weg. */
 @media screen and (max-width: 900px) {
+  .indeling { grid-template-rows: auto 1fr; }
   #menu { padding: max(var(--space-3), env(safe-area-inset-top)) max(var(--space-3), env(safe-area-inset-right)) var(--space-3) max(var(--space-3), env(safe-area-inset-left)); }
   #scherm { padding: var(--space-4) max(var(--marge-middel), env(safe-area-inset-right)) calc(var(--space-7) + env(safe-area-inset-bottom)) max(var(--marge-middel), env(safe-area-inset-left)); }
 }
@@ -631,18 +636,22 @@ a.merk:hover { text-decoration: underline; }
   .filter.breed input { width: 100%; }
 
   /* Tabellen als kaartjes: elke regel een kaart, elke cel "kop: waarde". */
+  .stappenkeuze { display: grid; margin-bottom: var(--space-3); }
+  .stappenkeuze select { width: 100%; }
+  nav.stappenlijst { display: none; }
   .tabel.kaartjes thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .tabel.kaartjes, .tabel.kaartjes tbody { display: block; }
   .tabel.kaartjes tr { display: block; padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--lijn); }
   .tabel.kaartjes tbody tr:hover { background: none; }
-  .tabel.kaartjes td { display: grid; grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr); gap: var(--space-3); align-items: baseline;
-    padding: var(--space-1) 0; border: 0; text-align: left; white-space: normal; }
-  .tabel.kaartjes td::before { content: attr(data-kop); font-size: var(--text-sm); color: var(--inkt-zacht); font-weight: 700; }
-  .tabel.kaartjes td:not([data-kop]) { grid-template-columns: minmax(0, 1fr); }
+  /* De kolomnaam staat links in de cel; de inhoud loopt als gewone tekst rechts ervan door. */
+  .tabel.kaartjes td { display: block; position: relative; padding: var(--space-1) 0 var(--space-1) 40%; border: 0; text-align: left; white-space: normal; min-height: 1.5em; }
+  .tabel.kaartjes td::before { content: attr(data-kop); position: absolute; left: 0; top: var(--space-1); width: calc(40% - var(--space-3));
+    font-size: var(--text-sm); color: var(--inkt-zacht); font-weight: 700; line-height: 1.5; }
+  .tabel.kaartjes td:not([data-kop]) { padding-left: 0; }
   .tabel.kaartjes td:not([data-kop])::before { content: none; }
   .tabel.kaartjes td:empty { display: none; }
   .tabel.kaartjes td .getal { text-align: left; }
-  .tabel.kaartjes td:first-child { padding-left: 0; font-weight: 700; }
+  .tabel.kaartjes td:first-child { font-weight: 700; }
   .tabel.kaartjes td:last-child { padding-right: 0; }
   .tabel.kaartjes .knoppen-klein { justify-content: flex-start; }
   .tabel-kader:has(.tabel.kaartjes) { overflow-x: visible; }

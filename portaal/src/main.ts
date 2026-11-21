@@ -10,6 +10,8 @@ import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import { stopWandscherm, wandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
+import { volgStappenlijsten } from "./stappenkeuze";
+import { volgNummers } from "../../gedeeld/nummers";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 import { etikettenScherm } from "./etiketten";
 import { certificaat } from "./kwaliteit/certificaat";
@@ -313,6 +315,8 @@ async function route() {
 }
 
 volgExcelKnoppen(document.getElementById("scherm")!);
+volgStappenlijsten(document.getElementById("scherm")!);
+volgNummers(document.getElementById("scherm")!);
 window.addEventListener("hashchange", () => void route());
 // Bij afdrukken (lotpaspoort) alles uitklappen.
 window.addEventListener("beforeprint", () => document.querySelectorAll("details").forEach((d) => (d.open = true)));

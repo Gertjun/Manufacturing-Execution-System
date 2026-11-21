@@ -13,6 +13,7 @@ import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./sc
 import { startScanner, wisScanActie } from "./scan";
 import { hulpScherm, wachtwoordWijzigen } from "./schermen/hulp";
 import { vraagIetsMelden } from "../../gedeeld/melden";
+import { volgNummers } from "../../gedeeld/nummers";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -86,6 +87,8 @@ function tekenBalk() {
     h("button", { type: "button", onclick: () => void afmelden() }, "Afmelden"),
   ]);
 }
+
+volgNummers(document.getElementById("scherm")!);
 
 // Het paneel "Meer" sluit bij een tik ernaast.
 document.addEventListener("click", (e) => {
