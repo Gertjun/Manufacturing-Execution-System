@@ -41,9 +41,16 @@ export function tabel(koppen: string[], rijen: (Node | string | number | null)[]
     const gevuld = rijen.map((r) => r[k]).filter((c) => c !== null && c !== "" && !(c instanceof Node && !c.textContent?.trim()));
     return gevuld.length > 0 && gevuld.every(isGetal);
   });
+  // Korte waarden (datum, batchnummer, veld, grenzen) breken niet over twee regels; lange tekst zoals een reden wel (0.42.1).
+  const kort = koppen.map((_, k) => rijen.every((r) => {
+    const c = r[k];
+    if (c instanceof Element && c.querySelector("button, select, input")) return false;
+    return ((c instanceof Node ? c.textContent : c === null ? "" : String(c)) ?? "").trim().length <= 13;
+  }));
+  const klas = (i: number) => [rechts[i] ? "rechts" : "", kort[i] ? "kort" : ""].filter(Boolean).join(" ") || undefined;
   const t = h("table", { class: `tabel ${klasse}` },
     h("thead", {}, h("tr", {}, koppen.map((k, i) => h("th", { scope: "col", class: rechts[i] ? "rechts" : undefined }, k)))),
-    h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c, i) => h("td", { class: rechts[i] ? "rechts" : undefined }, c ?? "")))))) as HTMLTableElement;
+    h("tbody", {}, rijen.map((r) => h("tr", {}, r.map((c, i) => h("td", { class: klas(i) }, c ?? "")))))) as HTMLTableElement;
   // Elke tabel kan naar Excel; de naam komt van de dichtstbijzijnde kop (blok of pagina).
   const knop = h("button", {
     class: "knop knop-klein knop-stil excel-knop", type: "button",

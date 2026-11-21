@@ -231,10 +231,11 @@ export function hulpVoor(rol: Rol | null | undefined): Hulp {
 }
 
 /** De hulp als blok; afdrukken geeft één A4 (gedeeld/hulp.css). */
-export function hulpBlad(rol: Rol | null | undefined, versie: string): HTMLElement {
+/** Met keuze: knoppen of een rolkeuze rechts naast de titel, zoals de kop van andere schermen (niet afgedrukt). */
+export function hulpBlad(rol: Rol | null | undefined, versie: string, keuze?: Node): HTMLElement {
   const hp = hulpVoor(rol);
   return h("article", { class: "hulp" },
-    h("h1", {}, hp.titel),
+    h("div", { class: "hulp-kop" }, h("h1", {}, hp.titel), keuze ?? null),
     h("p", { class: "hulp-voor" }, hp.voor),
     hp.delen.map((d) => h("section", { class: "hulp-deel" }, h("h2", {}, d.kop), h("ul", {}, d.punten.map((p) => h("li", {}, p))))),
     h("p", { class: "hulp-voet" }, `Batch input GUI, versie ${versie}. Klopt iets niet of kan het beter? Druk op "Iets melden" in het scherm.`));

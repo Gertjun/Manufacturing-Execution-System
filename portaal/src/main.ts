@@ -9,6 +9,7 @@ import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import { stopWandscherm, wandscherm } from "./wandscherm";
+import { volgExcelKnoppen } from "./excelplaats";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 import { etikettenScherm } from "./etiketten";
 import { certificaat } from "./kwaliteit/certificaat";
@@ -142,8 +143,9 @@ async function ietsMelden() {
 // ---------- Eigen wachtwoord (#76, D61) ----------
 /** Met tijdelijk: direct na een inlog met een tijdelijk wachtwoord. Zonder: zelf wijzigen vanuit het menu. */
 function wachtwoordScherm(tijdelijk?: { token: string; wachtwoord: string }) {
+  // Vanuit het menu een gewone pagina met kop; na een tijdelijk wachtwoord de smalle kolom van het inlogscherm.
   toon(
-    h("div", { class: "inlog" },
+    h("div", { class: tijdelijk ? "inlog" : "wachtwoord-pagina" },
       h("h1", {}, tijdelijk ? "Kies een eigen wachtwoord" : "Wachtwoord wijzigen"),
       h("p", { class: "sub" }, tijdelijk
         ? "Je hebt een tijdelijk wachtwoord van de beheerder gekregen. Kies nu een wachtwoord dat alleen jij weet; daarna ga je verder."
@@ -186,12 +188,9 @@ function hulpScherm(gekozen?: string) {
   const rol = (gekozen && HULP_ROLLEN.includes(gekozen as Rol) ? gekozen : eigen) as Rol;
   const keuze = h("select", { id: "hulp-rol", onchange: (e: Event) => { location.hash = `#/hulp/${(e.target as HTMLSelectElement).value}`; } },
     HULP_ROLLEN.map((r) => h("option", { value: r, selected: r === rol }, ((t) => t[0].toUpperCase() + t.slice(1))(hulpVoor(r).titel.replace(/^Hulp voor (de )?/, "")))));
-  toon(
-    h("div", { class: "hulp-keuze" },
-      h("label", { class: "filter", for: "hulp-rol" }, "Hulp voor", keuze),
-      h("button", { class: "knop", type: "button", onclick: () => window.print() }, "Afdrukken")),
-    hulpBlad(rol, VERSIE),
-  );
+  toon(hulpBlad(rol, VERSIE, h("div", { class: "hulp-keuze" },
+    h("label", { class: "filter", for: "hulp-rol" }, "Hulp voor", keuze),
+    h("button", { class: "knop", type: "button", onclick: () => window.print() }, "Afdrukken"))));
 }
 
 function volgtScherm(naam: string) {
@@ -313,6 +312,7 @@ async function route() {
   }
 }
 
+volgExcelKnoppen(document.getElementById("scherm")!);
 window.addEventListener("hashchange", () => void route());
 // Bij afdrukken (lotpaspoort) alles uitklappen.
 window.addEventListener("beforeprint", () => document.querySelectorAll("details").forEach((d) => (d.open = true)));

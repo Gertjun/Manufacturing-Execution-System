@@ -824,12 +824,16 @@ export async function pcs() {
 // ---------- Logboek ----------
 interface Regel { tabel: string; actie: string; oud: Record<string, unknown> | null; nieuw: Record<string, unknown> | null; extra: Record<string, string> | null; gewijzigd_door: string; gewijzigd_op: string }
 
-const ONDERDEEL: Record<string, string> = { processtap: "Stap", veld: "Veld", gebruiker: "Account", operator: "Operator", pc: "Pc", pc_stap: "Pc en stap", nalevering: "Nageleverd van papier" };
+const ONDERDEEL: Record<string, string> = { processtap: "Stap", veld: "Veld", gebruiker: "Account", operator: "Operator", pc: "Pc", pc_stap: "Pc en stap", nalevering: "Nageleverd van papier",
+  product: "Product", product_stap: "Productroute", veld_product: "Grenzen per product", grondstof: "Grondstof", stap_grondstof: "Grondstof bij stap",
+  capaciteit: "Capaciteit per weekdag", capaciteit_dag: "Afwijkende capaciteit", capaciteit_stap: "Capaciteit per stap",
+  ploeg: "Ploeg", stilstand_oorzaak: "Stilstandoorzaak", instelling: "Instelling" };
 const KOLOM: Record<string, string> = {
   gemeten_door: "wie meet", naam: "naam", eenheid: "eenheid", grens_min: "ondergrens", grens_max: "bovengrens", tolerantie: "tolerantie", tolerantie_soort: "tolerantie in", decimalen: "decimalen",
   verplicht: "verplicht", actief: "actief", rol: "rol", locatie: "locatie", volgnummer: "volgorde", soort: "soort",
-  wachtwoord_wijzigen: "tijdelijk wachtwoord",
+  wachtwoord_wijzigen: "tijdelijk wachtwoord", max_batches: "batches per dag", max_per_dag: "per dag", reden: "reden",
 };
+const WEEKDAG = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"];
 const toonWaarde = (v: unknown) => (v === null || v === undefined || v === "" ? "leeg" : typeof v === "boolean" ? jaNee(v) : String(v));
 
 function beschrijf(r: Regel): { onderwerp: string; wat: string } {
@@ -838,7 +842,7 @@ function beschrijf(r: Regel): { onderwerp: string; wat: string } {
     r.tabel === "pc_stap" ? `${r.extra?.pc ?? "?"}: ${r.extra?.stap ?? "?"}` :
     r.tabel === "veld" ? `${d.code} ${d.naam}` :
     r.tabel === "processtap" ? `${d.code}` :
-    String(d.gebruikersnaam ?? d.naam ?? "");
+    String(d.gebruikersnaam ?? d.naam ?? d.code ?? d.dag ?? d.sleutel ?? (d.weekdag ? WEEKDAG[Number(d.weekdag) - 1] : "") ?? "");
   if (r.tabel === "pc_stap") return { onderwerp, wat: r.actie === "INSERT" ? "Stap toegevoegd aan de pc" : "Stap van de pc gehaald" };
   // Nageleverd van papier (#75): stap, nummer, wie, pc en reden.
   if (r.tabel === "nalevering") return { onderwerp: `${d.stap} ${d.nummer}`, wat: `Van papier, ${d.operator} op ${d.pc}: ${d.reden}` };

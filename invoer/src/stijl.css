@@ -58,7 +58,7 @@ a { color: var(--actie); }
 /* ---------- Knoppen ---------- */
 .knop {
   font: inherit; font-weight: 700; min-height: calc(var(--doel-min) + var(--space-2)); padding: 0 var(--space-5); border-radius: var(--radius-sm);
-  border: 2px solid var(--inkt); background: var(--vlak); color: var(--inkt); cursor: pointer;
+  border: 2px solid var(--inkt); background: var(--vlak); color: var(--inkt); cursor: pointer; white-space: nowrap;
 }
 .knop:hover { background: var(--vlak-2); }
 .knop-hoofd { background: var(--actie); border-color: var(--actie); color: var(--op-kleur); }
@@ -137,6 +137,8 @@ input[type="text"], input[type="password"], select, textarea {
   border: 2px solid var(--inkt-zacht); border-radius: var(--radius-sm); background: var(--vlak); color: var(--inkt);
 }
 input.breed { width: 14em; }
+/* Een tekstvak vult de breedte van zijn formulier (0.42.1). */
+textarea { width: 100%; }
 input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .veld-fout { flex-basis: 100%; margin: 0; color: var(--grens); font-weight: 700; font-size: var(--text-sm); }
 .veld-fout:empty { display: none; }
@@ -222,7 +224,7 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .overdracht-vorm { display: grid; gap: var(--space-3); max-width: 720px; margin-top: var(--space-4); }
 .overdracht-vorm label { display: grid; gap: var(--space-1); font-weight: 700; }
 .overdracht-vorm .hint { font-weight: 400; color: var(--inkt-zacht); }
-.overdracht-vorm textarea { font: inherit; padding: var(--space-2) var(--space-3); border: 2px solid var(--inkt-zacht); border-radius: var(--radius-sm); resize: vertical; }
+.overdracht-vorm textarea { font: inherit; width: 100%; padding: var(--space-2) var(--space-3); border: 2px solid var(--inkt-zacht); border-radius: var(--radius-sm); resize: vertical; }
 .overdracht-vorm button { justify-self: start; }
 
 /* Meldingen (ploegleider) */

@@ -161,7 +161,7 @@ export async function perWeek() {
   const som = (k: keyof Week) => w.reduce((a, x) => a + (x[k] as number), 0);
   const weekTekst = (iso: string) => perTekst(iso, per);
   toon(
-    kop(`Productie ${perWoord(per)}`, undefined, periodeKeuze(perWeek, true, true)),
+    kop(`Productie ${perWoord(per)}`, `Hoeveel batches er ${perWoord(per)} zijn gestart en klaar gekomen, en hoeveel lots er gereed zijn.`, periodeKeuze(perWeek, true, true)),
     h("div", { class: "tegels" },
       ...([["batches_gestart", "batches gestart"], ["batches_klaar", "batches klaar voor een lot"], ["lots_gereed", "lots gereed"], ["afgekeurd", "batches afgekeurd"]] as [keyof Week, string][])
         .map(([k, t]) => h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, som(k)), h("span", { class: "tegel-tekst" }, t)))),

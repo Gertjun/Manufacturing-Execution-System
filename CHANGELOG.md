@@ -5,6 +5,20 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.42.1 — 21 november 2026
+- Verbeterd: **alle schermen nagelopen op vormgeving**, zodat ze er overal hetzelfde uitzien.
+  - "Naar Excel" staat nu altijd rechts in de kopregel van het blok (of van de pagina), naast de andere knoppen. Geen losse regel meer met alleen die knop.
+  - De paginatitel staat op elke pagina op dezelfde hoogte; knoppen en filters staan rechts ernaast op één regel en schuiven niet meer onder de uitleg (Accounts).
+  - Knopteksten breken niet meer over twee regels ("Per product"). In een smalle tabel gaan knoppen netjes onder elkaar in plaats van half buiten beeld (Stappen en velden).
+  - Korte waarden in tabellen (datum, batchnummer, grenzen) breken niet meer midden in het nummer; lange tekst zoals een reden wel. Tabellen hebben iets minder ruimte tussen de kolommen, zodat Afwijkingen weer in één keer past.
+  - Brede tabellen (Batchroute, Stappen en velden) schuiven binnen hun eigen vak opzij; de pagina zelf wordt niet meer breder dan het scherm.
+  - De tegels op de startpagina zijn even hoog.
+  - Hulp: de titel staat bovenaan, met de rolkeuze en Afdrukken rechts ernaast (portalen en invoerscherm).
+  - Wachtwoord wijzigen vanuit het menu is een gewone pagina met de titel op de vaste plek.
+  - Invoerscherm, Overdracht: de tekstvakken zijn weer zo breed als het formulier (sinds 0.42.0 waren ze smal).
+  - Productie per week heeft een korte uitleg onder de titel, zoals de andere analyses.
+  - Logboek: ook wijzigingen aan producten, routes, grenzen per product, grondstoffen, capaciteit, ploegen, stilstandoorzaken en instellingen hebben een leesbare naam (eerst stond er bijvoorbeeld "capaciteit_dag"), en zijn te kiezen in het filter.
+
 ## 0.42.0 — 21 november 2026 · #78
 - Nieuw: **"Iets melden"** (#78). In het invoerscherm staat de knop in de balk, in de portalen onderaan het menu. Je typt kort wat er misgaat of wat beter kan; je naam, de tijd, de pc en de stap of het scherm gaan vanzelf mee. In het invoerscherm werkt het ook zonder verbinding: de melding gaat via de wachtrij mee zodra er weer verbinding is.
 - Nieuw: **Beheer → Opmerkingen**, met een teller in het menu. De beheerder ziet wat er gemeld is, nieuwste eerst, en handelt het af met een notitie (bijvoorbeeld het roadmapnummer). Met "Ook afgehandelde" zie je alles terug. Naar Excel kan.

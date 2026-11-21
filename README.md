@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.42.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.42.1**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd; daarna #31, #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63); daarna #31, #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.42.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.42.1 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1.
-- **Laatste testronde (0.42.0, 21 november 2026):** geslaagd: databaseregels (236), API, migraties (tot en met 26), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests met sjabloon, hulp en nainvoeren, browserdemo). Nieuw: "Iets melden" zonder verbinding in het invoerscherm (via de wachtrij), vanuit de portalen, en afhandelen bij Opmerkingen. Praktijktests zijn nog niet gedaan (#33).
+- **Laatste testronde (0.42.1, 21 november 2026):** geslaagd: databaseregels (236), API, migraties (tot en met 26), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests, hulp, nainvoeren, browserdemo). Daarnaast schermafdrukken van alle 57 schermen op 1440 breed nagekeken. Niet gedaan: kleinere schermen (tablet, 1280) en de pc's in de fabriek; praktijktests (#33) staan nog open.
 - **Gegevens:** alles fictief (D1).
 
 **Links**
