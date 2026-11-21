@@ -151,7 +151,7 @@ try {
   await page.locator(".tabel tbody tr").first().waitFor();
   check("Productkiezer onthouden bij een ander scherm", (await page.locator("#product-keuze").inputValue()) === "PRD-C");
   const rij92 = await page.locator(".tabel tbody tr", { hasText: "S9.2 Gewicht" }).innerText();
-  check("Regelkaarten met PRD-C: S9.2 heeft een Cpk", /\d,\d\d/.test(rij92) && !rij92.includes("kies een product"), rij92);
+  check("Regelkaarten met PRD-C: S9.2 heeft een Cpk", /\d,\d/.test(rij92) && !rij92.includes("kies een product"), rij92);
   await page.reload();
   await page.locator(".tabel tbody tr").first().waitFor();
   check("Ook na herladen nog PRD-C", (await page.locator("#product-keuze").inputValue()) === "PRD-C");

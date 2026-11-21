@@ -1169,7 +1169,9 @@ describe("Ploegoverdracht", () => {
     assert.equal(plan.body.gepland, items.length);
     assert.equal(plan.body.afgerond, items.filter((i: any) => i.status === "gedaan").length);
     assert.equal(plan.body.bezig, items.filter((i: any) => i.status === "bezig").length);
-    assert.ok(plan.body.gepland > 0, "testdata heeft planning voor vandaag");
+    // Tussen 00:00 en 06:00 is de lopende ploeg de nachtploeg van gisteren; de testdata plant voor vandaag.
+    const vandaagAmsterdam = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+    if (nu.body.dag === vandaagAmsterdam) assert.ok(plan.body.gepland > 0, "testdata heeft planning voor vandaag");
     // Analisten en Kwaliteit lezen, maar schrijven niet.
     assert.equal((await verzoek("POST", "/overdracht", await login("kwaliteit1"), { bijzonderheden: "x" })).status, 403);
   });

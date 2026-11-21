@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## Zonder nieuwe versie (na 0.45.1)
+- Tests rond middernacht: de testdata plant voor de dag in Amsterdam, ook als de tests op een server in UTC draaien (tussen 00:00 en 01:00 klopte "vandaag" anders niet). De API-test van de ploegoverdracht houdt rekening met de nachtploeg van gisteren (00:00–06:00). De regelkaarttest accepteert een Cpk met één decimaal ("1,2").
+
 ## 0.45.1 — 21 november 2026
 - Opgelost: het wandscherm kon op een liggende tablet net iets breder worden dan het scherm, als een stapnaam en de teller niet naast elkaar pasten. De teller gaat dan naar de volgende regel. Op de tv verandert niets.
 - Versie 0.45.0 heeft daardoor geen release op GitHub (de nieuwe schermtest in zes formaten faalde daar); neem 0.45.1.

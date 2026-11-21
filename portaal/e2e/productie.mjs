@@ -156,7 +156,7 @@ try {
   await page.getByRole("heading", { name: `Ploegoverdracht ${vandaagKop}` }).waitFor();
   check("Vandaag: de lopende ploeg is gemarkeerd", (await page.locator("section.ploeg-nu").count()) <= 1);
   // #62: hoeveel van de planning van vandaag klaar is, gelijk aan de database.
-  const [pl] = await q(`SELECT count(*)::int AS gepland FROM fabriek.stapplanning WHERE dag = current_date`);
+  const [pl] = await q(`SELECT count(*)::int AS gepland FROM fabriek.stapplanning WHERE dag = (now() AT TIME ZONE 'Europe/Amsterdam')::date`);
   const planTekst = await page.locator(".plan-stand").innerText();
   check("Ploegoverdracht: afgerond van gepland (#62)", pl.gepland > 0 && new RegExp(`\\d+ / ${pl.gepland} geplande stappen afgerond`).test(planTekst), `${pl.gepland}: ${planTekst}`);
   await shot("07b-overdracht-vandaag");

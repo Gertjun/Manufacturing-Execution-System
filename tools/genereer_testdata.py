@@ -383,7 +383,9 @@ while dag <= eind.date():
 # ---------- Planning vooruit ----------
 # Planner1 plant de komende 5 werkdagen, maakt lotvoorstellen voor wat klaarstaat
 # en zet voor vandaag per stap de volgorde.
-vandaag = dt.date.today()
+# De dag van de fabriek (Amsterdam), ook als dit script op een server in UTC draait (rond middernacht).
+from zoneinfo import ZoneInfo
+vandaag = dt.datetime.now(ZoneInfo("Europe/Amsterdam")).date()
 # Een dag met minder capaciteit (onderhoud) over een paar dagen; de planner heeft er toch 6 op gezet.
 con.execute("INSERT INTO capaciteit_dag (dag, max_batches, reden) VALUES (%s, 4, 'gepland onderhoud lijn 1')", (vandaag + dt.timedelta(days=3),))
 plan_dag, gepland_vooruit = vandaag, 0
