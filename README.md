@@ -24,7 +24,7 @@ Bijgewerkt: 21 november 2026 · versie **0.37.1**. Dit blok wordt aan het eind v
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
 - **Browserdemo:** versie 0.37.1 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
-- **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
+- **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1.
 - **Laatste testronde (0.37.1, 21 november 2026):** geslaagd: databaseregels (211), API, migraties (tot en met 22), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de keuring door Kwaliteit (operator rondt af zonder de meting van Kwaliteit, de stap wacht, Kwaliteit meet en geeft vrij op de lab-pc via de wachtrij, herbewerken en afkeuren in de databaseregels) en "Wie meet" in Beheer en het sjabloon. Ook getest: het invoerscherm neemt de inlog van Kwaliteit alleen over via de tegel op de startpagina. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
 - **Gegevens:** alles fictief (D1).
 
