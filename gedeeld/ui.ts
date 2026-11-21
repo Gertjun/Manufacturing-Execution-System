@@ -156,11 +156,13 @@ export interface VraagVeld {
   hint?: string;
   /** Extra controle; geeft een foutmelding terug of null. */
   controle?: (waarde: string) => string | null;
+  /** Hoogstens zoveel tekens (bij type "tekstvak": een vak van een paar regels). */
+  maxLengte?: number;
 }
 
 export function vraag(titel: string, velden: VraagVeld[], knop: string, uitleg?: string) {
   return new Promise<Record<string, string> | null>((ok) => {
-    const invoer: Record<string, HTMLInputElement | HTMLSelectElement> = {};
+    const invoer: Record<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> = {};
     const vorm = h(
       "form",
       { method: "dialog", class: "vraag" },
@@ -168,8 +170,11 @@ export function vraag(titel: string, velden: VraagVeld[], knop: string, uitleg?:
         const el = v.opties
           ? h("select", { id: `v-${v.naam}`, required: !v.optioneel },
               v.opties.map((o) => { const [w, t] = Array.isArray(o) ? o : [o, o]; return h("option", { value: w, selected: w === v.waarde }, t); }))
+          : v.type === "tekstvak"
+          ? h("textarea", { id: `v-${v.naam}`, rows: 4, required: !v.optioneel, maxlength: v.maxLengte })
           : h("input", { id: `v-${v.naam}`, type: v.type ?? "text", required: !v.optioneel, autocomplete: "off", inputmode: v.type === "getal" ? "decimal" : undefined });
         if (v.type === "getal") el.setAttribute("type", "text");
+        if (v.maxLengte && el instanceof HTMLInputElement) el.maxLength = v.maxLengte;
         if (v.waarde !== undefined && !v.opties) (el as HTMLInputElement).value = v.waarde;
         invoer[v.naam] = el;
         return h("label", { for: `v-${v.naam}` }, h("span", {}, v.label, v.optioneel ? h("span", { class: "noot" }, " (mag leeg)") : null), el,

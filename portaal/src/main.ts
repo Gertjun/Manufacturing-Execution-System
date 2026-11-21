@@ -2,6 +2,7 @@ import { VERSIE } from "../../gedeeld/versie";
 import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
+import { vraagIetsMelden } from "../../gedeeld/melden";
 import { ApiFout, haal, portalenVoor, PORTALEN, ONDERDELEN_MET_PRODUCT, gekozenProduct, producten, sessie, stuur, tegelsVoor } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
@@ -64,6 +65,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
       h("a", { href: "#/" }, "Startpagina"),
       h("a", { href: "#/hulp" }, "Hulp"),
       h("a", { href: "#/wachtwoord" }, "Wachtwoord wijzigen"),
+      h("button", { class: "knop-link", type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
       h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
   );
 }
@@ -121,6 +123,20 @@ function loginScherm() {
     testaccounts.replaceChildren(h("p", { class: "sub" }, "Testomgeving met fictieve gegevens. Testaccounts, wachtwoord steeds demo:"),
       h("table", { class: "tabel compact" }, h("tbody", {}, o.testaccounts.map((t) => h("tr", {}, h("td", {}, h("strong", {}, t.naam)), h("td", {}, t.wat))))));
   }).catch(() => {});
+}
+
+// ---------- Iets melden (#78, D62) ----------
+async function ietsMelden() {
+  const [, portaal, onderdeel] = location.hash.split("/");
+  const plek = [portaal, onderdeel].filter(Boolean).join(", ") || "startpagina";
+  const tekst = await vraagIetsMelden(plek);
+  if (!tekst) return;
+  try {
+    await stuur("POST", "/terugmeldingen", { id: crypto.randomUUID(), tekst, scherm: `portaal: ${plek}` });
+    melding("Bedankt, je melding is verstuurd", "ok");
+  } catch (e) {
+    melding((e as Error).message, "fout");
+  }
 }
 
 // ---------- Eigen wachtwoord (#76, D61) ----------
@@ -276,6 +292,7 @@ async function route() {
       case "bedrijf": return beheer.bedrijf();
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
+      case "opmerkingen": return beheer.opmerkingen();
       case "server": return beheer.server();
       default: return void (location.hash = "#/beheer");
     }

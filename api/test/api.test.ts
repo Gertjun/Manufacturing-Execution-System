@@ -622,6 +622,26 @@ describe("accounts met een tijdelijk wachtwoord (#76)", () => {
   });
 });
 
+describe("iets melden (#78)", () => {
+  test("iedereen meldt, één keer per id; de beheerder ziet en handelt af", async () => {
+    const a = await login("operator.a", "PC-01");
+    const id = randomUUID();
+    const body = { id, tekst: "Scanner piept niet bij PS3", stapcode: "PS3", scherm: "invoer: stap" };
+    assert.equal((await verzoek("POST", "/terugmeldingen", a, body)).status, 201);
+    assert.equal((await verzoek("POST", "/terugmeldingen", a, body)).status, 201, "opnieuw versturen mag");
+    assert.equal((await verzoek("GET", "/terugmeldingen", a)).status, 403);
+    const bh = await login("beheerder1");
+    const lijst = await verzoek("GET", "/terugmeldingen", bh);
+    const m = lijst.body.filter((t: any) => t.id === id);
+    assert.equal(m.length, 1);
+    assert.deepEqual([m[0].naam, m[0].pc, m[0].stapcode, m[0].status], ["Operator A", "PC-01", "PS3", "open"]);
+    assert.equal((await verzoek("POST", `/terugmeldingen/${id}/afhandelen`, bh, { notitie: "#80" })).status, 204);
+    assert.equal((await verzoek("GET", "/terugmeldingen", bh)).body.some((t: any) => t.id === id), false, "niet meer bij open");
+    const alle = await verzoek("GET", "/terugmeldingen?status=alle", bh);
+    assert.equal(alle.body.find((t: any) => t.id === id)?.notitie, "#80");
+  });
+});
+
 describe("grenzen per product (D55)", () => {
   test("beheerder zet eigen grenzen per product; analyses filteren op product", async () => {
     const beheer = await login("beheerder1");

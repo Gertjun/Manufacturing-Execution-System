@@ -69,7 +69,7 @@ a.tegel:hover { border-color: var(--actie); }
 .filters { display: flex; gap: var(--space-4); align-items: flex-end; flex-wrap: wrap; margin-bottom: var(--space-4); }
 .filter { display: grid; gap: var(--space-1); font-size: var(--text-sm); color: var(--inkt-zacht); }
 .filter.breed input { width: 28em; }
-select, input[type="text"], input[type="password"], input[type="number"], input[type="date"] {
+select, textarea, input[type="text"], input[type="password"], input[type="number"], input[type="date"] {
   font: inherit; color: var(--inkt); background: var(--vlak); border: 1.5px solid var(--inkt-zacht); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-2); min-height: var(--doel-min);
 }
 
@@ -137,7 +137,7 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
 .venster h2 { margin-top: 0; }
 .vraag { display: grid; gap: var(--space-3); }
 .vraag label { display: grid; gap: var(--space-1); }
-.vraag input, .vraag select { width: 100%; }
+.vraag input, .vraag select, .vraag textarea { width: 100%; }
 .melding { position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; background: var(--inkt); color: var(--op-kleur); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); font-weight: 700; transition: opacity .2s, transform .2s; }
 .melding.zichtbaar { opacity: 1; transform: translate(-50%, 0); }
 .melding.met-actie { pointer-events: auto; display: flex; align-items: center; gap: var(--space-4); }
@@ -580,6 +580,9 @@ a.merk:hover { text-decoration: underline; }
 
 /* Eigen wachtwoord kiezen (#76) */
 .wachtwoord-kiezen .hint { display: block; font-weight: 400; font-size: var(--text-sm); color: var(--inkt-zacht); }
-/* Knop die eruitziet als een link (terug naar een scherm op hetzelfde adres) */
+/* Knop die eruitziet als een link in de inhoud (terug naar een scherm op hetzelfde adres) */
 .link-knop { font: inherit; color: var(--actie); text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; }
 .link-knop:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Een vinkje met de tekst ernaast (bijvoorbeeld "Ook afgehandelde" bij Opmerkingen) */
+.filter-vink { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--doel-min); cursor: pointer; }
+.filter-vink input { width: 20px; height: 20px; margin: 0; }

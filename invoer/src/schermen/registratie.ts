@@ -31,6 +31,8 @@ export async function registratieScherm(id: string) {
     toon(h("h1", {}, "Registratie niet gevonden"), h("p", {}, (e as Error).message), h("a", { href: "#/stappen" }, "Terug naar de stappen"));
     return;
   }
+  // Voor "Iets melden" (#78): bij welke stap de melding hoort.
+  if (reg) document.body.dataset.stap = reg.stapcode;
   if (!reg) {
     toon(h("h1", {}, "Registratie niet beschikbaar"), h("p", {}, "Deze registratie is niet op deze pc bewaard en de server is niet bereikbaar."));
     return;

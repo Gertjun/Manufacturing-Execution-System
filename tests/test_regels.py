@@ -795,6 +795,18 @@ def main():
     check("Wachtwoorden niet in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'gebruiker' AND record_id = %s AND (nieuw ? 'wachtwoord_hash')", (tg,)) == 0)
 
+    print("\nIets melden (#78)")
+    import uuid
+    mid = str(uuid.uuid4())
+    faalt("Een melding van minder dan 3 tekens kan niet", "SELECT meld_iets(%s, %s, %s, %s, 'PS3', NULL, ' a ')", (mid, pl, op, pc), "minstens 3 tekens")
+    con.execute("SELECT meld_iets(%s, %s, %s, %s, 'PS3', 'invoer: stap', 'Knop Opslaan staat te ver weg')", (mid, pl, op, pc))
+    con.execute("SELECT meld_iets(%s, %s, %s, %s, 'PS3', 'invoer: stap', 'Knop Opslaan staat te ver weg')", (mid, pl, op, pc))
+    check("Twee keer versturen (wachtrij) geeft één melding", val("SELECT count(*) FROM terugmelding WHERE id = %s", (mid,)) == 1)
+    bh = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'beheerder1'")
+    con.execute("SELECT handel_terugmelding_af(%s, %s, ' #80 ')", (mid, bh))
+    check("Afgehandeld met notitie", con.execute("SELECT status = 'afgehandeld' AND notitie = '#80' AND afgehandeld_door = %s FROM terugmelding WHERE id = %s", (bh, mid)).fetchone()[0])
+    faalt("Niet twee keer afhandelen", "SELECT handel_terugmelding_af(%s, %s, NULL)", (mid, bh), "al afgehandeld")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

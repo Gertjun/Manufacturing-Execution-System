@@ -131,6 +131,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "oorzaken", naam: "Oorzaken van stilstand" },
       { pad: "bedrijf", naam: "Bedrijfsgegevens" },
       { pad: "pcs", naam: "Pc's" },
+      { pad: "opmerkingen", naam: "Opmerkingen", teller: async () => (await haal<unknown[]>("/terugmeldingen")).length },
       { pad: "logboek", naam: "Logboek" },
       { pad: "server", naam: "Server" },
     ],

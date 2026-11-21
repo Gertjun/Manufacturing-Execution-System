@@ -264,3 +264,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Accounts via het sjabloon (#76):** zoals de velden (D46): eerst een proefronde, alles of niets, accounts die niet in het bestand staan blijven zoals ze zijn. Het gedownloade sjabloon bevat nooit wachtwoorden. Een bestaande naam zonder account wordt gekoppeld (de geschiedenis loopt door); een andere naam dan het account al heeft, wijzig je bij Namen, niet via het sjabloon.
 - **Waarom:** voor de pilot zijn tientallen persoonlijke accounts nodig; de beheerder hoort hun wachtwoord niet te kennen.
 - **Let op (D18):** een invoerscherm van vóór 0.41.0 vraagt niet om een eigen wachtwoord. Pc's bijwerken vóór tijdelijke wachtwoorden worden uitgedeeld.
+
+### D62 – "Iets melden" en Opmerkingen (21 nov 2026, 0.42.0)
+- **Besluit:** iedere ingelogde gebruiker (behalve een wandscherm) kan kort iets melden over het systeem of de werkwijze. Het heet in de schermen "Iets melden" en bij de beheerder "Opmerkingen", om het niet te verwarren met de meldingen die het systeem zelf maakt (buiten grens, storing, keuring). Tabel `terugmelding`; het id komt van het apparaat, zodat de wachtrij van het invoerscherm het ook offline kan versturen zonder dubbele (`meld_iets` met `ON CONFLICT DO NOTHING`). Alleen de beheerder ziet de lijst en handelt af, met een notitie.
+- **Naam:** de melding komt op naam van het account dat hem verstuurt (de naam uit het token). Een melding uit de wachtrij na een persoonswissel staat dus op naam van wie dan is ingelogd; voor opmerkingen is dat goed genoeg.
+- **Waarom:** in de pilot wil Geert de opmerkingen van de vloer niet kwijtraken en ze direct als roadmappunten kunnen oppakken; het pilotoverzicht (#77) telt ze mee.

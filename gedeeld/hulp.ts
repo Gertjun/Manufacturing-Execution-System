@@ -200,6 +200,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         punten: [
           "Pc's: per pc welke stappen er te zien zijn. Grondstoffen, Ploegen, Oorzaken van stilstand en Bedrijfsgegevens (voor het certificaat).",
           "Logboek: elke wijziging, wie, wanneer, oud en nieuw. Server: versie, laatste back-up en hersteltest, waarschuwingen.",
+          "Opmerkingen: wat gebruikers via \"Iets melden\" doorgeven. Handel ze af met een notitie, bijvoorbeeld het roadmapnummer.",
           "Nainvoeren (papier), op de startpagina: stappen die op papier zijn bijgehouden later invoeren, tot 7 dagen terug. Daar ook de lege formulieren per stap voor de terugvalmap.",
           "Wachtwoord van de beheerder vergeten: op de laptop BEHEERDER HERSTELLEN.bat, op de server tools\\beheerder.mjs.",
         ],
@@ -236,5 +237,5 @@ export function hulpBlad(rol: Rol | null | undefined, versie: string): HTMLEleme
     h("h1", {}, hp.titel),
     h("p", { class: "hulp-voor" }, hp.voor),
     hp.delen.map((d) => h("section", { class: "hulp-deel" }, h("h2", {}, d.kop), h("ul", {}, d.punten.map((p) => h("li", {}, p))))),
-    h("p", { class: "hulp-voet" }, `Batch input GUI, versie ${versie}. Vragen of iets klopt niet? Meld het bij de ploegleider of de beheerder.`));
+    h("p", { class: "hulp-voet" }, `Batch input GUI, versie ${versie}. Klopt iets niet of kan het beter? Druk op "Iets melden" in het scherm.`));
 }

@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.42.0 — 21 november 2026 · #78
+- Nieuw: **"Iets melden"** (#78). In het invoerscherm staat de knop in de balk, in de portalen onderaan het menu. Je typt kort wat er misgaat of wat beter kan; je naam, de tijd, de pc en de stap of het scherm gaan vanzelf mee. In het invoerscherm werkt het ook zonder verbinding: de melding gaat via de wachtrij mee zodra er weer verbinding is.
+- Nieuw: **Beheer → Opmerkingen**, met een teller in het menu. De beheerder ziet wat er gemeld is, nieuwste eerst, en handelt het af met een notitie (bijvoorbeeld het roadmapnummer). Met "Ook afgehandelde" zie je alles terug. Naar Excel kan.
+- De hulp noemt "Iets melden" onderaan elke rol, en de beheerder krijgt uitleg over Opmerkingen.
+- Database: migratie 0026 (tabel `terugmelding`, functies `meld_iets` en `handel_terugmelding_af`); geen stilstand nodig, oudere invoerschermen merken er niets van.
+
 ## 0.41.0 — 21 november 2026 · #76
 - Nieuw: **accounts in één keer aanmaken** (#76). Bij Beheer → Accounts: Sjabloon downloaden, in Excel aanvullen (gebruikersnaam, rol, naam bij de invoer, tijdelijk wachtwoord, actief), Sjabloon inlezen. Je ziet eerst een controle per regel; opslaan kan pas als geen enkele regel een fout heeft. Een naam die al in de namenlijst staat, wordt gekoppeld, zodat de geschiedenis doorloopt. In het gedownloade bestand staan nooit wachtwoorden.
 - Nieuw: **tijdelijk wachtwoord**. Een wachtwoord dat de beheerder kiest (in het sjabloon, bij Account toevoegen of bij Wachtwoord instellen) is tijdelijk: bij de eerste inlog kiest de gebruiker eerst een eigen wachtwoord, in het invoerscherm en in de portalen. Tot dan kan dat account niets anders. Niet bij een wandscherm (daar typt niemand). Bij Accounts staat "tijdelijk wachtwoord" achter de naam.

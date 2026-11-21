@@ -2485,8 +2485,51 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 );
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
+-- ---------------------------------------------------------------------
+-- "Iets melden" (sinds migratie 0026, #78, D62): gebruikers typen kort wat misgaat of beter kan.
+-- Het id komt van het apparaat (de wachtrij van het invoerscherm): opnieuw versturen maakt nooit een dubbele.
+-- De beheerder handelt ze af, met een notitie (bijvoorbeeld het roadmapnummer).
+-- ---------------------------------------------------------------------
+CREATE TABLE terugmelding (
+    id               uuid PRIMARY KEY,
+    gemeld_op        timestamptz NOT NULL DEFAULT clock_timestamp(),
+    gebruiker_id     uuid NOT NULL REFERENCES gebruiker(id),
+    operator_id      uuid REFERENCES operator(id),
+    pc_id            uuid REFERENCES pc(id),
+    stapcode         text,
+    scherm           text,
+    tekst            text NOT NULL CHECK (length(btrim(tekst)) BETWEEN 3 AND 1000),
+    status           text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'afgehandeld')),
+    afgehandeld_door uuid REFERENCES gebruiker(id),
+    afgehandeld_op   timestamptz,
+    notitie          text,
+    CHECK ((status = 'afgehandeld') = (afgehandeld_op IS NOT NULL))
+);
+CREATE INDEX terugmelding_open ON terugmelding (status, gemeld_op DESC);
+
+CREATE FUNCTION meld_iets(p_id uuid, p_gebruiker uuid, p_operator uuid, p_pc uuid, p_stapcode text, p_scherm text, p_tekst text)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    IF length(btrim(coalesce(p_tekst, ''))) < 3 THEN
+        RAISE EXCEPTION 'Schrijf kort wat er is (minstens 3 tekens)';
+    END IF;
+    INSERT INTO terugmelding (id, gemeld_op, gebruiker_id, operator_id, pc_id, stapcode, scherm, tekst)
+    VALUES (p_id, apparaat_moment(), p_gebruiker, p_operator, p_pc, nullif(btrim(p_stapcode), ''), nullif(btrim(p_scherm), ''), btrim(p_tekst))
+    ON CONFLICT (id) DO NOTHING;
+END $$;
+
+CREATE FUNCTION handel_terugmelding_af(p_id uuid, p_gebruiker uuid, p_notitie text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE terugmelding SET status = 'afgehandeld', afgehandeld_door = p_gebruiker, afgehandeld_op = clock_timestamp(),
+                            notitie = nullif(btrim(p_notitie), '')
+     WHERE id = p_id AND status = 'open';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Deze melding bestaat niet of is al afgehandeld';
+    END IF;
+END $$;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

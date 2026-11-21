@@ -38,6 +38,8 @@ a { color: var(--actie); }
 .balk-nav { display: flex; gap: var(--space-1); }
 .balk-nav a { text-decoration: none; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); }
 .balk-nav a[aria-current="page"], .balk-nav a:hover { background: var(--menu-actief); }
+.balk-knop { font: inherit; color: var(--op-kleur); background: transparent; border: 1px solid var(--lijn-sterk); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); cursor: pointer; }
+.balk-knop:hover { background: var(--menu-actief); }
 .balk-wie { background: transparent; color: var(--op-kleur); border: 1px solid var(--lijn-sterk); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font: inherit; cursor: pointer; }
 .verbinding { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); text-decoration: none; font-weight: 700; }
 .verbinding::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--ok-op-donker); }
@@ -130,7 +132,7 @@ label.rij input[type="checkbox"] { width: 28px; height: 28px; accent-color: var(
 .veld-grens { font-size: var(--text-sm); color: var(--inkt-zacht); }
 .veld-invoer { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .veld-invoer label { display: grid; gap: var(--space-1); font-size: var(--text-sm); color: var(--inkt-zacht); }
-input[type="text"], input[type="password"], select {
+input[type="text"], input[type="password"], select, textarea {
   font: inherit; font-size: var(--text-lg); min-height: calc(var(--doel-min) + var(--space-2)); padding: var(--space-1) var(--space-3); width: 9em;
   border: 2px solid var(--inkt-zacht); border-radius: var(--radius-sm); background: var(--vlak); color: var(--inkt);
 }
@@ -162,7 +164,7 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .venster h2 { margin-top: 0; }
 .vraag { display: grid; gap: var(--space-3); }
 .vraag label { display: grid; gap: var(--space-1); }
-.vraag input, .vraag select { width: 100%; }
+.vraag input, .vraag select, .vraag textarea { width: 100%; }
 .samenvatting { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: grid; gap: var(--space-1); }
 .samenvatting li { display: flex; justify-content: space-between; gap: var(--space-3); border-bottom: 1px solid var(--lijn); padding: var(--space-1) 0; }
 .waarschuwing { background: var(--signaal-vlak); border-left: 6px solid var(--signaal); padding: var(--space-2) var(--space-3); border-radius: var(--radius-xs); }

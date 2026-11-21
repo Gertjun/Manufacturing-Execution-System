@@ -180,6 +180,25 @@ try {
   await shot("03-pcs");
   check("PC-01 bedient PS3 en PS4", true);
 
+  console.log("\nIets melden en Opmerkingen (#78)");
+  await page.getByRole("button", { name: "Iets melden" }).click();
+  await page.locator("#v-tekst").fill("Graag een zoekveld bij de accounts");
+  await page.getByRole("dialog").getByRole("button", { name: "Versturen" }).click();
+  await page.getByText("Bedankt, je melding is verstuurd").waitFor();
+  await page.getByRole("link", { name: /Opmerkingen/ }).click();
+  await page.getByRole("heading", { name: "Opmerkingen" }).waitFor();
+  const rij = page.locator("tr", { hasText: "Graag een zoekveld bij de accounts" });
+  check("Melding staat bij Opmerkingen, met de plek", (await rij.innerText()).includes("portaal: beheer, pcs"), await rij.innerText());
+  check("Teller in het menu", /Opmerkingen\s*1/.test(await page.locator("#menu").innerText()));
+  await rij.getByRole("button", { name: "Afhandelen" }).click();
+  await page.locator("#v-notitie").fill("#80");
+  await page.getByRole("dialog").getByRole("button", { name: "Afhandelen" }).click();
+  await page.getByText("Er staat niets open.").waitFor();
+  await page.locator("#opm-alle").check();
+  await page.getByText("Afgehandeld door beheerder1: #80").waitFor();
+  check("Afgehandeld met notitie, te zien bij Ook afgehandelde", true);
+  await shot("03b-opmerkingen");
+
   console.log("\nLogboek");
   await page.getByRole("link", { name: "Logboek" }).click();
   await page.locator(".tabel tbody tr").first().waitFor();

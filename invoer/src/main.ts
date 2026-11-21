@@ -1,7 +1,7 @@
 import "./stijl.css";
 import { sessie } from "./sessie";
-import { bevestig, h, nieuweRoute } from "./ui";
-import { acties, inloggenGelukt, opStatus, startWachtrij, type Status } from "./wachtrij";
+import { bevestig, h, melding, nieuweRoute } from "./ui";
+import { acties, inloggenGelukt, opStatus, startWachtrij, voegToe, type Status } from "./wachtrij";
 import { stuur } from "./api";
 import { vergeetConfig } from "./registraties";
 import { loginScherm, naamScherm, pcScherm } from "./schermen/start";
@@ -12,6 +12,7 @@ import { overdrachtScherm } from "./schermen/overdracht";
 import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./schermen/meldingen";
 import { startScanner, wisScanActie } from "./scan";
 import { hulpScherm, wachtwoordWijzigen } from "./schermen/hulp";
+import { vraagIetsMelden } from "../../gedeeld/melden";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -43,6 +44,7 @@ function tekenBalk() {
           h("a", { href: "#/zoek", "aria-current": route === "zoek" ? "page" : undefined }, "Zoeken"),
           h("a", { href: "#/overdracht", "aria-current": route === "overdracht" ? "page" : undefined }, "Overdracht"),
           h("a", { href: "#/hulp", "aria-current": route === "hulp" ? "page" : undefined }, "Hulp"),
+          h("button", { class: "balk-knop", type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
           heeftMeldingen()
             ? h("a", { href: "#/meldingen", "aria-current": route === "meldingen" ? "page" : undefined },
                 "Meldingen", ongelezen() ? h("span", { class: "balk-teller" }, ongelezen()) : null)
@@ -133,6 +135,19 @@ async function route() {
       if (scherm !== "stappen") return void (location.hash = "#/stappen");
       return stappenScherm();
   }
+}
+
+/** "Iets melden" (#78, D62): via de wachtrij, dus ook zonder verbinding. */
+async function ietsMelden() {
+  const [, scherm, arg] = location.hash.split("/");
+  const stapcode = scherm === "stap" ? decodeURIComponent(arg ?? "") : scherm === "reg" ? document.body.dataset.stap ?? null : null;
+  const tekst = await vraagIetsMelden(stapcode ? `stap ${stapcode}` : scherm ? `scherm ${scherm}` : "het invoerscherm");
+  if (!tekst) return;
+  await voegToe({
+    omschrijving: "Iets gemeld", methode: "POST", pad: "/terugmeldingen",
+    body: { id: crypto.randomUUID(), tekst, stapcode: stapcode || null, scherm: `invoer: ${scherm || "start"}` },
+  });
+  melding(laatsteStatus?.verbonden ? "Bedankt, je melding is verstuurd" : "Bedankt, je melding gaat mee zodra er verbinding is", "ok");
 }
 
 window.addEventListener("hashchange", () => void route());

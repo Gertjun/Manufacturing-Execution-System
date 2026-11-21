@@ -941,3 +941,41 @@ export async function server() {
     ], "compact"),
   );
 }
+
+// ---------- Opmerkingen uit "Iets melden" (#78, D62) ----------
+interface Terugmelding {
+  id: string; gemeld_op: string; gebruikersnaam: string; naam: string | null; pc: string | null; stapcode: string | null;
+  scherm: string | null; tekst: string; status: "open" | "afgehandeld"; afgehandeld_door: string | null; afgehandeld_op: string | null; notitie: string | null;
+}
+let opmerkingenAlle = false;
+
+export async function opmerkingen() {
+  const actueel = vastHouden();
+  toon(kop("Opmerkingen"), laden());
+  let lijst: Terugmelding[];
+  try { lijst = await haal<Terugmelding[]>(`/terugmeldingen?status=${opmerkingenAlle ? "alle" : "open"}`); } catch (e) { return fout(e, "Opmerkingen"); }
+  if (!actueel()) return;
+  const afhandelen = async (t: Terugmelding) => {
+    const r = await vraag("Afhandelen", [{ naam: "notitie", label: "Notitie", optioneel: true, maxLengte: 500,
+      hint: "Bijvoorbeeld het roadmapnummer, of wat er gedaan is" }], "Afhandelen", `"${t.tekst}"`);
+    if (r) await wijzig(() => stuur("POST", `/terugmeldingen/${t.id}/afhandelen`, { notitie: r.notitie || null }), "Afgehandeld", opmerkingen);
+  };
+  const keuze = h("label", { class: "filter-vink", for: "opm-alle" },
+    h("input", { id: "opm-alle", type: "checkbox", checked: opmerkingenAlle, onchange: (e: Event) => { opmerkingenAlle = (e.target as HTMLInputElement).checked; void opmerkingen(); } }),
+    " Ook afgehandelde");
+  toon(
+    kop("Opmerkingen", "Wat gebruikers via \"Iets melden\" doorgaven, nieuwste eerst. Handel af met een notitie, bijvoorbeeld het roadmapnummer."),
+    h("div", { class: "filters" }, keuze),
+    lijst.length
+      ? tabel(["Wanneer", "Wie", "Waar", "Melding", "Stand"], lijst.map((t) => [
+          datum(t.gemeld_op),
+          t.naam ? `${t.naam} (${t.gebruikersnaam})` : t.gebruikersnaam,
+          [t.pc, t.stapcode, t.stapcode ? null : t.scherm].filter(Boolean).join(", "),
+          t.tekst,
+          t.status === "open"
+            ? h("button", { class: "knop knop-klein", type: "button", onclick: () => void afhandelen(t) }, "Afhandelen")
+            : h("span", { class: "sub" }, `Afgehandeld door ${t.afgehandeld_door}${t.notitie ? `: ${t.notitie}` : ""}`),
+        ]))
+      : h("p", { class: "leeg" }, opmerkingenAlle ? "Er is nog niets gemeld." : "Er staat niets open."),
+  );
+}

@@ -23,7 +23,7 @@ gantt
     Gebouwd in 0.27 tot en met 0.37          :done, a2, 2026-11-20, 2d
 
     section A3 Vóór de pilot
-    Melden, storing (78 31)                  :a3b, 2026-11-23, 5d
+    Notitie bij storing (31)                 :a3b, 2026-11-23, 3d
     Pilotoverzicht, analyses (77 32 66)      :a3c, after a3b, 14d
 
     section B Praktijk
@@ -71,10 +71,9 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 
 
 ### A3. Vóór de pilot (software) — december 2026 tot januari 2027
-Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen.
-- #78 **"Iets melden" in de schermen** (klein) — Operators en anderen typen kort wat misgaat of beter kan; met tijd, pc, stap en naam in een lijst bij de beheerder, die er roadmappunten van kan maken.
+Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen (#78 gebouwd in 0.42.0).
 - #31 **Notitie bij het einde van een storing** (klein) — Bij Stilstand beëindigen: wat was het en wat is er gedaan. Zichtbaar bij Stilstand in Productieanalyse.
-- #77 **Pilotoverzicht** (middel) — In Beheer per dag en per pc: hoeveel stappen ingevoerd, hoe laat na het werk, hoe lang offline, wat geweigerd werd, welke velden vaak leeg blijven of gecorrigeerd worden, en de meldingen uit #78. Voor de evaluatie na 8 weken.
+- #77 **Pilotoverzicht** (middel) — In Beheer per dag en per pc: hoeveel stappen ingevoerd, hoe laat na het werk, hoe lang offline, wat geweigerd werd, welke velden vaak leeg blijven of gecorrigeerd worden, en de opmerkingen uit "Iets melden" (0.42.0). Voor de evaluatie na 8 weken.
 - #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
 - #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten. Drempels pas instellen met echte data (#2); vóór de pilot alleen de werking.
 

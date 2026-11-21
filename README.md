@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.41.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.42.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60) en accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) zijn gebouwd; daarna #78, #31, #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd; daarna #31, #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.41.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.42.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1.
-- **Laatste testronde (0.41.0, 21 november 2026):** geslaagd: databaseregels (232), API, migraties (tot en met 25), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests met sjabloon, hulp en nainvoeren, browserdemo). Nieuw: accounts via het sjabloon (fouten, controle, opslaan), eerste inlog met een tijdelijk wachtwoord in de portalen en het invoerscherm, zelf het wachtwoord wijzigen. Praktijktests zijn nog niet gedaan (#33).
+- **Laatste testronde (0.42.0, 21 november 2026):** geslaagd: databaseregels (236), API, migraties (tot en met 26), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests met sjabloon, hulp en nainvoeren, browserdemo). Nieuw: "Iets melden" zonder verbinding in het invoerscherm (via de wachtrij), vanuit de portalen, en afhandelen bij Opmerkingen. Praktijktests zijn nog niet gedaan (#33).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -61,6 +61,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 - Stap 1: een geplande batch starten (een ongeplande batch is een uitzondering). Stap 16: 4 batches samenvoegen tot een lot, volgens het lotvoorstel of met een reden.
 - Grondstofpartijen invoeren, stilstand melden en beëindigen, ploegoverdracht schrijven, etiketten printen, scannen met een handscanner.
 - Ploegleiders corrigeren waarden en zetten een batch in beoordeling; ze zien ook de meldingen.
+- **Iets melden:** in de balk van het invoerscherm (ook zonder verbinding, via de wachtrij) en onderaan het menu van de portalen; de beheerder ziet ze bij Beheer → Opmerkingen en handelt ze af (D62).
 - **Nainvoeren van papier:** lag de invoer stil, dan voert de ploegleider of beheerder de stap later in via de tegel "Nainvoeren (papier)", met de tijden van het papier (tot 7 dagen terug); daar ook de lege formulieren per stap (D60).
 - **Overnemen:** een open stap kan iedereen met een invoerrol afmaken, ook die een ander op een andere pc startte ("Afmaken" bij Bezig). Vastgelegd wordt wie startte en waar, en wie afrondde en waar (D60).
 - **Zonder verbinding** gaat de invoer door: alles wordt op de pc bewaard en daarna op volgorde verstuurd, met het moment van invoer en de naam van wie het invoerde (D43). De statusbalk toont hoeveel acties wachten; afmelden met wachtende acties vraagt eerst om bevestiging. Correcties, besluiten, zoeken en inloggen vragen wel verbinding.
@@ -109,6 +110,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 | Accounts, operators, pc's | Aanmaken, wijzigen, uitzetten, ook veel accounts tegelijk via een Excel-sjabloon; een wachtwoord van de beheerder is tijdelijk (D61); per pc de stappen |
 | Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |
+| Opmerkingen | Wat gebruikers via "Iets melden" doorgaven; afhandelen met een notitie (D62) |
 | Logboek | Elke wijziging: wie, wanneer, oud en nieuw (wachtwoorden nooit) |
 | Server | Versie, schemaversie, laatste back-up en hersteltest, waarschuwingen |
 
