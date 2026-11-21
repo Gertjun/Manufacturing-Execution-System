@@ -103,6 +103,8 @@ def main():
 
     reg = val("SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op))
     faalt("Zelfde stap twee keer open", "SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op), "staat nog open")
+    faalt("Dubbel starten zegt wie startte, waar en wanneer (#55)", "SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op),
+          "gestart door Operator A op PC-01 om ")
     faalt("Afronden zonder verplichte velden en grondstof", "SELECT rond_stap_af(%s)", (reg,), "Nog niet ingevuld: S1.1, S1.2, grondstof GS-A")
     gs = {c: i for c, i in con.execute("SELECT code, id FROM grondstof")}
     faalt("Grondstof die niet bij de stap hoort",
@@ -121,6 +123,8 @@ def main():
     check("Markering: 86 bij setting 80 (tol 5) = buiten tolerantie",
           val("SELECT markering FROM waarde WHERE stapregistratie_id=%s AND veld_id=%s", (reg, veld["S1.1"])) == "buiten_tolerantie")
     con.execute("SELECT rond_stap_af(%s)", (reg,))
+    check("Zonder naam: afgerond door wie startte, op dezelfde pc (#55)",
+          con.execute("SELECT afgerond_door = operator_id AND afgerond_pc_id = pc_id FROM stapregistratie WHERE id = %s", (reg,)).fetchone()[0])
     faalt("Waarde toevoegen na afronden",
           "INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,80,81,%s)",
           (reg, veld["S1.1"], op), "al afgerond")
@@ -711,6 +715,21 @@ def main():
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,3.1,%s)", (r18k, veld["S18.3"], kw_op))
     con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'droog genoeg', %s)", (k18, kw))
     check("Na de vrijgave is het lot gereed", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "gereed")
+
+    print("\nEen gestarte stap overnemen (#55)")
+    ob = val("SELECT id FROM operator WHERE naam = 'Operator B'")
+    pc2 = val("SELECT id FROM pc WHERE naam = 'PC-02'")
+    bo = nieuwe_batch("B-2026-0973")
+    ro = val("SELECT start_stap('PS1', %s, NULL, %s, %s)", (bo, pc, op))
+    vul_in(ro, 1)
+    con.execute("SELECT rond_stap_af(%s, %s, %s)", (ro, ob, pc2))
+    check("Operator B rondt op PC-02 af wat Operator A op PC-01 startte",
+          con.execute("""SELECT r.status = 'afgerond' AND o.naam = 'Operator A' AND a.naam = 'Operator B' AND p.naam = 'PC-02'
+                           FROM stapregistratie r JOIN operator o ON o.id = r.operator_id
+                           JOIN operator a ON a.id = r.afgerond_door JOIN pc p ON p.id = r.afgerond_pc_id
+                          WHERE r.id = %s""", (ro,)).fetchone()[0])
+    faalt("Afgerond door kan daarna niet meer veranderen",
+          "UPDATE stapregistratie SET afgerond_door = %s WHERE id = %s", (op, ro), "kan niet meer veranderen")
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

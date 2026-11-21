@@ -28,7 +28,7 @@ const zonderVerbinding: HulpDeel = {
 const stapDoen: HulpDeel = {
   kop: "Een stap doen",
   punten: [
-    "Kies bij Stappen jouw stap: bovenaan wat bezig is, daaronder wat klaar is om te starten.",
+    "Kies bij Stappen jouw stap: bovenaan wat bezig is (van de vorige ploeg: Afmaken), daaronder wat klaar is om te starten.",
     "Druk bij de batch op Start. Vul de waarden en de partijnummers van de grondstoffen in. Tijdens het typen zie je of een waarde buiten tolerantie (oranje) of buiten grens (rood) valt.",
     "Druk op Opslaan, en als alles is ingevuld op Stap afronden. Een opgeslagen waarde wijzigt alleen de ploegleider (correctie).",
     "\"Herbewerking\": de batch doet deze stap opnieuw; start hem zoals altijd.",
@@ -68,11 +68,11 @@ const HULP: Partial<Record<Rol, Hulp>> = {
       {
         kop: "Wat alleen de ploegleider doet",
         punten: [
-          "Corrigeren: open de stap (bij Stappen of via Zoeken), druk bij de waarde of het partijnummer op Corrigeer en geef de nieuwe waarde en een reden. Kan alleen met verbinding.",
+          "Corrigeren: open de stap, druk bij de waarde of het partijnummer op Corrigeer, geef de nieuwe waarde en een reden (alleen met verbinding).",
           "In beoordeling zetten: Zoeken, batchnummer, In beoordeling zetten, met een reden. Kwaliteit beslist daarna.",
-          "Meldingen: in de balk bovenaan, bijvoorbeeld bij buiten grens of een storing.",
+          "Meldingen (buiten grens, storing) staan in de balk bovenaan.",
           "Wachtrij: klik rechtsboven op de verbinding voor wat wacht of geweigerd is; Nu versturen probeert opnieuw.",
-          "Portalen: terug naar de startpagina, met Productieanalyse (werkvoorraad, ploegoverdracht, stilstand) en het wandscherm.",
+          "Portalen: naar de startpagina, met Productieanalyse en het wandscherm.",
         ],
       },
       stapDoen, eersteEnLot, scannenEnMeer,

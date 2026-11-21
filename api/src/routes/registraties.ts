@@ -209,8 +209,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     "/:id/afronden",
     { preHandler: vereist(...INVOER), schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
     async (req) => {
-      await invoerContext(app.db, req);
-      await invoerTransactie(app.db, req, (tx) => tx.query("SELECT rond_stap_af($1)", [req.params.id]));
+      // Wie afrondt, kan een ander zijn dan wie startte (ploegwissel, #55).
+      const { pcId, operatorId } = await invoerContext(app.db, req);
+      await invoerTransactie(app.db, req, (tx) => tx.query("SELECT rond_stap_af($1, $2, $3)", [req.params.id, operatorId, pcId]));
       return (await registratieDetail(app.db, req.params.id)) as never;
     },
   );

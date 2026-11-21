@@ -198,12 +198,14 @@ function regRij(r: Registratie) {
         h(
           "div",
           { class: "rij-info" },
-          `${r.operator}, gestart ${tijd(r.gestart_op)}`,
+          `${r.operator} op ${r.pc}, gestart ${tijd(r.gestart_op)}`,
           r.poging && r.poging > 1 ? `, poging ${r.poging}` : "",
           r.herbewerking_start ? `, herbewerking: ${r.reden}` : "",
         ),
       ),
-      r.lokaal ? h("span", { class: "label label-wacht" }, "Nog niet verstuurd") : h("span", { class: "knop knop-klein" }, "Verder invullen"),
+      r.lokaal ? h("span", { class: "label label-wacht" }, "Nog niet verstuurd")
+        // Gestart door een ander (vorige ploeg): afmaken kan gewoon (#55).
+        : h("span", { class: "knop knop-klein" }, sessie.operatornaam && r.operator !== sessie.operatornaam ? "Afmaken" : "Verder invullen"),
     ),
   );
 }

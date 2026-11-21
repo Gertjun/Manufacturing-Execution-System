@@ -36,6 +36,8 @@ export const RegistratieKort = Type.Object({
   gestart_op: Tijd,
   afgerond_op: OptTijd,
   product: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Productcode van de batch of het lot (D55)" })),
+  afgerond_door: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Wie de stap afrondde; kan een ander zijn dan wie startte (#55). Leeg vóór 0.39.0." })),
+  afgerond_pc: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Pc waarop de stap werd afgerond (#55)" })),
 });
 
 export const VeldMetWaarde = Type.Object({
@@ -141,8 +143,10 @@ export const PaspoortRegel = Type.Object({
 export const REGISTRATIE_SQL = `
   SELECT r.id, s.code AS stapcode, s.naam AS stapnaam, s.niveau, b.batchnummer, l.lotnummer,
          r.poging, r.herbewerking_start, r.reden, r.status, o.naam AS operator, p.naam AS pc,
-         r.gestart_op, r.afgerond_op, pr.code AS product
+         r.gestart_op, r.afgerond_op, pr.code AS product, ao.naam AS afgerond_door, ap.naam AS afgerond_pc
     FROM stapregistratie r
+    LEFT JOIN operator ao ON ao.id = r.afgerond_door
+    LEFT JOIN pc ap ON ap.id = r.afgerond_pc_id
     LEFT JOIN product pr ON pr.id = r.product_id
     JOIN processtap s ON s.id = r.processtap_id
     LEFT JOIN batch b ON b.id = r.batch_id

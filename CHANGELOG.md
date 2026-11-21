@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.39.0 — 21 november 2026 · #55
+- Nieuw: **een gestarte stap overnemen** (#55). Bij Bezig staat wie de stap startte en op welke pc; is dat een ander, dan heet de knop "Afmaken". In de stap staat dan "Je maakt de stap af die … startte". Wat jij invult en het afronden staan op jouw naam: het systeem legt nu ook vast **wie afrondde en op welke pc**. Dat staat bij de stap ("afgerond door … op …") en bij Zoeken.
+- Verbeterd: start iemand een stap die al open staat (bijvoorbeeld uit de wachtrij van een pc die offline was), dan zegt de melding wie hem startte, op welke pc en wanneer, en dat je hem bij Bezig afmaakt.
+- Verbeterd: in het lotpaspoort staat bij een meting wie de waarde invoerde, ook als dat niet wie de stap startte is.
+- Database: migratie 0023 (twee kolommen bij de stapregistratie; geen stilstand nodig). Oudere invoerschermen blijven werken: hun afronden komt op naam van wie inlogde op die pc.
+
 ## Zonder nieuwe versie (na 0.38.0)
 - Roadmap: nieuwe fase A3 "Vóór de pilot" op Geerts verzoek: #55 (stap overnemen), #75 (nainvoeren na papier), #76 (accounts via Excel), #78 ("Iets melden"), #31 (notitie bij einde storing), #77 (pilotoverzicht), #32 ("in één keer goed") en #66 (tijdig signaleren). #31, #32, #55 en #66 kwamen uit fase F. Nieuw voor Geert: #79 (ondernemingsraad en privacy).
 

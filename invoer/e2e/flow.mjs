@@ -72,6 +72,16 @@ try {
   await page.locator(".tegel.bezig").click();
   await page.getByRole("heading", { name: "Process Step 7" }).waitFor({ timeout: 5000 });
   check("Tegel van een stap die bezig is opent de stap", true);
+
+  console.log("\nEen gestarte stap overnemen (#55)");
+  const bezigRij = page.locator(".rij", { hasText: "B-2026-0005" });
+  check("Bij Bezig: wie startte en op welke pc", (await bezigRij.innerText()).includes("Operator C op PC-05"), await bezigRij.innerText());
+  check("Gestart door een ander: knop Afmaken", (await bezigRij.locator(".knop", { hasText: "Afmaken" }).count()) === 1);
+  await bezigRij.click();
+  await page.locator(".overname").waitFor();
+  await shot("04b-stap-overnemen");
+  check("In de stap: je maakt de stap af die Operator C startte", (await page.locator(".overname").innerText()).includes("Operator C startte"));
+  // Afronden door een ander staat in de API-test; deze PS7 blijft open voor het keurresultaat verderop.
   await page.getByRole("link", { name: "Stappen" }).click();
   await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
 

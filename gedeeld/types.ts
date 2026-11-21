@@ -104,6 +104,9 @@ export interface Registratie {
   pc: string;
   gestart_op: string;
   afgerond_op: string | null;
+  /** Wie afrondde en waar (#55); kan een ander zijn dan wie startte. Ontbreekt bij oudere servers. */
+  afgerond_door?: string | null;
+  afgerond_pc?: string | null;
   velden?: VeldMetWaarde[];
   grondstoffen?: GrondstofMetGebruik[];
   /** Productcode van de batch of het lot (sinds 0.29.0, D55). */

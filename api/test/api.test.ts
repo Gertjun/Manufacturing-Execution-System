@@ -174,6 +174,29 @@ describe("productie van batch tot lot", () => {
     assert.equal(s11.waarde.markering, "buiten_tolerantie");
   });
 
+  test("een gestarte stap overnemen: een ander rondt af op een andere pc (#55)", async () => {
+    const a = await login("operator.a", "PC-01");
+    const b = await login("operator.b", "PC-03");
+    assert.equal((await verzoek("POST", "/batches", a, { batchnummer: "B-2026-0955" })).status, 201);
+    const start = await verzoek("POST", "/registraties", a, { stapcode: "PS1", batchnummer: "B-2026-0955" });
+    assert.equal(start.status, 201);
+    // Een tweede start (bijv. uit de wachtrij van een pc die offline was) zegt wie hem startte.
+    const dubbel = await verzoek("POST", "/registraties", b, { stapcode: "PS1", batchnummer: "B-2026-0955" });
+    assert.equal(dubbel.status, 422);
+    assert.match(dubbel.body.fout, /^Stap PS1 staat nog open: gestart door Operator A op PC-01 om .*Open hem bij Bezig/);
+    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/waarden`, b, { waarden: waardenVoor(start.body) })).status, 200);
+    const gs = start.body.grondstoffen.filter((g: any) => g.verplicht);
+    await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, b, {
+      grondstoffen: gs.map((g: any) => ({ id: randomUUID(), code: g.code, partij: "LEV-TEST-55", hoeveelheid: 100 })),
+    });
+    const af = await verzoek("POST", `/registraties/${start.body.id}/afronden`, b);
+    assert.equal(af.status, 200, JSON.stringify(af.body));
+    assert.equal(af.body.operator, "Operator A");
+    assert.equal(af.body.pc, "PC-01");
+    assert.equal(af.body.afgerond_door, "Operator B");
+    assert.equal(af.body.afgerond_pc, "PC-03");
+  });
+
   test("ingevuld veld opnieuw invullen geeft 409 met uitleg", async () => {
     const lijst = await verzoek("GET", "/registraties?status=open&stapcode=PS1", op);
     const r = await verzoek("POST", `/registraties/${lijst.body[0].id}/waarden`, op, {

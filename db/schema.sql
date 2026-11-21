@@ -362,6 +362,10 @@ CREATE TABLE stapregistratie (
     afgerond_ontvangen_op timestamptz,
     -- Product van de batch of het lot bij de start (sinds migratie 0019, D55): voor grenzen en analyses per product.
     product_id          uuid REFERENCES product(id),
+    -- Wie de stap afrondde en op welke pc (sinds migratie 0023, #55): kan een ander zijn dan wie startte
+    -- (ploegwissel). Leeg bij stappen van vóór 0023 en bij open stappen.
+    afgerond_door       uuid REFERENCES operator(id),
+    afgerond_pc_id      uuid REFERENCES pc(id),
     CHECK ((batch_id IS NULL) <> (lot_id IS NULL)),
     CHECK (NOT herbewerking_start OR length(trim(coalesce(reden,''))) > 0),
     CHECK ((status <> 'open') = (afgerond_op IS NOT NULL))
@@ -653,7 +657,14 @@ BEGIN
     IF EXISTS (SELECT 1 FROM stapregistratie
                 WHERE processtap_id = NEW.processtap_id
                   AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id) AND status = 'open') THEN
-        RAISE EXCEPTION 'Stap % staat nog open', v_stap.code;
+        -- Met wie startte, waar en wanneer (sinds 0023, #55): meestal startte een andere pc hem, of een pc die
+        -- offline was en zijn wachtrij later stuurde. Wie hem afmaakt, opent hem bij Bezig.
+        RAISE EXCEPTION 'Stap % staat nog open: gestart door %. Open hem bij Bezig om hem af te maken.', v_stap.code,
+            (SELECT format('%s op %s om %s', o.naam, p.naam, to_char(r.gestart_op, 'DD-MM-YYYY HH24:MI'))
+               FROM stapregistratie r JOIN operator o ON o.id = r.operator_id JOIN pc p ON p.id = r.pc_id
+              WHERE r.processtap_id = NEW.processtap_id AND (r.batch_id = NEW.batch_id OR r.lot_id = NEW.lot_id)
+                AND r.status = 'open'
+              LIMIT 1);
     END IF;
 
     -- Volgorde: de vorige stap van hetzelfde niveau in de route moet afgerond
@@ -872,8 +883,8 @@ WHERE NOT EXISTS (SELECT 1 FROM waarde c WHERE c.vervangt_waarde_id = w.id);
 -- Acties
 -- ---------------------------------------------------------------------
 
--- Een stap afronden: alle verplichte actieve velden moeten ingevuld zijn.
-CREATE FUNCTION rond_stap_af(p_registratie uuid) RETURNS void LANGUAGE plpgsql AS $$
+-- Een stap afronden: alle verplichte actieve velden moeten ingevuld zijn. Met wie afrondt en op welke pc (sinds 0023).
+CREATE FUNCTION rond_stap_af(p_registratie uuid, p_operator uuid DEFAULT NULL, p_pc uuid DEFAULT NULL) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_ontbreekt text;
     v_status    text;
@@ -902,7 +913,9 @@ BEGIN
     IF v_ontbreekt IS NOT NULL THEN
         RAISE EXCEPTION 'Nog niet ingevuld: %', v_ontbreekt;
     END IF;
-    UPDATE stapregistratie SET status = 'afgerond', afgerond_op = apparaat_moment(gestart_op)
+    -- Wie afrondt kan een ander zijn dan wie startte (ploegwissel, #55). Zonder naam: wie startte.
+    UPDATE stapregistratie SET status = 'afgerond', afgerond_op = apparaat_moment(gestart_op),
+           afgerond_door = coalesce(p_operator, operator_id), afgerond_pc_id = coalesce(p_pc, pc_id)
      WHERE id = p_registratie AND status = 'open';
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Registratie bestaat niet of is al afgerond';
@@ -2348,7 +2361,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

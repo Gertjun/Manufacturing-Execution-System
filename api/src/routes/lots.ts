@@ -199,7 +199,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `SELECT r.id, r.batch_id, l.id AS lot_id, coalesce(b.batchnummer, l.lotnummer) AS batch_of_lot, s.code AS stap, s.naam AS stapnaam,
                 r.poging, r.reden AS herbewerking_reden, v.code AS veld, v.naam AS veldnaam, v.soort, v.eenheid, v.decimalen,
-                o.naam AS operator, p.naam AS pc, r.gestart_op, r.afgerond_op, pr.code AS product
+                -- Wie de oorspronkelijke waarde invoerde; bij een overgenomen stap (#55) is dat niet altijd wie startte.
+                coalesce((SELECT io.naam FROM waarde w0 JOIN operator io ON io.id = w0.ingevoerd_door
+                           WHERE w0.stapregistratie_id = r.id AND w0.veld_id = v.id AND w0.vervangt_waarde_id IS NULL), o.naam) AS operator,
+                p.naam AS pc, r.gestart_op, r.afgerond_op, pr.code AS product
            FROM lot l
            JOIN stapregistratie r ON r.lot_id = l.id OR r.batch_id IN (SELECT id FROM batch WHERE lot_id = l.id)
            LEFT JOIN batch b ON b.id = r.batch_id

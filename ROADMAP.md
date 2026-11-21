@@ -23,7 +23,7 @@ gantt
     Gebouwd in 0.27 tot en met 0.37          :done, a2, 2026-11-20, 2d
 
     section A3 Vóór de pilot
-    Stap overnemen, nainvoeren (55 75)       :a3a, 2026-11-23, 10d
+    Nainvoeren na papier (75)                :a3a, 2026-11-23, 10d
     Accounts, melden, storing (76 78 31)     :a3b, after a3a, 7d
     Pilotoverzicht, analyses (77 32 66)      :a3c, after a3b, 14d
 
@@ -72,8 +72,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 
 
 ### A3. Vóór de pilot (software) — december 2026 tot januari 2027
-Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55, #75), dan het inrichten (#76), dan wat helpt de pilot te beoordelen. Bij #55 en #75 eerst uitleggen en akkoord van Geert.
-- #55 **Een gestarte stap overnemen** (klein) — Bij een ploegwissel loopt een stap door die een ander startte. De volgende operator moet die kunnen afmaken; vastleggen wie startte en wie afrondde.
+Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 gebouwd in 0.39.0, #75), dan het inrichten (#76), dan wat helpt de pilot te beoordelen. Keuzes van Geert voor #75: ploegleider en beheerder mogen nainvoeren, tot 7 dagen terug, ook het samenstellen van een lot (D60).
 - #75 **Nainvoeren na papier** (middel) — Als de server en een pc tegelijk niet werken, registreert de ploeg op papier (terugvalplan). Daarna voert de ploegleider of beheerder de stap in met de echte begin- en eindtijd en een reden; zichtbaar als "nageleverd" en in het logboek. Met een afdrukbaar leeg formulier per stap, met dezelfde velden als het scherm.
 - #76 **Accounts in één keer aanmaken** (klein) — Accounts en namen via een Excel-sjabloon in Beheer, met controle vooraf, en een tijdelijk wachtwoord dat bij de eerste inlog gewijzigd moet worden.
 - #78 **"Iets melden" in de schermen** (klein) — Operators en anderen typen kort wat misgaat of beter kan; met tijd, pc, stap en naam in een lijst bij de beheerder, die er roadmappunten van kan maken.
