@@ -291,6 +291,36 @@ describe("productie van batch tot lot", () => {
     const afw = await verzoek("GET", "/analyse/afwijkingen", op);
     assert.ok(afw.body.some((a: any) => a.veld === "S18.3" && a.lotnummer === "L-2026-0001"));
   });
+
+  test("herbewerking met opdracht: Kwaliteit of productiemanager maakt hem, de operator start hem in de stap (#61)", async () => {
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0110" })).status, 201);
+    await doorloop(op, "B-2026-0110", "batch", 1, 3);
+    const pm = await login("productiemanager1");
+    const stappen = await verzoek("GET", "/herbewerkingen/stappen?nummer=B-2026-0110", pm);
+    assert.deepEqual(stappen.body.map((x: any) => x.code), ["PS1", "PS2", "PS3"]);
+    assert.equal((await verzoek("GET", "/herbewerkingen/stappen?nummer=B-2026-9999", pm)).status, 404);
+    assert.equal((await verzoek("POST", "/herbewerkingen", pl, { nummer: "B-2026-0110", stapcode: "PS2", reden: "x" })).status, 403);
+    const fout = await verzoek("POST", "/herbewerkingen", pm, { nummer: "B-2026-0110", stapcode: "PS5", reden: "x" });
+    assert.equal(fout.status, 422);
+    assert.match(fout.body.fout, /nog niet doorlopen/);
+    const h = await verzoek("POST", "/herbewerkingen", pm, { nummer: "B-2026-0110", stapcode: "PS2", reden: "menger te kort" });
+    assert.equal(h.status, 201, JSON.stringify(h.body));
+    assert.equal(h.body.stand, "te_plannen");
+    assert.equal(h.body.door, "productiemanager1");
+    const wv = await verzoek("GET", "/werkvoorraad/PS2", op);
+    assert.equal(wv.body.wachtend.find((w: any) => w.nummer === "B-2026-0110")?.herbewerking, "menger te kort");
+    assert.ok(!(await verzoek("GET", "/werkvoorraad/PS4", op)).body.wachtend.some((w: any) => w.nummer === "B-2026-0110"));
+    // De operator start gewoon PS2 (zoals ook een ouder invoerscherm doet).
+    const start = await verzoek("POST", "/registraties", op, { stapcode: "PS2", batchnummer: "B-2026-0110" });
+    assert.equal(start.status, 201, JSON.stringify(start.body));
+    assert.equal(start.body.herbewerking_start, true);
+    assert.equal(start.body.poging, 2);
+    const lijst = await verzoek("GET", "/herbewerkingen?nummer=B-2026-0110", op);
+    assert.deepEqual(lijst.body.map((x: any) => x.stand), ["bezig"]);
+    const intrek = await verzoek("POST", `/herbewerkingen/${h.body.id}/intrekken`, pm, { reden: "x" });
+    assert.equal(intrek.status, 422);
+    assert.ok((await verzoek("GET", "/herbewerkingen", op)).body.some((x: any) => x.nummer === "B-2026-0110"));
+  });
 });
 
 describe("beheer", () => {

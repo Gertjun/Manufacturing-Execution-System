@@ -241,14 +241,17 @@ export async function stapScherm(code: string) {
               h(
                 "li",
                 { class: "rij" },
-                h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer, plek.has(x.nummer) ? h("span", { class: "label label-plan" }, `Gepland, nr ${plek.get(x.nummer)}`) : null),
-                  h("div", { class: "rij-info" }, [x.product, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))),
+                h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer, plek.has(x.nummer) ? h("span", { class: "label label-plan" }, `Gepland, nr ${plek.get(x.nummer)}`) : null,
+                    x.herbewerking ? h("span", { class: "label label-herbewerking" }, "Herbewerking") : null),
+                  h("div", { class: "rij-info" }, x.herbewerking
+                    ? [x.product, `Terug naar deze stap: ${x.herbewerking}`].filter(Boolean).join(" · ")
+                    : [x.product, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))),
                 !kanInvoeren ? null : h(
                   "button",
                   {
                     class: "knop knop-hoofd",
                     onclick: async () => {
-                      const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer }, x.product);
+                      const reg = await startStap(s.code, x.soort === "batch" ? { batchnummer: x.nummer } : { lotnummer: x.nummer }, x.product, x.herbewerking);
                       location.hash = `#/reg/${reg.id}`;
                     },
                   },

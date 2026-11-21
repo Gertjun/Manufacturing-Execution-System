@@ -5,6 +5,17 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.35.0 — 21 november 2026 · #61
+- Nieuw: **herbewerking met opdracht**, voor een batch (zolang hij niet in een lot zit) en voor een lot. Kwaliteit of de productiemanager besluit: welke batch of welk lot, terug naar welke stap die al gedaan is, en waarom. Dat kan bij de batch, in het lotpaspoort, en bij Te beoordelen als derde keurresultaat **Herbewerken** (alleen Kwaliteit).
+- De batch of het lot staat daarna in het invoerscherm klaar in die stap, met het label "Herbewerking" en de reden. De operator start gewoon de stap; daarna doet de batch of het lot alle volgende stappen opnieuw. Andere stappen kunnen pas weer als de herbewerking gestart is. De planner kan de herbewerking inplannen.
+- Operators en ploegleiders starten zelf geen herbewerking meer (de knop in het invoerscherm is weg). Een ouder invoerscherm dat nog zo'n herbewerking in de wachtrij heeft, wordt wel geaccepteerd; die staat dan in de lijst als "zonder opdracht gestart".
+- **Herbewerkingen en afkeur** toont de lopende herbewerkingen met hun stand: nog te plannen, gepland (met de dag), bezig, klaar, gestopt (batch afgekeurd) of ingetrokken. Een herbewerking die nog niet gestart is, kun je intrekken (met reden). Wordt een batch afgekeurd, dan vervalt zijn open herbewerking.
+- Nieuwe melding bij een nieuwe herbewerking, voor de ploegleider, de planner, Kwaliteit en de productiemanager.
+- Nieuwe rol **productiemanager** (D57): ziet Productieanalyse, Kwaliteit en Planning, zet batches in beoordeling en maakt herbewerkingen aan; geen invoerscherm en geen keurresultaat. Demo-account `productiemanager1`.
+- Database: migratie 0021 (tabel herbewerking, keurresultaat herbewerken). Er hoeft niemand iets te doen.
+- API: nieuw `/herbewerkingen` (lijst met stand, aanmaken, intrekken, mogelijke stappen); bij de werkvoorraad per stap het veld `herbewerking`. Bestaande aanroepen blijven werken, ook `POST /lots/{lotnummer}/herbewerking` van oudere invoerschermen.
+- Testdata: de herbewerkingen in de natte week hebben nu een opdracht van Kwaliteit; er staan twee lopende herbewerkingen klaar (een nog te plannen, een gepland).
+
 ## 0.34.0 — 21 november 2026 · #58
 - Nieuw: naast **Periode** staat **Groeperen**: per dag, per week of per maand. Dat geldt voor de grafiek in het Kwaliteit-overzicht (afwijkingen; klik op een dag of maand voor de lijst eronder), voor Productie per week (beide grafieken en de tabel) en voor de tabel onderaan Doorlooptijden. Standaard blijft per week.
 - Nieuw: periode **Afgelopen jaar**.

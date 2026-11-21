@@ -116,6 +116,29 @@ try {
   check("Scannen buiten een stap zoekt de batch op", true);
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
 
+  console.log("\nHerbewerking met opdracht (#61)");
+  // B-2026-0004 heeft alle batchstappen gedaan; de productiemanager stuurt hem terug naar PS15 (en trekt dat daarna in,
+  // zodat het lot verderop gewoon kan worden samengesteld).
+  const pmLogin = await (await fetch(`${BASIS}/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ gebruikersnaam: "productiemanager1", wachtwoord: "demo" }) })).json();
+  const pm = { "content-type": "application/json", authorization: `Bearer ${pmLogin.token}` };
+  const aanmaak = await fetch(`${BASIS}/herbewerkingen`, { method: "POST", headers: pm, body: JSON.stringify({ nummer: "B-2026-0004", stapcode: "PS15", reden: "test: opnieuw" }) });
+  const hb = await aanmaak.json();
+  check("Productiemanager maakt een herbewerking aan", aanmaak.status === 201, `${aanmaak.status} ${JSON.stringify(hb)}`);
+  await page.goto(`${BASIS}/invoer/#/stap/PS15`);
+  const rij = page.locator(".rij", { hasText: "B-2026-0004" });
+  await rij.waitFor();
+  check("Invoerscherm: de batch staat klaar in PS15, met 'Herbewerking' en de reden",
+    (await rij.locator(".label-herbewerking").count()) === 1 && (await rij.innerText()).includes("test: opnieuw"));
+  await shot("04c-herbewerking-klaar");
+  await page.goto(`${BASIS}/invoer/#/stap/PS16`);
+  await page.getByRole("heading", { name: "Process Step 16" }).waitFor();
+  check("... en zolang hij niet gedaan is, niet klaar voor een lot", !(await page.locator("main").innerText()).includes("B-2026-0004"));
+  const intrek = await fetch(`${BASIS}/herbewerkingen/${hb.id}/intrekken`, { method: "POST", headers: pm, body: JSON.stringify({ reden: "test klaar" }) });
+  check("Herbewerking ingetrokken", intrek.status === 200);
+  await page.goto(`${BASIS}/invoer/#/stap/PS1`);
+  await page.getByRole("heading", { name: "Gepland voor vandaag" }).waitFor();
+
   console.log("\nNieuwe batch in PS1 met een afwijking");
   await page.getByText("Ongeplande batch aanmaken").click();
   await page.getByLabel("Nieuwe batch").fill("b-2026-0100");

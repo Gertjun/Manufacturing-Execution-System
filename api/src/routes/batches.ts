@@ -173,11 +173,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:batchnummer/besluiten",
     {
-      preHandler: vereist("ploegleider", "kwaliteit"),
+      preHandler: vereist("ploegleider", "kwaliteit", "productiemanager"),
       schema: {
         tags: ["batches"],
         description:
-          "in_beoordeling: ploegleider of kwaliteit. vrijgegeven (keurresultaat OK) en afgekeurd (keurresultaat NOK): alleen kwaliteit.",
+          "in_beoordeling: ploegleider, productiemanager of kwaliteit. vrijgegeven (keurresultaat OK) en afgekeurd (keurresultaat NOK): alleen kwaliteit.",
         params: Type.Object({ batchnummer: BatchNummer }),
         body: Type.Object({
           besluit: Type.Union([Type.Literal("in_beoordeling"), Type.Literal("vrijgegeven"), Type.Literal("afgekeurd")]),

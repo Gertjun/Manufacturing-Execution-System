@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { ApiFout } from "./fouten.js";
 import { inTransactie, lees, type Db, type Tx } from "./db.js";
 
-export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm";
+export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm" | "productiemanager";
 
 /** Inhoud van het token. Een token werkt in de browser én in een latere desktop-app. */
 export interface Sessie {
@@ -24,7 +24,7 @@ declare module "@fastify/jwt" {
 export const INVOER: Rol[] = ["operator", "ploegleider"];
 export const LEIDING: Rol[] = ["ploegleider", "beheerder"];
 export const BEHEER: Rol[] = ["beheerder"];
-export const IEDEREEN: Rol[] = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner"];
+export const IEDEREEN: Rol[] = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "productiemanager"];
 
 /** preHandler: geldig token en een van de rollen. */
 export function vereist(...rollen: Rol[]) {

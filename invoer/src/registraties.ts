@@ -72,11 +72,12 @@ function lokaal(s: Stap, id: string, nummer: { batchnummer?: string; lotnummer?:
   };
 }
 
-/** Start een stap voor een batch of lot. Geeft de (lokale) registratie terug. */
-export async function startStap(stapcode: string, nummer: { batchnummer?: string; lotnummer?: string }, product?: string | null) {
+/** Start een stap voor een batch of lot. Geeft de (lokale) registratie terug. Met herbewerking (de reden): de server
+ *  maakt van deze start de herbewerking die Kwaliteit of de productiemanager heeft aangemaakt (#61). */
+export async function startStap(stapcode: string, nummer: { batchnummer?: string; lotnummer?: string }, product?: string | null, herbewerking?: string | null) {
   const s = await stap(stapcode);
   const id = nieuwId();
-  const reg = lokaal(s, id, nummer, {}, product);
+  const reg = lokaal(s, id, nummer, herbewerking ? { herbewerking_start: true, reden: herbewerking } : {}, product);
   await opslag.zet("registraties", reg);
   await voegToe({
     omschrijving: `${stapcode} starten voor ${nummer.batchnummer ?? nummer.lotnummer}`,
@@ -112,21 +113,6 @@ export async function maakLot(lotnummer: string, batchnummers: string[], afwijki
     pad: "/lots",
     body: { id: nieuwId(), registratieId, lotnummer, batchnummers, ...(afwijkingReden ? { afwijkingReden } : {}) },
     registratieId,
-  });
-  return reg;
-}
-
-export async function startHerbewerking(lotnummer: string, stapcode: string, reden: string) {
-  const s = await stap(stapcode);
-  const id = nieuwId();
-  const reg = lokaal(s, id, { lotnummer }, { herbewerking_start: true, reden });
-  await opslag.zet("registraties", reg);
-  await voegToe({
-    omschrijving: `Herbewerking ${lotnummer} vanaf ${stapcode}`,
-    methode: "POST",
-    pad: `/lots/${lotnummer}/herbewerking`,
-    body: { id, stapcode, reden },
-    registratieId: id,
   });
   return reg;
 }

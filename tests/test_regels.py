@@ -159,7 +159,7 @@ def main():
     doorloop(b[4], 1, 15)
     faalt("Operator-account mag geen besluit vastleggen",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','twijfel',%s)",
-          (b[4], op_account), "ploegleider of Kwaliteit")
+          (b[4], op_account), "of Kwaliteit mag een batch in beoordeling")
     faalt("Keurresultaat zonder eerst in beoordeling",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','x',%s)",
           (b[4], kw), "in beoordeling")
@@ -574,6 +574,73 @@ def main():
     check("Andere stap: alleen de stapplanning, met de regel voor alle producten", belasting("PS9", capdag) == {"PRD-A": (1, 0, 6)})
     check("Vervallen batch telt niet mee", (con.execute("UPDATE batch SET status = 'vervallen', vervallen_reden = 'test' WHERE batchnummer = %s", (na[1],)) and
           belasting("PS1", capdag)["PRD-A"] == (1, 1, 8)))
+
+    print("\nHerbewerking met opdracht (#61)")
+    pm = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'productiemanager1'")
+    hb = batch_met("B-2026-0801", prd["PRD-A"])
+    for k in range(1, 7):
+        doe(hb, f"PS{k}")
+    faalt("Ploegleider maakt geen herbewerking aan", "SELECT maak_herbewerking('B-2026-0801', 'PS3', 'kleur', %s)", (pl,), "Kwaliteit of de productiemanager")
+    faalt("Herbewerking naar een stap die nog niet doorlopen is", "SELECT maak_herbewerking('B-2026-0801', 'PS8', 'x', %s)", (pm,), "nog niet doorlopen")
+    faalt("Batch naar een lotstap", "SELECT maak_herbewerking('B-2026-0801', 'PS17', 'x', %s)", (pm,), "geen batchstap")
+    faalt("Herbewerking zonder reden", "SELECT maak_herbewerking('B-2026-0801', 'PS3', '  ', %s)", (pm,), "reden")
+    h = val("SELECT maak_herbewerking('B-2026-0801', 'PS3', 'kleur wijkt af na PS6', %s)", (pm,))
+    stand = lambda: val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h,))
+    check("Nieuwe herbewerking: te plannen", stand() == "te_plannen", stand())
+    check("Melding voor vloer, planner, Kwaliteit en productiemanager",
+          val("SELECT voor_rollen FROM melding WHERE bron_id = %s", (h,)) == ["ploegleider", "planner", "kwaliteit", "productiemanager"])
+    faalt("Tweede open herbewerking voor dezelfde batch", "SELECT maak_herbewerking('B-2026-0801', 'PS4', 'x', %s)", (kw,), "al een herbewerking")
+    check("Batch staat in de werkvoorraad van PS3", "B-2026-0801" in voorraad("PS3"))
+    check("... en niet meer in die van PS7", "B-2026-0801" not in voorraad("PS7"))
+    faalt("Een andere stap starten kan niet", "SELECT start_stap('PS7', %s, NULL, %s, %s)", (hb, pc, op), "eerst terug naar stap PS3")
+    vandaag = val("SELECT current_date")
+    con.execute("INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door) VALUES (%s, %s, %s, 1, %s)",
+                (vandaag, sid["PS3"], hb, pl_acc2))
+    plan_id = val("SELECT id FROM stapplanning WHERE batch_id = %s AND processtap_id = %s", (hb, sid["PS3"]))
+    check("Ingepland: stand gepland", stand() == "gepland")
+    check("Planning per stap: gepland (niet 'gedaan' door de eerste keer PS3)", val("SELECT plan_stand(%s)", (plan_id,)) == "gepland")
+    # De operator start gewoon PS3 (zoals een ouder invoerscherm): dat wordt de herbewerking.
+    r3 = val("SELECT start_stap('PS3', %s, NULL, %s, %s)", (hb, pc, op))
+    check("Gewone start wordt de herbewerking, met de reden", one("SELECT herbewerking_start, reden, poging FROM stapregistratie WHERE id = %s", (r3,)) == (True, "kleur wijkt af na PS6", 2))
+    check("Herbewerking gestart: bezig", stand() == "bezig")
+    check("Planning per stap: bezig", val("SELECT plan_stand(%s)", (plan_id,)) == "bezig")
+    vul_in(r3, 3); con.execute("SELECT rond_stap_af(%s)", (r3,))
+    check("Na PS3: PS4 opnieuw in de werkvoorraad", "B-2026-0801" in voorraad("PS4"))
+    check("... en PS7 nog niet", "B-2026-0801" not in voorraad("PS7"))
+    faalt("PS5 overslaan kan niet", "SELECT start_stap('PS5', %s, NULL, %s, %s)", (hb, pc, op), "PS4 moet eerst afgerond")
+    for k in range(4, 7):
+        doe(hb, f"PS{k}")
+    check("Na PS4 t/m PS6 opnieuw: verder met PS7", "B-2026-0801" in voorraad("PS7"))
+    for k in range(7, 16):
+        doe(hb, f"PS{k}")
+    check("Klaar met de batchstappen: herbewerking klaar en batch klaar voor een lot", stand() == "klaar" and val("SELECT batch_klaar_voor_lot(%s)", (hb,)))
+    # Kwaliteit: herbewerken als keurresultaat van een batch in beoordeling.
+    hb2 = batch_met("B-2026-0802", prd["PRD-A"])
+    for k in range(1, 4):
+        doe(hb2, f"PS{k}")
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','druk te laag',%s)", (hb2, pm))
+    faalt("Batch in beoordeling: productiemanager beslist niet", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'x', %s)", (pm,), "alleen Kwaliteit")
+    h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,))
+    check("Kwaliteit: keurresultaat herbewerken, batch weer in productie",
+          val("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op DESC LIMIT 1", (hb2,)) == "herbewerken"
+          and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_productie")
+    faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, kw), "reden")
+    con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, kw))
+    check("Ingetrokken: batch gaat gewoon verder met PS4", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h2,)) == "ingetrokken" and "B-2026-0802" in voorraad("PS4"))
+    faalt("Intrekken kan maar één keer", "SELECT trek_herbewerking_in(%s, 'x', %s)", (h2, kw), "al gestart of ingetrokken")
+    h3 = val("SELECT maak_herbewerking('B-2026-0802', 'PS1', 'grondstof verkeerd', %s)", (pm,))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','toch afkeuren',%s)", (hb2, kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','afvoeren',%s)", (hb2, kw))
+    check("Batch afgekeurd: open herbewerking vervalt", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h3,)) == "ingetrokken")
+    # Lot: opdracht vooraf; de oude functie zonder opdracht blijft werken (oudere invoerschermen, D18).
+    faalt("Batch die in een lot zit", "SELECT maak_herbewerking((SELECT batchnummer FROM batch WHERE lot_id = %s LIMIT 1), 'PS3', 'x', %s)", (lot, kw), "zit al in een lot")
+    hl = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS17', 'opnieuw drogen', %s)", (lot, kw))
+    check("Lot: herbewerking te plannen, lot staat in de werkvoorraad van PS17", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (hl,)) == "te_plannen"
+          and val("SELECT lotnummer FROM lot WHERE id = %s", (lot,)) in voorraad("PS17"))
+    rl = val("SELECT start_herbewerking(%s, 'PS17', 'opnieuw drogen', %s, %s)", (lot, pc, op))
+    check("Start via de oude functie koppelt aan de opdracht", val("SELECT stapregistratie_id FROM herbewerking WHERE id = %s", (hl,)) == rl)
+    check("Herbewerkingen zonder opdracht (van vóór #61) staan er ook in, zonder aanmaker",
+          val("SELECT count(*) FROM herbewerking_stand WHERE lot_id = %s AND door IS NULL", (lot,)) >= 1)
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

@@ -1,7 +1,7 @@
 // Vormen zoals de API ze teruggeeft (zie openapi.json).
 
 export type Markering = "ok" | "buiten_tolerantie" | "buiten_grens";
-export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm";
+export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm" | "productiemanager";
 
 export interface Veld {
   code: string;
@@ -99,7 +99,7 @@ export interface Registratie {
 
 export interface Werkvoorraad {
   open: Registratie[];
-  wachtend: { soort: "batch" | "lot"; nummer: string; sinds: string | null; product?: string | null }[];
+  wachtend: { soort: "batch" | "lot"; nummer: string; sinds: string | null; product?: string | null; herbewerking?: string | null }[];
 }
 
 export interface Overzicht {

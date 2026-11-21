@@ -81,6 +81,7 @@ tijd_lot: dict = {}
 tijd_besluit: list = []  # (besluit-id, tijd)
 tijd_voorstel: list = []  # (voorstel-id, gemaakt, afgesloten)
 tijd_grondstof: list = []  # (registratie-id, tijd)
+tijd_herbewerking: list = []  # (herbewerking-id, tijd)
 
 
 def partij_voor(gcode, moment):
@@ -126,7 +127,11 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
     pc = pcs[(int(stapcode[2:]) - 1) % len(pcs)]
     oid = operators[operator]
     if herbewerking:
-        reg = con.execute("SELECT start_herbewerking(%s, %s, %s, %s, %s)", (lot_id, stapcode, herbewerking, pc, oid)).fetchone()[0]
+        # Kwaliteit besluit tot de herbewerking (#61); de operator start daarna gewoon de stap.
+        lotnr = con.execute("SELECT lotnummer FROM lot WHERE id = %s", (lot_id,)).fetchone()[0]
+        hid = con.execute("SELECT maak_herbewerking(%s, %s, %s, %s)", (lotnr, stapcode, herbewerking, gebruiker["kwaliteit1"])).fetchone()[0]
+        tijd_herbewerking.append((hid, moment - dt.timedelta(minutes=90)))  # geen toeval: de rest van de testdata blijft gelijk
+        reg = con.execute("SELECT start_stap(%s, NULL, %s, %s, %s)", (stapcode, lot_id, pc, oid)).fetchone()[0]
     else:
         reg = con.execute("SELECT start_stap(%s, %s, %s, %s, %s)", (stapcode, batch_id, lot_id, pc, oid)).fetchone()[0]
     duur = dt.timedelta(minutes=rnd.randint(20, 70))
@@ -272,6 +277,7 @@ with con.transaction():
         c.executemany("UPDATE lot SET aangemaakt_op = %s WHERE id = %s", [(t, l) for l, t in tijd_lot.items()])
         c.executemany("UPDATE batch_besluit SET besloten_op = %s WHERE id = %s", [(t, b) for b, t in tijd_besluit])
         c.executemany("UPDATE grondstof_gebruik SET ingevoerd_op = %s WHERE stapregistratie_id = %s", [(t, r) for r, t in tijd_grondstof])
+        c.executemany("UPDATE herbewerking SET aangemaakt_op = %s WHERE id = %s", [(t, h) for h, t in tijd_herbewerking])
         c.executemany("UPDATE lot_voorstel SET aangemaakt_op = %s, afgesloten_op = %s WHERE id = %s", [(g, a, v) for v, g, a in tijd_voorstel])
     # Gestart = begin van de eerste stap.
     con.execute("""UPDATE batch b SET gestart_op = r.t
@@ -376,6 +382,25 @@ for bid, stap in volgende:
     plek[stap] = plek.get(stap, 0) + 1
     con.execute("INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door) VALUES (%s,%s,%s,%s,%s)",
                 (vandaag, stap, bid, plek[stap], planner))
+# Lopende herbewerkingen (#61): de productiemanager stuurt een batch terug (nog te plannen), Kwaliteit een
+# tweede (de planner zette hem vandaag in de stap).
+herb_kandidaten = con.execute(
+    """SELECT b.batchnummer, b.id, (SELECT s.code FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id
+                                     WHERE r.batch_id = b.id AND r.status = 'afgerond' ORDER BY r.afgerond_op DESC OFFSET 1 LIMIT 1) AS stap
+         FROM batch b WHERE b.status = 'in_productie'
+          AND (SELECT count(*) FROM stapregistratie r WHERE r.batch_id = b.id AND r.status = 'afgerond') >= 3
+        ORDER BY b.batchnummer LIMIT 2""").fetchall()
+for (nr, bid, stap), (door, reden) in zip(herb_kandidaten, [("productiemanager1", "menger liep te kort"), ("kwaliteit1", "kleur wijkt af na monster")]):
+    hid = con.execute("SELECT maak_herbewerking(%s, %s, %s, %s)", (nr, stap, reden, gebruiker[door])).fetchone()[0]
+    stats["herbewerkingen"] += 1
+    con.execute("DELETE FROM stapplanning WHERE batch_id = %s AND dag = %s", (bid, vandaag))
+    if door == "kwaliteit1":
+        con.execute("""INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door)
+                       SELECT %s, s.id, %s, coalesce((SELECT max(volgorde) FROM stapplanning WHERE dag = %s AND processtap_id = s.id), 0) + 1, %s
+                         FROM processtap s WHERE s.code = %s""", (vandaag, bid, vandaag, planner, stap))
+    with con.transaction():
+        con.execute("SET LOCAL session_replication_role = replica")
+        con.execute("UPDATE herbewerking SET aangemaakt_op = %s WHERE id = %s", (eind - dt.timedelta(hours=4), hid))
 # Planning is gemaakt vóór de laatste invoer, niet "nu", en de configuratie vóór de eerste batch.
 # Zo is de laatste invoer het laatste tijdstip, en schuift het laptoppakket alles goed naar vandaag.
 with con.transaction():
@@ -434,7 +459,8 @@ with con.transaction():
                        (SELECT ingevoerd_op FROM waarde WHERE id = m.bron_id),
                        (SELECT besloten_op FROM batch_besluit WHERE id = m.bron_id),
                        (SELECT afgesloten_op FROM lot_voorstel WHERE id = m.bron_id),
-                       (SELECT begin_op FROM stilstand WHERE id = m.bron_id), m.aangemaakt_op)""")
+                       (SELECT begin_op FROM stilstand WHERE id = m.bron_id),
+                       (SELECT aangemaakt_op FROM herbewerking WHERE id = m.bron_id), m.aangemaakt_op)""")
 con.execute("""INSERT INTO melding_gelezen (melding_id, gebruiker_id, gelezen_op)
                SELECT m.id, g.id, m.aangemaakt_op + interval '2 hours' FROM melding m JOIN gebruiker g ON g.rol = ANY(m.voor_rollen)
                 WHERE m.aangemaakt_op < %s""", (eind - dt.timedelta(days=1),))

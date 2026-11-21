@@ -10,7 +10,7 @@ export interface Melding {
 }
 interface Antwoord { ongelezen: number; meldingen: Melding[] }
 
-export const heeftMeldingen = () => ["ploegleider", "kwaliteit", "planner", "beheerder", "analist"].includes(sessie.rol ?? "");
+export const heeftMeldingen = () => ["ploegleider", "kwaliteit", "planner", "beheerder", "analist", "productiemanager"].includes(sessie.rol ?? "");
 
 const ERNST: Record<Melding["ernst"], { teken: string; tekst: string }> = {
   kritiek: { teken: "!", tekst: "Belangrijk" },

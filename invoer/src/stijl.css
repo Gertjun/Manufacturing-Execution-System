@@ -198,6 +198,7 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .plan-gedaan .plan-stand::before { content: "✓ "; }
 .plan-bezig .plan-stand { color: var(--actie); }
 .label-plan { margin-left: var(--space-2); color: var(--actie); font-size: var(--text-sm); vertical-align: 2px; }
+.label-herbewerking { margin-left: var(--space-2); color: var(--tol); font-size: var(--text-sm); vertical-align: 2px; }
 .uitzondering { margin-top: var(--space-4); }
 .uitzondering summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
 

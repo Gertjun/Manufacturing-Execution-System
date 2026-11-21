@@ -1,6 +1,6 @@
 // Een batch of lot opzoeken: geschiedenis, herbewerking en besluiten.
 import { ApiFout, GeenVerbinding, stuur } from "../api";
-import { startHerbewerking, stappen } from "../registraties";
+import { stappen } from "../registraties";
 import { sessie } from "../sessie";
 import type { Registratie } from "../types";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
@@ -111,22 +111,9 @@ function toonLot(lot: LotDetail, lotStappen: Awaited<ReturnType<typeof stappen>>
     h("div", { class: "kop" }, h("div", {}, h("p", { class: "sub" }, "Lot"), h("h1", { class: "getal" }, lot.lotnummer),
       h("p", { class: "sub" }, `Batches: ${lot.batches.join(", ")}`)), h("span", { class: "label label-open" }, statusTekst[lot.status] ?? lot.status)),
     zoekVorm(lot.lotnummer),
-    kanInvoeren && terugNaar.length
-      ? h("div", { class: "knoppen" },
-          open ? h("span", { class: "sub" }, "Herbewerking kan pas als er geen stap meer open staat.") : null,
-          h("button", {
-            class: "knop", disabled: open,
-            onclick: async () => {
-              const r = await vraag(`Herbewerking ${lot.lotnummer}`, [
-                { naam: "stap", label: "Terug naar stap", opties: terugNaar.map((s) => s.naam) },
-                { naam: "reden", label: "Reden" },
-              ], "Herbewerking starten");
-              if (!r) return;
-              const s = terugNaar.find((x) => x.naam === r.stap)!;
-              const reg = await startHerbewerking(lot.lotnummer, s.code, r.reden);
-              location.hash = `#/reg/${reg.id}`;
-            },
-          }, "Herbewerking starten"))
+    // Herbewerking: Kwaliteit of de productiemanager maakt hem aan in het portaal; daarna staat het lot klaar in die stap (#61, D57).
+    kanInvoeren && terugNaar.length && !open
+      ? h("p", { class: "sub" }, "Moet dit lot terug naar een eerdere stap? Dat besluiten Kwaliteit of de productiemanager. Daarna staat het lot in die stap klaar om te starten.")
       : null,
     h("h2", {}, "Geschiedenis van het lot"),
     lot.registraties.length ? regLijst(lot.registraties) : h("p", { class: "leeg" }, "Nog geen registraties."),

@@ -105,6 +105,63 @@ function keurKnoppen(batchnummer: string, daarna: () => void) {
     h("button", { class: "knop knop-klein knop-gevaar", onclick: () => keur(batchnummer, "afgekeurd", daarna) }, "NOK"));
 }
 
+// ---------- Herbewerking (#61, D57) ----------
+/** Kwaliteit en de productiemanager besluiten over een herbewerking. */
+const magHerbewerken = () => sessie.rol === "kwaliteit" || sessie.rol === "productiemanager";
+interface Herbewerking {
+  id: string; soort: "batch" | "lot"; nummer: string; product: string | null; stap: string; stapnaam: string; reden: string;
+  door: string | null; aangemaakt_op: string; gepland_op: string | null; gestart_op: string | null;
+  stand: "te_plannen" | "gepland" | "bezig" | "klaar" | "gestopt" | "ingetrokken"; ingetrokken_reden: string | null; ingetrokken_door: string | null;
+}
+const STAND: Record<Herbewerking["stand"], string> = {
+  te_plannen: "Nog te plannen", gepland: "Gepland", bezig: "Bezig", klaar: "Klaar", gestopt: "Gestopt (batch afgekeurd)", ingetrokken: "Ingetrokken",
+};
+function standLabel(h_: Herbewerking) {
+  const tekst = h_.stand === "gepland" && h_.gepland_op ? `Gepland ${new Date(`${h_.gepland_op}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })}` : STAND[h_.stand];
+  return h("span", { class: `label label-stand-${h_.stand}` }, tekst);
+}
+
+/** Knop "Herbewerking": terug naar een stap die al doorlopen is, met reden. Een batch in beoordeling: het keurresultaat herbewerken. */
+function herbewerkingKnop(nummer: string, daarna: () => void, inBeoordeling = false) {
+  return h("button", { class: "knop", type: "button", onclick: async () => {
+    let stappen: { code: string; naam: string }[];
+    try { stappen = await haal(`/herbewerkingen/stappen${qs({ nummer })}`); } catch (e) { return melding((e as Error).message, "fout"); }
+    if (!stappen.length) return melding(`${nummer} heeft nog geen afgeronde stap om naar terug te gaan.`, "info");
+    const r = await vraag(`Herbewerking ${nummer}`, [
+      { naam: "stap", label: "Terug naar stap", opties: stappen.map((s) => [s.code, `${s.code} ${s.naam}`] as [string, string]), waarde: stappen[stappen.length - 1].code },
+      { naam: "reden", label: "Reden" },
+    ], "Herbewerking aanmaken",
+      `${nummer} doet de gekozen stap opnieuw en daarna alle volgende stappen. De operator start hem in die stap; de planner kan hem inplannen.${inBeoordeling ? " Dit is het keurresultaat: herbewerken." : ""}`);
+    if (!r) return;
+    try {
+      await stuur("POST", "/herbewerkingen", { nummer, stapcode: r.stap, reden: r.reden });
+      melding(`Herbewerking ${nummer} naar ${r.stap} aangemaakt`, "ok");
+      daarna();
+    } catch (e) { melding((e as Error).message, "fout"); }
+  } }, inBeoordeling ? "Herbewerken" : "Herbewerking");
+}
+
+/** Tabel met herbewerkingen en hun stand; open opdrachten kunnen worden ingetrokken. */
+function herbewerkingTabel(lijst: Herbewerking[], daarna: () => void, metNummer = true) {
+  const intrekken = async (x: Herbewerking) => {
+    const r = await vraag(`Herbewerking ${x.nummer} intrekken`, [{ naam: "reden", label: "Reden" }], "Intrekken");
+    if (!r) return;
+    try { await stuur("POST", `/herbewerkingen/${x.id}/intrekken`, { reden: r.reden }); melding("Herbewerking ingetrokken", "ok"); daarna(); }
+    catch (e) { melding((e as Error).message, "fout"); }
+  };
+  const nummerLink = (x: Herbewerking) => h("a", { href: x.soort === "lot" ? `#/kwaliteit/lotpaspoort/${x.nummer}` : `#/kwaliteit/batch/${x.nummer}`, class: "sterk" }, x.nummer);
+  return tabel([...(metNummer ? ["Batch of lot"] : []), ...(metNummer && !gekozenProduct.code ? ["Product"] : []), "Terug naar stap", "Reden", "Aangemaakt", "Stand", ""],
+    lijst.map((x) => [
+      ...(metNummer ? [nummerLink(x)] : []), ...(metNummer && !gekozenProduct.code ? [x.product ?? ""] : []),
+      `${x.stap} ${x.stapnaam}`,
+      x.stand === "ingetrokken" && x.ingetrokken_reden ? h("span", {}, x.reden, h("br"), h("small", { class: "noot" }, `Ingetrokken door ${x.ingetrokken_door ?? "?"}: ${x.ingetrokken_reden}`)) : x.reden,
+      h("span", {}, datum(x.aangemaakt_op), h("br"), h("small", { class: "noot" }, x.door ?? "zonder opdracht gestart")),
+      standLabel(x),
+      magHerbewerken() && (x.stand === "te_plannen" || x.stand === "gepland")
+        ? h("button", { class: "knop knop-klein knop-stil", type: "button", onclick: () => intrekken(x) }, "Intrekken") : "",
+    ]), "compact");
+}
+
 // ---------- Overzicht ----------
 interface Samenvatting {
   batches: number; lots: number; waarden: number; buiten_tolerantie: number; buiten_grens: number;
@@ -179,14 +236,14 @@ export async function beoordelen() {
   if (!actueel()) return;
   toon(
     kop("Te beoordelen", magKeuren()
-      ? "Batches die in beoordeling staan. OK geeft de batch vrij voor de volgende stap, NOK keurt hem af."
+      ? "Batches die in beoordeling staan. OK geeft de batch vrij voor de volgende stap, NOK keurt hem af, Herbewerken stuurt hem terug naar een eerdere stap."
       : "Batches die in beoordeling staan. Alleen Kwaliteit voert het keurresultaat in."),
     rijen.length
       ? tabel(["Batch", "In beoordeling sinds", "Reden", "Door", "Laatst afgerond", "Afwijkingen", magKeuren() ? "Keurresultaat" : ""],
           rijen.map((r) => [
             h("a", { href: `#/kwaliteit/batch/${r.batchnummer}`, class: "sterk" }, r.batchnummer), datum(r.sinds), r.reden, r.door,
             r.laatst_afgeronde_stap ?? "Nog geen stap", h("span", { class: "getal" }, r.afwijkingen),
-            magKeuren() ? keurKnoppen(r.batchnummer, beoordelen) : "",
+            magKeuren() ? h("div", { class: "knoppen-klein" }, keurKnoppen(r.batchnummer, beoordelen), herbewerkingKnop(r.batchnummer, beoordelen, true)) : "",
           ]))
       : h("p", { class: "leeg" }, "Er staan geen batches in beoordeling."),
   );
@@ -314,14 +371,16 @@ export async function lotpaspoort(nummer?: string) {
 async function toonLotpaspoort(nummer: string) {
   const actueel = vastHouden();
   toon(kop(`Lot ${nummer}`), laden());
-  let lot: Lot, pas: { aantal_afwijkingen: number; regels: Regel[]; grondstoffen?: GsPaspoort[] };
+  let lot: Lot, pas: { aantal_afwijkingen: number; regels: Regel[]; grondstoffen?: GsPaspoort[] }, herb: Herbewerking[];
   try {
-    [lot, pas] = await Promise.all([haal<Lot & { registraties: { stapcode: string; poging: number; herbewerking_start: boolean; reden: string | null }[] }>(`/lots/${nummer}`),
-      haal<{ aantal_afwijkingen: number; regels: Regel[]; grondstoffen?: GsPaspoort[] }>(`/lots/${nummer}/paspoort`)]);
+    [lot, pas, herb] = await Promise.all([haal<Lot>(`/lots/${nummer}`),
+      haal<{ aantal_afwijkingen: number; regels: Regel[]; grondstoffen?: GsPaspoort[] }>(`/lots/${nummer}/paspoort`),
+      haal<Herbewerking[]>(`/herbewerkingen${qs({ nummer })}`)]);
   } catch (e) { return fout(e, `Lot ${nummer}`); }
   if (!actueel()) return;
   const afw = pas.regels.filter((r) => r.markering !== "ok");
-  const herb = (lot as unknown as { registraties: { herbewerking_start: boolean; stapcode: string; reden: string | null }[] }).registraties.filter((r) => r.herbewerking_start);
+  const opnieuw = () => toonLotpaspoort(nummer);
+  const openHerb = herb.some((x) => x.stand === "te_plannen" || x.stand === "gepland");
   toon(
     h("p", { class: "terug" }, h("a", { href: "#/kwaliteit/lotpaspoort" }, "Alle lots")),
     kop(`Lotpaspoort ${lot.lotnummer}`,
@@ -329,16 +388,18 @@ async function toonLotpaspoort(nummer: string) {
       h("div", { class: "knoppen-klein" },
         h("a", { class: "knop knop-stil", href: `#/etiketten/printer/${encodeURIComponent(lot.lotnummer)}` }, "Etiket"),
         h("a", { class: "knop knop-stil", href: `#/kwaliteit/certificaat/${encodeURIComponent(lot.lotnummer)}` }, "Certificaat"),
+        magHerbewerken() && ["in_productie", "gereed"].includes(lot.status) && !openHerb ? herbewerkingKnop(lot.lotnummer, opnieuw) : null,
         h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken"))),
     h("dl", { class: "feiten" },
       h("div", {}, h("dt", {}, "Batches"), h("dd", {}, lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)]))),
       h("div", {}, h("dt", {}, "Afwijkingen"), h("dd", {}, pas.aantal_afwijkingen === 0 ? "Geen" : String(pas.aantal_afwijkingen))),
-      h("div", {}, h("dt", {}, "Herbewerkingen"), h("dd", {}, herb.length ? herb.map((r) => `${r.stapcode}: ${r.reden}`).join("; ") : "Geen")),
+      h("div", {}, h("dt", {}, "Herbewerkingen"), h("dd", {}, herb.length ? herb.map((r) => `${r.stap}: ${r.reden} (${STAND[r.stand].toLowerCase()})`).join("; ") : "Geen")),
       h("div", {}, h("dt", {}, "Metingen"), h("dd", {}, String(pas.regels.length))),
     ),
     h("section", { class: "blok" }, h("h2", {}, "Afwijkingen"),
       afw.length ? [h("p", { class: "sub" }, "Klik op een resultaat voor de meting, correcties en het keurresultaat."), regelsTabel(afw, true, lot.lotnummer)]
         : h("p", { class: "leeg goed" }, "Geen afwijkingen in dit lot en zijn batches.")),
+    herb.length ? h("section", { class: "blok geen-print" }, h("h2", {}, "Herbewerkingen"), herbewerkingTabel(herb, opnieuw, false)) : null,
     pas.grondstoffen?.length
       ? h("section", { class: "blok" }, h("h2", {}, "Grondstoffen"),
           tabel(["Stap", "Batch of lot", "Grondstof", "Partij", "Hoeveelheid"], pas.grondstoffen.map((g) => [
@@ -358,27 +419,33 @@ interface BatchPaspoort {
   besluiten: { besluit: string; reden: string; besloten_door: string; besloten_op: string }[]; regels: Regel[];
 }
 const batchStatus: Record<string, string> = { gepland: "Gepland", in_productie: "In productie", in_beoordeling: "In beoordeling", in_lot: "In een lot", afgekeurd: "Afgekeurd" };
-const besluitTekst: Record<string, string> = { in_beoordeling: "In beoordeling gezet", vrijgegeven: "Keurresultaat OK, vrijgegeven", afgekeurd: "Keurresultaat NOK, afgekeurd" };
+const besluitTekst: Record<string, string> = { in_beoordeling: "In beoordeling gezet", vrijgegeven: "Keurresultaat OK, vrijgegeven", afgekeurd: "Keurresultaat NOK, afgekeurd", herbewerken: "Keurresultaat herbewerken" };
 
 export async function batch(nummer: string) {
   const actueel = vastHouden();
   toon(kop(`Batch ${nummer}`), laden());
-  let b: BatchPaspoort;
-  try { b = await haal<BatchPaspoort>(`/batches/${nummer}/paspoort`); } catch (e) { return fout(e, `Batch ${nummer}`); }
+  let b: BatchPaspoort, herb: Herbewerking[];
+  try {
+    [b, herb] = await Promise.all([haal<BatchPaspoort>(`/batches/${nummer}/paspoort`), haal<Herbewerking[]>(`/herbewerkingen${qs({ nummer })}`)]);
+  } catch (e) { return fout(e, `Batch ${nummer}`); }
   if (!actueel()) return;
   const opnieuw = () => batch(nummer);
+  const openHerb = herb.some((x) => x.stand === "te_plannen" || x.stand === "gepland");
   toon(
     kop(`Batch ${b.batchnummer}`,
       h("span", {}, batchStatus[b.status] ?? b.status, b.lotnummer ? [", in lot ", h("a", { href: `#/kwaliteit/lotpaspoort/${b.lotnummer}` }, b.lotnummer)] : null),
-      b.status === "in_beoordeling" && magKeuren() ? keurKnoppen(b.batchnummer, opnieuw) : null,
-      b.status === "in_productie" && (sessie.rol === "kwaliteit" || sessie.rol === "ploegleider")
+      h("div", { class: "knoppen-klein" },
+      b.status === "in_beoordeling" && magKeuren() ? [keurKnoppen(b.batchnummer, opnieuw), herbewerkingKnop(b.batchnummer, opnieuw, true)] : null,
+      b.status === "in_productie" && magHerbewerken() && !openHerb ? herbewerkingKnop(b.batchnummer, opnieuw) : null,
+      b.status === "in_productie" && ["kwaliteit", "ploegleider", "productiemanager"].includes(sessie.rol ?? "")
         ? h("button", { class: "knop", onclick: async () => {
             const r = await vraag(`${b.batchnummer} in beoordeling zetten`, [{ naam: "reden", label: "Reden" }], "In beoordeling zetten");
             if (!r) return;
             try { await stuur("POST", `/batches/${b.batchnummer}/besluiten`, { besluit: "in_beoordeling", reden: r.reden }); opnieuw(); }
             catch (e) { melding((e as Error).message, "fout"); }
           } }, "In beoordeling zetten")
-        : null),
+        : null)),
+    herb.length ? h("section", { class: "blok" }, h("h2", {}, "Herbewerkingen"), herbewerkingTabel(herb, opnieuw, false)) : null,
     b.besluiten.length
       ? h("section", { class: "blok" }, h("h2", {}, "Besluiten"),
           h("ol", { class: "tijdlijn" }, b.besluiten.map((d) => h("li", {}, h("strong", {}, besluitTekst[d.besluit] ?? d.besluit), h("span", {}, `${d.reden}, ${d.besloten_door}, ${datum(d.besloten_op)}`)))))
@@ -482,11 +549,10 @@ export async function trendScherm(veldcode?: string) {
 export async function herbewerkingen() {
   const actueel = vastHouden();
   toon(kop("Herbewerkingen en afkeur"), laden());
-  type Herb = { lotnummer: string; stap: string; poging: number; reden: string; gestart_op: string };
   type Afk = { batchnummer: string; reden: string; door: string; afgekeurd_op: string; in_beoordeling_reden: string | null; laatst_afgeronde_stap: string | null };
-  let herb: Herb[], afk: Afk[];
+  let herb: Herbewerking[], afk: Afk[];
   try {
-    [herb, afk] = await Promise.all([haal<Herb[]>(`/analyse/herbewerkingen${qs(periode.bereik())}`), haal<Afk[]>(`/analyse/afkeur${qs(periode.bereik())}`)]);
+    [herb, afk] = await Promise.all([haal<Herbewerking[]>(`/herbewerkingen${qs(periode.bereik())}`), haal<Afk[]>(`/analyse/afkeur${qs(periode.bereik())}`)]);
   } catch (e) { return fout(e); }
   if (!actueel()) return;
   const perReden = (lijst: { reden: string }[]) => {
@@ -494,13 +560,22 @@ export async function herbewerkingen() {
     lijst.forEach((x) => m.set(x.reden, (m.get(x.reden) ?? 0) + 1));
     return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([r, n]) => `${r} (${n})`).join(", ");
   };
+  // #61: wat nog niet klaar is staat er altijd (ook van voor de periode); de rest als hij in de periode is aangemaakt.
+  const lopend = herb.filter((x) => ["te_plannen", "gepland", "bezig"].includes(x.stand));
+  const afgerond = herb.filter((x) => !lopend.includes(x));
+  const telStand = (st: Herbewerking["stand"]) => herb.filter((x) => x.stand === st).length;
   toon(
-    kop("Herbewerkingen en afkeur", undefined, periodeKeuze(herbewerkingen)),
-    h("section", { class: "blok" }, h("h2", {}, `Herbewerkingen (${herb.length})`),
-      herb.length ? [h("p", { class: "sub" }, `Redenen: ${perReden(herb)}`),
-        tabel(["Gestart", "Lot", "Terug naar stap", "Poging", "Reden"], herb.map((r) => [datum(r.gestart_op),
-          h("a", { href: `#/kwaliteit/lotpaspoort/${r.lotnummer}`, class: "sterk" }, r.lotnummer), r.stap, h("span", { class: "getal" }, r.poging), r.reden]))]
-        : h("p", { class: "leeg goed" }, "Geen herbewerkingen in deze periode.")),
+    kop("Herbewerkingen en afkeur",
+      magHerbewerken() ? "Een herbewerking maak je aan bij de batch of in het lotpaspoort, of als keurresultaat bij Te beoordelen." : "Kwaliteit en de productiemanager maken herbewerkingen aan.",
+      periodeKeuze(herbewerkingen)),
+    h("div", { class: "tegels" },
+      ...([["te_plannen", "nog te plannen"], ["gepland", "gepland"], ["bezig", "bezig"]] as [Herbewerking["stand"], string][])
+        .map(([st, t]) => h("div", { class: `tegel${st === "te_plannen" && telStand(st) ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, telStand(st)), h("span", { class: "tegel-tekst" }, `herbewerkingen ${t}`)))),
+    h("section", { class: "blok" }, h("h2", {}, `Lopende herbewerkingen (${lopend.length})`),
+      lopend.length ? herbewerkingTabel(lopend, herbewerkingen) : h("p", { class: "leeg goed" }, "Er loopt geen herbewerking.")),
+    h("section", { class: "blok" }, h("h2", {}, `Afgeronde en ingetrokken herbewerkingen (${afgerond.length})`),
+      afgerond.length ? [h("p", { class: "sub" }, `Redenen: ${perReden(afgerond)}`), herbewerkingTabel(afgerond, herbewerkingen)]
+        : h("p", { class: "leeg goed" }, "Geen afgeronde herbewerkingen in deze periode.")),
     h("section", { class: "blok" }, h("h2", {}, `Afgekeurde batches (${afk.length})`),
       afk.length ? [h("p", { class: "sub" }, `Redenen: ${perReden(afk)}`),
         tabel(["Afgekeurd", "Batch", "Reden", "Door", "In beoordeling gezet om", "Laatst afgeronde stap"], afk.map((r) => [datum(r.afgekeurd_op),

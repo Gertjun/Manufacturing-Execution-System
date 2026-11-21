@@ -442,7 +442,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   // ---------- Accounts ----------
-  const Rol = Type.Union(["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "scherm"].map((r) => Type.Literal(r)));
+  const Rol = Type.Union(["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "scherm", "productiemanager"].map((r) => Type.Literal(r)));
   const Account = Type.Object({
     gebruikersnaam: Type.String(), rol: Type.String(), actief: Type.Boolean(),
     naam: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Naam bij de invoer (operator en ploegleider, D53)" })),

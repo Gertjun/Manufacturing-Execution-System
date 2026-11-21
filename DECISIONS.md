@@ -17,7 +17,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** velden per stap zijn configuratie met codes als S3.2. Elk veld heeft daarnaast een interne ID; codes worden nooit hergebruikt.
 
 ### D4 – Herbewerking (nov 2026)
-- **Besluit:** een lot kan terug naar een eerdere lotstap (bijv. opnieuw drogen) en doorloopt daarna alle volgende stappen opnieuw.
+- **Besluit:** een lot kan terug naar een eerdere lotstap (bijv. opnieuw drogen) en doorloopt daarna alle volgende stappen opnieuw. Sinds 0.35.0 ook een batch, en alleen met een opdracht van Kwaliteit of de productiemanager: zie D57.
 
 ### D5 – Lot alleen zonder open stappen; afkeur na overleg (nov 2026)
 - **Besluit:** PS16 kan geen lot maken als een batch nog open stappen heeft. Een afgekeurde batch wordt na overleg fysiek afgevoerd; de gegevens blijven bewaard.
@@ -26,7 +26,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit:** operators loggen in met één gedeeld account en kiezen daarna hun naam. Waarden corrigeren mag alleen een ploegleider of hoger; het origineel blijft zichtbaar.
 
 ### D7 – Beoordeling en keurresultaat (18 nov 2026)
-- **Besluit:** een ploegleider of Kwaliteit zet een batch in beoordeling. Alleen Kwaliteit voert het keurresultaat in: OK = vrijgave voor de volgende stap, NOK = afkeur. Bij NOK wordt een openstaande stap automatisch afgebroken, met de reden erbij.
+- **Besluit:** een ploegleider of Kwaliteit zet een batch in beoordeling. Alleen Kwaliteit voert het keurresultaat in: OK = vrijgave voor de volgende stap, NOK = afkeur. Bij NOK wordt een openstaande stap automatisch afgebroken, met de reden erbij. Sinds 0.35.0 is er een derde keurresultaat, herbewerken (D57); de productiemanager mag ook in beoordeling zetten.
 
 ### D8 – Lokaal, offline, in de browser (nov 2026)
 - **Besluit:** alles draait op een lokale server in het fabrieksnetwerk, zonder internet. Schermen in de browser op Windows-pc's; het invoerscherm werkt offline met een wachtrij. Later installeerbare apps moet mogelijk blijven.
@@ -233,3 +233,11 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Planning in de ploegoverdracht per dag (0.33.0, #62):** de planning ligt per dag vast, niet per ploeg. "28 / 32 geplande stappen afgerond" staat daarom één keer boven de ploegen en telt alle ploegen samen. Een geplande stap telt als afgerond als de batch of het lot die stap heeft afgerond, ook als dat op een andere dag was; een lotvoorstel als het lot is samengesteld. Dezelfde telling als de stand in Planning per stap.
 - **Per dag, week of maand (0.34.0, #58):** de keuze "Groeperen" staat naast Periode bij de schermen met een grafiek of tabel door de tijd (Kwaliteit-overzicht, Doorlooptijden, Productie per week). Standaard per week; de keuze geldt tot de pagina opnieuw wordt geladen, net als de periode. Een week begint op maandag. Dagen, weken of maanden zonder gegevens staan erbij met nul, zodat de as klopt. De API houdt het veld `week` in de antwoorden (het begin van de dag, week of maand), zodat bestaande aanroepen gelijk blijven; nieuw is de parameter `per`. "Afgelopen jaar" is 365 dagen tot en met vandaag.
 - **Certificaat volgt de route (0.33.0):** alleen kenmerken uit stappen in de route van het product, met de grenzen van dat product (D55).
+
+### D57 – Herbewerking met opdracht, voor batch en lot; rol productiemanager (21 nov 2026, 0.35.0)
+- **Besluit (Geert):** Kwaliteit en de productieleiding beslissen over een herbewerking, voor batches en lots. De productieleiding is een nieuwe rol, **productiemanager**. Een operator start geen herbewerking zonder opdracht. Een batch kan terug zolang hij nog niet in een lot zit; daarna gaat het lot zelf terug (D4).
+- **Uitwerking:** tabel `herbewerking` met de opdracht (batch of lot, terug naar stap, reden, wie, wanneer). Per batch of lot hoogstens één opdracht die nog niet gestart is. Zolang die er is, kan de batch of het lot alleen die stap starten, en die start ís de herbewerking: ook een gewone start vanaf een ouder invoerscherm wordt zo de herbewerking (D18). De oude manier (`start_herbewerking`, het lot-scherm van oudere invoerschermen) blijft werken; die wordt vastgelegd als "zonder opdracht". Herbewerkingen van vóór 0.35.0 staan er ook zo in.
+- **Stand:** nog te plannen, gepland (er staat een stapplanning voor die stap vanaf de dag van de opdracht), bezig (gestart), klaar (batch weer klaar voor een lot of in een lot; lot weer gereed), gestopt (batch afgekeurd tijdens de herbewerking) of ingetrokken. Een open opdracht vervalt als de batch wordt afgekeurd.
+- **Volgorde van batchstappen:** een batchstap telt als gedaan als hij is afgerond en er daarna geen herbewerking begon bij die stap of eerder in de route (`batch_stap_gedaan`). De volgorde gaat op de aankomst op de server, niet op de klok van de pc. Werkvoorraad, "klaar voor een lot", lot samenstellen en de stand in de planning gebruiken dit.
+- **Batch in beoordeling:** dan beslist alleen Kwaliteit (D7); het aanmaken van de herbewerking is dan het keurresultaat "herbewerken" en zet de batch terug in productie.
+- **Productiemanager:** portalen Productieanalyse (startportaal), Kwaliteit en Planning (kijken); in beoordeling zetten en herbewerkingen aanmaken en intrekken; geen invoerscherm, geen keurresultaat, geen correcties. Krijgt meldingen over beoordelingen, keurresultaten en herbewerkingen.

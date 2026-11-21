@@ -5,7 +5,7 @@ import { inTransactie, lees } from "../db.js";
 import { niet } from "../fouten.js";
 
 /** Meldingen zijn er voor de mensen die iets moeten doen; operators en het wandscherm niet. */
-const MET_MELDINGEN: Rol[] = ["ploegleider", "kwaliteit", "planner", "beheerder", "analist"];
+const MET_MELDINGEN: Rol[] = ["ploegleider", "kwaliteit", "planner", "beheerder", "analist", "productiemanager"];
 const BEWAARTERMIJN = "30 days";
 
 const Melding = Type.Object({

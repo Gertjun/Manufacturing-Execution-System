@@ -15,6 +15,7 @@ FROM (VALUES ('operator',     'operator'),
              ('beheerder1',   'beheerder'),
              ('analist1',     'analist'),
              ('planner1',     'planner'),
+             ('productiemanager1', 'productiemanager'),
              ('scherm1',      'scherm'),
              ('operator.a',   'operator'),
              ('operator.b',   'operator')) v(naam, rol);

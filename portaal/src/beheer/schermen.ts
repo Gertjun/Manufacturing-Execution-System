@@ -11,6 +11,7 @@ const ROLLEN: [string, string][] = [
   ["operator", "Operator"],
   ["ploegleider", "Ploegleider"],
   ["kwaliteit", "Kwaliteit"],
+  ["productiemanager", "Productiemanager"],
   ["beheerder", "Beheerder"],
   ["analist", "Analist (alleen lezen)"],
   ["planner", "Planner"],

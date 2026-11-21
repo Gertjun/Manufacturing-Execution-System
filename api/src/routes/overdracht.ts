@@ -191,17 +191,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [r] = await lees(
         app.db,
-        `WITH x AS (
-           SELECT CASE
-                    WHEN sp.voorstel_id IS NOT NULL THEN
-                      CASE WHEN (SELECT v.status FROM lot_voorstel v WHERE v.id = sp.voorstel_id) IN ('gebruikt', 'afgeweken') THEN 'afgerond' ELSE 'gepland' END
-                    ELSE coalesce((SELECT r.status FROM stapregistratie r
-                                    WHERE r.processtap_id = sp.processtap_id AND (r.batch_id = sp.batch_id OR r.lot_id = sp.lot_id) AND r.status <> 'afgebroken'
-                                    ORDER BY r.poging DESC LIMIT 1), 'gepland')
-                  END AS stand
-             FROM stapplanning sp WHERE sp.dag = $1)
+        `WITH x AS (SELECT plan_stand(sp.id) AS stand FROM stapplanning sp WHERE sp.dag = $1)  -- zoals Planning per stap
          SELECT to_char($1::date, 'YYYY-MM-DD') AS dag, count(*)::int AS gepland,
-                count(*) FILTER (WHERE stand = 'afgerond')::int AS afgerond, count(*) FILTER (WHERE stand = 'open')::int AS bezig
+                count(*) FILTER (WHERE stand = 'gedaan')::int AS afgerond, count(*) FILTER (WHERE stand = 'bezig')::int AS bezig
            FROM x`,
         [req.query.dag],
       );

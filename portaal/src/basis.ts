@@ -69,7 +69,7 @@ export const PORTALEN: Portaal[] = [
   {
     id: "kwaliteit",
     naam: "Kwaliteit",
-    rollen: ["kwaliteit", "beheerder", "analist", "ploegleider"],
+    rollen: ["kwaliteit", "beheerder", "analist", "ploegleider", "productiemanager"],
     klaar: true,
     onderdelen: [
       { pad: "overzicht", naam: "Overzicht" },
@@ -85,7 +85,7 @@ export const PORTALEN: Portaal[] = [
   {
     id: "productie",
     naam: "Productieanalyse",
-    rollen: ["ploegleider", "beheerder", "analist"],
+    rollen: ["ploegleider", "beheerder", "analist", "productiemanager"],
     klaar: true,
     onderdelen: [
       { pad: "overzicht", naam: "Werkvoorraad" },
@@ -99,7 +99,7 @@ export const PORTALEN: Portaal[] = [
   {
     id: "planning",
     naam: "Planning",
-    rollen: ["planner", "beheerder", "ploegleider"],
+    rollen: ["planner", "beheerder", "ploegleider", "productiemanager"],
     klaar: true,
     onderdelen: [
       { pad: "week", naam: "Per week" },

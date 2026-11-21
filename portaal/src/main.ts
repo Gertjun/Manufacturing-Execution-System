@@ -165,7 +165,7 @@ async function route() {
   if (!toegestaan.length) return void (location.hash = "#/");
   const p = toegestaan.find((x) => x.id === portaal);
   // Eerste portaal dat bij de rol hoort (ploegleider: Productie, kwaliteit: Kwaliteit).
-  const standaard = sessie.rol === "ploegleider" ? "productie" : sessie.rol === "beheerder" ? "beheer" : sessie.rol === "planner" ? "planning" : toegestaan.find((x) => x.klaar)?.id ?? toegestaan[0].id;
+  const standaard = sessie.rol === "ploegleider" || sessie.rol === "productiemanager" ? "productie" : sessie.rol === "beheerder" ? "beheer" : sessie.rol === "planner" ? "planning" : toegestaan.find((x) => x.klaar)?.id ?? toegestaan[0].id;
   if (!p) return void (location.hash = toegestaan.some((x) => x.id === standaard) ? `#/${standaard}` : "#/");
   if (!p.klaar) { await tekenMenu(p.id, ""); return volgtScherm(p.naam); }
   const deel = onderdeel || "overzicht";

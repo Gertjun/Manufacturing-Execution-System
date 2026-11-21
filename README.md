@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.34.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.35.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd; #61 (herbewerkingen met stand) vraagt eerst een keuze van Geert. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Nog open in fase A2: #54 (wandscherm per stap) en #64 (invoer voor Kwaliteit); #55 komt later. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.34.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.35.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde).
-- **Laatste testronde (0.34.0, 21 november 2026):** geslaagd: databaseregels (163), API, migraties (tot en met 20), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor per dag, week of maand (dezelfde totalen, dagen zonder gegevens erbij), Afgelopen jaar, het certificaat van een product met een eigen route en de planning van de dag in de ploegoverdracht. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
+- **Laatste testronde (0.35.0, 21 november 2026):** geslaagd: databaseregels (193), API, migraties (tot en met 21), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor herbewerkingen met opdracht (aanmaken, stand, intrekken, de start in het invoerscherm, batch en lot) en de rol productiemanager. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -49,11 +49,11 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 | Wandscherm | `/portaal/#/wandscherm` | Tv in de hal |
 | API-documentatie | `/docs` | Ontwikkelaars, latere koppelingen |
 
-**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
+**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat, herbewerking), productiemanager (portalen Productieanalyse, Kwaliteit en Planning; in beoordeling zetten en herbewerking, D57), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
 
 **Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
 
-**Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator.a` en `operator.b` (eigen account, D53), `operator` (het oude gedeelde account, kiest een naam), `ploegleider1`, `ploegleider2`, `kwaliteit1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
+**Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator.a` en `operator.b` (eigen account, D53), `operator` (het oude gedeelde account, kiest een naam), `ploegleider1`, `ploegleider2`, `kwaliteit1`, `productiemanager1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
 
 ### Invoerscherm
 - Per stap zie je wat bezig is, wat klaarstaat en wat gepland is voor vandaag. Het formulier komt uit de velden die per stap zijn ingesteld; tijdens het typen zie je of een waarde buiten tolerantie of grens valt.
@@ -68,14 +68,14 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 | Onderdeel | Wat je ziet |
 | --- | --- |
 | Overzicht | Kerncijfers, afwijkingen per week, velden met de meeste afwijkingen |
-| Te beoordelen | Batches in beoordeling; Kwaliteit voert hier OK of NOK in |
+| Te beoordelen | Batches in beoordeling; Kwaliteit voert hier OK, NOK of Herbewerken in |
 | Lotpaspoort | Eén lot met zijn 4 batches, afwijkingen bovenaan (klik op het resultaat voor de meting, correcties en keurresultaat), grondstofpartijen, afdrukbaar; met etiket en certificaat |
 | Certificaat | Analysecertificaat per lot: concept, uitgeven met volgnummer, afdrukken of pdf (D37) |
 | Grondstoffen terugzoeken | Op partijnummer: in welke batches en lots zit die partij |
 | Regelkaarten | Per veld een regelkaart met signalen en Cpk (D38); onder 20 metingen voorlopig en zonder Cpk |
 | Afwijkingen | Alle metingen buiten tolerantie of grens, met filters |
 | Trend per veld | Eén veld door de tijd, met tolerantieband en grenzen |
-| Herbewerkingen en afkeur | Hoe vaak, in welke stap en met welke redenen |
+| Herbewerkingen en afkeur | Lopende herbewerkingen met hun stand (nog te plannen, gepland, bezig), afgeronde en ingetrokken, en afgekeurde batches; een herbewerking aanmaken kan bij de batch, in het lotpaspoort of bij Te beoordelen (D57) |
 
 ### Portaal Productieanalyse
 | Onderdeel | Wat je ziet |

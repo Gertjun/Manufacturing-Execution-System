@@ -6,7 +6,7 @@ import { lees } from "../db.js";
 import { ApiFout } from "../fouten.js";
 
 /** Wie het wandscherm mag zien: het schermaccount en iedereen met een persoonlijk account. */
-export const WANDSCHERM: Rol[] = ["scherm", "ploegleider", "kwaliteit", "beheerder", "analist", "planner"];
+export const WANDSCHERM: Rol[] = ["scherm", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "productiemanager"];
 
 const Item = Type.Object({
   nummer: Type.String(),

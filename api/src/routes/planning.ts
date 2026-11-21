@@ -102,15 +102,7 @@ const PLAN_ITEMS_SQL = `
          CASE WHEN sp.batch_id IS NOT NULL THEN 'batch' WHEN sp.lot_id IS NOT NULL THEN 'lot' ELSE 'voorstel' END AS soort,
          coalesce(b.batchnummer, l.lotnummer, v.nummer::text) AS nummer,
          sp.volgorde, sp.opmerking,
-         CASE
-           WHEN sp.voorstel_id IS NOT NULL THEN CASE WHEN v.status IN ('gebruikt','afgeweken') THEN 'gedaan' ELSE 'gepland' END
-           ELSE coalesce((SELECT CASE r.status WHEN 'afgerond' THEN 'gedaan' WHEN 'open' THEN 'bezig' ELSE 'gepland' END
-                            FROM stapregistratie r
-                           WHERE r.processtap_id = sp.processtap_id
-                             AND (r.batch_id = sp.batch_id OR r.lot_id = sp.lot_id)
-                             AND r.status <> 'afgebroken'
-                           ORDER BY r.poging DESC LIMIT 1), 'gepland')
-         END AS status,
+         plan_stand(sp.id) AS status,  -- met herbewerkingen meegerekend (#61)
          coalesce((SELECT array_agg(bb.batchnummer ORDER BY bb.batchnummer) FROM lot_voorstel_batch x JOIN batch bb ON bb.id = x.batch_id
                     WHERE x.voorstel_id = sp.voorstel_id), '{}') AS batches,
          ${vorigeSql("sp.processtap_id", "sp.batch_id", "sp.lot_id", "sp.voorstel_id", "sp.dag")} AS vorige
@@ -644,7 +636,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           app.db,
           `SELECT 'lot' AS soort, l.lotnummer AS nummer, l.lotnummer IN (SELECT nummer FROM werkvoorraad($1)) AS klaar, NULL AS toelichting,
                   ${vorigeSql("$2::uuid", "NULL::uuid", "l.id", "NULL::uuid", "coalesce($3::date, current_date)")} AS vorige
-             FROM lot l WHERE l.status = 'in_productie' AND in_route(lot_product(l.id), $2) ORDER BY 3 DESC, l.lotnummer`,
+             FROM lot l
+            WHERE in_route(lot_product(l.id), $2)
+              AND (l.status = 'in_productie'
+                   OR EXISTS (SELECT 1 FROM herbewerking h WHERE h.lot_id = l.id AND h.status = 'open' AND h.processtap_id = $2))
+            ORDER BY 3 DESC, l.lotnummer`,
           [req.query.stap, stap.id, dag],
         ) as never;
       }
@@ -656,7 +652,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            FROM batch b LEFT JOIN product p ON p.id = b.product_id
           WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling')
             AND in_route(b.product_id, $2)
-            AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.batch_id = b.id AND r.processtap_id = $2 AND r.status = 'afgerond')
+            AND (NOT batch_stap_gedaan(b.id, $2)   -- ook een batch die na een herbewerking deze stap opnieuw doet (#61)
+                 OR EXISTS (SELECT 1 FROM herbewerking h WHERE h.batch_id = b.id AND h.status = 'open' AND h.processtap_id = $2))
           ORDER BY 3 DESC, coalesce(b.geplande_dag, b.aangemaakt_op::date), b.volgorde NULLS LAST, b.batchnummer`,
         [req.query.stap, stap.id, dag],
       ) as never;

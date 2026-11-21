@@ -114,7 +114,7 @@ try {
   check("Afgelopen jaar per maand: alle batches gestart", Number(await page.locator(".tegel").nth(0).locator(".tegel-getal").innerText()) === gestartJaar);
   await shot("04c-per-maand-jaar");
   await page.selectOption("#per", "week");
-  await page.selectOption("#periode", "30");
+  await page.selectOption("#periode", "90");  // zoals hiervoor: de volgende schermen tellen over 90 dagen
 
   console.log("\nCorrecties");
   await page.getByRole("link", { name: "Correcties" }).click();

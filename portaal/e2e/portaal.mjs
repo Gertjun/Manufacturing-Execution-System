@@ -47,7 +47,7 @@ async function login(naam) {
   // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
   if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
     const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
+    return { ploegleider: "productie", productiemanager: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
   })}`).click();
 }
 
@@ -187,6 +187,36 @@ try {
   await page.getByRole("heading", { name: "Besluiten" }).waitFor();
   await shot("06-batch-afgekeurd");
 
+  console.log("\nHerbewerkingen met stand (#61)");
+  await page.getByRole("link", { name: "Herbewerkingen en afkeur" }).click();
+  await page.getByRole("heading", { name: /Lopende herbewerkingen/ }).waitFor();
+  const [hs] = await q(`SELECT count(*) FILTER (WHERE stand = 'te_plannen')::int AS t, count(*) FILTER (WHERE stand = 'gepland')::int AS g FROM fabriek.herbewerking_stand`);
+  const tegelGetal = async (t) => Number(await page.locator(".tegel", { hasText: t }).locator(".tegel-getal").innerText());
+  check("Tegels: nog te plannen en gepland zoals in de database", (await tegelGetal("nog te plannen")) === hs.t && (await tegelGetal("herbewerkingen gepland")) === hs.g && hs.t >= 1 && hs.g >= 1, JSON.stringify(hs));
+  check("Lopende herbewerking met stand en wie hem aanmaakte",
+    (await page.locator("section", { hasText: "Lopende herbewerkingen" }).innerText()).includes("productiemanager1")
+    && (await page.locator(".label-stand-te_plannen").count()) >= 1);
+  await shot("11b-herbewerkingen");
+  // Kwaliteit maakt een herbewerking aan bij een batch in productie.
+  const [hbatch] = await q(`SELECT b.batchnummer FROM fabriek.batch b WHERE b.status = 'in_productie'
+      AND NOT EXISTS (SELECT 1 FROM fabriek.herbewerking h WHERE h.batch_id = b.id AND h.status = 'open')
+      AND (SELECT count(*) FROM fabriek.stapregistratie r WHERE r.batch_id = b.id AND r.status = 'afgerond') >= 2 ORDER BY b.batchnummer DESC LIMIT 1`);
+  await page.goto(`${BASIS}/portaal/#/kwaliteit/batch/${hbatch.batchnummer}`);
+  await page.getByRole("button", { name: "Herbewerking", exact: true }).click();
+  await page.locator("#v-stap").selectOption({ index: 0 });
+  await page.locator("#v-reden").fill("test: opnieuw mengen");
+  await shot("11c-herbewerking-aanmaken");
+  await page.getByRole("button", { name: "Herbewerking aanmaken" }).click();
+  await page.getByRole("heading", { name: "Herbewerkingen" }).waitFor();
+  const [nieuwH] = await q("SELECT stand, door FROM fabriek.herbewerking_stand WHERE nummer = $1 AND stand <> 'ingetrokken'", [hbatch.batchnummer]);
+  check("Herbewerking aangemaakt door kwaliteit1, nog te plannen", nieuwH?.stand === "te_plannen" && nieuwH?.door === "kwaliteit1", JSON.stringify(nieuwH));
+  check("Knop Herbewerking weg zolang er een open herbewerking is", (await page.getByRole("button", { name: "Herbewerking", exact: true }).count()) === 0);
+  await page.getByRole("button", { name: "Intrekken" }).click();
+  await page.locator("#v-reden").fill("test klaar");
+  await page.getByRole("dialog").getByRole("button", { name: "Intrekken" }).click();
+  await page.locator(".label-stand-ingetrokken").waitFor();
+  check("Intrekken: stand ingetrokken", true);
+
   console.log("\nLotpaspoort");
   const [herb] = await q("SELECT l.lotnummer FROM fabriek.lot l JOIN fabriek.stapregistratie r ON r.lot_id = l.id WHERE r.herbewerking_start ORDER BY l.aangemaakt_op DESC LIMIT 1");
   await page.getByRole("link", { name: "Lotpaspoort" }).click();
@@ -211,7 +241,7 @@ try {
   check("Nog een klik: weer dicht", (await page.locator("tr.meting-detail").count()) === 0);
   const [n] = await q("SELECT count(*)::int AS n FROM fabriek.lotpaspoort WHERE lotnummer = $1", [herb.lotnummer]);
   await page.getByText(/metingen binnen grenzen tonen/).click();
-  const getoond = await page.locator(".blok", { hasNot: page.getByRole("heading", { name: "Grondstoffen", exact: true }) }).locator(".tabel tbody tr").count();
+  const getoond = await page.locator(".blok", { hasNot: page.getByRole("heading", { name: /^(Grondstoffen|Herbewerkingen)$/ }) }).locator(".tabel tbody tr").count();
   check("Alle metingen van lot en batches staan erin", getoond === n.n, `${getoond} vs ${n.n}`);
   await page.emulateMedia({ media: "print" });
   await shot("09-lotpaspoort-afdruk");
@@ -237,6 +267,18 @@ try {
   await page.goto(`${BASIS}/portaal/#/kwaliteit/batch/${eerste}`);
   await page.getByRole("button", { name: "In beoordeling zetten" }).waitFor();
   check("Ploegleider kan in beoordeling zetten maar niet keuren", (await page.getByRole("button", { name: "NOK", exact: true }).count()) === 0);
+  check("Ploegleider maakt geen herbewerking aan (#61)", (await page.getByRole("button", { name: "Herbewerking", exact: true }).count()) === 0);
+
+  console.log("\nProductiemanager (#61)");
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await login("productiemanager1");
+  await page.getByRole("heading", { name: "Productie", exact: true }).waitFor();
+  check("Productiemanager start in Productieanalyse en ziet Kwaliteit en Planning",
+    (await page.locator(".menu-portaal", { hasText: "Kwaliteit" }).count()) === 1 && (await page.locator(".menu-portaal", { hasText: "Planning" }).count()) === 1);
+  await page.goto(`${BASIS}/portaal/#/kwaliteit/batch/${hbatch.batchnummer}`);
+  await page.getByRole("button", { name: "Herbewerking", exact: true }).waitFor();
+  check("Productiemanager kan een herbewerking aanmaken en in beoordeling zetten, niet keuren",
+    (await page.getByRole("button", { name: "In beoordeling zetten" }).count()) === 1 && (await page.getByRole("button", { name: "NOK", exact: true }).count()) === 0);
 
   await page.setViewportSize({ width: 820, height: 1000 });
   await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);

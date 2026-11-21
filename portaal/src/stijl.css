@@ -522,3 +522,10 @@ a.merk:hover { text-decoration: underline; }
 .plan-stand .plan-getal strong { font-size: var(--text-lg); font-variant-numeric: tabular-nums; }
 .plan-stand .bezetbalk { max-width: 28rem; }
 .plan-stand .sub { margin: var(--space-2) 0 0; }
+
+/* #61: stand van een herbewerking (tekst draagt de betekenis, kleur helpt) */
+.label-stand-te_plannen { color: var(--tol); }
+.label-stand-gepland, .label-stand-bezig { color: var(--actie); }
+.label-stand-bezig { background: var(--actie-vlak); }
+.label-stand-klaar { color: var(--ok); }
+.label-stand-gestopt, .label-stand-ingetrokken { color: var(--inkt-zacht); border-style: dashed; }
