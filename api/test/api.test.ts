@@ -953,6 +953,15 @@ describe("Ploegoverdracht", () => {
     assert.ok(Date.parse(vorige.body.eind_op) <= Date.parse(nu.body.begin_op));
     const alles = await verzoek("GET", `/overdracht/dag?dag=${nu.body.dag}`, await login("analist1").catch(() => login("kwaliteit1")));
     assert.ok(alles.body.some((p: any) => p.ploeg === nu.body.ploeg));
+    // #62: planning van de dag, gelijk aan wat Planning per stap voor die dag laat zien.
+    const plan = await verzoek("GET", `/overdracht/plan?dag=${nu.body.dag}`, await login("kwaliteit1"));
+    assert.equal(plan.status, 200);
+    const perStap = await verzoek("GET", `/planning/stappen?dag=${nu.body.dag}`, await login("planner1"));
+    const items = perStap.body.flatMap((x: any) => x.items);
+    assert.equal(plan.body.gepland, items.length);
+    assert.equal(plan.body.afgerond, items.filter((i: any) => i.status === "gedaan").length);
+    assert.equal(plan.body.bezig, items.filter((i: any) => i.status === "bezig").length);
+    assert.ok(plan.body.gepland > 0, "testdata heeft planning voor vandaag");
     // Analisten en Kwaliteit lezen, maar schrijven niet.
     assert.equal((await verzoek("POST", "/overdracht", await login("kwaliteit1"), { bijzonderheden: "x" })).status, 403);
   });

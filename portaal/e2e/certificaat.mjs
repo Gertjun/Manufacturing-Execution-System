@@ -51,12 +51,14 @@ const inloggen = async (naam) => {
 try {
   console.log("\nKwaliteit geeft een certificaat uit");
   // Een lot dat gereed is en waarvan alle kenmerken binnen de specificatie vallen.
-  const [lot] = await q(`SELECT l.lotnummer FROM fabriek.lot l WHERE l.status = 'gereed'
+  const goedLot = `SELECT l.lotnummer FROM fabriek.lot l WHERE l.status = 'gereed'
       AND NOT EXISTS (SELECT 1 FROM fabriek.batch b WHERE b.lot_id = l.id AND b.status = 'afgekeurd')
       AND NOT EXISTS (SELECT 1 FROM fabriek.waarde_actueel w JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id
                         JOIN fabriek.veld v ON v.id = w.veld_id LEFT JOIN fabriek.batch b ON b.id = r.batch_id
                        WHERE v.op_certificaat AND w.markering = 'buiten_grens' AND (r.lot_id = l.id OR b.lot_id = l.id))
-      ORDER BY l.lotnummer DESC LIMIT 1`);
+        AND (SELECT p.code FROM fabriek.product p WHERE p.id = fabriek.lot_product(l.id)) = $1
+      ORDER BY l.lotnummer DESC LIMIT 1`;
+  const [lot] = await q(goedLot, ["PRD-A"]);
   await inloggen("kwaliteit1");
   await page.getByRole("heading", { name: "Kwaliteit", exact: true }).waitFor();
   await page.goto(`${BASIS}/portaal/#/kwaliteit/lotpaspoort/${lot.lotnummer}`);
@@ -74,6 +76,17 @@ try {
   await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
   check("Bij afdrukken alleen het certificaat (geen menu of knoppen)", !(await page.locator("#menu").isVisible()) && !(await page.getByRole("button", { name: "Afdrukken of pdf" }).isVisible()));
   await page.emulateMedia({ media: "screen" });
+
+  console.log("\nLot van een product met een andere route (D55)");
+  // PRD-C slaat PS17 over: het kenmerk uit PS17 hoort dan niet op het certificaat.
+  const [lotC] = await q(goedLot, ["PRD-C"]);
+  const [{ n: nC }] = await q(`SELECT count(*)::int AS n FROM fabriek.veld v WHERE v.op_certificaat AND v.actief
+      AND fabriek.in_route((SELECT id FROM fabriek.product WHERE code = 'PRD-C'), v.processtap_id)`);
+  await page.goto(`${BASIS}/portaal/#/kwaliteit/certificaat/${lotC.lotnummer}`);
+  await page.getByRole("heading", { name: `Certificaat ${lotC.lotnummer} (concept)` }).waitFor();
+  check(`PRD-C: alleen de ${nC} kenmerken uit zijn route, en ze voldoen allemaal`, nC === 4 && (await page.locator(".cert-tabel tbody tr").count()) === nC
+    && (await page.locator(".cert-tabel td", { hasText: "✓ Ja" }).count()) === nC);
+  check("PRD-C: geen PS17 op het certificaat", !(await page.locator(".cert-tabel").innerText()).includes("PS17"));
 
   console.log("\nLot dat niet gereed is");
   const [open] = await q("SELECT lotnummer FROM fabriek.lot WHERE status = 'in_productie' LIMIT 1");

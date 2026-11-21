@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.33.0 — 21 november 2026 · #60 #62
+- Nieuw: in **Productie per week** staat onder "Lots gereed per week" nu ook de grafiek **Batches gestart per week**.
+- Nieuw: de **Ploegoverdracht** laat bovenaan zien hoeveel van de planning van die dag klaar is, bijvoorbeeld "28 / 32 geplande stappen afgerond, 2 bezig", met een balk. De planning is per dag, niet per ploeg; daarom staat dit getal één keer boven de ploegen. Een geplande stap die al op een eerdere dag is afgerond, telt ook mee.
+- Foutoplossing: het **certificaat** hield nog geen rekening met de route en de grenzen per product (sinds 0.28.0 en 0.29.0). Bij een product dat een stap overslaat (PRD-C slaat PS17 over) stond het kenmerk uit die stap erop zonder meting, waardoor het lot "voldoet niet" kreeg en niet uit te geven was. Nu staan alleen kenmerken uit de route van het product erop, met de grenzen van dat product. Al uitgegeven certificaten blijven zoals ze waren.
+- API: nieuw `GET /overdracht/plan?dag=…`. Bestaande aanroepen blijven gelijk.
+
 ## Zonder nieuwe versie (na 0.32.0)
 - Schermtests: Chrome draait nu in de tijdzone van de fabriek (Europe/Amsterdam), net als de database. Op GitHub draaide Chrome in UTC; tussen middernacht en 01:00 (Nederlandse tijd) was "vandaag" in de browser dan een andere dag dan in de database, en faalden drie controles. De test van de browserdemo blijft in de tijdzone van de machine, want daarin is de demodatabase gebouwd. Aan de schermen zelf verandert niets: in de fabriek staan pc en server in dezelfde tijdzone.
 

@@ -164,6 +164,9 @@ export async function perWeek() {
     h("section", { class: "blok" }, h("h2", {}, "Lots gereed per week"),
       w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.lots_gereed, tip: [weekTekst(x.week), `${x.lots_gereed} lots gereed`, `${x.batches_gestart} batches gestart`] })), "Lots gereed per week")
         : h("p", { class: "leeg" }, "Geen productie in deze periode.")),
+    h("section", { class: "blok" }, h("h2", {}, "Batches gestart per week"),
+      w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.batches_gestart, tip: [weekTekst(x.week), `${x.batches_gestart} batches gestart`, `${x.batches_klaar} batches klaar voor een lot`] })), "Batches gestart per week")
+        : h("p", { class: "leeg" }, "Geen productie in deze periode.")),
     h("section", { class: "blok" }, h("h2", {}, "Per week in cijfers"),
       tabel(["Week van", "Batches gestart", "Batches klaar", "Lots gereed", "Afgekeurd"], [...w].reverse().map((x) => [
         new Date(x.week).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" }),
@@ -218,7 +221,13 @@ export async function overdracht(dag?: string) {
   const d = dag && /^\d{4}-\d{2}-\d{2}$/.test(dag) ? dag : isoDag();
   toon(kop("Ploegoverdracht"), laden());
   let p: PloegSamenvatting[];
-  try { p = await haal<PloegSamenvatting[]>(`/overdracht/dag?dag=${d}`); } catch (e) { return fout(e); }
+  let plan: { gepland: number; afgerond: number; bezig: number };
+  try {
+    [p, plan] = await Promise.all([
+      haal<PloegSamenvatting[]>(`/overdracht/dag?dag=${d}`),
+      haal<{ gepland: number; afgerond: number; bezig: number }>(`/overdracht/plan?dag=${d}`),
+    ]);
+  } catch (e) { return fout(e); }
   if (!actueel()) return;
   const cijfer = (n: number, t: string, klasse = "") => h("div", { class: `ploeg-cijfer ${klasse}` }, h("span", { class: "tegel-getal" }, n), h("span", { class: "tegel-tekst" }, t));
   toon(
@@ -228,6 +237,17 @@ export async function overdracht(dag?: string) {
         h("a", { class: "knop knop-stil", href: `#/productie/overdracht/${plusDag(d, -1)}` }, "Vorige dag"),
         h("a", { class: "knop knop-stil", href: "#/productie/overdracht" }, "Vandaag"),
         d < isoDag() ? h("a", { class: "knop knop-stil", href: `#/productie/overdracht/${plusDag(d, 1)}` }, "Volgende dag") : null)),
+    // #62: hoeveel van de planning van deze dag klaar is (de planning is per dag, niet per ploeg).
+    h("section", { class: "blok plan-stand" },
+      plan.gepland
+        ? [
+            h("p", { class: "plan-getal" }, h("strong", {}, `${plan.afgerond} / ${plan.gepland}`), " geplande stappen afgerond",
+              plan.bezig ? `, ${plan.bezig} bezig` : ""),
+            h("div", { class: "bezetbalk", "aria-hidden": "true" },
+              h("span", { style: `width:${Math.round((100 * plan.afgerond) / plan.gepland)}%` })),
+            h("p", { class: "sub" }, "Alle ploegen samen. Een geplande stap die op een andere dag is afgerond, telt ook mee."),
+          ]
+        : h("p", { class: "leeg" }, "Voor deze dag is niets gepland.")),
     p.length
       ? h("div", { class: "ploegen" }, p.map((x) =>
           h("section", { class: `blok ploeg${x.loopt_nog ? " ploeg-nu" : ""}` },

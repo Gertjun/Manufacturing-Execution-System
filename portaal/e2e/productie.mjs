@@ -79,13 +79,19 @@ try {
 
   console.log("\nProductie per week");
   await page.getByRole("link", { name: "Productie per week" }).click();
-  await page.locator(".grafiek > svg").waitFor();
+  await page.getByRole("heading", { name: "Batches gestart per week" }).waitFor();
   await page.selectOption("#periode", "90");
   await page.waitForTimeout(500);
   await shot("04-per-week");
   const lots = Number((await page.locator(".tegel").nth(2).locator(".tegel-getal").innerText()).trim());
   const [{ gereed }] = await q("SELECT count(*)::int AS gereed FROM fabriek.lot WHERE aangemaakt_op >= now() - interval '91 days'");
   check("Lots gereed (90 dagen) ongeveer gelijk aan aantal lots", Math.abs(lots - gereed) <= 2, `${lots} vs ${gereed}`);
+  // #60: batches gestart per week, dezelfde soort grafiek; de staven tellen op tot de tegel.
+  const gestartSec = page.locator("section", { has: page.getByRole("heading", { name: "Batches gestart per week" }) });
+  check("Grafiek Batches gestart per week (#60)", (await gestartSec.locator("svg").count()) === 1);
+  const gestartTegel = Number((await page.locator(".tegel").nth(0).locator(".tegel-getal").innerText()).trim());
+  const somRij = (await page.locator("section", { hasText: "Per week in cijfers" }).locator("tbody tr").evaluateAll((rs) => rs.reduce((a, r) => a + Number(r.children[1].textContent), 0)));
+  check("Batches gestart: tabel telt op tot de tegel", somRij === gestartTegel, `${somRij} vs ${gestartTegel}`);
 
   console.log("\nCorrecties");
   await page.getByRole("link", { name: "Correcties" }).click();
@@ -124,6 +130,11 @@ try {
   await page.getByRole("link", { name: "Vandaag" }).click();
   await page.locator("section.ploeg-nu, .leeg").first().waitFor();
   check("Vandaag: de lopende ploeg is gemarkeerd", (await page.locator("section.ploeg-nu").count()) <= 1);
+  // #62: hoeveel van de planning van vandaag klaar is, gelijk aan de database.
+  const [pl] = await q(`SELECT count(*)::int AS gepland FROM fabriek.stapplanning WHERE dag = current_date`);
+  const planTekst = await page.locator(".plan-stand").innerText();
+  check("Ploegoverdracht: afgerond van gepland (#62)", pl.gepland > 0 && new RegExp(`\\d+ / ${pl.gepland} geplande stappen afgerond`).test(planTekst), `${pl.gepland}: ${planTekst}`);
+  await shot("07b-overdracht-vandaag");
 
   console.log("\nStilstand");
   await page.goto(`${BASIS}/portaal/#/productie/stilstand`);

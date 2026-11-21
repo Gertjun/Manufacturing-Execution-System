@@ -53,9 +53,11 @@ async function maakInhoud(db: Db, lotnummer: string) {
   // Per kenmerk: de laatste afgeronde meting per batch (of van het lot), met correcties verwerkt.
   const regels = await lees<{ veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; decimalen: number | null; spec_min: number | null; spec_max: number | null; nummer: string | null; waarde: number | null; markering: string | null }>(
     db,
-    `SELECT v.code AS veld, v.naam, s.code AS stap, s.niveau, v.eenheid, v.decimalen, v.grens_min::float AS spec_min, v.grens_max::float AS spec_max,
+    // Alleen kenmerken van stappen in de route van het product, met de grenzen van dat product (D55).
+    `SELECT v.code AS veld, v.naam, s.code AS stap, s.niveau, v.eenheid, v.decimalen, g.grens_min::float AS spec_min, g.grens_max::float AS spec_max,
             m.nummer, m.gemeten::float AS waarde, m.markering
        FROM veld v JOIN processtap s ON s.id = v.processtap_id
+       CROSS JOIN LATERAL grenzen_van(v.id, lot_product($1)) g
        LEFT JOIN LATERAL (
          SELECT DISTINCT ON (coalesce(r.batch_id, r.lot_id)) coalesce(b.batchnummer, l.lotnummer) AS nummer, w.gemeten, w.markering
            FROM stapregistratie r
@@ -65,7 +67,7 @@ async function maakInhoud(db: Db, lotnummer: string) {
           WHERE r.status = 'afgerond' AND (r.lot_id = $1 OR b.lot_id = $1)
           ORDER BY coalesce(r.batch_id, r.lot_id), r.poging DESC, r.afgerond_op DESC
        ) m ON true
-      WHERE v.op_certificaat AND v.actief
+      WHERE v.op_certificaat AND v.actief AND (lot_product($1) IS NULL OR in_route(lot_product($1), s.id))
       ORDER BY s.volgorde, v.volgnummer, m.nummer`,
     [lot.id],
   );
