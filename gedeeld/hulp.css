@@ -1,0 +1,22 @@
+/* Hulp per rol (gedeeld/hulp.ts, D59). Op het scherm een leesbare kolom; afgedrukt één A4. */
+.hulp { max-width: 70ch; }
+.hulp h1 { margin-bottom: var(--space-1); }
+.hulp-voor { color: var(--inkt-zacht); margin: 0 0 var(--space-4); }
+.hulp-deel h2 { font-size: var(--text-lg); margin: var(--space-5) 0 var(--space-2); }
+.hulp-deel ul { margin: 0; padding-left: var(--space-5); }
+.hulp-deel li { margin-bottom: var(--space-2); line-height: 1.45; }
+.hulp-voet { color: var(--inkt-zacht); font-size: var(--text-sm); margin-top: var(--space-6); }
+.hulp-keuze { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; margin-bottom: var(--space-5); }
+
+@media print {
+  @page { size: A4; margin: 12mm 15mm; }
+  #balk, #menu, #melding, .hulp-keuze, .geen-print { display: none !important; }
+  .hulp { max-width: none; font-size: 11pt; }
+  .hulp h1 { font-size: 17pt; }
+  .hulp-voor { margin-bottom: 6pt; }
+  .hulp-deel h2 { break-after: avoid; }
+  .hulp-deel li { break-inside: avoid; }
+  .hulp-deel h2 { font-size: 12.5pt; margin: 8pt 0 3pt; }
+  .hulp-deel li { margin-bottom: 2pt; line-height: 1.3; }
+  .hulp-voet { margin-top: 6pt; font-size: 8.5pt; }
+}

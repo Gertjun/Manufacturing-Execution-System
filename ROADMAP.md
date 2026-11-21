@@ -20,9 +20,7 @@ gantt
     Gebouwd in 0.20 tot en met 0.26          :done, a1, 2026-11-19, 2d
 
     section A2 Uit de eerste demo
-    Eigen inlog en startpagina (49 50)       :a2a, 2026-11-23, 10d
-    Routes en analyses per product (51-53)   :a2b, after a2a, 21d
-    Kleine verbeteringen (56-62)             :a2c, after a2b, 7d
+    Gebouwd in 0.27 tot en met 0.37          :done, a2, 2026-11-20, 2d
 
     section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
@@ -30,7 +28,7 @@ gantt
 
     section C Configuratie
     Routes per product aanleveren, Geert     :c0, 2026-11-30, 14d
-    Echte velden aanleveren, Geert (2)       :c1, after a2b, 35d
+    Echte velden aanleveren, Geert (2)       :c1, 2026-11-30, 35d
     Inrichten en controleren                 :c2, after c1, 7d
 
     section D Server
@@ -38,7 +36,7 @@ gantt
     Server inrichten en offline-proef, IT    :d2, 2027-01-11, 21d
 
     section E Pilot
-    Training en handleiding (36)             :e0, 2027-02-08, 10d
+    Training (74)                            :e0, 2027-02-08, 10d
     Poort naar de pilot (datum: 70)          :milestone, m1, 2027-02-22, 0d
     Pilot hal 1, met papier ernaast          :e1, 2027-02-22, 14d
     Pilot hal 1, alleen systeem              :e2, after e1, 42d
@@ -63,7 +61,7 @@ Daarna, uit de UI/UX-review van 20 november 2026 (D50): #41–#44 zijn gebouwd i
 
 **Poort A:** gehaald zodra Geert het laptoppakket van de nieuwste versie draait.
 
-### A2. Uit de eerste demo — eind november 2026 tot januari 2027
+### A2. Uit de eerste demo — gebouwd
 Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eigen inlog en routes per product komen vóór de pilot (D53, D55); daardoor schuift de pilot naar schatting twee weken op (#70). Volgorde: eerst inlog en startpagina, dan producten, dan de kleine punten. Alles uit deze fase is gebouwd (0.27.0 tot en met 0.37.0, wat er per versie veranderde: changelog); de metingen van Kwaliteit (#64) kwamen er op Geerts keuze ook vóór de pilot bij (#71, D58). Over: #55 (later).
 
 **Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0, #53 in 0.30.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
@@ -71,7 +69,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 
 ### B. Proof of concept en praktijk — december 2026
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
-- #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Per test vastleggen: wie, wanneer, uitkomst.
+- #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Hoe en wanneer goed: [`docs/PRAKTIJKTESTS.md`](docs/PRAKTIJKTESTS.md) (0.38.0). Per test vastleggen wie, wanneer en de uitkomst, in het invulblad dat daar genoemd staat.
 
 - #48 **Kiezen: Dagoverzicht of Batchroute** (klein, *Geert*) — Beide staan als proef in Planning (0.26.0, D52). Geert bekijkt ze in de demo of op de laptop en kiest er één; de andere gaat eruit en "(proef)" verdwijnt uit het menu.
 
@@ -88,7 +86,7 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 **Poort D:** server draait met https, back-ups lopen, hersteltest geslaagd, de pc's in hal 1 bereiken hem.
 
 ### E. Pilot 1.0 — eind februari tot april 2027 (datum: #70)
-- #36 **Training en handleiding** (klein) — Korte handleiding per rol (operator, ploegleider, Kwaliteit, planner, beheerder) en een trainingsmoment vóór de pilot, met de laptop of de server en fictieve data.
+- #74 **Training** (klein, *Geert*) — Een trainingsmoment per rol vóór de pilot, met de laptop of de server en fictieve data. De hulp per rol staat in de schermen en is als A4 af te drukken (0.38.0, #36, D59). Afspreken wat de ploeg doet als een pc bij het begin van een dienst offline is (praktijktest V3).
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0 in één hal: de eerste twee weken met de papieren registratie ernaast, dan alleen het systeem.
 
 **Poort naar de pilot:** poorten A tot en met D gehaald, operators getraind, terugvalplan op papier afgesproken.

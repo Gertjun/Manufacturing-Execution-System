@@ -10,6 +10,9 @@ import { stopWandscherm, wandscherm } from "./wandscherm";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 import { etikettenScherm } from "./etiketten";
 import { certificaat } from "./kwaliteit/certificaat";
+import { HULP_ROLLEN, hulpBlad, hulpVoor } from "../../gedeeld/hulp";
+import "../../gedeeld/hulp.css";
+import type { Rol } from "../../gedeeld/types";
 
 // ---------- Menu ----------
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
@@ -57,6 +60,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
       h("div", {}, sessie.naam, h("span", { class: "sub" }, ` (${sessie.rol})`)),
       h("button", { class: "knop-link", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden"),
       h("a", { href: "#/" }, "Startpagina"),
+      h("a", { href: "#/hulp" }, "Hulp"),
       h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
   );
 }
@@ -129,6 +133,21 @@ function startScherm() {
             onclick: t.id === "invoer" ? () => { try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ } } : undefined,
           }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
       : h("p", { class: "leeg" }, "Voor jouw rol is (nog) geen portaal beschikbaar. Vraag de beheerder om een andere rol."),
+    h("p", { class: "sub", style: "margin-top:24px" }, h("a", { href: "#/hulp" }, "Hulp voor jouw rol"), ", ook om af te drukken."),
+  );
+}
+
+// ---------- Hulp per rol (D59) ----------
+function hulpScherm(gekozen?: string) {
+  const eigen = sessie.rol && HULP_ROLLEN.includes(sessie.rol) ? sessie.rol : "operator";
+  const rol = (gekozen && HULP_ROLLEN.includes(gekozen as Rol) ? gekozen : eigen) as Rol;
+  const keuze = h("select", { id: "hulp-rol", onchange: (e: Event) => { location.hash = `#/hulp/${(e.target as HTMLSelectElement).value}`; } },
+    HULP_ROLLEN.map((r) => h("option", { value: r, selected: r === rol }, ((t) => t[0].toUpperCase() + t.slice(1))(hulpVoor(r).titel.replace(/^Hulp voor (de )?/, "")))));
+  toon(
+    h("div", { class: "hulp-keuze" },
+      h("label", { class: "filter", for: "hulp-rol" }, "Hulp voor", keuze),
+      h("button", { class: "knop", type: "button", onclick: () => window.print() }, "Afdrukken")),
+    hulpBlad(rol, VERSIE),
   );
 }
 
@@ -160,6 +179,10 @@ async function route() {
   if (portaal === "meldingen" && heeftMeldingen()) {
     await tekenMenu("meldingen", "");
     return meldingenScherm(onderdeel === "alle");
+  }
+  if (portaal === "hulp") {
+    await tekenMenu("", "");
+    return hulpScherm(onderdeel);
   }
   if (!portaal || portaal === "start") {
     await tekenMenu("", "");

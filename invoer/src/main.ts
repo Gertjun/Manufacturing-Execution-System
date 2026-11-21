@@ -11,6 +11,7 @@ import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
 import { overdrachtScherm } from "./schermen/overdracht";
 import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./schermen/meldingen";
 import { startScanner, wisScanActie } from "./scan";
+import { hulpScherm } from "./schermen/hulp";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -41,6 +42,7 @@ function tekenBalk() {
           h("a", { href: "#/stappen", "aria-current": route === "stappen" || route === "stap" ? "page" : undefined }, "Stappen"),
           h("a", { href: "#/zoek", "aria-current": route === "zoek" ? "page" : undefined }, "Zoeken"),
           h("a", { href: "#/overdracht", "aria-current": route === "overdracht" ? "page" : undefined }, "Overdracht"),
+          h("a", { href: "#/hulp", "aria-current": route === "hulp" ? "page" : undefined }, "Hulp"),
           heeftMeldingen()
             ? h("a", { href: "#/meldingen", "aria-current": route === "meldingen" ? "page" : undefined },
                 "Meldingen", ongelezen() ? h("span", { class: "balk-teller" }, ongelezen()) : null)
@@ -101,6 +103,8 @@ async function route() {
   const [, scherm, arg] = location.hash.split("/");
   tekenBalk();
 
+  // Hulp kan altijd, ook vóór het inloggen en zonder verbinding (zit in het pakket, D59).
+  if (scherm === "hulp") return hulpScherm();
   if (!sessie.pc && scherm !== "pc") return void (location.hash = "#/pc");
   if (scherm === "pc") return pcScherm();
   if (scherm === "login" || !sessie.geldig()) {

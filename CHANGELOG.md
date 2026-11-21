@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.38.0 — 21 november 2026 · #36
+- Nieuw: **Hulp per rol** in het invoerscherm en de portalen. In het invoerscherm staat "Hulp" in de balk (en op het inlogscherm) en toont de hulp voor operators, ploegleiders of Kwaliteit; die werkt ook zonder verbinding. In de portalen staat "Hulp" in het menu en op de startpagina, met een keuze uit alle rollen. Met **Afdrukken** komt de hulp van één rol op één A4, om bij de pc te hangen of bij de training te gebruiken.
+- Nieuw: **lijst met praktijktests** (`docs/PRAKTIJKTESTS.md`, #33): per test hoe je hem doet en wanneer hij goed is, van de laptop tot de fabrieksserver. De uitkomsten (wie, wanneer, goed of fout) vul je in op het invulblad "Praktijktests – uitkomsten" op claude.ai.
+- Het overzicht van testaccounts in de handleiding van het laptoppakket is bijgewerkt (eigen accounts, productiemanager, Kwaliteit op de lab-pc).
+- Fictieve testdata: een lot dat vlak voor het einde van de testperiode uit een herbewerking komt, blijft nu op Kwaliteit wachten. De generator brak daar op sommige tijdstippen af.
+
 ## 0.37.1 — 21 november 2026
 - Verbeterd: het invoerscherm neemt de inlog van **Kwaliteit** uit de portalen alleen over als Kwaliteit op de startpagina zelf de tegel "Invoerscherm" kiest. Daarvoor opende een pc waarop iemand van Kwaliteit in een portaal werkte het invoerscherm ongevraagd als Kwaliteit. Operators en ploegleiders gaan zoals voorheen.
 - 0.37.0 heeft geen GitHub Release gekregen: een schermtest van de browserdemo faalde daarop. Deze versie bevat alles van 0.37.0.

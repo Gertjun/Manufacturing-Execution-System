@@ -13,24 +13,25 @@ Elk onderwerp staat op één plek; de andere bestanden verwijzen ernaar (D48).
 | Verleden | Wat is er per versie veranderd? | [`CHANGELOG.md`](CHANGELOG.md) |
 | Verleden | Waarom is iets zo gekozen? | [`DECISIONS.md`](DECISIONS.md) |
 
-Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT installeert de fabrieksserver), [`tools/pakket/README.md`](tools/pakket/README.md) (het laptoppakket, gaat mee in de zip) en [`CLAUDE.md`](CLAUDE.md) (werkafspraken voor Claude).
+Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT installeert de fabrieksserver), [`docs/PRAKTIJKTESTS.md`](docs/PRAKTIJKTESTS.md) (de tests met echte apparaten en het fabrieksnetwerk, #33), [`tools/pakket/README.md`](tools/pakket/README.md) (het laptoppakket, gaat mee in de zip) en [`CLAUDE.md`](CLAUDE.md) (werkafspraken voor Claude).
 
 ## Stand
 
-Bijgewerkt: 21 november 2026 · versie **0.37.1**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 21 november 2026 · versie **0.38.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A is gebouwd, daarna de UI/UX-review (D50, D51) en de planningwaarschuwing (D52). Fase A2 loopt: eigen inlog en startpagina (0.27.0, #49, #50, D53, D54), route per product (0.28.0, #51) grenzen per product met productkiezer (0.29.0, #52) en capaciteit per stap en product (0.30.0, #53, D55) zijn gebouwd; daarmee zijn #49–#53 klaar; grenzen per product staan ook in het sjabloon (0.31.0, #73). Kleine verbeteringen: #56, #57 en #59 (0.32.0), #60 en #62 (0.33.0) en #58 (0.34.0) zijn gebouwd, en herbewerkingen met opdracht en stand voor batches en lots, met de rol productiemanager (0.35.0, #61, D57). Het wandscherm per stap (0.36.0, #54) en de metingen van Kwaliteit met keuring (0.37.0, #64, D58) zijn gebouwd; daarmee is fase A2 gebouwd, op #55 (later) na. Geert kiest nog tussen Dagoverzicht en Batchroute (#48), bevestigt de pilotdatum (#70) en de naam Productieanalyse (#72).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1, #49–#54, #56–#62, #64, #71, #73; D53–D58), op #55 (later) na. Daarna de hulp per rol in de schermen en de lijst met praktijktests (0.38.0, #36, D59). Nu aan zet: Geert met de praktijktests (#33, `docs/PRAKTIJKTESTS.md`), de echte velden (#2) en de keuzes #48, #70 en #72; IT met de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met vijf bewuste afwijkingen (D50) en vaste woorden (D51). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.37.1 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.38.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1.
-- **Laatste testronde (0.37.1, 21 november 2026):** geslaagd: databaseregels (211), API, migraties (tot en met 22), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, 12 portaaltests, sjabloon, browserdemo), met nieuwe controles voor de keuring door Kwaliteit (operator rondt af zonder de meting van Kwaliteit, de stap wacht, Kwaliteit meet en geeft vrij op de lab-pc via de wachtrij, herbewerken en afkeuren in de databaseregels) en "Wie meet" in Beheer en het sjabloon. Ook getest: het invoerscherm neemt de inlog van Kwaliteit alleen over via de tegel op de startpagina. Praktijktests zijn nog niet gedaan (#33): niet op een echte tablet, niet met een pc die offline is bij het begin van een dienst, en nog niet met echte routes en grenzen (#2).
+- **Laatste testronde (0.38.0, 21 november 2026):** geslaagd: databaseregels (211), API, migraties (tot en met 22), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome (invoer, alle portaaltests met sjabloon en hulp, browserdemo). Nieuw: `portaal/e2e/hulp.mjs` (hulp in portalen en invoerscherm, ook zonder inlog en zonder verbinding; per rol afgedrukt één A4). Praktijktests zijn nog niet gedaan (#33): de lijst staat klaar, alle uitkomsten staan nog op "Niet gedaan".
 - **Gegevens:** alles fictief (D1).
 
 **Links**
 - Code: https://github.com/Gertjun/batch-input-gui (privé)
 - Browserdemo (blijft actueel): https://claude.ai/artifact/AvBGewCSnACg6h6CeUKZQN
+- Invulblad praktijktests (blijft actueel, de uitkomsten van #33): https://claude.ai/artifact/WQn3YnEVcuy5W5ieXenwRg
 - Projectdocument in het Claude-project: `claude/architectuur-en-besluiten.md` (korte instap met links)
 - Momentopnamen, worden niet bijgewerkt: Whiteboard eerste projectplan https://claude.ai/artifact/Nm9L5rFHZY6Dtgk2JMncnF · advies fabrieksserver https://claude.ai/artifact/XbFZ7nQRDn18zSS5tnQhUf · datamodel v1 https://claude.ai/artifact/54cg2QSsWQ3j6hbkzYBVTA · doorlichting 19-11-2026 https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i · UI/UX-review 20-11-2026 https://claude.ai/artifact/EK83QWUsor3w4ofFDzBra4
 
@@ -112,6 +113,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 Er blijft altijd minstens één actieve beheerder. Niets wordt verwijderd, alleen uitgezet.
 
 ### Overal
+- **Hulp** per rol staat in het invoerscherm (in de balk, ook zonder verbinding) en in de portalen (menu en startpagina), en is per rol af te drukken als één A4 (D59). De tekst staat in `gedeeld/hulp.ts`.
 - **Meldingen** maakt de database zelf: waarde buiten grens, beoordeling, keurresultaat, afwijkend lot, storing (D33).
 - **Naar Excel** staat boven elke tabel in de portalen (D39).
 - **Wandscherm:** per stap bezig, klaar en gepland, met de kerncijfers van vandaag; per hal via `#/wandscherm/Hal 1`; voor één of enkele stappen via `#/wandscherm/stappen/PS3,PS4` of de knop "Stappen kiezen" onderin (grotere kaarten, cijfers over die stappen). Een tv met een schermaccount onthoudt zijn keuze; `#/wandscherm/alle` zet hem terug. Log in met een account met rol scherm (blijft 30 dagen ingelogd) en zet de browser op volledig scherm (D30).
@@ -203,7 +205,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | Beheertools | `tests/test_tools.sh` | ja |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | ja |
 | Laptoppakket | `tests/test_laptoppakket.sh` (als gewone gebruiker) | ja |
-| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
+| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
 
 ### Versies
 Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Elke versie krijgt automatisch een tag en release op GitHub (`release.yml`), met het laptoppakket voor Windows als bijlage (`laptoppakket.yml`, D49). Downloaden: repository → Releases → versie → Assets. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).

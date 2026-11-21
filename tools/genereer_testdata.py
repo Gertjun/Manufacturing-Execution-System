@@ -234,8 +234,11 @@ def maak_lots(lot_prod, wachtrij):
             for code in route_l:
                 _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot)
             # Na de herbewerking: Kwaliteit geeft vrij, ook als het net niet binnen de grens is (na overleg).
+            # Alleen als Kwaliteit al gemeten heeft: een herbewerking die vlak voor het einde klaar is, wacht nog.
             nog = con.execute("""SELECT k.id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
-                                  WHERE r.lot_id = %s AND k.status = 'open'""", (lot,)).fetchone()
+                                  WHERE r.lot_id = %s AND k.status = 'open'
+                                    AND EXISTS (SELECT 1 FROM waarde w JOIN veld v ON v.id = w.veld_id
+                                                 WHERE w.stapregistratie_id = r.id AND v.gemeten_door = 'kwaliteit')""", (lot,)).fetchone()
             if nog:
                 con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'na herbewerking en overleg vrijgegeven', %s)", (nog[0], gebruiker["kwaliteit1"]))
                 tijd_keuring[:] = [(k, a, moment) if k == nog[0] else (k, a, b) for k, a, b in tijd_keuring]

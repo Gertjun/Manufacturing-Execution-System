@@ -81,6 +81,7 @@ export function loginScherm() {
     h("p", { class: "sub" }, "Log in met je eigen gebruikersnaam en wachtwoord. Alles wat je invoert, komt op jouw naam."),
     h("p", { class: "sub" }, `Deze pc: ${sessie.pc}. `, h("a", { href: "#/pc" }, "Andere pc kiezen")),
     vorm,
+    h("p", { class: "sub", style: "margin-top:16px" }, h("a", { href: "#/hulp" }, "Hulp")),
   );
   naam.focus();
 }

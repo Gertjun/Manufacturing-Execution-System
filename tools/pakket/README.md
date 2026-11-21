@@ -20,17 +20,21 @@ Met de fictieve testdata zijn er testaccounts; het wachtwoord is steeds `demo`. 
 
 | Account | Komt in |
 | --- | --- |
-| `operator` | Invoerscherm (daarna pc en naam kiezen) |
-| `ploegleider1` | Invoerscherm en Portaal Productie |
-| `kwaliteit1` | Portaal Kwaliteit |
+| `operator.a`, `operator.b` | Invoerscherm, met een eigen account (daarna de pc kiezen) |
+| `operator` | Het oude gedeelde account: invoerscherm, daarna pc en naam kiezen |
+| `ploegleider1`, `ploegleider2` | Invoerscherm en de portalen Productieanalyse, Kwaliteit en Planning |
+| `kwaliteit1` | Portaal Kwaliteit, en het invoerscherm op de lab-pc (metingen en keuring) |
+| `productiemanager1` | Portalen Productieanalyse, Kwaliteit en Planning; herbewerkingen |
 | `planner1` | Portaal Planning |
 | `scherm1` | Wandscherm (voor een tv in de hal) |
 | `beheerder1` | Portaal Beheer |
 | `analist1` | Portalen, alleen lezen |
 
+Hulp per rol staat in de schermen onder **Hulp**, en is per rol af te drukken op één A4.
+
 ## Wat je kunt uitproberen
 
-- **Invoerscherm:** log in als `operator`, kies bijvoorbeeld PC-01 en een naam, start een stap voor een batch, vul waarden in (probeer een waarde buiten de grens) en rond af.
+- **Invoerscherm:** log in als `operator.a`, kies bijvoorbeeld PC-01, start een stap voor een batch, vul waarden in (probeer een waarde buiten de grens) en rond af.
 - **Offline:** stop de applicatie terwijl het invoerscherm open is. Het invoerscherm blijft werken en verstuurt alles zodra je START.bat weer start.
 - **Kwaliteit:** de batches die op een keurresultaat wachten, de trend van S5.1 die langzaam oploopt, het lotpaspoort.
 - **Productie:** werkvoorraad, doorlooptijden en de correcties.
