@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 20 november 2026 · huidige versie 0.26.1
+Bijgewerkt: 21 november 2026 · huidige versie 0.38.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -22,6 +22,11 @@ gantt
     section A2 Uit de eerste demo
     Gebouwd in 0.27 tot en met 0.37          :done, a2, 2026-11-20, 2d
 
+    section A3 Vóór de pilot
+    Stap overnemen, nainvoeren (55 75)       :a3a, 2026-11-23, 10d
+    Accounts, melden, storing (76 78 31)     :a3b, after a3a, 7d
+    Pilotoverzicht, analyses (77 32 66)      :a3c, after a3b, 14d
+
     section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
     Praktijktests (33)                       :b2, 2026-12-07, 28d
@@ -36,7 +41,7 @@ gantt
     Server inrichten en offline-proef, IT    :d2, 2027-01-11, 21d
 
     section E Pilot
-    Training (74)                            :e0, 2027-02-08, 10d
+    Training en ondernemingsraad (74 79)     :e0, 2027-02-08, 10d
     Poort naar de pilot (datum: 70)          :milestone, m1, 2027-02-22, 0d
     Pilot hal 1, met papier ernaast          :e1, 2027-02-22, 14d
     Pilot hal 1, alleen systeem              :e2, after e1, 42d
@@ -44,8 +49,7 @@ gantt
 
     section F Verbeteren
     1.1 afkeur en maatregel (30)             :f1, 2027-03-08, 21d
-    1.2 storing afsluiten, kwaliteit (31 32) :f2, after f1, 10d
-    1.3 OEE compleet (22)                    :f3, after f2, 21d
+    1.2 OEE compleet (22)                    :f2, after f1, 21d
 
     section G Uitbreiden
     Uitrol alle hallen                       :g1, 2027-04-26, 42d
@@ -67,6 +71,19 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 **Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0, #53 in 0.30.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
 
 
+### A3. Vóór de pilot (software) — december 2026 tot januari 2027
+Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55, #75), dan het inrichten (#76), dan wat helpt de pilot te beoordelen. Bij #55 en #75 eerst uitleggen en akkoord van Geert.
+- #55 **Een gestarte stap overnemen** (klein) — Bij een ploegwissel loopt een stap door die een ander startte. De volgende operator moet die kunnen afmaken; vastleggen wie startte en wie afrondde.
+- #75 **Nainvoeren na papier** (middel) — Als de server en een pc tegelijk niet werken, registreert de ploeg op papier (terugvalplan). Daarna voert de ploegleider of beheerder de stap in met de echte begin- en eindtijd en een reden; zichtbaar als "nageleverd" en in het logboek. Met een afdrukbaar leeg formulier per stap, met dezelfde velden als het scherm.
+- #76 **Accounts in één keer aanmaken** (klein) — Accounts en namen via een Excel-sjabloon in Beheer, met controle vooraf, en een tijdelijk wachtwoord dat bij de eerste inlog gewijzigd moet worden.
+- #78 **"Iets melden" in de schermen** (klein) — Operators en anderen typen kort wat misgaat of beter kan; met tijd, pc, stap en naam in een lijst bij de beheerder, die er roadmappunten van kan maken.
+- #31 **Notitie bij het einde van een storing** (klein) — Bij Stilstand beëindigen: wat was het en wat is er gedaan. Zichtbaar bij Stilstand in Productieanalyse.
+- #77 **Pilotoverzicht** (middel) — In Beheer per dag en per pc: hoeveel stappen ingevoerd, hoe laat na het werk, hoe lang offline, wat geweigerd werd, welke velden vaak leeg blijven of gecorrigeerd worden, en de meldingen uit #78. Voor de evaluatie na 8 weken.
+- #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
+- #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten. Drempels pas instellen met echte data (#2); vóór de pilot alleen de werking.
+
+**Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.
+
 ### B. Proof of concept en praktijk — december 2026
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Hoe en wanneer goed: [`docs/PRAKTIJKTESTS.md`](docs/PRAKTIJKTESTS.md) (0.38.0). Per test vastleggen wie, wanneer en de uitkomst, in het invulblad dat daar genoemd staat.
@@ -87,20 +104,17 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 
 ### E. Pilot 1.0 — eind februari tot april 2027 (datum: #70)
 - #74 **Training** (klein, *Geert*) — Een trainingsmoment per rol vóór de pilot, met de laptop of de server en fictieve data. De hulp per rol staat in de schermen en is als A4 af te drukken (0.38.0, #36, D59). Afspreken wat de ploeg doet als een pc bij het begin van een dienst offline is (praktijktest V3).
+- #79 **Ondernemingsraad en privacy** (klein, *Geert*) — Het systeem legt per persoon vast wie wat invoert (nodig om terug te zoeken). Vóór de pilot met de ondernemingsraad bespreken wat er wordt vastgelegd, wie het mag zien en hoe lang het bewaard blijft; raakt ook #8 en #63 (D12).
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0 in één hal: de eerste twee weken met de papieren registratie ernaast, dan alleen het systeem.
 
-**Poort naar de pilot:** poorten A tot en met D gehaald, operators getraind, terugvalplan op papier afgesproken.
+**Poort naar de pilot:** poorten A tot en met D gehaald (ook A3), operators getraind, terugvalplan op papier afgesproken (met het formulier uit #75), ondernemingsraad gehoord (#79).
 
 **Evaluatie na 8 weken:** zijn alle batches in het systeem terug te vinden, kloppen de cijfers met het papier, hoe vaak lag het systeem eruit, wat vinden operators en Kwaliteit ervan? Op basis daarvan: uitrollen, of eerst verbeteren.
 
 ### F. Verbeteren tijdens de pilot — maart tot april 2027
 Wat Kwaliteit en Productie het meest helpt zodra er echte data is. De volgorde kan na de eerste pilotweken veranderen.
 - #30 **Afkeur met omvang, herhaling en maatregel** (middel) — Bij afkeur de geschonden grens tonen, verdachte batches (zelfde grondstofpartij, dag of lot) en eerdere afwijkingen van hetzelfde veld. Daarna een eenvoudige maatregel: wat, wie, wanneer klaar, na 30 dagen controleren of het hielp.
-- #31 **Notitie bij het einde van een storing** (klein) — Wat was het en wat is er gedaan.
-- #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
 - #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden.
-- #55 **Een gestarte stap overnemen** (klein) — Operator B kon een stap die operator H startte niet overnemen. Na #49 opnieuw bekijken: wat moet er gebeuren als iemand anders een stap afmaakt? (Geert: later oppakken.)
-- #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten.
 - #67 **Productieoptimalisatie** (middel) — Knelpunten, doorlooptijden en stilstand bestaan al, en capaciteit per stap en product (D55); erbij: hoe vol elke stap werkelijk was (benutting), en welke stap de doorstroom bepaalt.
 
 ### G. Uitbreiden na de pilot — vanaf eind april 2027
