@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.41.0 — 21 november 2026 · #76
+- Nieuw: **accounts in één keer aanmaken** (#76). Bij Beheer → Accounts: Sjabloon downloaden, in Excel aanvullen (gebruikersnaam, rol, naam bij de invoer, tijdelijk wachtwoord, actief), Sjabloon inlezen. Je ziet eerst een controle per regel; opslaan kan pas als geen enkele regel een fout heeft. Een naam die al in de namenlijst staat, wordt gekoppeld, zodat de geschiedenis doorloopt. In het gedownloade bestand staan nooit wachtwoorden.
+- Nieuw: **tijdelijk wachtwoord**. Een wachtwoord dat de beheerder kiest (in het sjabloon, bij Account toevoegen of bij Wachtwoord instellen) is tijdelijk: bij de eerste inlog kiest de gebruiker eerst een eigen wachtwoord, in het invoerscherm en in de portalen. Tot dan kan dat account niets anders. Niet bij een wandscherm (daar typt niemand). Bij Accounts staat "tijdelijk wachtwoord" achter de naam.
+- Nieuw: **zelf je wachtwoord wijzigen**, in het menu van de portalen en via Hulp in het invoerscherm (met verbinding).
+- Let op: werk de pc's bij naar deze versie vóórdat je accounts met een tijdelijk wachtwoord uitdeelt. Een ouder invoerscherm vraagt niet om een eigen wachtwoord; de server weigert dan alles van dat account (met de melding "Kies eerst een eigen wachtwoord").
+- Logboek: ook het nainvoeren van papier is nu leesbaar ("Van papier, … op …: reden"), en het tijdelijk maken van een wachtwoord.
+- Database: migratie 0025 (een kolom bij het account en de functie `wijzig_eigen_wachtwoord`); geen stilstand nodig. Bestaande accounts houden hun wachtwoord.
+
 ## 0.40.0 — 21 november 2026 · #75
 - Nieuw: **Nainvoeren van papier** (#75), voor de ploegleider en de beheerder, als tegel op de startpagina. Lag de invoer stil (server en pc tegelijk), dan registreert de ploeg op papier. Daarna voer je de stap hier in: de stap, het batchnummer (of het lot), de waarden en grondstoffen, wie het deed, op welke pc, het begin en het einde van het papier, en een reden. Dat kan tot 7 dagen terug. Na het opslaan staat de volgende stap van dezelfde batch al klaar.
 - De gewone regels gelden: de volgorde van de route, verplichte velden, grenzen en meldingen. Een stap kan niet beginnen vóór het einde van de vorige stap van die batch.

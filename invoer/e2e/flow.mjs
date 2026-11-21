@@ -434,6 +434,25 @@ try {
   check("Vrijgegeven, ook in de database (via de wachtrij)", vrij?.status === "vrijgegeven", JSON.stringify(vrij));
   await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "productie" });
 
+  console.log("\nTijdelijk wachtwoord op het invoerscherm (#76)");
+  const nieuwAcc = await api("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.f", rol: "operator", wachtwoord: "tijdelijk-1", bestaandeNaam: undefined, naam: "Operator Nieuw" });
+  check("Beheerder maakt een account met een tijdelijk wachtwoord", nieuwAcc.status === 201 && nieuwAcc.body.tijdelijk === true, JSON.stringify(nieuwAcc.body));
+  await page.goto(`${BASIS}/invoer/#/stappen`);
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  const bevestigAf = page.getByRole("dialog").getByRole("button", { name: "Afmelden" });
+  if (await bevestigAf.isVisible().catch(() => false)) await bevestigAf.click();
+  await page.getByLabel("Gebruikersnaam").fill("operator.f");
+  await page.getByLabel("Wachtwoord").fill("tijdelijk-1");
+  await page.getByRole("button", { name: "Inloggen" }).click();
+  await page.getByRole("heading", { name: "Kies een eigen wachtwoord" }).waitFor();
+  check("Eerst een eigen wachtwoord; het tijdelijke token is niet bewaard", (await page.evaluate(() => localStorage.getItem("invoer.token"))) === null);
+  await page.locator("#ww-nieuw").fill("eigen-ww-f");
+  await page.locator("#ww-nogmaals").fill("eigen-ww-f");
+  await shot("14e-eigen-wachtwoord");
+  await page.getByRole("button", { name: "Opslaan en verder" }).click();
+  await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
+  check("Daarna de stappen, met de eigen naam", (await page.locator(".balk-eigen-naam").innerText()) === "Operator Nieuw");
+
   // Smal scherm
   await page.setViewportSize({ width: 420, height: 860 });
   await page.goto(`${BASIS}/invoer/#/stappen`);

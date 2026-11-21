@@ -11,7 +11,7 @@ import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
 import { overdrachtScherm } from "./schermen/overdracht";
 import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./schermen/meldingen";
 import { startScanner, wisScanActie } from "./scan";
-import { hulpScherm } from "./schermen/hulp";
+import { hulpScherm, wachtwoordWijzigen } from "./schermen/hulp";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -128,6 +128,7 @@ async function route() {
     case "wachtrij": return wachtrijScherm();
     case "overdracht": return overdrachtScherm();
     case "meldingen": return meldingenScherm();
+    case "wachtwoord": return wachtwoordWijzigen();
     default:
       if (scherm !== "stappen") return void (location.hash = "#/stappen");
       return stappenScherm();

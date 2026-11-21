@@ -34,10 +34,12 @@ export class ApiFout extends Error {
   constructor(public status: number, bericht: string) { super(bericht); }
 }
 
-export async function stuur<T>(methode: string, pad: string, body?: unknown): Promise<T> {
+export async function stuur<T>(methode: string, pad: string, body?: unknown, token?: string): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["content-type"] = "application/json";
-  if (sessie.token) headers.authorization = `Bearer ${sessie.token}`;
+  // Een eigen token: het tijdelijke na een inlog met een tijdelijk wachtwoord (#76), dat niet wordt bewaard.
+  const t = token ?? sessie.token;
+  if (t) headers.authorization = `Bearer ${t}`;
   let r: Response;
   try {
     r = await fetch(pad, { method: methode, headers, body: body === undefined ? undefined : JSON.stringify(body) });

@@ -12,6 +12,7 @@ export interface Sessie {
   pcId?: string;        // pc waarop is ingelogd
   operatorId?: string;  // eigen naam van het account (D53), of bij een gedeeld account de gekozen naam
   gedeeld?: boolean;    // het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
+  ww?: boolean;         // tijdelijk wachtwoord: eerst een eigen wachtwoord kiezen (#76, D61); het token mag dan niets anders
 }
 
 declare module "@fastify/jwt" {
@@ -34,10 +35,22 @@ export function vereist(...rollen: Rol[]) {
     } catch {
       throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
     }
+    if (req.user.ww) {
+      throw new ApiFout(403, "Kies eerst een eigen wachtwoord; je wachtwoord is tijdelijk");
+    }
     if (!rollen.includes(req.user.rol)) {
       throw new ApiFout(403, `Rol ${req.user.rol} mag dit niet`);
     }
   };
+}
+
+/** preHandler: alleen een geldig token, ook met een tijdelijk wachtwoord (voor het wijzigen ervan). */
+export async function ingelogd(req: FastifyRequest) {
+  try {
+    await req.jwtVerify();
+  } catch {
+    throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
+  }
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

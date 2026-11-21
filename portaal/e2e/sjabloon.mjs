@@ -139,6 +139,96 @@ g.append(["S3.1", "PRD-A", 20, 120, "4", "absoluut"])`);
   const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel = 'veld' AND gewijzigd_door = 'beheerder1'");
   check("Wijzigingen in het logboek", log.n >= 2, String(log.n));
   await shot("03-opgeslagen");
+
+  console.log("\nAccounts via het sjabloon (#76)");
+  await page.getByRole("link", { name: "Accounts" }).click();
+  await page.getByRole("heading", { name: "Accounts" }).waitFor();
+  const [dla] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Sjabloon downloaden" }).click()]);
+  const apad = `${SHOTS}/${dla.suggestedFilename()}`;
+  await dla.saveAs(apad);
+  const ax = leesXlsx(apad);
+  check("Accounts: kolommen en geen wachtwoorden in het bestand",
+    ax.rijen[0].join("|") === "Gebruikersnaam|Rol|Naam bij de invoer|Tijdelijk wachtwoord|Actief" && ax.rijen.slice(1).every((r) => !r[3]), ax.rijen[0].join("|"));
+  const afout = `${SHOTS}/accounts-fout.xlsx`;
+  bewerk(apad, afout, `
+ws.append(["nieuw.x", "Operator", "Nieuwe X", "kort", "ja"])
+ws.append(["nieuw.y", "Bakker", None, "tijdelijk-123", "ja"])`);
+  await page.locator("#accounts-bestand").setInputFiles(afout);
+  await page.getByRole("heading", { name: "Accounts inlezen" }).waitFor();
+  await page.getByText("Er wordt niets opgeslagen zolang er een regel met een fout is").waitFor();
+  const tekstFout = await page.locator("tbody").innerText();
+  check("Fouten: te kort wachtwoord en onbekende rol", tekstFout.includes("minstens 8 tekens") && tekstFout.includes('Onbekende rol "Bakker"'), tekstFout);
+  await page.getByRole("button", { name: "Annuleren" }).click();
+  await page.getByRole("heading", { name: "Accounts", exact: true }).waitFor();
+  const agoed = `${SHOTS}/accounts-goed.xlsx`;
+  bewerk(apad, agoed, `
+for r in ws.iter_rows(min_row=2):
+    if r[0].value == "analist1": r[4].value = "nee"
+ws.append(["nieuw.x", "Operator", "Operator E", "tijdelijk-123", "ja"])
+ws.append(["nieuw.y", "kwaliteit", None, 12345678, None])
+ws.append(["tv.hal2", "Wandscherm", None, "scherm-hal2", "ja"])`);
+  await page.locator("#accounts-bestand").setInputFiles(agoed);
+  await page.getByRole("button", { name: "4 wijzigingen opslaan" }).waitFor();
+  const controle = await page.locator("tbody").innerText();
+  check("Controle: drie nieuw (één gekoppeld aan een bestaande naam), één uitgezet",
+    controle.includes("gekoppeld aan de bestaande naam Operator E") && controle.includes("uit"), controle);
+  await shot("04-accounts-controle");
+  await page.getByRole("button", { name: "4 wijzigingen opslaan" }).click();
+  await page.getByText("3 accounts aangemaakt, 1 gewijzigd").waitFor();
+  const acc = await q(`SELECT g.gebruikersnaam, g.rol, g.actief, g.wachtwoord_wijzigen AS ww, o.naam
+                         FROM fabriek.gebruiker g LEFT JOIN fabriek.operator o ON o.gebruiker_id = g.id
+                        WHERE g.gebruikersnaam IN ('nieuw.x', 'nieuw.y', 'tv.hal2', 'analist1') ORDER BY 1`);
+  check("Opgeslagen: tijdelijk wachtwoord (niet bij een wandscherm), naam gekoppeld, analist uit",
+    JSON.stringify(acc) === JSON.stringify([
+      { gebruikersnaam: "analist1", rol: "analist", actief: false, ww: false, naam: null },
+      { gebruikersnaam: "nieuw.x", rol: "operator", actief: true, ww: true, naam: "Operator E" },
+      { gebruikersnaam: "nieuw.y", rol: "kwaliteit", actief: true, ww: true, naam: null },
+      { gebruikersnaam: "tv.hal2", rol: "scherm", actief: true, ww: false, naam: null },
+    ]), JSON.stringify(acc));
+  check("Lijst toont het tijdelijke wachtwoord", (await page.locator("tr", { hasText: "nieuw.x" }).innerText()).includes("tijdelijk wachtwoord"));
+
+  console.log("\nEerste inlog met een tijdelijk wachtwoord");
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await page.getByLabel("Gebruikersnaam").fill("nieuw.y");
+  await page.getByLabel("Wachtwoord").fill("12345678");
+  await page.getByRole("button", { name: "Inloggen" }).click();
+  await page.getByRole("heading", { name: "Kies een eigen wachtwoord" }).waitFor();
+  check("Na inloggen: eerst een eigen wachtwoord, er is nog geen token bewaard", (await page.evaluate(() => localStorage.getItem("portaal.token"))) === null);
+  await page.locator("#ww-nieuw").fill("mijn-eigen-ww");
+  await page.locator("#ww-nogmaals").fill("mijn-eigen-w");
+  await page.getByRole("button", { name: "Opslaan en verder" }).click();
+  await page.getByText("niet gelijk").waitFor();
+  await page.locator("#ww-nieuw").fill("12345678");
+  await page.locator("#ww-nogmaals").fill("12345678");
+  await page.getByRole("button", { name: "Opslaan en verder" }).click();
+  await page.getByText("Kies een ander wachtwoord dan het tijdelijke").waitFor();
+  check("Hetzelfde als het tijdelijke wachtwoord mag niet", true);
+  await page.locator("#ww-nieuw").fill("mijn-eigen-ww");
+  await page.locator("#ww-nogmaals").fill("mijn-eigen-ww");
+  await shot("05-eigen-wachtwoord");
+  await page.getByRole("button", { name: "Opslaan en verder" }).click();
+  await page.locator(".startpagina").waitFor();
+  const [ny] = await q("SELECT wachtwoord_wijzigen FROM fabriek.gebruiker WHERE gebruikersnaam = 'nieuw.y'");
+  check("Daarna de startpagina; het wachtwoord is niet meer tijdelijk", ny.wachtwoord_wijzigen === false);
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await page.getByLabel("Gebruikersnaam").fill("nieuw.y");
+  await page.getByLabel("Wachtwoord").fill("mijn-eigen-ww");
+  await page.getByRole("button", { name: "Inloggen" }).click();
+  await page.locator(".startpagina").waitFor();
+  check("Inloggen met het eigen wachtwoord", true);
+
+  console.log("\nZelf het wachtwoord wijzigen");
+  await page.getByRole("link", { name: "Wachtwoord wijzigen" }).click();
+  await page.getByRole("heading", { name: "Wachtwoord wijzigen" }).waitFor();
+  await page.locator("#ww-huidig").fill("fout-wachtwoord");
+  await page.locator("#ww-nieuw").fill("nog-een-ander");
+  await page.locator("#ww-nogmaals").fill("nog-een-ander");
+  await page.getByRole("button", { name: "Wachtwoord opslaan" }).click();
+  await page.getByText("Het huidige wachtwoord klopt niet").waitFor();
+  await page.locator("#ww-huidig").fill("mijn-eigen-ww");
+  await page.getByRole("button", { name: "Wachtwoord opslaan" }).click();
+  await page.getByText("Je wachtwoord is opgeslagen").waitFor();
+  check("Met het huidige wachtwoord: opgeslagen", true);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

@@ -4,6 +4,7 @@ import { vergeetConfig } from "../registraties";
 import { sessie } from "../sessie";
 import { h, laden, melding, toon, vastHouden } from "../ui";
 import { inloggenGelukt } from "../wachtrij";
+import { wachtwoordFormulier } from "../../../gedeeld/wachtwoord";
 
 export async function pcScherm() {
   const actueel = vastHouden();
@@ -54,11 +55,15 @@ export function loginScherm() {
         e.preventDefault();
         fout.textContent = "";
         try {
-          const r = await stuur<{ token: string; naamKiezen: boolean; operator?: { id: string; naam: string } | null }>("POST", "/auth/login", {
+          type Antwoord = { token: string; naamKiezen: boolean; operator?: { id: string; naam: string } | null; wachtwoordWijzigen?: boolean };
+          let r = await stuur<Antwoord>("POST", "/auth/login", {
             gebruikersnaam: naam.value.trim(),
             wachtwoord: ww.value,
             pc: sessie.pc ?? undefined,
           });
+          // Tijdelijk wachtwoord (#76): eerst een eigen wachtwoord. Het tijdelijke token wordt niet bewaard, zodat de
+          // wachtrij er niets mee verstuurt (de server weigert dat token voor al het andere).
+          if (r.wachtwoordWijzigen) r = await eigenWachtwoord(r.token, ww.value);
           sessie.token = r.token;
           // Eigen account: de naam ligt vast (D53). Gedeeld account: daarna een naam kiezen.
           sessie.operatornaam = r.operator?.naam ?? null;
@@ -84,6 +89,27 @@ export function loginScherm() {
     h("p", { class: "sub", style: "margin-top:16px" }, h("a", { href: "#/hulp" }, "Hulp")),
   );
   naam.focus();
+}
+
+/** Na een tijdelijk wachtwoord: een eigen wachtwoord kiezen; geeft het nieuwe inlogantwoord. */
+function eigenWachtwoord<T>(tijdelijkToken: string, tijdelijk: string): Promise<T> {
+  return new Promise((klaar) => {
+    toon(
+      h("h1", {}, "Kies een eigen wachtwoord"),
+      h("p", { class: "sub" }, "Je hebt een tijdelijk wachtwoord van de beheerder gekregen. Kies nu een wachtwoord dat alleen jij weet; daarna ga je verder."),
+      wachtwoordFormulier({
+        metHuidig: false, foutKlasse: "label-buiten_grens", knop: "Opslaan en verder",
+        opslaan: async (_h, nieuw) => {
+          try {
+            klaar(await stuur<T>("POST", "/auth/wachtwoord", { huidig: tijdelijk, nieuw }, { authorization: `Bearer ${tijdelijkToken}` }));
+          } catch (e) {
+            throw e instanceof GeenVerbinding ? new Error("Geen verbinding met de server. Probeer het opnieuw.") : e;
+          }
+        },
+      }),
+    );
+    (document.getElementById("ww-nieuw") as HTMLInputElement | null)?.focus();
+  });
 }
 
 export async function naamScherm() {

@@ -784,6 +784,17 @@ def main():
     check("Lot nageleverd: 4 batches, met de tijden van het papier",
           lr[0] == begin and lr[1] == begin and lr[2] == eind and lr[3] == "afgerond" and lr[4] == 4, str(lr))
 
+    print("\nEigen wachtwoord na een tijdelijk wachtwoord (#76)")
+    tg = val("INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ('tijdelijk.t', 'planner', wachtwoord_hash('tijdelijk-1'), true) RETURNING id")
+    faalt("Huidig wachtwoord moet kloppen", "SELECT wijzig_eigen_wachtwoord(%s, 'fout', 'nieuw-wachtwoord')", (tg,), "klopt niet")
+    faalt("Minstens 8 tekens", "SELECT wijzig_eigen_wachtwoord(%s, 'tijdelijk-1', 'kort')", (tg,), "minstens 8")
+    faalt("Niet hetzelfde als het tijdelijke", "SELECT wijzig_eigen_wachtwoord(%s, 'tijdelijk-1', 'tijdelijk-1')", (tg,), "ander wachtwoord")
+    con.execute("SELECT wijzig_eigen_wachtwoord(%s, 'tijdelijk-1', 'eigen-wachtwoord')", (tg,))
+    check("Gewijzigd: niet meer tijdelijk, inloggen met het nieuwe",
+          con.execute("SELECT NOT wachtwoord_wijzigen AND wachtwoord_hash = public.crypt('eigen-wachtwoord', wachtwoord_hash) FROM gebruiker WHERE id = %s", (tg,)).fetchone()[0])
+    check("Wachtwoorden niet in het logboek",
+          val("SELECT count(*) FROM config_log WHERE tabel = 'gebruiker' AND record_id = %s AND (nieuw ? 'wachtwoord_hash')", (tg,)) == 0)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

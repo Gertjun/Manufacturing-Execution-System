@@ -395,7 +395,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["beheer"],
         description: "Alle wijzigingen in de configuratie, nieuwste eerst. Wachtwoorden staan er nooit in; alleen dat ze gewijzigd zijn.",
         querystring: Type.Object({
-          tabel: Type.Optional(Type.Union(["processtap", "veld", "gebruiker", "operator", "pc", "pc_stap"].map((t) => Type.Literal(t)))),
+          tabel: Type.Optional(Type.Union(["processtap", "veld", "gebruiker", "operator", "pc", "pc_stap", "nalevering"].map((t) => Type.Literal(t)))),
           limiet: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 100 })),
         }),
         response: {
@@ -456,8 +456,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     gebruikersnaam: Type.String(), rol: Type.String(), actief: Type.Boolean(),
     naam: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Naam bij de invoer (operator en ploegleider, D53)" })),
     gedeeld: Type.Optional(Type.Boolean({ description: "Het oude gedeelde operatoraccount: kiest een naam (D6); uitzetten zodra iedereen een eigen account heeft" })),
+    tijdelijk: Type.Optional(Type.Boolean({ description: "Het wachtwoord is tijdelijk: de gebruiker kiest bij de volgende inlog een eigen wachtwoord (#76)" })),
   });
-  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, o.naam
+  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, o.naam, g.wachtwoord_wijzigen AS tijdelijk
                          FROM gebruiker g LEFT JOIN operator o ON o.gebruiker_id = g.id`;
   const Wachtwoord = Type.String({ minLength: 8, description: "Minstens 8 tekens" });
 
@@ -488,7 +489,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const invoer = rol === "operator" || rol === "ploegleider";
       const r = await inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows: [g] } = await tx.query<{ id: string }>(
-          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, $2, wachtwoord_hash($3)) RETURNING id",
+          // Een wachtwoord van de beheerder is tijdelijk (#76, D61); niet voor een wandscherm (daar typt niemand).
+          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ($1, $2, wachtwoord_hash($3), $2 <> 'scherm') RETURNING id",
           [gebruikersnaam, rol, wachtwoord]);
         if (invoer && bestaandeNaam) {
           const k = await tx.query("UPDATE operator SET gebruiker_id = $1, actief = true WHERE id = $2 AND gebruiker_id IS NULL", [g.id, bestaandeNaam]);
@@ -522,11 +524,147 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const r = await inTransactie(app.db, req.user.naam, (tx) =>
         tx.query(
           `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
-                  wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END
+                  wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END,
+                  wachtwoord_wijzigen = CASE WHEN $4::text IS NULL THEN wachtwoord_wijzigen ELSE coalesce($2, rol) <> 'scherm' END
             WHERE gebruikersnaam = $1 RETURNING gebruikersnaam`,
           [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord ?? null]));
       if (!r.rows[0]) throw niet("Account");
       return (await lees(app.db, `${ACCOUNT_SQL} WHERE g.gebruikersnaam = $1`, [req.params.gebruikersnaam]))[0] as never;
+    },
+  );
+
+  // ---------- Accounts via een Excel-sjabloon (#76, D61) ----------
+  // Zoals bij de velden: eerst een proefronde, en alleen opslaan als geen enkele regel een fout heeft.
+  // Accounts die niet in het bestand staan, blijven zoals ze zijn. Een wachtwoord uit het bestand is tijdelijk.
+  const AccountRegel = Type.Object({
+    regel: Type.Integer(),
+    gebruikersnaam: Type.String({ maxLength: 100 }),
+    rol: Type.String({ maxLength: 40 }),
+    naam: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 60 })])),
+    wachtwoord: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 200 })])),
+    actief: Type.Optional(Type.Boolean()),
+  }, { additionalProperties: false });
+  const AccountUitkomst = Type.Object({
+    regel: Type.Integer(), gebruikersnaam: Type.String(),
+    actie: Type.Union(["nieuw", "wijzigen", "gelijk", "fout"].map((a) => Type.Literal(a))),
+    wijzigingen: Type.Array(Type.String()), fout: Type.Union([Type.Null(), Type.String()]),
+  });
+  type AccountRij = { regel: number; gebruikersnaam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null };
+  class AccountsTerug extends Error { constructor(public rijen: AccountRij[]) { super("terugdraaien"); } }
+  const ROLLEN = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "scherm", "productiemanager"];
+  const MET_NAAM = ["operator", "ploegleider", "kwaliteit"];
+
+  app.post(
+    "/gebruikers/import",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["beheer"],
+        description:
+          "Accounts aanmaken en wijzigen vanuit het Excel-sjabloon. uitvoeren=false is een proefronde (niets wordt opgeslagen). " +
+          "Een nieuw account vraagt een wachtwoord van minstens 8 tekens; dat is tijdelijk (bij de eerste inlog kiest de gebruiker een eigen wachtwoord). " +
+          "Een wachtwoord bij een bestaand account zet een nieuw tijdelijk wachtwoord. Accounts die niet in het bestand staan, blijven zoals ze zijn.",
+        body: Type.Object({ uitvoeren: Type.Boolean(), regels: Type.Array(AccountRegel, { maxItems: 1000 }) }, { additionalProperties: false }),
+        response: {
+          200: Type.Object({
+            uitgevoerd: Type.Boolean(), nieuw: Type.Integer(), gewijzigd: Type.Integer(), gelijk: Type.Integer(), fouten: Type.Integer(),
+            regels: Type.Array(AccountUitkomst),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const { uitvoeren, regels } = req.body;
+      const verwerk = async (tx: Tx): Promise<AccountRij[]> => {
+        const uit: AccountRij[] = [];
+        const gezien = new Set<string>();
+        for (const r of regels) {
+          const gebruikersnaam = r.gebruikersnaam.trim().toLowerCase();
+          const rij: AccountRij = { regel: r.regel, gebruikersnaam, actie: "gelijk", wijzigingen: [], fout: null };
+          uit.push(rij);
+          await tx.query("SAVEPOINT acc");
+          try {
+            if (!/^[a-z0-9._-]{3,40}$/.test(gebruikersnaam)) throw new ApiFout(422, "Gebruikersnaam: 3 tot 40 tekens, alleen kleine letters, cijfers, punt en streepje");
+            if (gezien.has(gebruikersnaam)) throw new ApiFout(422, "Deze gebruikersnaam staat twee keer in het bestand");
+            gezien.add(gebruikersnaam);
+            const rol = r.rol.trim().toLowerCase();
+            if (!ROLLEN.includes(rol)) throw new ApiFout(422, `Onbekende rol "${r.rol}"`);
+            const naam = r.naam?.trim() || null;
+            const ww = r.wachtwoord ?? null;
+            if (ww !== null && ww.length < 8) throw new ApiFout(422, "Het wachtwoord moet minstens 8 tekens hebben");
+            if (naam && !MET_NAAM.includes(rol)) throw new ApiFout(422, "Een naam bij de invoer hoort alleen bij operator, ploegleider of kwaliteit");
+            const { rows: [oud] } = await tx.query<{ id: string; rol: string; actief: boolean; gedeeld: boolean; naam: string | null }>(
+              `SELECT g.id, g.rol, g.actief, g.gedeeld, o.naam FROM gebruiker g LEFT JOIN operator o ON o.gebruiker_id = g.id
+                WHERE lower(g.gebruikersnaam) = $1`, [gebruikersnaam]);
+            let id: string;
+            if (!oud) {
+              if (ww === null) throw new ApiFout(422, "Een nieuw account heeft een tijdelijk wachtwoord nodig");
+              const { rows: [g] } = await tx.query<{ id: string }>(
+                `INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, actief, wachtwoord_wijzigen)
+                 VALUES ($1, $2, wachtwoord_hash($3), $4, $2 <> 'scherm') RETURNING id`, [gebruikersnaam, rol, ww, r.actief ?? true]);
+              id = g.id;
+              rij.actie = "nieuw";
+              rij.wijzigingen.push(`rol ${rol}`, ...(r.actief === false ? ["uit"] : []));
+            } else {
+              id = oud.id;
+              if (gebruikersnaam === req.user.naam && ((r.actief === false) || rol !== "beheerder")) {
+                throw new ApiFout(422, "Je kunt je eigen beheerdersaccount niet uitzetten of een andere rol geven");
+              }
+              if (oud.gedeeld && naam) throw new ApiFout(422, "Het gedeelde account heeft geen eigen naam");
+              if (oud.naam && naam && oud.naam !== naam) throw new ApiFout(422, `Heeft al de naam ${oud.naam}; een naam wijzig je bij Beheer, Namen`);
+              const actief = r.actief ?? oud.actief;
+              if (rol !== oud.rol) rij.wijzigingen.push(`rol: ${oud.rol} → ${rol}`);
+              if (actief !== oud.actief) rij.wijzigingen.push(actief ? "weer aan" : "uit");
+              if (ww !== null) rij.wijzigingen.push("nieuw tijdelijk wachtwoord");
+              if (rij.wijzigingen.length) {
+                await tx.query(
+                  `UPDATE gebruiker SET rol = $2, actief = $3,
+                          wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END,
+                          wachtwoord_wijzigen = CASE WHEN $4::text IS NULL THEN wachtwoord_wijzigen ELSE $2 <> 'scherm' END
+                    WHERE id = $1`, [id, rol, actief, ww]);
+                rij.actie = "wijzigen";
+              }
+            }
+            // Naam bij de invoer: een bestaande naam zonder account koppelen (de geschiedenis loopt door), anders een nieuwe.
+            if (naam && !(oud?.naam)) {
+              const { rows: [bestaand] } = await tx.query<{ id: string; gebruiker_id: string | null }>(
+                "SELECT id, gebruiker_id FROM operator WHERE lower(naam) = lower($1)", [naam]);
+              if (bestaand?.gebruiker_id) throw new ApiFout(422, `De naam ${naam} hoort al bij een ander account`);
+              if (bestaand) {
+                await tx.query("UPDATE operator SET gebruiker_id = $1, actief = true WHERE id = $2", [id, bestaand.id]);
+                rij.wijzigingen.push(`gekoppeld aan de bestaande naam ${naam}`);
+              } else {
+                await tx.query("INSERT INTO operator (naam, gebruiker_id) VALUES ($1, $2)", [naam, id]);
+                rij.wijzigingen.push(`nieuwe naam ${naam}`);
+              }
+              if (rij.actie === "gelijk") rij.actie = "wijzigen";
+            }
+            await tx.query("RELEASE SAVEPOINT acc");
+          } catch (e) {
+            await tx.query("ROLLBACK TO SAVEPOINT acc");
+            rij.actie = "fout";
+            rij.wijzigingen = [];
+            rij.fout = leesbaar(e);
+          }
+        }
+        return uit;
+      };
+      let rijen: AccountRij[];
+      try {
+        rijen = await inTransactie(app.db, req.user.naam, async (tx) => {
+          const uit = await verwerk(tx);
+          if (!uitvoeren || uit.some((x) => x.actie === "fout")) throw new AccountsTerug(uit);
+          return uit;
+        });
+      } catch (e) {
+        if (!(e instanceof AccountsTerug)) throw e;
+        rijen = e.rijen;
+      }
+      const tel = (a: AccountRij["actie"]) => rijen.filter((x) => x.actie === a).length;
+      return {
+        uitgevoerd: uitvoeren && tel("fout") === 0,
+        nieuw: tel("nieuw"), gewijzigd: tel("wijzigen"), gelijk: tel("gelijk"), fouten: tel("fout"), regels: rijen,
+      } as never;
     },
   );
 

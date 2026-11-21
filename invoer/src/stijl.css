@@ -149,9 +149,9 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .balk-onder > div { width: 100%; max-width: 1100px; display: flex; gap: var(--space-3); justify-content: flex-end; align-items: center; }
 .balk-onder .hint { margin-right: auto; color: var(--inkt-zacht); }
 
-.inlog { max-width: 420px; display: grid; gap: var(--space-3); margin-top: var(--space-5); }
-.inlog label { display: grid; gap: var(--space-1); }
-.inlog input { width: 100%; }
+.inlog, .wachtwoord-kiezen { max-width: 420px; display: grid; gap: var(--space-3); margin-top: var(--space-5); }
+.inlog label, .wachtwoord-kiezen label { display: grid; gap: var(--space-1); }
+.inlog input, .wachtwoord-kiezen input { width: 100%; }
 .nieuw + .lijst, .nieuw + .leeg { margin-top: var(--space-3); }
 .nieuw { display: flex; gap: var(--space-3); align-items: end; flex-wrap: wrap; background: var(--vlak); border: 2px solid var(--lijn); border-radius: var(--radius-sm); padding: var(--space-4); }
 .nieuw label { display: grid; gap: var(--space-1); }
@@ -250,3 +250,7 @@ a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* Stap van een ander afmaken (#55): rustige band, geen waarschuwing. */
 .overname { background: var(--actie-vlak); border-left: 6px solid var(--actie); padding: var(--space-2) var(--space-3); border-radius: var(--radius-xs); }
+
+/* Eigen wachtwoord kiezen (#76) */
+.wachtwoord-kiezen .hint { display: block; font-weight: 400; font-size: var(--text-sm); color: var(--inkt-zacht); }
+.hulp-keuze .hulp-link { align-self: center; }

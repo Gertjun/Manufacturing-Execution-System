@@ -579,6 +579,49 @@ describe("Portaal Beheer", () => {
   });
 });
 
+describe("accounts met een tijdelijk wachtwoord (#76)", () => {
+  test("import: proefronde, alles-of-niets, daarna eerst een eigen wachtwoord", async () => {
+    const bh = await login("beheerder1");
+    const regels = [
+      { regel: 2, gebruikersnaam: "Import.A", rol: "operator", naam: "Import A", wachtwoord: "tijdelijk-a", actief: true },
+      { regel: 3, gebruikersnaam: "import.b", rol: "planner", naam: null, wachtwoord: "kort", actief: true },
+    ];
+    const fout = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels });
+    assert.equal(fout.status, 200);
+    assert.equal(fout.body.uitgevoerd, false);
+    assert.equal(fout.body.fouten, 1);
+    assert.match(fout.body.regels[1].fout, /minstens 8 tekens/);
+    assert.equal((await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.gebruiker WHERE gebruikersnaam = 'import.a'")).rows[0].n, 0, "niets opgeslagen");
+    const eigen = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: false, regels: [{ regel: 2, gebruikersnaam: "beheerder1", rol: "beheerder", actief: false }] });
+    assert.match(eigen.body.regels[0].fout, /eigen beheerdersaccount/);
+    regels[1].wachtwoord = "tijdelijk-b";
+    const proef = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: false, regels });
+    assert.deepEqual([proef.body.nieuw, proef.body.uitgevoerd], [2, false]);
+    const goed = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels });
+    assert.deepEqual([goed.body.nieuw, goed.body.uitgevoerd], [2, true], JSON.stringify(goed.body));
+
+    const r = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "import.a", wachtwoord: "tijdelijk-a" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.wachtwoordWijzigen, true);
+    const geblokt = await verzoek("GET", "/config/stappen", r.body.token);
+    assert.equal(geblokt.status, 403);
+    assert.match(geblokt.body.fout, /eigen wachtwoord/);
+    assert.equal((await verzoek("POST", "/auth/wachtwoord", r.body.token, { huidig: "tijdelijk-a", nieuw: "tijdelijk-a" })).status, 422);
+    assert.equal((await verzoek("POST", "/auth/wachtwoord", r.body.token, { huidig: "verkeerd!", nieuw: "eigen-wachtwoord" })).status, 422);
+    const w = await verzoek("POST", "/auth/wachtwoord", r.body.token, { huidig: "tijdelijk-a", nieuw: "eigen-wachtwoord" });
+    assert.equal(w.status, 200);
+    assert.equal(w.body.operator?.naam, "Import A");
+    assert.equal((await verzoek("GET", "/config/stappen", w.body.token)).status, 200);
+    const opnieuw = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "import.a", wachtwoord: "eigen-wachtwoord" });
+    assert.equal(opnieuw.body.wachtwoordWijzigen, undefined);
+    // Een nieuw wachtwoord van de beheerder is weer tijdelijk; bij een wandscherm niet.
+    await verzoek("PATCH", "/beheer/gebruikers/import.a", bh, { wachtwoord: "nieuw-tijdelijk" });
+    assert.equal((await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "import.a", wachtwoord: "nieuw-tijdelijk" })).body.wachtwoordWijzigen, true);
+    await verzoek("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "tv.test", rol: "scherm", wachtwoord: "scherm-test" });
+    assert.equal((await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "tv.test", wachtwoord: "scherm-test" })).body.wachtwoordWijzigen, undefined);
+  });
+});
+
 describe("grenzen per product (D55)", () => {
   test("beheerder zet eigen grenzen per product; analyses filteren op product", async () => {
     const beheer = await login("beheerder1");

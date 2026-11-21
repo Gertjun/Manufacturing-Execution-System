@@ -1,6 +1,7 @@
 import { VERSIE } from "../../gedeeld/versie";
 import "./stijl.css";
-import { h, nieuweRoute, toon } from "../../gedeeld/ui";
+import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
+import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
 import { ApiFout, haal, portalenVoor, PORTALEN, ONDERDELEN_MET_PRODUCT, gekozenProduct, producten, sessie, stuur, tegelsVoor } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
@@ -62,6 +63,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
       h("button", { class: "knop-link", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden"),
       h("a", { href: "#/" }, "Startpagina"),
       h("a", { href: "#/hulp" }, "Hulp"),
+      h("a", { href: "#/wachtwoord" }, "Wachtwoord wijzigen"),
       h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
   );
 }
@@ -95,7 +97,9 @@ function loginScherm() {
           e.preventDefault();
           fout.textContent = "";
           try {
-            const r = await stuur<{ token: string; rol: string }>("POST", "/auth/login", { gebruikersnaam: naam.value.trim(), wachtwoord: ww.value });
+            const r = await stuur<{ token: string; rol: string; wachtwoordWijzigen?: boolean }>("POST", "/auth/login", { gebruikersnaam: naam.value.trim(), wachtwoord: ww.value });
+            // Tijdelijk wachtwoord (#76, D61): eerst een eigen wachtwoord; het tijdelijke token wordt niet bewaard.
+            if (r.wachtwoordWijzigen) return wachtwoordScherm({ token: r.token, wachtwoord: ww.value });
             sessie.token = r.token;
             location.hash = "#/";
           } catch (e) {
@@ -117,6 +121,28 @@ function loginScherm() {
     testaccounts.replaceChildren(h("p", { class: "sub" }, "Testomgeving met fictieve gegevens. Testaccounts, wachtwoord steeds demo:"),
       h("table", { class: "tabel compact" }, h("tbody", {}, o.testaccounts.map((t) => h("tr", {}, h("td", {}, h("strong", {}, t.naam)), h("td", {}, t.wat))))));
   }).catch(() => {});
+}
+
+// ---------- Eigen wachtwoord (#76, D61) ----------
+/** Met tijdelijk: direct na een inlog met een tijdelijk wachtwoord. Zonder: zelf wijzigen vanuit het menu. */
+function wachtwoordScherm(tijdelijk?: { token: string; wachtwoord: string }) {
+  toon(
+    h("div", { class: "inlog" },
+      h("h1", {}, tijdelijk ? "Kies een eigen wachtwoord" : "Wachtwoord wijzigen"),
+      h("p", { class: "sub" }, tijdelijk
+        ? "Je hebt een tijdelijk wachtwoord van de beheerder gekregen. Kies nu een wachtwoord dat alleen jij weet; daarna ga je verder."
+        : "Je nieuwe wachtwoord geldt voor het invoerscherm en de portalen."),
+      wachtwoordFormulier({
+        metHuidig: !tijdelijk, knop: tijdelijk ? "Opslaan en verder" : "Wachtwoord opslaan",
+        opslaan: async (huidig, nieuw) => {
+          const r = await stuur<{ token: string }>("POST", "/auth/wachtwoord", { huidig: tijdelijk ? tijdelijk.wachtwoord : huidig, nieuw }, tijdelijk?.token);
+          sessie.token = r.token;
+          melding("Je wachtwoord is opgeslagen", "ok");
+          location.hash = "#/";
+        },
+      })),
+  );
+  (document.getElementById(tijdelijk ? "ww-nieuw" : "ww-huidig") as HTMLInputElement | null)?.focus();
 }
 
 // ---------- Startpagina (D54) ----------
@@ -185,6 +211,10 @@ async function route() {
   if (portaal === "nainvoeren" && (sessie.rol === "ploegleider" || sessie.rol === "beheerder")) {
     await tekenMenu("", "");
     return onderdeel === "formulier" ? formulieren(arg) : nalevering();
+  }
+  if (portaal === "wachtwoord") {
+    await tekenMenu("", "");
+    return wachtwoordScherm();
   }
   if (portaal === "hulp") {
     await tekenMenu("", "");

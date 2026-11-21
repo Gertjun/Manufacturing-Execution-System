@@ -577,3 +577,9 @@ a.merk:hover { text-decoration: underline; }
   .papier:last-child { break-after: auto; }
   .papier-tabel .vak.leeg { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Eigen wachtwoord kiezen (#76) */
+.wachtwoord-kiezen .hint { display: block; font-weight: 400; font-size: var(--text-sm); color: var(--inkt-zacht); }
+/* Knop die eruitziet als een link (terug naar een scherm op hetzelfde adres) */
+.link-knop { font: inherit; color: var(--actie); text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; }
+.link-knop:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

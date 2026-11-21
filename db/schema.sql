@@ -27,7 +27,10 @@ CREATE TABLE gebruiker (
     rol             text NOT NULL CHECK (rol IN ('operator','ploegleider','kwaliteit','beheerder','analist','planner','scherm','productiemanager')),
     wachtwoord_hash text,                      -- bcrypt via pgcrypto
     actief          boolean NOT NULL DEFAULT true,
-    gedeeld         boolean NOT NULL DEFAULT false  -- het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
+    gedeeld         boolean NOT NULL DEFAULT false,  -- het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
+    -- Het wachtwoord is tijdelijk (gekozen door de beheerder): bij de volgende inlog eerst een eigen
+    -- wachtwoord kiezen (sinds migratie 0025, #76, D61).
+    wachtwoord_wijzigen boolean NOT NULL DEFAULT false
 );
 
 -- Controleert een login; geeft id en rol terug, of niets.
@@ -2057,6 +2060,23 @@ CREATE FUNCTION wachtwoord_hash(p_wachtwoord text) RETURNS text LANGUAGE sql VOL
     SELECT public.crypt(p_wachtwoord, public.gen_salt('bf', 11))
 $$;
 
+-- Eigen wachtwoord wijzigen (sinds migratie 0025, #76, D61): met het huidige wachtwoord, minstens 8 tekens,
+-- en niet gelijk aan het huidige. Daarna is het wachtwoord niet meer tijdelijk.
+CREATE FUNCTION wijzig_eigen_wachtwoord(p_gebruiker uuid, p_huidig text, p_nieuw text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id = p_gebruiker AND actief
+                      AND wachtwoord_hash = public.crypt(p_huidig, wachtwoord_hash)) THEN
+        RAISE EXCEPTION 'Het huidige wachtwoord klopt niet';
+    END IF;
+    IF length(coalesce(p_nieuw, '')) < 8 THEN
+        RAISE EXCEPTION 'Het nieuwe wachtwoord moet minstens 8 tekens hebben';
+    END IF;
+    IF p_nieuw = p_huidig THEN
+        RAISE EXCEPTION 'Kies een ander wachtwoord dan het tijdelijke';
+    END IF;
+    UPDATE gebruiker SET wachtwoord_hash = wachtwoord_hash(p_nieuw), wachtwoord_wijzigen = false WHERE id = p_gebruiker;
+END $$;
+
 -- Inloggen: controleert de wachttijd, het wachtwoord en legt de poging vast.
 -- Geeft één regel: bij succes id, rol en de gebruikersnaam zoals opgeslagen; bij te veel
 -- pogingen alleen wacht_seconden; bij een fout wachtwoord niets.
@@ -2466,7 +2486,7 @@ CREATE TABLE IF NOT EXISTS onderhoud_log (
 CREATE INDEX IF NOT EXISTS onderhoud_log_soort ON onderhoud_log (soort, klaar_op DESC);
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

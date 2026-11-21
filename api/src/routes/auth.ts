@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, vereist, type Rol, type Sessie } from "../auth.js";
+import { IEDEREEN, INVOER, ingelogd, vereist, type Rol, type Sessie } from "../auth.js";
 import { ApiFout } from "../fouten.js";
 import { inTransactie, lees } from "../db.js";
 
@@ -10,6 +10,9 @@ const TokenAntwoord = Type.Object({
   naamKiezen: Type.Boolean({ description: "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)" }),
   operator: Type.Optional(Type.Union([Type.Null(), Type.Object({ id: Type.String(), naam: Type.String() })], {
     description: "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
+  })),
+  wachtwoordWijzigen: Type.Optional(Type.Boolean({
+    description: "true: het wachtwoord is tijdelijk; kies eerst een eigen wachtwoord via /auth/wachtwoord. Het token mag tot dan niets anders (#76).",
   })),
 });
 
@@ -52,20 +55,47 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       // Twee stappen: operator_van_account kan een naam aanmaken, die een query pas in de volgende stap ziet.
       const [ac] = await inTransactie(app.db, gebruiker.naam, async (tx) => {
         const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [gebruiker.id]);
-        return (await tx.query<{ gedeeld: boolean; operator_id: string | null; operatornaam: string | null }>(
-          `SELECT g.gedeeld, o.id AS operator_id, o.naam AS operatornaam
+        return (await tx.query<{ gedeeld: boolean; operator_id: string | null; operatornaam: string | null; ww: boolean }>(
+          `SELECT g.gedeeld, o.id AS operator_id, o.naam AS operatornaam, g.wachtwoord_wijzigen AS ww
              FROM gebruiker g LEFT JOIN operator o ON o.id = $2
             WHERE g.id = $1`, [gebruiker.id, o?.id ?? null])).rows;
       });
       const gedeeld = !!ac?.gedeeld;
       const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, pcId,
-        ...(ac?.operator_id ? { operatorId: ac.operator_id } : {}), ...(gedeeld ? { gedeeld } : {}) };
+        ...(ac?.operator_id ? { operatorId: ac.operator_id } : {}), ...(gedeeld ? { gedeeld } : {}), ...(ac?.ww ? { ww: true } : {}) };
       // Een wandscherm blijft dagen aan staan: langer geldig token (het mag alleen het wandscherm lezen).
       const token = gebruiker.rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie);
       return {
         token, rol: gebruiker.rol,
         naamKiezen: gedeeld && INVOER.includes(gebruiker.rol),
         operator: ac?.operator_id ? { id: ac.operator_id, naam: ac.operatornaam as string } : null,
+        ...(ac?.ww ? { wachtwoordWijzigen: true } : {}),
+      };
+    },
+  );
+
+  // Eigen wachtwoord wijzigen (#76, D61): verplicht na een tijdelijk wachtwoord, en altijd mogelijk.
+  // Geeft een nieuw token zonder de beperking van het tijdelijke wachtwoord.
+  app.post(
+    "/wachtwoord",
+    {
+      preHandler: ingelogd,
+      schema: {
+        tags: ["inloggen"],
+        body: Type.Object({ huidig: Type.String({ minLength: 1 }), nieuw: Type.String({ minLength: 8, maxLength: 200 }) }),
+        response: { 200: TokenAntwoord },
+      },
+    },
+    async (req) => {
+      await inTransactie(app.db, req.user.naam, (tx) =>
+        tx.query("SELECT wijzig_eigen_wachtwoord($1, $2, $3)", [req.user.sub, req.body.huidig, req.body.nieuw]));
+      const { sub, naam, rol, pcId, operatorId, gedeeld } = req.user;
+      const sessie: Sessie = { sub, naam, rol, ...(pcId ? { pcId } : {}), ...(operatorId ? { operatorId } : {}), ...(gedeeld ? { gedeeld } : {}) };
+      const [o] = operatorId ? await lees<{ naam: string }>(app.db, "SELECT naam FROM operator WHERE id = $1", [operatorId]) : [];
+      return {
+        token: rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie), rol,
+        naamKiezen: !!gedeeld && !operatorId && INVOER.includes(rol),
+        operator: operatorId && o ? { id: operatorId, naam: o.naam } : null,
       };
     },
   );
