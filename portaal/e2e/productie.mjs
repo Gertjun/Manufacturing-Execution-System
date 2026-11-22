@@ -168,6 +168,12 @@ try {
   const rijPs7 = await page.locator("section", { hasText: "Stilstand per stap" }).locator("tbody tr", { hasText: "PS7 " }).innerText();
   check("PS7 heeft de laagste beschikbaarheid", (await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText()).includes("PS7"), rijPs7);
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
+  const laatste = page.locator("section", { hasText: "Laatste 50 keer stilstand" });
+  const koppen = await laatste.locator("thead th").allInnerTexts();
+  const [gedaan] = await q("SELECT x.eind_notitie FROM fabriek.stilstand x WHERE x.eind_notitie IS NOT NULL ORDER BY x.begin_op DESC LIMIT 1");
+  check("Laatste stilstanden tonen wat er is gedaan en wie beëindigde (#31)",
+    koppen.includes("Wat er is gedaan") && koppen.includes("Beëindigd door") && !!gedaan
+    && (await laatste.locator("tbody td", { hasText: gedaan.eind_notitie }).count()) > 0, koppen.join(", "));
   await shot("08-stilstand");
 
   console.log("\nRoute per product in de Batchroute (D55)");

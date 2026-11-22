@@ -329,7 +329,12 @@ def main():
           "INSERT INTO stilstand (processtap_id, oorzaak_id, gemeld_door) VALUES (%s,%s,%s)", (ps5, mach, pl), "stilstand_een_lopend")
     faalt("Oorzaak achteraf wijzigen kan niet", "UPDATE stilstand SET toelichting = 'x' WHERE id = %s", (sid,), "alleen het einde")
     faalt("Einde voor het begin kan niet", "UPDATE stilstand SET eind_op = begin_op - interval '1 minute' WHERE id = %s", (sid,), "check")
-    con.execute("UPDATE stilstand SET eind_op = begin_op + interval '20 minutes' WHERE id = %s", (sid,))
+    faalt("Notitie zonder einde kan niet (#31)", "UPDATE stilstand SET eind_notitie = 'lager vervangen' WHERE id = %s", (sid,), "hoort bij het einde")
+    faalt("Notitie met spaties eromheen kan niet", "UPDATE stilstand SET eind_op = now(), eind_notitie = ' x ' WHERE id = %s", (sid,), "check")
+    faalt("Notitie langer dan 500 tekens kan niet", "UPDATE stilstand SET eind_op = now(), eind_notitie = repeat('x', 501) WHERE id = %s", (sid,), "check")
+    con.execute("UPDATE stilstand SET eind_op = begin_op + interval '20 minutes', eind_notitie = 'lager vervangen' WHERE id = %s", (sid,))
+    check("Notitie wordt samen met het einde bewaard", val("SELECT eind_notitie FROM stilstand WHERE id = %s", (sid,)) == "lager vervangen")
+    faalt("Notitie achteraf wijzigen kan niet", "UPDATE stilstand SET eind_notitie = 'iets anders' WHERE id = %s", (sid,), "al beëindigd")
     faalt("Einde twee keer invullen kan niet", "UPDATE stilstand SET eind_op = now() WHERE id = %s", (sid,), "al beëindigd")
     faalt("Stilstand verwijderen kan niet", "DELETE FROM stilstand WHERE id = %s", (sid,), "niet verwijderd")
 

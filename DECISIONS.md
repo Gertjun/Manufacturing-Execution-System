@@ -281,3 +281,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Portalen:** tabellen worden op een telefoon kaartjes (elke regel een kaart met "kop: waarde"); alleen Batchroute en Dagoverzicht schuiven bewust opzij. Het wandscherm blijft voor de tv en breekt alleen niet op een tablet.
 - **Waarom:** ploegleiders, Kwaliteit en planners willen ook op een telefoon of tablet kunnen kijken en invoeren (#47).
 - **Testen:** een schermtest in zes formaten controleert dat geen pagina breder is dan het scherm. Een echte telefoon en tablet via het fabrieksnetwerk staan bij de praktijktests (#33).
+
+### D65 – Notitie bij het einde van een stilstand (22 nov 2026, 0.46.0)
+- **Besluit:** bij "Stilstand beëindigen" kan de operator in één tekstvak opschrijven wat het was en wat er is gedaan (`stilstand.eind_notitie`, hoogstens 500 tekens). De notitie is niet verplicht: een stap moet snel weer kunnen draaien, en een lege notitie is beter dan "x". Ze wordt alleen samen met het einde vastgelegd en is daarna niet meer te wijzigen, net als de rest van de stilstand (trigger `bewaak_stilstand`). Wie beëindigde werd al vastgelegd (`beeindigd_door`) en is nu ook zichtbaar.
+- **Waarom:** de oorzaakcode zegt wat voor stilstand het was, maar niet wat er aan gedaan is; dat is nodig voor storingsanalyse en voor de volgende ploeg (#31).
+- **Later:** blijkt in de pilot dat de notitie vaak leeg blijft bij storingen, dan kan ze voor storingen verplicht worden (regel in de database, D9).

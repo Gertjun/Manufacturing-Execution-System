@@ -150,8 +150,15 @@ function stilstandBlok(st: Stilstand, s: Stap, magMelden: boolean, opnieuw: () =
       st.wacht ? h("span", { class: "label label-wacht" }, "Nog niet verstuurd") : null),
     magMelden
       ? h("button", { class: "knop knop-hoofd", onclick: async () => {
-          if (!(await bevestig("Stilstand beëindigen?", `${s.naam} kan weer verder.`, "Beëindigen"))) return;
-          await voegToe({ omschrijving: `Stilstand ${s.code} beëindigd`, methode: "POST", pad: `/stilstand/${st.id}/einde`, body: { eind_op: new Date().toISOString() } });
+          // #31: kort opschrijven wat het was en wat er is gedaan; mag leeg, zodat beëindigen snel blijft.
+          const r = await vraag("Stilstand beëindigen", [
+            { naam: "notitie", label: "Wat was het en wat is er gedaan?", type: "tekstvak", optioneel: true, maxLengte: 500,
+              hint: "Bijvoorbeeld: band gebroken, nieuwe band gelegd." },
+          ], "Beëindigen", `${s.naam} kan weer verder.`);
+          if (!r) return;
+          const notitie = r.notitie?.trim();
+          await voegToe({ omschrijving: `Stilstand ${s.code} beëindigd`, methode: "POST", pad: `/stilstand/${st.id}/einde`,
+            body: { eind_op: new Date().toISOString(), ...(notitie ? { notitie } : {}) } });
           melding("Stilstand beëindigd", "ok");
           opnieuw();
         } }, "Stilstand beëindigen")

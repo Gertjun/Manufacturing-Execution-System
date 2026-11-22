@@ -294,11 +294,12 @@ try {
   check("Stilstand loopt in de database", stil1?.code === "STOR-MACH" && stil1.eind_op === null, JSON.stringify(stil1));
   await shot("10b-stilstand");
   await page.getByRole("button", { name: "Stilstand beëindigen" }).click();
+  await page.getByRole("dialog").getByLabel(/Wat was het en wat is er gedaan/).fill("band opnieuw uitgelijnd");
   await page.getByRole("dialog").getByRole("button", { name: "Beëindigen" }).click();
   await page.getByRole("button", { name: "Stilstand melden" }).waitFor();
   await page.waitForTimeout(1200);
-  const [stil2] = await q("SELECT x.eind_op FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
-  check("Stilstand beëindigd", stil2?.eind_op !== null);
+  const [stil2] = await q("SELECT x.eind_op, x.eind_notitie FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
+  check("Stilstand beëindigd, met wat er is gedaan (#31)", stil2?.eind_op !== null && stil2.eind_notitie === "band opnieuw uitgelijnd", JSON.stringify(stil2));
 
   console.log("\nPloegoverdracht");
   await page.goto(`${BASIS}/invoer/#/overdracht`);

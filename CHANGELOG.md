@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.46.0 — 22 november 2026 · #31
+- Nieuw: **notitie bij het einde van een stilstand.** Bij "Stilstand beëindigen" vraagt het invoerscherm kort wat het was en wat er is gedaan (bijvoorbeeld "band gebroken, nieuwe band gelegd"). De notitie mag leeg blijven, zodat beëindigen snel gaat; ze werkt ook zonder verbinding.
+- Productieanalyse → Stilstand: in "Laatste 50 keer stilstand" staan nu ook "Wat er is gedaan" en wie de stilstand beëindigde. Ook in de Excel-export.
+- De notitie ligt vast zodra de stilstand is beëindigd (regel in de database), en is hoogstens 500 tekens.
+- Oudere invoerschermen blijven werken: zij beëindigen een stilstand zoals voorheen, zonder notitie.
+- Hulp voor de operator noemt de notitie.
+
 ## Zonder nieuwe versie (na 0.45.1)
 - Tests rond middernacht: de testdata plant voor de dag in Amsterdam, ook als de tests op een server in UTC draaien (tussen 00:00 en 01:00 klopte "vandaag" anders niet). De API-test van de ploegoverdracht houdt rekening met de nachtploeg van gisteren (00:00–06:00). De regelkaarttest accepteert een Cpk met één decimaal ("1,2").
 

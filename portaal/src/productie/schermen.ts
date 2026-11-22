@@ -274,7 +274,7 @@ export async function overdracht(dag?: string) {
 }
 
 // ---------- Stilstand ----------
-interface StilstandRegel { id: string; stap: string; stapnaam: string; oorzaak: string; oorzaaknaam: string; categorie: string; toelichting: string | null; begin_op: string; eind_op: string | null; minuten: number; pc: string | null; operator: string | null; hal: string | null }
+interface StilstandRegel { id: string; stap: string; stapnaam: string; oorzaak: string; oorzaaknaam: string; categorie: string; toelichting: string | null; begin_op: string; eind_op: string | null; minuten: number; pc: string | null; operator: string | null; hal: string | null; eind_notitie?: string | null; beeindigd_door?: string | null }
 interface StilstandAnalyse {
   van: string; tot: string; ploeguren_per_dag: number; kwaliteit: number | null;
   per_stap: { stap: string; stapnaam: string; aantal: number; storing: number; wachten: number; gepland: number; overig: number; beschikbaarheid: number | null }[];
@@ -336,8 +336,9 @@ export async function stilstand() {
       : null,
     a.lijst.length
       ? h("section", { class: "blok" }, h("h2", {}, "Laatste 50 keer stilstand"),
-          tabel(["Begin", "Stap", "Oorzaak", "Duur", "Toelichting", "Gemeld door", "Pc"], a.lijst.slice(0, 50).map((x) => [
-            kort(x.begin_op), x.stap, x.oorzaaknaam, x.eind_op ? minuten(x.minuten) : h("strong", {}, `loopt (${minuten(x.minuten)})`), x.toelichting ?? "", x.operator ?? "", x.pc ?? ""]), "compact"))
+          tabel(["Begin", "Stap", "Oorzaak", "Duur", "Toelichting", "Wat er is gedaan", "Gemeld door", "Beëindigd door", "Pc"], a.lijst.slice(0, 50).map((x) => [
+            kort(x.begin_op), x.stap, x.oorzaaknaam, x.eind_op ? minuten(x.minuten) : h("strong", {}, `loopt (${minuten(x.minuten)})`), x.toelichting ?? "",
+            x.eind_notitie ?? "", x.operator ?? "", x.beeindigd_door ?? "", x.pc ?? ""]), "compact"))
       : null,
   );
 }

@@ -25,13 +25,15 @@ export const Stilstand = Type.Object({
   pc: OptTekst,
   operator: OptTekst,
   hal: OptTekst,
+  eind_notitie: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Wat het was en wat er is gedaan, ingevuld bij het einde (#31)" })),
+  beeindigd_door: OptTekst,
 });
 export const STILSTAND_SQL = `
   SELECT x.id::text, s.code AS stap, s.naam AS stapnaam, o.code AS oorzaak, o.naam AS oorzaaknaam, o.categorie, x.toelichting,
          x.begin_op, x.eind_op, round(extract(epoch FROM coalesce(x.eind_op, now()) - x.begin_op) / 60, 1)::float AS minuten,
-         pc.naam AS pc, op.naam AS operator, pc.locatie AS hal
+         pc.naam AS pc, op.naam AS operator, pc.locatie AS hal, x.eind_notitie, eo.naam AS beeindigd_door
     FROM stilstand x JOIN processtap s ON s.id = x.processtap_id JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
-    LEFT JOIN pc ON pc.id = x.pc_id LEFT JOIN operator op ON op.id = x.operator_id`;
+    LEFT JOIN pc ON pc.id = x.pc_id LEFT JOIN operator op ON op.id = x.operator_id LEFT JOIN operator eo ON eo.id = x.beeindigd_door`;
 
 const eenStilstand = async (db: Db, id: string) => (await lees(db, `${STILSTAND_SQL} WHERE x.id = $1`, [id]))[0];
 /** Een tijdstip van het apparaat; in de toekomst (verkeerde klok) telt als nu. */
@@ -112,7 +114,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["stilstand"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-        body: Type.Object({ eind_op: Type.Optional(Tijd) }),
+        // notitie is nieuw in 0.46.0; oudere invoerschermen sturen alleen eind_op (D18).
+        body: Type.Object({ eind_op: Type.Optional(Tijd), notitie: Type.Optional(Type.String({ maxLength: 500 })) }),
         response: { 200: Stilstand },
       },
     },
@@ -121,8 +124,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if (!al) throw niet("Stilstand");
       if ((al as { eind_op: string | null }).eind_op) return al as never; // al beëindigd (opnieuw verstuurd)
       await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3 WHERE id = $1",
-          [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null]));
+        tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1",
+          [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null, req.body.notitie ?? null]));
       return (await eenStilstand(app.db, req.params.id)) as never;
     },
   );

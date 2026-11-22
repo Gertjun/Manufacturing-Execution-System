@@ -49,7 +49,7 @@ const scannenEnMeer: HulpDeel = {
   punten: [
     "Handscanner: scan in een stap, buiten een invoerveld. Een batch die bezig is, opent; die klaarstaat, start; in stap 16 wordt hij aangevinkt.",
     "Etiket: open de batch en druk op Etiket printen.",
-    "Stilstand: druk in de stap op Stilstand melden en kies de oorzaak. Loopt het weer, druk dan op Stilstand beëindigen.",
+    "Stilstand: druk in de stap op Stilstand melden en kies de oorzaak. Loopt het weer, druk dan op Stilstand beëindigen en schrijf kort op wat er is gedaan.",
     "Begin van de dienst: lees de overdracht van de vorige ploeg bovenaan Stappen en druk op Gelezen. Eind van de dienst: Overdracht, vul bijzonderheden en aandachtspunten in, Overdracht opslaan. Daarna Afmelden.",
   ],
 };

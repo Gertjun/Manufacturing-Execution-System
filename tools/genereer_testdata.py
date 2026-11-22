@@ -471,16 +471,24 @@ pc_van_stap = {code: pcs[(int(code[2:]) - 1) % len(pcs)] for code, *_ in stappen
 TOELICHTING = {"STOR-MACH": ["lager maakt lawaai", "transportband loopt vast", "sensor geeft foutmelding", None],
                "STOR-ELEK": ["zekering eruit", "besturing herstart", None], "WACHT-GS": ["grondstof B nog niet geleverd", "pallet nog in ontvangst", None],
                "WACHT-KW": ["wachten op vrijgave monster", None], "OMSTEL": [None], "SCHOON": [None], "ONDERH": ["preventief onderhoud", None], "OVERIG": ["overleg", None]}
+# Wat er is gedaan, ingevuld bij het einde (#31). Een eigen toevalsreeks, zodat de rest van de testdata gelijk blijft.
+GEDAAN = {"STOR-MACH": ["lager vervangen", "band opnieuw uitgelijnd", "sensor schoongemaakt en getest", None],
+          "STOR-ELEK": ["zekering vervangen, oorzaak onbekend", "besturing herstart, loopt weer", None],
+          "WACHT-GS": ["levering binnen, verder gegaan", None], "WACHT-KW": ["monster vrijgegeven", None], "ONDERH": ["volgens plan klaar", None]}
+rnd_gedaan = random.Random(31)
 n_stil = 0
 
 
 def stil(code, oz, start, minuten_duur, open_laten=False):
     global n_stil
     eind_stil = None if open_laten else start + dt.timedelta(minutes=minuten_duur)
-    con.execute("""INSERT INTO stilstand (processtap_id, oorzaak_id, toelichting, begin_op, eind_op, pc_id, operator_id, gemeld_door)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (stap_id[code], oorzaak[oz], rnd.choice(TOELICHTING[oz]), start.astimezone(), eind_stil.astimezone() if eind_stil else None,
-                 pc_van_stap[code], operators[rnd.choice(opnamen)], operator_account))
+    toelichting = rnd.choice(TOELICHTING[oz])  # in dezelfde volgorde als vóór 0.46.0
+    wie = operators[rnd.choice(opnamen)]
+    notitie = rnd_gedaan.choice(GEDAAN[oz]) if eind_stil and oz in GEDAAN else None
+    con.execute("""INSERT INTO stilstand (processtap_id, oorzaak_id, toelichting, begin_op, eind_op, pc_id, operator_id, gemeld_door, beeindigd_door, eind_notitie)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (stap_id[code], oorzaak[oz], toelichting, start.astimezone(), eind_stil.astimezone() if eind_stil else None,
+                 pc_van_stap[code], wie, operator_account, wie if eind_stil else None, notitie))
     n_stil += 1
 
 

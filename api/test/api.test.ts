@@ -1248,10 +1248,21 @@ describe("Stilstand", () => {
     assert.equal(wand.body.stappen.find((x: any) => x.code === "PS5").stilstand.oorzaak, "Machinestoring");
     assert.equal((await verzoek("GET", "/stilstand", await login("scherm1"))).body.length, 1);
     assert.equal((await verzoek("POST", `/stilstand/${id}/einde`, await login("kwaliteit1"), {})).status, 403);
-    const e = await verzoek("POST", `/stilstand/${id}/einde`, op, {});
+    assert.equal((await verzoek("POST", `/stilstand/${id}/einde`, op, { notitie: "x".repeat(501) })).status, 400, "notitie te lang");
+    const e = await verzoek("POST", `/stilstand/${id}/einde`, op, { notitie: "  lager vervangen  " });
     assert.equal(e.status, 200);
     assert.ok(e.body.eind_op);
-    assert.equal((await verzoek("POST", `/stilstand/${id}/einde`, op, {})).status, 200, "opnieuw versturen is veilig");
+    assert.equal(e.body.eind_notitie, "lager vervangen", "notitie bij het einde (#31), zonder spaties eromheen");
+    assert.equal(e.body.beeindigd_door, "Operator C");
+    const opnieuw = await verzoek("POST", `/stilstand/${id}/einde`, op, { notitie: "iets anders" });
+    assert.equal(opnieuw.status, 200, "opnieuw versturen is veilig");
+    assert.equal(opnieuw.body.eind_notitie, "lager vervangen", "de eerste notitie blijft staan");
+    // Een ouder invoerscherm (vóór 0.46.0) stuurt alleen eind_op (D18).
+    const oud = await verzoek("POST", "/stilstand", op, { stapcode: "PS6", oorzaak: "OMSTEL" });
+    assert.equal(oud.status, 201, JSON.stringify(oud.body));
+    const oudEinde = await verzoek("POST", `/stilstand/${oud.body.id}/einde`, op, { eind_op: new Date().toISOString() });
+    assert.equal(oudEinde.status, 200);
+    assert.equal(oudEinde.body.eind_notitie ?? null, null);
     const a = await verzoek("GET", "/analyse/stilstand", pl);
     const ps5 = a.body.per_stap.find((x: any) => x.stap === "PS5");
     assert.equal(ps5.aantal, 1);

@@ -1798,6 +1798,8 @@ CREATE TABLE stilstand (
     operator_id    uuid REFERENCES operator(id),
     gemeld_door    uuid NOT NULL REFERENCES gebruiker(id),
     beeindigd_door uuid REFERENCES operator(id),
+    -- Wat het was en wat er is gedaan, bij het einde (#31, D65).
+    eind_notitie   text CHECK (eind_notitie IS NULL OR (eind_notitie = btrim(eind_notitie) AND char_length(eind_notitie) BETWEEN 1 AND 500)),
     CHECK (eind_op IS NULL OR eind_op >= begin_op)
 );
 -- Per stap kan er maar één stilstand tegelijk lopen.
@@ -1816,6 +1818,9 @@ BEGIN
     IF (NEW.processtap_id, NEW.oorzaak_id, NEW.begin_op, NEW.pc_id, NEW.operator_id, NEW.gemeld_door, NEW.toelichting)
        IS DISTINCT FROM (OLD.processtap_id, OLD.oorzaak_id, OLD.begin_op, OLD.pc_id, OLD.operator_id, OLD.gemeld_door, OLD.toelichting) THEN
         RAISE EXCEPTION 'Van een stilstand kan alleen het einde worden ingevuld';
+    END IF;
+    IF NEW.eind_notitie IS NOT NULL AND NEW.eind_op IS NULL THEN
+        RAISE EXCEPTION 'Een notitie bij een stilstand hoort bij het einde';
     END IF;
     RETURN NEW;
 END $$;
@@ -2529,7 +2534,7 @@ BEGIN
 END $$;
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
