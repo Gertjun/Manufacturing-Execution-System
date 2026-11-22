@@ -144,5 +144,5 @@ Alle tools lezen `instellingen.json` (of het bestand in `BATCHGUI_INSTELLINGEN`,
 
 - `GET https://<servernaam>/gezondheid`: 200 met `{"status":"ok","versie":"…","database":"ok"}`, of 503 als de database niet bereikbaar is.
 - **Beheer → Server** toont een waarschuwing als de laatste back-up ouder is dan 2 uur of mislukt, als de laatste hersteltest ouder is dan 35 dagen of mislukt, en bij 20 of meer mislukte inlogpogingen in 24 uur.
-- Na 5 verkeerde wachtwoorden binnen 15 minuten wacht een gebruikersnaam 1 minuut. Alle pogingen staan in de tabel `fabriek.inlogpoging` (zonder wachtwoord); `backup.mjs` ruimt pogingen ouder dan 90 dagen op.
+- Na 5 verkeerde wachtwoorden binnen 15 minuten wacht een gebruikersnaam 1 minuut. Alle pogingen staan in de tabel `fabriek.inlogpoging` (zonder wachtwoord); `backup.mjs` ruimt pogingen ouder dan 90 dagen op. Invoer van een pc die de server weigert, staat in `fabriek.geweigerde_invoer` (voor het pilotoverzicht); ook die ruimt `backup.mjs` na 90 dagen op.
 - De pagina's worden geleverd met beveiligingskoppen (Content-Security-Policy, X-Frame-Options). Zet er geen proxy voor die deze koppen weghaalt.

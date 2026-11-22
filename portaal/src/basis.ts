@@ -64,7 +64,10 @@ export function qs(params: Record<string, string | number | null | undefined>): 
 }
 
 // ---------- Portalen ----------
-export interface Onderdeel { pad: string; naam: string; teller?: () => Promise<number> }
+/** rollen: alleen voor deze rollen in het menu (zonder: iedereen die het portaal mag zien). */
+export interface Onderdeel { pad: string; naam: string; teller?: () => Promise<number>; rollen?: Rol[] }
+/** De onderdelen van een portaal die de ingelogde rol in het menu ziet. */
+export const zichtbareOnderdelen = (p: Portaal) => p.onderdelen.filter((o) => !o.rollen || o.rollen.includes(sessie.rol as Rol));
 export interface Portaal { id: string; naam: string; rollen: Rol[]; klaar: boolean; onderdelen: Onderdeel[] }
 
 export const PORTALEN: Portaal[] = [
@@ -100,6 +103,8 @@ export const PORTALEN: Portaal[] = [
       { pad: "correcties", naam: "Correcties" },
       { pad: "overdracht", naam: "Ploegoverdracht" },
       { pad: "stilstand", naam: "Stilstand" },
+      // De productiemanager ziet het pilotoverzicht hier; de beheerder bij Beheer (#77, D66).
+      { pad: "pilot", naam: "Pilotoverzicht", rollen: ["productiemanager"] },
     ],
   },
   {
@@ -132,6 +137,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "bedrijf", naam: "Bedrijfsgegevens" },
       { pad: "pcs", naam: "Pc's" },
       { pad: "opmerkingen", naam: "Opmerkingen", teller: async () => (await haal<unknown[]>("/terugmeldingen")).length },
+      { pad: "pilot", naam: "Pilotoverzicht" },
       { pad: "logboek", naam: "Logboek" },
       { pad: "server", naam: "Server" },
     ],

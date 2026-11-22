@@ -223,6 +223,35 @@ try {
   if (await pcKeuze.isVisible()) await pcKeuze.click();
   await page.locator(".balk-eigen-naam").waitFor();
   check("Via de tegel: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
+
+  console.log("\nPilotoverzicht (#77)");
+  const tokenVan = async (naam) => (await (await fetch(`${BASIS}/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ gebruikersnaam: naam, wachtwoord: "demo" }) })).json()).token;
+  await page.goto(`${BASIS}/portaal/#/login`);
+  await page.evaluate((t) => localStorage.setItem("portaal.token", t), await tokenVan("productiemanager1"));
+  await page.goto(`${BASIS}/portaal/#/productie`);
+  await page.locator("#menu").getByRole("link", { name: "Pilotoverzicht" }).click();
+  await page.getByRole("heading", { name: "Pilotoverzicht" }).waitFor();
+  await page.getByLabel("Van").fill(new Date(Date.now() - 20 * 86400e3).toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" }));
+  await page.getByLabel("Van").dispatchEvent("change");
+  await page.waitForTimeout(800);
+  const [gw] = await q("SELECT count(*)::int AS n FROM fabriek.geweigerde_invoer");
+  const geweigerdRijen = await page.locator("section", { hasText: "Geweigerde invoer" }).locator("tbody tr").count();
+  check("Productiemanager: geweigerde invoer van de laatste 20 dagen, gelijk aan de database", geweigerdRijen === gw.n && gw.n > 0, `${geweigerdRijen} / ${gw.n}`);
+  const pc04 = await page.locator("section").filter({ has: page.getByRole("heading", { name: "Per pc", exact: true }) }).locator("tbody tr", { hasText: "PC-04" }).allInnerTexts();
+  const bijz = await page.locator("section").filter({ has: page.getByRole("heading", { name: "Bijzonderheden per dag en pc" }) }).locator("tbody tr").allInnerTexts();
+  check("Bijzonderheden: alleen dagen met iets bijzonders, PC-04 erbij", bijz.length > 0 && bijz.length < 40 && bijz.some((r) => r.includes("PC-04")), `${bijz.length} regels`);
+  check("PC-04 komt op een paar dagen te laat binnen (testdata)", pc04.some((r) => / u \d+ min|\d{2},?\d* min/.test(r)), pc04.slice(0, 2).join(" | "));
+  check("Productiemanager ziet geen instellingen", (await page.getByRole("button", { name: "Instellingen wijzigen" }).count()) === 0);
+  await page.evaluate((t) => localStorage.setItem("portaal.token", t), await tokenVan("beheerder1"));
+  await page.goto(`${BASIS}/portaal/#/beheer/pilot`);
+  await page.getByRole("button", { name: "Instellingen wijzigen" }).click();
+  await page.getByRole("dialog").getByLabel(/Te laat na/).fill("45");
+  await page.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
+  await page.getByText("Invoer telt als te laat na 45 minuten.").waitFor();
+  const [inst] = await q("SELECT waarde FROM fabriek.instelling WHERE sleutel = 'te_laat_minuten'");
+  check("Beheerder zet 'te laat' op 45 minuten", inst?.waarde === "45");
+  await shot("10-pilotoverzicht");
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

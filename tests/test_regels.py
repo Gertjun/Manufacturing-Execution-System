@@ -338,6 +338,18 @@ def main():
     faalt("Einde twee keer invullen kan niet", "UPDATE stilstand SET eind_op = now() WHERE id = %s", (sid,), "al beëindigd")
     faalt("Stilstand verwijderen kan niet", "DELETE FROM stilstand WHERE id = %s", (sid,), "niet verwijderd")
 
+    print("\nGeweigerde invoer en instellingen van het pilotoverzicht (#77)")
+    con.execute("SELECT leg_weigering_vast(%s, NULL, gen_random_uuid(), '', 999, repeat('x', 900), '  ', repeat('B', 60))", (pc,))
+    g = con.execute("SELECT pc_id, operator_id, pad, status, char_length(fout), stapcode, char_length(batchnummer) FROM geweigerde_invoer ORDER BY id DESC LIMIT 1").fetchone()
+    check("Vastleggen mislukt nooit: onbekende operator leeg, teksten ingekort, status begrensd",
+          g[0] == pc and g[1] is None and g[2] == "?" and g[3] == 599 and g[4] == 500 and g[5] is None and g[6] == 40)
+    faalt("Geweigerde invoer wijzigen kan niet", "UPDATE geweigerde_invoer SET fout = 'x'", (), "niet gewijzigd")
+    faalt("Minder dan 30 dagen bewaren kan niet", "SELECT ruim_weigeringen_op(7)", (), "minstens 30 dagen")
+    faalt("Te laat na 0 minuten kan niet", "INSERT INTO instelling (sleutel, waarde) VALUES ('te_laat_minuten', '0')", (), "instelling_pilot")
+    faalt("Startdatum moet een datum zijn", "INSERT INTO instelling (sleutel, waarde) VALUES ('pilot_start', 'morgen')", (), "instelling_pilot")
+    con.execute("INSERT INTO instelling (sleutel, waarde) VALUES ('pilot_start', '') ON CONFLICT (sleutel) DO UPDATE SET waarde = ''")
+    check("Geen startdatum (leeg) mag", val("SELECT waarde FROM instelling WHERE sleutel = 'pilot_start'") == "")
+
     print("\nTijdstip van het apparaat (offline invoer)")
     def met_moment(moment, sql, p=()):
         """Voer sql uit zoals de API: in een transactie met fabriek.moment."""

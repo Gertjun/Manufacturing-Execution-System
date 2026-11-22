@@ -30,7 +30,7 @@ const ROUTES = {
     "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/wandscherm", "#/hulp", "#/wachtwoord"],
   planner1: ["#/planning/week", "#/planning/dag", "#/planning/overzicht", "#/planning/route", "#/planning/lots", "#/planning/producten", "#/planning/capaciteit"],
   beheerder1: ["#/beheer/stappen", "#/beheer/accounts", "#/beheer/operators", "#/beheer/grondstoffen", "#/beheer/ploegen", "#/beheer/oorzaken",
-    "#/beheer/bedrijf", "#/beheer/pcs", "#/beheer/opmerkingen", "#/beheer/logboek", "#/beheer/server"],
+    "#/beheer/bedrijf", "#/beheer/pcs", "#/beheer/opmerkingen", "#/beheer/pilot", "#/beheer/logboek", "#/beheer/server"],
 };
 const INVOER = ["#/stappen", "#/stap/PS3", "#/zoek", "#/zoek/B-2026-0235", "#/overdracht", "#/wachtrij", "#/hulp", "#/stap/PS16"];
 

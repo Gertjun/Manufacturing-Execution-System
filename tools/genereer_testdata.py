@@ -526,6 +526,36 @@ con.execute("""INSERT INTO melding_gelezen (melding_id, gebruiker_id, gelezen_op
                SELECT m.id, g.id, m.aangemaakt_op + interval '2 hours' FROM melding m JOIN gebruiker g ON g.rol = ANY(m.voor_rollen)
                 WHERE m.aangemaakt_op < %s""", (eind - dt.timedelta(days=1),))
 
+# ---------- Pilotoverzicht (#77) ----------
+# Een pc die af en toe offline is (invoer komt later binnen) en een paar geweigerde invoeren, met een eigen
+# toevalsreeks zodat de rest van de testdata gelijk blijft. Alle teksten fictief.
+rnd_pilot = random.Random(77)
+with con.transaction():
+    con.execute("SET LOCAL session_replication_role = replica")
+    pc_offline = con.execute("SELECT id FROM pc WHERE naam = 'PC-04'").fetchone()
+    if pc_offline:
+        dagen = [r[0] for r in con.execute("""SELECT DISTINCT gestart_op::date FROM stapregistratie
+                                               WHERE pc_id = %s AND nageleverd_door IS NULL ORDER BY 1 DESC LIMIT 12""", (pc_offline[0],))]
+        for d in rnd_pilot.sample(dagen, min(3, len(dagen))):
+            vertraging = dt.timedelta(minutes=rnd_pilot.randint(40, 150))
+            ids = [r[0] for r in con.execute("SELECT id FROM stapregistratie WHERE pc_id = %s AND gestart_op::date = %s AND nageleverd_door IS NULL",
+                                             (pc_offline[0], d))]
+            con.execute("""UPDATE stapregistratie SET gestart_ontvangen_op = gestart_op + %s,
+                                  afgerond_ontvangen_op = CASE WHEN afgerond_op IS NULL THEN NULL ELSE afgerond_op + %s END
+                            WHERE id = ANY(%s)""", (vertraging, vertraging, ids))
+            con.execute("UPDATE waarde SET ontvangen_op = ingevoerd_op + %s WHERE stapregistratie_id = ANY(%s)", (vertraging, ids))
+REDENEN = [("PS4", "Stap PS4 staat nog open: gestart door Operator B op PC-04. Open hem bij Bezig om hem af te maken."),
+           ("PS2", "Batch B-2026-0999 bestaat niet"), ("PS16", "Een lot bestaat uit 4 batches van hetzelfde product"),
+           ("PS7", "Deze stap hoort niet bij de route van het product")]
+pcs_naam = pcs
+op_ids = list(operators.values())
+for i in range(8):
+    stap_w, reden = rnd_pilot.choice(REDENEN)
+    moment = eind - dt.timedelta(days=rnd_pilot.randint(0, 12), hours=rnd_pilot.randint(0, 20))
+    con.execute("""INSERT INTO geweigerde_invoer (op, pc_id, gebruiker_id, operator_id, pad, status, fout, stapcode, batchnummer)
+                   VALUES (%s, %s, %s, %s, '/registraties', 422, %s, %s, NULL)""",
+                (moment.astimezone(), rnd_pilot.choice(pcs_naam), operator_account, rnd_pilot.choice(op_ids), reden, stap_w))
+
 n_waarden = con.execute("SELECT count(*) FROM waarde").fetchone()[0]
 n_afw = con.execute("SELECT count(*) FROM waarde_actueel WHERE markering <> 'ok'").fetchone()[0]
 print(f"Klaar: {stats['batches']} batches, {stats['lots']} lots, {n_waarden} waarden ({n_afw} afwijkend), "

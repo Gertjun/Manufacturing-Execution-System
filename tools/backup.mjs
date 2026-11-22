@@ -49,14 +49,19 @@ if (!opties["niet-opruimen"]) {
   }
 }
 
-// Inlogpogingen ouder dan 90 dagen opruimen (sinds 0.22.2; op een oudere database bestaat de functie nog niet).
+// Inlogpogingen en geweigerde invoer ouder dan 90 dagen opruimen (sinds 0.22.2 en 0.47.0; op een oudere database bestaan de functies nog niet).
 let pogingen = 0;
+let weigeringen = 0;
 if (!opties["niet-opruimen"]) {
   const c = await verbind(inst.beheerDb);
   try {
     const { rows } = await c.query(
       "SELECT CASE WHEN to_regprocedure('fabriek.ruim_inlogpogingen_op(integer)') IS NULL THEN 0 ELSE fabriek.ruim_inlogpogingen_op() END AS n");
     pogingen = rows[0].n;
+    // Geweigerde invoer ouder dan 90 dagen (sinds 0.47.0, #77); telt mee in het aantal opgeruimde regels.
+    const w = await c.query(
+      "SELECT CASE WHEN to_regprocedure('fabriek.ruim_weigeringen_op(integer)') IS NULL THEN 0 ELSE fabriek.ruim_weigeringen_op() END AS n");
+    weigeringen = w.rows[0].n;
   } catch (e) {
     console.log(`Let op: oude inlogpogingen opruimen lukte niet: ${e.message}`);
   } finally {
@@ -64,7 +69,7 @@ if (!opties["niet-opruimen"]) {
   }
 }
 
-const opmerkingen = [opgeruimd ? `${opgeruimd} oude back-up(s) opgeruimd` : "", pogingen ? `${pogingen} oude inlogpoging(en) opgeruimd` : ""].filter(Boolean);
+const opmerkingen = [opgeruimd ? `${opgeruimd} oude back-up(s) opgeruimd` : "", pogingen ? `${pogingen} oude inlogpoging(en) opgeruimd` : "", weigeringen ? `${weigeringen} oude geweigerde invoer opgeruimd` : ""].filter(Boolean);
 await logOnderhoud(inst, {
   soort: "backup",
   gestart_op: start,

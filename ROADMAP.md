@@ -72,7 +72,6 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 
 ### A3. Vóór de pilot (software) — december 2026 tot januari 2027
 Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen (#78 gebouwd in 0.42.0).
-- #77 **Pilotoverzicht** (middel) — In Beheer per dag en per pc: hoeveel stappen ingevoerd, hoe laat na het werk, hoe lang offline, wat geweigerd werd, welke velden vaak leeg blijven of gecorrigeerd worden, en de opmerkingen uit "Iets melden" (0.42.0). Voor de evaluatie na 8 weken.
 - #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
 - #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten. Drempels pas instellen met echte data (#2); vóór de pilot alleen de werking.
 

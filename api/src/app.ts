@@ -5,7 +5,7 @@ import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { Type, type TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
-import { registreerAuth } from "./auth.js";
+import { operatorVan, registreerAuth } from "./auth.js";
 import type { Db } from "./db.js";
 import { foutAfhandeling } from "./fouten.js";
 import authRoutes from "./routes/auth.js";
@@ -18,6 +18,7 @@ import analyseRoutes from "./routes/analyse.js";
 import planningRoutes from "./routes/planning.js";
 import wandschermRoutes from "./routes/wandscherm.js";
 import overdrachtRoutes from "./routes/overdracht.js";
+import pilotRoutes from "./routes/pilot.js";
 import meldingRoutes from "./routes/meldingen.js";
 import stilstandRoutes from "./routes/stilstand.js";
 import certificaatRoutes from "./routes/certificaat.js";
@@ -69,6 +70,33 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     return payload;
   });
 
+  // Geweigerde invoer van een pc vastleggen voor het pilotoverzicht (#77, D66): elk verzoek dat gegevens
+  // verandert, met een token van een pc, dat de server niet aanneemt (behalve "niet ingelogd").
+  // Los van de transactie van het verzoek zelf, die is dan al teruggedraaid; een fout hierbij telt niet.
+  app.addHook("onSend", async (req, reply, payload) => {
+    if (reply.statusCode >= 400 && req.method !== "GET" && typeof payload === "string") {
+      try { (req as { weigering?: string }).weigering = String(JSON.parse(payload).fout ?? ""); } catch { /* geen JSON */ }
+    }
+    return payload;
+  });
+  app.addHook("onResponse", async (req, reply) => {
+    const status = reply.statusCode;
+    if (status < 400 || status === 401 || req.method === "GET" || req.url.startsWith("/auth")) return;
+    let pcId: string | undefined, sub: string | undefined, operatorId: string | undefined;
+    try {
+      if (!req.user) await req.jwtVerify();
+      ({ pcId, sub } = req.user);
+      operatorId = operatorVan(req);
+    } catch { return; }
+    if (!pcId) return;
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const tekst = (x: unknown) => (typeof x === "string" ? x : null);
+    const batch = tekst(body.batchnummer) ?? (Array.isArray(body.batchnummers) ? tekst(body.batchnummers[0]) : null) ?? tekst(body.lotnummer);
+    await app.db.query("SELECT fabriek.leg_weigering_vast($1, $2, $3, $4, $5, $6, $7, $8)",
+      [pcId, sub ?? null, operatorId ?? null, req.url.split("?")[0], status, (req as { weigering?: string }).weigering ?? null, tekst(body.stapcode), batch])
+      .catch((e: Error) => req.log.warn({ err: e }, "geweigerde invoer niet vastgelegd"));
+  });
+
   await app.register(swagger, {
     openapi: {
       info: {
@@ -98,6 +126,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(keuringRoutes, { prefix: "/keuringen" });
   await app.register(naleveringRoutes, { prefix: "/nalevering" });
   await app.register(terugmeldingRoutes, { prefix: "/terugmeldingen" });
+  await app.register(pilotRoutes, { prefix: "/pilot" });
   await app.register(planningRoutes, { prefix: "/planning" });
   await app.register(wandschermRoutes, { prefix: "/wandscherm" });
   await app.register(overdrachtRoutes, { prefix: "/overdracht" });

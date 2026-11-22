@@ -3,11 +3,12 @@ import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
 import { vraagIetsMelden } from "../../gedeeld/melden";
-import { ApiFout, haal, portalenVoor, PORTALEN, ONDERDELEN_MET_PRODUCT, gekozenProduct, producten, sessie, stuur, tegelsVoor } from "./basis";
+import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen, ONDERDELEN_MET_PRODUCT, gekozenProduct, producten, sessie, stuur, tegelsVoor } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
+import * as pilot from "./pilot";
 import { stopWandscherm, wandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
 import { volgStappenlijsten } from "./stappenkeuze";
@@ -55,8 +56,8 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
       h("div", { class: "menu-groep" },
         h("a", { class: "menu-portaal", href: `#/${p.id}`, "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,
           p.klaar ? null : h("span", { class: "binnenkort" }, "volgt")),
-        p.id === actiefPortaal && p.onderdelen.length
-          ? h("ul", {}, p.onderdelen.map((o) => {
+        p.id === actiefPortaal && zichtbareOnderdelen(p).length
+          ? h("ul", {}, zichtbareOnderdelen(p).map((o) => {
               const teller = h("span", { class: "teller" });
               o.teller?.().then((n) => { if (n > 0) teller.textContent = String(n); }).catch(() => {});
               return h("li", {}, h("a", { href: `#/${p.id}/${o.pad}`, "aria-current": o.pad === actiefOnderdeel ? "page" : undefined }, o.naam, teller));
@@ -260,6 +261,7 @@ async function route() {
       case "correcties": return productie.correcties();
       case "overdracht": return productie.overdracht(a);
       case "stilstand": return productie.stilstand();
+      case "pilot": return sessie.rol === "productiemanager" || sessie.rol === "beheerder" ? pilot.pilotoverzicht() : void (location.hash = "#/productie");
       case "batch": return a ? kwaliteit.batch(a) : productie.werkvoorraad();
       case "lot": return a ? kwaliteit.lotpaspoort(a) : productie.werkvoorraad();
       default: return void (location.hash = "#/productie");
@@ -294,6 +296,7 @@ async function route() {
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
       case "opmerkingen": return beheer.opmerkingen();
+      case "pilot": return pilot.pilotoverzicht();
       case "server": return beheer.server();
       default: return void (location.hash = "#/beheer");
     }

@@ -1666,3 +1666,60 @@ describe("Een 0 blijft een 0 (0.23.0)", () => {
     assert.deepEqual(rows[0], { s: 0, g: 0 });
   });
 });
+
+describe("Pilotoverzicht (#77, D66)", () => {
+  test("geweigerde invoer van een pc wordt vastgelegd, niet-ingelogd en lezen niet", async () => {
+    const token = await kiesNaam(await login("operator", "PC-02"), "Operator C");
+    const voor = Number((await beheerDb.query("SELECT count(*) FROM fabriek.geweigerde_invoer")).rows[0].count);
+    const fout = await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: "B-2026-9999" });
+    assert.ok(fout.status >= 400 && fout.status < 500, JSON.stringify(fout.body));
+    assert.equal((await verzoek("POST", "/registraties", undefined, { stapcode: "PS1", batchnummer: "B-2026-9999" })).status, 401);
+    assert.equal((await verzoek("GET", "/registraties/00000000-0000-0000-0000-000000000000", token)).status >= 400, true);
+    assert.equal((await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "operator", wachtwoord: "fout", pc: "PC-02" })).status, 401);
+    const { rows } = await beheerDb.query(`SELECT x.*, pc.naam AS pc, o.naam AS operator FROM fabriek.geweigerde_invoer x
+      LEFT JOIN fabriek.pc ON pc.id = x.pc_id LEFT JOIN fabriek.operator o ON o.id = x.operator_id ORDER BY x.id DESC`);
+    assert.equal(rows.length, voor + 1, "alleen de geweigerde invoer met een pc, niet niet-ingelogd, lezen of inloggen");
+    assert.deepEqual([rows[0].pc, rows[0].operator, rows[0].pad, rows[0].stapcode, rows[0].batchnummer, rows[0].status],
+      ["PC-02", "Operator C", "/registraties", "PS1", "B-2026-9999", fout.status]);
+    assert.equal(rows[0].fout, fout.body.fout);
+  });
+
+  test("overzicht per dag en pc, per veld en geweigerd; wie het mag zien en instellen", async () => {
+    const pm = await login("productiemanager1");
+    const bh = await login("beheerder1");
+    assert.equal((await verzoek("GET", "/pilot", await login("planner1"))).status, 403);
+    // Een start die een uur te laat binnenkomt (offline op de pc).
+    const token = await kiesNaam(await login("operator", "PC-03"), "Operator C");
+    const nr = "B-2026-8077";
+    assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
+    const r = await app.inject({ method: "POST", url: "/registraties", payload: { id: randomUUID(), stapcode: "PS1", batchnummer: nr },
+      headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": new Date(Date.now() - 60 * 60e3).toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
+    assert.equal(r.statusCode, 201, r.body);
+    await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: "B-2026-9998" }); // geweigerd
+
+    const o = await verzoek("GET", "/pilot", pm);
+    assert.equal(o.status, 200, JSON.stringify(o.body));
+    assert.equal(o.body.te_laat_minuten, 15);
+    const vandaag = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+    assert.equal(o.body.tot, vandaag);
+    const rij = o.body.per_dag_pc.find((x: any) => x.pc === "PC-03" && x.dag === vandaag);
+    assert.ok(rij, JSON.stringify(o.body.per_dag_pc.slice(0, 3)));
+    assert.ok(rij.gestart >= 1 && rij.te_laat >= 1 && rij.langst_minuten >= 59 && rij.geweigerd >= 1, JSON.stringify(rij));
+    assert.ok(o.body.kerncijfers.geweigerd >= 2);
+    assert.ok(o.body.geweigerd.some((g: any) => g.batchnummer === "B-2026-9998" && g.pc === "PC-03" && g.naam === "Operator C"));
+    assert.ok(Array.isArray(o.body.per_veld));
+
+    // Instellingen: alleen de beheerder; de startdatum bepaalt de standaardperiode.
+    assert.equal((await verzoek("PUT", "/pilot/instellingen", pm, { pilot_start: vandaag, te_laat_minuten: 30 })).status, 403);
+    assert.equal((await verzoek("PUT", "/pilot/instellingen", bh, { pilot_start: vandaag, te_laat_minuten: 0 })).status, 400);
+    assert.equal((await verzoek("PUT", "/pilot/instellingen", bh, { pilot_start: vandaag, te_laat_minuten: 90 })).status, 204);
+    const na = await verzoek("GET", "/pilot", pm);
+    assert.deepEqual([na.body.van, na.body.pilot_start, na.body.te_laat_minuten], [vandaag, vandaag, 90]);
+    assert.equal(na.body.per_dag_pc.find((x: any) => x.pc === "PC-03" && x.dag === vandaag).te_laat, 0, "een uur is niet te laat bij 90 minuten");
+    assert.equal((await verzoek("PUT", "/pilot/instellingen", bh, { pilot_start: null, te_laat_minuten: 15 })).status, 204);
+    const leeg = await verzoek("GET", "/pilot?van=2026-01-01&tot=2026-01-02", pm);
+    assert.equal(leeg.body.pilot_start, null);
+    assert.deepEqual(leeg.body.per_dag_pc, []);
+    assert.equal((await verzoek("GET", "/pilot?van=2026-02-01&tot=2026-01-01", pm)).status, 400);
+  });
+});

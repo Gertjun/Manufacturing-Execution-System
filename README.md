@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 22 november 2026 · versie **0.46.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 22 november 2026 · versie **0.47.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) en een notitie bij het einde van een stilstand (0.46.0, #31, D65); daarna #77, #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66); daarna #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met bewuste afwijkingen (D50; afwijking E is vervallen) en vaste woorden (D51). Elk scherm werkt van telefoon tot pc (D64). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.46.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.47.0 gepubliceerd en lokaal getest; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1. Bij 0.45.0 faalde de schermtest op GitHub; die release is later alsnog gemaakt, maar neem 0.45.1.
-- **Laatste testronde (0.46.0, 22 november 2026):** geslaagd: databaseregels (241), API, migraties (tot en met 27), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome, nu ook alle schermen in zes formaten (telefoon staand en liggend, tablet staand en liggend, laptop, pc). Niet gedaan: een echte telefoon en tablet via het netwerk (A6, A7), tekst op 200 % en de pc's in de fabriek; praktijktests (#33) staan nog open.
+- **Laatste testronde (0.47.0, 22 november 2026):** geslaagd: databaseregels (247), API, migraties (tot en met 28), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome, nu ook alle schermen in zes formaten (telefoon staand en liggend, tablet staand en liggend, laptop, pc). Niet gedaan: een echte telefoon en tablet via het netwerk (A6, A7), tekst op 200 % en de pc's in de fabriek; praktijktests (#33) staan nog open.
 - **Gegevens:** alles fictief (D1).
 
 **Links**
@@ -111,6 +111,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 | Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |
 | Opmerkingen | Wat gebruikers via "Iets melden" doorgaven; afhandelen met een notitie (D62) |
+| Pilotoverzicht | Hoe de invoer in de pilot loopt: per dag, per pc, per veld, geweigerde invoer; startdatum en grens voor "te laat" (D66). De productiemanager ziet het bij Productieanalyse |
 | Logboek | Elke wijziging: wie, wanneer, oud en nieuw (wachtwoorden nooit) |
 | Server | Versie, schemaversie, laatste back-up en hersteltest, waarschuwingen |
 
@@ -137,7 +138,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | --- | --- |
 | `node tools/start-server.mjs` | applicatie starten (controleert eerst de schemaversie) |
 | `node tools/migreer.mjs [--status]` | database aanmaken of bijwerken met `db/migraties/` en `db/rechten.sql` |
-| `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden); ruimt ook inlogpogingen ouder dan 90 dagen op |
+| `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden); ruimt ook inlogpogingen en geweigerde invoer ouder dan 90 dagen op |
 | `node tools/herstel.mjs --controle` / `<bestand>` | hersteltest of echt herstel |
 | `node tools/beheerder.mjs` | eerste beheerder, of noodsleutel bij een vergeten wachtwoord (D28) |
 

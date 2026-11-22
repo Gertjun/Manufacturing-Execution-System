@@ -5,6 +5,17 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.47.0 — 22 november 2026 · #77
+- Nieuw: **pilotoverzicht** (Beheer → Pilotoverzicht; de productiemanager ziet het bij Productieanalyse). Voor de wekelijkse controle en de evaluatie na 8 weken:
+  - Kerncijfers: stappen afgerond, hoeveel invoer op tijd op de server was, stappen van papier, geweigerde invoer en opmerkingen.
+  - Per dag, per pc, en de dagen waarop een pc iets bijzonders had: hoeveel er is ingevoerd, hoe lang invoer onderweg was (meestal: de pc was offline), hoe vaak later dan de grens, van papier, geweigerd en gemeld.
+  - Per veld: hoe vaak een veld van de operator leeg bleef en hoe vaak het is gecorrigeerd.
+  - Geweigerde invoer met de reden, de laatste 100.
+  - Periode zelf te kiezen; standaard sinds de start van de pilot (of de laatste 7 dagen). Alles naar Excel.
+- De beheerder stelt de startdatum van de pilot in en vanaf hoeveel minuten invoer "te laat" is (standaard 15).
+- Nieuw vastgelegd: invoer van een pc die de server weigert (wanneer, welke pc, wie, welke stap, de reden). De back-up en het opstarten van de laptop ruimen dat na 90 dagen op, net als de inlogpogingen.
+- Oudere invoerschermen merken er niets van.
+
 ## 0.46.0 — 22 november 2026 · #31
 - Nieuw: **notitie bij het einde van een stilstand.** Bij "Stilstand beëindigen" vraagt het invoerscherm kort wat het was en wat er is gedaan (bijvoorbeeld "band gebroken, nieuwe band gelegd"). De notitie mag leeg blijven, zodat beëindigen snel gaat; ze werkt ook zonder verbinding.
 - Productieanalyse → Stilstand: in "Laatste 50 keer stilstand" staan nu ook "Wat er is gedaan" en wie de stilstand beëindigde. Ook in de Excel-export.
