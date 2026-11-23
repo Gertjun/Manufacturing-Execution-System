@@ -28,7 +28,8 @@ gantt
 
     section A4 Verbeterlijst
     Gebouwd in 0.52 tot en met 0.63          :done, a4g, 2026-11-23, 1d
-    Geert bekijkt de demo (poort A4)         :a4p, 2026-11-24, 3d
+    Routeversies en lotgrootte door de keten (104) :a4r, 2026-11-24, 14d
+    Geert bekijkt de demo (poort A4)         :a4p, 2026-12-08, 3d
 
     section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
@@ -82,9 +83,12 @@ Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026):
 **Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.
 
 ### A4. Verbeterlijst van 23 november — vóór de pilot
-Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75) #86 (ploegen A–E in twee divisies met rooster, 0.53.0, D76) #87 (Medewerkers met ploeg en account, 0.54.0, D77) #88 (startscherm voor Kwaliteit, 0.55.0, D78) #89 (trend bij alle producten, 0.56.0, D79) #90 (capaciteit in kilogram, 0.57.0, D80) en #91 (wandscherm passend en afmelden, 0.58.0, D81). Prioriteit 1 is daarmee klaar. Uit prioriteit 2 gebouwd: #48, #97, #98 en #99 (0.59.0) #93, #95 en #96 (0.60.0, D82), #94 (0.61.0, D83) en #100 (0.62.0, D84). Prioriteit 2 is daarmee ook klaar; wat rest is de poort. Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
+Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75) #86 (ploegen A–E in twee divisies met rooster, 0.53.0, D76) #87 (Medewerkers met ploeg en account, 0.54.0, D77) #88 (startscherm voor Kwaliteit, 0.55.0, D78) #89 (trend bij alle producten, 0.56.0, D79) #90 (capaciteit in kilogram, 0.57.0, D80) en #91 (wandscherm passend en afmelden, 0.58.0, D81). Prioriteit 1 is daarmee klaar. Uit prioriteit 2 gebouwd: #48, #97, #98 en #99 (0.59.0) #93, #95 en #96 (0.60.0, D82), #94 (0.61.0, D83), #100 (0.62.0, D84) en #103 (0.63.0, D85). Prioriteit 2 is daarmee ook klaar. Het routeversie-databasefundament staat; de volledige aansluiting op productie en lotvorming blijft open als #104. Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
 
-**Poort A4:** prioriteit 1 en 2 gebouwd en door Geert in de demo bekeken.
+**Nog open:**
+- #104 **Routeversies en lotvorming door de hele keten** (groot) — Maak voor elk product een expliciete eigen route; geen automatische standaardroute. Leg batchrouteversie vast bij de eerste daadwerkelijke batchstap en lotrouteversie bij samenstellen. Een lot mag batches met verschillende batchrouteversies bevatten, maar blijft één product. Maak het aantal batches per lot instelbaar per product en leg norm, werkelijk aantal en eventuele afwijkingsreden vast. Laat planning, productiecontroles, werkvoorraad, analyses, lotpaspoort en certificaten de vastgelegde versies gebruiken. Reconstrueer bestaande historie alleen waar de configuratielog aantoonbaar volledig is; anders handmatig beoordelen. Rol dit gefaseerd uit met aandacht voor bestaande offline wachtrijen en oudere clients.
+
+**Poort A4:** prioriteit 1 en 2 gebouwd en door Geert in de demo bekeken; #104 afgerond en de volledige routeketen gecontroleerd.
 
 ### B. Proof of concept en praktijk — december 2026
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
@@ -148,6 +152,6 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
   - Gebouwde punten hier weghalen; het nummer staat dan in de changelog achter de versie.
   - Inleiding van de fase: in welke versie wat gebouwd is, en wat nog open staat.
   - Tijdlijn: gebouwde punten naar de balk "Gebouwd in …" (`done`) van hun fase, open balken alleen met open nummers, data schuiven als de planning schuift.
-  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #104), in de fase waar ze horen.
+  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #105), in de fase waar ze horen.
 - `tests/test_roadmap.sh` controleert dit bij elke push op GitHub: de versie in de kopregel, geen gebouwd nummer meer als open punt of in een open balk, het volgende vrije nummer, en geen dubbele punt in een taaknaam van de tijdlijn.
 - Rapporten op claude.ai zijn momentopnamen; wat eruit volgt komt hier als punt.
