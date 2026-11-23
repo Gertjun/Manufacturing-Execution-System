@@ -82,3 +82,4 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 - "Naar Excel" komt uit `tabel()` en wordt door `portaal/src/excelplaats.ts` naar de kopregel van het blok of de pagina verplaatst (D63). Een schermtest zoekt de knop daarom binnen het blok, niet direct boven de tabel.
 - Regels voor schermformaten (D64) altijd als `@media screen and (...)`. Een A4 is bij afdrukken ongeveer 800 px breed, dus zonder `screen` gelden de telefoon- en tabletregels ook op papier (de hulp paste toen niet meer op één A4).
 - Nieuw scherm in de portalen of het invoerscherm: zet de route erbij in `portaal/e2e/formaten.mjs`, zodat hij in zes formaten wordt getest.
+- Tijdlijn in `ROADMAP.md` (Mermaid): **geen dubbele punt in een taaknaam**. De eerste `:` scheidt naam en planning; een extra `:` breekt de hele grafiek en GitHub toont dan alleen code.

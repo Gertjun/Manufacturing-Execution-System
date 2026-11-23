@@ -24,6 +24,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de d
 - Hulp voor de operator noemt de notitie.
 
 ## Zonder nieuwe versie (na 0.45.1)
+- Roadmap: de tijdlijn "In één oogopslag" was op GitHub niet te zien. Een dubbele punt in de naam "Poort naar de pilot (datum: 70)" brak de grafiek; die is weggehaald.
 - Tests rond middernacht: de testdata plant voor de dag in Amsterdam, ook als de tests op een server in UTC draaien (tussen 00:00 en 01:00 klopte "vandaag" anders niet). De API-test van de ploegoverdracht houdt rekening met de nachtploeg van gisteren (00:00–06:00). De regelkaarttest accepteert een Cpk met één decimaal ("1,2").
 
 ## 0.45.1 — 21 november 2026

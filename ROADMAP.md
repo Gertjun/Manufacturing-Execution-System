@@ -41,7 +41,7 @@ gantt
 
     section E Pilot
     Training en ondernemingsraad (74 79)     :e0, 2027-02-08, 10d
-    Poort naar de pilot (datum: 70)          :milestone, m1, 2027-02-22, 0d
+    Poort naar de pilot, datum (70)          :milestone, m1, 2027-02-22, 0d
     Pilot hal 1, met papier ernaast          :e1, 2027-02-22, 14d
     Pilot hal 1, alleen systeem              :e2, after e1, 42d
     Evaluatie                                :milestone, m2, 2027-04-19, 0d
