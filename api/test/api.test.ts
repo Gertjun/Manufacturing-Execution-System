@@ -1949,14 +1949,15 @@ describe("Pilotoverzicht (#77, D66)", () => {
     const token = await kiesNaam(await login("operator", "PC-03"), "Operator C");
     const nr = "B-2026-8077";
     assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
+    assert.equal((await verzoek("POST", "/batches", token, { batchnummer: "B-2026-9998" })).status, 201);
     const moment = new Date(Date.now() - 60 * 60e3);
     const momentDag = moment.toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
     const r = await app.inject({ method: "POST", url: "/registraties", payload: { id: randomUUID(), stapcode: "PS1", batchnummer: nr },
       headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": moment.toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
     assert.equal(r.statusCode, 201, r.body);
-    const geweigerd = await app.inject({ method: "POST", url: "/registraties", payload: { stapcode: "PS1", batchnummer: "B-2026-9998" },
-      headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": moment.toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
-    assert.equal(geweigerd.statusCode, 422); // geweigerd
+    const geweigerd = await app.inject({ method: "POST", url: "/registraties", payload: { stapcode: "PS2", batchnummer: "B-2026-9998" },
+      headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": new Date().toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
+    assert.equal(geweigerd.statusCode, 422); // PS2 vóór PS1: database weigert en legt dit vast
 
     const o = await verzoek("GET", "/pilot", pm);
     assert.equal(o.status, 200, JSON.stringify(o.body));
