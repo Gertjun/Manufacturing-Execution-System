@@ -137,11 +137,13 @@ function staafPad(x: number, y: number, b: number, hoogte: number, rondBoven: bo
   return `M${x},${y + hoogte}V${y + r}Q${x},${y} ${x + r},${y}H${x + b - r}Q${x + b},${y} ${x + b},${y + r}V${y + hoogte}Z`;
 }
 
-function legenda(items: [keyof typeof KLEUR, string][]) {
+/** Legenda: eerst de vormen van de punten, daarna eventueel de lijnen (klasse = lijnstijl). */
+function legenda(items: [keyof typeof KLEUR, string][], lijnen: [string, string][] = []) {
   return h(
     "div",
     { class: "legenda" },
     items.map(([k, tekst]) => h("span", {}, vormIcoon(k), tekst)),
+    lijnen.map(([kl, tekst]) => h("span", {}, h("i", { class: `leg-lijn ${kl}`, "aria-hidden": "true" }), tekst)),
   );
 }
 
@@ -171,14 +173,16 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
   const bw = B - m.l - m.r, bh = H - m.t - m.b;
   const tijden = punten.map((p) => Date.parse(p.tijd));
   const t0 = Math.min(...tijden), t1 = Math.max(...tijden, t0 + 1);
-  const settings = punten.map((p) => p.setting).filter((x): x is number => x !== null);
-  const setting = settings.length ? settings[settings.length - 1] : null;
-  const tol = veld.tolerantie !== null && setting !== null
-    ? veld.tolerantie_soort === "procent" ? (Math.abs(setting) * veld.tolerantie) / 100 : veld.tolerantie
-    : null;
+  // Tolerantie hoort bij de instelling van elke meting: verandert de instelling, dan verspringen de lijnen mee.
+  const tolVan = (st: number | null) => veld.tolerantie === null || st === null ? null
+    : veld.tolerantie_soort === "procent" ? (Math.abs(st) * veld.tolerantie) / 100 : veld.tolerantie;
+  const metTol = punten.some((p) => tolVan(p.setting) !== null);
   const waarden = punten.map((p) => p.gemeten);
   let lo = Math.min(...waarden), hi = Math.max(...waarden);
-  if (tol !== null && setting !== null) { lo = Math.min(lo, setting - tol); hi = Math.max(hi, setting + tol); }
+  for (const p of punten) {
+    const t = tolVan(p.setting);
+    if (t !== null) { lo = Math.min(lo, p.setting! - t); hi = Math.max(hi, p.setting! + t); }
+  }
   // Grenzen alleen meenemen als ze dichtbij liggen; anders drukken ze de data plat.
   const bereik = hi - lo || 1;
   if (veld.grens_min !== null && veld.grens_min > lo - bereik) lo = Math.min(lo, veld.grens_min);
@@ -193,16 +197,34 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
     svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(t), y2: Y(t), class: "raster" }));
     svg.append(s("text", { x: m.l - 8, y: Y(t) + 4, "text-anchor": "end", class: "as-tekst" }, getal(t)));
   }
-  // Tolerantieband rond de setting.
-  if (tol !== null && setting !== null) {
-    svg.append(s("rect", { x: m.l, y: Y(setting + tol), width: bw, height: Y(setting - tol) - Y(setting + tol), class: "band" }));
-    svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(setting), y2: Y(setting), class: "setting" }));
-    svg.append(s("text", { x: B - m.r - 4, y: Y(setting + tol) - 6, "text-anchor": "end", class: "as-tekst" }, `tolerantie ±${getal(tol)}`));
+  // Instelling (grijs gestippeld) en tolerantie (oranje gestreept) als traplijn door de tijd (D70).
+  const volgordeTijd = [...punten.keys()].sort((a, b) => tijden[a] - tijden[b]);
+  const trap = (waarde: (p: TrendPunt) => number | null) => {
+    let d = "", bezig = false;
+    volgordeTijd.forEach((i, k) => {
+      const v = waarde(punten[i]);
+      if (v === null) { bezig = false; return; }
+      const x0 = X(tijden[i]), x1 = k < volgordeTijd.length - 1 ? X(tijden[volgordeTijd[k + 1]]) : B - m.r;
+      d += bezig ? `V${Y(v).toFixed(1)}` : `M${x0.toFixed(1)},${Y(v).toFixed(1)}`;
+      d += `H${x1.toFixed(1)}`;
+      bezig = true;
+    });
+    return d;
+  };
+  if (metTol) {
+    const boven = (p: TrendPunt) => { const t = tolVan(p.setting); return t === null ? null : p.setting! + t; };
+    const onder = (p: TrendPunt) => { const t = tolVan(p.setting); return t === null ? null : p.setting! - t; };
+    svg.append(s("path", { d: trap((p) => (tolVan(p.setting) === null ? null : p.setting)), class: "setting" }));
+    svg.append(s("path", { d: trap(boven), class: "tolerantielijn" }));
+    svg.append(s("path", { d: trap(onder), class: "tolerantielijn" }));
+    const laatste = [...volgordeTijd].reverse().map((i) => punten[i]).find((p) => tolVan(p.setting) !== null)!;
+    const tekst = veld.tolerantie_soort === "procent" ? `tolerantie ±${getal(veld.tolerantie!)} %` : `tolerantie ±${getal(veld.tolerantie!)}`;
+    svg.append(s("text", { x: B - m.r - 4, y: Y(boven(laatste)!) - 6, "text-anchor": "end", class: "as-tekst label-tol" }, tekst));
   }
   for (const [g, naam] of [[veld.grens_min, "min"], [veld.grens_max, "max"]] as const) {
     if (g !== null && g >= ylo && g <= yhi) {
       svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(g), y2: Y(g), class: "grenslijn" }));
-      svg.append(s("text", { x: m.l + 6, y: Y(g) + (naam === "max" ? -6 : 14), class: "as-tekst" }, `grens ${naam} ${getal(g)}`));
+      svg.append(s("text", { x: m.l + 6, y: Y(g) + (naam === "max" ? -6 : 14), class: "as-tekst label-grens" }, `grens ${naam} ${getal(g)}`));
     }
   }
   // Tijdas: ongeveer 6 labels.
@@ -231,7 +253,10 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
   const vlak = s("rect", { x: m.l, y: m.t, width: bw, height: bh, fill: "transparent" });
   svg.append(vlak);
   const kaderEl = h("div", { class: "grafiek" },
-    legenda([["ok", "Binnen grenzen"], ["tol", "Buiten tolerantie"], ["grens", "Buiten grens"]]),
+    legenda([["ok", "Binnen grenzen"], ["tol", "Buiten tolerantie"], ["grens", "Buiten grens"]], [
+      ...(veld.grens_min !== null || veld.grens_max !== null ? [["leg-grens", "Grens"] as [string, string]] : []),
+      ...(metTol ? [["leg-tol", "Tolerantie"] as [string, string], ["leg-setting", "Instelling"] as [string, string]] : []),
+    ]),
     svg as unknown as Node, tip.el);
   vlak.addEventListener("mousemove", (ev) => {
     // De grafiek zelf, niet het eerste svg-icoontje in de legenda (dat gaf altijd de laatste dag, roadmap-bevinding 20-11).

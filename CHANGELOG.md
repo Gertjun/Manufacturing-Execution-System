@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.48.1 — 23 november 2026
+- Grafieken in het portaal Kwaliteit: **grenzen en tolerantie zijn beter te zien** (D70).
+  - Trend per veld: de grenzen zijn een **rode doorgetrokken lijn** en de tolerantie twee **oranje gestreepte lijnen**, in plaats van een lichtblauwe schaduw die op wit nauwelijks opviel. De instelling blijft een dunne grijze stippellijn. De legenda toont nu ook de lijnen.
+  - De tolerantielijnen volgen de instelling van elke meting: verandert de instelling, dan verspringen ze mee. Eerder gold de laatste instelling voor de hele periode, zodat oudere metingen soms buiten de schaduw vielen terwijl ze goed waren (of andersom).
+  - Regelkaart: de specificatiegrenzen zijn ook een rode doorgetrokken lijn (was rood gestippeld en half doorzichtig). De regelgrenzen blijven grijs gestreept; die zeggen of het proces stabiel loopt, niet of het product goed is.
+- Oudere invoerschermen merken er niets van.
+
 ## 0.48.0 — 23 november 2026
 - Planning → Capaciteit gaat nu helemaal **per stap en product** (D69). Elke dag van de week geldt dezelfde capaciteit.
   - Het blok **Per weekdag** (één aantal batches per dag voor de hele fabriek) is weg. Hoeveel batches van een product per dag kunnen starten, volgt uit de capaciteit van de eerste stap van zijn route.
