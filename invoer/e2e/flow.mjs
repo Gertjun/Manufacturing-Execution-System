@@ -408,7 +408,12 @@ try {
   // Afmelden landt op de startpagina (#82); Kwaliteit kiest daar zelf het invoerscherm (lab-pc, D58).
   check("Afmelden in het invoerscherm landt op de startpagina", page.url().includes("/portaal/"), page.url());
   await page.locator(".starttegel-invoer").click();
-  await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
+  // Kwaliteit heeft een eigen startscherm (#88): wat nu te doen is en wat eraan komt, zonder aantallen per processtap.
+  await page.getByRole("heading", { name: "Keuringen", level: 1 }).waitFor();
+  await page.getByRole("heading", { name: /^Nu te doen/ }).waitFor();
+  check("Kwaliteit: Nu te doen en Verwacht, geen tegels per processtap",
+    (await page.getByRole("heading", { name: "Verwacht", exact: true }).count()) === 1 && (await page.getByRole("heading", { name: "Per batch" }).count()) === 0);
+  await shot("13b-kwaliteit-start");
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.getByRole("heading", { name: "Process Step 1" }).waitFor();
   check("Kwaliteit kan geen batch aanmaken", (await page.getByLabel("Nieuwe batch").count()) === 0);
@@ -444,10 +449,10 @@ try {
   const afPs2 = await api("POST", `/registraties/${regPs2.body.id}/afronden`, opT);
   check("Operator rondt PS2 af zonder S2.2; de stap wacht op Kwaliteit", afPs2.body?.keuring?.status === "open", JSON.stringify([regPs1.status, regPs2.status, regPs2.body?.fout, afPs2.body?.fout ?? afPs2.body?.keuring]));
   await page.goto(`${BASIS}/invoer/#/stappen`);
-  await page.getByRole("heading", { name: "Wacht op Kwaliteit (1)" }).waitFor();
-  check("Lab-pc: lijst 'Wacht op Kwaliteit' bovenaan", (await page.locator(".keuring-blok").innerText()).includes(kb.batchnummer));
+  await page.getByRole("heading", { name: /^Nu te doen \(\d+\)$/ }).waitFor();
+  check("Lab-pc: wat op Kwaliteit wacht staat bij Nu te doen", (await page.locator(".keuring-blok").first().innerText()).includes(kb.batchnummer));
   await shot("14c-wacht-op-kwaliteit");
-  await page.locator(".keuring-blok a", { hasText: kb.batchnummer }).click();
+  await page.locator(".keuring-blok a", { hasText: kb.batchnummer }).first().click();
   await page.locator("#g-S2\\.2").fill("412");
   check("Vrijgeven kan pas als alles gemeten is", await page.getByRole("button", { name: "Vrijgeven" }).isDisabled());
   await page.getByRole("button", { name: "Opslaan" }).click();

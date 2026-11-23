@@ -1441,6 +1441,23 @@ describe("Keuringsstappen en specificaties (#80, D73)", () => {
   });
 });
 
+describe("Verwachte keuringen voor Kwaliteit (#88)", () => {
+  test("een nieuwe batch van PRD-C verwacht TK1 na drie stappen, daarna TK2; PRD-A heeft geen keuringen", async () => {
+    await beheerDb.query(`INSERT INTO fabriek.batch (batchnummer, product_id)
+                          SELECT 'B-2026-0880', id FROM fabriek.product WHERE code = 'PRD-C'`);
+    await beheerDb.query(`INSERT INTO fabriek.batch (batchnummer, product_id)
+                          SELECT 'B-2026-0881', id FROM fabriek.product WHERE code = 'PRD-A'`);
+    const r = await verzoek("GET", "/keuringen/verwacht?uren=168", await login("kwaliteit1"));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const c = r.body.filter((x: any) => x.nummer === "B-2026-0880");
+    assert.deepEqual(c.map((x: any) => [x.stap, x.soort, x.stappen_ertussen, x.klaar, x.nu_in]).slice(0, 2), [["TK1", "keuring", 3, false, null], ["TK2", "keuring", 9, false, null]]);
+    assert.ok(Date.parse(c[0].verwacht_op) > Date.now() && Date.parse(c[1].verwacht_op) > Date.parse(c[0].verwacht_op), "TK2 komt na TK1");
+    assert.ok(!r.body.some((x: any) => x.nummer === "B-2026-0881" && x.soort === "keuring"), "PRD-A heeft geen keuringsstappen");
+    const kort = await verzoek("GET", "/keuringen/verwacht?uren=1", await login("kwaliteit1"));
+    assert.ok(kort.body.every((x: any) => x.klaar || Date.parse(x.verwacht_op) <= Date.now() + 3600_000 + 60_000), "alleen binnen het aantal uren");
+  });
+});
+
 describe("Wandscherm Kwaliteit (#83)", () => {
   test("wacht, afwijkingen van vandaag en kerncijfers; niet voor operators", async () => {
     assert.equal((await verzoek("GET", "/wandscherm/kwaliteit", await login("operator.a"))).status, 403);

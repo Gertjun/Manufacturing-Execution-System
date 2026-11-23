@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.55.0 — 23 november 2026 · #88
+- **Eigen startscherm voor Kwaliteit** in het invoerscherm (lab-pc), met de titel **Keuringen** (D78). Geen aantallen per processtap meer; wel drie blokken.
+  - **Nu te doen:** wat op een meting of besluit van Kwaliteit wacht (Meten), en batches of lots die klaarstaan voor een tussen- of eindkeuring (Keuring starten).
+  - **Verwacht:** per dag (vandaag, morgen) welke keuringen (TK, EK) en metingen van Kwaliteit in een processtap eraan komen. Bij elke regel staan de batch of het lot, het product, waar hij nu is ("nu in PS1, nog 2 stappen"), een geschatte tijd ("rond 21:00") en de dag als hij in Stappen plannen staat.
+  - **Keuringsstappen:** de tegels TK1, TK2 en EK, met hoeveel er klaarstaan.
+- **Schatting:** vanaf de stap waar de batch of het lot nu is, telt het systeem per stap de gewone wachttijd en duur op (mediaan van de laatste 90 dagen; zonder historie 30 en 60 minuten). Kijkt twee dagen vooruit.
+- Batches die op Kwaliteit wachten, in beoordeling staan of een open herbewerking hebben, staan niet bij Verwacht; die staan al bij Nu te doen of liggen stil.
+- API: `GET /keuringen/verwacht?uren=48`.
+- Het stappenoverzicht voor operators en ploegleiders is ongewijzigd.
+
 ## 0.54.0 — 23 november 2026 · #87
 - **Medewerkers** (Beheer): de schermen Accounts en Operators zijn samen één scherm, met drie blokken (D77).
   - **Operators en ploegleiders:** iedereen die op de vloer invoert, met naam, ploeg en account.

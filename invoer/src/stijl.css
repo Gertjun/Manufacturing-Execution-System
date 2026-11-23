@@ -262,6 +262,10 @@ a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }
 .label-keuring-herbewerken { color: var(--tol); }
 .label-keuring-afgekeurd { color: var(--grens); background: var(--grens-vlak); }
 .keuring-blok { margin-bottom: var(--space-5); }
+/* Startscherm Kwaliteit (#88): per dag wat eraan komt. */
+.verwacht-dag { font-size: var(--text-md); margin: var(--space-3) 0 var(--space-2); }
+.verwacht-dag::first-letter { text-transform: uppercase; }
+.verwacht-tijd { font-variant-numeric: tabular-nums; }
 
 /* Stap van een ander afmaken (#55): rustige band, geen waarschuwing. */
 .overname { background: var(--actie-vlak); border-left: 6px solid var(--actie); padding: var(--space-2) var(--space-3); border-radius: var(--radius-xs); }

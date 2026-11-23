@@ -99,12 +99,15 @@ try {
   await page.goto(`${BASIS}/portaal/#/`);
   await page.locator(".starttegel-invoer").click();
   const pc = page.getByRole("button", { name: /^PC-20/ });
-  await Promise.race([pc.waitFor(), page.getByRole("heading", { name: "Kies een stap" }).waitFor()]);
+  // Kwaliteit opent op Keuringen (#88).
+  const start = page.getByRole("heading", { name: "Keuringen", level: 1 });
+  await Promise.race([pc.waitFor(), start.waitFor()]);
   if (await pc.isVisible()) await pc.click();
-  await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
-  await page.locator(".route .tegel").first().waitFor();
-  const groep = [await page.getByRole("heading", { name: "Keuringen", exact: true }).count(), await page.locator(".route.keuring .tegel").count()];
-  check("Kwaliteit ziet de keuringen als eigen groep", groep[0] === 1 && groep[1] === 3, JSON.stringify(groep));
+  await start.waitFor();
+  await page.locator(".route.keuring .tegel").first().waitFor();
+  const groep = [await page.getByRole("heading", { name: "Keuringsstappen", exact: true }).count(), await page.locator(".route.keuring .tegel").count()];
+  check("Kwaliteit ziet de keuringsstappen als eigen groep", groep[0] === 1 && groep[1] === 3, JSON.stringify(groep));
+  check("Bij Nu te doen: de batch staat klaar voor TK1", (await page.locator(".keuring-blok").first().innerText()).includes(nr));
   await page.goto(`${BASIS}/invoer/#/stap/${stap}`);
   const rij = page.locator(".rij", { hasText: nr });
   await rij.getByRole("button", { name: "Keuring starten" }).click();

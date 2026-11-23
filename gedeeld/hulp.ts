@@ -96,10 +96,10 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         kop: "Meten op de lab-pc",
         punten: [
           "Kies op de startpagina de tegel Invoerscherm, of log in het invoerscherm zelf in. Alleen via die tegel neemt het invoerscherm je inlog uit de portalen over.",
-          "Bovenaan Stappen staat \"Wacht op Kwaliteit\". Druk op Meten, vul de metingen in en kies dan:",
+          "Het invoerscherm opent op Keuringen: bij Nu te doen wat op een meting wacht (Meten) en wat klaarstaat voor een keuring (Keuring starten); bij Verwacht per dag wat eraan komt, met een geschatte tijd. Na het meten kies je:",
           "Vrijgeven: kan pas als alle verplichte metingen er zijn; daarna gaat de batch of het lot verder.",
           "Herbewerken: kies naar welke stap hij terug moet, met een reden. Afkeuren: met een reden; een batch krijgt NOK, een lot wordt geblokkeerd.",
-          "Keuringen (TK, EK): kies de tegel onder Keuringen en dan Keuring starten; meet en beslis daarna zoals hierboven.",
+          "Keuringen (TK, EK) kun je ook via de tegels onderaan starten; meet en beslis daarna zoals hierboven.",
           "Dit werkt ook zonder verbinding: het gaat later mee.",
         ],
       },
