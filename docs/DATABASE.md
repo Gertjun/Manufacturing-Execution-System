@@ -139,8 +139,8 @@ erDiagram
 | [`instelling`](#instelling) | 3 |  | Certificaat per lot (sinds migratie 0010, versie 0.17.0) |
 | [`invoerconflict`](#invoerconflict) | 19 | `gebruiker`, `grondstof`, `grondstof_gebruik`, `operator`, `pc`, `stapregistratie`, `veld`, `waarde` | Conflicten bij gelijktijdige invoer (sinds 0032, #85, D75): vullen twee mensen hetzelfde veld of dezelfde grondstof van een stap in, dan blijft de eerste… |
 | [`keuring`](#keuring) | 8 | `gebruiker`, `herbewerking`, `stapregistratie` | Keuring door Kwaliteit (sinds migratie 0022, #64): een stap met velden die Kwaliteit meet. |
-| [`lot`](#lot) | 6 | `product_route_versie` |  |
-| [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
+| [`lot`](#lot) | 9 | `product_route_versie` |  |
+| [`lot_voorstel`](#lot_voorstel) | 10 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
 | [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
 | [`melding_gelezen`](#melding_gelezen) | 3 | `gebruiker`, `melding` |  |
@@ -151,7 +151,7 @@ erDiagram
 | [`pc_stap`](#pc_stap) | 2 | `pc`, `processtap` | Optioneel: welke stappen in de keuzelijst van een pc staan. |
 | [`ploeg`](#ploeg) | 6 |  | Ploegoverdracht (sinds migratie 0006, versie 0.12.0) |
 | [`processtap`](#processtap) | 8 |  |  |
-| [`product`](#product) | 5 |  | Producten (configuratie, door de planner beheerd; sinds migratie 0003) |
+| [`product`](#product) | 6 |  | Producten (configuratie, door de planner beheerd; sinds migratie 0003) |
 | [`product_route_versie`](#product_route_versie) | 9 | `gebruiker`, `product` | Vastgestelde, onveranderlijke momentopnames van een productroute (D85). |
 | [`product_route_versie_stap`](#product_route_versie_stap) | 7 | `processtap`, `product_route_versie` | Stappen en snapshotgegevens die bij één vastgestelde productroute horen. |
 | [`product_stap`](#product_stap) | 3 | `processtap`, `product` | Route per product (sinds migratie 0018, D55): welke stappen een product doorloopt, in welke volgorde. |
@@ -194,6 +194,9 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `vervallen_reden` | text | leeg |  |
 | `route_versie_id` | uuid | FK leeg | `product_route_versie` |
 | `route_historie_status` | text |  |  |
+| `batch_aantal_norm` | int |  |  |
+| `batch_aantal` | int |  |  |
+| `afwijking_reden` | text | leeg |  |
 
 ### batch_besluit
 
@@ -402,6 +405,7 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `lot_id` | uuid | FK leeg | `lot` |
 | `afwijking_reden` | text | leeg |  |
 | `afgesloten_op` | timestamptz | leeg |  |
+| `batch_aantal_norm` | int |  |  |
 
 ### lot_voorstel_batch
 
@@ -521,6 +525,7 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `naam` | text |  |  |
 | `actief` | bool |  |  |
 | `batchgewicht_kg` | numeric | leeg |  |
+| `batches_per_lot` | int |  |  |
 
 ### product_route_versie
 
