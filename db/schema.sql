@@ -243,7 +243,7 @@ CREATE TABLE product_route_versie_stap (
     PRIMARY KEY (route_versie_id, processtap_id),
     UNIQUE (route_versie_id, plek)
 );
-CREATE FUNCTION bescherm_product_route_versie() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE FUNCTION bescherm_product_route_versie() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
         IF OLD.status <> 'concept' THEN RAISE EXCEPTION 'Een vastgestelde routeversie kan niet worden verwijderd'; END IF;
@@ -255,10 +255,10 @@ BEGIN
     END IF;
     IF OLD.status = 'vervallen' THEN RAISE EXCEPTION 'Een vervallen routeversie kan niet worden gewijzigd'; END IF;
     RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER product_route_versie_vast BEFORE UPDATE OR DELETE ON product_route_versie
     FOR EACH ROW EXECUTE FUNCTION bescherm_product_route_versie();
-CREATE FUNCTION bescherm_product_route_versie_stap() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE FUNCTION bescherm_product_route_versie_stap() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v_id uuid;
 BEGIN
     v_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.route_versie_id ELSE NEW.route_versie_id END;
@@ -271,12 +271,12 @@ BEGIN
     END IF;
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
     RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER product_route_versie_stap_vast BEFORE INSERT OR UPDATE OR DELETE ON product_route_versie_stap
     FOR EACH ROW EXECUTE FUNCTION bescherm_product_route_versie_stap();
 CREATE FUNCTION leg_routeversie_vast(p_product uuid, p_bron text DEFAULT 'beheer',
                                       p_toelichting text DEFAULT NULL) RETURNS uuid
-LANGUAGE plpgsql AS $
+LANGUAGE plpgsql AS $$
 DECLARE v_versie int; v_id uuid; v_batchstappen int; v_lotstappen int;
 BEGIN
     PERFORM 1 FROM product WHERE id = p_product FOR UPDATE;
@@ -299,7 +299,7 @@ BEGIN
       FROM route(p_product) r JOIN processtap s ON s.id = r.processtap_id ORDER BY r.plek;
     UPDATE product_route_versie SET status = 'vastgesteld', vastgesteld_op = clock_timestamp() WHERE id = v_id;
     RETURN v_id;
-END $;
+END $$;
 
 
 CREATE TABLE batch (
