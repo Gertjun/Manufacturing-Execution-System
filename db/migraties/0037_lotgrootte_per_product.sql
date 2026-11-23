@@ -1,5 +1,11 @@
 -- Migratie 0037 (0.64.0): lotgrootte per product (eerste databasefase van #104).
 SET search_path = fabriek, public;
+DO $
+BEGIN
+    IF EXISTS (SELECT 1 FROM lot l WHERE (SELECT count(*) FROM batch b WHERE b.lot_id = l.id) NOT BETWEEN 1 AND 50 THEN
+        RAISE EXCEPTION 'Migratie 0037 gestopt: een historisch lot heeft geen geldig aantal batches (1–50); beoordeel eerst de lot-batchkoppelingen';
+    END IF;
+END $;
 ALTER TABLE product ADD COLUMN batches_per_lot integer NOT NULL DEFAULT 4 CHECK (batches_per_lot BETWEEN 1 AND 50);
 ALTER TABLE lot ADD COLUMN batch_aantal_norm integer, ADD COLUMN batch_aantal integer, ADD COLUMN afwijking_reden text;
 UPDATE lot l SET batch_aantal_norm=4, batch_aantal=(SELECT count(*)::int FROM batch b WHERE b.lot_id=l.id),

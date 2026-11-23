@@ -197,7 +197,7 @@ CREATE TABLE lot (
     batch_aantal int NOT NULL DEFAULT 4 CHECK (batch_aantal BETWEEN 1 AND 50),
     afwijking_reden text,
     CHECK ((batch_aantal = batch_aantal_norm AND afwijking_reden IS NULL)
-        OR (batch_aantal <> batch_aantal_norm AND length(btrim(coalesce(afwijking_reden, ''))) BETWEEN 2 AND 500))
+        OR (batch_aantal <> batch_aantal_norm AND length(btrim(coalesce(afwijking_reden, ''))) BETWEEN 3 AND 500))
 );
 
 -- Producten (configuratie, door de planner beheerd; sinds migratie 0003)
