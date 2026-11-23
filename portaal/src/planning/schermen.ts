@@ -514,7 +514,7 @@ interface Voorstel {
   nummer: number; batch_aantal_norm: number; product_id: string | null; status: string; opmerking: string | null; aangemaakt_op: string; door: string; lotnummer: string | null; afwijking_reden: string | null;
   batches: { batchnummer: string; status: string; klaar_voor_lot: boolean; laatste_stap: string | null }[];
 }
-interface LotKandidaat { batchnummer: string; status: string; product_id: string | null; product: string | null; batches_per_lot: number; dag: string | null; laatste_stap: string | null; klaar_voor_lot: boolean; voorstel: number | null }
+interface LotKandidaat { batchnummer: string; status: string; product_id: string | null; product: string | null; batches_per_lot: number | null; dag: string | null; laatste_stap: string | null; klaar_voor_lot: boolean; voorstel: number | null }
 
 const VOORSTEL_STATUS: Record<string, string> = { open: "Open", gebruikt: "Gevolgd", afgeweken: "Afgeweken", vervallen: "Vervallen" };
 

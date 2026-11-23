@@ -1002,7 +1002,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         description: "Batches die je in een lotvoorstel kunt zetten: nog geen lot, niet afgekeurd of vervallen. 'voorstel' = staat al in dit open voorstel.",
         response: {
           200: Type.Array(Type.Object({
-            batchnummer: Type.String(), status: Type.String(), product_id: OptTekst, product: OptTekst, batches_per_lot: Type.Integer(), dag: Type.Union([Type.Null(), Dag]),
+            batchnummer: Type.String(), status: Type.String(), product_id: OptTekst, product: OptTekst, batches_per_lot: Type.Union([Type.Null(), Type.Integer()]), dag: Type.Union([Type.Null(), Dag]),
             laatste_stap: OptTekst, klaar_voor_lot: Type.Boolean(), voorstel: NulGeheel(),
           })),
         },
