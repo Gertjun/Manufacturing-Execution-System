@@ -348,9 +348,9 @@ SELECT 'batch'::text AS object_type, b.id AS object_id, b.batchnummer AS object_
             ELSE 'Historische route niet automatisch gekoppeld; beoordeel de configuratiehistorie.' END AS reden
   FROM batch b WHERE b.route_historie_status = 'historisch_onbekend'
 UNION ALL
-SELECT 'lot'::text, l.id, l.lotnummer, (SELECT min(b.product_id) FROM batch b WHERE b.lot_id = l.id),
+SELECT 'lot'::text, l.id, l.lotnummer, (SELECT b.product_id FROM batch b WHERE b.lot_id = l.id ORDER BY b.product_id LIMIT 1),
        l.aangemaakt_op, l.route_versie_id,
-       (SELECT v.id FROM product_route_versie v WHERE v.product_id = (SELECT min(b.product_id) FROM batch b WHERE b.lot_id = l.id) ORDER BY v.versie DESC LIMIT 1),
+       (SELECT v.id FROM product_route_versie v WHERE v.product_id = (SELECT b.product_id FROM batch b WHERE b.lot_id = l.id ORDER BY b.product_id LIMIT 1) ORDER BY v.versie DESC LIMIT 1),
        l.route_historie_status, 'Historische lotroute niet automatisch gekoppeld; beoordeel de configuratiehistorie.'
   FROM lot l WHERE l.route_historie_status = 'historisch_onbekend';
 
