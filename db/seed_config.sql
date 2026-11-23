@@ -107,9 +107,16 @@ SELECT s.id, g.id, v.verplicht
 
 -- Fictieve ploegen (sinds 0.12.0).
 INSERT INTO ploeg (code, naam, begint, eindigt) VALUES
-  ('O', 'Ochtendploeg', '06:00', '14:00'),
-  ('M', 'Middagploeg', '14:00', '22:00'),
-  ('N', 'Nachtploeg', '22:00', '06:00');
+  ('O', 'Ochtenddienst', '06:00', '14:00'),
+  ('M', 'Middagdienst', '14:00', '22:00'),
+  ('N', 'Nachtdienst', '22:00', '06:00');
+
+-- Fictief rooster (sinds 0.53.0, #86, D76): 2 ochtend, 2 middag, 2 nacht, 4 vrij; ploegen A–E in divisie 1 en 2,
+-- elke ploeg twee dagen na de vorige. Zo draait per divisie elke dienst precies één ploeg.
+INSERT INTO rooster (patroon) VALUES (ARRAY['O','O','M','M','N','N','-','-','-','-']);
+INSERT INTO rooster_ploeg (letter, divisie, cyclus_start)
+SELECT l, d, date '2026-01-05' + 2 * (ascii(l) - ascii('A'))
+  FROM unnest(ARRAY['A','B','C','D','E']) l CROSS JOIN generate_series(1, 2) d;
 
 -- Fictieve oorzaken van stilstand (sinds 0.14.0).
 INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES

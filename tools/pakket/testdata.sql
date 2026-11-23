@@ -13579,9 +13579,9 @@ INSERT INTO fabriek.melding_gelezen VALUES
 --
 
 INSERT INTO fabriek.ploeg VALUES
-	('ac7471d4-f5c0-4e3b-aa9b-a3a734ae5ddd', 'O', 'Ochtendploeg', '06:00:00', '14:00:00', true),
-	('14f6c3b4-a54d-41ae-b6a9-c80174b79836', 'M', 'Middagploeg', '14:00:00', '22:00:00', true),
-	('24716e55-1681-45a8-97fd-b4cfbda448a1', 'N', 'Nachtploeg', '22:00:00', '06:00:00', true);
+	('ac7471d4-f5c0-4e3b-aa9b-a3a734ae5ddd', 'O', 'Ochtenddienst', '06:00:00', '14:00:00', true),
+	('14f6c3b4-a54d-41ae-b6a9-c80174b79836', 'M', 'Middagdienst', '14:00:00', '22:00:00', true),
+	('24716e55-1681-45a8-97fd-b4cfbda448a1', 'N', 'Nachtdienst', '22:00:00', '06:00:00', true);
 
 
 --
@@ -31797,6 +31797,16 @@ SELECT pg_catalog.setval('fabriek.geweigerde_invoer_id_seq', 8, true);
 
 SELECT pg_catalog.setval('fabriek.lot_voorstel_nummer_seq', 134, true);
 
+
+
+--
+-- Rooster en ploegen A–E in divisie 1 en 2 (sinds 0.53.0, #86), zoals in seed_config.sql.
+--
+
+INSERT INTO fabriek.rooster (patroon) VALUES (ARRAY['O','O','M','M','N','N','-','-','-','-']);
+INSERT INTO fabriek.rooster_ploeg (letter, divisie, cyclus_start)
+SELECT l, d, date '2026-01-05' + 2 * (ascii(l) - ascii('A'))
+  FROM unnest(ARRAY['A','B','C','D','E']) l CROSS JOIN generate_series(1, 2) d;
 
 --
 -- PostgreSQL database dump complete

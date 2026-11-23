@@ -348,3 +348,11 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Keuring:** het eerste besluit telt (zoals al); de tweede krijgt te zien door wie en wat er besloten is. Een besluit terugdraaien gaat via herbewerking, niet via een conflict.
 - **Afronden met een open conflict mag:** de productie stopt niet; het conflict is achteraf op te lossen, zoals een correctie.
 - **Gekozen boven:** de laatste invoer laten winnen (dan verdwijnt stil een meting), of de stap blokkeren tot er gekozen is (stilstand op de vloer).
+
+### D76 – Diensten, ploegen en rooster (23 nov 2026, 0.53.0)
+- **Besluit (Geert):** de fabriek werkt met 5 ploegen (A tot en met E) in 2 divisies, samen 10 ploegen. Beide divisies werken tegelijk. Elke ploeg draait een cyclus van 10 dagen: 2 ochtend, 2 middag, 2 nacht, 4 vrij (#86, D74).
+- **Woorden:** een **dienst** is een tijdvak van de dag (ochtend, middag, nacht, met begin- en eindtijd); een **ploeg** is een groep mensen (A1 … E2: letter en divisie). In de database heet de tabel met diensten nog `ploeg`, omdat de API (`/overdracht/ploegen`, de velden `ploeg` en `ploegnaam`) en oudere invoerschermen hem zo kennen (D18); de ploegen staan in `rooster_ploeg`.
+- **Rooster:** één patroon voor alle ploegen (`rooster.patroon`, een rij dienstcodes, `-` = vrij), met per ploeg de eerste dag van zijn cyclus (`cyclus_start`). `rooster_op(dag)` en `ploegen_in_dienst(dag, dienst)` rekenen uit wie werkt. Zo kan IT of de beheerder het echte rooster instellen door alleen de startdagen te zetten; een ander patroon (bijvoorbeeld 3-3-3-6) kan ook.
+- **Fictieve indeling:** ploegen twee dagen na elkaar (A 5 januari 2026, B 7 januari, …), divisie 1 en 2 gelijk. Zo draait per divisie elke dienst precies één ploeg. De echte startdagen levert Geert aan bij de echte configuratie (#2).
+- **Niet gebouwd:** ruilen van diensten, overwerk en afwijkingen op één dag; per ploeg rekent het systeem alleen met het rooster. Wie in welke ploeg zit, volgt bij Medewerkers (#87). Cijfers per ploeg blijven een open besluit (#63, D12).
+- **Gekozen boven:** een rooster per ploeg uitschrijven (veel invoer, foutgevoelig), of de ploeg afleiden uit wie er heeft ingelogd (klopt niet bij invallers).

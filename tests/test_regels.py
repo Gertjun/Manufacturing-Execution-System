@@ -968,6 +968,28 @@ def main():
           (kw, rc, veld["S1.2"]), "ploegleider")
     con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE code = 'S1.2'")
 
+    print("\nPloegen en rooster (#86)")
+    per_dienst = con.execute("""SELECT d::date, x.dienst, count(*), count(DISTINCT x.divisie)
+                                  FROM generate_series(date '2025-12-20', date '2026-02-10', interval '1 day') d
+                                  CROSS JOIN LATERAL rooster_op(d::date) x GROUP BY 1, 2""").fetchall()
+    check("Elke dag en dienst: precies twee ploegen, één per divisie (ook vóór de startdag)",
+          len(per_dienst) == 53 * 3 and all(r[2] == 2 and r[3] == 2 for r in per_dienst))
+    check("Een ploeg werkt 6 van de 10 dagen: 2 ochtend, 2 middag, 2 nacht",
+          con.execute("""SELECT array_agg(x.dienst ORDER BY d) FROM generate_series(date '2026-01-05', date '2026-01-14', interval '1 day') d
+                          CROSS JOIN LATERAL rooster_op(d::date) x WHERE x.code = 'A1'""").fetchone()[0] == ["O", "O", "M", "M", "N", "N"])
+    check("5 januari: A1 en A2 in de ochtend", val("SELECT ploegen_in_dienst('2026-01-05', 'O')") == ["A1", "A2"])
+    check("7 januari: B in de ochtend, A in de middag",
+          val("SELECT ploegen_in_dienst('2026-01-07', 'O')") == ["B1", "B2"] and val("SELECT ploegen_in_dienst('2026-01-07', 'M')") == ["A1", "A2"])
+    faalt("Een onbekende dienst in het rooster kan niet", "UPDATE rooster SET patroon = ARRAY['O','X','-']", (), "Onbekende dienst in het rooster: X")
+    faalt("Een rooster met alleen vrije dagen kan niet", "UPDATE rooster SET patroon = ARRAY['-','-']", (), "minstens één dienst")
+    faalt("Er is maar één rooster", "INSERT INTO rooster (patroon) VALUES (ARRAY['O'])", (), "")
+    faalt("Ploegletter is één hoofdletter", "INSERT INTO rooster_ploeg (letter, divisie, cyclus_start) VALUES ('AB', 1, '2026-01-01')", (), "check")
+    faalt("Dezelfde ploeg twee keer kan niet", "INSERT INTO rooster_ploeg (letter, divisie, cyclus_start) VALUES ('A', 1, '2026-01-01')", (), "")
+    con.execute("UPDATE rooster_ploeg SET actief = false WHERE code = 'A2'")
+    check("Een ploeg die uit staat, telt niet mee", val("SELECT ploegen_in_dienst('2026-01-05', 'O')") == ["A1"])
+    con.execute("UPDATE rooster_ploeg SET actief = true WHERE code = 'A2'")
+    check("Rooster en ploegen staan in het logboek", val("SELECT count(*) FROM config_log WHERE tabel = 'rooster_ploeg'") >= 12)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

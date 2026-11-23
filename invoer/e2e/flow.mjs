@@ -303,7 +303,8 @@ try {
 
   console.log("\nPloegoverdracht");
   await page.goto(`${BASIS}/invoer/#/overdracht`);
-  await page.getByRole("heading", { name: /^Overdracht \w+ploeg$/ }).waitFor();
+  await page.getByRole("heading", { name: /^Overdracht \w+dienst$/ }).waitFor();
+  check("Overdracht noemt de ploegen volgens het rooster (#86)", /ploegen [A-E][12] en [A-E][12]/.test(await page.locator(".kop .sub").first().innerText()));
   await page.getByLabel(/Bijzonderheden/).fill("Menger 2 hersteld na storing");
   await page.getByLabel(/Aandachtspunten/).fill("Filter PS7 morgen vervangen");
   await page.getByRole("button", { name: "Overdracht opslaan" }).click();

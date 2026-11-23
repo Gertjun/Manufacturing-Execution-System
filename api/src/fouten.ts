@@ -13,6 +13,7 @@ const UNIEK: Record<string, string> = {
   lot_lotnummer_key: "Dit lotnummer bestaat al",
   veld_code_key: "Deze veldcode bestaat al",
   waarde_een_origineel: "Dit veld is al ingevuld; een ploegleider kan corrigeren",
+  rooster_ploeg_code_key: "Deze ploeg bestaat al",
   waarde_vervangt_waarde_id_key: "Deze waarde is net door iemand anders gecorrigeerd; bekijk de stap opnieuw",
   grondstof_gebruik_vervangt_id_key: "Deze regel is net door iemand anders gecorrigeerd; bekijk de stap opnieuw",
   gebruiker_gebruikersnaam_key: "Deze gebruikersnaam bestaat al",

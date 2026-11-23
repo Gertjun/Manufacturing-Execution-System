@@ -145,7 +145,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   const [gisteren] = await q("SELECT (max(dag) - 1)::text AS d FROM fabriek.overdracht");
   await page.goto(`${BASIS}/portaal/#/productie/overdracht/${gisteren.d}`);
-  await page.getByRole("heading", { name: "Ochtendploeg" }).waitFor();
+  await page.getByRole("heading", { name: "Ochtenddienst" }).waitFor();
   check("Drie ploegen op een hele dag", (await page.locator("section.ploeg").count()) === 3);
   const [nOd] = await q("SELECT count(*)::int AS n FROM fabriek.overdracht WHERE dag = $1", [gisteren.d]);
   check("Alle overdrachten van die dag staan erbij", (await page.locator("section.ploeg .notities li").count()) === nOd.n, `${nOd.n}`);

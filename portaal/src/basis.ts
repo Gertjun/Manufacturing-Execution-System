@@ -133,7 +133,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "accounts", naam: "Accounts" },
       { pad: "operators", naam: "Operators" },
       { pad: "grondstoffen", naam: "Grondstoffen" },
-      { pad: "ploegen", naam: "Ploegen" },
+      { pad: "ploegen", naam: "Diensten en ploegen" },
       { pad: "oorzaken", naam: "Oorzaken van stilstand" },
       { pad: "bedrijf", naam: "Bedrijfsgegevens" },
       { pad: "pcs", naam: "Pc's" },

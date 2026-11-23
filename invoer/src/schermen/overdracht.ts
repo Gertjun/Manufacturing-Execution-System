@@ -8,6 +8,8 @@ import { acties, voegToe } from "../wachtrij";
 export interface Notitie { id: string; hal: string | null; bijzonderheden: string | null; aandachtspunten: string | null; door: string; pc: string | null; geschreven_op: string; wacht?: boolean }
 export interface Samenvatting {
   ploeg: string; ploegnaam: string; dag: string; begin_op: string; eind_op: string; loopt_nog: boolean;
+  /** Ploegen volgens het rooster, zoals A1 en A2 (sinds 0.53.0, #86); ontbreekt bij een oudere server. */
+  ploegen?: string[];
   cijfers: { stappen_afgerond: number; batches_gestart: number; lots_gemaakt: number; afwijkingen: number; correcties: number; in_beoordeling_gezet: number };
   per_stap: { stap: string; stapnaam: string; afgerond: number }[];
   nog_open: { stap: string; nummer: string; sinds: string; operator: string }[];
@@ -15,6 +17,9 @@ export interface Samenvatting {
 }
 
 const uur = (iso: string) => new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+/** "ploeg A1" of "ploegen A1 en A2" (#86). */
+const ploegTekst = (p: string[]) => (p.length === 1 ? `ploeg ${p[0]}` : `ploegen ${p.slice(0, -1).join(", ")} en ${p.at(-1)}`);
+
 const gelezenSleutel = (s: Samenvatting) => `overdracht-gelezen:${s.ploeg}|${s.dag}`;
 
 function cijferRegel(s: Samenvatting): string {
@@ -46,7 +51,7 @@ export async function vorigeOverdrachtBlok(): Promise<Node | null> {
   const teken = () => {
     let gelezen = false;
     try { gelezen = localStorage.getItem(gelezenSleutel(s!)) === "1"; } catch { /* geen opslag */ }
-    const kop = `Overdracht van de ${s!.ploegnaam.toLowerCase()} (${uur(s!.begin_op)}–${uur(s!.eind_op)})`;
+    const kop = `Overdracht van de ${s!.ploegnaam.toLowerCase()}${s!.ploegen?.length ? `, ${ploegTekst(s!.ploegen)}` : ""} (${uur(s!.begin_op)}–${uur(s!.eind_op)})`;
     if (gelezen) {
       blok.className = "overdracht-blok gelezen";
       blok.replaceChildren(h("span", {}, `${kop}: gelezen.`),
@@ -94,7 +99,7 @@ export async function overdrachtScherm() {
   toon(
     h("div", { class: "kop" },
       h("div", {}, h("h1", {}, s ? `Overdracht ${s.ploegnaam.toLowerCase()}` : "Overdracht"),
-        s ? h("p", { class: "sub" }, `${new Date(`${s.dag}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })}, ${uur(s.begin_op)}–${uur(s.eind_op)}`) : null),
+        s ? h("p", { class: "sub" }, `${new Date(`${s.dag}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })}, ${uur(s.begin_op)}–${uur(s.eind_op)}${s.ploegen?.length ? `, ${ploegTekst(s.ploegen)}` : ""}`) : null),
       vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
     s
       ? h("section", { class: "overdracht-cijfers" },

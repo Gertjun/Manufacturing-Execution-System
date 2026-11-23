@@ -208,9 +208,13 @@ export async function correcties() {
 }
 
 // ---------- Ploegoverdracht ----------
+/** "ploeg A1" of "ploegen A1 en A2" (#86). */
+export const ploegTekst = (p: string[]) => (p.length === 1 ? `ploeg ${p[0]}` : `ploegen ${p.slice(0, -1).join(", ")} en ${p.at(-1)}`);
 interface Notitie { id: string; hal: string | null; bijzonderheden: string | null; aandachtspunten: string | null; door: string; pc: string | null; geschreven_op: string }
 interface PloegSamenvatting {
   ploeg: string; ploegnaam: string; dag: string; begin_op: string; eind_op: string; loopt_nog: boolean;
+  /** Ploegen volgens het rooster, zoals A1 en A2 (sinds 0.53.0, #86). */
+  ploegen?: string[];
   cijfers: { stappen_afgerond: number; batches_gestart: number; lots_gemaakt: number; afwijkingen: number; correcties: number; in_beoordeling_gezet: number };
   per_stap: { stap: string; stapnaam: string; afgerond: number }[];
   nog_open: { stap: string; nummer: string; sinds: string; operator: string }[];
@@ -255,7 +259,7 @@ export async function overdracht(dag?: string) {
     p.length
       ? h("div", { class: "ploegen" }, p.map((x) =>
           h("section", { class: `blok ploeg${x.loopt_nog ? " ploeg-nu" : ""}` },
-            h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, x.ploegnaam), h("p", { class: "sub" }, `${uur(x.begin_op)}–${uur(x.eind_op)}${x.loopt_nog ? ", loopt nog" : ""}`))),
+            h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, x.ploegnaam), h("p", { class: "sub" }, `${uur(x.begin_op)}–${uur(x.eind_op)}${x.ploegen?.length ? `, ${ploegTekst(x.ploegen)}` : ""}${x.loopt_nog ? ", loopt nog" : ""}`))),
             h("div", { class: "ploeg-cijfers" },
               cijfer(x.cijfers.stappen_afgerond, "stappen afgerond"), cijfer(x.cijfers.batches_gestart, "batches gestart"),
               cijfer(x.cijfers.lots_gemaakt, "lots samengesteld"), cijfer(x.cijfers.afwijkingen, "afwijkingen", x.cijfers.afwijkingen ? "let-op" : "")),

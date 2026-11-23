@@ -246,6 +246,29 @@ try {
   check("PC-01 toont alleen PS3 (Mengen) en PS4", tegels.length === 2 && tegels[0].includes("Mengen"), tegels.join(" | "));
   await invoer.screenshot({ path: `${SHOTS}/05-invoer-pc01.png` });
   await invoer.close();
+
+  console.log("\nDiensten en ploegen (#86)");
+  await page.goto(`${BASIS}/portaal/#/beheer/ploegen`);
+  await page.getByRole("heading", { name: "Diensten en ploegen", level: 1 }).waitFor();
+  const komend = page.locator("section", { has: page.getByRole("heading", { name: "Komende 14 dagen" }) });
+  await komend.locator("tbody tr").first().waitFor();
+  const cellen = await komend.locator("tbody td:not(:first-child)").allInnerTexts();
+  check("14 dagen, elke dienst twee ploegen (één per divisie)", cellen.length === 42 && cellen.every((c) => c.split(",").length === 2), cellen.slice(0, 6).join(" | "));
+  check("Rooster: 10 dagen, 4 vrij", (await page.locator(".rooster-patroon li").count()) === 10 && (await page.locator(".rooster-patroon li.vrij").count()) === 4);
+  await shot("06-diensten-en-ploegen");
+  await page.getByRole("button", { name: "Rooster wijzigen" }).click();
+  await dialoog().getByLabel("Rooster, dag voor dag").fill("O O M M N N - - - X");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  const melding = await dialoog().getByLabel("Rooster, dag voor dag").evaluate((el) => el.validationMessage);
+  check("Onbekende dienst in het rooster wordt meteen gemeld", melding.includes("Onbekende dienst: X"), melding);
+  await dialoog().getByRole("button", { name: "Terug" }).click();
+  await page.locator("tr", { hasText: "A2" }).getByRole("button", { name: "Wijzigen" }).click();
+  await dialoog().getByLabel("Eerste dag van de cyclus").fill("2026-01-06");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("#melding", { hasText: "Ploeg A2 opgeslagen" }).waitFor();
+  await komend.locator("tbody tr").first().waitFor();
+  const na = await komend.locator("tbody td:not(:first-child)").allInnerTexts();
+  check("A2 een dag later: nu draaien er diensten met één ploeg", na.some((c) => c.split(",").length === 1), na.slice(0, 6).join(" | "));
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

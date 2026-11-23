@@ -205,7 +205,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
       {
         kop: "Overig",
         punten: [
-          "Pc's: per pc welke stappen er te zien zijn. Grondstoffen, Ploegen, Oorzaken van stilstand en Bedrijfsgegevens (voor het certificaat).",
+          "Pc's: per pc welke stappen er te zien zijn. Grondstoffen, Diensten en ploegen (met het rooster van ploegen A–E per divisie), Oorzaken van stilstand en Bedrijfsgegevens (voor het certificaat).",
           "Logboek: elke wijziging, wie, wanneer, oud en nieuw. Server: versie, laatste back-up en hersteltest, waarschuwingen.",
           "Opmerkingen: wat gebruikers via \"Iets melden\" doorgeven. Handel ze af met een notitie, bijvoorbeeld het roadmapnummer.",
           "Nainvoeren (papier), op de startpagina: stappen die op papier zijn bijgehouden later invoeren, tot 7 dagen terug. Daar ook de lege formulieren per stap voor de terugvalmap.",

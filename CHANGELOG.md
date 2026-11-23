@@ -5,6 +5,20 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.53.0 — 23 november 2026 · #86
+- **Ploegen A tot en met E in twee divisies, met een rooster** (D76).
+  - Nieuw scherm Beheer → **Diensten en ploegen** (was Ploegen). Daarin vier blokken.
+  - **Diensten:** ochtend, middag en nacht, met hun tijden (wat eerder "ploegen" heette).
+  - **Rooster:** de cyclus dag voor dag. Standaard 2 ochtend, 2 middag, 2 nacht en 4 dagen vrij.
+  - **Ploegen:** A1 tot en met E2, elk met de eerste dag van zijn cyclus. Die dag schuif je op om een ploeg eerder of later te laten beginnen. Een ploeg kun je uitzetten of toevoegen.
+  - **Komende 14 dagen:** per dag en dienst welke ploegen werken, zodat je meteen ziet of het rooster klopt. Een dienst zonder ploeg krijgt een ⚠.
+  - De fictieve indeling: per divisie draait elke dienst precies één ploeg. Divisie 1 en 2 werken tegelijk, dus er zijn altijd twee ploegen aan het werk.
+- **Ploegoverdracht:** in het invoerscherm en in Productieanalyse staat bij een dienst welke ploegen hem volgens het rooster draaiden, bijvoorbeeld "ploegen A1 en A2".
+- De tijdvakken heten in de schermen nu **diensten** (Ochtenddienst, Middagdienst, Nachtdienst); "ploeg" is voortaan A tot en met E.
+- API: `GET /overdracht/rooster`, `PATCH /overdracht/rooster`, `POST /overdracht/rooster/ploegen`, `PATCH /overdracht/rooster/ploegen/{code}`; de samenvatting van een dienst heeft `ploegen`.
+- Operators aan een ploeg en divisie toewijzen volgt in #87 (Medewerkers).
+- **Oudere invoerschermen:** werken gewoon; ze tonen de ploegen niet.
+
 ## 0.52.0 — 23 november 2026 · #85
 - **Twee keer ingevuld:** vullen twee mensen hetzelfde veld of dezelfde grondstof van een stap in (op twee pc's tegelijk, of later uit een offline wachtrij), dan weigerde de server de tweede invoer. Nu blijft de eerste staan en wordt de tweede bewaard als conflict (D75).
   - In het invoerscherm staat bij het veld "Twee keer ingevuld": wat er staat en wat er ook is ingevuld, door wie en wanneer. Bovenaan de stap staat welke velden het zijn.

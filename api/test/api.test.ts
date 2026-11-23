@@ -1227,8 +1227,36 @@ describe("Ploegoverdracht", () => {
     const r = await verzoek("PATCH", "/overdracht/ploegen/O", bh, { naam: "Vroege ploeg" });
     assert.equal(r.body.naam, "Vroege ploeg");
     assert.equal((await verzoek("PATCH", "/overdracht/ploegen/O", bh, { begint: "25:00" })).status, 400);
-    await verzoek("PATCH", "/overdracht/ploegen/O", bh, { naam: "Ochtendploeg" });
+    await verzoek("PATCH", "/overdracht/ploegen/O", bh, { naam: "Ochtenddienst" });
     assert.equal((await verzoek("PATCH", "/overdracht/ploegen/O", await login("planner1"), { naam: "x" })).status, 403);
+  });
+
+  test("ploegen A–E in twee divisies met rooster; de overdracht noemt de ploegen (#86)", async () => {
+    const bh = await login("beheerder1");
+    const r = await verzoek("GET", "/overdracht/rooster?van=2026-01-05&dagen=10", await login("kwaliteit1"));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.patroon, ["O", "O", "M", "M", "N", "N", "-", "-", "-", "-"]);
+    assert.equal(r.body.ploegen.length, 10);
+    assert.equal(r.body.dagen.length, 10);
+    assert.deepEqual(r.body.dagen[0].diensten.map((d: any) => [d.dienst, d.ploegen]), [["O", ["A1", "A2"]], ["M", ["E1", "E2"]], ["N", ["D1", "D2"]]]);
+    assert.ok(r.body.dagen.every((d: any) => d.diensten.every((x: any) => x.ploegen.length === 2)));
+    // Divisie 2 een dag later laten beginnen.
+    const p = await verzoek("PATCH", "/overdracht/rooster/ploegen/a2", bh, { cyclus_start: "2026-01-06" });
+    assert.equal(p.status, 200, JSON.stringify(p.body));
+    const r2 = await verzoek("GET", "/overdracht/rooster?van=2026-01-05&dagen=1", bh);
+    assert.deepEqual(r2.body.dagen[0].diensten[0].ploegen, ["A1"]);
+    await verzoek("PATCH", "/overdracht/rooster/ploegen/A2", bh, { cyclus_start: "2026-01-05" });
+    assert.equal((await verzoek("PATCH", "/overdracht/rooster", bh, { patroon: ["O", "X"] })).status, 422);
+    assert.equal((await verzoek("PATCH", "/overdracht/rooster", await login("planner1"), { patroon: ["O"] })).status, 403);
+    const n = await verzoek("POST", "/overdracht/rooster/ploegen", bh, { letter: "f", divisie: 1, cyclus_start: "2026-01-15" });
+    assert.equal(n.status, 201, JSON.stringify(n.body));
+    assert.equal(n.body.code, "F1");
+    assert.equal((await verzoek("POST", "/overdracht/rooster/ploegen", bh, { letter: "F", divisie: 1, cyclus_start: "2026-01-15" })).status, 409);
+    await verzoek("PATCH", "/overdracht/rooster/ploegen/F1", bh, { actief: false });
+    // De overdracht van een dienst noemt de ploegen die hem volgens het rooster draaiden.
+    const nu = await verzoek("GET", "/overdracht", await login("ploegleider1"));
+    assert.equal(nu.status, 200);
+    assert.equal(nu.body.ploegen.length, 2);
   });
 });
 

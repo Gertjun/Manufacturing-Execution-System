@@ -17,9 +17,9 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 23 november 2026 · versie **0.52.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 23 november 2026 · versie **0.53.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2, D68) de capaciteit per product met afwijkende dagen (0.48.0, D69) grenzen en tolerantie als rode en oranje lijnen in de grafieken (0.48.1, D70) afmelden naar de startpagina (0.48.2, #82) de capaciteit uit de route met "nog invullen" (0.49.0, #81, D71) het wandscherm Kwaliteit (0.50.0, #83, D72) en keuringsstappen met specificaties per product (0.51.0, #80, D73); daarna #32 en #66. Daarna fase A4, Geerts verbeterlijst van 23 november (#85–#100, D74): twee keer ingevuld is gebouwd (0.52.0, #85, D75); volgende is de ploegen A–E in twee divisies (#86). Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2, D68) de capaciteit per product met afwijkende dagen (0.48.0, D69) grenzen en tolerantie als rode en oranje lijnen in de grafieken (0.48.1, D70) afmelden naar de startpagina (0.48.2, #82) de capaciteit uit de route met "nog invullen" (0.49.0, #81, D71) het wandscherm Kwaliteit (0.50.0, #83, D72) en keuringsstappen met specificaties per product (0.51.0, #80, D73); daarna #32 en #66. Daarna fase A4, Geerts verbeterlijst van 23 november (#85–#100, D74): twee keer ingevuld (0.52.0, #85, D75) en ploegen A–E in twee divisies met rooster (0.53.0, #86, D76) zijn gebouwd; volgende is Medewerkers met ploeg en divisie (#87). Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met bewuste afwijkingen (D50; afwijking E is vervallen) en vaste woorden (D51). Elk scherm werkt van telefoon tot pc (D64). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
@@ -111,7 +111,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 | --- | --- |
 | Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen, wie meet (Productie of Kwaliteit, D58) en eigen grenzen per product (D55). Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46); het tweede blad bevat de grenzen per product |
 | Accounts, operators, pc's | Aanmaken, wijzigen, uitzetten, ook veel accounts tegelijk via een Excel-sjabloon; een wachtwoord van de beheerder is tijdelijk (D61); per pc de stappen |
-| Grondstoffen, ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer |
+| Grondstoffen, diensten en ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer; het rooster van ploegen A–E per divisie, met per dag en dienst wie werkt (D76) |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |
 | Opmerkingen | Wat gebruikers via "Iets melden" doorgaven; afhandelen met een notitie (D62) |
 | Pilotoverzicht | Hoe de invoer in de pilot loopt: per dag, per pc, per veld, geweigerde invoer; startdatum en grens voor "te laat" (D66). De productiemanager ziet het bij Productieanalyse |
@@ -153,7 +153,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | `db/schema.sql` | Tabellen, regels (triggers) en acties in schema `fabriek`; gelijk aan alle migraties samen |
 | `db/migraties/` | Genummerde database-updates (D23); nooit achteraf aanpassen |
 | `db/rechten.sql` | Rechten van de applicatiegebruiker `batchgui_app` (D24) |
-| `db/seed_config.sql` | Stappen, voorbeeldvelden, operators, pc's, producten, grondstoffen, ploegen, oorzaken (geen accounts) |
+| `db/seed_config.sql` | Stappen, voorbeeldvelden, operators, pc's, producten, grondstoffen, diensten, ploegen met rooster, oorzaken (geen accounts) |
 | `db/seed_accounts_demo.sql` | Fictieve testaccounts |
 | `db/seed_demo.sql` | Kleine fictieve productie voor de invoertest |
 | `tools/genereer_testdata.py` | Maanden fictieve productie met ingebouwde afwijkingen |
@@ -180,7 +180,7 @@ Alle regels zitten in de database (D9); de API vertaalt ze naar leesbare melding
 - Besluiten gaan via `batch_besluit`: in beoordeling zetten (ploegleider of Kwaliteit), OK of NOK (alleen Kwaliteit). Bij NOK wordt een open stap afgebroken.
 - Tolerantie is absoluut of een percentage van de setting. Nummers: `B-JJJJ-nnnn` en `L-JJJJ-nnnn`.
 - Apparaten sturen een eigen `id` (UUID) mee; opnieuw versturen maakt geen dubbele records.
-- Alle dagen, weken en ploegen worden gerekend in de tijdzone van de fabriek (`fabriekstijdzone()`, D44); tijden zijn opgeslagen met tijdzone.
+- Alle dagen, weken en diensten worden gerekend in de tijdzone van de fabriek (`fabriekstijdzone()`, D44); tijden zijn opgeslagen met tijdzone.
 - De wachtrij stuurt het moment van invoer en de operator mee; de API zet dat moment in `fabriek.moment` en de database begrenst het (`apparaat_moment()`, D43). Starten, afronden, meetwaarden en grondstoffen gebruiken dat moment; de aankomst op de server staat in `gestart_ontvangen_op`, `afgerond_ontvangen_op` en `ontvangen_op`.
 
 ### API starten

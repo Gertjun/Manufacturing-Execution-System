@@ -700,3 +700,9 @@ a.merk:hover { text-decoration: underline; }
 /* Specificaties (#80, D73): het concept valt op naast de geldige versie. */
 .spec-concept { font-weight: 700; color: var(--actie); }
 .kiezer { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; }
+
+/* Rooster in Beheer → Diensten en ploegen (#86): de dagen van de cyclus naast elkaar. */
+.rooster-patroon { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: var(--space-3) 0 0; }
+.rooster-patroon li { display: grid; gap: 2px; min-width: 6.5em; padding: var(--space-2) var(--space-3); border: 1px solid var(--lijn); border-radius: var(--radius-sm); background: var(--vlak); }
+.rooster-patroon li.vrij { color: var(--inkt-zacht); background: transparent; border-style: dashed; }
+.rooster-dag { font-size: var(--text-sm); color: var(--inkt-zacht); }

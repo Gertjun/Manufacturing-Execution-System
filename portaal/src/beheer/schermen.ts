@@ -682,33 +682,110 @@ export async function grondstoffen() {
   );
 }
 
-// ---------- Ploegen ----------
-interface Ploeg { code: string; naam: string; begint: string; eindigt: string; actief: boolean }
+// ---------- Diensten en ploegen (#86, D76) ----------
+interface Dienst { code: string; naam: string; begint: string; eindigt: string; actief: boolean }
+interface RoosterPloeg { code: string; letter: string; divisie: number; cyclus_start: string; actief: boolean }
+interface Rooster {
+  patroon: string[];
+  ploegen: RoosterPloeg[];
+  dagen: { dag: string; diensten: { dienst: string; naam: string; ploegen: string[] }[] }[];
+}
+
+const datumCheck = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) ? null : "Kies een datum");
+const dagLang = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+const dagKort = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
 
 export async function ploegen() {
   const actueel = vastHouden();
-  toon(kop("Ploegen"), laden());
-  let lijst: Ploeg[];
-  try { lijst = await haal<Ploeg[]>("/overdracht/ploegen"); } catch (e) { return fout(e); }
+  toon(kop("Diensten en ploegen"), laden());
+  let lijst: Dienst[];
+  let r: Rooster;
+  try {
+    [lijst, r] = await Promise.all([haal<Dienst[]>("/overdracht/ploegen"), haal<Rooster>("/overdracht/rooster?dagen=14")]);
+  } catch (e) { return fout(e); }
   if (!actueel()) return;
   const tijdCheck = (v: string) => (/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(v) ? null : "Schrijf de tijd als uu:mm, bijvoorbeeld 06:00");
+  const codes = lijst.map((d) => d.code);
+  const naamVan = (c: string) => (c === "-" ? "vrij" : lijst.find((d) => d.code === c)?.naam ?? c);
+  const patroonCheck = (v: string) => {
+    const delen = v.trim().toUpperCase().split(/[\s,]+/).filter(Boolean);
+    if (!delen.length) return "Vul minstens één dag in";
+    const onbekend = delen.filter((x) => x !== "-" && !codes.includes(x));
+    if (onbekend.length) return `Onbekende dienst: ${onbekend.join(", ")}. Gebruik ${codes.join(", ")} of - voor vrij.`;
+    if (!delen.some((x) => x !== "-")) return "Een rooster heeft minstens één dienst";
+    return null;
+  };
+  const roosterWijzigen = async () => {
+    const a = await vraag("Rooster wijzigen", [
+      { naam: "patroon", label: "Rooster, dag voor dag", waarde: r.patroon.join(" "), controle: patroonCheck,
+        hint: `Per dag de code van de dienst (${lijst.map((d) => `${d.code} = ${d.naam.toLowerCase()}`).join(", ")}) of - voor vrij, met een spatie ertussen.` },
+    ], "Opslaan", "Elke ploeg draait dit rooster, vanaf de eerste dag van zijn eigen cyclus. Daarna begint het opnieuw.");
+    if (a) await wijzig(() => stuur("PATCH", "/overdracht/rooster", { patroon: a.patroon.trim().toUpperCase().split(/[\s,]+/).filter(Boolean) }), "Rooster opgeslagen", ploegen);
+  };
+  const ploegToevoegen = async () => {
+    const a = await vraag("Ploeg toevoegen", [
+      { naam: "letter", label: "Letter", controle: (v) => (/^[A-Za-z]$/.test(v.trim()) ? null : "Eén letter, bijvoorbeeld F") },
+      { naam: "divisie", label: "Divisie", opties: ["1", "2", "3"], waarde: "1" },
+      { naam: "cyclus_start", label: "Eerste dag van de cyclus", type: "date", controle: datumCheck },
+    ], "Toevoegen");
+    if (a) await wijzig(() => stuur("POST", "/overdracht/rooster/ploegen", { letter: a.letter.trim(), divisie: Number(a.divisie), cyclus_start: a.cyclus_start }), "Ploeg toegevoegd", ploegen);
+  };
+
   toon(
-    kop("Ploegen", "Begin- en eindtijden van de ploegen. Hiermee worden de ploegoverdracht en de cijfers per ploeg ingedeeld. Een ploeg die over middernacht loopt, hoort bij de dag waarop hij begint."),
-    tabel(["Code", "Naam", "Van", "Tot", ""], lijst.map((p) => [
-      h("strong", { class: p.actief ? "" : "inactief" }, p.code), h("span", { class: p.actief ? "" : "inactief" }, p.naam, p.actief ? "" : " (uit)"), p.begint, p.eindigt,
-      h("div", { class: "knoppen-klein" },
-        h("button", { class: "knop knop-klein", onclick: async () => {
-          const r = await vraag(`${p.naam} wijzigen`, [
-            { naam: "naam", label: "Naam", waarde: p.naam },
-            { naam: "begint", label: "Begint om", waarde: p.begint, controle: tijdCheck },
-            { naam: "eindigt", label: "Eindigt om", waarde: p.eindigt, controle: tijdCheck },
-          ], "Opslaan", "Let op dat de ploegen elkaar niet overlappen en samen de hele dag dekken.");
-          if (r) await wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, r), "Ploeg opgeslagen", ploegen);
-        } }, "Wijzigen"),
-        h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-          wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, ploegen, () => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: p.actief })) },
-          p.actief ? "Uitzetten" : "Weer aanzetten")),
-    ]), "compact"),
+    kop("Diensten en ploegen", "Diensten zijn de tijdvakken van de dag; ploegen (A, B, … per divisie) draaien die diensten volgens het rooster. Hiermee worden de ploegoverdracht en de cijfers per dienst ingedeeld."),
+    h("section", { class: "blok" },
+      h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, "Diensten"),
+        h("p", { class: "sub" }, "Begin- en eindtijd. Een dienst die over middernacht loopt, hoort bij de dag waarop hij begint."))),
+      tabel(["Code", "Naam", "Van", "Tot", ""], lijst.map((p) => [
+        h("strong", { class: p.actief ? "" : "inactief" }, p.code), h("span", { class: p.actief ? "" : "inactief" }, p.naam, p.actief ? "" : " (uit)"), p.begint, p.eindigt,
+        h("div", { class: "knoppen-klein" },
+          h("button", { class: "knop knop-klein", onclick: async () => {
+            const a = await vraag(`${p.naam} wijzigen`, [
+              { naam: "naam", label: "Naam", waarde: p.naam },
+              { naam: "begint", label: "Begint om", waarde: p.begint, controle: tijdCheck },
+              { naam: "eindigt", label: "Eindigt om", waarde: p.eindigt, controle: tijdCheck },
+            ], "Opslaan", "Let op dat de diensten elkaar niet overlappen en samen de hele dag dekken.");
+            if (a) await wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, a), "Dienst opgeslagen", ploegen);
+          } }, "Wijzigen"),
+          h("button", { class: "knop knop-klein knop-stil", onclick: () =>
+            wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, ploegen, () => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: p.actief })) },
+            p.actief ? "Uitzetten" : "Weer aanzetten")),
+      ]), "compact")),
+    h("section", { class: "blok" },
+      h("div", { class: "kop" },
+        h("div", {}, h("h2", { style: "margin:0" }, "Rooster"),
+          h("p", { class: "sub" }, `Een cyclus van ${r.patroon.length} dagen. Elke ploeg draait hetzelfde rooster, vanaf de eerste dag van zijn eigen cyclus.`)),
+        h("div", { class: "knoppen-klein" }, h("button", { class: "knop", onclick: roosterWijzigen }, "Rooster wijzigen"))),
+      h("ol", { class: "rooster-patroon", "aria-label": "Rooster, dag voor dag" },
+        r.patroon.map((c, i) => h("li", { class: c === "-" ? "vrij" : "" }, h("span", { class: "rooster-dag" }, `Dag ${i + 1}`), h("strong", {}, naamVan(c)))))),
+    h("section", { class: "blok" },
+      h("div", { class: "kop" },
+        h("div", {}, h("h2", { style: "margin:0" }, "Ploegen"),
+          h("p", { class: "sub" }, "Per ploeg de dag waarop hij dag 1 van het rooster draait. Schuif die dag op om een ploeg later of eerder te laten beginnen.")),
+        h("div", { class: "knoppen-klein" }, h("button", { class: "knop knop-hoofd", onclick: ploegToevoegen }, "Ploeg toevoegen"))),
+      r.ploegen.length
+        ? tabel(["Ploeg", "Letter", "Divisie", "Eerste dag van de cyclus", ""], r.ploegen.map((p) => [
+            h("strong", { class: p.actief ? "" : "inactief" }, p.code, p.actief ? "" : " (uit)"), p.letter, String(p.divisie), dagLang(p.cyclus_start),
+            h("div", { class: "knoppen-klein" },
+              h("button", { class: "knop knop-klein", onclick: async () => {
+                const a = await vraag(`Ploeg ${p.code} wijzigen`, [
+                  { naam: "cyclus_start", label: "Eerste dag van de cyclus", type: "date", waarde: p.cyclus_start, controle: datumCheck },
+                ], "Opslaan");
+                if (a) await wijzig(() => stuur("PATCH", `/overdracht/rooster/ploegen/${p.code}`, a), `Ploeg ${p.code} opgeslagen`, ploegen);
+              } }, "Wijzigen"),
+              h("button", { class: "knop knop-klein knop-stil", onclick: () =>
+                wijzig(() => stuur("PATCH", `/overdracht/rooster/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `Ploeg ${p.code} uitgezet` : `Ploeg ${p.code} weer actief`, ploegen,
+                  () => stuur("PATCH", `/overdracht/rooster/ploegen/${p.code}`, { actief: p.actief })) },
+                p.actief ? "Uitzetten" : "Weer aanzetten")),
+          ]), "compact")
+        : h("p", { class: "leeg" }, "Nog geen ploegen. Voeg er een toe.")),
+    h("section", { class: "blok" },
+      h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, "Komende 14 dagen"),
+        h("p", { class: "sub" }, "Welke ploegen volgens het rooster welke dienst draaien. Zo zie je meteen of het rooster klopt."))),
+      tabel(["Dag", ...(r.dagen[0]?.diensten.map((d) => d.naam) ?? [])], r.dagen.map((d) => [
+        dagKort(d.dag),
+        ...d.diensten.map((x) => x.ploegen.length ? x.ploegen.join(", ") : h("span", { class: "plan-waarschuwing" }, h("span", { "aria-hidden": "true" }, "⚠ "), "geen ploeg")),
+      ]), "compact")),
   );
 }
 
@@ -835,7 +912,7 @@ const ONDERDEEL: Record<string, string> = { processtap: "Stap", veld: "Veld", ge
   product: "Product", product_stap: "Productroute", veld_product: "Grenzen per product", grondstof: "Grondstof", stap_grondstof: "Grondstof bij stap",
   capaciteit: "Capaciteit per weekdag (vervallen)", capaciteit_dag: "Afwijkende dag (vervallen)", capaciteit_stap: "Capaciteit per stap",
   capaciteit_afwijking: "Afwijkende capaciteit",
-  ploeg: "Ploeg", stilstand_oorzaak: "Stilstandoorzaak", instelling: "Instelling" };
+  ploeg: "Dienst", rooster: "Rooster", rooster_ploeg: "Ploeg", stilstand_oorzaak: "Stilstandoorzaak", instelling: "Instelling" };
 const KOLOM: Record<string, string> = {
   gemeten_door: "wie meet", naam: "naam", eenheid: "eenheid", grens_min: "ondergrens", grens_max: "bovengrens", tolerantie: "tolerantie", tolerantie_soort: "tolerantie in", decimalen: "decimalen",
   verplicht: "verplicht", actief: "actief", rol: "rol", locatie: "locatie", volgnummer: "volgorde", soort: "soort",

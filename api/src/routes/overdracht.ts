@@ -26,6 +26,7 @@ const Samenvatting = Type.Object({
   begin_op: Type.String({ format: "date-time" }),
   eind_op: Type.String({ format: "date-time" }),
   loopt_nog: Type.Boolean(),
+  ploegen: Type.Optional(Type.Array(Type.String(), { description: "Ploegen die volgens het rooster deze dienst draaiden, zoals A1 en A2 (sinds 0.53.0, #86)" })),
   cijfers: Type.Object({
     stappen_afgerond: Type.Integer(),
     batches_gestart: Type.Integer(),
@@ -82,6 +83,7 @@ async function samenvatting(db: Db, p: Periode, hal: string | null) {
       ORDER BY n.geschreven_op`,
     [p.ploeg_id, p.dag, hal],
   );
+  const [r] = await lees<{ ploegen: string[] }>(db, "SELECT ploegen_in_dienst($1::date, $2) AS ploegen", [p.dag, p.code]);
   return {
     ploeg: p.code,
     ploegnaam: p.naam,
@@ -89,6 +91,7 @@ async function samenvatting(db: Db, p: Periode, hal: string | null) {
     begin_op: p.begin_op,
     eind_op: p.eind_op,
     loopt_nog: Date.parse(p.eind_op) > Date.now() && Date.parse(p.begin_op) <= Date.now(),
+    ploegen: r?.ploegen ?? [],
     cijfers: c,
     per_stap,
     nog_open,
@@ -271,6 +274,122 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             WHERE code = $1 RETURNING code, naam, to_char(begint, 'HH24:MI') AS begint, to_char(eindigt, 'HH24:MI') AS eindigt, actief`,
           [req.params.code, req.body.naam?.trim() ?? null, req.body.begint ?? null, req.body.eindigt ?? null, req.body.actief ?? null],
         ));
+      if (!r.rows[0]) throw niet("Dienst");
+      return r.rows[0];
+    },
+  );
+
+  // ---------- Ploegen en rooster (#86, D76) ----------
+  const RoosterPloeg = Type.Object({
+    code: Type.String({ examples: ["A1"] }),
+    letter: Type.String(),
+    divisie: Type.Integer(),
+    cyclus_start: Dag,
+    actief: Type.Boolean(),
+  });
+  const PLOEG_SQL = "SELECT code, letter, divisie, cyclus_start::text, actief FROM rooster_ploeg";
+
+  app.get(
+    "/rooster",
+    {
+      preHandler: vereist(...IEDEREEN),
+      schema: {
+        tags: ["overdracht"],
+        description: "Het roosterpatroon (dienstcodes, - = vrij), de ploegen met de startdag van hun cyclus, en per dag en dienst welke ploegen werken.",
+        querystring: Type.Object({
+          van: Type.Optional(Dag),
+          dagen: Type.Optional(Type.Integer({ minimum: 1, maximum: 62, default: 14 })),
+        }),
+        response: {
+          200: Type.Object({
+            patroon: Type.Array(Type.String()),
+            ploegen: Type.Array(RoosterPloeg),
+            dagen: Type.Array(Type.Object({
+              dag: Dag,
+              diensten: Type.Array(Type.Object({ dienst: Type.String(), naam: Type.String(), ploegen: Type.Array(Type.String()) })),
+            })),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const [r] = await lees<{ patroon: string[] }>(app.db, "SELECT patroon FROM rooster");
+      const ploegen = await lees(app.db, `${PLOEG_SQL} ORDER BY divisie, letter`);
+      const rijen = await lees<{ dag: string; dienst: string; naam: string; ploegen: string[] }>(
+        app.db,
+        `SELECT d::date::text AS dag, p.code AS dienst, p.naam, ploegen_in_dienst(d::date, p.code) AS ploegen
+           FROM generate_series(coalesce($1::date, (now() AT TIME ZONE fabriekstijdzone())::date),
+                                coalesce($1::date, (now() AT TIME ZONE fabriekstijdzone())::date) + ($2::int - 1), interval '1 day') d
+           CROSS JOIN ploeg p WHERE p.actief
+          ORDER BY d, p.begint`,
+        [req.query.van ?? null, req.query.dagen ?? 14],
+      );
+      const dagen: { dag: string; diensten: { dienst: string; naam: string; ploegen: string[] }[] }[] = [];
+      for (const x of rijen) {
+        if (dagen.at(-1)?.dag !== x.dag) dagen.push({ dag: x.dag, diensten: [] });
+        dagen.at(-1)!.diensten.push({ dienst: x.dienst, naam: x.naam, ploegen: x.ploegen });
+      }
+      return { patroon: r?.patroon ?? [], ploegen, dagen } as never;
+    },
+  );
+
+  app.patch(
+    "/rooster",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["overdracht", "beheer"],
+        description: "Het roosterpatroon wijzigen: een rij dienstcodes, - voor een vrije dag.",
+        body: Type.Object({ patroon: Type.Array(Type.String({ minLength: 1, maxLength: 20 }), { minItems: 1, maxItems: 56 }) }, { additionalProperties: false }),
+        response: { 200: Type.Object({ patroon: Type.Array(Type.String()) }) },
+      },
+    },
+    async (req) => {
+      const patroon = req.body.patroon.map((x) => x.trim().toUpperCase());
+      await inTransactie(app.db, req.user.naam, (tx) =>
+        tx.query("INSERT INTO rooster (patroon) VALUES ($1) ON CONFLICT (enkel) DO UPDATE SET patroon = EXCLUDED.patroon", [patroon]));
+      return { patroon };
+    },
+  );
+
+  app.post(
+    "/rooster/ploegen",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["overdracht", "beheer"],
+        body: Type.Object({
+          letter: Type.String({ pattern: "^[A-Za-z]$" }),
+          divisie: Type.Integer({ minimum: 1, maximum: 9 }),
+          cyclus_start: Dag,
+        }, { additionalProperties: false }),
+        response: { 201: RoosterPloeg },
+      },
+    },
+    async (req, reply) => {
+      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+        tx.query(`INSERT INTO rooster_ploeg (letter, divisie, cyclus_start) VALUES (upper($1), $2, $3)
+                  RETURNING code, letter, divisie, cyclus_start::text, actief`, [req.body.letter, req.body.divisie, req.body.cyclus_start]));
+      return reply.status(201).send(r.rows[0]);
+    },
+  );
+
+  app.patch(
+    "/rooster/ploegen/:code",
+    {
+      preHandler: vereist(...BEHEER),
+      schema: {
+        tags: ["overdracht", "beheer"],
+        params: Type.Object({ code: Type.String() }),
+        body: Type.Object({ cyclus_start: Type.Optional(Dag), actief: Type.Optional(Type.Boolean()) }, { additionalProperties: false, minProperties: 1 }),
+        response: { 200: RoosterPloeg },
+      },
+    },
+    async (req) => {
+      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+        tx.query(`UPDATE rooster_ploeg SET cyclus_start = coalesce($2::date, cyclus_start), actief = coalesce($3, actief)
+                   WHERE code = upper($1) RETURNING code, letter, divisie, cyclus_start::text, actief`,
+          [req.params.code, req.body.cyclus_start ?? null, req.body.actief ?? null]));
       if (!r.rows[0]) throw niet("Ploeg");
       return r.rows[0];
     },

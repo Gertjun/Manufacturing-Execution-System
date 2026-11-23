@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.52.0",
+    "version": "0.53.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -19997,6 +19997,13 @@
                     "loopt_nog": {
                       "type": "boolean"
                     },
+                    "ploegen": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Ploegen die volgens het rooster deze dienst draaiden, zoals A1 en A2 (sinds 0.53.0, #86)"
+                    },
                     "cijfers": {
                       "type": "object",
                       "required": [
@@ -20325,6 +20332,13 @@
                       "loopt_nog": {
                         "type": "boolean"
                       },
+                      "ploegen": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Ploegen die volgens het rooster deze dienst draaiden, zoals A1 en A2 (sinds 0.53.0, #86)"
+                      },
                       "cijfers": {
                         "type": "object",
                         "required": [
@@ -20582,6 +20596,344 @@
                     },
                     "eindigt": {
                       "type": "string"
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/rooster": {
+      "get": {
+        "tags": [
+          "overdracht"
+        ],
+        "description": "Het roosterpatroon (dienstcodes, - = vrij), de ploegen met de startdag van hun cyclus, en per dag en dienst welke ploegen werken.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "in": "query",
+            "name": "van",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 62,
+              "default": 14
+            },
+            "in": "query",
+            "name": "dagen",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "patroon",
+                    "ploegen",
+                    "dagen"
+                  ],
+                  "properties": {
+                    "patroon": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ploegen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "code",
+                          "letter",
+                          "divisie",
+                          "cyclus_start",
+                          "actief"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "example": "A1"
+                          },
+                          "letter": {
+                            "type": "string"
+                          },
+                          "divisie": {
+                            "type": "integer"
+                          },
+                          "cyclus_start": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "actief": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "dagen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "dag",
+                          "diensten"
+                        ],
+                        "properties": {
+                          "dag": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "diensten": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "dienst",
+                                "naam",
+                                "ploegen"
+                              ],
+                              "properties": {
+                                "dienst": {
+                                  "type": "string"
+                                },
+                                "naam": {
+                                  "type": "string"
+                                },
+                                "ploegen": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "overdracht",
+          "beheer"
+        ],
+        "description": "Het roosterpatroon wijzigen: een rij dienstcodes, - voor een vrije dag.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "patroon"
+                ],
+                "properties": {
+                  "patroon": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 20
+                    },
+                    "minItems": 1,
+                    "maxItems": 56
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "patroon"
+                  ],
+                  "properties": {
+                    "patroon": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/rooster/ploegen": {
+      "post": {
+        "tags": [
+          "overdracht",
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "letter",
+                  "divisie",
+                  "cyclus_start"
+                ],
+                "properties": {
+                  "letter": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z]$"
+                  },
+                  "divisie": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "cyclus_start": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "letter",
+                    "divisie",
+                    "cyclus_start",
+                    "actief"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "A1"
+                    },
+                    "letter": {
+                      "type": "string"
+                    },
+                    "divisie": {
+                      "type": "integer"
+                    },
+                    "cyclus_start": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "actief": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overdracht/rooster/ploegen/{code}": {
+      "patch": {
+        "tags": [
+          "overdracht",
+          "beheer"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cyclus_start": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "actief": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "code",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "letter",
+                    "divisie",
+                    "cyclus_start",
+                    "actief"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "A1"
+                    },
+                    "letter": {
+                      "type": "string"
+                    },
+                    "divisie": {
+                      "type": "integer"
+                    },
+                    "cyclus_start": {
+                      "type": "string",
+                      "format": "date"
                     },
                     "actief": {
                       "type": "boolean"

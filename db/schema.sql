@@ -1843,6 +1843,65 @@ LANGUAGE sql STABLE AS $$
      LIMIT 1
 $$;
 
+-- Ploegen en rooster (sinds 0033, #86, D76). De tabel ploeg bevat de diensten (ochtend, middag, nacht: begin- en
+-- eindtijd); de naam is gebleven omdat de API en oudere invoerschermen hem zo kennen. De ploegen zelf (A tot en
+-- met E, per divisie) staan in rooster_ploeg. Elke ploeg volgt hetzelfde roosterpatroon (een rij dienstcodes,
+-- '-' = vrij), vanaf de eigen startdag van zijn cyclus. Zo zie je per dag en dienst welke ploegen werken.
+CREATE TABLE rooster (
+    id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    enkel    boolean NOT NULL DEFAULT true UNIQUE CHECK (enkel),   -- er is maar één rooster
+    patroon  text[] NOT NULL CHECK (cardinality(patroon) BETWEEN 1 AND 56)
+);
+CREATE TRIGGER rooster_log BEFORE INSERT OR UPDATE OR DELETE ON rooster
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE FUNCTION controleer_rooster() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_fout text;
+BEGIN
+    SELECT string_agg(DISTINCT x, ', ') INTO v_fout
+      FROM unnest(NEW.patroon) x
+     WHERE x <> '-' AND NOT EXISTS (SELECT 1 FROM ploeg p WHERE p.code = x);
+    IF v_fout IS NOT NULL THEN
+        RAISE EXCEPTION 'Onbekende dienst in het rooster: % (gebruik de codes van de diensten, of - voor vrij)', v_fout;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM unnest(NEW.patroon) x WHERE x <> '-') THEN
+        RAISE EXCEPTION 'Een rooster heeft minstens één dienst';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER rooster_controle BEFORE INSERT OR UPDATE ON rooster
+    FOR EACH ROW EXECUTE FUNCTION controleer_rooster();
+
+CREATE TABLE rooster_ploeg (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    letter        text NOT NULL CHECK (letter ~ '^[A-Z]$'),
+    divisie       int  NOT NULL CHECK (divisie BETWEEN 1 AND 9),
+    code          text GENERATED ALWAYS AS (letter || divisie::text) STORED UNIQUE,
+    cyclus_start  date NOT NULL,       -- dag waarop deze ploeg de eerste dag van het patroon draait
+    actief        boolean NOT NULL DEFAULT true
+);
+CREATE TRIGGER rooster_ploeg_log BEFORE INSERT OR UPDATE OR DELETE ON rooster_ploeg
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Welke ploegen op een dag welke dienst hebben (alleen actieve ploegen; vrije dagen niet).
+CREATE FUNCTION rooster_op(p_dag date)
+RETURNS TABLE (code text, letter text, divisie int, dienst text)
+LANGUAGE sql STABLE AS $$
+    SELECT rp.code, rp.letter, rp.divisie, r.patroon[1 + (((p_dag - rp.cyclus_start) % n.n) + n.n) % n.n]
+      FROM rooster r
+      CROSS JOIN LATERAL (SELECT cardinality(r.patroon) AS n) n
+      JOIN rooster_ploeg rp ON rp.actief
+     WHERE r.patroon[1 + (((p_dag - rp.cyclus_start) % n.n) + n.n) % n.n] <> '-'
+     ORDER BY rp.divisie, rp.letter
+$$;
+
+-- De ploegen (codes, zoals A1 en A2) die een dienst draaien op een dag.
+CREATE FUNCTION ploegen_in_dienst(p_dag date, p_dienst text) RETURNS text[]
+LANGUAGE sql STABLE AS $$
+    SELECT coalesce(array_agg(code ORDER BY divisie, letter), '{}') FROM rooster_op(p_dag) WHERE dienst = p_dienst
+$$;
+
 CREATE TABLE overdracht (
     id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     dag              date NOT NULL,
@@ -2976,7 +3035,7 @@ CREATE TRIGGER invoerconflict_vast BEFORE UPDATE OR DELETE ON invoerconflict
     FOR EACH ROW EXECUTE FUNCTION invoerconflict_vast();
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
