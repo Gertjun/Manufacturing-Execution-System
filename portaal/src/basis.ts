@@ -89,6 +89,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "afwijkingen", naam: "Afwijkingen" },
       { pad: "trend", naam: "Trend per veld" },
       { pad: "herbewerkingen", naam: "Herbewerkingen en afkeur" },
+      { pad: "specificaties", naam: "Specificaties" },
     ],
   },
   {

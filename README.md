@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 23 november 2026 · versie **0.50.0**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 23 november 2026 · versie **0.51.0**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2, D68) de capaciteit per product met afwijkende dagen (0.48.0, D69) grenzen en tolerantie als rode en oranje lijnen in de grafieken (0.48.1, D70) afmelden naar de startpagina (0.48.2, #82) de capaciteit uit de route met "nog invullen" (0.49.0, #81, D71) en het wandscherm Kwaliteit (0.50.0, #83, D72); daarna #80 (keuringsstappen en specificatie, eerst een voorstel), #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2, D68) de capaciteit per product met afwijkende dagen (0.48.0, D69) grenzen en tolerantie als rode en oranje lijnen in de grafieken (0.48.1, D70) afmelden naar de startpagina (0.48.2, #82) de capaciteit uit de route met "nog invullen" (0.49.0, #81, D71) het wandscherm Kwaliteit (0.50.0, #83, D72) en keuringsstappen met specificaties per product (0.51.0, #80, D73); daarna #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met bewuste afwijkingen (D50; afwijking E is vervallen) en vaste woorden (D51). Elk scherm werkt van telefoon tot pc (D64). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
 - **Browserdemo:** nog op 0.48.0 (zonder de nieuwe grafiekstijl); versie 0.48.0 gepubliceerd (23 november 2026), lokaal getest en de bestanden online gecontroleerd met controlesom; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1. Bij 0.45.0 faalde de schermtest op GitHub; die release is later alsnog gemaakt, maar neem 0.45.1.
-- **Laatste testronde (0.50.0, 23 november 2026), lokaal:** geslaagd: roadmap, databaseregels (261), API (92, als `batchgui_app`), migraties (tot en met 30), beheertools, opruimschema, en de schermtests in Chrome voor wat veranderde: invoerscherm (afmelden), planning (capaciteit), wandscherm, hulp en alle schermen in zes formaten. Lokaal niet gedraaid: de overige schermtests, het laptoppakket en de browserdemo; die draaien op GitHub bij de push.
+- **Laatste testronde (0.51.0, 23 november 2026), lokaal:** geslaagd: roadmap, databaseregels (287), API (93, als `batchgui_app`), migraties (tot en met 31), beheertools, opruimschema, en alle schermtests in Chrome (`tests/test_schermen.sh`, met de nieuwe `portaal/e2e/specificaties.mjs` en de browserdemo). Lokaal niet gedraaid: het laptoppakket (draait op GitHub). Niet getest: de keuring op een echte lab-pc en een ouder invoerscherm naast keuringsstappen.
 - **Vorige testronde (0.48.0, 23 november 2026), lokaal:** geslaagd: roadmap, databaseregels (258), API (91, als `batchgui_app`), migraties (tot en met 29), beheertools, opruimschema, laptoppakket (Linux-variant), en alle schermtests in Chrome, ook alle schermen in zes formaten en de browserdemo. Niet gedaan: een echte telefoon en tablet via het netwerk (A6, A7), tekst op 200 %, het Windows-pakket op een echte laptop en de pc's in de fabriek; praktijktests (#33) staan nog open.
 - **Gegevens:** alles fictief (D1).
 
@@ -42,7 +42,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 
 | Onderdeel | Adres | Voor wie |
 | --- | --- | --- |
-| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (metingen en keuring, D58); werkt offline |
+| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (metingen en keuring, D58; keuringsstappen TK en EK, D73); werkt offline |
 | Portaal Kwaliteit | `/portaal/` | Kwaliteit |
 | Startpagina | `/` (stuurt door naar `/portaal/`) | Iedereen, na het inloggen |
 | Portaal Productieanalyse | `/portaal/` | Ploegleiders, productieleiding |
@@ -80,6 +80,7 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 | Regelkaarten | Per veld een regelkaart met signalen en Cpk (D38); onder 20 metingen voorlopig en zonder Cpk |
 | Afwijkingen | Alle metingen buiten tolerantie of grens, met filters |
 | Trend per veld | Eén veld door de tijd, met tolerantielijnen (oranje, gestreept) en grenzen (rood) |
+| Specificaties | Per product en keuringsstap (TK, EK) waar het product aan moet voldoen, met versies: concept, vaststellen, eerdere versies. Metingen in een keuring houden hun versie; die staat ook op het certificaat (D73) |
 | Herbewerkingen en afkeur | Lopende herbewerkingen met hun stand (nog te plannen, gepland, bezig), afgeronde en ingetrokken, en afgekeurde batches; een herbewerking aanmaken kan bij de batch, in het lotpaspoort of bij Te beoordelen (D57) |
 
 ### Portaal Productieanalyse

@@ -5,6 +5,7 @@ import { berekenMarkering, leesGetal, markeringTekst, toonGetal } from "../marke
 import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../../gedeeld/etiket";
 import { beslisKeuring, corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, stappen, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
+import { opStatus } from "../wachtrij";
 import type { Markering, Registratie, VeldMetWaarde } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 
@@ -38,6 +39,21 @@ export async function registratieScherm(id: string) {
     return;
   }
   teken(reg);
+  // Nog niet bij de server: zodra de wachtrij leeg is, de versie van de server tonen. Bij een keuringsstap (#80)
+  // staat de keuring dan open en kan Kwaliteit beslissen.
+  if (reg.lokaal) {
+    const route = location.hash;
+    let stop: (() => void) | undefined;
+    let eerste = true;  // opStatus meldt meteen de huidige stand; pas reageren op een verandering
+    stop = opStatus((st) => {
+      if (eerste) return void (eerste = false);
+      if (location.hash !== route) return void stop?.();
+      if (st.verbonden && st.wacht === 0 && st.fout === 0) {
+        stop?.();
+        void registratieScherm(id);
+      }
+    });
+  }
 }
 
 function teken(reg: Registratie) {
@@ -139,7 +155,8 @@ function teken(reg: Registratie) {
       ? (half > 0 ? "Vul een geldig getal in" :
          klaar > 0 ? `${klaar} ${klaar === 1 ? "meting" : "metingen"} klaar om op te slaan` :
          ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "meting" : "metingen"} van Kwaliteit; daarna kun je vrijgeven` :
-         keuringOpen ? "Alle metingen zijn ingevuld: vrijgeven, herbewerken of afkeuren" : "De operator rondt de stap nog af; daarna kun je beslissen")
+         keuringOpen ? "Alle metingen zijn ingevuld: vrijgeven, herbewerken of afkeuren"
+           : reg.lokaal ? "Nog niet bij de server; zodra er verbinding is, kun je beslissen" : "De operator rondt de stap nog af; daarna kun je beslissen")
       : half > 0 ? (gs.fout ? "Vul bij een grondstof het partijnummer in, en een geldige hoeveelheid" : "Vul bij een procesparameter zowel instelling als gemeten waarde in") :
       klaar > 0 ? `${klaar} ${klaar === 1 ? "invoer" : "invoeren"} klaar om op te slaan${ontbreekt > 0 ? "; de stap afronden kan als alle verplichte velden zijn opgeslagen" : ""}` :
       ontbreekt > 0 ? `Nog ${ontbreekt} ${ontbreekt === 1 ? "veld" : "velden"} in te vullen; daarna kun je de stap afronden` :

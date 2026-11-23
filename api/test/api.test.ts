@@ -83,7 +83,7 @@ before(async () => {
   await beheerDb.query(readFileSync(new URL("../../db/seed_accounts_demo.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/rechten.sql", import.meta.url), "utf8"));
   // De meeste tests zijn van vóór de keuring (#64): daar meet de operator alles. De keuring heeft een eigen test.
-  await beheerDb.query("UPDATE fabriek.veld SET gemeten_door = 'productie'");
+  await beheerDb.query("UPDATE fabriek.veld SET gemeten_door = 'productie' WHERE processtap_id IN (SELECT id FROM fabriek.processtap WHERE soort = 'proces')");
   db = APP_DB_URL === DB_URL ? beheerDb : maakPool(APP_DB_URL);
   app = await bouwApp({ db, jwtGeheim: "test-geheim-dat-lang-genoeg-is-0123456789" });
 });
@@ -125,10 +125,10 @@ describe("inloggen en rollen", () => {
     assert.equal((await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0998" })).status, 403);
     assert.equal((await verzoek("PATCH", "/beheer/velden/S1.1", t, { naam: "x" })).status, 403);
   });
-  test("configuratie: 18 stappen, PS16 is de lot-stap", async () => {
+  test("configuratie: 18 processtappen en 3 keuringsstappen, PS16 is de lot-stap", async () => {
     const t = await login("analist1");
     const r = await verzoek("GET", "/config/stappen", t);
-    assert.equal(r.body.length, 18);
+    assert.equal(r.body.length, 21);  // 18 processtappen en 3 keuringsstappen (#80)
     assert.equal(r.body.find((s: any) => s.is_lot_stap).code, "PS16");
     assert.deepEqual(r.body[2].velden.map((v: any) => v.code), ["S3.1", "S3.2", "S3.3"]);
   });
@@ -464,12 +464,12 @@ describe("werkvoorraad en apparaat-id's", () => {
     const afronden = await verzoek("POST", `/registraties/${reg.body.id}/afronden`, op);
     assert.equal(afronden.status, 422);
   });
-  test("nieuwe batch staat klaar voor PS1; overzicht heeft 18 stappen", async () => {
+  test("nieuwe batch staat klaar voor PS1; overzicht heeft alle 21 stappen", async () => {
     const t = await login("analist1");
     const ps1 = await verzoek("GET", "/werkvoorraad/PS1", t);
     assert.ok(ps1.body.wachtend.some((w: any) => w.nummer === "B-2026-0200"));
     const overzicht = await verzoek("GET", "/werkvoorraad", t);
-    assert.equal(overzicht.body.length, 18);
+    assert.equal(overzicht.body.length, 21);  // 18 processtappen en 3 keuringsstappen (#80)
     assert.equal(overzicht.body.find((s: any) => s.stapcode === "PS1").wachtend, 1);
   });
 });
@@ -863,7 +863,7 @@ describe("Portaal Planning", () => {
     // Vervangen, niet toevoegen.
     await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS1", items: [{ nummer: gepland[3] }] });
     const stappen = await verzoek("GET", `/planning/stappen?dag=${vandaag}`, planner);
-    assert.equal(stappen.body.length, 18);
+    assert.equal(stappen.body.length, 21);  // 18 processtappen en 3 keuringsstappen (#80)
     assert.deepEqual(stappen.body[0].items.map((i: any) => i.nummer), [gepland[3]]);
     // In de lot-stap plan je een lotvoorstel, geen batch.
     const fout = await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS16", items: [{ nummer: gepland[0] }] });
@@ -949,7 +949,7 @@ describe("Portaal Planning", () => {
   test("route per product (D55): PRD-C slaat PS6 over; alleen planners wijzigen een route", async () => {
     const prod = await verzoek("GET", "/planning/producten", op);
     const c = prod.body.find((p: any) => p.code === "PRD-C");
-    assert.deepEqual(c.route, ["PS1", "PS2", "PS3", "PS4", "PS5", "PS7", "PS8", "PS9", "PS11", "PS10", "PS12", "PS13", "PS15", "PS16", "PS18"]);
+    assert.deepEqual(c.route, ["PS1", "PS2", "PS3", "TK1", "PS4", "PS5", "PS7", "PS8", "PS9", "TK2", "PS11", "PS10", "PS12", "PS13", "PS15", "PS16", "PS18", "EK"]);
     assert.equal(prod.body.find((p: any) => p.code === "PRD-A").route, null);
     assert.equal((await verzoek("PUT", `/planning/producten/${c.id}/route`, op, { stappen: null })).status, 403);
     const fout = await verzoek("PUT", `/planning/producten/${c.id}/route`, planner, { stappen: ["PS1", "PS2"] });
@@ -961,6 +961,9 @@ describe("Portaal Planning", () => {
     assert.deepEqual(goed.body.route, ["PS1", "PS2", "PS16", "PS18"]);
     assert.equal((await verzoek("PUT", `/planning/producten/${a.id}/route`, planner, { stappen: null })).body.route, null);
 
+    // Hier zonder keuringsstappen (die doet Kwaliteit, #80); daarna weer de route uit de instellingen.
+    const metKeuring = c.route;
+    assert.equal((await verzoek("PUT", `/planning/producten/${c.id}/route`, planner, { stappen: metKeuring.filter((x: string) => x.startsWith("PS")) })).status, 200);
     const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 1, productId: c.id });
     const [nr] = r.body.batchnummers;
     await doorloop(op, nr, "batch", 1, 5);
@@ -982,6 +985,7 @@ describe("Portaal Planning", () => {
     assert.equal(plan.status, 200, JSON.stringify(plan.body));
     assert.deepEqual([plan.body[0].vorige.stand, plan.body[0].vorige.stap], ["niet_in_route", "PRD-C"]);
     await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS6", items: [] });
+    assert.equal((await verzoek("PUT", `/planning/producten/${c.id}/route`, planner, { stappen: metKeuring })).status, 200);
   });
 
   test("capaciteit per stap en product (D55): gemengde producten tellen naar rato", async () => {
@@ -1052,7 +1056,7 @@ describe("Wandscherm", () => {
     const t = await login("scherm1");
     const r = await verzoek("GET", "/wandscherm", t);
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.equal(r.body.stappen.length, 18);
+    assert.equal(r.body.stappen.length, 21);  // 18 processtappen en 3 keuringsstappen (#80)
     assert.ok(r.body.hallen.includes("Hal 1"));
     assert.equal(typeof r.body.kerncijfers.gestart_vandaag, "number");
     for (const pad of ["/analyse/afwijkingen", "/werkvoorraad", "/planning/week?van=2026-11-16", "/batches?gereedVoorLot=true"]) {
@@ -1303,6 +1307,46 @@ describe("Etiketten", () => {
     assert.deepEqual(r.body.map((x: any) => [x.nummer, x.soort]), [["L-2026-0001", "lot"], [batch, "batch"]]);
     assert.equal(r.body[0].batches.length, 4);
     assert.match(r.body[1].dag, /^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("Keuringsstappen en specificaties (#80, D73)", () => {
+  test("keuringsstappen in de configuratie; specificatie: concept, vaststellen, eerdere versies", async () => {
+    const kw = await login("kwaliteit1");
+    const stappen = (await verzoek("GET", "/config/stappen", kw)).body;
+    assert.deepEqual(stappen.filter((s: any) => s.soort === "keuring").map((s: any) => s.code), ["TK1", "TK2", "EK"]);
+    const lees = async () => (await verzoek("GET", "/specificaties?product=PRD-C", kw)).body;
+    let sp = await lees();
+    assert.deepEqual(sp.stappen.map((s: any) => [s.stap, s.geldig?.versie, s.concept]), [["TK1", 1, null], ["TK2", 1, null], ["EK", 1, null]]);
+    assert.deepEqual(sp.stappen[2].geldig.regels.map((r: any) => r.veld), ["EK.1", "EK.2", "EK.3"]);
+    assert.deepEqual((await verzoek("GET", "/specificaties?product=PRD-A", kw)).body.stappen, [], "PRD-A heeft geen keuringsstappen");
+    assert.equal((await verzoek("GET", "/specificaties?product=PRD-X", kw)).status, 404);
+    assert.equal((await verzoek("POST", "/specificaties", await login("operator.a"), { product: "PRD-C", stap: "EK" })).status, 403);
+    const c = await verzoek("POST", "/specificaties", kw, { product: "PRD-C", stap: "EK" });
+    assert.equal(c.status, 201, JSON.stringify(c.body));
+    assert.equal(c.body.versie, 2);
+    assert.equal(c.body.regels.length, 3, "concept begint met de regels van de geldige versie");
+    assert.equal((await verzoek("PUT", `/specificaties/${c.body.id}`, kw, { regels: [{ veld: "PS3.1", grens_min: 1, grens_max: 2 }] })).status, 400);
+    assert.equal((await verzoek("PUT", `/specificaties/${c.body.id}`, kw, { regels: [{ veld: "EK.1", grens_min: 5, grens_max: 2 }] })).status, 400);
+    const w = await verzoek("PUT", `/specificaties/${c.body.id}`, kw, {
+      opmerking: "Klant vraagt droger product",
+      regels: [{ veld: "EK.1", grens_min: null, grens_max: 3.5 }, { veld: "EK.2", grens_min: 200, grens_max: 300 }, { veld: "EK.3", grens_min: null, grens_max: null }],
+    });
+    assert.equal(w.status, 200, JSON.stringify(w.body));
+    assert.deepEqual(w.body.regels.map((r: any) => [r.veld, r.grens_max]), [["EK.1", 3.5], ["EK.2", 300]], "zonder minimum en maximum gaat een veld eruit");
+    assert.equal((await lees()).stappen[2].geldig.versie, 1, "een concept geldt nog niet");
+    const v = await verzoek("POST", `/specificaties/${c.body.id}/vaststellen`, kw);
+    assert.equal(v.status, 200, JSON.stringify(v.body));
+    assert.equal(v.body.status, "vastgesteld");
+    assert.equal(v.body.vastgesteld_door, "kwaliteit1");
+    sp = await lees();
+    assert.equal(sp.stappen[2].geldig.versie, 2);
+    assert.deepEqual(sp.stappen[2].eerder.map((x: any) => [x.versie, x.status]), [[1, "vervallen"]]);
+    assert.equal((await verzoek("PUT", `/specificaties/${c.body.id}`, kw, { regels: [] })).status, 409);
+    assert.equal((await verzoek("POST", `/specificaties/${c.body.id}/weggooien`, kw)).status, 422, "een vastgestelde versie blijft bewaard");
+    const c3 = await verzoek("POST", "/specificaties", kw, { product: "PRD-C", stap: "EK" });
+    assert.equal((await verzoek("POST", `/specificaties/${c3.body.id}/weggooien`, kw)).status, 204);
+    assert.equal((await lees()).stappen[2].concept, null);
   });
 });
 

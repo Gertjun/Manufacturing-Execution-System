@@ -99,7 +99,14 @@ const HULP: Partial<Record<Rol, Hulp>> = {
           "Bovenaan Stappen staat \"Wacht op Kwaliteit\". Druk op Meten, vul de metingen in en kies dan:",
           "Vrijgeven: kan pas als alle verplichte metingen er zijn; daarna gaat de batch of het lot verder.",
           "Herbewerken: kies naar welke stap hij terug moet, met een reden. Afkeuren: met een reden; een batch krijgt NOK, een lot wordt geblokkeerd.",
+          "Keuringen (TK, EK): kies de tegel onder Keuringen en dan Keuring starten; meet en beslis daarna zoals hierboven.",
           "Dit werkt ook zonder verbinding: het gaat later mee.",
+        ],
+      },
+      {
+        kop: "Specificaties",
+        punten: [
+          "Per product en keuring waar het product aan moet voldoen. Nieuwe versie: pas de grenzen aan en kies Vaststellen; de vorige vervalt, eerdere metingen houden hun versie.",
         ],
       },
       {

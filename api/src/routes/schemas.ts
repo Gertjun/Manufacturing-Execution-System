@@ -18,7 +18,8 @@ export const Fout = Type.Object({ fout: Type.String() });
 
 export const BatchNummer = Type.String({ pattern: "^B-[0-9]{4}-[0-9]{4}$", examples: ["B-2026-0161"] });
 export const LotNummer = Type.String({ pattern: "^L-[0-9]{4}-[0-9]{4}$", examples: ["L-2026-0042"] });
-export const StapCode = Type.String({ pattern: "^PS[0-9]+$", examples: ["PS3"] });
+/** Processtap PS3, tussenkeuring TK1 of eindkeuring EK (keuringsstappen sinds 0.51.0, #80). */
+export const StapCode = Type.String({ pattern: "^(PS[0-9]+|TK[0-9]+|EK[0-9]*)$", examples: ["PS3", "TK1", "EK"] });
 
 export const RegistratieKort = Type.Object({
   id: Type.String({ format: "uuid" }),

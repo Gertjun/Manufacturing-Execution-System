@@ -11,7 +11,7 @@ interface Veld {
   per_product?: { product: string; grens_min: number | null; grens_max: number | null }[];
 }
 interface Grondstof { code: string; naam: string; eenheid: string | null; verplicht: boolean }
-interface Stap { code: string; naam: string; niveau: "batch" | "lot"; is_lot_stap: boolean; velden: Veld[]; grondstoffen: Grondstof[] }
+interface Stap { code: string; naam: string; niveau: "batch" | "lot"; is_lot_stap: boolean; soort?: "proces" | "keuring"; velden: Veld[]; grondstoffen: Grondstof[] }
 interface Keuzes { pcs: { id: string; naam: string }[]; operators: { id: string; naam: string }[] }
 
 /** Velden die de operator invult; wat Kwaliteit meet komt niet op het papier van de vloer (D58). */
@@ -30,6 +30,8 @@ export async function nalevering() {
   let stappen: Stap[], keuzes: Keuzes;
   try {
     [stappen, keuzes] = await Promise.all([haal<Stap[]>("/config/stappen"), haal<Keuzes>("/nalevering/keuzes")]);
+    // Een keuring voer je niet na van papier; die doet Kwaliteit in het invoerscherm (#80).
+    stappen = stappen.filter((s) => s.soort !== "keuring");
   } catch (e) { return fout(e); }
   if (!actueel()) return;
 
@@ -206,7 +208,7 @@ function formulierVoor(s: Stap, datum: string): HTMLElement {
 export async function formulieren(gekozen?: string) {
   const actueel = vastHouden();
   let stappen: Stap[];
-  try { stappen = await haal<Stap[]>("/config/stappen"); } catch (e) { return fout(e); }
+  try { stappen = (await haal<Stap[]>("/config/stappen")).filter((s) => s.soort !== "keuring"); } catch (e) { return fout(e); }  // keuringen niet op papier (#80)
   if (!actueel()) return;
   const keuze = gekozen && stappen.some((s) => s.code === gekozen) ? gekozen : "alle";
   const sel = h("select", { id: "form-stap", onchange: (e: Event) => { location.hash = `#/nainvoeren/formulier/${(e.target as HTMLSelectElement).value}`; } },

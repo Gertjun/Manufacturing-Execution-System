@@ -30,6 +30,7 @@ const Stap = Type.Object({
   volgorde: Type.Integer(),
   niveau: Type.Union([Type.Literal("batch"), Type.Literal("lot")]),
   is_lot_stap: Type.Boolean(),
+  soort: Type.Union([Type.Literal("proces"), Type.Literal("keuring")], { description: "keuring = tussen- of eindkeuring: alleen Kwaliteit start, meet en beslist (#80)" }),
   velden: Type.Array(Veld),
   grondstoffen: Type.Array(
     Type.Object({ code: Type.String(), naam: Type.String(), eenheid: Type.Union([Type.Null(), Type.String()]), verplicht: Type.Boolean() }),
@@ -38,7 +39,7 @@ const Stap = Type.Object({
 });
 
 export const STAPPEN_SQL = `
-  SELECT s.code, s.naam, s.volgorde, s.niveau, s.is_lot_stap,
+  SELECT s.code, s.naam, s.volgorde, s.niveau, s.is_lot_stap, s.soort,
          coalesce(json_agg(json_build_object(
            'code', v.code, 'naam', v.naam, 'soort', v.soort, 'eenheid', v.eenheid,
            'grens_min', v.grens_min, 'grens_max', v.grens_max, 'tolerantie', v.tolerantie,

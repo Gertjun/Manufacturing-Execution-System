@@ -23,6 +23,20 @@ SELECT s.id, 'S' || s.volgorde || '.2', 'Gewicht', 'gewicht', 'kg',
        CASE WHEN s.niveau = 'batch' THEN 440 ELSE 1760 END, 2
 FROM processtap s;
 
+-- Keuringsstappen (sinds 0.51.0, #80): twee tussenkeuringen per batch en de eindkeuring per lot. Ze staan alleen
+-- in de route van PRD-C (de standaardroute heeft geen keuringsstappen). Alleen Kwaliteit meet erin.
+INSERT INTO processtap (code, naam, volgorde, niveau, soort) VALUES
+  ('TK1', 'Tussenkeuring 1', 19, 'batch', 'keuring'),
+  ('TK2', 'Tussenkeuring 2', 20, 'batch', 'keuring'),
+  ('EK',  'Eindkeuring',     21, 'lot',   'keuring');
+INSERT INTO veld (processtap_id, code, naam, soort, eenheid, volgnummer, gemeten_door, op_certificaat)
+SELECT s.id, x.code, x.naam, 'overig', x.eenheid, x.nr, 'kwaliteit', s.code = 'EK'
+  FROM (VALUES ('TK1', 'TK1.1', 'Vochtgehalte', '%', 1), ('TK1', 'TK1.2', 'Deeltjesgrootte', 'µm', 2),
+               ('TK2', 'TK2.1', 'Bulkdichtheid', 'g/l', 1),
+               ('EK', 'EK.1', 'Vochtgehalte', '%', 1), ('EK', 'EK.2', 'Deeltjesgrootte', 'µm', 2), ('EK', 'EK.3', 'Bulkdichtheid', 'g/l', 3))
+       x(stap, code, naam, eenheid, nr)
+  JOIN processtap s ON s.code = x.stap;
+
 -- Een paar extra velden om variatie te laten zien.
 INSERT INTO veld (processtap_id, code, naam, soort, eenheid, grens_min, grens_max, tolerantie, tolerantie_soort, volgnummer)
 SELECT id, 'S3.3', 'Druk', 'procesparameter', 'bar', 1, 8, 10, 'procent', 3 FROM processtap WHERE code = 'PS3';
@@ -44,12 +58,24 @@ INSERT INTO product (code, naam) VALUES
   ('PRD-B', 'Product B fijn'),
   ('PRD-C', 'Product C grof');
 
--- Fictieve routes (D55): PRD-A volgt de standaardroute (alle stappen); PRD-B slaat PS12 en PS13 over;
--- PRD-C slaat PS6, PS14 en PS17 over en doet PS11 vóór PS10.
+-- Fictieve routes (D55): PRD-A volgt de standaardroute (alle processtappen); PRD-B slaat PS12 en PS13 over;
+-- PRD-C slaat PS6, PS14 en PS17 over, doet PS11 vóór PS10 en heeft keuringsstappen TK1, TK2 en EK (#80).
 SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS6','PS7','PS8','PS9','PS10','PS11','PS14','PS15','PS16','PS17','PS18'])
   FROM product WHERE code = 'PRD-B';
-SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS7','PS8','PS9','PS11','PS10','PS12','PS13','PS15','PS16','PS18'])
+SELECT zet_route(id, ARRAY['PS1','PS2','PS3','TK1','PS4','PS5','PS7','PS8','PS9','TK2','PS11','PS10','PS12','PS13','PS15','PS16','PS18','EK'])
   FROM product WHERE code = 'PRD-C';
+
+-- Fictieve specificaties voor PRD-C (#80, D73): versie 1, vastgesteld (in de seed zonder account).
+INSERT INTO specificatie (product_id, processtap_id, versie, opmerking)
+SELECT p.id, s.id, 1, 'Fictieve specificatie'
+  FROM product p, processtap s WHERE p.code = 'PRD-C' AND s.soort = 'keuring';
+INSERT INTO specificatie_regel (specificatie_id, veld_id, grens_min, grens_max)
+SELECT x.id, v.id, r.min, r.max
+  FROM (VALUES ('TK1.1', NULL, 4.0), ('TK1.2', 150, 350), ('TK2.1', 560, 680),
+               ('EK.1', NULL, 3.8), ('EK.2', 200, 300), ('EK.3', 580, 660)) r(veld, min, max)
+  JOIN veld v ON v.code = r.veld
+  JOIN specificatie x ON x.processtap_id = v.processtap_id AND x.product_id = (SELECT id FROM product WHERE code = 'PRD-C');
+UPDATE specificatie SET status = 'vastgesteld', vastgesteld_op = now() WHERE status = 'concept';
 
 -- Fictieve grenzen per product (D55): PRD-B fijn heeft een krappere temperatuur in PS5 en mag minder vocht
 -- bevatten; PRD-C grof is zwaarder na PS9. De andere velden en producten volgen de grenzen van het veld.

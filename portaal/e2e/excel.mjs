@@ -67,7 +67,7 @@ try {
   check("Bestandsnaam met de kop en de datum", /^Stilstand per stap \d{4}-\d{2}-\d{2}\.xlsx$/.test(dl.suggestedFilename()), dl.suggestedFilename());
   const x = leesXlsx(pad);
   check("Blad heet zoals de tabel", x.blad === "Stilstand per stap", x.blad);
-  check("Koppen en 18 stappen", x.rijen[0][0] === "Stap" && x.rijen.length === 19, JSON.stringify(x.rijen[0]));
+  check("Koppen en 21 stappen (met keuringen)", x.rijen[0][0] === "Stap" && x.rijen.length === 22, JSON.stringify(x.rijen[0]));
   check("Aantallen zijn getallen in Excel", typeof x.rijen[1][1] === "number", JSON.stringify(x.rijen[1]));
   let heeftLibre = true;
   try { execFileSync("soffice", ["--version"], { timeout: 30000 }); } catch { heeftLibre = false; }

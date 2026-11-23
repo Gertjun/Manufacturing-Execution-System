@@ -55,12 +55,14 @@ function keuringLijst(lijst: KeuringRij[], metStap: boolean) {
 export async function stappenScherm() {
   const actueel = vastHouden();
   toon(h("h1", {}, "Kies een stap"), laden());
-  const [{ data: alle }, overzicht, l, overdracht, teKeuren] = await Promise.all([
+  const [{ data: alle }, overzicht, l, overdracht, teKeuren, allesOveral] = await Promise.all([
     haal<Stap[]>("/config/stappen?voorDezePc=true"),
     haal<Overzicht[]>("/werkvoorraad").catch(() => ({ data: [] as Overzicht[], vers: false })),
     lokaleAanpassingen(),
     vorigeOverdrachtBlok(),
     sessie.rol === "kwaliteit" ? keuringen() : Promise.resolve([] as KeuringRij[]),
+    // Keuringen doet het lab, welke stappen er ook bij deze pc horen (#80).
+    sessie.rol === "kwaliteit" ? stappen().catch(() => [] as Stap[]) : Promise.resolve([] as Stap[]),
   ]);
   if (!actueel()) return;
 
@@ -72,7 +74,7 @@ export async function stappenScherm() {
     return h(
       "a",
       { class: open > 0 ? "tegel bezig" : wachtend > 0 ? "tegel" : "tegel leeg", href: `#/stap/${s.code}` },
-      h("span", { class: "tegel-nr" }, s.volgorde),
+      h("span", { class: "tegel-nr" }, s.soort === "keuring" ? s.code : s.volgorde),
       h("span", { class: "tegel-naam" }, s.naam),
       h(
         "span",
@@ -85,8 +87,12 @@ export async function stappenScherm() {
     );
   };
 
-  const batch = alle.filter((s) => s.niveau === "batch");
-  const lot = alle.filter((s) => s.niveau === "lot");
+  // Keuringsstappen (#80) doet Kwaliteit; op de vloer staan ze niet tussen de stappen.
+  const isKwaliteit = sessie.rol === "kwaliteit";
+  const keuring = isKwaliteit ? allesOveral.filter((s) => s.soort === "keuring") : [];
+  const proces = alle.filter((s) => s.soort !== "keuring");
+  const batch = proces.filter((s) => s.niveau === "batch");
+  const lot = proces.filter((s) => s.niveau === "lot");
   toon(
     h("div", { class: "kop" }, h("h1", {}, "Kies een stap"), overzicht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
     overdracht,
@@ -95,6 +101,8 @@ export async function stappenScherm() {
       ? h("section", { class: "keuring-blok" }, h("h2", {}, `Wacht op Kwaliteit (${teKeuren.length})`),
           teKeuren.length ? keuringLijst(teKeuren, true) : h("p", { class: "leeg" }, "Er wacht niets op een meting van Kwaliteit."))
       : null,
+    keuring.length ? h("h2", {}, "Keuringen") : null,
+    keuring.length ? h("div", { class: "route keuring" }, keuring.map(tegel)) : null,
     batch.length ? h("h2", {}, "Per batch") : null,
     batch.length ? h("div", { class: "route" }, batch.map(tegel)) : null,
     lot.length ? h("h2", {}, "Per lot") : null,
@@ -244,12 +252,15 @@ export async function stapScherm(code: string) {
   const eersteBatchStap = (await stappen()).filter((x) => x.niveau === "batch")[0]?.code;
   if (!actueel()) return;
 
-  const opVloer = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const isKeuring = s.soort === "keuring";
+  const opVloer = (sessie.rol === "operator" || sessie.rol === "ploegleider") && !isKeuring;
   const opnieuw = () => void stapScherm(code);
   const kop = h(
     "div",
     { class: "kop" },
-    h("div", {}, h("h1", {}, s.naam), h("p", { class: "sub" }, s.is_lot_stap ? "Hier worden 4 batches één lot." : s.niveau === "batch" ? "Per batch" : "Per lot")),
+    h("div", {}, h("h1", {}, s.naam), h("p", { class: "sub" },
+      isKeuring ? `Keuring door Kwaliteit, per ${s.niveau === "batch" ? "batch" : "lot"}. Start de keuring, meet en geef vrij, laat herbewerken of keur af.`
+        : s.is_lot_stap ? "Hier worden 4 batches één lot." : s.niveau === "batch" ? "Per batch" : "Per lot")),
     h("div", { class: "kop-rechts" },
       vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand"),
       opVloer && !stil ? h("button", { class: "knop", onclick: () => stilstandMelden(s, opnieuw) }, "Stilstand melden") : null),
@@ -260,8 +271,8 @@ export async function stapScherm(code: string) {
     w.open.length ? h("ul", { class: "lijst" }, w.open.map(regRij)) : h("p", { class: "leeg" }, "Er staat niets open in deze stap."),
   ];
 
-  // Alleen operators en ploegleiders voeren in; andere rollen kijken mee.
-  const kanInvoeren = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  // Alleen operators en ploegleiders voeren in; andere rollen kijken mee. Een keuringsstap (#80) doet alleen Kwaliteit.
+  const kanInvoeren = isKeuring ? sessie.rol === "kwaliteit" : sessie.rol === "operator" || sessie.rol === "ploegleider";
   let klaar: Node[];
   if (s.is_lot_stap && kanInvoeren) klaar = lotSamenstellen(s, w, voorstellen);
   else {
@@ -290,7 +301,7 @@ export async function stapScherm(code: string) {
                       location.hash = `#/reg/${reg.id}`;
                     },
                   },
-                  "Start",
+                  isKeuring ? "Keuring starten" : "Start",
                 ),
               ),
             ),

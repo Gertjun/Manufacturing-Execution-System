@@ -5,6 +5,21 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.51.0 — 23 november 2026 · #80
+- **Keuringsstappen:** tussenkeuringen (TK1, TK2, …) en de eindkeuring (EK) zijn eigen stappen in de route van een product, bijvoorbeeld PS1 – PS2 – PS3 – TK1 – PS4 – … – EK (D73).
+  - Alleen Kwaliteit start een keuring, op de lab-pc. In het invoerscherm staan de keuringen voor Kwaliteit als eigen groep "Keuringen"; operators zien ze niet.
+  - Met "Keuring starten" is de stap meteen klaar voor de metingen: daarna vrijgeven, herbewerken of afkeuren, zoals al bij metingen van Kwaliteit (D58). Pas na vrijgeven gaat de batch of het lot verder.
+  - Kwaliteitsvelden in een gewone processtap (bijvoorbeeld een temperatuur) blijven gewoon bestaan.
+  - Keuringsstappen horen bij een product: de standaardroute heeft ze niet. Bij Planning → Producten → Route wijzigen staan ze onder "Niet in de route", om toe te voegen.
+  - Een keuring voer je niet na van papier en heeft geen leeg formulier.
+- **Specificaties** (nieuw in het portaal Kwaliteit): per product en keuringsstap waar het product aan moet voldoen, met versies.
+  - Nieuwe versie: begint als concept met de grenzen van de geldige versie. Pas de grenzen aan en kies Vaststellen; de vorige versie vervalt.
+  - Elke meting in een keuring bewaart de versie waaraan hij getoetst is. Het certificaat toont "Getoetst aan: specificatie … versie …", met de grenzen van die versie.
+  - Alleen Kwaliteit en de beheerder beheren specificaties; een vastgestelde versie verandert nooit meer.
+- Fictieve inrichting: TK1, TK2 en EK in de route van PRD-C, met een vastgestelde specificatie (versie 1).
+- Lijsten met alle stappen (wandscherm, werkvoorraad, dagoverzicht) tonen nu 21 stappen: 18 processtappen en 3 keuringen.
+- **Let op:** werk de lab-pc bij voordat er keuringsstappen in een echte route komen. Een ouder invoerscherm kent ze niet. Andere pc's merken er niets van.
+
 ## 0.50.0 — 23 november 2026 · #83
 - Nieuw: **wandscherm Kwaliteit**, voor een tv in het lab (`#/wandscherm/kwaliteit`, of de link "Kwaliteit" onderin het wandscherm).
   - **Wacht op Kwaliteit:** stappen die op een meting of besluit van Kwaliteit wachten, en batches in beoordeling, oudste eerst. Met hoe lang al, hoeveel er nog te meten is en de reden van de beoordeling. Een gele rand als het langer duurt dan bij 90 % van de keuringen in de laatste 30 dagen.

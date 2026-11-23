@@ -54,7 +54,7 @@ try {
   await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
   check("Schermaccount komt direct op het wandscherm", page.url().includes("#/wandscherm"));
   check("Geen menu op het wandscherm", !(await page.locator("#menu").isVisible()));
-  check("18 stappen", (await page.locator(".wand-stap").count()) === 18);
+  check("21 stappen (18 processtappen en 3 keuringen)", (await page.locator(".wand-stap").count()) === 21);
   const bezig = Number((await q("SELECT count(*) FROM fabriek.stapregistratie WHERE status = 'open'"))[0].count);
   check("Alles wat bezig is staat erop", (await page.locator(".wr-bezig").count()) === Math.min(bezig, 999), `${bezig}`);
   check("Geen links naar andere hallen of portalen voor het schermaccount", (await page.locator(".wand-hallen").count()) === 0);
@@ -82,7 +82,7 @@ try {
   await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
   await page.goto(`${BASIS}/portaal/#/wandscherm`);
   await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
-  check("Met /alle vergeet de tv de keuze weer", (await page.locator(".wand-stap").count()) === 18);
+  check("Met /alle vergeet de tv de keuze weer", (await page.locator(".wand-stap").count()) === 21);
 
   console.log("\nPer hal");
   await q(`INSERT INTO fabriek.pc_stap (pc_id, processtap_id)
@@ -134,7 +134,7 @@ try {
   await page.locator(".wand-stap").first().waitFor();
   await page.route("**/wandscherm*", (r) => r.abort());
   await page.locator(".wand-storing").waitFor({ timeout: 40000 });
-  check("Melding 'Geen verbinding', de laatste stand blijft staan", (await page.locator(".wand-stap").count()) === 18);
+  check("Melding 'Geen verbinding', de laatste stand blijft staan", (await page.locator(".wand-stap").count()) === 21);
   await shot("03-geen-verbinding");
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);

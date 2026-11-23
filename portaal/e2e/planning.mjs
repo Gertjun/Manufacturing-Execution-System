@@ -220,7 +220,7 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   console.log("\nProef: Dagoverzicht en Batchroute");
   await page.getByRole("link", { name: "Dagoverzicht (proef)" }).click();
   await page.locator(".dagoverzicht").waitFor();
-  check("Dagoverzicht toont alle 18 stappen", (await page.locator(".dagoverzicht tbody tr").count()) === 18);
+  check("Dagoverzicht toont alle 21 stappen", (await page.locator(".dagoverzicht tbody tr").count()) === 21);
   check("Dagoverzicht telt de waarschuwing", (await page.locator("main p", { hasText: "niet op tijd" }).count()) >= 1);
   await shot("06-dagoverzicht");
   await page.getByRole("link", { name: "Batchroute (proef)" }).click();
@@ -264,11 +264,14 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   console.log("\nRoute per product (D55)");
   const routeTekst = async (code) => (await page.locator("tr", { hasText: code }).locator(".product-route").innerText()).trim();
   check("Producten: route als samenvatting",
-    (await routeTekst("PRD-A")) === "Alle stappen" && (await routeTekst("PRD-C")) === "15 stappen, zonder PS6, PS14 en PS17, eigen volgorde",
+    (await routeTekst("PRD-A")) === "Alle stappen" && (await routeTekst("PRD-C")) === "15 stappen, zonder PS6, PS14 en PS17, eigen volgorde, met keuringen TK1, TK2 en EK",
     `${await routeTekst("PRD-A")} | ${await routeTekst("PRD-C")}`);
   await page.locator("tr", { hasText: "PRD-D" }).getByRole("link", { name: "Route wijzigen" }).click();
   await page.getByRole("heading", { name: "Route van PRD-D" }).waitFor();
-  check("Nieuw product: alle stappen", (await page.locator(".routelijst-buiten").count()) === 0 && (await page.getByRole("button", { name: "Route opslaan" }).isDisabled()));
+  await page.locator(".routelijst-buiten").waitFor();
+  check("Nieuw product: alle processtappen; alleen de keuringen staan erbuiten (#80)",
+    (await page.locator(".routelijst-buiten .route-stap strong").allInnerTexts()).join(",") === "TK1,TK2,EK" && (await page.getByRole("button", { name: "Route opslaan" }).isDisabled()),
+    (await page.locator(".routelijst-buiten .route-stap strong").allInnerTexts()).join(","));
   await page.getByRole("button", { name: "PS6 weghalen uit de route" }).click();
   check("Na weghalen staat de focus op Toevoegen van die stap",
     await page.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "PS6 toevoegen aan de route");

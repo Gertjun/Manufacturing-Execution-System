@@ -29,7 +29,7 @@ def main():
     con = psycopg.connect(DSN, autocommit=True)
     con.execute("SET search_path = fabriek")
     # De meeste regels hieronder zijn van vóór de keuring (#64): daar meet de operator alles. De keuring zelf staat onderaan.
-    con.execute("UPDATE veld SET gemeten_door = 'productie'")
+    con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE processtap_id IN (SELECT id FROM processtap WHERE soort = 'proces')")
 
     def one(sql, p=()):
         return con.execute(sql, p).fetchone()
@@ -467,10 +467,13 @@ def main():
     def routecodes(p):
         return [r[0] for r in con.execute(
             "SELECT s.code FROM route(%s) r JOIN processtap s ON s.id = r.processtap_id ORDER BY r.plek", (p,))]
-    check("Zonder product: alle 18 stappen", routecodes(None) == [f"PS{i}" for i in range(1, 19)])
+    check("Zonder product: alle 18 processtappen, geen keuringsstappen (#80)", routecodes(None) == [f"PS{i}" for i in range(1, 19)])
     check("PRD-A zonder eigen route volgt de standaardroute", routecodes(prd["PRD-A"]) == routecodes(None))
     route_c = ["PS1", "PS2", "PS3", "PS4", "PS5", "PS7", "PS8", "PS9", "PS11", "PS10", "PS12", "PS13", "PS15", "PS16", "PS18"]
-    check("PRD-C: eigen volgorde (PS11 vóór PS10), zonder PS6, PS14 en PS17", routecodes(prd["PRD-C"]) == route_c, routecodes(prd["PRD-C"]))
+    route_c_keuring = route_c[:3] + ["TK1"] + route_c[3:8] + ["TK2"] + route_c[8:] + ["EK"]
+    check("PRD-C: eigen volgorde (PS11 vóór PS10), zonder PS6, PS14 en PS17, met keuringsstappen", routecodes(prd["PRD-C"]) == route_c_keuring, routecodes(prd["PRD-C"]))
+    # De regels hieronder zijn van vóór de keuringsstappen; die komen onderaan (#80).
+    con.execute("SELECT zet_route(%s, %s)", (prd["PRD-C"], route_c))
     faalt("Route zonder lotstap", "SELECT zet_route(%s, ARRAY['PS1','PS2'])", (prd["PRD-A"],), "lotstap PS16")
     faalt("Route met de lotstap vóór een batchstap", "SELECT zet_route(%s, ARRAY['PS1','PS16','PS2'])", (prd["PRD-A"],), "eerst de batchstappen")
     faalt("Route met een lotstap vóór de lotstap", "SELECT zet_route(%s, ARRAY['PS1','PS17','PS16'])", (prd["PRD-A"],), "eerst de batchstappen")
@@ -777,7 +780,7 @@ def main():
 
     print("\nNainvoeren na papier (#75)")
     import json
-    con.execute("UPDATE veld SET gemeten_door = 'productie'")   # de keuringstest hierboven zette velden op Kwaliteit
+    con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE processtap_id IN (SELECT id FROM processtap WHERE soort = 'proces')")   # de keuringstest hierboven zette velden op Kwaliteit
     pl = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
     opa = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.a'")
     bn = nieuwe_batch("B-2026-0974")
@@ -850,6 +853,61 @@ def main():
     con.execute("SELECT handel_terugmelding_af(%s, %s, ' #80 ')", (mid, bh))
     check("Afgehandeld met notitie", con.execute("SELECT status = 'afgehandeld' AND notitie = '#80' AND afgehandeld_door = %s FROM terugmelding WHERE id = %s", (bh, mid)).fetchone()[0])
     faalt("Niet twee keer afhandelen", "SELECT handel_terugmelding_af(%s, %s, NULL)", (mid, bh), "al afgehandeld")
+
+    print("\nKeuringsstappen en specificaties (#80, D73)")
+    con.execute("SELECT zet_route(%s, %s)", (prd["PRD-C"], route_c_keuring))
+    kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    tk = batch_met("B-2026-0980", prd["PRD-C"])
+    for code in ["PS1", "PS2", "PS3"]:
+        doe(tk, code)
+    check("Werkvoorraad TK1 toont de batch na PS3", "B-2026-0980" in voorraad("TK1"))
+    faalt("Een operator start geen keuringsstap", "SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, op), "is een keuring")
+    faalt("Nainvoeren van een keuring kan niet", "SELECT lever_stap_na('TK1', 'B-2026-0980', NULL, %s, %s, now() - interval '2 hours', now() - interval '1 hour', 'papier', %s, '[]', '[]')",
+          (pc, kw_op, pl), "is een keuring")
+    rtk = val("SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, kw_op))
+    check("Kwaliteit start TK1: meteen afgerond, keuring open",
+          one("SELECT r.status, k.status FROM stapregistratie r JOIN keuring k ON k.stapregistratie_id = r.id WHERE r.id = %s", (rtk,)) == ("afgerond", "open"))
+    faalt("PS4 wacht op de keuring", "SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op), "wacht op Kwaliteit")
+    veld_tk = {c: i for c, i in con.execute("SELECT code, id FROM veld WHERE code LIKE 'TK%%' OR code LIKE 'EK%%'")}
+    spec_tk1 = val("SELECT id FROM specificatie WHERE processtap_id = %s AND status = 'vastgesteld'", (sid["TK1"],))
+    w = one("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 4.4, %s) RETURNING markering, grens_max::float, specificatie_id",
+            (rtk, veld_tk["TK1.1"], kw_op))
+    check("Meting getoetst aan de specificatie: max 4,0, buiten grens, versie bewaard", w == ("buiten_grens", 4.0, spec_tk1), str(w))
+    faalt("Een operator meet niet in een keuringsstap", "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 250, %s)",
+          (rtk, veld_tk["TK1.2"], op), "meet Kwaliteit")
+    faalt("Een veld van Productie in een keuringsstap kan niet",
+          "INSERT INTO veld (processtap_id, code, naam, soort, volgnummer, gemeten_door) VALUES (%s, 'TK1.9', 'Test', 'overig', 9, 'productie')", (sid["TK1"],), "meet Kwaliteit")
+    faalt("Een processtap met velden van Productie wordt geen keuringsstap", "UPDATE processtap SET soort = 'keuring' WHERE code = 'PS4'", (), "velden van Productie")
+    faalt("De lotstap wordt geen keuringsstap", "UPDATE processtap SET soort = 'keuring' WHERE code = 'PS16'", (), "")
+    faalt("Een specificatie hoort bij een keuringsstap", "INSERT INTO specificatie (product_id, processtap_id, versie) VALUES (%s, %s, 1)", (prd["PRD-C"], sid["PS3"]), "keuringsstap")
+    faalt("Een vastgestelde specificatie verandert niet", "UPDATE specificatie_regel SET grens_max = 5 WHERE specificatie_id = %s", (spec_tk1,), "verandert niet")
+    faalt("Een vastgestelde specificatie gaat niet weg", "DELETE FROM specificatie WHERE id = %s", (spec_tk1,), "Alleen een concept")
+    faalt("Een operator maakt geen specificatie", "SELECT nieuwe_specificatie(%s, %s, %s)", (prd["PRD-C"], sid["TK1"], acc_a), "Alleen Kwaliteit")
+    faalt("Geen specificatie voor een keuringsstap buiten de route", "SELECT nieuwe_specificatie(%s, %s, %s)", (prd["PRD-A"], sid["TK1"], kw), "hoort niet bij de route")
+    v2 = val("SELECT nieuwe_specificatie(%s, %s, %s)", (prd["PRD-C"], sid["TK1"], kw))
+    check("Nieuwe versie: concept 2 met de regels van versie 1",
+          one("SELECT versie, status FROM specificatie WHERE id = %s", (v2,)) == (2, "concept")
+          and val("SELECT count(*) FROM specificatie_regel WHERE specificatie_id = %s", (v2,)) == 2)
+    check("Nog een keer: hetzelfde concept", val("SELECT nieuwe_specificatie(%s, %s, %s)", (prd["PRD-C"], sid["TK1"], kw)) == v2)
+    con.execute("UPDATE specificatie_regel SET grens_max = 4.5 WHERE specificatie_id = %s AND veld_id = %s", (v2, veld_tk["TK1.1"]))
+    faalt("Een veld van een andere stap in de specificatie kan niet", "INSERT INTO specificatie_regel (specificatie_id, veld_id, grens_max) VALUES (%s, %s, 1)", (v2, veld_tk["EK.1"]), "hoort niet bij")
+    faalt("Een regel zonder minimum en maximum kan niet", "INSERT INTO specificatie_regel (specificatie_id, veld_id) VALUES (%s, %s)", (v2, veld_tk["TK1.2"]), "check")
+    check("Concept geldt nog niet", val("SELECT grens_max::float FROM grenzen_van(%s, %s)", (veld_tk["TK1.1"], prd["PRD-C"])) == 4.0)
+    con.execute("SELECT stel_specificatie_vast(%s, %s)", (v2, kw))
+    check("Vastgesteld: versie 2 geldt, versie 1 vervallen",
+          val("SELECT grens_max::float FROM grenzen_van(%s, %s)", (veld_tk["TK1.1"], prd["PRD-C"])) == 4.5
+          and val("SELECT status FROM specificatie WHERE id = %s", (spec_tk1,)) == "vervallen")
+    check("De eerdere meting houdt de grens van versie 1", val("SELECT grens_max::float FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rtk, veld_tk["TK1.1"])) == 4.0)
+    faalt("Een vastgesteld concept nog eens vaststellen kan niet", "SELECT stel_specificatie_vast(%s, %s)", (v2, kw), "Alleen een concept")
+    v3 = val("SELECT nieuwe_specificatie(%s, %s, %s)", (prd["PRD-C"], sid["TK1"], kw))
+    con.execute("DELETE FROM specificatie WHERE id = %s", (v3,))
+    check("Een concept weggooien kan, met zijn regels", val("SELECT count(*) FROM specificatie WHERE id = %s", (v3,)) == 0
+          and val("SELECT count(*) FROM specificatie_regel WHERE specificatie_id = %s", (v3,)) == 0)
+    check("Specificaties staan in het logboek", val("SELECT count(*) FROM config_log WHERE tabel = 'specificatie'") >= 3)
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 250, %s)", (rtk, veld_tk["TK1.2"], kw_op))
+    con.execute("SELECT beslis_keuring((SELECT id FROM keuring WHERE stapregistratie_id = %s), 'vrijgegeven', NULL, %s)", (rtk, kw))
+    r4 = val("SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op))
+    check("Na de vrijgave gaat de batch verder met PS4", r4 is not None)
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

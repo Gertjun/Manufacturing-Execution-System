@@ -32,6 +32,9 @@ const Inhoud = Type.Object({
     voldoet: Type.Union([Type.Null(), Type.Boolean()], { description: "null = geen meting" }),
   })),
   grondstoffen: Type.Array(Type.Object({ grondstof: Type.String(), naam: Type.String(), partijen: Type.Array(Type.String()) })),
+  specificaties: Type.Optional(Type.Array(Type.Object({
+    stap: Type.String(), stapnaam: Type.String(), versie: Type.Integer(), vastgesteld_op: Type.Union([Type.Null(), Type.String({ format: "date-time" })]),
+  }), { description: "Specificaties waaraan de keuringen van dit lot en zijn batches zijn getoetst (#80); ontbreekt bij certificaten van vóór 0.51.0" })),
   voldoet: Type.Boolean({ description: "Alle kenmerken gemeten en binnen de specificatie, en geen batch afgekeurd" }),
 });
 const Uitgegeven = Type.Object({ nummer: Type.Integer(), door: Type.String(), uitgegeven_op: Type.String({ format: "date-time" }) });
@@ -54,12 +57,16 @@ async function maakInhoud(db: Db, lotnummer: string) {
   const regels = await lees<{ veld: string; naam: string; stap: string; niveau: string; eenheid: string | null; decimalen: number | null; spec_min: number | null; spec_max: number | null; nummer: string | null; waarde: number | null; markering: string | null }>(
     db,
     // Alleen kenmerken van stappen in de route van het product, met de grenzen van dat product (D55).
-    `SELECT v.code AS veld, v.naam, s.code AS stap, s.niveau, v.eenheid, v.decimalen, g.grens_min::float AS spec_min, g.grens_max::float AS spec_max,
+    // Een meting die aan een specificatie is getoetst (#80), houdt de grenzen van die versie.
+    `SELECT v.code AS veld, v.naam, s.code AS stap, s.niveau, v.eenheid, v.decimalen,
+            CASE WHEN m.specificatie_id IS NOT NULL THEN m.grens_min ELSE g.grens_min END::float AS spec_min,
+            CASE WHEN m.specificatie_id IS NOT NULL THEN m.grens_max ELSE g.grens_max END::float AS spec_max,
             m.nummer, m.gemeten::float AS waarde, m.markering
        FROM veld v JOIN processtap s ON s.id = v.processtap_id
        CROSS JOIN LATERAL grenzen_van(v.id, lot_product($1)) g
        LEFT JOIN LATERAL (
-         SELECT DISTINCT ON (coalesce(r.batch_id, r.lot_id)) coalesce(b.batchnummer, l.lotnummer) AS nummer, w.gemeten, w.markering
+         SELECT DISTINCT ON (coalesce(r.batch_id, r.lot_id)) coalesce(b.batchnummer, l.lotnummer) AS nummer, w.gemeten, w.markering,
+                w.specificatie_id, w.grens_min, w.grens_max
            FROM stapregistratie r
            JOIN waarde_actueel w ON w.stapregistratie_id = r.id AND w.veld_id = v.id
            LEFT JOIN batch b ON b.id = r.batch_id
@@ -67,7 +74,8 @@ async function maakInhoud(db: Db, lotnummer: string) {
           WHERE r.status = 'afgerond' AND (r.lot_id = $1 OR b.lot_id = $1)
           ORDER BY coalesce(r.batch_id, r.lot_id), r.poging DESC, r.afgerond_op DESC
        ) m ON true
-      WHERE v.op_certificaat AND v.actief AND (lot_product($1) IS NULL OR in_route(lot_product($1), s.id))
+      -- Zonder product: de standaardroute (alle processtappen, geen keuringsstappen, #80).
+      WHERE v.op_certificaat AND v.actief AND in_route(lot_product($1), s.id)
       ORDER BY s.volgorde, v.volgnummer, m.nummer`,
     [lot.id],
   );
@@ -100,6 +108,15 @@ async function maakInhoud(db: Db, lotnummer: string) {
       GROUP BY g.code, g.naam ORDER BY g.code`,
     [lot.id],
   );
+  const specificaties = await lees(
+    db,
+    `SELECT DISTINCT s.code AS stap, s.naam AS stapnaam, x.versie, x.vastgesteld_op, s.volgorde
+       FROM waarde_actueel w JOIN specificatie x ON x.id = w.specificatie_id JOIN processtap s ON s.id = x.processtap_id
+       JOIN stapregistratie r ON r.id = w.stapregistratie_id LEFT JOIN batch b ON b.id = r.batch_id
+      WHERE r.lot_id = $1 OR b.lot_id = $1
+      ORDER BY s.volgorde, x.versie`,
+    [lot.id],
+  );
   const voldoet = !lot.afgekeurd && kenmerken.every((k) => (k as { voldoet: boolean | null }).voldoet === true);
   return {
     lot_id: lot.id,
@@ -116,6 +133,8 @@ async function maakInhoud(db: Db, lotnummer: string) {
       },
       kenmerken,
       grondstoffen,
+      specificaties: (specificaties as { stap: string; stapnaam: string; versie: number; vastgesteld_op: Date | null }[]).map((x) => ({
+        stap: x.stap, stapnaam: x.stapnaam, versie: x.versie, vastgesteld_op: x.vastgesteld_op ? new Date(x.vastgesteld_op).toISOString() : null })),
       voldoet,
     },
   };

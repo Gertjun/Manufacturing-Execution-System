@@ -84,8 +84,10 @@ try {
       AND fabriek.in_route((SELECT id FROM fabriek.product WHERE code = 'PRD-C'), v.processtap_id)`);
   await page.goto(`${BASIS}/portaal/#/kwaliteit/certificaat/${lotC.lotnummer}`);
   await page.getByRole("heading", { name: `Certificaat ${lotC.lotnummer} (concept)` }).waitFor();
-  check(`PRD-C: alleen de ${nC} kenmerken uit zijn route, en ze voldoen allemaal`, nC === 4 && (await page.locator(".cert-tabel tbody tr").count()) === nC
+  // 4 kenmerken uit de processtappen plus de 3 van de eindkeuring (#80).
+  check(`PRD-C: alleen de ${nC} kenmerken uit zijn route, en ze voldoen allemaal`, nC === 7 && (await page.locator(".cert-tabel tbody tr").count()) === nC
     && (await page.locator(".cert-tabel td", { hasText: "✓ Ja" }).count()) === nC);
+  check("PRD-C: getoetst aan de specificaties, met versie", (await page.locator(".certificaat").innerText()).includes("specificatie Eindkeuring versie 1"));
   check("PRD-C: geen PS17 op het certificaat", !(await page.locator(".cert-tabel").innerText()).includes("PS17"));
 
   console.log("\nLot dat niet gereed is");

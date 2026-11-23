@@ -84,3 +84,5 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 - Regels voor schermformaten (D64) altijd als `@media screen and (...)`. Een A4 is bij afdrukken ongeveer 800 px breed, dus zonder `screen` gelden de telefoon- en tabletregels ook op papier (de hulp paste toen niet meer op één A4).
 - Nieuw scherm in de portalen of het invoerscherm: zet de route erbij in `portaal/e2e/formaten.mjs`, zodat hij in zes formaten wordt getest.
 - Tijdlijn in `ROADMAP.md` (Mermaid): **geen dubbele punt in een taaknaam**. De eerste `:` scheidt naam en planning; een extra `:` breekt de hele grafiek en GitHub toont dan alleen code. `tests/test_roadmap.sh` vangt dit.
+- Een scherm toont zijn kop al tijdens het laden (`toon(kop(...), laden())`). Wacht in een schermtest daarom op de inhoud (een tegel, een rij, een lijst), niet alleen op de kop; anders telt de test een leeg scherm.
+- Keuringsstappen (TK, EK, D73) staan niet in de standaardroute en zijn voor operators verborgen. Een test die door een route van PRD-C loopt, moet ze als Kwaliteit doen of de route zonder keuringen zetten; lijsten met alle stappen tellen er 21.

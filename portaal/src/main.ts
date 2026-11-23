@@ -16,6 +16,7 @@ import { volgNummers } from "../../gedeeld/nummers";
 import { heeftMeldingen, meldingenScherm, meldingTeller, stopMeldingen } from "./meldingen";
 import { etikettenScherm } from "./etiketten";
 import { certificaat } from "./kwaliteit/certificaat";
+import { specificaties } from "./kwaliteit/specificaties";
 import { formulieren, nalevering } from "./nalevering";
 import { HULP_ROLLEN, hulpBlad, hulpVoor } from "../../gedeeld/hulp";
 import "../../gedeeld/hulp.css";
@@ -313,6 +314,7 @@ async function route() {
     case "afwijkingen": return kwaliteit.afwijkingen();
     case "trend": return kwaliteit.trendScherm(a);
     case "herbewerkingen": return kwaliteit.herbewerkingen();
+    case "specificaties": return specificaties(a);
     default: location.hash = `#/${p.id}`;
   }
 }

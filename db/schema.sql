@@ -68,7 +68,10 @@ CREATE TABLE processtap (
     niveau       text NOT NULL CHECK (niveau IN ('batch','lot')),
     is_lot_stap  boolean NOT NULL DEFAULT false,
     actief       boolean NOT NULL DEFAULT true,
-    CHECK (NOT is_lot_stap OR niveau = 'lot')
+    -- Keuringsstap (sinds 0.51.0, #80): tussenkeuring (TK) of eindkeuring (EK), alleen Kwaliteit meet en beslist.
+    soort        text NOT NULL DEFAULT 'proces' CHECK (soort IN ('proces','keuring')),
+    CHECK (NOT is_lot_stap OR niveau = 'lot'),
+    CONSTRAINT processtap_keuring_geen_lotstap CHECK (NOT (soort = 'keuring' AND is_lot_stap))
 );
 -- Precies één (actieve) lot-stap.
 CREATE UNIQUE INDEX processtap_een_lot_stap ON processtap (is_lot_stap) WHERE is_lot_stap AND actief;
@@ -122,7 +125,7 @@ DECLARE
     v_oud   jsonb;
     v_nieuw jsonb;
 BEGIN
-    IF TG_OP = 'DELETE' AND TG_TABLE_NAME NOT IN ('pc_stap', 'product_stap', 'veld_product', 'capaciteit_stap') THEN
+    IF TG_OP = 'DELETE' AND TG_TABLE_NAME NOT IN ('pc_stap', 'product_stap', 'veld_product', 'capaciteit_stap', 'specificatie', 'specificatie_regel') THEN
         RAISE EXCEPTION 'Configuratie wordt niet verwijderd; zet % op inactief', TG_TABLE_NAME;
     END IF;
     IF TG_OP <> 'INSERT' THEN v_oud := to_jsonb(OLD) - 'wachtwoord_hash'; END IF;
@@ -330,16 +333,174 @@ END $$;
 CREATE TRIGGER veld_product_controle BEFORE INSERT OR UPDATE ON veld_product
     FOR EACH ROW EXECUTE FUNCTION controleer_veld_product();
 
+-- Specificatie per product en keuringsstap (sinds 0.51.0, #80, D73): waar het product in een tussenkeuring (TK) of
+-- de eindkeuring (EK) aan moet voldoen, met een versie. Een nieuwe versie begint als concept en geldt pas na
+-- vaststellen; de vorige vervalt dan. Per product en stap hoogstens één concept en één geldige versie.
+CREATE TABLE specificatie (
+    id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id        uuid NOT NULL REFERENCES product(id),
+    processtap_id     uuid NOT NULL REFERENCES processtap(id),
+    versie            int  NOT NULL CHECK (versie > 0),
+    status            text NOT NULL DEFAULT 'concept' CHECK (status IN ('concept','vastgesteld','vervallen')),
+    opmerking         text CHECK (opmerking IS NULL OR length(opmerking) <= 500),
+    aangemaakt_door   uuid REFERENCES gebruiker(id),
+    aangemaakt_op     timestamptz NOT NULL DEFAULT now(),
+    vastgesteld_door  uuid REFERENCES gebruiker(id),
+    vastgesteld_op    timestamptz,
+    UNIQUE (product_id, processtap_id, versie),
+    CHECK ((status = 'concept') = (vastgesteld_op IS NULL))
+);
+CREATE UNIQUE INDEX specificatie_een_geldig ON specificatie (product_id, processtap_id) WHERE status = 'vastgesteld';
+CREATE UNIQUE INDEX specificatie_een_concept ON specificatie (product_id, processtap_id) WHERE status = 'concept';
+CREATE TRIGGER specificatie_log BEFORE INSERT OR UPDATE OR DELETE ON specificatie
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Per veld van de keuringsstap het minimum en/of maximum.
+CREATE TABLE specificatie_regel (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    specificatie_id  uuid NOT NULL REFERENCES specificatie(id) ON DELETE CASCADE,
+    veld_id          uuid NOT NULL REFERENCES veld(id),
+    grens_min        numeric,
+    grens_max        numeric,
+    UNIQUE (specificatie_id, veld_id),
+    CHECK (grens_min IS NOT NULL OR grens_max IS NOT NULL),
+    CHECK (grens_min IS NULL OR grens_max IS NULL OR grens_min <= grens_max)
+);
+CREATE TRIGGER specificatie_regel_log BEFORE INSERT OR UPDATE OR DELETE ON specificatie_regel
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Alleen voor een keuringsstap; product, stap en versie liggen vast; alleen concept → vastgesteld → vervallen;
+-- alleen een concept mag weg.
+CREATE FUNCTION bewaak_specificatie() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NOT EXISTS (SELECT 1 FROM processtap WHERE id = NEW.processtap_id AND soort = 'keuring') THEN
+            RAISE EXCEPTION 'Een specificatie hoort bij een keuringsstap';
+        END IF;
+        IF NEW.status <> 'concept' AND NEW.vastgesteld_op IS NULL THEN
+            RAISE EXCEPTION 'Een nieuwe specificatie begint als concept';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.status <> 'concept' THEN
+            RAISE EXCEPTION 'Alleen een concept kan weg; een vastgestelde specificatie blijft bewaard';
+        END IF;
+        RETURN OLD;
+    END IF;
+    IF (NEW.product_id, NEW.processtap_id, NEW.versie) IS DISTINCT FROM (OLD.product_id, OLD.processtap_id, OLD.versie) THEN
+        RAISE EXCEPTION 'Product, stap en versie van een specificatie liggen vast';
+    END IF;
+    IF NEW.status <> OLD.status AND NOT ((OLD.status = 'concept' AND NEW.status = 'vastgesteld')
+                                         OR (OLD.status = 'vastgesteld' AND NEW.status = 'vervallen')) THEN
+        RAISE EXCEPTION 'Een specificatie gaat van concept naar vastgesteld naar vervallen';
+    END IF;
+    IF OLD.status <> 'concept' AND (NEW.opmerking IS DISTINCT FROM OLD.opmerking OR NEW.vastgesteld_op IS DISTINCT FROM OLD.vastgesteld_op
+                                    OR NEW.vastgesteld_door IS DISTINCT FROM OLD.vastgesteld_door) THEN
+        RAISE EXCEPTION 'Een vastgestelde specificatie verandert niet; maak een nieuwe versie';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER specificatie_bewaak BEFORE INSERT OR UPDATE OR DELETE ON specificatie
+    FOR EACH ROW EXECUTE FUNCTION bewaak_specificatie();
+
+-- Regels alleen in een concept, en alleen voor velden van die keuringsstap.
+CREATE FUNCTION bewaak_specificatie_regel() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_spec specificatie%ROWTYPE;
+BEGIN
+    SELECT * INTO v_spec FROM specificatie WHERE id = CASE WHEN TG_OP = 'DELETE' THEN OLD.specificatie_id ELSE NEW.specificatie_id END;
+    IF NOT FOUND THEN  -- het concept zelf gaat weg (ON DELETE CASCADE)
+        RETURN OLD;
+    END IF;
+    IF v_spec.status <> 'concept' THEN
+        RAISE EXCEPTION 'Een vastgestelde specificatie verandert niet; maak een nieuwe versie';
+    END IF;
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    IF NOT EXISTS (SELECT 1 FROM veld WHERE id = NEW.veld_id AND processtap_id = v_spec.processtap_id) THEN
+        RAISE EXCEPTION 'Dit veld hoort niet bij de keuringsstap van de specificatie';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER specificatie_regel_bewaak BEFORE INSERT OR UPDATE OR DELETE ON specificatie_regel
+    FOR EACH ROW EXECUTE FUNCTION bewaak_specificatie_regel();
+
+-- Nieuwe versie als concept, met de regels van de geldige versie. Bestaat er al een concept, dan dat.
+CREATE FUNCTION nieuwe_specificatie(p_product uuid, p_stap uuid, p_door uuid) RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE
+    v_id uuid;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id = p_door AND actief AND rol IN ('kwaliteit', 'beheerder')) THEN
+        RAISE EXCEPTION 'Alleen Kwaliteit of de beheerder beheert specificaties';
+    END IF;
+    IF NOT in_route(p_product, p_stap) THEN
+        RAISE EXCEPTION 'Deze keuringsstap hoort niet bij de route van het product';
+    END IF;
+    SELECT id INTO v_id FROM specificatie WHERE product_id = p_product AND processtap_id = p_stap AND status = 'concept';
+    IF FOUND THEN RETURN v_id; END IF;
+    INSERT INTO specificatie (product_id, processtap_id, versie, aangemaakt_door)
+    VALUES (p_product, p_stap,
+            coalesce((SELECT max(versie) FROM specificatie WHERE product_id = p_product AND processtap_id = p_stap), 0) + 1, p_door)
+    RETURNING id INTO v_id;
+    INSERT INTO specificatie_regel (specificatie_id, veld_id, grens_min, grens_max)
+    SELECT v_id, r.veld_id, r.grens_min, r.grens_max
+      FROM specificatie_regel r JOIN specificatie x ON x.id = r.specificatie_id JOIN veld v ON v.id = r.veld_id
+     WHERE x.product_id = p_product AND x.processtap_id = p_stap AND x.status = 'vastgesteld' AND v.actief;
+    RETURN v_id;
+END $$;
+
+-- Een concept vaststellen: geldt vanaf nu, de vorige versie vervalt.
+CREATE FUNCTION stel_specificatie_vast(p_spec uuid, p_door uuid) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+    v_spec specificatie%ROWTYPE;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id = p_door AND actief AND rol IN ('kwaliteit', 'beheerder')) THEN
+        RAISE EXCEPTION 'Alleen Kwaliteit of de beheerder beheert specificaties';
+    END IF;
+    SELECT * INTO v_spec FROM specificatie WHERE id = p_spec FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende specificatie'; END IF;
+    IF v_spec.status <> 'concept' THEN RAISE EXCEPTION 'Alleen een concept kan worden vastgesteld'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM specificatie_regel WHERE specificatie_id = p_spec) THEN
+        RAISE EXCEPTION 'Een specificatie heeft minstens één eigenschap met een minimum of maximum';
+    END IF;
+    UPDATE specificatie SET status = 'vervallen'
+     WHERE product_id = v_spec.product_id AND processtap_id = v_spec.processtap_id AND status = 'vastgesteld';
+    UPDATE specificatie SET status = 'vastgesteld', vastgesteld_door = p_door, vastgesteld_op = clock_timestamp() WHERE id = p_spec;
+END $$;
+
 -- De grenzen die voor een veld gelden bij een product (NULL = geen product: de grenzen van het veld).
+-- Staat het veld in de geldige specificatie van het product (sinds 0.51.0, #80), dan gelden die grenzen, zonder tolerantie.
 CREATE FUNCTION grenzen_van(p_veld uuid, p_product uuid)
 RETURNS TABLE (grens_min numeric, grens_max numeric, tolerantie numeric, tolerantie_soort text) LANGUAGE sql STABLE AS $$
-    SELECT CASE WHEN vp.veld_id IS NULL THEN v.grens_min ELSE vp.grens_min END,
-           CASE WHEN vp.veld_id IS NULL THEN v.grens_max ELSE vp.grens_max END,
-           CASE WHEN vp.veld_id IS NULL THEN v.tolerantie ELSE vp.tolerantie END,
-           CASE WHEN vp.veld_id IS NULL THEN v.tolerantie_soort ELSE vp.tolerantie_soort END
+    SELECT CASE WHEN sp.veld_id IS NOT NULL THEN sp.grens_min WHEN vp.veld_id IS NULL THEN v.grens_min ELSE vp.grens_min END,
+           CASE WHEN sp.veld_id IS NOT NULL THEN sp.grens_max WHEN vp.veld_id IS NULL THEN v.grens_max ELSE vp.grens_max END,
+           CASE WHEN sp.veld_id IS NOT NULL THEN NULL WHEN vp.veld_id IS NULL THEN v.tolerantie ELSE vp.tolerantie END,
+           CASE WHEN sp.veld_id IS NOT NULL THEN 'absoluut' WHEN vp.veld_id IS NULL THEN v.tolerantie_soort ELSE vp.tolerantie_soort END
       FROM veld v LEFT JOIN veld_product vp ON vp.veld_id = v.id AND vp.product_id = p_product
+      LEFT JOIN LATERAL (SELECT r.veld_id, r.grens_min, r.grens_max FROM specificatie_regel r JOIN specificatie x ON x.id = r.specificatie_id
+                          WHERE r.veld_id = v.id AND x.product_id = p_product AND x.status = 'vastgesteld') sp ON true
      WHERE v.id = p_veld
 $$;
+
+-- In een keuringsstap meet alleen Kwaliteit (#80).
+CREATE FUNCTION controleer_keuringsveld() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.gemeten_door <> 'kwaliteit' AND EXISTS (SELECT 1 FROM processtap WHERE id = NEW.processtap_id AND soort = 'keuring') THEN
+        RAISE EXCEPTION 'Veld % hoort bij een keuringsstap; dat meet Kwaliteit', NEW.code;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER veld_keuring BEFORE INSERT OR UPDATE ON veld
+    FOR EACH ROW EXECUTE FUNCTION controleer_keuringsveld();
+CREATE FUNCTION controleer_stapsoort() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.soort = 'keuring' AND EXISTS (SELECT 1 FROM veld WHERE processtap_id = NEW.id AND gemeten_door <> 'kwaliteit') THEN
+        RAISE EXCEPTION 'Stap % heeft velden van Productie; een keuringsstap meet alleen Kwaliteit', NEW.code;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER processtap_soort BEFORE INSERT OR UPDATE ON processtap
+    FOR EACH ROW EXECUTE FUNCTION controleer_stapsoort();
 
 -- ---------------------------------------------------------------------
 -- Stapregistraties
@@ -431,6 +592,7 @@ CREATE INDEX keuring_open ON keuring (aangemaakt_op) WHERE status = 'open';
 -- Meet Kwaliteit iets in deze stap (sinds 0022)?
 CREATE FUNCTION stap_meet_kwaliteit(p_stap uuid) RETURNS boolean LANGUAGE sql STABLE AS $$
     SELECT EXISTS (SELECT 1 FROM veld WHERE processtap_id = p_stap AND actief AND gemeten_door = 'kwaliteit')
+        OR EXISTS (SELECT 1 FROM processtap WHERE id = p_stap AND soort = 'keuring')
 $$;
 CREATE INDEX stapreg_open  ON stapregistratie (processtap_id)         WHERE status = 'open';
 CREATE INDEX stapreg_afgerond ON stapregistratie (afgerond_op);
@@ -446,7 +608,9 @@ CREATE FUNCTION route(p_product uuid) RETURNS TABLE (processtap_id uuid, plek in
       FROM processtap s
       LEFT JOIN product_stap ps ON ps.processtap_id = s.id AND ps.product_id = p_product
      WHERE s.actief
-       AND (ps.product_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM product_stap x WHERE x.product_id = p_product))
+       AND (ps.product_id IS NOT NULL
+            -- De standaardroute (product zonder eigen route) heeft geen keuringsstappen (#80): die horen bij een product.
+            OR (NOT EXISTS (SELECT 1 FROM product_stap x WHERE x.product_id = p_product) AND s.soort = 'proces'))
 $$;
 
 -- Hoort de stap bij de route van het product?
@@ -584,6 +748,11 @@ BEGIN
     SELECT * INTO v_stap FROM processtap WHERE id = NEW.processtap_id;
     IF NOT v_stap.actief THEN
         RAISE EXCEPTION 'Stap % is inactief', v_stap.code;
+    END IF;
+    -- Een keuringsstap (sinds 0.51.0, #80) start alleen iemand van Kwaliteit.
+    IF v_stap.soort = 'keuring' AND NOT EXISTS (SELECT 1 FROM operator o JOIN gebruiker g ON g.id = o.gebruiker_id
+                                                 WHERE o.id = NEW.operator_id AND g.rol = 'kwaliteit') THEN
+        RAISE EXCEPTION 'Stap % is een keuring; die doet Kwaliteit', v_stap.code;
     END IF;
 
     -- Niveau moet kloppen.
@@ -788,6 +957,7 @@ CREATE TABLE waarde (
     gecorrigeerd_door   uuid REFERENCES gebruiker(id),
     ingevoerd_op        timestamptz NOT NULL DEFAULT now(),
     ontvangen_op        timestamptz DEFAULT clock_timestamp(),   -- sinds migratie 0011
+    specificatie_id     uuid REFERENCES specificatie(id),        -- sinds 0.51.0 (#80): getoetst aan deze specificatie
     CHECK ((vervangt_waarde_id IS NULL) = (gecorrigeerd_door IS NULL)),
     CHECK (vervangt_waarde_id IS NULL OR length(trim(coalesce(correctie_reden,''))) > 0),
     CHECK (vervangt_waarde_id IS NOT NULL OR ingevoerd_door IS NOT NULL)
@@ -853,6 +1023,8 @@ BEGIN
         SELECT * INTO v_grens FROM grenzen_van(NEW.veld_id, v_reg.product_id);
         NEW.grens_min := v_grens.grens_min;  NEW.grens_max := v_grens.grens_max;
         NEW.tolerantie := v_grens.tolerantie; NEW.tolerantie_soort := v_grens.tolerantie_soort;
+        NEW.specificatie_id := (SELECT x.id FROM specificatie x JOIN specificatie_regel r ON r.specificatie_id = x.id
+                                 WHERE r.veld_id = NEW.veld_id AND x.product_id = v_reg.product_id AND x.status = 'vastgesteld');
     ELSE
         -- Correctie: ploegleider of hoger, zelfde registratie en veld,
         -- alleen de nieuwste waarde kan vervangen worden.
@@ -867,6 +1039,7 @@ BEGIN
         -- Grenzen van de oorspronkelijke meting blijven gelden.
         NEW.grens_min := v_oud.grens_min;  NEW.grens_max := v_oud.grens_max;
         NEW.tolerantie := v_oud.tolerantie; NEW.tolerantie_soort := v_oud.tolerantie_soort;
+        NEW.specificatie_id := v_oud.specificatie_id;
     END IF;
 
     NEW.markering := bereken_markering(NEW.setting, NEW.gemeten, NEW.grens_min, NEW.grens_max,
@@ -1057,6 +1230,10 @@ BEGIN
               WHERE processtap_id = v_stap AND (batch_id = p_batch OR lot_id = p_lot)),
             p_pc, p_operator)
     RETURNING id INTO v_reg;
+    -- Een keuringsstap (#80) heeft geen werk voor de vloer: meteen afgerond, dan staat de keuring open voor Kwaliteit.
+    IF (SELECT soort FROM processtap WHERE id = v_stap) = 'keuring' THEN
+        PERFORM rond_stap_af(v_reg, p_operator, p_pc);
+    END IF;
     RETURN v_reg;
 END $$;
 
@@ -1099,6 +1276,9 @@ BEGIN
     END IF;
     SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
     IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stap %', p_stapcode; END IF;
+    IF v_stap.soort = 'keuring' THEN
+        RAISE EXCEPTION 'Stap % is een keuring; die doet Kwaliteit in het invoerscherm', p_stapcode;
+    END IF;
 
     IF v_stap.is_lot_stap THEN
         SELECT array_agg(b.id), max((SELECT max(r.afgerond_op) FROM stapregistratie r WHERE r.batch_id = b.id))
@@ -2616,7 +2796,7 @@ END $$;
 REVOKE EXECUTE ON FUNCTION ruim_weigeringen_op(int) FROM PUBLIC;
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

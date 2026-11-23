@@ -12,6 +12,7 @@ interface Inhoud {
   lotnummer: string; status: string; gereed_op: string | null; producten: string[]; batches: string[];
   bedrijf: { naam: string; adres: string; verklaring: string };
   kenmerken: Kenmerk[]; grondstoffen: { grondstof: string; naam: string; partijen: string[] }[]; voldoet: boolean;
+  specificaties?: { stap: string; stapnaam: string; versie: number; vastgesteld_op: string | null }[];
 }
 interface Uitgegeven { nummer: number; door: string; uitgegeven_op: string }
 
@@ -47,6 +48,10 @@ function document_(c: Inhoud, uit: Uitgegeven | null) {
         h("td", {}, spec(k)),
         h("td", {}, resultaat(k)),
         h("td", { class: k.voldoet === false ? "cert-nee" : "" }, k.voldoet === null ? "–" : k.voldoet ? "✓ Ja" : "✗ Nee"))))),
+    c.specificaties?.length
+      ? h("p", { class: "cert-klein" }, "Getoetst aan: ", c.specificaties.map((x) =>
+          `specificatie ${x.stapnaam} versie ${x.versie}${x.vastgesteld_op ? ` (vastgesteld ${new Date(x.vastgesteld_op).toLocaleDateString("nl-NL")})` : ""}`).join("; "))
+      : null,
     c.grondstoffen.length
       ? h("p", { class: "cert-klein" }, "Grondstofpartijen: ", c.grondstoffen.map((g) => `${g.naam} ${g.partijen.join(", ")}`).join("; "))
       : null,

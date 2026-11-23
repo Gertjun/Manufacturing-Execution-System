@@ -38,6 +38,8 @@ export interface Stap {
   volgorde: number;
   niveau: "batch" | "lot";
   is_lot_stap: boolean;
+  /** Keuringsstap (TK, EK): alleen Kwaliteit start, meet en beslist (#80). Ontbreekt in een configuratie van vóór 0.51.0 (= proces). */
+  soort?: "proces" | "keuring";
   velden: Veld[];
   /** Sinds 0.11.0; ontbreekt in een oudere opgeslagen configuratie. */
   grondstoffen?: { code: string; naam: string; eenheid: string | null; verplicht: boolean }[];

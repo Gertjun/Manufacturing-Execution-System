@@ -61,9 +61,12 @@ export async function stappen(code?: string) {
             { naam: "tolerantie_soort", label: "Tolerantie in", opties: [["absoluut", "Eenheid van het veld"], ["procent", "Procent van de setting"]] as [string, string][], waarde: v?.tolerantie_soort ?? "absoluut" },
           ]
         : []),
-      { naam: "gemeten_door", label: "Wie meet", opties: [["productie", "Productie: de operator, bij de stap"], ["kwaliteit", "Kwaliteit: na het afronden, daarna vrijgave"]] as [string, string][],
-        waarde: v?.gemeten_door ?? "productie",
-        hint: "Meet Kwaliteit, dan wacht de batch of het lot na de stap op de metingen en de vrijgave van Kwaliteit." },
+      // In een keuringsstap (#80) meet alleen Kwaliteit.
+      s.soort === "keuring"
+        ? { naam: "gemeten_door", label: "Wie meet", opties: [["kwaliteit", "Kwaliteit (keuringsstap)"]] as [string, string][], waarde: "kwaliteit" }
+        : { naam: "gemeten_door", label: "Wie meet", opties: [["productie", "Productie: de operator, bij de stap"], ["kwaliteit", "Kwaliteit: na het afronden, daarna vrijgave"]] as [string, string][],
+            waarde: v?.gemeten_door ?? "productie",
+            hint: "Meet Kwaliteit, dan wacht de batch of het lot na de stap op de metingen en de vrijgave van Kwaliteit." },
       { naam: "verplicht", label: "Verplicht (om af te ronden, of bij Kwaliteit: om vrij te geven)", opties: [["ja", "Ja"], ["nee", "Nee"]], waarde: v ? (v.verplicht ? "ja" : "nee") : "ja" },
       { naam: "op_certificaat", label: "Op het certificaat per lot", opties: [["nee", "Nee"], ["ja", "Ja"]], waarde: v?.op_certificaat ? "ja" : "nee" },
     ];
@@ -176,13 +179,17 @@ export async function stappen(code?: string) {
     h("div", { class: "beheer-indeling" },
       h("nav", { class: "stappenlijst", "aria-label": "Stappen" },
         h("div", { class: "lijstkop" }, "Per batch"),
-        alle.filter((x) => x.niveau === "batch").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam)),
+        alle.filter((x) => x.niveau === "batch" && x.soort !== "keuring").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam)),
         h("div", { class: "lijstkop" }, "Per lot"),
-        alle.filter((x) => x.niveau === "lot").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam))),
+        alle.filter((x) => x.niveau === "lot" && x.soort !== "keuring").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam)),
+        alle.some((x) => x.soort === "keuring") ? h("div", { class: "lijstkop" }, "Keuringen") : null,
+        alle.filter((x) => x.soort === "keuring").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam))),
       h("section", { class: "blok", style: "margin-top:0" },
         h("div", { class: "kop" },
           h("div", {}, h("h2", { style: "margin:0" }, `${s.code} ${s.naam}`),
-            h("p", { class: "sub" }, `${s.niveau === "batch" ? "Per batch" : "Per lot"}${s.is_lot_stap ? ", hier worden 4 batches één lot" : ""}`)),
+            h("p", { class: "sub" }, s.soort === "keuring"
+              ? `Keuringsstap, per ${s.niveau === "batch" ? "batch" : "lot"}: alleen Kwaliteit meet. Waar het product aan moet voldoen staat per product in de specificatie (Kwaliteit → Specificaties).`
+              : `${s.niveau === "batch" ? "Per batch" : "Per lot"}${s.is_lot_stap ? ", hier worden 4 batches één lot" : ""}`)),
           h("div", { class: "knoppen-klein" },
             h("button", { class: "knop", onclick: hernoem }, "Naam wijzigen"),
             h("button", { class: "knop knop-hoofd", onclick: veldToevoegen }, "Veld toevoegen"))),

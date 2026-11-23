@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 
 // De portalen-app draait op /portaal/ van de API-server.
 const API = process.env.API_URL ?? "http://localhost:3000";
-const apiPaden = ["/auth", "/config", "/batches", "/registraties", "/lots", "/werkvoorraad", "/planning", "/wandscherm", "/overdracht", "/meldingen", "/stilstand", "/certificaten", "/beheer", "/analyse", "/gezondheid"];
+const apiPaden = ["/auth", "/config", "/batches", "/registraties", "/lots", "/werkvoorraad", "/planning", "/wandscherm", "/overdracht", "/meldingen", "/stilstand", "/certificaten", "/specificaties", "/beheer", "/analyse", "/gezondheid"];
 
 export default defineConfig({
   base: "/portaal/",

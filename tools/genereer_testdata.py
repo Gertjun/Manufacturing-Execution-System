@@ -42,6 +42,8 @@ if not args.forceer and con.execute("SELECT count(*) FROM batch").fetchone()[0] 
 
 # ---------- configuratie ophalen ----------
 stappen = con.execute("SELECT code, volgorde, niveau, is_lot_stap FROM processtap WHERE actief ORDER BY volgorde").fetchall()
+# Keuringsstappen (#80): Kwaliteit start ze op de lab-pc, meet en beslist; ze staan alleen in de route van PRD-C.
+keuringsstappen = {r[0] for r in con.execute("SELECT code FROM processtap WHERE soort = 'keuring'")}
 velden = {}
 velden_kwaliteit = {}  # wat Kwaliteit meet na het afronden (#64)
 for code, vid, naam, soort, stap, door in con.execute(
@@ -122,14 +124,24 @@ def waarde_voor(stapcode, veldcode, naam, soort, moment, operator, nat=False, pr
         return 5, round(rnd.gauss(5, 0.17), 2)
     if naam == "Toerental":
         return 800, round(rnd.gauss(800, 16))
+    if stapcode in keuringsstappen:
+        # Keuring (#80): binnen de fictieve specificatie van PRD-C, zodat Kwaliteit vrijgeeft.
+        if naam == "Vochtgehalte":
+            return None, round(min(3.6, max(2.2, rnd.gauss(3.0, 0.25))), 2)
+        if naam == "Deeltjesgrootte":
+            return None, round(min(290, max(210, rnd.gauss(250, 15))))
+        if naam == "Bulkdichtheid":
+            return None, round(min(650, max(590, rnd.gauss(620, 12))))
     if naam == "Vochtgehalte":
         return None, round(max(1.5, rnd.gauss(4.7 if nat else 3.0, 0.45 if nat else 0.35)), 2)
     return None, round(rnd.uniform(1, 10), 2)
 
 
 def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerking=None, nat=False, product=None):
-    pc = pcs[(int(stapcode[2:]) - 1) % len(pcs)]
-    oid = operators[operator]
+    if stapcode in keuringsstappen:
+        pc, oid = pcs[-1], kwaliteit_op  # het lab
+    else:
+        pc, oid = pcs[(int(stapcode[2:]) - 1) % len(pcs)], operators[operator]
     if herbewerking:
         # Kwaliteit besluit tot de herbewerking (#61); de operator start daarna gewoon de stap.
         lotnr = con.execute("SELECT lotnummer FROM lot WHERE id = %s", (lot_id,)).fetchone()[0]
@@ -150,7 +162,10 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
         con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
                     (reg, gid, partij_voor(gcode, moment), round(rnd.gauss(120, 4), 1) if eenheid == "kg" else None, oid))
         tijd_grondstof.append((reg, moment + duur * 0.3))
-    con.execute("SELECT rond_stap_af(%s)", (reg,))
+    if stapcode in keuringsstappen:
+        duur = dt.timedelta(minutes=rnd.randint(2, 10))  # een keuring is bij het starten meteen afgerond (#80)
+    else:
+        con.execute("SELECT rond_stap_af(%s)", (reg,))
     tijd_reg[reg] = (moment, moment + duur)
     klaar = moment + duur + dt.timedelta(minutes=rnd.randint(5, 90))
     # Keuring (#64): Kwaliteit meet na het afronden; alles binnen de grenzen = vrijgeven. Anders blijft hij open en
@@ -182,6 +197,20 @@ def besluit(batch_id, soort, reden, door, moment):
         (batch_id, soort, reden, gebruiker[door]),
     ).fetchone()[0]
     tijd_besluit.append((bid, moment))
+
+
+def wacht_op_kwaliteit(batch_id=None, lot_id=None):
+    return con.execute("""SELECT k.id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
+                           WHERE k.status = 'open' AND (r.batch_id = %s OR r.lot_id = %s)""", (batch_id, lot_id)).fetchone()
+
+
+def lotroute(lot, codes, moment, nat=False):
+    """Doe de lotstappen; stop als een stap op Kwaliteit wacht (dan kan de volgende nog niet). Geeft (moment, rest)."""
+    for i, code in enumerate(codes):
+        _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot, nat=nat and code == "PS18")
+        if wacht_op_kwaliteit(lot_id=lot):
+            return moment, codes[i + 1:]
+    return moment, []
 
 
 wachtrij_lot: dict = {}  # product -> [(batch_id, klaar_op)]; een lot heeft batches van één product (D55)
@@ -218,8 +247,7 @@ def maak_lots(lot_prod, wachtrij):
         nat = natte_week[0] <= moment < natte_week[1]
         if moment >= eind - dt.timedelta(hours=2):
             continue  # lot staat klaar voor de eerste lotstap
-        for code in route_l:
-            _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot, nat=nat and code == "PS18")
+        moment, rest = lotroute(lot, route_l, moment, nat)
         # Te nat (buiten de grens): Kwaliteit stuurt het lot terug naar de eerste lotstap (#64, #61). Vlak voor het
         # einde blijft het lot op Kwaliteit wachten.
         open_k = con.execute("""SELECT k.id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
@@ -231,8 +259,7 @@ def maak_lots(lot_prod, wachtrij):
             tijd_keuring[:] = [(k, a, moment - dt.timedelta(minutes=20)) if k == open_k[0] else (k, a, b) for k, a, b in tijd_keuring]
             hid = con.execute("SELECT herbewerking_id FROM keuring WHERE id = %s", (open_k[0],)).fetchone()[0]
             tijd_herbewerking.append((hid, moment - dt.timedelta(minutes=20)))
-            for code in route_l:
-                _, moment = doe_stap(code, moment, rnd.choice(opnamen), lot_id=lot)
+            moment, rest = lotroute(lot, route_l, moment)
             # Na de herbewerking: Kwaliteit geeft vrij, ook als het net niet binnen de grens is (na overleg).
             # Alleen als Kwaliteit al gemeten heeft: een herbewerking die vlak voor het einde klaar is, wacht nog.
             nog = con.execute("""SELECT k.id FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
@@ -242,6 +269,8 @@ def maak_lots(lot_prod, wachtrij):
             if nog:
                 con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'na herbewerking en overleg vrijgegeven', %s)", (nog[0], gebruiker["kwaliteit1"]))
                 tijd_keuring[:] = [(k, a, moment) if k == nog[0] else (k, a, b) for k, a, b in tijd_keuring]
+                # Daarna de rest van de route (bijvoorbeeld de eindkeuring, #80).
+                moment, rest = lotroute(lot, rest, moment)
     return wachtrij
 
 
@@ -271,13 +300,21 @@ while dag < eind:
         tot = len(route_b) if start < laatste_dag else rnd.randint(0, len(route_b) - 1)
         moment = start
         afgekeurd = False
+        wacht = False  # een keuring (#80) staat nog open: de volgende stap kan niet
         beoordeel_bij = rnd.randint(2, len(route_b) - 1) if rnd.random() < 0.02 and tot == len(route_b) else None
         for n, code in enumerate(route_b[:tot], start=1):
             if moment >= eind - dt.timedelta(hours=1):  # niets na het eind van de gesimuleerde periode
                 tot = n - 1
                 break
+            if code in keuringsstappen and start >= laatste_dag:
+                # Het lab is er nog niet aan toe: de batch staat klaar voor de keuring (#80).
+                tot, wacht = n - 1, True
+                break
             operator = rnd.choice(opnamen)
             _, moment = doe_stap(code, moment, operator, batch_id=bid, product=product)
+            if code in keuringsstappen and wacht_op_kwaliteit(batch_id=bid):
+                tot, wacht = n, True
+                break
             if beoordeel_bij == n:
                 stats["beoordeling"] += 1
                 besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "steekproef", "afwijkende geur", "visuele afwijking"]), "ploegleider1", moment)
@@ -288,9 +325,9 @@ while dag < eind:
                     afgekeurd = True
                     break
                 besluit(bid, "vrijgegeven", "binnen specificatie", "kwaliteit1", moment)
-        if not afgekeurd and tot == len(route_b):
+        if not afgekeurd and not wacht and tot == len(route_b):
             wachtrij_lot.setdefault(product, []).append((bid, moment))
-        elif not afgekeurd and tot < len(route_b) and rnd.random() < 0.5 and moment < eind:
+        elif not afgekeurd and not wacht and tot < len(route_b) and route_b[tot] not in keuringsstappen and rnd.random() < 0.5 and moment < eind:
             # Laatste dag: de helft van de lopende batches staat midden in een stap.
             code = route_b[tot]
             pc = pcs[(int(code[2:]) - 1) % len(pcs)]
@@ -463,6 +500,9 @@ if laatste_k:
 with con.transaction():
     con.execute("SET LOCAL session_replication_role = replica")
     con.execute("UPDATE config_log SET gewijzigd_op = %s WHERE gewijzigd_op > %s", (begin - dt.timedelta(days=1), begin))
+    # De specificaties (#80) golden al vóór de eerste meting die eraan getoetst is.
+    con.execute("UPDATE specificatie SET aangemaakt_op = %s, vastgesteld_op = CASE WHEN vastgesteld_op IS NULL THEN NULL ELSE %s::timestamptz END",
+                (begin - dt.timedelta(days=1), begin - dt.timedelta(days=1)))
     con.execute("UPDATE batch SET aangemaakt_op = %s WHERE aangemaakt_op > %s", (eind - dt.timedelta(hours=3), eind))
     con.execute("UPDATE lot_voorstel SET aangemaakt_op = %s WHERE aangemaakt_op > %s", (eind - dt.timedelta(hours=3), eind))
     con.execute("UPDATE stapplanning SET aangemaakt_op = %s", (eind - dt.timedelta(hours=3),))
@@ -472,7 +512,7 @@ print(f"Planning: {gepland_vooruit} batches gepland voor de komende werkdagen, {
 # Dagelijks schoonmaken aan het eind van de middag, af en toe omstellen, storingen en wachten (fictief).
 oorzaak = {c: i for c, i in con.execute("SELECT code, id FROM stilstand_oorzaak")}
 stap_id = {c: i for c, i in con.execute("SELECT code, id FROM processtap")}
-pc_van_stap = {code: pcs[(int(code[2:]) - 1) % len(pcs)] for code, *_ in stappen}
+pc_van_stap = {code: pcs[-1] if code in keuringsstappen else pcs[(int(code[2:]) - 1) % len(pcs)] for code, *_ in stappen}
 TOELICHTING = {"STOR-MACH": ["lager maakt lawaai", "transportband loopt vast", "sensor geeft foutmelding", None],
                "STOR-ELEK": ["zekering eruit", "besturing herstart", None], "WACHT-GS": ["grondstof B nog niet geleverd", "pallet nog in ontvangst", None],
                "WACHT-KW": ["wachten op vrijgave monster", None], "OMSTEL": [None], "SCHOON": [None], "ONDERH": ["preventief onderhoud", None], "OVERIG": ["overleg", None]}

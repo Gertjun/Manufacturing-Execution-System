@@ -39,6 +39,11 @@ BEGIN
   IF to_regclass('fabriek.capaciteit_stap') IS NOT NULL THEN
     GRANT DELETE ON fabriek.capaciteit_stap TO batchgui_app;   -- capaciteit per stap weghalen (sinds 0.30.0)
   END IF;
+  IF to_regclass('fabriek.specificatie') IS NOT NULL THEN
+    -- Een concept-specificatie weggooien en regels uit een concept halen (sinds 0.51.0, #80); de database
+    -- weigert dat voor een vastgestelde specificatie.
+    GRANT DELETE ON fabriek.specificatie, fabriek.specificatie_regel TO batchgui_app;
+  END IF;
 END $$;
 -- Inlogpogingen alleen vastleggen, niet wijzigen.
 DO $$

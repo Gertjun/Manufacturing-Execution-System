@@ -587,16 +587,22 @@ export async function lots() {
 }
 
 // ---------- Producten en hun route (D55) ----------
-interface StapKort { code: string; naam: string; volgorde: number; niveau: "batch" | "lot"; is_lot_stap: boolean }
+interface StapKort { code: string; naam: string; volgorde: number; niveau: "batch" | "lot"; is_lot_stap: boolean; soort?: "proces" | "keuring" }
 
-/** Korte beschrijving van een route ten opzichte van alle stappen: "Alle stappen" of "15 stappen, zonder PS6 en PS14". */
+/** Korte beschrijving van een route ten opzichte van alle processtappen: "Alle stappen" of
+ *  "15 stappen, zonder PS6 en PS14, met keuringen TK1 en EK". Keuringsstappen (#80) staan apart. */
 function routeSamenvatting(route: string[] | null | undefined, alle: StapKort[]): string {
   if (!route) return "Alle stappen";
-  const zonder = alle.filter((s) => !route.includes(s.code)).map((s) => s.code);
-  const natuurlijk = alle.filter((s) => route.includes(s.code)).map((s) => s.code);
-  const anders = natuurlijk.some((c, i) => c !== route[i]);
+  const keuring = new Set(alle.filter((s) => s.soort === "keuring").map((s) => s.code));
+  const proces = route.filter((c) => !keuring.has(c));
+  const keuringen = route.filter((c) => keuring.has(c));
+  const alleProces = alle.filter((s) => !keuring.has(s.code));
+  const zonder = alleProces.filter((s) => !proces.includes(s.code)).map((s) => s.code);
+  const natuurlijk = alleProces.filter((s) => proces.includes(s.code)).map((s) => s.code);
+  const anders = natuurlijk.some((c, i) => c !== proces[i]);
   const lijst = (x: string[]) => (x.length > 1 ? `${x.slice(0, -1).join(", ")} en ${x[x.length - 1]}` : x[0]);
-  return [`${route.length} stappen`, zonder.length ? `zonder ${lijst(zonder)}` : null, anders ? "eigen volgorde" : null].filter(Boolean).join(", ");
+  return [`${proces.length} stappen`, zonder.length ? `zonder ${lijst(zonder)}` : null, anders ? "eigen volgorde" : null,
+    keuringen.length ? `met ${keuringen.length === 1 ? "keuring" : "keuringen"} ${lijst(keuringen)}` : null].filter(Boolean).join(", ");
 }
 
 export async function producten(code?: string) {
@@ -649,7 +655,8 @@ async function routeBewerken(code: string) {
   const bewerken = magPlannen();
   const lotstap = alle.find((s) => s.is_lot_stap);
   const stap = new Map(alle.map((s) => [s.code, s]));
-  let route = (product.route ?? alle.map((s) => s.code)).filter((c) => stap.has(c));
+  // De standaardroute: alle processtappen, zonder keuringsstappen (#80); die voeg je per product toe.
+  let route = (product.route ?? alle.filter((s) => s.soort !== "keuring").map((s) => s.code)).filter((c) => stap.has(c));
   let gewijzigd = false;
   const groep = (c: string) => (stap.get(c)!.niveau === "batch" ? 0 : stap.get(c)!.is_lot_stap ? 1 : 2);
   const verplaats = (c: string, richting: -1 | 1) => {
@@ -669,8 +676,8 @@ async function routeBewerken(code: string) {
     gewijzigd = true;
     teken(`${c} toegevoegd`, [`${c} weghalen uit de route`]);
   };
-  const standaard = () => alle.map((s) => s.code);
-  const isStandaard = () => route.length === alle.length && route.every((c, i) => c === standaard()[i]);
+  const standaard = () => alle.filter((s) => s.soort !== "keuring").map((s) => s.code);
+  const isStandaard = () => route.length === standaard().length && route.every((c, i) => c === standaard()[i]);
   const status = h("p", { class: "verborgen", "aria-live": "polite" });
 
   const rij = (c: string, nr: number) => {
@@ -710,7 +717,7 @@ async function routeBewerken(code: string) {
         `${product!.naam}. Welke stappen dit product doorloopt en in welke volgorde. Eerst de batchstappen, dan ${lotstap?.code ?? "de lotstap"} (4 batches worden één lot), dan de lotstappen. ` +
         "Lopende batches van dit product volgen een gewijzigde route meteen; wat al gedaan is, blijft staan.",
         h("a", { class: "knop knop-stil", href: "#/planning/producten" }, "Terug naar producten")),
-      h("p", { class: "sub" }, isStandaard() ? "Nu: alle stappen (de standaardroute)." : `Nu: ${routeSamenvatting(route, alle)}.`),
+      h("p", { class: "sub" }, isStandaard() ? "Nu: alle processtappen (de standaardroute), zonder keuringen." : `Nu: ${routeSamenvatting(route, alle)}.`),
       h("section", { class: "blok" }, h("h2", {}, `Batchstappen (${batch.length})`),
         batch.length ? h("ol", { class: "routelijst" }, batch.map((c, i) => rij(c, i + 1))) : h("p", { class: "leeg" }, "Kies minstens één batchstap.")),
       h("section", { class: "blok" }, h("h2", {}, "Lot samenstellen"),
@@ -720,13 +727,14 @@ async function routeBewerken(code: string) {
       buiten.length
         ? h("section", { class: "blok" }, h("h2", {}, `Niet in de route (${buiten.length})`),
             h("ul", { class: "routelijst routelijst-buiten" }, buiten.map((s) => h("li", { class: "route-rij" },
-              h("span", { class: "route-stap" }, h("strong", {}, s.code), ` ${s.naam}`),
+              h("span", { class: "route-stap" }, h("strong", {}, s.code), ` ${s.naam}`,
+                s.soort === "keuring" ? h("span", { class: "sub" }, " · keuring door Kwaliteit; komt achteraan, zet hem met Eerder op zijn plek") : null),
               bewerken ? h("button", { class: "knop knop-klein", "aria-label": `${s.code} toevoegen aan de route`, onclick: () => erbij(s.code) }, "Toevoegen") : null))))
         : null,
       bewerken
         ? h("div", { class: "knoppen knoppen-links" },
             h("button", { class: "knop knop-hoofd", disabled: !gewijzigd, onclick: opslaan }, "Route opslaan"),
-            !isStandaard() ? h("button", { class: "knop knop-stil", onclick: () => { route = standaard(); gewijzigd = true; teken("Alle stappen gekozen"); } }, "Alle stappen kiezen") : null,
+            !isStandaard() ? h("button", { class: "knop knop-stil", onclick: () => { route = standaard(); gewijzigd = true; teken("Alle processtappen gekozen"); } }, "Alle stappen kiezen") : null,
             h("a", { class: "knop knop-stil", href: "#/planning/producten" }, "Annuleren"))
         : null,
       status,

@@ -27,7 +27,7 @@ const ROUTES = {
     "#/kwaliteit/certificaat/L-2026-0131", "#/kwaliteit/batch/B-2026-0235", "#/kwaliteit/grondstoffen", "#/kwaliteit/regelkaarten",
     "#/kwaliteit/regelkaarten/S3.2", "#/kwaliteit/afwijkingen", "#/kwaliteit/trend/S3.2", "#/kwaliteit/herbewerkingen"],
   ploegleider1: ["#/", "#/productie/overzicht", "#/productie/stap/PS3", "#/productie/doorlooptijden", "#/productie/week", "#/productie/correcties",
-    "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/wandscherm", "#/wandscherm/kwaliteit", "#/hulp", "#/wachtwoord"],
+    "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/kwaliteit/specificaties/PRD-C", "#/wandscherm", "#/wandscherm/kwaliteit", "#/hulp", "#/wachtwoord"],
   planner1: ["#/planning/week", "#/planning/dag", "#/planning/overzicht", "#/planning/route", "#/planning/lots", "#/planning/producten", "#/planning/capaciteit"],
   beheerder1: ["#/beheer/stappen", "#/beheer/accounts", "#/beheer/operators", "#/beheer/grondstoffen", "#/beheer/ploegen", "#/beheer/oorzaken",
     "#/beheer/bedrijf", "#/beheer/pcs", "#/beheer/opmerkingen", "#/beheer/pilot", "#/beheer/logboek", "#/beheer/server"],

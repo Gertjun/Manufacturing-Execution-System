@@ -53,7 +53,7 @@ try {
   await page.locator(".staptegel").first().waitFor();
   await shot("01-werkvoorraad");
   check("Ploegleider komt in het Portaal Productie", page.url().includes("#/productie"));
-  check("18 stappen in de werkvoorraad", (await page.locator(".staptegel").count()) === 18);
+  check("21 stappen in de werkvoorraad (met keuringen)", (await page.locator(".staptegel").count()) === 21);
   const [{ open }] = await q("SELECT count(*)::int AS open FROM fabriek.stapregistratie WHERE status = 'open'");
   const getoond = Number((await page.locator(".tegel").first().locator(".tegel-getal").innerText()).trim());
   check("Aantal stappen bezig klopt met de database", getoond === open, `${getoond} vs ${open}`);
@@ -75,7 +75,7 @@ try {
   await page.locator(".tip:not([hidden])").waitFor();
   await shot("03-doorlooptijden");
   check("Tooltip toont wachten en bewerking", /Wachten: .*Bewerking:/s.test(await page.locator(".tip").innerText()));
-  check("Tabel per stap heeft 18 rijen", (await page.locator(".blok").nth(1).locator("tbody tr").count()) === 18);
+  check("Tabel per stap heeft 21 rijen", (await page.locator(".blok").nth(1).locator("tbody tr").count()) === 21);
 
   console.log("\nProductie per week");
   await page.getByRole("link", { name: "Productie per week" }).click();

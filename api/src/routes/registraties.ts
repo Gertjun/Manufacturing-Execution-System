@@ -59,10 +59,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/",
     {
-      preHandler: vereist(...INVOER),
+      preHandler: vereist(...INVOER, "kwaliteit"),
       schema: {
         tags: ["registraties"],
-        description: "Start een stap. PS16 start via POST /lots, herbewerking via POST /lots/{lotnummer}/herbewerking.",
+        description:
+          "Start een stap. PS16 start via POST /lots, herbewerking via POST /lots/{lotnummer}/herbewerking. " +
+          "Kwaliteit start alleen een keuringsstap (#80); die is meteen afgerond en de keuring staat dan open.",
         body: Type.Object({
           id: Type.Optional(Type.String({ format: "uuid", description: "Door het apparaat gemaakt; maakt opnieuw versturen veilig" })),
           stapcode: StapCode,
@@ -76,6 +78,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       const { id, stapcode, batchnummer, lotnummer } = req.body;
       if (!batchnummer === !lotnummer) throw new ApiFout(400, "Geef een batchnummer óf een lotnummer");
+      if (req.user.rol === "kwaliteit") {
+        const [st] = await lees<{ soort: string }>(app.db, "SELECT soort FROM processtap WHERE code = $1", [stapcode]);
+        if (st?.soort !== "keuring") throw new ApiFout(403, "Kwaliteit start alleen keuringen");
+      }
 
       if (id) {
         const [bestaand] = await lees<{ code: string }>(
