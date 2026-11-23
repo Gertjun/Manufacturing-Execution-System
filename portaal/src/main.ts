@@ -288,8 +288,8 @@ async function route() {
     await tekenMenu(p.id, stuk);
     switch (stuk) {
       case "stappen": return beheer.stappen(a);
-      case "accounts": return beheer.accounts();
-      case "operators": return beheer.operators();
+      // Accounts en Operators zijn samen Medewerkers (#87); oude bladwijzers komen daar uit.
+      case "medewerkers": case "accounts": case "operators": return beheer.medewerkers();
       case "grondstoffen": return beheer.grondstoffen();
       case "ploegen": return beheer.ploegen();
       case "oorzaken": return beheer.oorzaken();

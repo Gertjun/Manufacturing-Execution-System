@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.53.0",
+    "version": "0.54.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -9199,6 +9199,11 @@
                       "tijdelijk": {
                         "type": "boolean",
                         "description": "Het wachtwoord is tijdelijk: de gebruiker kiest bij de volgende inlog een eigen wachtwoord (#76)"
+                      },
+                      "ploeg": {
+                        "description": "Ploeg van de medewerker, zoals A1 (sinds 0.54.0, #87)",
+                        "type": "string",
+                        "nullable": true
                       }
                     }
                   }
@@ -9296,6 +9301,12 @@
                     "type": "string",
                     "format": "uuid",
                     "description": "Operator en ploegleider: koppel aan een bestaande naam zonder account, zodat de geschiedenis doorloopt"
+                  },
+                  "ploeg": {
+                    "description": "Ploeg zoals A1 (letter en divisie, D76); null = geen ploeg",
+                    "type": "string",
+                    "pattern": "^[A-Za-z][1-9]$",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false
@@ -9337,6 +9348,11 @@
                     "tijdelijk": {
                       "type": "boolean",
                       "description": "Het wachtwoord is tijdelijk: de gebruiker kiest bij de volgende inlog een eigen wachtwoord (#76)"
+                    },
+                    "ploeg": {
+                      "description": "Ploeg van de medewerker, zoals A1 (sinds 0.54.0, #87)",
+                      "type": "string",
+                      "nullable": true
                     }
                   }
                 }
@@ -9417,6 +9433,12 @@
                     "type": "string",
                     "minLength": 8,
                     "description": "Minstens 8 tekens"
+                  },
+                  "ploeg": {
+                    "description": "Ploeg zoals A1 (letter en divisie, D76); null = geen ploeg",
+                    "type": "string",
+                    "pattern": "^[A-Za-z][1-9]$",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
@@ -9469,6 +9491,11 @@
                     "tijdelijk": {
                       "type": "boolean",
                       "description": "Het wachtwoord is tijdelijk: de gebruiker kiest bij de volgende inlog een eigen wachtwoord (#76)"
+                    },
+                    "ploeg": {
+                      "description": "Ploeg van de medewerker, zoals A1 (sinds 0.54.0, #87)",
+                      "type": "string",
+                      "nullable": true
                     }
                   }
                 }
@@ -9531,6 +9558,12 @@
                         },
                         "actief": {
                           "type": "boolean"
+                        },
+                        "ploeg": {
+                          "description": "Ploeg zoals A1; leeg = niets wijzigen (sinds 0.54.0, #87)",
+                          "type": "string",
+                          "maxLength": 10,
+                          "nullable": true
                         }
                       },
                       "additionalProperties": false
@@ -9675,6 +9708,16 @@
                         "description": "Gebruikersnaam van het eigen account (D53); leeg = alleen een naam",
                         "type": "string",
                         "nullable": true
+                      },
+                      "rol": {
+                        "description": "Rol van het eigen account (sinds 0.54.0)",
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "ploeg": {
+                        "description": "Ploeg, zoals A1 (sinds 0.54.0, #87)",
+                        "type": "string",
+                        "nullable": true
                       }
                     }
                   }
@@ -9702,6 +9745,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 60
+                  },
+                  "ploeg": {
+                    "description": "Ploeg zoals A1 (letter en divisie, D76); null = geen ploeg",
+                    "type": "string",
+                    "pattern": "^[A-Za-z][1-9]$",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false
@@ -9736,6 +9785,16 @@
                       "description": "Gebruikersnaam van het eigen account (D53); leeg = alleen een naam",
                       "type": "string",
                       "nullable": true
+                    },
+                    "rol": {
+                      "description": "Rol van het eigen account (sinds 0.54.0)",
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "ploeg": {
+                      "description": "Ploeg, zoals A1 (sinds 0.54.0, #87)",
+                      "type": "string",
+                      "nullable": true
                     }
                   }
                 }
@@ -9764,6 +9823,12 @@
                   },
                   "actief": {
                     "type": "boolean"
+                  },
+                  "ploeg": {
+                    "description": "Ploeg zoals A1 (letter en divisie, D76); null = geen ploeg",
+                    "type": "string",
+                    "pattern": "^[A-Za-z][1-9]$",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
@@ -9808,6 +9873,16 @@
                     },
                     "account": {
                       "description": "Gebruikersnaam van het eigen account (D53); leeg = alleen een naam",
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "rol": {
+                      "description": "Rol van het eigen account (sinds 0.54.0)",
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "ploeg": {
+                      "description": "Ploeg, zoals A1 (sinds 0.54.0, #87)",
                       "type": "string",
                       "nullable": true
                     }

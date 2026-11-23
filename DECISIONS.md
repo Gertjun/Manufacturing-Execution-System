@@ -356,3 +356,10 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Fictieve indeling:** ploegen twee dagen na elkaar (A 5 januari 2026, B 7 januari, …), divisie 1 en 2 gelijk. Zo draait per divisie elke dienst precies één ploeg. De echte startdagen levert Geert aan bij de echte configuratie (#2).
 - **Niet gebouwd:** ruilen van diensten, overwerk en afwijkingen op één dag; per ploeg rekent het systeem alleen met het rooster. Wie in welke ploeg zit, volgt bij Medewerkers (#87). Cijfers per ploeg blijven een open besluit (#63, D12).
 - **Gekozen boven:** een rooster per ploeg uitschrijven (veel invoer, foutgevoelig), of de ploeg afleiden uit wie er heeft ingelogd (klopt niet bij invallers).
+
+### D77 – Medewerkers: naam, ploeg en account op één scherm (23 nov 2026, 0.54.0)
+- **Besluit (Geert):** Beheer → Accounts en Beheer → Operators worden samen **Medewerkers**, met een blok voor operators en ploegleiders, een blok voor Kwaliteit en een blok voor de overige accounts (kantoor, beheer, wandschermen). Het accountbeheer zit erin (#87, D74).
+- **Een medewerker** is een naam bij de invoer (tabel `operator`) met of zonder eigen account (D53). Per persoon één regel, ook als de naam pas bij de eerste inlog ontstaat. Uitzetten zet account en naam samen uit, zodat er geen half-actieve persoon overblijft.
+- **Ploeg** (`operator.ploeg_id` → `rooster_ploeg`, D76) mag leeg zijn: niet iedereen werkt in het rooster (Kwaliteit in dagdienst, invallers). Alleen operator, ploegleider en Kwaliteit hebben een ploeg; die hoort bij de naam, niet bij het account. Geef je een account zonder naam een ploeg, dan wordt de naam gemaakt zoals bij de eerste inlog.
+- **Sjabloon:** de kolom Ploeg; leeg betekent niets wijzigen (net als het wachtwoord), zodat een oud sjabloon zonder die kolom nog werkt.
+- **Gekozen boven:** een apart scherm Ploegindeling (dan staat een persoon op twee plekken), of de ploeg bij het account (een naam zonder account kan dan geen ploeg hebben).

@@ -141,37 +141,37 @@ g.append(["S3.1", "PRD-A", 20, 120, "4", "absoluut"])`);
   await shot("03-opgeslagen");
 
   console.log("\nAccounts via het sjabloon (#76)");
-  await page.getByRole("link", { name: "Accounts" }).click();
-  await page.getByRole("heading", { name: "Accounts" }).waitFor();
+  await page.getByRole("link", { name: "Medewerkers" }).click();
+  await page.getByRole("heading", { name: "Medewerkers", level: 1 }).waitFor();
   const [dla] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Sjabloon downloaden" }).click()]);
   const apad = `${SHOTS}/${dla.suggestedFilename()}`;
   await dla.saveAs(apad);
   const ax = leesXlsx(apad);
   check("Accounts: kolommen en geen wachtwoorden in het bestand",
-    ax.rijen[0].join("|") === "Gebruikersnaam|Rol|Naam bij de invoer|Tijdelijk wachtwoord|Actief" && ax.rijen.slice(1).every((r) => !r[3]), ax.rijen[0].join("|"));
+    ax.rijen[0].join("|") === "Gebruikersnaam|Rol|Naam bij de invoer|Ploeg|Tijdelijk wachtwoord|Actief" && ax.rijen.slice(1).every((r) => !r[4]), ax.rijen[0].join("|"));
   const afout = `${SHOTS}/accounts-fout.xlsx`;
   bewerk(apad, afout, `
-ws.append(["nieuw.x", "Operator", "Nieuwe X", "kort", "ja"])
-ws.append(["nieuw.y", "Bakker", None, "tijdelijk-123", "ja"])`);
+ws.append(["nieuw.x", "Operator", "Nieuwe X", None, "kort", "ja"])
+ws.append(["nieuw.y", "Bakker", None, None, "tijdelijk-123", "ja"])`);
   await page.locator("#accounts-bestand").setInputFiles(afout);
   await page.getByRole("heading", { name: "Accounts inlezen" }).waitFor();
   await page.getByText("Er wordt niets opgeslagen zolang er een regel met een fout is").waitFor();
   const tekstFout = await page.locator("tbody").innerText();
   check("Fouten: te kort wachtwoord en onbekende rol", tekstFout.includes("minstens 8 tekens") && tekstFout.includes('Onbekende rol "Bakker"'), tekstFout);
   await page.getByRole("button", { name: "Annuleren" }).click();
-  await page.getByRole("heading", { name: "Accounts", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Medewerkers", exact: true }).waitFor();
   const agoed = `${SHOTS}/accounts-goed.xlsx`;
   bewerk(apad, agoed, `
 for r in ws.iter_rows(min_row=2):
-    if r[0].value == "analist1": r[4].value = "nee"
-ws.append(["nieuw.x", "Operator", "Operator E", "tijdelijk-123", "ja"])
-ws.append(["nieuw.y", "kwaliteit", None, 12345678, None])
-ws.append(["tv.hal2", "Wandscherm", None, "scherm-hal2", "ja"])`);
+    if r[0].value == "analist1": r[5].value = "nee"
+ws.append(["nieuw.x", "Operator", "Operator E", "a2", "tijdelijk-123", "ja"])
+ws.append(["nieuw.y", "kwaliteit", None, None, 12345678, None])
+ws.append(["tv.hal2", "Wandscherm", None, None, "scherm-hal2", "ja"])`);
   await page.locator("#accounts-bestand").setInputFiles(agoed);
   await page.getByRole("button", { name: "4 wijzigingen opslaan" }).waitFor();
   const controle = await page.locator("tbody").innerText();
   check("Controle: drie nieuw (één gekoppeld aan een bestaande naam), één uitgezet",
-    controle.includes("gekoppeld aan de bestaande naam Operator E") && controle.includes("uit"), controle);
+    controle.includes("gekoppeld aan de bestaande naam Operator E") && controle.includes("ploeg A2") && controle.includes("uit"), controle);
   await shot("04-accounts-controle");
   await page.getByRole("button", { name: "4 wijzigingen opslaan" }).click();
   await page.getByText("3 accounts aangemaakt, 1 gewijzigd").waitFor();

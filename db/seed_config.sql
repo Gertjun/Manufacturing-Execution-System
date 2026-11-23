@@ -118,6 +118,13 @@ INSERT INTO rooster_ploeg (letter, divisie, cyclus_start)
 SELECT l, d, date '2026-01-05' + 2 * (ascii(l) - ascii('A'))
   FROM unnest(ARRAY['A','B','C','D','E']) l CROSS JOIN generate_series(1, 2) d;
 
+-- Fictieve indeling van de operators in ploegen (sinds 0.54.0, #87): A tot en met H over divisie 1 en 2.
+UPDATE operator o SET ploeg_id = rp.id
+  FROM (VALUES ('Operator A', 'A1'), ('Operator B', 'B1'), ('Operator C', 'C1'), ('Operator D', 'D1'),
+               ('Operator E', 'E1'), ('Operator F', 'A2'), ('Operator G', 'B2'), ('Operator H', 'C2')) v(naam, ploeg)
+  JOIN rooster_ploeg rp ON rp.code = v.ploeg
+ WHERE o.naam = v.naam;
+
 -- Fictieve oorzaken van stilstand (sinds 0.14.0).
 INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES
   ('STOR-MACH', 'Machinestoring', 'storing'),

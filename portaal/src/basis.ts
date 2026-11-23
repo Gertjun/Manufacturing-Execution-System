@@ -130,8 +130,7 @@ export const PORTALEN: Portaal[] = [
     klaar: true,
     onderdelen: [
       { pad: "stappen", naam: "Stappen en velden" },
-      { pad: "accounts", naam: "Accounts" },
-      { pad: "operators", naam: "Operators" },
+      { pad: "medewerkers", naam: "Medewerkers" },
       { pad: "grondstoffen", naam: "Grondstoffen" },
       { pad: "ploegen", naam: "Diensten en ploegen" },
       { pad: "oorzaken", naam: "Oorzaken van stilstand" },
@@ -155,7 +154,7 @@ export function tegelsVoor(rol: Rol | null): Tegel[] {
     kwaliteit: "Beoordelen, lotpaspoort, regelkaarten, afwijkingen en trends.",
     productie: "Voor de productieleiding: werkvoorraad, doorlooptijden, ploegoverdracht en stilstand.",
     planning: "Batches plannen, stappen plannen, lotvoorstellen en capaciteit.",
-    beheer: "Stappen en velden, accounts, namen, pc's, keuzelijsten, logboek en server.",
+    beheer: "Stappen en velden, medewerkers met hun ploeg en account, pc's, keuzelijsten, logboek en server.",
   };
   return [
     ...(rol === "operator" || rol === "ploegleider"

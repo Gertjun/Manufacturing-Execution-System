@@ -411,82 +411,166 @@ async function sjabloonInlezen(bestand: File, terugNaar: string) {
 const GRENS_WAT: Record<GrensUitkomst["actie"], string> = { nieuw: "Nieuw", wijzigen: "Wijzigen", gelijk: "Ongewijzigd", weghalen: "Weghalen", fout: "Fout" };
 const GRENS_VOLGORDE: Record<GrensUitkomst["actie"], number> = { fout: 0, weghalen: 1, nieuw: 2, wijzigen: 3, gelijk: 4 };
 
-// ---------- Accounts ----------
-interface Account { gebruikersnaam: string; rol: string; actief: boolean; naam?: string | null; gedeeld?: boolean; tijdelijk?: boolean }
+// ---------- Medewerkers: namen, ploegen en accounts (#87, D77) ----------
+interface Account { gebruikersnaam: string; rol: string; actief: boolean; naam?: string | null; gedeeld?: boolean; tijdelijk?: boolean; ploeg?: string | null }
+interface Operator { id: string; naam: string; actief: boolean; account?: string | null; rol?: string | null; ploeg?: string | null }
+/** Eén regel per persoon: een naam bij de invoer, een eigen account, of allebei. */
+interface Persoon { naam: string | null; operator: Operator | null; account: Account | null; ploeg: string | null; actief: boolean }
+const MET_NAAM = ["operator", "ploegleider", "kwaliteit"];
 
-export async function accounts() {
+export async function medewerkers() {
   const actueel = vastHouden();
-  toon(kop("Accounts"), laden());
-  let lijst: Account[];
-  let namen: Operator[];
-  try { [lijst, namen] = await Promise.all([haal<Account[]>("/beheer/gebruikers"), haal<Operator[]>("/beheer/operators")]); } catch (e) { return fout(e); }
+  toon(kop("Medewerkers"), laden());
+  let lijst: Account[], namen: Operator[], ploegcodes: string[];
+  try {
+    const [a, o, r] = await Promise.all([haal<Account[]>("/beheer/gebruikers"), haal<Operator[]>("/beheer/operators"),
+      haal<{ ploegen: { code: string; actief: boolean }[] }>("/overdracht/rooster?dagen=1")]);
+    [lijst, namen, ploegcodes] = [a, o, r.ploegen.filter((p) => p.actief).map((p) => p.code)];
+  } catch (e) { return fout(e); }
   if (!actueel()) return;
-  const opnieuw = () => accounts();
-  const vrijeNamen = namen.filter((o) => !o.account);
-  const wachtwoord: VraagVeld = { naam: "wachtwoord", label: "Wachtwoord", type: "password", hint: "Minstens 8 tekens", controle: (w) => (w.length < 8 ? "Minstens 8 tekens" : null) };
-  const toevoegen = async () => {
-    const r = await vraag("Account toevoegen", [
-      { naam: "gebruikersnaam", label: "Gebruikersnaam", hint: "Kleine letters, cijfers, punt of streepje",
-        controle: (n) => (/^[a-z0-9._-]{3,40}$/.test(n) ? null : "Alleen kleine letters, cijfers, punt of streepje; 3 tot 40 tekens") },
-      { naam: "rol", label: "Rol", opties: ROLLEN, waarde: "operator" },
-      wachtwoord,
-      { naam: "naam", label: "Naam bij de invoer (operator en ploegleider)", optioneel: true,
-        hint: "Bijvoorbeeld Jan de Vries. Deze naam staat bij alles wat dit account invoert. Leeg = zelfde als de inlognaam." },
-      { naam: "bestaandeNaam", label: "Of: bestaande naam uit de namenlijst", optioneel: true, waarde: "",
-        opties: [["", "Geen, nieuwe naam"], ...vrijeNamen.map((o): [string, string] => [o.id, o.naam])],
-        hint: "Kies dit als iemand al een naam heeft in de namenlijst; dan loopt zijn geschiedenis door." },
-    ], "Account toevoegen", "Iedereen logt in met een eigen account (D53). Het wachtwoord is tijdelijk: bij de eerste inlog kiest de gebruiker een eigen wachtwoord (niet bij een wandscherm). Geef het persoonlijk door; het wordt alleen versleuteld bewaard.");
-    if (!r) return;
-    const invoer = r.rol === "operator" || r.rol === "ploegleider";
-    const body = { gebruikersnaam: r.gebruikersnaam, rol: r.rol, wachtwoord: r.wachtwoord,
-      ...(invoer && r.bestaandeNaam ? { bestaandeNaam: r.bestaandeNaam } : invoer && r.naam ? { naam: r.naam } : {}) };
-    await wijzig(() => stuur("POST", "/beheer/gebruikers", body), `Account ${r.gebruikersnaam} toegevoegd`, opnieuw);
-  };
+  const opnieuw = () => medewerkers();
   const zelf = sessie.naam;
+
+  // Personen: elke naam (met of zonder account), en accounts met een invoerrol die nog geen naam hebben.
+  const personen: Persoon[] = namen.map((o) => {
+    const account = lijst.find((a) => a.gebruikersnaam === o.account) ?? null;
+    return { naam: o.naam, operator: o, account, ploeg: o.ploeg ?? null, actief: account ? account.actief : o.actief };
+  });
+  for (const a of lijst) {
+    if (!a.gedeeld && MET_NAAM.includes(a.rol) && !namen.some((o) => o.account === a.gebruikersnaam)) {
+      personen.push({ naam: null, operator: null, account: a, ploeg: a.ploeg ?? null, actief: a.actief });
+    }
+  }
+  personen.sort((x, y) => Number(y.actief) - Number(x.actief) || (x.naam ?? x.account!.gebruikersnaam).localeCompare(y.naam ?? y.account!.gebruikersnaam, "nl"));
+  const vanKwaliteit = personen.filter((p) => p.account?.rol === "kwaliteit");
+  const vanVloer = personen.filter((p) => p.account?.rol !== "kwaliteit");
+  const overige = lijst.filter((a) => a.gedeeld || !MET_NAAM.includes(a.rol));
+
+  const ploegOpties: [string, string][] = [["", "Geen ploeg"], ...ploegcodes.map((c): [string, string] => [c, `Ploeg ${c}`])];
+  const wachtwoord: VraagVeld = { naam: "wachtwoord", label: "Wachtwoord", type: "password", hint: "Minstens 8 tekens", controle: (w) => (w.length < 8 ? "Minstens 8 tekens" : null) };
+  const gebruikersnaamVeld: VraagVeld = { naam: "gebruikersnaam", label: "Gebruikersnaam", hint: "Kleine letters, cijfers, punt of streepje",
+    controle: (n) => (/^[a-z0-9._-]{3,40}$/.test(n) ? null : "Alleen kleine letters, cijfers, punt of streepje; 3 tot 40 tekens") };
+  const uitlegWachtwoord = "Het wachtwoord is tijdelijk: bij de eerste inlog kiest de medewerker een eigen wachtwoord (niet bij een wandscherm). Geef het persoonlijk door; het wordt alleen versleuteld bewaard.";
+
+  const toevoegen = async () => {
+    const r = await vraag("Medewerker toevoegen", [
+      { naam: "naam", label: "Naam bij de invoer", optioneel: true, hint: "Bijvoorbeeld Jan de Vries. Staat bij alles wat deze persoon invoert. Leeg = zelfde als de gebruikersnaam." },
+      { naam: "rol", label: "Rol", opties: ROLLEN, waarde: "operator" },
+      { naam: "ploeg", label: "Ploeg", opties: ploegOpties, waarde: "", optioneel: true, hint: "Alleen voor operator, ploegleider en Kwaliteit." },
+      gebruikersnaamVeld,
+      wachtwoord,
+    ], "Medewerker toevoegen", `Iedereen logt in met een eigen account (D53). ${uitlegWachtwoord}`);
+    if (!r) return;
+    const metNaam = MET_NAAM.includes(r.rol);
+    const body = { gebruikersnaam: r.gebruikersnaam, rol: r.rol, wachtwoord: r.wachtwoord,
+      ...(metNaam && r.naam ? { naam: r.naam } : {}), ...(metNaam && r.ploeg ? { ploeg: r.ploeg } : {}) };
+    await wijzig(() => stuur("POST", "/beheer/gebruikers", body), `${r.naam || r.gebruikersnaam} toegevoegd`, opnieuw);
+  };
+  const naamZonderAccount = async () => {
+    const r = await vraag("Naam zonder account", [{ naam: "naam", label: "Naam" }, { naam: "ploeg", label: "Ploeg", opties: ploegOpties, waarde: "", optioneel: true }], "Toevoegen",
+      "Alleen nodig zolang het oude gedeelde account nog in gebruik is: wie daarmee inlogt, kiest een naam uit deze lijst. Geef iemand liever meteen een eigen account.");
+    if (r) await wijzig(() => stuur("POST", "/beheer/operators", { naam: r.naam, ...(r.ploeg ? { ploeg: r.ploeg } : {}) }), `${r.naam} toegevoegd`, opnieuw);
+  };
+
+  const wijzigPersoon = async (p: Persoon) => {
+    const velden: VraagVeld[] = [
+      ...(p.operator ? [{ naam: "naam", label: "Naam bij de invoer", waarde: p.operator.naam, hint: "Eerdere invoer toont daarna ook de nieuwe naam." }] : []),
+      { naam: "ploeg", label: "Ploeg", opties: ploegOpties, waarde: p.ploeg ?? "", optioneel: true },
+    ];
+    const r = await vraag(`${p.naam ?? p.account!.gebruikersnaam} wijzigen`, velden, "Opslaan");
+    if (!r) return;
+    const ploeg = r.ploeg || null;
+    await wijzig(() => p.operator
+      ? stuur("PATCH", `/beheer/operators/${p.operator.id}`, { ...(r.naam && r.naam !== p.operator.naam ? { naam: r.naam } : {}), ploeg })
+      : stuur("PATCH", `/beheer/gebruikers/${p.account!.gebruikersnaam}`, { ploeg }), "Opgeslagen", opnieuw);
+  };
+  const accountGeven = async (o: Operator) => {
+    const r = await vraag(`Account voor ${o.naam}`, [
+      gebruikersnaamVeld, { naam: "rol", label: "Rol", opties: ROLLEN.filter(([k]) => MET_NAAM.includes(k)), waarde: "operator" }, wachtwoord,
+    ], "Account aanmaken", `De invoer van ${o.naam} blijft op dezelfde naam staan. ${uitlegWachtwoord}`);
+    if (r) await wijzig(() => stuur("POST", "/beheer/gebruikers", { gebruikersnaam: r.gebruikersnaam, rol: r.rol, wachtwoord: r.wachtwoord, bestaandeNaam: o.id }),
+      `Account ${r.gebruikersnaam} aangemaakt`, opnieuw);
+  };
+  const nieuwWachtwoord = async (a: Account) => {
+    const r = await vraag(`Nieuw wachtwoord voor ${a.gebruikersnaam}`, [wachtwoord], "Opslaan");
+    if (r) await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { wachtwoord: r.wachtwoord }), a.rol === "scherm" ? "Wachtwoord ingesteld" : "Tijdelijk wachtwoord ingesteld", opnieuw);
+  };
+  const andereRol = async (a: Account) => {
+    const r = await vraag(`Rol van ${a.gebruikersnaam}`, [{ naam: "rol", label: "Rol", opties: ROLLEN, waarde: a.rol }], "Opslaan");
+    if (r) await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { rol: r.rol }), "Rol opgeslagen", opnieuw);
+  };
+  /** Aan of uit: het account (inloggen) en de naam (namenlijst) samen. */
+  const aanUit = async (p: Persoon) => {
+    const naam = p.naam ?? p.account!.gebruikersnaam;
+    if (p.actief && !(await bevestig(`${naam} uitzetten?`, p.account ? "Inloggen kan daarna niet meer. Alles wat is ingevoerd blijft bewaard." : "De naam staat daarna niet meer in de namenlijst. Alles wat is ingevoerd blijft bewaard.", "Uitzetten", true))) return;
+    await wijzig(async () => {
+      if (p.account) await stuur("PATCH", `/beheer/gebruikers/${p.account.gebruikersnaam}`, { actief: !p.actief });
+      if (p.operator) await stuur("PATCH", `/beheer/operators/${p.operator.id}`, { actief: !p.actief });
+    }, p.actief ? `${naam} uitgezet` : `${naam} weer actief`, opnieuw);
+  };
+
+  const accountCel = (a: Account | null) => a
+    ? h("span", {}, a.gebruikersnaam, a.gebruikersnaam === zelf ? h("span", { class: "noot" }, " (jij)") : "",
+        a.rol === "ploegleider" ? h("span", { class: "noot" }, " · ploegleider") : "",
+        a.tijdelijk ? h("span", { class: "noot" }, " · tijdelijk wachtwoord") : "")
+    : h("span", { class: "sub" }, "Geen account");
+  const persoonRijen = (lijstP: Persoon[]) => lijstP.map((p) => [
+    h("strong", { class: p.actief ? "" : "inactief" }, p.naam ?? h("span", { class: "sub" }, `Bij eerste inlog: ${p.account!.gebruikersnaam}`), p.actief ? "" : " (uit)"),
+    p.ploeg ?? h("span", { class: "sub" }, "Geen"),
+    accountCel(p.account),
+    h("div", { class: "knoppen-klein" },
+      h("button", { class: "knop knop-klein", onclick: () => wijzigPersoon(p) }, "Wijzigen"),
+      p.account
+        ? [h("button", { class: "knop knop-klein", onclick: () => nieuwWachtwoord(p.account!) }, "Wachtwoord"),
+           h("button", { class: "knop knop-klein", disabled: p.account.gebruikersnaam === zelf, onclick: () => andereRol(p.account!) }, "Rol")]
+        : h("button", { class: "knop knop-klein", onclick: () => accountGeven(p.operator!) }, "Account geven"),
+      h("button", { class: "knop knop-klein knop-stil", disabled: p.account?.gebruikersnaam === zelf, onclick: () => aanUit(p) }, p.actief ? "Uitzetten" : "Weer aanzetten")),
+  ]);
+  const blok = (titel: string, sub: string, inhoud: Node, ...knoppen: Node[]) =>
+    h("section", { class: "blok" }, h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, titel), h("p", { class: "sub" }, sub)),
+      knoppen.length ? h("div", { class: "knoppen-klein" }, ...knoppen) : null), inhoud);
+
   toon(
-    kop("Accounts", "Iedereen logt in met een eigen account. Bij operators en ploegleiders staat de naam die bij hun invoer verschijnt. Veel accounts tegelijk: via het sjabloon.",
+    kop("Medewerkers", "Iedereen met een naam bij de invoer, een ploeg en een eigen account. Veel tegelijk: via het sjabloon.",
       h("div", { class: "knoppen-klein" },
         h("button", { class: "knop", type: "button", onclick: () => accountsSjabloon(lijst) }, "Sjabloon downloaden"),
         h("label", { class: "knop", for: "accounts-bestand" }, "Sjabloon inlezen"),
         h("input", { id: "accounts-bestand", type: "file", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", class: "verborgen",
           onchange: (e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void accountsInlezen(f); } }),
-        h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Account toevoegen"))),
+        h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Medewerker toevoegen"))),
     lijst.some((a) => a.gedeeld && a.actief)
       ? h("p", { class: "proef-melding" }, h("strong", {}, "Gedeeld account nog actief. "),
           "Wie hiermee inlogt kiest zelf een naam; dat is fraudegevoelig (D53). Geef iedereen een eigen account en zet het gedeelde account uit zodra de invoerschermen niets meer te versturen hebben.")
       : null,
-    tabel(["Gebruikersnaam", "Rol", "Naam bij de invoer", "Actief", ""], lijst.map((a) => [
-      h("strong", { class: a.actief ? "" : "inactief" }, a.gebruikersnaam, a.gebruikersnaam === zelf ? h("span", { class: "noot" }, " (jij)") : "",
-        a.tijdelijk ? h("span", { class: "noot" }, " · tijdelijk wachtwoord") : ""),
-      rolNaam(a.rol),
-      a.gedeeld ? h("span", { class: "plan-waarschuwing" }, h("span", { "aria-hidden": "true" }, "⚠ "), "Gedeeld: kiest een naam") : a.naam ?? (a.rol === "operator" || a.rol === "ploegleider" ? h("span", { class: "sub" }, "Bij eerste inlog: de gebruikersnaam") : ""),
-      jaNee(a.actief),
-      h("div", { class: "knoppen-klein" },
-        h("button", { class: "knop knop-klein", disabled: a.gebruikersnaam === zelf, onclick: async () => {
-          const r = await vraag(`Rol van ${a.gebruikersnaam}`, [{ naam: "rol", label: "Rol", opties: ROLLEN, waarde: a.rol }], "Opslaan");
-          if (r) await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { rol: r.rol }), "Rol opgeslagen", opnieuw);
-        } }, "Rol wijzigen"),
-        h("button", { class: "knop knop-klein", onclick: async () => {
-          const r = await vraag(`Nieuw wachtwoord voor ${a.gebruikersnaam}`, [wachtwoord], "Opslaan");
-          if (r) await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { wachtwoord: r.wachtwoord }), a.rol === "scherm" ? "Wachtwoord ingesteld" : "Tijdelijk wachtwoord ingesteld", opnieuw);
-        } }, "Wachtwoord instellen"),
-        h("button", { class: "knop knop-klein knop-stil", disabled: a.gebruikersnaam === zelf, onclick: async () => {
-          if (a.actief && !(await bevestig(`${a.gebruikersnaam} uitzetten?`, "Dit account kan daarna niet meer inloggen. Alles wat het heeft ingevoerd blijft bewaard.", "Uitzetten", true))) return;
-          await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { actief: !a.actief }), a.actief ? "Account uitgezet" : "Account weer actief", opnieuw);
-        } }, a.actief ? "Uitzetten" : "Weer aanzetten")),
-    ])),
+    blok("Operators en ploegleiders", "Wie op de vloer invoert. De naam staat bij alles wat iemand invoert; de ploeg volgt het rooster (Diensten en ploegen).",
+      vanVloer.length ? tabel(["Naam", "Ploeg", "Account", ""], persoonRijen(vanVloer)) : h("p", { class: "leeg" }, "Nog niemand."),
+      h("button", { class: "knop knop-klein", onclick: naamZonderAccount }, "Naam zonder account")),
+    blok("Kwaliteit", "Kwaliteitsmedewerkers: keuren en meten, ook op de lab-pc.",
+      vanKwaliteit.length ? tabel(["Naam", "Ploeg", "Account", ""], persoonRijen(vanKwaliteit)) : h("p", { class: "leeg" }, "Nog niemand van Kwaliteit. Voeg iemand toe met de rol Kwaliteit.")),
+    blok("Overige accounts", "Accounts zonder naam bij de invoer: kantoor, beheer en de wandschermen.",
+      tabel(["Gebruikersnaam", "Rol", "Actief", ""], overige.map((a) => [
+        h("strong", { class: a.actief ? "" : "inactief" }, a.gebruikersnaam, a.gebruikersnaam === zelf ? h("span", { class: "noot" }, " (jij)") : "",
+          a.tijdelijk ? h("span", { class: "noot" }, " · tijdelijk wachtwoord") : ""),
+        a.gedeeld ? h("span", { class: "plan-waarschuwing" }, h("span", { "aria-hidden": "true" }, "⚠ "), "Gedeeld: kiest een naam") : rolNaam(a.rol),
+        jaNee(a.actief),
+        h("div", { class: "knoppen-klein" },
+          h("button", { class: "knop knop-klein", onclick: () => nieuwWachtwoord(a) }, "Wachtwoord"),
+          h("button", { class: "knop knop-klein", disabled: a.gebruikersnaam === zelf, onclick: () => andereRol(a) }, "Rol"),
+          h("button", { class: "knop knop-klein knop-stil", disabled: a.gebruikersnaam === zelf, onclick: () => aanUit({ naam: a.gebruikersnaam, operator: null, account: a, ploeg: null, actief: a.actief }) },
+            a.actief ? "Uitzetten" : "Weer aanzetten")),
+      ]))),
   );
 }
 
 // ---------- Accounts via een Excel-sjabloon (#76, D61) ----------
-const ACCOUNT_KOPPEN = ["Gebruikersnaam", "Rol", "Naam bij de invoer", "Tijdelijk wachtwoord", "Actief"];
-interface AccountRegel { regel: number; gebruikersnaam: string; rol: string; naam: string | null; wachtwoord: string | null; actief: boolean }
+const ACCOUNT_KOPPEN = ["Gebruikersnaam", "Rol", "Naam bij de invoer", "Ploeg", "Tijdelijk wachtwoord", "Actief"];
+interface AccountRegel { regel: number; gebruikersnaam: string; rol: string; naam: string | null; ploeg: string | null; wachtwoord: string | null; actief: boolean }
 interface AccountUitkomst { regel: number; gebruikersnaam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null }
 interface AccountAntwoord { uitgevoerd: boolean; nieuw: number; gewijzigd: number; gelijk: number; fouten: number; regels: AccountUitkomst[] }
 
 function accountsSjabloon(lijst: Account[]) {
   // Nooit wachtwoorden in het bestand: die kolom is leeg; vul hem alleen voor nieuwe accounts of een nieuw tijdelijk wachtwoord.
-  const rijen = lijst.filter((a) => !a.gedeeld).map((a) => [a.gebruikersnaam, rolNaam(a.rol), a.naam ?? "", "", a.actief ? "ja" : "nee"]);
+  const rijen = lijst.filter((a) => !a.gedeeld).map((a) => [a.gebruikersnaam, rolNaam(a.rol), a.naam ?? "", a.ploeg ?? "", "", a.actief ? "ja" : "nee"]);
   downloadXlsx(xlsxBladen([{ naam: "Accounts", koppen: ACCOUNT_KOPPEN, rijen }]), `Accounts ${vandaag()}.xlsx`);
 }
 
@@ -520,7 +604,7 @@ function leesAccountSjabloon(rijen: Cel[][]): { regels: AccountRegel[]; fouten: 
     // Een wachtwoord dat Excel als getal opslaat (alleen cijfers), wordt gewoon tekst.
     const ww = kolom("Tijdelijk wachtwoord") >= 0 ? r[kolom("Tijdelijk wachtwoord")] : null;
     const regel: AccountRegel = {
-      regel: i + 1, gebruikersnaam, rol: rol ?? rolTekst, naam: tekst("Naam bij de invoer"),
+      regel: i + 1, gebruikersnaam, rol: rol ?? rolTekst, naam: tekst("Naam bij de invoer"), ploeg: tekst("Ploeg"),
       wachtwoord: ww === null || ww === "" ? null : String(ww), actief: !["nee", "n", "0", "onwaar", "false"].includes(act),
     };
     if (problemen.length) fouten.push({ regel: regel.regel, gebruikersnaam, actie: "fout", wijzigingen: [], fout: problemen.join("; ") });
@@ -551,12 +635,12 @@ async function accountsInlezen(bestand: File) {
       const r = await stuur<AccountAntwoord>("POST", "/beheer/gebruikers/import", { uitvoeren: true, regels });
       if (!r.uitgevoerd) { melding(`Niet opgeslagen: ${r.fouten} ${r.fouten === 1 ? "regel" : "regels"} met een fout. Lees het bestand opnieuw in.`, "fout"); return; }
       melding(`${r.nieuw} ${r.nieuw === 1 ? "account" : "accounts"} aangemaakt, ${r.gewijzigd} gewijzigd`, "ok");
-      void accounts();
+      void medewerkers();
     } catch (e) { melding((e as Error).message, "fout"); }
   };
   toon(
-    // Het scherm staat al op #/beheer/accounts: terug gaat daarom met een knop, niet met een link naar hetzelfde adres.
-    h("p", { class: "terug" }, h("button", { class: "link-knop", type: "button", onclick: () => void accounts() }, "Terug naar accounts")),
+    // Het scherm staat al op #/beheer/medewerkers: terug gaat daarom met een knop, niet met een link naar hetzelfde adres.
+    h("p", { class: "terug" }, h("button", { class: "link-knop", type: "button", onclick: () => void medewerkers() }, "Terug naar medewerkers")),
     kop("Accounts inlezen", `${bestand.name}. Dit is een controle: er is nog niets opgeslagen. Accounts die niet in het bestand staan, blijven zoals ze zijn.`),
     h("div", { class: "tegels" },
       h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.nieuw ?? 0), h("span", { class: "tegel-tekst" }, "nieuwe accounts")),
@@ -570,7 +654,7 @@ async function accountsInlezen(bestand: File) {
       "Een wachtwoord uit het bestand is tijdelijk: bij de eerste inlog kiest iedereen een eigen wachtwoord. Geef ze persoonlijk door en gooi het bestand daarna weg."),
     h("div", { class: "knoppen", style: "justify-content:flex-start;margin-bottom:8px" },
       kanOpslaan ? h("button", { class: "knop knop-hoofd", type: "button", onclick: opslaan }, `${teOpslaan} ${teOpslaan === 1 ? "wijziging" : "wijzigingen"} opslaan`) : null,
-      h("button", { class: "knop", type: "button", onclick: () => void accounts() }, "Annuleren")),
+      h("button", { class: "knop", type: "button", onclick: () => void medewerkers() }, "Annuleren")),
     uitkomsten.length
       ? tabel(["Regel", "Gebruikersnaam", "Wat", "Toelichting"], [...uitkomsten].sort((a, b) => volgorde[a.actie] - volgorde[b.actie] || a.regel - b.regel).map((x) => [
           h("span", { class: "getal" }, x.regel), x.gebruikersnaam,
@@ -578,36 +662,6 @@ async function accountsInlezen(bestand: File) {
           x.fout ?? x.wijzigingen.join("; "),
         ]), "compact")
       : null,
-  );
-}
-
-// ---------- Operators ----------
-interface Operator { id: string; naam: string; actief: boolean; account?: string | null }
-
-export async function operators() {
-  const actueel = vastHouden();
-  toon(kop("Operators"), laden());
-  let lijst: Operator[];
-  try { lijst = await haal<Operator[]>("/beheer/operators"); } catch (e) { return fout(e); }
-  if (!actueel()) return;
-  const opnieuw = () => operators();
-  toon(
-    kop("Operators", "Alle namen die bij invoer kunnen staan. Een naam met een eigen account hoort bij die persoon (D53); namen zonder account zijn nog te kiezen met het oude gedeelde account. Een nieuwe persoon voeg je toe bij Accounts.",
-      h("button", { class: "knop knop-hoofd", onclick: async () => {
-        const r = await vraag("Operator toevoegen", [{ naam: "naam", label: "Naam" }], "Toevoegen");
-        if (r) await wijzig(() => stuur("POST", "/beheer/operators", r), `${r.naam} toegevoegd`, opnieuw);
-      } }, "Operator toevoegen")),
-    tabel(["Naam", "Eigen account", "Actief", ""], lijst.map((o) => [
-      h("strong", { class: o.actief ? "" : "inactief" }, o.naam), o.account ?? h("span", { class: "sub" }, "Geen"), jaNee(o.actief),
-      h("div", { class: "knoppen-klein" },
-        h("button", { class: "knop knop-klein", onclick: async () => {
-          const r = await vraag("Naam wijzigen", [{ naam: "naam", label: "Naam", waarde: o.naam }], "Opslaan", "Eerdere registraties tonen daarna ook de nieuwe naam.");
-          if (r) await wijzig(() => stuur("PATCH", `/beheer/operators/${o.id}`, { naam: r.naam }), "Naam opgeslagen", opnieuw);
-        } }, "Naam wijzigen"),
-        h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-          wijzig(() => stuur("PATCH", `/beheer/operators/${o.id}`, { actief: !o.actief }), o.actief ? `${o.naam} staat niet meer in de lijst` : `${o.naam} weer in de lijst`, opnieuw, () => stuur("PATCH", `/beheer/operators/${o.id}`, { actief: o.actief })) },
-          o.actief ? "Uit de lijst halen" : "Weer in de lijst")),
-    ])),
   );
 }
 

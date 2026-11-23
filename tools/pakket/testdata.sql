@@ -31808,6 +31808,12 @@ INSERT INTO fabriek.rooster_ploeg (letter, divisie, cyclus_start)
 SELECT l, d, date '2026-01-05' + 2 * (ascii(l) - ascii('A'))
   FROM unnest(ARRAY['A','B','C','D','E']) l CROSS JOIN generate_series(1, 2) d;
 
+UPDATE fabriek.operator o SET ploeg_id = rp.id
+  FROM (VALUES ('Operator A', 'A1'), ('Operator B', 'B1'), ('Operator C', 'C1'), ('Operator D', 'D1'),
+               ('Operator E', 'E1'), ('Operator F', 'A2'), ('Operator G', 'B2'), ('Operator H', 'C2')) v(naam, ploeg)
+  JOIN fabriek.rooster_ploeg rp ON rp.code = v.ploeg
+ WHERE o.naam = v.naam;
+
 --
 -- PostgreSQL database dump complete
 --

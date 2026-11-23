@@ -5,6 +5,21 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.54.0 — 23 november 2026 · #87
+- **Medewerkers** (Beheer): de schermen Accounts en Operators zijn samen één scherm, met drie blokken (D77).
+  - **Operators en ploegleiders:** iedereen die op de vloer invoert, met naam, ploeg en account.
+  - **Kwaliteit:** de kwaliteitsmedewerkers, ook met naam, ploeg en account.
+  - **Overige accounts:** kantoor, beheer, wandschermen en het oude gedeelde account.
+- **Ploeg per medewerker:** elke operator, ploegleider of kwaliteitsmedewerker kan in een ploeg (A1 … E2: letter en divisie, D76). Kies hem bij Medewerker toevoegen of bij Wijzigen. "Geen ploeg" kan ook, bijvoorbeeld voor iemand in dagdienst.
+- Per persoon één regel en één set knoppen: Wijzigen (naam en ploeg), Wachtwoord, Rol, Uitzetten.
+  - Uitzetten zet het account en de naam samen uit.
+  - Een naam zonder account krijgt er een met "Account geven"; de geschiedenis blijft op dezelfde naam.
+- Medewerker toevoegen vraagt naam, rol, ploeg, gebruikersnaam en een tijdelijk wachtwoord in één venster. Ook iemand van Kwaliteit kan meteen een eigen naam krijgen.
+- **Sjabloon:** de kolom **Ploeg** is erbij (leeg = niets wijzigen). Een onbekende ploeg, of een ploeg bij een rol zonder invoer, is een fout in de controle.
+- Oude adressen (`#/beheer/accounts`, `#/beheer/operators`) openen Medewerkers.
+- Fictieve indeling: Operator A tot en met E in A1 tot en met E1, Operator F, G en H in A2, B2 en C2.
+- API: `ploeg` bij `/beheer/gebruikers` (lezen, aanmaken, wijzigen, sjabloon) en bij `/beheer/operators`; daar ook `rol`.
+
 ## 0.53.0 — 23 november 2026 · #86
 - **Ploegen A tot en met E in twee divisies, met een rooster** (D76).
   - Nieuw scherm Beheer → **Diensten en ploegen** (was Ploegen). Daarin vier blokken.

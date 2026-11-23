@@ -1884,6 +1884,10 @@ CREATE TABLE rooster_ploeg (
 CREATE TRIGGER rooster_ploeg_log BEFORE INSERT OR UPDATE OR DELETE ON rooster_ploeg
     FOR EACH ROW EXECUTE FUNCTION log_config();
 
+-- Elke medewerker in een ploeg (sinds 0034, #87, D77); leeg voor wie niet in het rooster werkt.
+ALTER TABLE operator ADD COLUMN ploeg_id uuid REFERENCES rooster_ploeg(id);
+CREATE INDEX operator_ploeg ON operator (ploeg_id) WHERE ploeg_id IS NOT NULL;
+
 -- Welke ploegen op een dag welke dienst hebben (alleen actieve ploegen; vrije dagen niet).
 CREATE FUNCTION rooster_op(p_dag date)
 RETURNS TABLE (code text, letter text, divisie int, dienst text)
@@ -3035,7 +3039,7 @@ CREATE TRIGGER invoerconflict_vast BEFORE UPDATE OR DELETE ON invoerconflict
     FOR EACH ROW EXECUTE FUNCTION invoerconflict_vast();
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

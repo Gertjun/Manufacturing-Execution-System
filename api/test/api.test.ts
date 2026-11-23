@@ -604,6 +604,39 @@ describe("Portaal Beheer", () => {
   });
 });
 
+describe("Medewerkers in een ploeg (#87)", () => {
+  test("ploeg bij een nieuw account, bij een bestaand account, bij een naam en via het sjabloon", async () => {
+    const bh = await login("beheerder1");
+    const n = await verzoek("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.z", rol: "operator", wachtwoord: "geheim-123", naam: "Operator Z", ploeg: "d2" });
+    assert.equal(n.status, 201, JSON.stringify(n.body));
+    assert.deepEqual([n.body.naam, n.body.ploeg], ["Operator Z", "D2"]);
+    // Kwaliteit krijgt een ploeg; de naam bij de invoer wordt zo nodig gemaakt (zoals bij de eerste inlog).
+    const kw = await verzoek("PATCH", "/beheer/gebruikers/kwaliteit1", bh, { ploeg: "A1" });
+    assert.equal(kw.status, 200, JSON.stringify(kw.body));
+    assert.equal(kw.body.ploeg, "A1");
+    assert.ok(kw.body.naam);
+    assert.equal((await verzoek("PATCH", "/beheer/gebruikers/kwaliteit1", bh, { ploeg: null })).body.ploeg, null);
+    assert.equal((await verzoek("PATCH", "/beheer/gebruikers/planner1", bh, { ploeg: "A1" })).status, 422);
+    assert.equal((await verzoek("PATCH", "/beheer/gebruikers/operator.z", bh, { ploeg: "Z9" })).status, 422);
+    const ops = await verzoek("GET", "/beheer/operators", bh);
+    const c = ops.body.find((o: any) => o.naam === "Operator C");
+    assert.equal(c.ploeg, "C1");
+    const p = await verzoek("PATCH", `/beheer/operators/${c.id}`, bh, { ploeg: "E2" });
+    assert.equal(p.body.ploeg, "E2");
+    const z = ops.body.find((o: any) => o.naam === "Operator Z");
+    assert.deepEqual([z.account, z.rol, z.ploeg], ["operator.z", "operator", "D2"]);
+    const imp = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels: [
+      { regel: 2, gebruikersnaam: "operator.z", rol: "operator", ploeg: "b1" },
+      { regel: 3, gebruikersnaam: "operator.y", rol: "operator", naam: "Operator Y", wachtwoord: "geheim-123", ploeg: "C2" },
+    ] });
+    assert.equal(imp.status, 200, JSON.stringify(imp.body));
+    assert.equal(imp.body.uitgevoerd, true, JSON.stringify(imp.body));
+    assert.match(imp.body.regels[0].wijzigingen.join(), /ploeg: D2 → B1/);
+    const fout = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: false, regels: [{ regel: 2, gebruikersnaam: "planner1", rol: "planner", ploeg: "A1" }] });
+    assert.match(fout.body.regels[0].fout, /ploeg hoort alleen/);
+  });
+});
+
 describe("accounts met een tijdelijk wachtwoord (#76)", () => {
   test("import: proefronde, alles-of-niets, daarna eerst een eigen wachtwoord", async () => {
     const bh = await login("beheerder1");
