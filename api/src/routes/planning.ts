@@ -21,7 +21,7 @@ const Product = Type.Object({
 });
 /** Product met zijn route: de stapcodes in volgorde, of null bij de standaardroute. */
 const PRODUCT_SQL = `
-  SELECT p.id::text, p.code, p.naam, p.actief, p.batchgewicht_kg::float AS batchgewicht_kg, p.batches_per_lot, p.batches_per_lot,
+  SELECT p.id::text, p.code, p.naam, p.actief, p.batchgewicht_kg::float AS batchgewicht_kg, p.batches_per_lot,
          (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
            WHERE ps.product_id = p.id AND s.actief) AS route
     FROM product p`;
@@ -118,7 +118,6 @@ const Voorstel = Type.Object({
   nummer: Type.Integer(),
   batch_aantal_norm: Type.Integer(),
   product_id: OptTekst,
-  batch_aantal_norm: Type.Integer(),
   status: Type.String(),
   opmerking: OptTekst,
   aangemaakt_op: Type.String({ format: "date-time" }),
@@ -249,7 +248,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       const p = await inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query(
-          "INSERT INTO product (code, naam, batchgewicht_kg, batches_per_lot) VALUES ($1, $2, $3, $4) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, batches_per_lot, batches_per_lot, NULL::text[] AS route", [
+          "INSERT INTO product (code, naam, batchgewicht_kg, batches_per_lot) VALUES ($1, $2, $3, $4) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, batches_per_lot, NULL::text[] AS route", [
           req.body.code.trim(),
           req.body.naam.trim(),
           req.body.batchgewicht_kg ?? null,
