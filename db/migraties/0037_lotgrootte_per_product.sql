@@ -2,7 +2,7 @@
 SET search_path = fabriek, public;
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM lot l WHERE (SELECT count(*) FROM batch b WHERE b.lot_id = l.id) NOT BETWEEN 1 AND 50 THEN
+    IF EXISTS (SELECT 1 FROM lot l WHERE (SELECT count(*) FROM batch b WHERE b.lot_id = l.id) NOT BETWEEN 1 AND 50) THEN
         RAISE EXCEPTION 'Migratie 0037 gestopt: een historisch lot heeft geen geldig aantal batches (1–50); beoordeel eerst de lot-batchkoppelingen';
     END IF;
 END $$;
