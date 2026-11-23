@@ -204,6 +204,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 
 | Wat | Hoe | Op GitHub |
 | --- | --- | --- |
+| Roadmap bij met de laatste versie | `tests/test_roadmap.sh` | ja |
 | Databaseregels | `python3 tests/test_regels.py "<verbinding>"` (leegt de database) | ja |
 | API | `cd api && npm test` met `TEST_DATABASE_URL` en `TEST_APP_DATABASE_URL` (voor `batchgui_app`) | ja |
 | Schema en migraties gelijk | `tests/test_migraties.sh` | ja |

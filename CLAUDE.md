@@ -16,14 +16,15 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
   - MINOR voor een nieuwe functie, ook als de database erbij verandert zonder dat iemand iets hoeft te doen.
   - PATCH voor een kleine verbetering of foutoplossing.
   - **Versie op alle plekken gelijk ophogen** met `tools/zet_versie.sh <versie>` (`VERSIE`, alle `package.json`'s, `api/src/versie.ts`, `gedeeld/versie.ts`).
-  - **`CHANGELOG.md`** bijwerken in gewone taal, met achter de datum de nummers van de roadmappunten die erin zijn gebouwd (`## 0.23.0 — 20 november 2026 · #39`). Die punten haal je weg uit **`ROADMAP.md`**.
+  - **`CHANGELOG.md`** bijwerken in gewone taal, met achter de datum de nummers van de roadmappunten die erin zijn gebouwd (`## 0.23.0 — 20 november 2026 · #39`).
+  - **`ROADMAP.md`** in dezelfde commit bijwerken, niet pas aan het eind van de sessie: kopregel (datum en versie), gebouwde punten eruit, de inleiding van de fase en de tijdlijn. Zie "Hoe we deze roadmap bijhouden" onderaan de roadmap. `tests/test_roadmap.sh` moet slagen.
   - Een download of pakket draagt het versienummer in de bestandsnaam (`batch-gui-laptop-0.5.1.zip`).
 - **Oudere invoerschermen blijven werken.** Een pc kan offline zijn en een wachtrij hebben uit een oudere versie. Een wijziging aan de API moet die oudere invoer nog accepteren, of het is een MAJOR-versie met de melding "werk alle pc's bij" (D18).
 - **Schermen volgen de UI/UX-richtlijnen** (`ui-ux-richtlijnen.md` in het Claude-project) met de afwijkingen en woorden uit D50 en D51. Kleuren, afstanden en maten alleen via `gedeeld/tokens.css`; loop de checklist (§13) na bij elk nieuw of gewijzigd scherm.
 - **Regels horen in de database**, niet in de schermen (D9).
 - **Databasewijziging = migratie** (D23): nieuw bestand `db/migraties/NNNN_naam.sql`, dezelfde wijziging in `db/schema.sql` plus de regel in `schema_versie`, en `tests/test_migraties.sh` moet slagen. Migraties nooit achteraf aanpassen.
 - **Beperkte databasegebruiker** (D24): de applicatie draait als `batchgui_app`. Heeft een nieuwe functie extra rechten nodig, pas dan `db/rechten.sql` aan; de API-tests draaien met die gebruiker.
-- **Testen vóór elke push:** databaseregels (`tests/test_regels.py`), API (`api: npm test`, met `TEST_APP_DATABASE_URL` voor `batchgui_app`), migraties (`tests/test_migraties.sh`), beheertools (`tests/test_tools.sh`), opruimschema (`node --test tests/rotatie.test.mjs`), laptoppakket (`tests/test_laptoppakket.sh`, als gewone gebruiker), en de schermtests in Chrome (`invoer/e2e`, `portaal/e2e`) voor wat je hebt veranderd. Daarna rechtstreeks naar `main` (geen force-push, geschiedenis niet herschrijven). Gaat er iets mis: `git revert` en pushen.
+- **Testen vóór elke push:** roadmap bij (`tests/test_roadmap.sh`), databaseregels (`tests/test_regels.py`), API (`api: npm test`, met `TEST_APP_DATABASE_URL` voor `batchgui_app`), migraties (`tests/test_migraties.sh`), beheertools (`tests/test_tools.sh`), opruimschema (`node --test tests/rotatie.test.mjs`), laptoppakket (`tests/test_laptoppakket.sh`, als gewone gebruiker), en de schermtests in Chrome (`invoer/e2e`, `portaal/e2e`) voor wat je hebt veranderd. Daarna rechtstreeks naar `main` (geen force-push, geschiedenis niet herschrijven). Gaat er iets mis: `git revert` en pushen.
 - **Groen op GitHub is niet alles.** De automatische tests bewijzen niet dat offline werken, een echte Windows-pc of het netwerk in de fabriek werkt. Noem praktijktests die niet zijn uitgevoerd altijd expliciet.
 - **Release-tags worden nooit achteraf gewijzigd.** Tags en GitHub Releases maakt de workflow `release.yml` automatisch voor elke nieuwe versie op `main`. Die gebruikt de secret `RELEASE_TOKEN`: de ingebouwde sleutel mag geen tag zetten op een versie waarin de workflowbestanden anders zijn dan nu (#40). Mislukt een release, lees dan het logboek van de stap "Tags en releases maken".
 - Ga je in tegen een besluit uit `DECISIONS.md`? Zeg dat en vraag het eerst.
@@ -62,7 +63,7 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 
 ## Aan het eind van een sessie (altijd)
 1. Het blok **Stand** in **`README.md`** overschrijven met de stand van nu (versie, wat draait waar, laatste testronde). Geen sessielog: de geschiedenis staat in `CHANGELOG.md` (wijzigingen zonder versie onder "Zonder nieuwe versie"). Nieuwe valkuilen onderaan dit bestand, opgeloste weghalen.
-2. **`ROADMAP.md`**: nieuwe punten erbij, gebouwde punten eruit (het nummer staat dan in de changelog). Tijdlijn en fasen alleen als een fase klaar is, een poort niet gehaald wordt of de volgorde verandert.
+2. **`ROADMAP.md`**: controleren dat hij bij is (dat hoort al bij elke wijziging, zie hierboven), en nieuwe punten uit het gesprek erbij met het volgende vrije nummer.
 3. **`DECISIONS.md`**: een nieuw `D<n>`-besluit voor elke keuze die een volgende sessie moet kennen.
 4. De rest van **`README.md`** bijwerken als de opbouw, een scherm of een test verandert.
 5. **Projectdocument** in het Claude-project (`claude/architectuur-en-besluiten.md`): alleen de samenvatting en de links bijwerken. Het Whiteboard en de rapporten op claude.ai zijn momentopnamen: niet bijwerken.
@@ -82,4 +83,4 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 - "Naar Excel" komt uit `tabel()` en wordt door `portaal/src/excelplaats.ts` naar de kopregel van het blok of de pagina verplaatst (D63). Een schermtest zoekt de knop daarom binnen het blok, niet direct boven de tabel.
 - Regels voor schermformaten (D64) altijd als `@media screen and (...)`. Een A4 is bij afdrukken ongeveer 800 px breed, dus zonder `screen` gelden de telefoon- en tabletregels ook op papier (de hulp paste toen niet meer op één A4).
 - Nieuw scherm in de portalen of het invoerscherm: zet de route erbij in `portaal/e2e/formaten.mjs`, zodat hij in zes formaten wordt getest.
-- Tijdlijn in `ROADMAP.md` (Mermaid): **geen dubbele punt in een taaknaam**. De eerste `:` scheidt naam en planning; een extra `:` breekt de hele grafiek en GitHub toont dan alleen code.
+- Tijdlijn in `ROADMAP.md` (Mermaid): **geen dubbele punt in een taaknaam**. De eerste `:` scheidt naam en planning; een extra `:` breekt de hele grafiek en GitHub toont dan alleen code. `tests/test_roadmap.sh` vangt dit.

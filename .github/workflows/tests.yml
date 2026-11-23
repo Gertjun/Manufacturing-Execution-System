@@ -42,6 +42,8 @@ jobs:
           done
           grep -q "\"$V\"" api/src/versie.ts && grep -q "\"$V\"" gedeeld/versie.ts
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
+      - name: Roadmap bij met de laatste versie
+        run: tests/test_roadmap.sh
       - name: Databaseregels
         run: |
           python3 -m pip install --quiet "psycopg[binary]"

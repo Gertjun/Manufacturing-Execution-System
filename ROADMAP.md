@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 21 november 2026 · huidige versie 0.38.0
+Bijgewerkt: 23 november 2026 · huidige versie 0.47.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -23,8 +23,8 @@ gantt
     Gebouwd in 0.27 tot en met 0.37          :done, a2, 2026-11-20, 2d
 
     section A3 Vóór de pilot
-    Notitie bij storing (31)                 :a3b, 2026-11-23, 3d
-    Pilotoverzicht, analyses (77 32 66)      :a3c, after a3b, 14d
+    Gebouwd in 0.39 tot en met 0.47          :done, a3a, 2026-11-21, 2d
+    In één keer goed, signaleren (32 66)     :a3b, 2026-11-23, 7d
 
     section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
@@ -70,8 +70,8 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 **Poort A2:** #49–#53 gebouwd (#49 en #50 in 0.27.0, #51 in 0.28.0, #52 in 0.29.0, #53 in 0.30.0) en door Geert in de demo bekeken; de routes per product staan erin (fictief).
 
 
-### A3. Vóór de pilot (software) — december 2026 tot januari 2027
-Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen (#78 gebouwd in 0.42.0).
+### A3. Vóór de pilot (software) — november tot begin december 2026
+Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen (#78 gebouwd in 0.42.0, #31 in 0.46.0, #77 in 0.47.0). Tussendoor kwamen een rondgang langs alle schermen op vormgeving (0.42.1) en alle schermen geschikt voor telefoon en tablet (#47, 0.43.0 tot en met 0.45.1). Nog open:
 - #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
 - #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten. Drempels pas instellen met echte data (#2); vóór de pilot alleen de werking.
 
@@ -131,7 +131,11 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
 - #34 **Open vragen planning** — Moet de planner ook ploegen of pc's toewijzen? Mag een operator een lotvoorstel zelf aanpassen? Is "per stap per dag" zo bruikbaar?
 
 ## Hoe we deze roadmap bijhouden
-- Nieuwe taken, adviezen, open vragen en praktijktests komen hier met het volgende vrije nummer (nu #72), in de fase waar ze horen.
-- Is een punt gebouwd, dan haal je het hier weg en zet je het nummer in de changelog achter de versie.
-- De tijdlijn en de fasen pas je aan als een fase klaar is, een poort niet gehaald wordt of de volgorde verandert.
+- **Bij elke wijziging bijwerken**, in dezelfde commit als de wijziging zelf: elke nieuwe versie, en ook een wijziging zonder versie die de planning raakt.
+  - Kopregel: datum en huidige versie.
+  - Gebouwde punten hier weghalen; het nummer staat dan in de changelog achter de versie.
+  - Inleiding van de fase: in welke versie wat gebouwd is, en wat nog open staat.
+  - Tijdlijn: gebouwde punten naar de balk "Gebouwd in …" (`done`) van hun fase, open balken alleen met open nummers, data schuiven als de planning schuift.
+  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #80), in de fase waar ze horen.
+- `tests/test_roadmap.sh` controleert dit bij elke push op GitHub: de versie in de kopregel, geen gebouwd nummer meer als open punt of in een open balk, het volgende vrije nummer, en geen dubbele punt in een taaknaam van de tijdlijn.
 - Rapporten op claude.ai zijn momentopnamen; wat eruit volgt komt hier als punt.

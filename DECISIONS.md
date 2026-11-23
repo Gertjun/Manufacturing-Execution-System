@@ -293,3 +293,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Geweigerde invoer:** de API legt elke niet-GET met een pc in het token en een antwoord vanaf 400 (behalve 401 en `/auth`) vast in `geweigerde_invoer`, via `leg_weigering_vast`, buiten de transactie van het verzoek. Dat vastleggen mag nooit mislukken (onbekende verwijzingen worden leeg, teksten ingekort). 90 dagen bewaren, net als de inlogpogingen (`ruim_weigeringen_op`, aangeroepen door de back-up en het opstarten van de laptop).
 - **Per veld** telt alleen velden die de operator invult (`gemeten_door = 'productie'`).
 - **Waarom:** voor de evaluatie na 8 weken (#77) moet zichtbaar zijn waar de invoer haperde, zonder logbestanden van de pc's te verzamelen.
+
+### D67 – Roadmap bij elke wijziging bijwerken, met een controle op GitHub (23 nov 2026, zonder nieuwe versie)
+- **Besluit (Geert):** `ROADMAP.md` wordt bijgewerkt in dezelfde commit als elke wijziging (elke versie, en een wijziging zonder versie die de planning raakt): kopregel met datum en versie, gebouwde punten eruit, inleiding van de fase en de tijdlijn. Dit vervangt de afspraak dat de tijdlijn alleen verandert als een fase klaar is.
+- **Controle:** `tests/test_roadmap.sh` draait bij elke push op GitHub en faalt als de kopregel een andere versie noemt dan `VERSIE`, een gebouwd nummer (uit de versiekoppen van de changelog) nog als open punt of in een open balk van de tijdlijn staat, het volgende vrije nummer niet klopt, of een taaknaam in de tijdlijn een dubbele punt heeft.
+- **Waarom:** de roadmap stond op 0.38.0 terwijl 0.47.0 klaar was, en een dubbele punt in een taaknaam maakte de tijdlijn op GitHub onleesbaar. Geert leest de roadmap zelf op GitHub; die moet kloppen.
