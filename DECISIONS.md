@@ -406,3 +406,10 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Filteren:** pas vanaf 6 regels, achter een knop zodat korte en gewone schermen rustig blijven. Een keuzelijst bij hoogstens 12 verschillende waarden, anders een zoekveld ("bevat"). Filters van het scherm zelf (Periode, Product, Stap) blijven bestaan: die vragen andere gegevens op bij de server.
 - **Excel:** exporteert wat je ziet (gefilterd en gesorteerd).
 - **Gekozen boven:** sorteren en filteren op de server (sneller bij grote lijsten, maar per scherm werk en een API-wijziging), of filtervelden altijd zichtbaar onder de koppen (druk, en onzichtbaar op een telefoon waar de koppen verborgen zijn).
+
+### D84 – Plaatje van de database, gemaakt uit schema.sql (23 nov 2026, 0.62.0)
+- **Besluit (Geert):** een plaatje van de tabellen en hun verbanden in de repository, altijd actueel (#100, D74). Het datamodel op claude.ai blijft een momentopname.
+- **Hoe:** `tools/schema_plaatje.py` laadt `db/schema.sql` in een tijdelijke database en leest de tabellen, kolommen en verwijzingen uit PostgreSQL zelf (zo tellen ook latere `ALTER TABLE`-regels mee). De uitleg per tabel komt uit het commentaar boven `CREATE TABLE`. Het resultaat is [`docs/DATABASE.md`](docs/DATABASE.md): een Mermaid-diagram (GitHub tekent dat zonder extra programma's) en tabellen met de kolommen.
+- **Leesbaar houden:** het diagram toont alleen de tabellen en hun verbanden, zonder kolommen, en zonder de lijnen naar `gebruiker`, `operator` en `pc` (wie of waar: die staan in bijna elke tabel). Die staan wel in de lijsten eronder.
+- **Bij blijven:** `tests/test_schema_plaatje.sh` maakt het plaatje opnieuw en vergelijkt; hoort bij elke databasewijziging (CLAUDE.md) en draait op GitHub.
+- **Gekozen boven:** een plaatje (png/svg) met een los programma (extra afhankelijkheid, en een plaatje laat zich slecht vergelijken in een test), of het plaatje bij de release laten maken (dan staat het niet in de repository en is het niet te zien zonder download).

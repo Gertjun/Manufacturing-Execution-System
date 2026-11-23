@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.62.0 — 23 november 2026 · #100
+- **Plaatje van de database** in [`docs/DATABASE.md`](docs/DATABASE.md) (#100): een overzicht van alle 43 tabellen en hun verbanden (GitHub tekent het als diagram), een lijst met per tabel de uitleg en waar hij naar verwijst, en per tabel de kolommen.
+  - Automatisch gemaakt uit `db/schema.sql` met `tools/schema_plaatje.py`, dus altijd gelijk aan de echte database.
+  - Nieuwe test `tests/test_schema_plaatje.sh` (ook op GitHub): faalt als het plaatje niet meer bij `schema.sql` past.
+- Geen wijziging in de schermen of de database.
+
 ## 0.61.0 — 23 november 2026 · #94
 - **Sorteren en filteren in elke tabel** van de portalen (#94).
   - **Sorteren:** klik op een kolomkop. Eerst oplopend (▲), dan aflopend (▼), bij de derde klik weer de gewone volgorde. Getallen, datums en tijdsduren sorteren als getal; lege cellen staan altijd onderaan.

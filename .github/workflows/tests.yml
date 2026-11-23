@@ -53,6 +53,9 @@ jobs:
         run: |
           pg_dump --version
           tests/test_migraties.sh
+      - name: Plaatje van de database bij (docs/DATABASE.md)
+        env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
+        run: tests/test_schema_plaatje.sh
       - name: API (als batchgui_app, met beperkte rechten)
         working-directory: api
         env:
