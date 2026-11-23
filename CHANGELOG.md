@@ -5,6 +5,10 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.51.1 — 23 november 2026
+- Invoerscherm: na "Keuring starten" ververst het scherm zodra de start bij de server is, zodat Kwaliteit meteen kan meten en beslissen. Dat gebeurt alleen bij een keuring en alleen zolang er nog niets is ingetypt. In 0.51.0 gebeurde het bij elke nieuwe stap, en verdween wat een operator net typte.
+- Schermtest pilotoverzicht wacht nu tot de tabel bij de gekozen periode hoort, in plaats van een vaste wachttijd.
+
 ## 0.51.0 — 23 november 2026 · #80
 - **Keuringsstappen:** tussenkeuringen (TK1, TK2, …) en de eindkeuring (EK) zijn eigen stappen in de route van een product, bijvoorbeeld PS1 – PS2 – PS3 – TK1 – PS4 – … – EK (D73).
   - Alleen Kwaliteit start een keuring, op de lab-pc. In het invoerscherm staan de keuringen voor Kwaliteit als eigen groep "Keuringen"; operators zien ze niet.

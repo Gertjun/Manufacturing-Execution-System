@@ -234,9 +234,11 @@ try {
   await page.getByRole("heading", { name: "Pilotoverzicht" }).waitFor();
   await page.getByLabel("Van").fill(new Date(Date.now() - 20 * 86400e3).toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" }));
   await page.getByLabel("Van").dispatchEvent("change");
-  await page.waitForTimeout(800);
   const [gw] = await q("SELECT count(*)::int AS n FROM fabriek.geweigerde_invoer");
-  const geweigerdRijen = await page.locator("section", { hasText: "Geweigerde invoer" }).locator("tbody tr").count();
+  // Wachten tot het overzicht met de nieuwe periode er staat (een vaste wachttijd was soms te kort).
+  const gwRijen = page.locator("section", { hasText: "Geweigerde invoer" }).locator("tbody tr");
+  for (let i = 0; i < 40 && (await gwRijen.count()) !== gw.n; i++) await page.waitForTimeout(250);
+  const geweigerdRijen = await gwRijen.count();
   check("Productiemanager: geweigerde invoer van de laatste 20 dagen, gelijk aan de database", geweigerdRijen === gw.n && gw.n > 0, `${geweigerdRijen} / ${gw.n}`);
   const pc04 = await page.locator("section").filter({ has: page.getByRole("heading", { name: "Per pc", exact: true }) }).locator("tbody tr", { hasText: "PC-04" }).allInnerTexts();
   const bijz = await page.locator("section").filter({ has: page.getByRole("heading", { name: "Bijzonderheden per dag en pc" }) }).locator("tbody tr").allInnerTexts();

@@ -39,9 +39,10 @@ export async function registratieScherm(id: string) {
     return;
   }
   teken(reg);
-  // Nog niet bij de server: zodra de wachtrij leeg is, de versie van de server tonen. Bij een keuringsstap (#80)
-  // staat de keuring dan open en kan Kwaliteit beslissen.
-  if (reg.lokaal) {
+  // Keuringsstap (#80) nog niet bij de server: zodra de wachtrij leeg is, de versie van de server tonen; de keuring
+  // staat dan open en Kwaliteit kan meten en beslissen. Alleen zolang er nog niets is ingetypt, zodat niemand invoer kwijtraakt.
+  const keuringsstap = (await stappen().catch(() => [])).find((x) => x.code === reg!.stapcode)?.soort === "keuring";
+  if (reg.lokaal && keuringsstap) {
     const route = location.hash;
     let stop: (() => void) | undefined;
     let eerste = true;  // opStatus meldt meteen de huidige stand; pas reageren op een verandering
@@ -50,7 +51,8 @@ export async function registratieScherm(id: string) {
       if (location.hash !== route) return void stop?.();
       if (st.verbonden && st.wacht === 0 && st.fout === 0) {
         stop?.();
-        void registratieScherm(id);
+        const getypt = [...document.querySelectorAll<HTMLInputElement>("main input")].some((i) => i.value.trim() !== "");
+        if (!getypt) void registratieScherm(id);
       }
     });
   }
