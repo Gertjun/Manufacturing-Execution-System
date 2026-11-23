@@ -639,7 +639,7 @@ export async function producten(code?: string) {
     const r = await vraag(`Lotgrootte van ${x.code}`, [
       { naam: "aantal", label: "Batches per lot", type: "getal", waarde: String(x.batches_per_lot),
         controle: (v) => (/^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 50 ? null : "Vul een heel getal van 1 tot 50 in") },
-    ], "Opslaan", "Deze norm geldt voor nieuwe lots. Open lotvoorstellen van dit product vervallen bij wijziging.");
+    ], "Opslaan", "Deze norm geldt voor nieuwe lots. Open lotvoorstellen van dit product vervallen bij wijziging. Werk alle invoerschermen bij vóór je een norm anders dan 4 kiest; oudere versies en offline wachtrijen kunnen alleen 4 batches verzenden.");
     if (!r) return;
     await wijzig(() => stuur("PATCH", `/planning/producten/${x.id}`, { batches_per_lot: Number(r.aantal) }), `Lotgrootte van ${x.code} opgeslagen`, producten);
   };
