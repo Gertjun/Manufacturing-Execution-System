@@ -130,7 +130,10 @@ const Voorstel = Type.Object({
 });
 
 const VOORSTEL_SQL = `
-  SELECT v.nummer, v.batch_aantal_norm, v.status, v.opmerking, v.aangemaakt_op, g.gebruikersnaam AS door, l.lotnummer, v.afwijking_reden,
+  SELECT v.nummer, v.batch_aantal_norm,
+         (SELECT b.product_id FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+           WHERE x.voorstel_id = v.id ORDER BY b.product_id NULLS LAST LIMIT 1) AS product_id,
+         v.status, v.opmerking, v.aangemaakt_op, g.gebruikersnaam AS door, l.lotnummer, v.afwijking_reden,
          (SELECT json_agg(json_build_object(
                    'batchnummer', b.batchnummer, 'status', b.status,
                    'klaar_voor_lot', b.status = 'in_productie' AND batch_klaar_voor_lot(b.id),
