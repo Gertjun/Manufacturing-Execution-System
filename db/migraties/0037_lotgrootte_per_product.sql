@@ -210,7 +210,7 @@ CREATE OR REPLACE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RET
                 WHEN gewicht_per_item(p_product, p_stap) IS NULL THEN NULL
                 ELSE greatest(1, floor(c.kg_per_dag / gewicht_per_item(p_product, p_stap)))::int END
       FROM capaciteit_stap c WHERE c.processtap_id = p_stap AND c.product_id = p_product
-$;
+$body$;
 
 ALTER FUNCTION verval_lotvoorstellen_bij_lotgrootte() SET search_path = fabriek, public;
 ALTER FUNCTION maak_lot(text, uuid[], uuid, uuid, uuid, uuid, text) SET search_path = fabriek, public;
