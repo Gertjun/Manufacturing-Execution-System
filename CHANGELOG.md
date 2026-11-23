@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## Zonder nieuwe versie (na 0.51.1)
+- Roadmap: nieuwe fase A4 met Geerts verbeterlijst van 23 november (#85–#91 en #93–#100 vóór de pilot; #92, #101 en #102 in fase F). #48 is besloten: Dagoverzicht en Batchroute blijven allebei. Keuzes in D74. Het volgende vrije nummer is #103.
+
 ## 0.51.1 — 23 november 2026
 - Invoerscherm: na "Keuring starten" ververst het scherm zodra de start bij de server is, zodat Kwaliteit meteen kan meten en beslissen. Dat gebeurt alleen bij een keuring en alleen zolang er nog niets is ingetypt. In 0.51.0 gebeurde het bij elke nieuwe stap, en verdween wat een operator net typte.
 - Schermtest pilotoverzicht wacht nu tot de tabel bij de gekozen periode hoort, in plaats van een vaste wachttijd.

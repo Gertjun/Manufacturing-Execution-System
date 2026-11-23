@@ -26,6 +26,10 @@ gantt
     Gebouwd in 0.39 tot en met 0.48          :done, a3a, 2026-11-21, 2d
     In één keer goed, signaleren (32 66)     :a3b, 2026-11-24, 7d
 
+    section A4 Verbeterlijst
+    Prioriteit 1 (85 86 87 88 89 90 91)      :a4a, 2026-11-24, 10d
+    Prioriteit 2 (48 93 94 95 96 97 98 99 100) :a4b, after a4a, 7d
+
     section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
     Praktijktests (33)                       :b2, 2026-12-07, 28d
@@ -77,11 +81,35 @@ Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026):
 
 **Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.
 
+### A4. Verbeterlijst van 23 november — vóór de pilot
+Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
+
+**Prioriteit 1 – juistheid van de gegevens:**
+- #85 **Gelijktijdige invoer: conflict melden** (middel) — Openen twee mensen op hun eigen pc dezelfde keuring of meting en voeren ze allebei iets in, dan wint nu stil één van de twee. Nodig: de tweede krijgt een melding met beide waarden en kiest welke blijft (of een ploegleider of Kwaliteit beslist). Hetzelfde voor acties van operators die elkaar kruisen, ook als invoer later uit een offline wachtrij komt.
+- #86 **Ploegen A–E in twee divisies, met rooster** (middel) — 5 ploegen (A tot en met E) × 2 divisies = 10 ploegen. Beide divisies werken tegelijk, dus er zijn altijd twee ploegen aan het werk. Cyclus van 10 dagen per ploeg: 2 ochtend, 2 middag, 2 nacht, 4 vrij. Diensttijden ochtend, middag en nacht blijven zoals nu. Ploegoverdracht en analyses per ploeg gaan uit van het rooster.
+- #87 **Medewerkers in plaats van Operators, met accounts** (klein–middel) — Beheer → Operators heet Medewerkers, met een blok Operators en een blok Kwaliteit. Per medewerker ploeg (A–E) en divisie (1 of 2); persoon en account zijn één regel (D74), het aparte scherm Accounts gaat erin op.
+- #88 **Invoerscherm voor Kwaliteit** (middel) — Een eigen startscherm voor Kwaliteit, zonder het aantal batches per processtap: welke tussen- en eindkeuringen vandaag moeten, wanneer de volgende (waarschijnlijk) komen, van welk product, en wat al wacht.
+- #89 **Trend per veld bij "Alle producten"** (klein) — Nu kan een punt "Binnen grenzen" boven de grenslijn staan, omdat elk product eigen grenzen heeft. Bij alle producten geen grens- en tolerantielijnen meer; elk punt krijgt de kleur van zijn eigen grenzen.
+- #90 **Capaciteit in kilogram, per uur, dag en maand** (middel) — Capaciteit in kg in plaats van batches. Eén van de drie invullen, de andere twee worden berekend. Voor de pilot een vast gewicht per batch per product; later mogelijk per batch verschillend (D74).
+- #91 **Wandscherm: altijd passend en eruit kunnen** (klein) — Het wandscherm past altijd op het scherm zonder scrollen. En: wie in een browser als schermaccount is ingelogd, komt er nu niet meer uit (elk adres gaat terug naar het wandscherm); erbij komt een onopvallende knop Afmelden.
+
+**Prioriteit 2 – gebruiksgemak:**
+- #48 **Dagoverzicht én Batchroute houden** (klein) — Geert houdt beide (D74); "(proef)" verdwijnt uit het menu.
+- #93 **Productkeuze in de filterbalk, ook in Lotpaspoort** (klein) — De productkeuze staat nu als link in de lijst met portalen; die gaat naar de filterbalk bij Periode en Groeperen, in een opvallende kleur (geel). Lotpaspoort krijgt de productkeuze ook.
+- #94 **Filteren en sorteren in tabellen** (middel) — Per kolom sorteren en filteren, in de gedeelde tabel, zodat het in alle schermen werkt.
+- #95 **Schermbreedte en uitlijning** (klein) — Tekst blijft smal (leesbaar), tabellen en grafieken gebruiken de volle breedte. Het blok van de gekozen stap in Beheer → Stappen en velden netjes uitgelijnd, met de knoppen altijd op dezelfde plek.
+- #96 **Stappen en velden: eerst product kiezen** (klein) — Geen knop "Per product" bij elke stap, maar bovenaan een productkeuze en daaronder de stappen van dat product. Grenzen als twee kolommen: Ondergrens en Bovengrens.
+- #97 **Stappen plannen: naar een dag springen** (klein) — Naast Vorige dag, Vandaag en Volgende dag een kalender om een dag te kiezen.
+- #98 **Ploegoverdracht: welke afwijkingen** (klein) — Niet alleen hoeveel afwijkingen, maar ook welke (batch, veld, waarde, grens).
+- #99 **Doorlooptijden: totaal per lot** (klein) — Het blok "Doorlooptijd per week" toont de mediaan van het batchdeel en van het lotdeel; die tel je niet op, en de tijd dat een batch op de andere drie wacht ontbreekt. Erbij: "wachten op lot" en de totale doorlooptijd per lot (eerste batch gestart tot lot gereed).
+- #100 **Schema van de database** (klein) — Een plaatje van de tabellen en hun verbanden, automatisch gemaakt uit `db/schema.sql` en in de repository, zodat het altijd actueel is (het datamodel op claude.ai is een momentopname).
+
+**Poort A4:** prioriteit 1 en 2 gebouwd en door Geert in de demo bekeken.
+
 ### B. Proof of concept en praktijk — december 2026
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Hoe en wanneer goed: [`docs/PRAKTIJKTESTS.md`](docs/PRAKTIJKTESTS.md) (0.38.0). Per test vastleggen wie, wanneer en de uitkomst, in het invulblad dat daar genoemd staat.
 
-- #48 **Kiezen: Dagoverzicht of Batchroute** (klein, *Geert*) — Beide staan als proef in Planning (0.26.0, D52). Geert bekijkt ze in de demo of op de laptop en kiest er één; de andere gaat eruit en "(proef)" verdwijnt uit het menu.
 
 **Poort B:** elke praktijktest heeft een uitkomst; wat misging is opgelost of bewust geaccepteerd.
 
@@ -107,7 +135,10 @@ Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026):
 ### F. Verbeteren tijdens de pilot — maart tot april 2027
 Wat Kwaliteit en Productie het meest helpt zodra er echte data is. De volgorde kan na de eerste pilotweken veranderen.
 - #30 **Afkeur met omvang, herhaling en maatregel** (middel) — Bij afkeur de geschonden grens tonen, verdachte batches (zelfde grondstofpartij, dag of lot) en eerdere afwijkingen van hetzelfde veld. Daarna een eenvoudige maatregel: wat, wie, wanneer klaar, na 30 dagen controleren of het hielp.
-- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden.
+- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden. De capaciteit in kg per uur (#90) is daarvoor de basis. De OEE komt in Productieanalyse, naast Stilstand en beschikbaarheid.
+- #101 **Meetwaarde als gekleurde balk** (klein) — In Lotpaspoort en Afwijkingen de kolommen Gemeten en Grenzen als balk met de grenzen en tolerantie in kleur en een punt voor de gemeten waarde. Met echte data is beter te zien hoe die balk moet werken.
+- #102 **Doorlooptijden in het lotpaspoort** (klein) — De doorlooptijden van het lot en zijn batches, vergeleken met de rest. Hoort eigenlijk niet bij Kwaliteit: past bij het productiedossier per lot (#69), dat het overzicht over alle afdelingen wordt.
+- #92 **Wandscherm instellen in Beheer** (klein) — Per wandschermaccount in Beheer kiezen wat het toont (hal, stappen of Kwaliteit); de tv toont na het inloggen wat daar staat en hoeft er niemand meer heen (D74).
 - #67 **Productieoptimalisatie** (middel) — Knelpunten, doorlooptijden en stilstand bestaan al, en capaciteit per stap en product (D55); erbij: hoe vol elke stap werkelijk was (benutting), en welke stap de doorstroom bepaalt.
 
 ### G. Uitbreiden na de pilot — vanaf eind april 2027
@@ -137,6 +168,6 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
   - Gebouwde punten hier weghalen; het nummer staat dan in de changelog achter de versie.
   - Inleiding van de fase: in welke versie wat gebouwd is, en wat nog open staat.
   - Tijdlijn: gebouwde punten naar de balk "Gebouwd in …" (`done`) van hun fase, open balken alleen met open nummers, data schuiven als de planning schuift.
-  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #85), in de fase waar ze horen.
+  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #103), in de fase waar ze horen.
 - `tests/test_roadmap.sh` controleert dit bij elke push op GitHub: de versie in de kopregel, geen gebouwd nummer meer als open punt of in een open balk, het volgende vrije nummer, en geen dubbele punt in een taaknaam van de tijdlijn.
 - Rapporten op claude.ai zijn momentopnamen; wat eruit volgt komt hier als punt.
