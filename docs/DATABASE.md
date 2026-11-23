@@ -64,7 +64,6 @@ erDiagram
     batch |o--o{ stapplanning : "batch_id"
     batch |o--o{ stapregistratie : "batch_id"
     gebruiker |o--o| operator : "gebruiker_id"
-    gebruiker |o--o{ product_route_versie : "vastgesteld_door"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
     grondstof ||--o{ stap_grondstof : "grondstof_id"
