@@ -189,21 +189,40 @@ CREATE TRIGGER veld_code_vast       BEFORE UPDATE ON veld       FOR EACH ROW EXE
 -- ---------------------------------------------------------------------
 
 CREATE TABLE lot (
-    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    lotnummer      text NOT NULL UNIQUE CHECK (lotnummer ~ '^L-[0-9]{4}-[0-9]{4}$'),
-    status         text NOT NULL DEFAULT 'in_productie' CHECK (status IN ('in_productie','gereed','geblokkeerd')),
-    aangemaakt_op  timestamptz NOT NULL DEFAULT now()
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    lotnummer text NOT NULL UNIQUE CHECK (lotnummer ~ '^L-[0-9]{4}-[0-9]{4}$'),
+    status text NOT NULL DEFAULT 'in_productie' CHECK (status IN ('in_productie','gereed','geblokkeerd')),
+    aangemaakt_op timestamptz NOT NULL DEFAULT now(),
+    batch_aantal_norm int NOT NULL DEFAULT 4 CHECK (batch_aantal_norm BETWEEN 1 AND 50),
+    batch_aantal int NOT NULL DEFAULT 4 CHECK (batch_aantal BETWEEN 1 AND 50),
+    afwijking_reden text,
+    CHECK ((batch_aantal = batch_aantal_norm AND afwijking_reden IS NULL)
+        OR (batch_aantal <> batch_aantal_norm AND length(btrim(coalesce(afwijking_reden, ''))) BETWEEN 2 AND 500))
 );
 
 -- Producten (configuratie, door de planner beheerd; sinds migratie 0003)
 CREATE TABLE product (
-    id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code    text NOT NULL UNIQUE CHECK (code ~ '^[A-Za-z0-9._-]{1,20}$'),
-    naam    text NOT NULL,
-    actief  boolean NOT NULL DEFAULT true
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE CHECK (code ~ '^[A-Za-z0-9._-]{1,20}$'),
+    naam text NOT NULL,
+    actief boolean NOT NULL DEFAULT true,
+    batches_per_lot int NOT NULL DEFAULT 4 CHECK (batches_per_lot BETWEEN 1 AND 50)
 );
 CREATE TRIGGER product_log BEFORE INSERT OR UPDATE OR DELETE ON product
     FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE FUNCTION verval_lotvoorstellen_bij_lotgrootte() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE lot_voorstel v SET status = 'vervallen', afgesloten_op = clock_timestamp()
+     WHERE v.status = 'open'
+       AND EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+                    WHERE x.voorstel_id = v.id AND b.product_id = NEW.id);
+    RETURN NEW;
+END $$;
+CREATE TRIGGER product_lotgrootte_verval_voorstellen
+AFTER UPDATE OF batches_per_lot ON product
+FOR EACH ROW WHEN (OLD.batches_per_lot IS DISTINCT FROM NEW.batches_per_lot)
+EXECUTE FUNCTION verval_lotvoorstellen_bij_lotgrootte();
+
 
 -- Route per product (sinds migratie 0018, D55): welke stappen een product doorloopt, in welke volgorde.
 -- Een product zonder regels hier volgt de standaardroute: alle actieve stappen.
@@ -1230,10 +1249,14 @@ DECLARE
     v_lotstap   processtap%ROWTYPE;
     v_probleem  text;
     v_voorstel  record;
-    v_reden     text := nullif(btrim(p_afwijking_reden), '');
+    v_reden text := nullif(btrim(p_afwijking_reden), '');
+    v_product uuid;
+    v_norm int;
+    v_aantal int;
 BEGIN
-    IF cardinality(p_batches) <> 4 OR (SELECT count(DISTINCT b) FROM unnest(p_batches) b) <> 4 THEN
-        RAISE EXCEPTION 'Een lot bestaat uit precies 4 verschillende batches';
+    IF coalesce(cardinality(p_batches), 0) NOT BETWEEN 1 AND 50
+       OR (SELECT count(DISTINCT b) FROM unnest(coalesce(p_batches, '{}'::uuid[])) b) <> cardinality(p_batches) THEN
+        RAISE EXCEPTION 'Een lot bestaat uit 1 tot 50 verschillende batches';
     END IF;
 
     SELECT * INTO v_lotstap FROM processtap WHERE is_lot_stap AND actief;
@@ -1241,12 +1264,17 @@ BEGIN
     -- Lock de batches zodat ze niet tegelijk in twee lots komen.
     PERFORM 1 FROM batch WHERE id = ANY(p_batches) FOR UPDATE;
 
-    -- Eén product per lot (D55).
-    IF (SELECT count(DISTINCT product_id) + max(CASE WHEN product_id IS NULL THEN 1 ELSE 0 END)
-          FROM batch WHERE id = ANY(p_batches)) > 1 THEN
-        RAISE EXCEPTION 'Een lot bestaat uit batches van hetzelfde product (nu: %)',
-            (SELECT string_agg(DISTINCT coalesce(p.code, 'geen product'), ', ')
-               FROM batch b LEFT JOIN product p ON p.id = b.product_id WHERE b.id = ANY(p_batches));
+    SELECT count(*) INTO v_aantal FROM batch WHERE id = ANY(p_batches);
+    IF v_aantal <> cardinality(p_batches) THEN RAISE EXCEPTION 'Een of meer opgegeven batches bestaan niet'; END IF;
+    IF EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NULL)
+       OR (SELECT count(DISTINCT product_id) FROM batch WHERE id = ANY(p_batches)) <> 1 THEN
+        RAISE EXCEPTION 'Een lot bestaat uit batches van hetzelfde product';
+    END IF;
+    SELECT product_id INTO v_product FROM batch WHERE id = ANY(p_batches) ORDER BY product_id LIMIT 1;
+    SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
+    IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    IF cardinality(p_batches) <> v_norm AND v_reden IS NULL THEN
+        RAISE EXCEPTION 'Dit product vraagt % batches per lot; geef een reden om hiervan af te wijken', v_norm;
     END IF;
 
     -- Elke batch: in productie, en alle batchstappen van zijn route afgerond.
@@ -1286,7 +1314,10 @@ BEGIN
         END IF;
     END LOOP;
 
-    INSERT INTO lot (id, lotnummer) VALUES (coalesce(p_lot_id, gen_random_uuid()), p_lotnummer) RETURNING id INTO v_lot;
+    INSERT INTO lot (id, lotnummer, batch_aantal_norm, batch_aantal, afwijking_reden)
+    VALUES (coalesce(p_lot_id, gen_random_uuid()), p_lotnummer, v_norm, cardinality(p_batches),
+            CASE WHEN cardinality(p_batches) <> v_norm THEN v_reden ELSE NULL END)
+    RETURNING id INTO v_lot;
     UPDATE batch SET status = 'in_lot', lot_id = v_lot WHERE id = ANY(p_batches);
 
     -- Voorstellen afsluiten: precies gevolgd = gebruikt, anders afgeweken (met reden).
@@ -1646,15 +1677,16 @@ CREATE TRIGGER batch_planning_bewaak BEFORE UPDATE ON batch
     FOR EACH ROW EXECUTE FUNCTION bewaak_batchplanning();
 
 CREATE TABLE lot_voorstel (
-    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    nummer           int GENERATED ALWAYS AS IDENTITY UNIQUE,
-    status           text NOT NULL DEFAULT 'open' CHECK (status IN ('open','gebruikt','afgeweken','vervallen')),
-    opmerking        text,
-    aangemaakt_door  uuid NOT NULL REFERENCES gebruiker(id),
-    aangemaakt_op    timestamptz NOT NULL DEFAULT now(),
-    lot_id           uuid REFERENCES lot(id),
-    afwijking_reden  text,
-    afgesloten_op    timestamptz,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    nummer int GENERATED ALWAYS AS IDENTITY UNIQUE,
+    status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','gebruikt','afgeweken','vervallen')),
+    opmerking text,
+    aangemaakt_door uuid NOT NULL REFERENCES gebruiker(id),
+    aangemaakt_op timestamptz NOT NULL DEFAULT now(),
+    lot_id uuid REFERENCES lot(id),
+    afwijking_reden text,
+    afgesloten_op timestamptz,
+    batch_aantal_norm int NOT NULL DEFAULT 4 CHECK (batch_aantal_norm BETWEEN 1 AND 50),
     CHECK ((status IN ('gebruikt','afgeweken')) = (lot_id IS NOT NULL)),
     CHECK ((status = 'afgeweken') = (afwijking_reden IS NOT NULL))
 );
@@ -1667,26 +1699,27 @@ CREATE INDEX lot_voorstel_batch_batch ON lot_voorstel_batch (batch_id);
 
 -- Een batch staat in hoogstens één open voorstel; een voorstel heeft 4 batches.
 CREATE FUNCTION controleer_lot_voorstel(p_voorstel uuid) RETURNS void LANGUAGE plpgsql AS $$
-DECLARE
-    v_dubbel text;
+DECLARE v_dubbel text; v_product uuid; v_norm int;
 BEGIN
     IF (SELECT status FROM lot_voorstel WHERE id = p_voorstel) <> 'open' THEN RETURN; END IF;
-    IF (SELECT count(*) FROM lot_voorstel_batch WHERE voorstel_id = p_voorstel) <> 4 THEN
-        RAISE EXCEPTION 'Een lotvoorstel bestaat uit precies 4 batches';
-    END IF;
-    SELECT string_agg(b.batchnummer || ' (voorstel ' || v2.nummer || ')', ', ') INTO v_dubbel
-      FROM lot_voorstel_batch x
-      JOIN lot_voorstel_batch y ON y.batch_id = x.batch_id AND y.voorstel_id <> x.voorstel_id
-      JOIN lot_voorstel v2 ON v2.id = y.voorstel_id AND v2.status = 'open'
-      JOIN batch b ON b.id = x.batch_id
-     WHERE x.voorstel_id = p_voorstel;
-    IF v_dubbel IS NOT NULL THEN
-        RAISE EXCEPTION 'Deze batches staan al in een ander open voorstel: %', v_dubbel;
-    END IF;
-    IF (SELECT count(DISTINCT b.product_id) + max(CASE WHEN b.product_id IS NULL THEN 1 ELSE 0 END)
-          FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id WHERE x.voorstel_id = p_voorstel) > 1 THEN
+    SELECT b.product_id INTO v_product FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+     WHERE x.voorstel_id = p_voorstel ORDER BY b.product_id LIMIT 1;
+    IF v_product IS NULL OR EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+                                     WHERE x.voorstel_id = p_voorstel AND b.product_id IS DISTINCT FROM v_product) THEN
         RAISE EXCEPTION 'Een lotvoorstel bestaat uit batches van hetzelfde product';
     END IF;
+    SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product;
+    IF v_norm IS NULL OR (SELECT batch_aantal_norm FROM lot_voorstel WHERE id = p_voorstel) <> v_norm THEN
+        RAISE EXCEPTION 'De lotgrootte is gewijzigd; bouw dit lotvoorstel opnieuw op';
+    END IF;
+    IF (SELECT count(*) FROM lot_voorstel_batch WHERE voorstel_id = p_voorstel) <> v_norm THEN
+        RAISE EXCEPTION 'Een lotvoorstel voor dit product bestaat uit precies % batches', v_norm;
+    END IF;
+    SELECT string_agg(b.batchnummer || ' (voorstel ' || v2.nummer || ')', ', ') INTO v_dubbel
+      FROM lot_voorstel_batch x JOIN lot_voorstel_batch y ON y.batch_id = x.batch_id AND y.voorstel_id <> x.voorstel_id
+      JOIN lot_voorstel v2 ON v2.id = y.voorstel_id AND v2.status = 'open'
+      JOIN batch b ON b.id = x.batch_id WHERE x.voorstel_id = p_voorstel;
+    IF v_dubbel IS NOT NULL THEN RAISE EXCEPTION 'Deze batches staan al in een ander open voorstel: %', v_dubbel; END IF;
     IF EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
                 WHERE x.voorstel_id = p_voorstel AND b.status NOT IN ('gepland','in_productie','in_beoordeling')) THEN
         RAISE EXCEPTION 'Een lotvoorstel kan alleen batches bevatten die nog niet in een lot zitten, niet afgekeurd en niet vervallen';
@@ -1696,19 +1729,33 @@ END $$;
 -- Lotvoorstel opslaan (nieuw of batches vervangen); controleert alles in één keer.
 CREATE FUNCTION bewaar_lot_voorstel(p_id uuid, p_batches uuid[], p_opmerking text, p_door uuid)
 RETURNS uuid LANGUAGE plpgsql AS $$
-DECLARE
-    v_id uuid := p_id;
+DECLARE v_id uuid := p_id; v_product uuid; v_norm int;
 BEGIN
-    IF cardinality(p_batches) <> 4 OR (SELECT count(DISTINCT b) FROM unnest(p_batches) b) <> 4 THEN
-        RAISE EXCEPTION 'Een lotvoorstel bestaat uit precies 4 verschillende batches';
+    IF coalesce(cardinality(p_batches), 0) NOT BETWEEN 1 AND 50
+       OR (SELECT count(DISTINCT b) FROM unnest(coalesce(p_batches, '{}'::uuid[])) b) <> cardinality(p_batches) THEN
+        RAISE EXCEPTION 'Een lotvoorstel bestaat uit 1 tot 50 verschillende batches';
+    END IF;
+    IF (SELECT count(*) FROM batch WHERE id = ANY(p_batches)) <> cardinality(p_batches) THEN
+        RAISE EXCEPTION 'Een of meer opgegeven batches bestaan niet';
+    END IF;
+    IF EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NULL)
+       OR (SELECT count(DISTINCT product_id) FROM batch WHERE id = ANY(p_batches)) <> 1 THEN
+        RAISE EXCEPTION 'Een lotvoorstel bestaat uit batches van hetzelfde product';
+    END IF;
+    SELECT product_id INTO v_product FROM batch WHERE id = ANY(p_batches) ORDER BY product_id LIMIT 1;
+    SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
+    IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    IF cardinality(p_batches) <> v_norm THEN
+        RAISE EXCEPTION 'Een lotvoorstel voor dit product bestaat uit precies % batches', v_norm;
     END IF;
     IF v_id IS NULL THEN
-        INSERT INTO lot_voorstel (opmerking, aangemaakt_door) VALUES (nullif(btrim(p_opmerking), ''), p_door) RETURNING id INTO v_id;
+        INSERT INTO lot_voorstel (opmerking, aangemaakt_door, batch_aantal_norm)
+        VALUES (nullif(btrim(p_opmerking), ''), p_door, v_norm) RETURNING id INTO v_id;
     ELSE
         IF (SELECT status FROM lot_voorstel WHERE id = v_id) IS DISTINCT FROM 'open' THEN
             RAISE EXCEPTION 'Alleen een open voorstel kan worden gewijzigd';
         END IF;
-        UPDATE lot_voorstel SET opmerking = nullif(btrim(p_opmerking), '') WHERE id = v_id;
+        UPDATE lot_voorstel SET opmerking = nullif(btrim(p_opmerking), ''), batch_aantal_norm = v_norm WHERE id = v_id;
         DELETE FROM lot_voorstel_batch WHERE voorstel_id = v_id;
     END IF;
     INSERT INTO lot_voorstel_batch (voorstel_id, batch_id) SELECT v_id, unnest(p_batches);
@@ -2230,9 +2277,10 @@ ALTER TABLE capaciteit_stap ADD COLUMN kg_per_dag numeric CHECK (kg_per_dag > 0 
 ALTER TABLE capaciteit_stap ALTER COLUMN max_per_dag DROP NOT NULL;
 ALTER TABLE capaciteit_stap ADD CONSTRAINT capaciteit_stap_ingevuld CHECK (kg_per_dag IS NOT NULL OR max_per_dag IS NOT NULL);
 
--- Gewicht van één item in een stap: een batch, of een lot (4 batches). NULL = gewicht nog niet ingevuld.
+-- Gewicht van één item in een stap: een batch, of een lot met de ingestelde lotgrootte.
+-- NULL = gewicht nog niet ingevuld.
 CREATE FUNCTION gewicht_per_item(p_product uuid, p_stap uuid) RETURNS numeric LANGUAGE sql STABLE AS $$
-    SELECT p.batchgewicht_kg * CASE WHEN s.niveau = 'lot' THEN 4 ELSE 1 END
+    SELECT p.batchgewicht_kg * CASE WHEN s.niveau = 'lot' THEN p.batches_per_lot ELSE 1 END
       FROM product p, processtap s WHERE p.id = p_product AND s.id = p_stap
 $$;
 
@@ -3180,7 +3228,7 @@ CREATE TRIGGER invoerconflict_vast BEFORE UPDATE OR DELETE ON invoerconflict
     FOR EACH ROW EXECUTE FUNCTION invoerconflict_vast();
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'routeversies');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'routeversies'), (37, 'lotgrootte_per_product');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

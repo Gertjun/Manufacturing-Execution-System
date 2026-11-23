@@ -1011,6 +1011,15 @@ def main():
           one("SELECT kg_per_dag::int, capaciteit_stap_voor(%s, %s) FROM capaciteit_stap WHERE processtap_id = %s AND product_id = %s",
               (sidk["PS1"], prdk["PRD-A"], sidk["PS1"], prdk["PRD-A"])) == (3280, 8))
     check("Lotstap: 3280 kg per dag = 2 lots van 4 × 410 kg", val("SELECT capaciteit_stap_voor(%s, %s)", (sidk["PS16"], prdk["PRD-A"])) == 2)
+    con.execute("UPDATE product SET batches_per_lot = 6 WHERE code = 'PRD-A'")
+    check("Lotgewicht gebruikt de ingestelde lotgrootte: 6 × 410 = 2460 kg",
+          val("SELECT gewicht_per_item(%s, %s)", (prdk["PRD-A"], sidk["PS16"])) == 2460)
+    check("Lotgrootte is per product instelbaar",
+          val("SELECT batches_per_lot FROM product WHERE code = 'PRD-A'") == 6
+          and val("SELECT batches_per_lot FROM product WHERE code = 'PRD-B'") == 4)
+    con.execute("UPDATE product SET batches_per_lot = 4 WHERE code = 'PRD-A'")
+    check("Terugzetten van lotgrootte herstelt capaciteit van vier batches",
+          val("SELECT gewicht_per_item(%s, %s)", (prdk["PRD-A"], sidk["PS16"])) == 1640)
     con.execute("UPDATE product SET batchgewicht_kg = 500 WHERE code = 'PRD-A'")
     check("Ander gewicht per batch: 3280 kg = 6 batches (naar beneden)", val("SELECT capaciteit_stap_voor(%s, %s)", (sidk["PS1"], prdk["PRD-A"])) == 6)
     con.execute("UPDATE product SET batchgewicht_kg = NULL WHERE code = 'PRD-A'")
