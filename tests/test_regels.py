@@ -544,6 +544,13 @@ def main():
     check("Route leegmaken = standaardroute", routecodes(prd["PRD-C"]) == routecodes(None))
     check("Routewijzigingen staan in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'product_stap' AND record_id = %s", (prd["PRD-C"],)) >= 15)
+    check("Bestaande producten behouden lotnorm vier", val("SELECT count(*) FROM product WHERE batches_per_lot = 4") == len(prd))
+    faalt("Lotgrootte nul is ongeldig", "UPDATE product SET batches_per_lot = 0 WHERE id = %s", (prd["PRD-C"],), "check")
+    faalt("Lotgrootte boven 50 is ongeldig", "UPDATE product SET batches_per_lot = 51 WHERE id = %s", (prd["PRD-C"],), "check")
+    check("Capaciteit lotgewicht gebruikt de ingestelde lotgrootte",
+          val("UPDATE product SET batchgewicht_kg = 10, batches_per_lot = 3 WHERE id = %s RETURNING gewicht_per_item(id, (SELECT id FROM processtap WHERE is_lot_stap))", (prd["PRD-C"],)) == 30)
+    check("Bestaande lots bewaren hun oorspronkelijke norm", val("SELECT batch_aantal_norm FROM lot WHERE id = %s", (lot_c,)) == 4)
+    con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = NULL WHERE id = %s", (prd["PRD-C"],))
     check("Elk fictief product heeft een vastgestelde routeversie",
           val("SELECT count(*) FROM product_route_versie WHERE status = 'vastgesteld'") == len(prd))
     check("Routeversie bevat dezelfde stappen als de effectieve productroute",
