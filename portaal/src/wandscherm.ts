@@ -41,7 +41,8 @@ export function stopWandscherm() {
   wakeLock = null;
 }
 
-/** #/wandscherm, #/wandscherm/<hal>, #/wandscherm/stappen/PS3,PS4 (#54) of #/wandscherm/alle (vergeet de keuze van de tv). */
+/** #/wandscherm, #/wandscherm/<hal>, #/wandscherm/stappen/PS3,PS4 (#54), #/wandscherm/kwaliteit (#83)
+ *  of #/wandscherm/alle (vergeet de keuze van de tv). */
 export async function wandscherm(deel?: string, arg?: string) {
   clearTimeout(timer);
   if (sessie.rol === "scherm") {
@@ -51,6 +52,7 @@ export async function wandscherm(deel?: string, arg?: string) {
       else if (localStorage.getItem(ONTHOUD)) return void (location.hash = localStorage.getItem(ONTHOUD)!);
     } catch { /* geen opslag: alleen deze keer */ }
   }
+  if (deel === "kwaliteit") return kwaliteitScherm();
   const stappenKeuze = deel === "stappen" && arg ? arg : undefined;
   const hal = deel && deel !== "stappen" && deel !== "alle" ? deel : undefined;
   document.body.classList.add("wand");
@@ -104,6 +106,7 @@ export async function wandscherm(deel?: string, arg?: string) {
           w.hallen.map((x) => h("a", { href: `#/wandscherm/${encodeURIComponent(x)}`, "aria-current": x === w.hal ? "page" : undefined }, x)),
           h("button", { class: "wand-kies", type: "button", "aria-current": w.keuze ? "page" : undefined, onclick: () => void kiesStappen(w.keuze ?? []) },
             w.keuze ? `Stappen: ${w.keuze.join(", ")}` : "Stappen kiezen"),
+          h("a", { href: "#/wandscherm/kwaliteit" }, "Kwaliteit"),
           h("a", { href: "#/" }, "Terug naar de portalen"))),
     );
   };
@@ -178,4 +181,96 @@ function stapKaart(s: Stap, MAX_REGELS: number) {
       ? h("p", { class: "wand-niets" }, "Niets te doen")
       : h("ul", { class: "wand-lijst" }, regels.slice(0, meer > 0 ? MAX_REGELS - 1 : MAX_REGELS),
           meer > 0 ? h("li", { class: "wr wr-meer" }, `+ ${meer + 1} meer`) : null));
+}
+
+// ---------------------------------------------------------------------------
+// Wandscherm Kwaliteit (#83): voor het lab. Wat op Kwaliteit wacht, de afwijkingen van vandaag en de kerncijfers.
+interface KwWacht { soort: "keuring" | "beoordeling"; nummer: string; product: string | null; stap: string | null; stapnaam: string | null; sinds: string; lang: boolean; te_meten: number; afwijkingen: number; reden: string | null }
+interface KwAfwijking { tijd: string; nummer: string; stap: string; veld: string; veldnaam: string; gemeten: number; eenheid: string | null; markering: "buiten_tolerantie" | "buiten_grens" }
+interface KwWand {
+  tijd: string;
+  kerncijfers: { wacht: number; vrijgegeven_vandaag: number; herbewerken_vandaag: number; afgekeurd_vandaag: number; metingen_vandaag: number; afwijkingen_vandaag: number; binnen_grenzen_procent: number | null };
+  wacht: KwWacht[];
+  afwijkingen: KwAfwijking[];
+}
+
+async function kwaliteitScherm() {
+  document.body.classList.add("wand");
+  const scherm = document.getElementById("scherm")!;
+  try { wakeLock ??= await (navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request("screen") ?? null; } catch { /* niet ondersteund */ }
+  let laatste: KwWand | null = null;
+  let laatsteGelukt: Date | null = null;
+  const route = location.hash;
+  const MAX = 10;
+
+  const teken = (fout?: string) => {
+    if (location.hash !== route) return;
+    if (!laatste) return void scherm.replaceChildren(h("div", { class: "wand-leeg" }, fout ?? "Laden…"));
+    const w = laatste;
+    const k = w.kerncijfers;
+    const cijfer = (n: number | string, tekst: string, klasse = "") => h("div", { class: `wand-cijfer ${klasse}` }, h("span", { class: "wand-getal" }, n), h("span", {}, tekst));
+    const getal = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 3 });
+    const wachtRegels = w.wacht.map((x) => h("li", { class: `wr wr-klaar${x.lang ? " wr-lang" : ""}` },
+      h("span", { class: "wr-teken", "aria-hidden": "true" }, x.soort === "keuring" ? "●" : "?"),
+      h("span", { class: "wr-nr" }, x.nummer),
+      h("span", { class: "wr-plan" }, x.soort === "keuring" ? x.stap! : "in beoordeling"),
+      h("span", { class: "wr-tijd" }, `wacht ${duur(x.sinds)}${x.lang ? " ⚠" : ""}`),
+      x.soort === "keuring"
+        ? h("span", { class: "wr-opm" }, [x.te_meten ? `${x.te_meten} te meten` : "klaar voor besluit", x.afwijkingen ? `${x.afwijkingen} ${x.afwijkingen === 1 ? "afwijking" : "afwijkingen"}` : null].filter(Boolean).join(" · "))
+        : x.reden ? h("span", { class: "wr-opm" }, x.reden) : null));
+    const afwRegels = w.afwijkingen.map((a) => h("li", { class: `wr wr-afw wr-${a.markering}` },
+      h("span", { class: "wr-teken", "aria-hidden": "true" }, a.markering === "buiten_grens" ? "◆" : "▲"),
+      h("span", { class: "wr-nr" }, a.nummer),
+      h("span", { class: "wr-plan" }, a.veld),
+      h("span", { class: "wr-tijd" }, `${getal(a.gemeten)}${a.eenheid ? ` ${a.eenheid}` : ""} · ${a.markering === "buiten_grens" ? "buiten grens" : "buiten tolerantie"}`),
+      h("span", { class: "wr-opm" }, `${a.veldnaam}, ${klok(new Date(a.tijd))}`)));
+    /** Kaart met hoogstens MAX regels; staan er meer (of telt de server er meer), dan "+ n meer" op de laatste regel. */
+    const kaart = (titel: string, teller: string, regels: HTMLElement[], leeg: string, totaal = regels.length) => {
+      const getoond = regels.slice(0, totaal > MAX ? MAX - 1 : MAX);
+      const rest = totaal - getoond.length;
+      return h("section", { class: `wand-stap${regels.length ? " wand-stap-actief" : " wand-stap-leeg"}` },
+        h("div", { class: "wand-stap-kop" }, h("span", { class: "wand-naam" }, titel), h("span", { class: "wand-voortgang" }, teller)),
+        regels.length
+          ? h("ul", { class: "wand-lijst" }, getoond, rest > 0 ? h("li", { class: "wr wr-meer" }, `+ ${rest} meer`) : null)
+          : h("p", { class: "wand-niets" }, leeg));
+    };
+    scherm.replaceChildren(
+      h("header", { class: "wand-kop" },
+        h("div", {},
+          h("h1", {}, "Kwaliteit vandaag"),
+          h("p", { class: "wand-datum" }, new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" }))),
+        h("div", { class: "wand-cijfers" },
+          cijfer(k.wacht, "wacht op Kwaliteit", k.wacht ? "let-op" : ""),
+          cijfer(`${k.vrijgegeven_vandaag} / ${k.herbewerken_vandaag} / ${k.afgekeurd_vandaag}`, "vrijgegeven / herbewerken / afgekeurd"),
+          cijfer(k.binnen_grenzen_procent === null ? "–" : `${k.binnen_grenzen_procent} %`, `van ${k.metingen_vandaag} metingen binnen grenzen`)),
+        h("div", { class: "wand-klok" }, h("span", { class: "wand-getal" }, klok()),
+          fout
+            ? h("span", { class: "wand-storing", role: "status" }, `⚠ Geen verbinding sinds ${laatsteGelukt ? klok(laatsteGelukt) : "–"}`)
+            : h("span", {}, `Bijgewerkt ${klok(new Date(w.tijd))}`))),
+      h("div", { class: "wand-raster wand-kw" },
+        kaart("Wacht op Kwaliteit", String(w.wacht.length), wachtRegels, "Niets te keuren"),
+        kaart("Afwijkingen vandaag", String(k.afwijkingen_vandaag), afwRegels, "Geen afwijkingen", k.afwijkingen_vandaag)),
+      h("footer", { class: "wand-voet" },
+        h("span", { class: "wand-uitleg" },
+          h("span", { class: "wl wl-klaar" }, "● Wacht op meting of besluit"), h("span", { class: "wl" }, "? In beoordeling"),
+          h("span", { class: "wl wl-lang" }, "Gele rand: wacht langer dan normaal"),
+          h("span", { class: "wl wl-tol" }, "▲ Buiten tolerantie"), h("span", { class: "wl wl-grens" }, "◆ Buiten grens")),
+        sessie.rol === "scherm" ? null : h("nav", { class: "wand-hallen", "aria-label": "Wandscherm" },
+          h("a", { href: "#/wandscherm" }, "Fabriek"),
+          h("a", { href: "#/wandscherm/kwaliteit", "aria-current": "page" }, "Kwaliteit"),
+          h("a", { href: "#/" }, "Terug naar de portalen"))),
+    );
+  };
+
+  const ververs = async () => {
+    try {
+      laatste = await haal<KwWand>("/wandscherm/kwaliteit");
+      laatsteGelukt = new Date();
+      teken();
+    } catch (e) {
+      teken((e as Error).message);
+    }
+    if (location.hash === route) timer = window.setTimeout(ververs, VERVERS);
+  };
+  await ververs();
 }

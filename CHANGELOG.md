@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.50.0 — 23 november 2026 · #83
+- Nieuw: **wandscherm Kwaliteit**, voor een tv in het lab (`#/wandscherm/kwaliteit`, of de link "Kwaliteit" onderin het wandscherm).
+  - **Wacht op Kwaliteit:** stappen die op een meting of besluit van Kwaliteit wachten, en batches in beoordeling, oudste eerst. Met hoe lang al, hoeveel er nog te meten is en de reden van de beoordeling. Een gele rand als het langer duurt dan bij 90 % van de keuringen in de laatste 30 dagen.
+  - **Afwijkingen vandaag:** metingen buiten tolerantie (▲, oranje) of buiten grens (◆, rood), nieuwste eerst, met batch, veld en waarde.
+  - **Kerncijfers van vandaag:** hoeveel er wacht, vrijgegeven / herbewerken / afgekeurd, en welk deel van de metingen binnen de grenzen viel.
+- Een tv met een schermaccount onthoudt ook deze keuze. Ververst zich elke 30 seconden, zoals het gewone wandscherm.
+- Het invoerscherm merkt er niets van.
+
 ## 0.49.0 — 23 november 2026 · #81
 - Planning → Capaciteit: **elke stap uit de route van een product staat er vanzelf**, per product in de volgorde van de route (D71).
   - Een stap zonder capaciteit staat op **"Nog invullen"**, met een melding bovenaan en een teller in het menu. Er wordt niets meer geschat.

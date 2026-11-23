@@ -112,6 +112,23 @@ try {
   check("Terug naar de portalen toont het menu weer", true);
   await q("DELETE FROM fabriek.pc_stap WHERE pc_id IN (SELECT id FROM fabriek.pc WHERE locatie = 'Hal 1')");
 
+  console.log("\nWandscherm Kwaliteit (#83)");
+  await page.goto(`${BASIS}/portaal/#/wandscherm`);
+  await page.getByRole("link", { name: "Kwaliteit", exact: true }).click();
+  await page.getByRole("heading", { name: "Kwaliteit vandaag" }).waitFor();
+  const [kw] = await q(`SELECT (SELECT count(*) FROM fabriek.keuring WHERE status = 'open')::int + (SELECT count(*) FROM fabriek.batch WHERE status = 'in_beoordeling')::int AS wacht,
+                               (SELECT count(*) FROM fabriek.waarde_actueel WHERE ingevoerd_op >= current_date AND markering <> 'ok')::int AS afw`);
+  const kaarten = page.locator(".wand-stap");
+  check("Twee kaarten: wacht op Kwaliteit en afwijkingen vandaag", (await kaarten.count()) === 2);
+  check("Wacht op Kwaliteit telt keuringen en beoordelingen", (await kaarten.nth(0).locator(".wand-voortgang").innerText()) === String(kw.wacht), JSON.stringify(kw));
+  check("Afwijkingen vandaag kloppen met de database", (await kaarten.nth(1).locator(".wand-voortgang").innerText()) === String(kw.afw), JSON.stringify(kw));
+  check("Kerncijfer wacht staat bovenaan", (await page.locator(".wand-cijfer").first().innerText()).startsWith(String(kw.wacht)));
+  check("Hoogstens 10 regels per kaart", (await kaarten.nth(1).locator(".wr").count()) <= 10);
+  await shot("04-kwaliteit");
+  await page.getByRole("link", { name: "Fabriek" }).click();
+  await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
+  check("Terug naar het wandscherm van de fabriek", true);
+
   console.log("\nVerbinding weg");
   await page.goto(`${BASIS}/portaal/#/wandscherm`);
   await page.locator(".wand-stap").first().waitFor();

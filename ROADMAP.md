@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 23 november 2026 · huidige versie 0.49.0
+Bijgewerkt: 23 november 2026 · huidige versie 0.50.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -24,7 +24,7 @@ gantt
 
     section A3 Vóór de pilot
     Gebouwd in 0.39 tot en met 0.48          :done, a3a, 2026-11-21, 2d
-    Keuring en wandscherm Kwaliteit (80 83)  :a3c, 2026-11-23, 10d
+    Keuringsstappen en specificatie (80)     :a3c, 2026-11-23, 10d
     In één keer goed, signaleren (32 66)     :a3b, after a3c, 7d
 
     section B Praktijk
@@ -72,10 +72,9 @@ Geerts lijst met 21 ideeën na het bekijken van de demo (20 november 2026). Eige
 
 
 ### A3. Vóór de pilot (software) — november tot begin december 2026
-Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen (#78 gebouwd in 0.42.0, #31 in 0.46.0, #77 in 0.47.0). Tussendoor kwamen een rondgang langs alle schermen op vormgeving (0.42.1) en alle schermen geschikt voor telefoon en tablet (#47, 0.43.0 tot en met 0.45.1), en na Geerts eigen rondgang in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2) en de capaciteit per product met afwijkende dagen (0.48.0, D69), duidelijker grenzen en tolerantie in de grafieken (0.48.1, D70), afmelden dat altijd op de startpagina landt (#82, 0.48.2), en de capaciteit uit de route met "nog invullen" (#81, 0.49.0, D71). Van Geerts punten van 23 november staan #80 en #83 nog open. Nog open:
+Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026): alles hieronder komt vóór de pilot. Volgorde: eerst wat in de eerste pilotweek al nodig is (#55 en #75 gebouwd in 0.39.0 en 0.40.0), dan het inrichten (#76, gebouwd in 0.41.0), dan wat helpt de pilot te beoordelen (#78 gebouwd in 0.42.0, #31 in 0.46.0, #77 in 0.47.0). Tussendoor kwamen een rondgang langs alle schermen op vormgeving (0.42.1) en alle schermen geschikt voor telefoon en tablet (#47, 0.43.0 tot en met 0.45.1), en na Geerts eigen rondgang in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2) en de capaciteit per product met afwijkende dagen (0.48.0, D69), duidelijker grenzen en tolerantie in de grafieken (0.48.1, D70), afmelden dat altijd op de startpagina landt (#82, 0.48.2), de capaciteit uit de route met "nog invullen" (#81, 0.49.0, D71), en het wandscherm Kwaliteit (#83, 0.50.0, D72). Van Geerts punten van 23 november staat #80 nog open. Nog open:
 - #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
 - #80 **Keuringsstappen en specificatie per product** (groot) — Tussenkeuringen (TK1, TK2, …) en de eindkeuring (EK) als eigen stappen in de route, bijvoorbeeld PS1 – PS2 – PS3 – TK1 – PS4 – PS7 – TK2 – PS14 – PS15 – EK. In een keuringsstap meet alleen Kwaliteit en geeft het oordeel. Per product een apart specificatieblad (met versie en datum) waar de eindkeuring aan wordt getoetst. Eerst een voorstel; bouwen na akkoord van Geert (raakt D58).
-- #83 **Wandscherm Kwaliteit** (middel) — Een wandscherm voor het lab: wat wacht op keuring (met hoe lang al), afwijkingen van vandaag en de kerncijfers van vandaag.
 - #66 **Procesbewaking: tijdig signaleren** (middel) — Een signaal van een regelkaart of een trend meteen als melding in de portalen en op het wandscherm, niet alleen achteraf in het scherm Regelkaarten. Drempels pas instellen met echte data (#2); vóór de pilot alleen de werking.
 
 **Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.

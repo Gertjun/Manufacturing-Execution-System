@@ -101,6 +101,7 @@
   --wand-stil: #e5484d;
   --wand-stil-vlak: #3a1d22;
   --wand-stil-tekst: #ffb4b6;
+  --wand-tol: #ffb547;                /* oranje op donker: buiten tolerantie (wandscherm Kwaliteit, #83) */
 
   /* Afdrukken (certificaat, lotpaspoort) */
   --print-inkt: #111111;

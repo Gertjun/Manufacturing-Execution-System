@@ -320,3 +320,7 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Plannen blijft altijd mogen (D36):** zonder capaciteit telt een product niet mee in het percentage; de planning toont "capaciteit nog invullen".
 - **Gekozen boven:** plannen blokkeren tot alles is ingevuld (gaat in tegen D36).
 
+### D72 – Wandscherm Kwaliteit (23 nov 2026, 0.50.0)
+- **Besluit (Geert):** een wandscherm voor het lab met drie dingen: wat op Kwaliteit wacht, de afwijkingen van vandaag en de kerncijfers van vandaag. Geen herbewerkingen (die staan in het portaal Kwaliteit).
+- **Uitwerking:** `GET /wandscherm/kwaliteit`, voor dezelfde rollen als het gewone wandscherm. "Wacht" = open keuringen (D58) plus batches in beoordeling (D7). "Lang" = langer dan 90 % van de keuringen in de laatste 30 dagen, minstens een kwartier (zoals D30). "Binnen grenzen" = metingen van vandaag zonder markering (dus ook binnen tolerantie). Afwijkingen tonen hetzelfde teken als in de grafieken (D70): ▲ tolerantie, ◆ grens.
+

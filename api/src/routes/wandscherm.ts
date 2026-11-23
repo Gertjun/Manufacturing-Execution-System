@@ -179,6 +179,110 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       } as never;
     },
   );
+
+  // ---------- Wandscherm Kwaliteit (#83) ----------
+  const Wacht = Type.Object({
+    soort: Type.Union([Type.Literal("keuring"), Type.Literal("beoordeling")], { description: "keuring = wacht op een meting of besluit van Kwaliteit na een stap (D58); beoordeling = batch in beoordeling (D7)" }),
+    nummer: Type.String(),
+    product: Type.Union([Type.Null(), Type.String()]),
+    stap: Type.Union([Type.Null(), Type.String()]),
+    stapnaam: Type.Union([Type.Null(), Type.String()]),
+    sinds: Type.String({ format: "date-time" }),
+    lang: Type.Boolean({ description: "Wacht langer dan 90% van de keuringen in de laatste 30 dagen (minstens een kwartier)" }),
+    te_meten: Type.Integer({ description: "Verplichte velden van Kwaliteit die nog leeg zijn (0 bij een beoordeling)" }),
+    afwijkingen: Type.Integer({ description: "Afwijkende metingen in die stap (0 bij een beoordeling)" }),
+    reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van de beoordeling" }),
+  });
+  app.get(
+    "/kwaliteit",
+    {
+      preHandler: vereist(...WANDSCHERM),
+      schema: {
+        tags: ["wandscherm"],
+        description:
+          "Wandscherm voor Kwaliteit (#83): wat op Kwaliteit wacht (keuringen en batches in beoordeling, oudste eerst), " +
+          "de afwijkende metingen van vandaag (nieuwste eerst, hoogstens 30) en de kerncijfers van vandaag.",
+        response: {
+          200: Type.Object({
+            tijd: Type.String({ format: "date-time" }),
+            kerncijfers: Type.Object({
+              wacht: Type.Integer({ description: "Keuringen open plus batches in beoordeling" }),
+              vrijgegeven_vandaag: Type.Integer(),
+              herbewerken_vandaag: Type.Integer(),
+              afgekeurd_vandaag: Type.Integer(),
+              metingen_vandaag: Type.Integer(),
+              afwijkingen_vandaag: Type.Integer(),
+              binnen_grenzen_procent: NulGeheel({ description: "Deel van de metingen van vandaag zonder afwijking; null zonder metingen" }),
+            }),
+            wacht: Type.Array(Wacht),
+            afwijkingen: Type.Array(Type.Object({
+              tijd: Type.String({ format: "date-time" }),
+              nummer: Type.String(),
+              stap: Type.String(),
+              veld: Type.String(),
+              veldnaam: Type.String(),
+              gemeten: Type.Number(),
+              eenheid: Type.Union([Type.Null(), Type.String()]),
+              markering: Type.Union([Type.Literal("buiten_tolerantie"), Type.Literal("buiten_grens")]),
+            })),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      if (req.user.rol === "scherm") {
+        const [g] = await lees(app.db, "SELECT 1 FROM gebruiker WHERE id = $1 AND actief", [req.user.sub]);
+        if (!g) throw new ApiFout(401, "Dit schermaccount is uitgezet");
+      }
+      const [norm] = await lees<{ p90: number | null }>(app.db,
+        `SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM k.besloten_op - coalesce(r.afgerond_op, k.aangemaakt_op))) AS p90
+           FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id
+          WHERE k.besloten_op > now() - interval '30 days'`);
+      const nu = Date.now();
+      const lang = (sinds: Date | string) => norm?.p90 != null && (nu - new Date(sinds).getTime()) / 1000 > Math.max(norm.p90, 15 * 60);
+      const wacht = await lees<{ sinds: Date }>(app.db,
+        `SELECT 'keuring' AS soort, coalesce(b.batchnummer, l.lotnummer) AS nummer, p.code AS product, s.code AS stap, s.naam AS stapnaam,
+                coalesce(r.afgerond_op, k.aangemaakt_op) AS sinds,
+                (SELECT count(*) FROM veld v WHERE v.processtap_id = s.id AND v.actief AND v.verplicht AND v.gemeten_door = 'kwaliteit'
+                    AND NOT EXISTS (SELECT 1 FROM waarde w WHERE w.stapregistratie_id = r.id AND w.veld_id = v.id))::int AS te_meten,
+                (SELECT count(*) FROM waarde_actueel w WHERE w.stapregistratie_id = r.id AND w.markering <> 'ok')::int AS afwijkingen,
+                NULL::text AS reden
+           FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id JOIN processtap s ON s.id = r.processtap_id
+           LEFT JOIN batch b ON b.id = r.batch_id LEFT JOIN lot l ON l.id = r.lot_id LEFT JOIN product p ON p.id = r.product_id
+          WHERE k.status = 'open'
+         UNION ALL
+         SELECT 'beoordeling', b.batchnummer, p.code, NULL, NULL, x.besloten_op, 0, 0, x.reden
+           FROM batch b LEFT JOIN product p ON p.id = b.product_id
+          CROSS JOIN LATERAL (SELECT bb.besloten_op, bb.reden FROM batch_besluit bb
+                               WHERE bb.batch_id = b.id AND bb.besluit = 'in_beoordeling' ORDER BY bb.besloten_op DESC LIMIT 1) x
+          WHERE b.status = 'in_beoordeling'
+         ORDER BY sinds`);
+      const afwijkingen = await lees(app.db,
+        `SELECT w.ingevoerd_op AS tijd, coalesce(b.batchnummer, l.lotnummer) AS nummer, s.code AS stap, v.code AS veld, v.naam AS veldnaam,
+                w.gemeten::float AS gemeten, v.eenheid, w.markering
+           FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id JOIN stapregistratie r ON r.id = w.stapregistratie_id
+           JOIN processtap s ON s.id = r.processtap_id LEFT JOIN batch b ON b.id = r.batch_id LEFT JOIN lot l ON l.id = r.lot_id
+          WHERE w.ingevoerd_op >= current_date AND w.markering <> 'ok'
+          ORDER BY w.ingevoerd_op DESC LIMIT 30`);
+      const [k] = await lees<Record<string, number | null>>(app.db,
+        `WITH m AS (SELECT markering FROM waarde_actueel WHERE ingevoerd_op >= current_date),
+              besluit AS (SELECT status AS b FROM keuring WHERE besloten_op >= current_date
+                          UNION ALL SELECT besluit FROM batch_besluit WHERE besloten_op >= current_date AND besluit <> 'in_beoordeling')
+         SELECT (SELECT count(*) FROM keuring WHERE status = 'open')::int + (SELECT count(*) FROM batch WHERE status = 'in_beoordeling')::int AS wacht,
+                (SELECT count(*) FROM besluit WHERE b = 'vrijgegeven')::int AS vrijgegeven_vandaag,
+                (SELECT count(*) FROM besluit WHERE b = 'herbewerken')::int AS herbewerken_vandaag,
+                (SELECT count(*) FROM besluit WHERE b = 'afgekeurd')::int AS afgekeurd_vandaag,
+                (SELECT count(*) FROM m)::int AS metingen_vandaag,
+                (SELECT count(*) FROM m WHERE markering <> 'ok')::int AS afwijkingen_vandaag,
+                (SELECT round(100.0 * count(*) FILTER (WHERE markering = 'ok') / nullif(count(*), 0)) FROM m)::int AS binnen_grenzen_procent`);
+      return {
+        tijd: new Date().toISOString(),
+        kerncijfers: k,
+        wacht: wacht.map((x) => ({ ...x, sinds: new Date(x.sinds).toISOString(), lang: lang(x.sinds) })),
+        afwijkingen: afwijkingen.map((x: any) => ({ ...x, tijd: new Date(x.tijd).toISOString() })),
+      } as never;
+    },
+  );
 };
 
 export default routes;

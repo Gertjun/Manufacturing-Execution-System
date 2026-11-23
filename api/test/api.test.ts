@@ -1306,6 +1306,20 @@ describe("Etiketten", () => {
   });
 });
 
+describe("Wandscherm Kwaliteit (#83)", () => {
+  test("wacht, afwijkingen van vandaag en kerncijfers; niet voor operators", async () => {
+    assert.equal((await verzoek("GET", "/wandscherm/kwaliteit", await login("operator.a"))).status, 403);
+    const r = await verzoek("GET", "/wandscherm/kwaliteit", await login("kwaliteit1"));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const k = r.body.kerncijfers;
+    assert.equal(k.wacht, r.body.wacht.length);
+    assert.ok(r.body.afwijkingen.length <= 30 && r.body.afwijkingen.length <= k.afwijkingen_vandaag);
+    assert.ok(k.binnen_grenzen_procent === null ? k.metingen_vandaag === 0 : k.binnen_grenzen_procent >= 0 && k.binnen_grenzen_procent <= 100);
+    const tijden = r.body.wacht.map((w: any) => w.sinds);
+    assert.deepEqual(tijden, [...tijden].sort(), "oudste eerst");
+  });
+});
+
 describe("Capaciteit", () => {
   test("starts per product, afwijkende dagen per product en stap (D69), waarschuwing bij te veel", async () => {
     const t = await login("planner1");

@@ -685,3 +685,14 @@ a.merk:hover { text-decoration: underline; }
 
 /* Capaciteit per product (#81, D71): stappen zonder capaciteit vallen op, met tekst én kleur. */
 .label-nog-invullen { color: var(--tol); font-weight: 700; }
+
+/* Wandscherm Kwaliteit (#83): afwijkingen met hetzelfde teken als in de grafieken (▲ tolerantie, ◆ grens), kleur én vorm. */
+.wr-klaar .wr-opm { color: var(--wand-klaar-tekst); }
+.wr-afw { background: var(--wand-vlak); border-color: var(--wand-rand); }
+.wr-buiten_tolerantie .wr-teken, .wl-tol { color: var(--wand-tol); }
+.wr-buiten_grens .wr-teken, .wl-grens { color: var(--wand-stil-tekst); }
+.wr-buiten_grens { border-color: var(--wand-stil); }
+.wr-afw .wr-opm { color: var(--wand-tekst-3); }
+.wand-raster.wand-kw { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 1.5em; }
+@media screen and (max-width: 1100px) { .wand-raster.wand-kw { font-size: 1.2em; } }
+@media screen and (max-width: 599px) { .wand-raster.wand-kw { grid-template-columns: minmax(0, 1fr); font-size: 1em; } }
