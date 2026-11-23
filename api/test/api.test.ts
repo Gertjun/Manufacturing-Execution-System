@@ -148,7 +148,9 @@ describe("productie van batch tot lot", () => {
   });
 
   test("dubbel batchnummer geeft 409", async () => {
-    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100" })).status, 201);
+    const producten = await verzoek("GET", "/planning/producten", op);
+    const productId = producten.body.find((p: any) => p.code === "PRD-A").id;
+    assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100", productId })).status, 201);
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100" })).status, 409);
   });
 
@@ -280,7 +282,7 @@ describe("productie van batch tot lot", () => {
   test("vier batches doorlopen PS1-PS15 en worden een lot", async () => {
     await doorloop(op, "B-2026-0100", "batch", 2, 15);
     for (const nr of ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]) {
-      assert.equal((await verzoek("POST", "/batches", op, { batchnummer: nr })).status, 201);
+      assert.equal((await verzoek("POST", "/batches", op, { batchnummer: nr, productId })).status, 201);
       await doorloop(op, nr, "batch", 1, 15);
     }
     const gereed = await verzoek("GET", "/batches?gereedVoorLot=true", op);

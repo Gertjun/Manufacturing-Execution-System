@@ -25,6 +25,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         body: Type.Object({
           id: Type.Optional(Type.String({ format: "uuid", description: "Door het apparaat gemaakt; maakt opnieuw versturen veilig" })),
           batchnummer: BatchNummer,
+          productId: Type.Optional(Type.Union([Type.Null(), Type.String({ format: "uuid" })])),
         }),
         response: { 200: Batch, 201: Batch },
       },
@@ -41,9 +42,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         }
       }
       await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("INSERT INTO batch (id, batchnummer, bron, aangemaakt_door) VALUES (coalesce($1, gen_random_uuid()), $2, 'operator', $3)", [
+        tx.query("INSERT INTO batch (id, batchnummer, product_id, bron, aangemaakt_door) VALUES (coalesce($1, gen_random_uuid()), $2, $3, 'operator', $4)", [
           id ?? null,
           batchnummer,
+          req.body.productId ?? null,
           operatorId,
         ]),
       );
