@@ -1255,13 +1255,20 @@ BEGIN
 
     SELECT count(*) INTO v_aantal FROM batch WHERE id = ANY(p_batches);
     IF v_aantal <> cardinality(p_batches) THEN RAISE EXCEPTION 'Een of meer opgegeven batches bestaan niet'; END IF;
-    IF EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NULL)
-       OR (SELECT count(DISTINCT product_id) FROM batch WHERE id = ANY(p_batches)) <> 1 THEN
+    -- Productloze batches zijn legacy: alleen als alle batches productloos zijn, behoud de oude norm 4.
+    -- Gemengde productloze/productgekoppelde batches of meerdere producten blijven verboden.
+    IF (SELECT count(DISTINCT product_id) FROM batch WHERE id = ANY(p_batches)) > 1
+       OR (EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NULL)
+           AND EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NOT NULL)) THEN
         RAISE EXCEPTION 'Een lot bestaat uit batches van hetzelfde product';
     END IF;
-    SELECT product_id INTO v_product FROM batch WHERE id = ANY(p_batches) ORDER BY product_id LIMIT 1;
-    SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
-    IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    SELECT product_id INTO v_product FROM batch WHERE id = ANY(p_batches) ORDER BY product_id NULLS LAST LIMIT 1;
+    IF v_product IS NULL THEN
+        v_norm := 4;
+    ELSE
+        SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
+        IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    END IF;
     IF cardinality(p_batches) <> v_norm AND v_reden IS NULL THEN
         RAISE EXCEPTION 'Een lot bestaat uit precies % batches voor dit product; geef een reden om hiervan af te wijken', v_norm;
     END IF;
@@ -1691,14 +1698,23 @@ CREATE FUNCTION controleer_lot_voorstel(p_voorstel uuid) RETURNS void LANGUAGE p
 DECLARE v_dubbel text; v_product uuid; v_norm int;
 BEGIN
     IF (SELECT status FROM lot_voorstel WHERE id = p_voorstel) <> 'open' THEN RETURN; END IF;
-    SELECT b.product_id INTO v_product FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
-     WHERE x.voorstel_id = p_voorstel ORDER BY b.product_id LIMIT 1;
-    IF v_product IS NULL OR EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
-                                     WHERE x.voorstel_id = p_voorstel AND b.product_id IS DISTINCT FROM v_product) THEN
+    IF (SELECT count(DISTINCT b.product_id) FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+           WHERE x.voorstel_id = p_voorstel) > 1
+       OR (EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+                    WHERE x.voorstel_id = p_voorstel AND b.product_id IS NULL)
+           AND EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+                    WHERE x.voorstel_id = p_voorstel AND b.product_id IS NOT NULL)) THEN
         RAISE EXCEPTION 'Een lotvoorstel bestaat uit batches van hetzelfde product';
     END IF;
-    SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product;
-    IF v_norm IS NULL OR (SELECT batch_aantal_norm FROM lot_voorstel WHERE id = p_voorstel) <> v_norm THEN
+    SELECT b.product_id INTO v_product FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+     WHERE x.voorstel_id = p_voorstel ORDER BY b.product_id NULLS LAST LIMIT 1;
+    IF v_product IS NULL THEN
+        v_norm := 4;
+    ELSE
+        SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product;
+        IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    END IF;
+    IF (SELECT batch_aantal_norm FROM lot_voorstel WHERE id = p_voorstel) <> v_norm THEN
         RAISE EXCEPTION 'De lotgrootte is gewijzigd; bouw dit lotvoorstel opnieuw op';
     END IF;
     IF (SELECT count(*) FROM lot_voorstel_batch WHERE voorstel_id = p_voorstel) <> v_norm THEN
@@ -1727,13 +1743,18 @@ BEGIN
     IF (SELECT count(*) FROM batch WHERE id = ANY(p_batches)) <> cardinality(p_batches) THEN
         RAISE EXCEPTION 'Een of meer opgegeven batches bestaan niet';
     END IF;
-    IF EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NULL)
-       OR (SELECT count(DISTINCT product_id) FROM batch WHERE id = ANY(p_batches)) <> 1 THEN
+    IF (SELECT count(DISTINCT product_id) FROM batch WHERE id = ANY(p_batches)) > 1
+       OR (EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NULL)
+           AND EXISTS (SELECT 1 FROM batch WHERE id = ANY(p_batches) AND product_id IS NOT NULL)) THEN
         RAISE EXCEPTION 'Een lotvoorstel bestaat uit batches van hetzelfde product';
     END IF;
-    SELECT product_id INTO v_product FROM batch WHERE id = ANY(p_batches) ORDER BY product_id LIMIT 1;
-    SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
-    IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    SELECT product_id INTO v_product FROM batch WHERE id = ANY(p_batches) ORDER BY product_id NULLS LAST LIMIT 1;
+    IF v_product IS NULL THEN
+        v_norm := 4;
+    ELSE
+        SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
+        IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
+    END IF;
     IF cardinality(p_batches) <> v_norm THEN
         RAISE EXCEPTION 'Een lotvoorstel voor dit product bestaat uit precies % batches', v_norm;
     END IF;
