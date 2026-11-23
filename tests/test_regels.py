@@ -92,7 +92,8 @@ def main():
             con.execute("SELECT rond_stap_af(%s)", (reg,))
 
     def nieuwe_batch(nr):
-        return val("INSERT INTO batch (batchnummer, aangemaakt_door) VALUES (%s, %s) RETURNING id", (nr, op))
+        product = val("SELECT id FROM product WHERE code = 'PRD-A'")
+        return val("INSERT INTO batch (batchnummer, aangemaakt_door, product_id) VALUES (%s, %s, %s) RETURNING id", (nr, op, product))
 
     print("\nBatchstappen")
     b = [nieuwe_batch(f"B-2026-000{i}") for i in range(1, 7)]
@@ -207,6 +208,8 @@ def main():
     doorloop(b[3], 15, 15)
     lot = val("SELECT maak_lot('L-2026-0001', %s, %s, %s)", (b[:4], pc, op))
     check("4 batches staan in het lot", val("SELECT count(*) FROM batch WHERE lot_id=%s AND status='in_lot'", (lot,)) == 4)
+    check("Lot bewaart norm en werkelijk aantal batches",
+          val("SELECT batch_aantal_norm = 4 AND batch_aantal = 4 AND afwijking_reden IS NULL FROM lot WHERE id=%s", (lot,)) is True)
     faalt("Batch kan niet in een tweede lot",
           "SELECT maak_lot('L-2026-0002', %s, %s, %s)", ([b[0], b[1], b[2], b[5]], pc, op), "status in_lot")
     faalt("Batch in lot kan geen batchstap meer doen",

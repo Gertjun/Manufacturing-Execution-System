@@ -1274,7 +1274,7 @@ BEGIN
     SELECT batches_per_lot INTO v_norm FROM product WHERE id = v_product FOR UPDATE;
     IF v_norm IS NULL THEN RAISE EXCEPTION 'Het product heeft geen geldige lotgrootte'; END IF;
     IF cardinality(p_batches) <> v_norm AND v_reden IS NULL THEN
-        RAISE EXCEPTION 'Dit product vraagt % batches per lot; geef een reden om hiervan af te wijken', v_norm;
+        RAISE EXCEPTION 'Een lot bestaat uit precies % batches voor dit product; geef een reden om hiervan af te wijken', v_norm;
     END IF;
 
     -- Elke batch: in productie, en alle batchstappen van zijn route afgerond.
