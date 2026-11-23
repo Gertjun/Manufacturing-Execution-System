@@ -166,27 +166,62 @@ export interface TrendVeld {
   grens_min: number | null; grens_max: number | null; tolerantie: number | null; tolerantie_soort: string;
   grenzen_per_product?: boolean;
 }
-export interface TrendPunt { tijd: string; setting: number | null; gemeten: number; markering: "ok" | "buiten_tolerantie" | "buiten_grens"; batch_of_lot: string; operator: string }
+export interface TrendPunt {
+  tijd: string; setting: number | null; gemeten: number; markering: "ok" | "buiten_tolerantie" | "buiten_grens"; batch_of_lot: string; operator: string;
+  /** De grenzen waaraan deze meting is getoetst (sinds 0.56.0, #89); ontbreekt bij een oudere server. */
+  grens_min?: number | null; grens_max?: number | null; tolerantie?: number | null; tolerantie_soort?: string | null; product?: string | null;
+}
+
+/**
+ * Horen de metingen bij producten met verschillende grenzen of tolerantie (#89)? Dan passen lijnen niet op elk punt:
+ * een punt "binnen grenzen" kan boven een lijn van een ander product staan. Grenzen die alleen in de tijd
+ * veranderen (één product) zijn geen menging: die volgen de lijnen als traplijn.
+ */
+export function gemengdeGrenzen(punten: TrendPunt[]): boolean {
+  const perProduct = new Map<string, string>();
+  for (const p of punten) {
+    if (p.grens_min === undefined) return false; // oudere server: geen grenzen per meting
+    const sleutel = [p.grens_min, p.grens_max, p.tolerantie, p.tolerantie_soort].join("|");
+    const prod = p.product ?? "";
+    const eerder = perProduct.get(prod);
+    if (eerder === undefined) perProduct.set(prod, sleutel);
+  }
+  return new Set(perProduct.values()).size > 1;
+}
 
 export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
   const B = 760, H = 320, m = { l: 52, r: 16, t: 16, b: 34 };
   const bw = B - m.l - m.r, bh = H - m.t - m.b;
   const tijden = punten.map((p) => Date.parse(p.tijd));
   const t0 = Math.min(...tijden), t1 = Math.max(...tijden, t0 + 1);
+  // Producten met verschillende grenzen door elkaar (#89): geen lijnen; elk punt houdt de kleur van zijn eigen grenzen.
+  const gemengd = gemengdeGrenzen(punten);
+  // Grenzen en tolerantie van elke meting zelf (sinds 0.56.0), anders die van het veld.
+  const gMin = (p: TrendPunt) => (p.grens_min !== undefined ? p.grens_min : veld.grens_min);
+  const gMax = (p: TrendPunt) => (p.grens_max !== undefined ? p.grens_max : veld.grens_max);
   // Tolerantie hoort bij de instelling van elke meting: verandert de instelling, dan verspringen de lijnen mee.
-  const tolVan = (st: number | null) => veld.tolerantie === null || st === null ? null
-    : veld.tolerantie_soort === "procent" ? (Math.abs(st) * veld.tolerantie) / 100 : veld.tolerantie;
-  const metTol = punten.some((p) => tolVan(p.setting) !== null);
+  const tolVan = (p: TrendPunt) => {
+    const tol = p.tolerantie !== undefined ? p.tolerantie : veld.tolerantie;
+    const soort = p.tolerantie_soort ?? veld.tolerantie_soort;
+    return gemengd || tol === null || p.setting === null ? null : soort === "procent" ? (Math.abs(p.setting) * tol) / 100 : tol;
+  };
+  const metTol = punten.some((p) => tolVan(p) !== null);
+  const metGrens = !gemengd && punten.some((p) => gMin(p) !== null || gMax(p) !== null);
   const waarden = punten.map((p) => p.gemeten);
   let lo = Math.min(...waarden), hi = Math.max(...waarden);
   for (const p of punten) {
-    const t = tolVan(p.setting);
+    const t = tolVan(p);
     if (t !== null) { lo = Math.min(lo, p.setting! - t); hi = Math.max(hi, p.setting! + t); }
   }
   // Grenzen alleen meenemen als ze dichtbij liggen; anders drukken ze de data plat.
   const bereik = hi - lo || 1;
-  if (veld.grens_min !== null && veld.grens_min > lo - bereik) lo = Math.min(lo, veld.grens_min);
-  if (veld.grens_max !== null && veld.grens_max < hi + bereik) hi = Math.max(hi, veld.grens_max);
+  if (metGrens) {
+    for (const p of punten) {
+      const a = gMin(p), b = gMax(p);
+      if (a !== null && a > lo - bereik) lo = Math.min(lo, a);
+      if (b !== null && b < hi + bereik) hi = Math.max(hi, b);
+    }
+  }
   const ticks = schaalStappen(lo - bereik * 0.05, hi + bereik * 0.05, 5);
   const ylo = ticks[0], yhi = ticks[ticks.length - 1];
   const X = (t: number) => m.l + ((t - t0) / (t1 - t0)) * bw;
@@ -212,19 +247,25 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
     return d;
   };
   if (metTol) {
-    const boven = (p: TrendPunt) => { const t = tolVan(p.setting); return t === null ? null : p.setting! + t; };
-    const onder = (p: TrendPunt) => { const t = tolVan(p.setting); return t === null ? null : p.setting! - t; };
-    svg.append(s("path", { d: trap((p) => (tolVan(p.setting) === null ? null : p.setting)), class: "setting" }));
+    const boven = (p: TrendPunt) => { const t = tolVan(p); return t === null ? null : p.setting! + t; };
+    const onder = (p: TrendPunt) => { const t = tolVan(p); return t === null ? null : p.setting! - t; };
+    svg.append(s("path", { d: trap((p) => (tolVan(p) === null ? null : p.setting)), class: "setting" }));
     svg.append(s("path", { d: trap(boven), class: "tolerantielijn" }));
     svg.append(s("path", { d: trap(onder), class: "tolerantielijn" }));
-    const laatste = [...volgordeTijd].reverse().map((i) => punten[i]).find((p) => tolVan(p.setting) !== null)!;
-    const tekst = veld.tolerantie_soort === "procent" ? `tolerantie ±${getal(veld.tolerantie!)} %` : `tolerantie ±${getal(veld.tolerantie!)}`;
+    const laatste = [...volgordeTijd].reverse().map((i) => punten[i]).find((p) => tolVan(p) !== null)!;
+    const tol = laatste.tolerantie !== undefined ? laatste.tolerantie! : veld.tolerantie!;
+    const tekst = (laatste.tolerantie_soort ?? veld.tolerantie_soort) === "procent" ? `tolerantie ±${getal(tol)} %` : `tolerantie ±${getal(tol)}`;
     svg.append(s("text", { x: B - m.r - 4, y: Y(boven(laatste)!) - 6, "text-anchor": "end", class: "as-tekst label-tol" }, tekst));
   }
-  for (const [g, naam] of [[veld.grens_min, "min"], [veld.grens_max, "max"]] as const) {
-    if (g !== null && g >= ylo && g <= yhi) {
-      svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(g), y2: Y(g), class: "grenslijn" }));
-      svg.append(s("text", { x: m.l + 6, y: Y(g) + (naam === "max" ? -6 : 14), class: "as-tekst label-grens" }, `grens ${naam} ${getal(g)}`));
+  // Grenzen als traplijn door de tijd, net als de tolerantie: een gewijzigde grens geldt pas vanaf dat moment (#89).
+  if (metGrens) {
+    const laatste = punten[volgordeTijd[volgordeTijd.length - 1]];
+    for (const [g, naam] of [[gMin, "min"], [gMax, "max"]] as const) {
+      const binnen = (p: TrendPunt) => { const v = g(p); return v !== null && v >= ylo && v <= yhi ? v : null; };
+      if (!punten.some((p) => binnen(p) !== null)) continue;
+      svg.append(s("path", { d: trap(binnen), class: "grenslijn" }));
+      const v = binnen(laatste) ?? punten.map(binnen).filter((x): x is number => x !== null).at(-1)!;
+      svg.append(s("text", { x: m.l + 6, y: Y(v) + (naam === "max" ? -6 : 14), class: "as-tekst label-grens" }, `grens ${naam} ${getal(v)}`));
     }
   }
   // Tijdas: ongeveer 6 labels.
@@ -254,7 +295,7 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
   svg.append(vlak);
   const kaderEl = h("div", { class: "grafiek" },
     legenda([["ok", "Binnen grenzen"], ["tol", "Buiten tolerantie"], ["grens", "Buiten grens"]], [
-      ...(veld.grens_min !== null || veld.grens_max !== null ? [["leg-grens", "Grens"] as [string, string]] : []),
+      ...(metGrens ? [["leg-grens", "Grens"] as [string, string]] : []),
       ...(metTol ? [["leg-tol", "Tolerantie"] as [string, string], ["leg-setting", "Instelling"] as [string, string]] : []),
     ]),
     svg as unknown as Node, tip.el);
@@ -269,13 +310,16 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
     lijn.setAttribute("x2", String(X(tijden[beste])));
     lijn.style.display = "";
     const buiten = kaderEl.getBoundingClientRect();
-    tip.toon(ev.clientX - buiten.left, ev.clientY - buiten.top, [
-      h("strong", {}, p.batch_of_lot),
+    const regels: (string | Node | null)[] = [
+      h("strong", {}, p.batch_of_lot, p.product ? ` · ${p.product}` : ""),
       new Date(p.tijd).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
       `${p.setting !== null ? `instelling ${getal(p.setting)}, ` : ""}gemeten ${getal(p.gemeten)}${veld.eenheid ? ` ${veld.eenheid}` : ""}`,
       p.markering === "ok" ? "Binnen grenzen" : p.markering === "buiten_tolerantie" ? "Buiten tolerantie" : "Buiten grens",
+      // Bij gemengde grenzen staan er geen lijnen: dan de grenzen van dit punt in de tooltip.
+      gemengd && (gMin(p) !== null || gMax(p) !== null) ? `grenzen ${gMin(p) !== null ? getal(gMin(p)!) : "…"} tot ${gMax(p) !== null ? getal(gMax(p)!) : "…"}` : null,
       p.operator,
-    ], buiten);
+    ];
+    tip.toon(ev.clientX - buiten.left, ev.clientY - buiten.top, regels.filter((x): x is string | Node => x !== null), buiten);
   });
   vlak.addEventListener("mouseleave", () => { lijn.style.display = "none"; tip.verberg(); });
   return kaderEl;

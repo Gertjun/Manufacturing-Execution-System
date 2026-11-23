@@ -135,7 +135,9 @@ try {
   console.log("\nProductkiezer en grenzen per product (D55)");
   const metingen = async () => Number((await page.locator(".feiten div", { hasText: "Metingen" }).locator("dd").innerText()).trim());
   const alleN = await metingen();
-  check("Alle producten: uitleg over grenzen per product bij S9.2", (await page.locator("main p", { hasText: "eigen grenzen per product" }).count()) === 1);
+  // #89: producten met verschillende grenzen door elkaar: geen grens- of tolerantielijnen, wel uitleg.
+  check("Alle producten: bij S9.2 geen grenslijnen en uitleg over de verschillende grenzen",
+    (await page.locator(".grafiek > svg .grenslijn").count()) === 0 && (await page.locator("main p", { hasText: "producten met verschillende grenzen" }).count()) === 1);
   await page.selectOption("#product-keuze", "PRD-C");
   await page.locator(".filter-product", { hasText: "PRD-C" }).waitFor();
   await page.locator(".grafiek > svg").waitFor();
@@ -144,7 +146,8 @@ try {
                           JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.product p ON p.id = r.product_id
                          WHERE v.code = 'S9.2' AND p.code = 'PRD-C' AND w.ingevoerd_op >= current_date - 89`);
   check("PRD-C: alleen de metingen van dat product", cN > 0 && cN < alleN && cN === db9.n, `${cN} van ${alleN}, database ${db9.n}`);
-  check("PRD-C: geen uitleg meer nodig, de grenzen zijn die van PRD-C", (await page.locator("main p", { hasText: "eigen grenzen per product" }).count()) === 0);
+  check("PRD-C: grenslijnen van PRD-C en geen uitleg", (await page.locator(".grafiek > svg .grenslijn").count()) === 2
+    && (await page.locator("main p", { hasText: "producten met verschillende grenzen" }).count()) === 0);
   await page.waitForTimeout(300);
   await shot("04b-trend-S9.2-PRD-C", false);
   await page.getByRole("link", { name: "Regelkaarten" }).click();

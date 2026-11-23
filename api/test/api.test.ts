@@ -725,6 +725,8 @@ describe("grenzen per product (D55)", () => {
     assert.equal(trend.status, 200);
     assert.deepEqual([trend.body.veld.grens_min, trend.body.veld.grens_max, trend.body.veld.grenzen_per_product], [400, 460, true]);
     assert.equal((await verzoek("GET", "/analyse/trend?veld=S9.2", kw)).body.veld.grens_max, 440);
+    // #89: elk punt heeft de grenzen waaraan het getoetst is, en zijn product.
+    for (const pt of trend.body.punten) assert.ok("grens_max" in pt && pt.product === "PRD-C", JSON.stringify(pt));
     const alle = await verzoek("GET", "/analyse/samenvatting", kw);
     const c = await verzoek("GET", "/analyse/samenvatting?product=PRD-C", kw);
     assert.equal(c.status, 200);

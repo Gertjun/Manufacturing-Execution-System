@@ -255,6 +255,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 markering: Markering,
                 batch_of_lot: Type.String(),
                 operator: Type.String(),
+                // De grenzen waaraan deze meting is getoetst (sinds 0.56.0, #89): per product en per moment kunnen ze verschillen.
+                grens_min: Type.Optional(OptGetal),
+                grens_max: Type.Optional(OptGetal),
+                tolerantie: Type.Optional(OptGetal),
+                tolerantie_soort: Type.Optional(OptTekst),
+                product: Type.Optional(OptTekst),
               }),
             ),
           }),
@@ -265,7 +271,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const [veld] = await lees(
         app.db,
         `SELECT v.code, v.naam, s.code AS stap, v.soort, v.eenheid, g.grens_min, g.grens_max, g.tolerantie, g.tolerantie_soort, v.decimalen,
-                EXISTS (SELECT 1 FROM veld_product vp WHERE vp.veld_id = v.id) AS grenzen_per_product
+                (EXISTS (SELECT 1 FROM veld_product vp WHERE vp.veld_id = v.id)
+                 OR EXISTS (SELECT 1 FROM specificatie_regel sr WHERE sr.veld_id = v.id)) AS grenzen_per_product
            FROM veld v JOIN processtap s ON s.id = v.processtap_id
            CROSS JOIN LATERAL grenzen_van(v.id, (SELECT id FROM product WHERE code = $2)) g
           WHERE v.code = $1`,
@@ -275,7 +282,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const punten = await lees(
         app.db,
         `SELECT * FROM (
-           SELECT ingevoerd_op AS tijd, setting, gemeten, markering, batch_of_lot, operator
+           SELECT ingevoerd_op AS tijd, setting, gemeten, markering, batch_of_lot, operator,
+                  grens_min, grens_max, tolerantie, tolerantie_soort, product
              FROM (${WAARDEN_SQL}) x WHERE veld = $3 AND ${PERIODE_SQL("ingevoerd_op", 1, 2)} AND ${PRODUCT_SQL("product_id", 4)}
             ORDER BY ingevoerd_op DESC LIMIT 5000) n
           ORDER BY tijd`,

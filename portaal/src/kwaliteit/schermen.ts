@@ -6,7 +6,7 @@ import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../../../gedee
 import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
 import { ApiFout, gekozenProduct, haal, periode, PERIODES, qs, sessie, stuur } from "../basis";
-import { afwijkingenPerWeek, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
+import { afwijkingenPerWeek, gemengdeGrenzen, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
 import { aanvullen, perTekst, perWoord, resolutie, RESOLUTIES, volgende, type Per } from "../resolutie";
 
 // ---------- kleine bouwstenen ----------
@@ -560,8 +560,9 @@ export async function trendScherm(veldcode?: string) {
             h("div", {}, h("dt", {}, "Eerste kwart, laatste kwart"), h("dd", {}, `${toonGetal(Number(gemBegin.toFixed(2)))}${e} naar ${toonGetal(Number(gemEind.toFixed(2)))}${e}`)),
           ),
           trend(data.veld, p),
-          data.veld.grenzen_per_product && !gekozenProduct.code
-            ? h("p", { class: "sub" }, "Dit veld heeft eigen grenzen per product. De lijnen zijn de grenzen van het veld; elk punt is gekleurd naar de grenzen van zijn eigen product. Kies bovenin een product om de grenzen van dat product te zien.")
+          // #89: bij producten met verschillende grenzen tekent de grafiek geen lijnen.
+          gemengdeGrenzen(p)
+            ? h("p", { class: "sub" }, "Deze metingen horen bij producten met verschillende grenzen. Daarom staan er geen grens- en tolerantielijnen: elk punt is gekleurd naar de grenzen van zijn eigen product (die staan bij het punt als je erop wijst). Kies bovenin een product om de lijnen van dat product te zien.")
             : null),
   );
 }

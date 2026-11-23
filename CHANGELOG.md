@@ -5,6 +5,15 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.56.0 — 23 november 2026 · #89
+- **Trend per veld bij "Alle producten"** (Portaal Kwaliteit, D79). Eerder trok de grafiek de grenzen van het veld, terwijl elk punt gekleurd was naar de grenzen van zijn eigen product. Zo kon een punt "binnen grenzen" boven de grenslijn staan.
+  - Hebben de metingen in de grafiek producten met verschillende grenzen of tolerantie, dan staan er geen grens-, tolerantie- en instellingslijnen meer.
+  - Elk punt houdt de kleur van zijn eigen grenzen. Als je erop wijst, staan zijn product en grenzen erbij.
+  - Onder de grafiek staat waarom, en dat je bovenin een product kunt kiezen.
+- **Met één product** (of als alle producten dezelfde grenzen hebben) volgen de lijnen nu de grenzen waaraan elke meting werkelijk is getoetst, als traplijn door de tijd. Een grens die is gewijzigd, verspringt dus op het moment van de wijziging, net als de tolerantie (D70).
+- Een veld met een specificatie per product (keuringen, D73) telt ook als "grenzen per product".
+- API: elk punt van `/analyse/trend` heeft zijn `grens_min`, `grens_max`, `tolerantie`, `tolerantie_soort` en `product`.
+
 ## 0.55.0 — 23 november 2026 · #88
 - **Eigen startscherm voor Kwaliteit** in het invoerscherm (lab-pc), met de titel **Keuringen** (D78). Geen aantallen per processtap meer; wel drie blokken.
   - **Nu te doen:** wat op een meting of besluit van Kwaliteit wacht (Meten), en batches of lots die klaarstaan voor een tussen- of eindkeuring (Keuring starten).
