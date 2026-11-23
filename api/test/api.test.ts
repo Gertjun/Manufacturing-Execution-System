@@ -986,9 +986,16 @@ describe("Portaal Planning", () => {
 
   test("capaciteit per stap en product (D55): gemengde producten tellen naar rato", async () => {
     const cap = await verzoek("GET", "/planning/capaciteit", planner);
-    assert.deepEqual(cap.body.per_stap.filter((c: any) => c.stap === "PS1").map((c: any) => [c.product, c.max_per_dag]), [[null, 8], ["PRD-B", 3]]);
-    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", op, { product: null, max_per_dag: 4 })).status, 403);
-    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product: null, max_per_dag: 4 })).status, 204);
+    // Elke stap uit de route van elk actief product staat erin; zonder capaciteit: nog invullen (#81, D71).
+    assert.deepEqual(cap.body.per_stap.filter((c: any) => c.stap === "PS1").map((c: any) => [c.product, c.max_per_dag]), [["PRD-A", 8], ["PRD-B", 3], ["PRD-C", 8]]);
+    assert.deepEqual(cap.body.per_stap.filter((c: any) => c.stap === "PS2").map((c: any) => [c.product, c.max_per_dag]), [["PRD-A", null], ["PRD-B", null], ["PRD-C", null]]);
+    assert.equal(cap.body.per_stap.some((c: any) => c.product === "PRD-B" && c.stap === "PS12"), false, "PS12 hoort niet bij de route van PRD-B");
+    const open = cap.body.nog_invullen;
+    assert.equal(open, cap.body.per_stap.filter((c: any) => c.max_per_dag === null).length);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", op, { product: "PRD-A", max_per_dag: 4 })).status, 403);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product: null, max_per_dag: 4 })).status, 400, "geen regel meer voor alle producten");
+    for (const product of ["PRD-A", "PRD-B"]) assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product, max_per_dag: 4 })).status, 204);
+    assert.equal((await verzoek("GET", "/planning/capaciteit", planner)).body.nog_invullen, open - 2);
     assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product: "PRD-X", max_per_dag: 4 })).status, 404);
     const prod = (await verzoek("GET", "/planning/producten", planner)).body;
     const a = prod.find((p: any) => p.code === "PRD-A").id;
@@ -1007,11 +1014,16 @@ describe("Portaal Planning", () => {
     const week = await verzoek("GET", `/planning/week?van=${vandaag}`, planner);
     assert.deepEqual(week.body.dagen.find((d: any) => d.dag === morgen).stappen_vol, [{ stap: "PS2", procent: 150, dicht: false }]);
     assert.equal((await verzoek("GET", `/planning/stappen?dag=${morgen}`, planner)).body.find((s: any) => s.code === "PS3").capaciteit, null);
-    for (const product of ["PRD-B", null]) {
+    for (const product of ["PRD-B", "PRD-A"]) {
       assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product, max_per_dag: null })).status, 204);
     }
-    assert.equal(await stap(), null);
+    // Weggehaald: weer nog invullen; wat gepland is, staat er nog bij, zonder maximum.
+    assert.equal((await verzoek("GET", "/planning/capaciteit", planner)).body.nog_invullen, open);
+    c = await stap();
+    assert.deepEqual(c.regels.map((r: any) => [r.product, r.aantal, r.max]), [["PRD-A", 2, null], ["PRD-B", 1, null]]);
+    assert.equal(c.procent, 0);
     await verzoek("PUT", "/planning/stappen", planner, { dag: morgen, stap: "PS2", items: [] });
+    assert.equal(await stap(), null);
   });
 
   test("ongeplande batch blijft mogelijk en is zichtbaar als niet gepland", async () => {
@@ -1302,7 +1314,7 @@ describe("Capaciteit", () => {
     assert.ok(c.body.per_stap.some((r: any) => r.stap === "PS1" && r.product === "PRD-B" && r.max_per_dag === 3));
     assert.deepEqual(c.body.afwijkingen, []);
     assert.equal(c.body.weekdagen, undefined, "de capaciteit per weekdag is vervallen");
-    // Een maandag ver in de toekomst, zodat er nog niets op staat. PS1 (eerste stap) kan 8 aan, of 3 van PRD-B.
+    // Een maandag ver in de toekomst, zodat er nog niets op staat. PS1 (eerste stap) kan 8 aan van PRD-A en PRD-C, 3 van PRD-B.
     const dag = "2027-03-01";
     const prdB = (await verzoek("GET", "/planning/producten", t)).body.find((p: any) => p.code === "PRD-B").id;
     assert.equal((await verzoek("POST", "/planning/batches", t, { dag, aantal: 3, productId: prdB })).body.waarschuwing, null);

@@ -1855,18 +1855,25 @@ CREATE TRIGGER stilstand_melding AFTER INSERT ON stilstand FOR EACH ROW EXECUTE 
 CREATE TABLE capaciteit_stap (
     id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     processtap_id  uuid NOT NULL REFERENCES processtap(id),
-    product_id     uuid REFERENCES product(id),
+    product_id     uuid NOT NULL REFERENCES product(id),
     max_per_dag    int  NOT NULL CHECK (max_per_dag BETWEEN 1 AND 500),
     UNIQUE NULLS NOT DISTINCT (processtap_id, product_id)
 );
 CREATE TRIGGER capaciteit_stap_log BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_stap
     FOR EACH ROW EXECUTE FUNCTION log_config();
 
--- De capaciteit van een stap voor een product: eigen regel, anders de regel voor alle producten (NULL = niet ingesteld).
+-- De capaciteit van een stap voor een product (NULL = nog niet ingevuld). Sinds 0.49.0 (D71) alleen per product.
 CREATE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LANGUAGE sql STABLE AS $$
-    SELECT coalesce((SELECT max_per_dag FROM capaciteit_stap WHERE processtap_id = p_stap AND product_id = p_product),
-                    (SELECT max_per_dag FROM capaciteit_stap WHERE processtap_id = p_stap AND product_id IS NULL))
+    SELECT max_per_dag FROM capaciteit_stap WHERE processtap_id = p_stap AND product_id = p_product
 $$;
+
+-- Per actief product elke stap van zijn route met de capaciteit; max_per_dag NULL = nog invullen (#81, sinds 0.49.0).
+CREATE VIEW capaciteit_route AS
+SELECT p.id AS product_id, r.processtap_id, r.plek, c.max_per_dag
+  FROM product p
+ CROSS JOIN LATERAL route(p.id) r
+  LEFT JOIN capaciteit_stap c ON c.processtap_id = r.processtap_id AND c.product_id = p.id
+ WHERE p.actief;
 
 -- Afwijkende capaciteit (sinds 0.48.0, D69): in een periode kan een stap en/of product minder aan.
 -- Stap leeg = alle stappen, product leeg = alle producten. 0 % = geen productie.
@@ -2609,7 +2616,7 @@ END $$;
 REVOKE EXECUTE ON FUNCTION ruim_weigeringen_op(int) FROM PUBLIC;
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

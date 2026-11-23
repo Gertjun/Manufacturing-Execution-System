@@ -119,7 +119,7 @@ export const PORTALEN: Portaal[] = [
       { pad: "route", naam: "Batchroute (proef)" },
       { pad: "lots", naam: "Lotvoorstellen", teller: async () => (await haal<unknown[]>("/planning/lotvoorstellen")).length },
       { pad: "producten", naam: "Producten" },
-      { pad: "capaciteit", naam: "Capaciteit" },
+      { pad: "capaciteit", naam: "Capaciteit", teller: async () => (await haal<{ nog_invullen: number }>("/planning/capaciteit")).nog_invullen },
     ],
   },
   {

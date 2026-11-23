@@ -315,3 +315,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Waarom:** de band haalde op wit geen 3 : 1 contrast en was nauwelijks te zien. Oranje en rood betekenen in het hele platform al "buiten tolerantie" en "buiten grens". Kleur én lijnstijl verschillen, zodat kleur nooit de enige drager is (kleurenblindheid, fel licht, afdrukken in grijs).
 - **Tolerantie per meting:** de lijnen volgen de instelling van elke meting als traplijn (net als `bereken_markering`), niet de laatste instelling voor de hele periode.
 
+### D71 – Capaciteit alleen per product, uit de route; niets schatten (23 nov 2026, 0.49.0)
+- **Besluit (Geert):** Planning → Capaciteit toont per actief product elke stap van zijn route (view `capaciteit_route`); een stap zonder capaciteit staat op "nog invullen", met een melding en een teller in het menu. De regel "voor alle producten" (`capaciteit_stap.product_id` leeg, D55) vervalt: die gaf producten waarvoor niemand iets had ingevuld toch een capaciteit. `product_id` is nu verplicht (migratie 0030); bestaande regels voor alle producten zijn omgezet naar een regel per product met die stap in de route.
+- **Plannen blijft altijd mogen (D36):** zonder capaciteit telt een product niet mee in het percentage; de planning toont "capaciteit nog invullen".
+- **Gekozen boven:** plannen blokkeren tot alles is ingevuld (gaat in tegen D36).
+

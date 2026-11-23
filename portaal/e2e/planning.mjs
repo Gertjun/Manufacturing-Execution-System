@@ -144,17 +144,35 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.locator("#melding", { hasText: "Weggehaald" }).waitFor();
   check("Afwijking weggehaald", (await q("SELECT count(*)::int AS n FROM fabriek.capaciteit_afwijking WHERE actief"))[0].n === 0);
 
-  console.log("\nCapaciteit per stap en product (D55)");
-  check("Regels uit de instellingen staan erbij", (await page.locator("tr", { hasText: "PS1" }).filter({ hasText: "PRD-B" }).innerText()).includes("3"));
-  await page.getByRole("button", { name: "Regel toevoegen" }).click();
-  await dialoog().locator("#v-stap").selectOption("PS1");
-  await dialoog().locator("#v-product").selectOption("PRD-A");
-  await dialoog().getByLabel("Per dag").fill("5");
+  console.log("\nCapaciteit per stap en product (D55, D71)");
+  const blokB = page.locator(".cap-product", { has: page.getByRole("heading", { name: /^PRD-B / }) });
+  check("Regels uit de instellingen staan erbij", (await blokB.locator("tr", { hasText: /^PS1 Process/ }).innerText()).includes("3 batches"));
+  check("Stap uit de route zonder capaciteit: nog invullen (#81)", (await blokB.locator("tr", { hasText: /^PS2 Process/ }).innerText()).includes("Nog invullen"));
+  check("Stap buiten de route van PRD-B staat er niet bij", (await blokB.locator("tr", { hasText: /^PS12 Process/ }).count()) === 0);
+  check("Melding: stappen zonder capaciteit", (await page.locator(".let-op-blok", { hasText: "nog geen capaciteit" }).count()) === 1);
+  const capTeller = () => page.evaluate(() => Number(document.querySelector('a[href="#/planning/capaciteit"] .teller')?.textContent || 0));
+  await page.waitForFunction(() => !!document.querySelector('a[href="#/planning/capaciteit"] .teller')?.textContent);
+  const voor = await capTeller();
+  check("Menu telt de stappen zonder capaciteit", voor > 0, String(voor));
+  await page.getByRole("button", { name: "Capaciteit PS1 PRD-A wijzigen" }).click();
+  await dialoog().getByLabel("Batches per dag").fill("5");
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
-  await page.locator("tr", { hasText: "PS1" }).filter({ hasText: "PRD-A" }).waitFor();
+  await page.locator("#melding", { hasText: "Capaciteit opgeslagen" }).waitFor();
   const [cs] = await q(`SELECT c.max_per_dag FROM fabriek.capaciteit_stap c JOIN fabriek.processtap s ON s.id = c.processtap_id
                          JOIN fabriek.product p ON p.id = c.product_id WHERE s.code = 'PS1' AND p.code = 'PRD-A'`);
   check("Capaciteit PS1 voor PRD-A opgeslagen", cs?.max_per_dag === 5);
+  // Alle open stappen van één product in één venster; leeg blijft nog invullen.
+  await page.getByRole("button", { name: "Invullen voor PRD-C" }).click();
+  await dialoog().locator("#v-PS2").fill("4");
+  await dialoog().locator("#v-PS3").fill("6");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("#melding", { hasText: "2 stappen opgeslagen" }).waitFor();
+  const [c2] = await q(`SELECT count(*)::int AS n FROM fabriek.capaciteit_stap c JOIN fabriek.processtap s ON s.id = c.processtap_id
+                         JOIN fabriek.product p ON p.id = c.product_id WHERE p.code = 'PRD-C' AND s.code IN ('PS2', 'PS3')`);
+  check("Invullen voor PRD-C: twee stappen opgeslagen", c2.n === 2);
+  await page.reload();
+  await page.waitForFunction((n) => document.querySelector('a[href="#/planning/capaciteit"] .teller')?.textContent === String(n), voor - 2, { timeout: 10000 })
+    .then(() => check("Teller twee lager", true), () => check("Teller twee lager", false));
   await shot("05c-capaciteit-per-stap");
   // Wat de database als belasting van PS1 vandaag geeft (elk product naar rato van zijn capaciteit).
   const belastingPS1 = async () => (await q(`SELECT round(100 * sum(aantal::numeric / max_per_dag))::int AS p

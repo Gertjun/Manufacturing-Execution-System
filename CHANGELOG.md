@@ -5,6 +5,15 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.49.0 — 23 november 2026 · #81
+- Planning → Capaciteit: **elke stap uit de route van een product staat er vanzelf**, per product in de volgorde van de route (D71).
+  - Een stap zonder capaciteit staat op **"Nog invullen"**, met een melding bovenaan en een teller in het menu. Er wordt niets meer geschat.
+  - Met **Invullen voor PRD-A** (enzovoort) vul je alle open stappen van een product in één keer in; wat leeg blijft, blijft op "nog invullen".
+  - Verandert de route van een product, dan verandert de lijst vanzelf mee.
+- De regel "voor alle producten" vervalt. Bestaande regels zijn omgezet naar een regel per product, voor de producten met die stap in hun route.
+- Stappen plannen, het Dagoverzicht en Batches plannen tonen "capaciteit nog invullen" bij een product zonder capaciteit, ook als er voor die stap verder niets is ingevuld.
+- Niemand hoeft iets te doen; het invoerscherm merkt er niets van.
+
 ## 0.48.2 — 23 november 2026 · #82
 - **Afmelden landt altijd op de startpagina**, ook in het invoerscherm. Daar logt de volgende persoon in; een operator gaat dan meteen door naar het invoerscherm, Kwaliteit en een ploegleider kiezen zelf.
 - Zonder verbinding blijft het invoerscherm na het afmelden staan, met zijn eigen inlog: de startpagina laadt dan niet, en wat nog in de wachtrij staat blijft zichtbaar en gaat later mee.

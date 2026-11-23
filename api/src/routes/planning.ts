@@ -527,16 +527,16 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         product: OptTekst,
         aantal: Type.Integer(),
         van_week: Type.Integer({ description: "Batches die deze dag starten volgens de weekplanning (alleen bij hun eerste stap)" }),
-        max: NulGeheel({ description: "Capaciteit op deze dag voor dit product, met een afwijking verrekend (D69); 0 = dicht; null = niet ingesteld (telt niet mee)" }),
+        max: NulGeheel({ description: "Capaciteit op deze dag voor dit product, met een afwijking verrekend (D69); 0 = dicht; null = nog niet ingevuld (telt niet mee, #81)" }),
         reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
       })),
     }),
-  ], { description: "Capaciteit van de stap op deze dag; null als er voor de stap geen capaciteit is ingesteld" });
+  ], { description: "Capaciteit van de stap op deze dag; null als er voor de stap geen capaciteit is ingevuld en niets gepland is" });
   /** Per actieve stap de belasting op dag $1 (zie stap_belasting). */
   const STAP_CAPACITEIT_SQL = `
     SELECT s.code,
            CASE WHEN EXISTS (SELECT 1 FROM capaciteit_stap c WHERE c.processtap_id = s.id)
-                  OR EXISTS (SELECT 1 FROM stap_belasting(s.id, $1::date) b WHERE b.max_per_dag = 0) THEN json_build_object(
+                  OR EXISTS (SELECT 1 FROM stap_belasting(s.id, $1::date) b) THEN json_build_object(
              'procent', coalesce((SELECT round(100 * sum(b.aantal::numeric / nullif(b.max_per_dag, 0))) FROM stap_belasting(s.id, $1::date) b
                                    WHERE b.max_per_dag IS NOT NULL), 0)::int,
              'dicht', coalesce((SELECT bool_or(b.max_per_dag = 0) FROM stap_belasting(s.id, $1::date) b), false),
@@ -779,24 +779,29 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["planning"],
-        description: "Capaciteit per stap en product (D55) en de afwijkende capaciteit die vandaag of later geldt, of tot 30 dagen geleden eindigde (D69).",
+        description:
+          "Capaciteit per product voor elke stap van zijn route (D55, D71): stappen zonder capaciteit staan erbij met max_per_dag null (nog invullen, #81). " +
+          "Plus de afwijkende capaciteit die vandaag of later geldt, of tot 30 dagen geleden eindigde (D69).",
         response: {
           200: Type.Object({
-            per_stap: Type.Array(Type.Object({ stap: Type.String(), stapnaam: Type.String(), product: OptTekst, max_per_dag: Type.Integer() }), {
-              description: "Capaciteit per stap en product (D55); product null = voor alle producten zonder eigen regel",
-            }),
+            per_stap: Type.Array(Type.Object({
+              product: Type.String(), productnaam: Type.String(), stap: Type.String(), stapnaam: Type.String(),
+              niveau: Type.String({ description: "batch of lot: wat de capaciteit telt" }),
+              max_per_dag: NulGeheel({ description: "Per dag; null = nog niet ingevuld" }),
+            }), { description: "Per actief product elke stap van zijn route, in de volgorde van de route" }),
+            nog_invullen: Type.Integer({ description: "Aantal stappen uit een route zonder capaciteit" }),
             afwijkingen: Type.Array(Afwijking),
           }),
         },
       },
     },
     async () => {
-      const per_stap = await lees(app.db,
-        `SELECT s.code AS stap, s.naam AS stapnaam, p.code AS product, c.max_per_dag
-           FROM capaciteit_stap c JOIN processtap s ON s.id = c.processtap_id LEFT JOIN product p ON p.id = c.product_id
-          ORDER BY s.volgorde, p.code NULLS FIRST`);
+      const per_stap = await lees<{ max_per_dag: number | null }>(app.db,
+        `SELECT p.code AS product, p.naam AS productnaam, s.code AS stap, s.naam AS stapnaam, s.niveau, c.max_per_dag
+           FROM capaciteit_route c JOIN processtap s ON s.id = c.processtap_id JOIN product p ON p.id = c.product_id
+          ORDER BY p.code, c.plek`);
       const afwijkingen = await lees(app.db, `${AFWIJKING_SQL} AND a.tot >= current_date - 30 ORDER BY a.van, a.tot, s.volgorde NULLS FIRST, p.code NULLS FIRST`);
-      return { per_stap, afwijkingen } as never;
+      return { per_stap, nog_invullen: per_stap.filter((r) => r.max_per_dag === null).length, afwijkingen } as never;
     },
   );
 
@@ -862,11 +867,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["planning"],
         description:
-          "Capaciteit van een stap per dag (D55), voor één product of (product null) voor alle producten zonder eigen regel. " +
-          "max_per_dag null haalt de regel weg. Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
+          "Capaciteit van een stap per dag voor één product (D55, D71). max_per_dag null haalt de regel weg (de stap staat dan weer op nog invullen). " +
+          "Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
         params: Type.Object({ stap: StapCode }),
         body: Type.Object({
-          product: Type.Union([Type.Null(), Type.String()]),
+          product: Type.String({ minLength: 1, maxLength: 40 }),
           max_per_dag: Type.Union([Type.Null(), Type.Integer({ minimum: 1, maximum: 500 })]),
         }),
         response: { 204: Type.Null() },
@@ -879,9 +884,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           [req.params.stap, req.body.product],
         );
         if (!rows[0]) throw niet("Stap");
-        if (req.body.product && !rows[0].product) throw niet("Product");
+        if (!rows[0].product) throw niet("Product");
         if (req.body.max_per_dag === null) {
-          await tx.query("DELETE FROM capaciteit_stap WHERE processtap_id = $1 AND product_id IS NOT DISTINCT FROM $2", [rows[0].stap, rows[0].product]);
+          await tx.query("DELETE FROM capaciteit_stap WHERE processtap_id = $1 AND product_id = $2", [rows[0].stap, rows[0].product]);
         } else {
           await tx.query(
             `INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag) VALUES ($1, $2, $3)

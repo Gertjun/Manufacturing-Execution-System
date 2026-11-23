@@ -848,9 +848,14 @@ INSERT INTO fabriek.capaciteit_afwijking VALUES
 
 INSERT INTO fabriek.capaciteit_stap VALUES
 	('da3ea3dd-4e6d-4c5b-9e3a-08872fedb695', 'f0cdf9bc-dec4-44b4-9eb8-06bd40c6ae89', '6ff193bb-5f2d-43d8-bec9-51c36deececd', 3),
-	('4476273b-3de6-4dc2-97b5-0342d9046cb2', '2d092639-af98-4f99-8fc4-c277e7f062df', NULL, 2),
-	('8b63b407-26af-41bb-a678-36d5028b8b19', '33e9733c-344b-450d-bd19-649d7bc415d2', NULL, 6),
-	('0a18094b-be78-4837-bc0b-3bc0416159ec', 'f0cdf9bc-dec4-44b4-9eb8-06bd40c6ae89', NULL, 8);
+	('7c45271c-01fb-4622-b0c8-939fd8f7127b', '2d092639-af98-4f99-8fc4-c277e7f062df', '6ff193bb-5f2d-43d8-bec9-51c36deececd', 2),
+	('d46390d9-4287-4d32-9d84-25be5c30b861', '33e9733c-344b-450d-bd19-649d7bc415d2', '8bb6ee67-6ca1-4c35-a57f-35ede9278837', 6),
+	('1c3f4b17-d1ba-4dd1-b170-cb7277d9e6d9', 'f0cdf9bc-dec4-44b4-9eb8-06bd40c6ae89', '8bb6ee67-6ca1-4c35-a57f-35ede9278837', 8),
+	('f4d6736d-95c1-4516-9f5b-5db0bb84a896', '2d092639-af98-4f99-8fc4-c277e7f062df', '8bb6ee67-6ca1-4c35-a57f-35ede9278837', 2),
+	('5da42f3e-20f8-4145-ba5a-c3599c6ada37', '33e9733c-344b-450d-bd19-649d7bc415d2', '6ff193bb-5f2d-43d8-bec9-51c36deececd', 6),
+	('e7beabd9-a8c3-4a86-ab84-8fa1c6af432a', '2d092639-af98-4f99-8fc4-c277e7f062df', '02736335-e749-40c4-8e6e-14d40acfcdea', 2),
+	('44135d3e-e1c6-4b08-a1c5-db88c813845b', '33e9733c-344b-450d-bd19-649d7bc415d2', '02736335-e749-40c4-8e6e-14d40acfcdea', 6),
+	('8bd3e750-8d75-4dd5-9ad7-8c39e7e2f613', 'f0cdf9bc-dec4-44b4-9eb8-06bd40c6ae89', '02736335-e749-40c4-8e6e-14d40acfcdea', 8);
 
 
 --

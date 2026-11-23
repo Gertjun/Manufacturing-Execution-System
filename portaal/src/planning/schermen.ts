@@ -168,7 +168,7 @@ export async function week(van?: string) {
       p.max !== null
         ? h("span", { class: "bezetbalk", role: "img", "aria-label": p.max === 0 ? `${naam}: ${p.aantal} batches, deze dag geen productie` : `${naam}: ${p.aantal} van ${p.max} batches` },
             h("span", { style: `width:${Math.round(vol * 100)}%` }))
-        : h("span", { class: "sub" }, "geen capaciteit"),
+        : h("span", { class: "label-nog-invullen" }, "capaciteit nog invullen"),
       h("span", { class: te ? "bezetting te-vol-tekst" : "bezetting" }, te ? "⚠ " : "", getal));
   };
 
@@ -236,7 +236,7 @@ function capaciteitRegel(c: StapCapaciteit | null | undefined, eenheid: string):
   if (!c) return null;
   const teVol = c.procent > 100 || !!c.dicht;
   const delen = c.regels.map((r) => `${r.aantal} ${r.product ? `van ${r.product}` : "zonder product"}${
-    r.max === 0 ? " (deze dag dicht" : r.max ? ` (max ${r.max}` : " (geen capaciteit ingesteld"}${r.reden ? `: ${r.reden}` : ""})`);
+    r.max === 0 ? " (deze dag dicht" : r.max ? ` (max ${r.max}` : " (capaciteit nog invullen"}${r.reden ? `: ${r.reden}` : ""})`);
   const week = c.regels.reduce((n, r) => n + r.van_week, 0);
   return h("p", { class: teVol ? "capaciteit-stap te-vol-tekst" : "capaciteit-stap sub" },
     teVol ? h("span", { "aria-hidden": "true" }, "⚠ ") : null,
@@ -741,8 +741,10 @@ async function routeBewerken(code: string) {
 }
 
 // ---------- Capaciteit ----------
+interface CapRegel { product: string; productnaam: string; stap: string; stapnaam: string; niveau: string; max_per_dag: number | null }
 interface Capaciteit {
-  per_stap: { stap: string; stapnaam: string; product: string | null; max_per_dag: number }[];
+  per_stap: CapRegel[];
+  nog_invullen: number;
   afwijkingen: Afwijking[];
 }
 
@@ -753,8 +755,8 @@ export async function capaciteit() {
   try { c = await haal<Capaciteit>("/planning/capaciteit"); } catch (e) { return fout(e); }
   if (!actueel()) return;
   toon(
-    kop("Capaciteit", "Wat elke stap per dag aankan, per product, elke dag van de week. Hoeveel batches van een product per dag kunnen starten, volgt uit de eerste stap van zijn route. Plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
-    capaciteitPerStap(c.per_stap),
+    kop("Capaciteit", "Wat elke stap per dag aankan, per product, elke dag van de week, in de volgorde van de route. Elke stap uit de route staat hier vanzelf; zonder capaciteit staat hij op \"nog invullen\". De eerste stap bepaalt hoeveel batches van een product per dag kunnen starten. Plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
+    ...capaciteitPerStap(c.per_stap, c.nog_invullen),
     afwijkendeDagen(c.afwijkingen),
   );
 }
@@ -795,39 +797,60 @@ function afwijkendeDagen(lijst: Afwijking[]) {
       : h("p", { class: "leeg" }, "Geen afwijkende dagen."));
 }
 
-/** Capaciteit per stap en product (D55): per stap wat hij per dag aankan, voor alle producten of per product. */
-function capaciteitPerStap(regels: Capaciteit["per_stap"]) {
-  const zet = async (stap: string | null, product: string | null, huidig: number | null) => {
-    let stappen: StapKort[], prod: Product[];
-    try { [stappen, prod] = await Promise.all([haal<StapKort[]>("/config/stappen"), haal<Product[]>("/planning/producten")]); } catch (e) { return melding((e as Error).message, "fout"); }
-    const r = await vraag(stap ? `Capaciteit ${stap}${product ? ` voor ${product}` : ""}` : "Capaciteit per stap toevoegen", [
-      ...(stap ? [] : [
-        { naam: "stap", label: "Stap", opties: stappen.map((x): [string, string] => [x.code, `${x.code} ${x.naam}`]) },
-        { naam: "product", label: "Product", opties: [["", "Alle producten"] as [string, string], ...prod.map((x): [string, string] => [x.code, `${x.code} – ${x.naam}`])] },
-      ]),
-      { naam: "max", label: "Per dag", hint: "Batches per dag; bij een lotstap lots per dag", type: "number", waarde: huidig === null ? "" : String(huidig),
-        controle: (v: string) => (/^\d+$/.test(v) && +v >= 1 && +v <= 500 ? null : "Een heel getal van 1 tot 500") },
-    ], "Opslaan", "Een regel voor één product gaat voor de regel voor alle producten. Draaien er producten door elkaar, dan telt elk item voor zijn deel: 6 van A (max 8) en 1 van B (max 3) is 108 %.");
+/** Capaciteit per product (D55, D71): elke stap van de route vanzelf in de lijst; ontbreekt de capaciteit, dan "nog invullen" (#81). */
+function capaciteitPerStap(regels: CapRegel[], nogInvullen: number): (Node | null)[] {
+  const eenheid = (x: CapRegel) => (x.niveau === "lot" ? "Lots per dag" : "Batches per dag");
+  const perDag = (v: string) => (/^\d+$/.test(v) && +v >= 1 && +v <= 500 ? null : "Een heel getal van 1 tot 500");
+  const opslaan = (x: CapRegel, max: number | null) =>
+    stuur("PUT", `/planning/capaciteit/stappen/${x.stap}`, { product: x.product, max_per_dag: max });
+  const zet = async (x: CapRegel) => {
+    const r = await vraag(`Capaciteit ${x.stap} voor ${x.product}`, [
+      { naam: "max", label: eenheid(x), type: "number", waarde: x.max_per_dag === null ? "" : String(x.max_per_dag), controle: perDag },
+    ], "Opslaan", "Draaien er producten door elkaar, dan telt elk item voor zijn deel: 6 van A (max 8) en 1 van B (max 3) is 108 %.");
     if (!r) return;
-    const st = stap ?? r.stap;
-    await wijzig(() => stuur("PUT", `/planning/capaciteit/stappen/${st}`, { product: stap ? product : r.product || null, max_per_dag: Number(r.max) }), "Capaciteit opgeslagen", capaciteit);
+    await wijzig(() => opslaan(x, Number(r.max)), "Capaciteit opgeslagen", capaciteit);
   };
-  const weg = (x: { stap: string; product: string | null }) =>
-    wijzig(() => stuur("PUT", `/planning/capaciteit/stappen/${x.stap}`, { product: x.product, max_per_dag: null }), "Weggehaald", capaciteit);
-  return h("section", { class: "blok" },
-    h("div", { class: "kop" },
-      h("div", {}, h("h2", { style: "margin:0" }, "Per stap en product"),
-        h("p", { class: "sub" }, "Wat een stap per dag aankan. De eerste stap van een route bepaalt hoeveel batches van dat product per dag kunnen starten. Stappen plannen, het Dagoverzicht en Batches plannen waarschuwen als een stap te vol zit; plannen kan wel.")),
-      magPlannen() ? h("button", { class: "knop", onclick: () => zet(null, null, null) }, "Regel toevoegen") : null),
-    regels.length
-      ? tabel(["Stap", "Product", "Per dag", ""], regels.map((x) => [
-          h("span", {}, h("strong", {}, x.stap), ` ${x.stapnaam}`),
-          x.product ?? "Alle producten",
-          h("span", { class: "getal" }, x.max_per_dag),
-          magPlannen()
-            ? h("div", { class: "knoppen-klein" },
-                h("button", { class: "knop knop-klein", "aria-label": `Capaciteit ${x.stap} ${x.product ?? "alle producten"} wijzigen`, onclick: () => zet(x.stap, x.product, x.max_per_dag) }, "Wijzigen"),
-                h("button", { class: "knop knop-klein knop-stil", "aria-label": `Capaciteit ${x.stap} ${x.product ?? "alle producten"} weghalen`, onclick: () => weg(x) }, "Weghalen"))
-            : null]), "compact")
-      : h("p", { class: "leeg" }, "Nog geen capaciteit per stap ingesteld."));
+  /** Alle open stappen van één product in één venster; wat leeg blijft, blijft op "nog invullen". */
+  const vulIn = async (product: string, open: CapRegel[]) => {
+    const r = await vraag(`Capaciteit invullen voor ${product}`, open.map((x) => ({
+      naam: x.stap, label: `${x.stap} ${x.stapnaam}`, type: "number", optioneel: true, hint: eenheid(x), controle: perDag,
+    })), "Opslaan", "Vul in wat je weet; wat leeg blijft, staat daarna nog op \"nog invullen\".");
+    if (!r) return;
+    const ingevuld = open.filter((x) => r[x.stap]);
+    if (!ingevuld.length) return;
+    await wijzig(async () => { for (const x of ingevuld) await opslaan(x, Number(r[x.stap])); },
+      `${ingevuld.length === 1 ? "1 stap" : `${ingevuld.length} stappen`} opgeslagen`, capaciteit);
+  };
+  const weg = (x: CapRegel) => wijzig(() => opslaan(x, null), "Weggehaald", capaciteit);
+  const producten = [...new Set(regels.map((x) => x.product))];
+  // Eén blok per product, zodat "Naar Excel" en "Invullen" in de kopregel van dat product staan (D63).
+  return [
+    nogInvullen
+      ? h("p", { class: "blok let-op-blok", role: "status" }, h("span", { "aria-hidden": "true" }, "⚠ "),
+          `${nogInvullen === 1 ? "1 stap heeft" : `${nogInvullen} stappen hebben`} nog geen capaciteit. Zonder capaciteit kan de planning niet waarschuwen als een stap te vol zit.`)
+      : null,
+    ...(producten.length
+      ? producten.map((p) => {
+          const rijen = regels.filter((x) => x.product === p);
+          const open = rijen.filter((x) => x.max_per_dag === null);
+          return h("section", { class: "blok cap-product" },
+            h("div", { class: "kop" },
+              h("div", {}, h("h2", { style: "margin:0" }, `${p} – ${rijen[0].productnaam}`),
+                h("p", { class: open.length ? "label-nog-invullen" : "sub" }, open.length ? `${open.length === 1 ? "1 stap" : `${open.length} stappen`} nog invullen` : "Alle stappen van de route ingevuld")),
+              magPlannen() && open.length ? h("button", { class: "knop", onclick: () => vulIn(p, open) }, `Invullen voor ${p}`) : null),
+            tabel(["Stap", "Per dag", ""], rijen.map((x) => [
+              h("span", {}, h("strong", {}, x.stap), ` ${x.stapnaam}`),
+              x.max_per_dag === null
+                ? h("span", { class: "getal label-nog-invullen" }, "Nog invullen")
+                : h("span", { class: "getal" }, `${x.max_per_dag} ${x.niveau === "lot" ? (x.max_per_dag === 1 ? "lot" : "lots") : (x.max_per_dag === 1 ? "batch" : "batches")}`),
+              magPlannen()
+                ? h("div", { class: "knoppen-klein" },
+                    h("button", { class: "knop knop-klein", "aria-label": `Capaciteit ${x.stap} ${x.product} ${x.max_per_dag === null ? "invullen" : "wijzigen"}`, onclick: () => zet(x) },
+                      x.max_per_dag === null ? "Invullen" : "Wijzigen"),
+                    x.max_per_dag === null ? null
+                      : h("button", { class: "knop knop-klein knop-stil", "aria-label": `Capaciteit ${x.stap} ${x.product} weghalen`, onclick: () => weg(x) }, "Weghalen"))
+                : null]), "compact"));
+        })
+      : [h("p", { class: "blok leeg" }, "Nog geen actieve producten. Maak ze aan bij Planning → Producten.")]),
+  ];
 }

@@ -682,3 +682,6 @@ a.merk:hover { text-decoration: underline; }
 @media screen and (max-height: 500px) and (orientation: landscape) {
   #menu { position: static; height: auto; }
 }
+
+/* Capaciteit per product (#81, D71): stappen zonder capaciteit vallen op, met tekst én kleur. */
+.label-nog-invullen { color: var(--tol); font-weight: 700; }

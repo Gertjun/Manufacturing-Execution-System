@@ -59,12 +59,15 @@ SELECT v.id, p.id, x.min, x.max, x.tol, 'absoluut'
        x(veld, product, min, max, tol)
   JOIN veld v ON v.code = x.veld JOIN product p ON p.code = x.product;
 
--- Fictieve capaciteit per stap en product (D55): PS1 kan 8 batches per dag aan, of 3 van PRD-B; PS9 6 batches;
--- PS16 2 lots per dag.
+-- Fictieve capaciteit per stap en product (D55, D71): PS1 kan 8 batches per dag aan van PRD-A en PRD-C, 3 van PRD-B;
+-- PS9 6 batches; PS16 2 lots per dag. De andere stappen staan in Planning → Capaciteit als "nog invullen".
 INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag)
 SELECT s.id, p.id, x.max
-  FROM (VALUES ('PS1', NULL, 8), ('PS1', 'PRD-B', 3), ('PS9', NULL, 6), ('PS16', NULL, 2)) x(stap, product, max)
-  JOIN processtap s ON s.code = x.stap LEFT JOIN product p ON p.code = x.product;
+  FROM (VALUES ('PS1', 8), ('PS9', 6), ('PS16', 2)) x(stap, max)
+  JOIN processtap s ON s.code = x.stap CROSS JOIN product p
+ WHERE in_route(p.id, s.id);
+UPDATE capaciteit_stap SET max_per_dag = 3
+ WHERE processtap_id = (SELECT id FROM processtap WHERE code = 'PS1') AND product_id = (SELECT id FROM product WHERE code = 'PRD-B');
 
 -- Fictieve grondstoffen en in welke stap ze worden ingevoerd (sinds 0.11.0).
 INSERT INTO grondstof (code, naam, eenheid) VALUES

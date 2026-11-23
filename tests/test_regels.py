@@ -576,11 +576,18 @@ def main():
           val("SELECT count(*) FROM config_log WHERE tabel = 'veld_product' AND actie = 'DELETE'") == 1)
 
     print("\nCapaciteit per stap en product (D55)")
-    check("PS1: 8 per dag voor alle producten, 3 voor PRD-B",
+    check("PS1: 8 per dag voor PRD-A, 3 voor PRD-B",
           val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS1"], prd["PRD-A"])) == 8 and val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS1"], prd["PRD-B"])) == 3)
-    check("PS2: niet ingesteld", val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS2"], prd["PRD-A"])) is None)
-    faalt("Twee regels voor alle producten in één stap", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 5)", (sid["PS1"],), "unique")
-    faalt("Capaciteit 0", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 0)", (sid["PS2"],), "check")
+    check("PS2: nog niet ingevuld", val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS2"], prd["PRD-A"])) is None)
+    faalt("Geen regel meer voor alle producten (D71)", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 5)", (sid["PS2"],), "null")
+    faalt("Twee regels voor hetzelfde product in één stap", "INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag) VALUES (%s, %s, 5)", (sid["PS1"], prd["PRD-A"]), "unique")
+    faalt("Capaciteit 0", "INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag) VALUES (%s, %s, 0)", (sid["PS2"], prd["PRD-A"]), "check")
+    check("Elke stap uit de route staat in capaciteit_route; PRD-B zonder PS12 (#81)",
+          val("SELECT count(*) FROM capaciteit_route WHERE product_id = %s", (prd["PRD-A"],)) == val("SELECT count(*) FROM route(%s)", (prd["PRD-A"],))
+          and val("SELECT count(*) FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-B"], sid["PS12"])) == 0)
+    check("Zonder capaciteit: nog invullen (NULL)",
+          val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-A"], sid["PS2"])) is None
+          and val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-C"], sid["PS1"])) == 8)
 
     print("\nAfwijkende capaciteit per product en stap (D69)")
     afdag = val("SELECT current_date + 40")
