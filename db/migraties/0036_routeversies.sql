@@ -82,8 +82,7 @@ BEGIN
     SELECT coalesce(max(versie), 0) + 1 INTO v_versie FROM product_route_versie WHERE product_id = p_product;
     INSERT INTO product_route_versie (product_id, versie, status, bron, toelichting)
     VALUES (p_product, v_versie, 'concept', p_bron, p_toelichting) RETURNING id INTO v_id;
-    INSERT INTO product_route_versie_stap
-        (route_versie_id, processtap_id, plek, stap_code, stap_naam, niveau, is_lot_stap)
+    INSERT INTO product_route_versie_stap (route_versie_id, processtap_id, plek, stap_code, stap_naam, niveau, is_lot_stap)
     SELECT v_id, s.id, r.plek, s.code, s.naam, s.niveau, s.is_lot_stap
       FROM route(p_product) r JOIN processtap s ON s.id = r.processtap_id ORDER BY r.plek;
     UPDATE product_route_versie SET status = 'vastgesteld', vastgesteld_op = clock_timestamp() WHERE id = v_id;
