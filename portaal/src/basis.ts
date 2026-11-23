@@ -113,8 +113,8 @@ export const PORTALEN: Portaal[] = [
     rollen: ["planner", "beheerder", "ploegleider", "productiemanager"],
     klaar: true,
     onderdelen: [
-      { pad: "week", naam: "Per week" },
-      { pad: "dag", naam: "Per stap" },
+      { pad: "week", naam: "Batches plannen" },
+      { pad: "dag", naam: "Stappen plannen" },
       { pad: "overzicht", naam: "Dagoverzicht (proef)" },
       { pad: "route", naam: "Batchroute (proef)" },
       { pad: "lots", naam: "Lotvoorstellen", teller: async () => (await haal<unknown[]>("/planning/lotvoorstellen")).length },
@@ -153,7 +153,7 @@ export function tegelsVoor(rol: Rol | null): Tegel[] {
   const UITLEG: Record<string, string> = {
     kwaliteit: "Beoordelen, lotpaspoort, regelkaarten, afwijkingen en trends.",
     productie: "Voor de productieleiding: werkvoorraad, doorlooptijden, ploegoverdracht en stilstand.",
-    planning: "Batches plannen, planning per stap, lotvoorstellen en capaciteit.",
+    planning: "Batches plannen, stappen plannen, lotvoorstellen en capaciteit.",
     beheer: "Stappen en velden, accounts, namen, pc's, keuzelijsten, logboek en server.",
   };
   return [

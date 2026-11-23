@@ -17,15 +17,15 @@ Handleidingen voor een bepaalde lezer: [`docs/SERVER.md`](docs/SERVER.md) (IT in
 
 ## Stand
 
-Bijgewerkt: 23 november 2026 · versie **0.47.1**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 23 november 2026 · versie **0.47.2**. Dit blok wordt aan het eind van elke sessie overschreven.
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), en in Planning → Per week de dagen onder elkaar (0.47.1); daarna #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
+- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), in Planning de dagen onder elkaar (0.47.1) en de schermen Batches plannen en Stappen plannen (0.47.2, D68); daarna #32 en #66. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #48, #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
 - **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met bewuste afwijkingen (D50; afwijking E is vervallen) en vaste woorden (D51). Elk scherm werkt van telefoon tot pc (D64). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
 - **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
 - **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** versie 0.47.1 gepubliceerd (23 november 2026), lokaal getest en de bestanden online gecontroleerd met controlesom; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
+- **Browserdemo:** versie 0.47.2 gepubliceerd (23 november 2026), lokaal getest en de bestanden online gecontroleerd met controlesom; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
 - **Releases op GitHub:** elke versie krijgt een tag en release, met het laptoppakket als bijlage (D49). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1. Bij 0.45.0 faalde de schermtest op GitHub; die release is later alsnog gemaakt, maar neem 0.45.1.
-- **0.47.1 (23 november 2026):** alleen de opmaak van Per week; lokaal geslaagd: roadmap, planningtest en alle schermen in zes formaten. De andere tests zijn niet geraakt; GitHub draait ze allemaal.
+- **0.47.1 en 0.47.2 (23 november 2026):** alleen opmaak en namen in Planning; lokaal geslaagd: roadmap, planningtest, hulp, alle schermen in zes formaten en de browserdemo. De andere tests zijn niet geraakt; GitHub draait ze allemaal.
 - **Laatste volledige testronde (0.47.0, 22 november 2026):** geslaagd: databaseregels (247), API, migraties (tot en met 28), beheertools, opruimschema, laptoppakket, en alle schermtests in Chrome, nu ook alle schermen in zes formaten (telefoon staand en liggend, tablet staand en liggend, laptop, pc). Niet gedaan: een echte telefoon en tablet via het netwerk (A6, A7), tekst op 200 % en de pc's in de fabriek; praktijktests (#33) staan nog open.
 - **Gegevens:** alles fictief (D1).
 
@@ -95,13 +95,13 @@ Bij de analyses staat bovenin het menu een productkiezer: alle producten of éé
 ### Portaal Planning
 | Onderdeel | Wat je kunt doen |
 | --- | --- |
-| Per week | Batches per dag plannen; het systeem geeft de nummers. Verschuiven of laten vervallen met reden (D29) |
-| Per stap | Per dag en stap welke batches of lots gedaan moeten worden. Bij Toevoegen staat apart wat klaar is, wat op tijd klaar komt en waarvan de vorige stap niet op tijd is; dat laatste mag, met ⚠ (D52) |
+| Batches plannen | Batches per dag plannen, de dagen onder elkaar; het systeem geeft de nummers. Verschuiven of laten vervallen met reden (D29) |
+| Stappen plannen | Per dag en stap welke batches of lots gedaan moeten worden. Bij Toevoegen staat apart wat klaar is, wat op tijd klaar komt en waarvan de vorige stap niet op tijd is; dat laatste mag, met ⚠ (D52) |
 | Dagoverzicht (proef) | Alle stappen van één dag onder elkaar, met ⚠ waar de vorige stap niet op tijd is (D52, #48) |
 | Batchroute (proef) | Per batch die nog niet in een lot zit: per stap klaar, bezig of de geplande dag, met ⚠ en een filter (D52, #48) |
 | Lotvoorstellen | Voorstellen welke 4 batches samen een lot worden |
 | Producten | Producten toevoegen, hernoemen of uitzetten, en per product de route: welke stappen het doorloopt en in welke volgorde (D55) |
-| Capaciteit | Batches per weekdag en afwijkende dagen; waarschuwing bij te vol (D36). Ook per stap en product: wat een stap per dag aankan, met waarschuwing in Planning per stap, Dagoverzicht en weekplanning (D55) |
+| Capaciteit | Batches per weekdag en afwijkende dagen; waarschuwing bij te vol (D36). Ook per stap en product: wat een stap per dag aankan, met waarschuwing in Stappen plannen, Dagoverzicht en Batches plannen (D55) |
 | Etiketten | Etiketten per dag printen: etiketprinter 100 × 50 mm of A4-vel 3 × 7 (D35) |
 
 ### Portaal Beheer

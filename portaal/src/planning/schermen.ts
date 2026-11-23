@@ -71,7 +71,7 @@ interface Week { dagen: Dag[]; achterstand: BatchPlan[]; vrij: number }
 export async function week(van?: string) {
   const actueel = vastHouden();
   const maandag = maandagVan(geldigeDag(van) ?? isoDag());
-  toon(kop("Planning per week"), laden());
+  toon(kop("Batches plannen"), laden());
   let w: Week, producten: [string, string][];
   try { [w, producten] = await Promise.all([haal<Week>(`/planning/week?van=${maandag}&dagen=7`), productOpties()]); } catch (e) { return fout(e); }
   if (!actueel()) return;
@@ -168,7 +168,7 @@ export async function week(van?: string) {
         : h("p", { class: "sub" }, "Niets gepland."),
       h("div", { class: "knoppen-klein" },
         magPlannen() && d.dag >= vandaag ? h("button", { class: "knop knop-klein", onclick: () => plannen(d.dag) }, "Batches plannen") : null,
-        h("a", { class: "knop knop-klein knop-stil", href: `#/planning/dag/${d.dag}` }, "Per stap"),
+        h("a", { class: "knop knop-klein knop-stil", href: `#/planning/dag/${d.dag}` }, "Stappen plannen"),
         geplandeLijst.some((b) => b.status !== "vervallen")
           ? h("a", { class: "knop knop-klein knop-stil", href: etikettenLink(geplandeLijst.filter((b) => b.status !== "vervallen").map((b) => b.batchnummer)) }, "Etiketten")
           : null));
@@ -212,7 +212,7 @@ function capaciteitRegel(c: StapCapaciteit | null | undefined, eenheid: string):
   return h("p", { class: teVol ? "capaciteit-stap te-vol-tekst" : "capaciteit-stap sub" },
     teVol ? h("span", { "aria-hidden": "true" }, "⚠ ") : null,
     c.regels.length ? `${c.procent} % van de capaciteit${teVol ? ": te vol" : ""}. ${delen.join(", ")}.` : `Nog niets gepland; de capaciteit is ingesteld per ${eenheid}.`,
-    week ? ` Waarvan ${week} ${week === 1 ? "batch start" : "batches starten"} deze dag volgens de weekplanning.` : "");
+    week ? ` Waarvan ${week} ${week === 1 ? "batch start" : "batches starten"} deze dag volgens Batches plannen.` : "");
 }
 interface Kandidaat { soort: string; nummer: string; klaar: boolean; toelichting: string | null; vorige?: Vorige | null }
 
@@ -246,7 +246,7 @@ const itemNaam = (i: { soort: string; nummer: string }) => (i.soort === "voorste
 export async function dag(datum?: string, stapcode?: string) {
   const actueel = vastHouden();
   const d = geldigeDag(datum) ?? isoDag();
-  toon(kop("Planning per stap"), laden());
+  toon(kop("Stappen plannen"), laden());
   let stappen: StapPlan[];
   try { stappen = await haal<StapPlan[]>(`/planning/stappen?dag=${d}`); } catch (e) { return fout(e); }
   if (!actueel()) return;
@@ -314,7 +314,7 @@ export async function dag(datum?: string, stapcode?: string) {
         h("a", { class: "knop knop-stil", href: `#/planning/dag/${plusDagen(d, -1)}/${s.code}` }, "Vorige dag"),
         h("a", { class: "knop knop-stil", href: `#/planning/dag/${isoDag()}/${s.code}` }, "Vandaag"),
         h("a", { class: "knop knop-stil", href: `#/planning/dag/${plusDagen(d, 1)}/${s.code}` }, "Volgende dag"),
-        h("a", { class: "knop knop-stil", href: `#/planning/week/${d}` }, "Naar de week"))),
+        h("a", { class: "knop knop-stil", href: `#/planning/week/${d}` }, "Naar Batches plannen"))),
     h("div", { class: "beheer-indeling" },
       h("nav", { class: "stappenlijst", "aria-label": "Stappen" },
         h("div", { class: "lijstkop" }, "Per batch"), stappen.filter((x) => x.niveau === "batch").map(lijstLink),
@@ -729,7 +729,7 @@ export async function capaciteit() {
     value: String(c.weekdagen.find((w) => w.weekdag === i + 1)?.max_batches ?? ""),
   }) as HTMLInputElement);
   toon(
-    kop("Capaciteit", "Hoeveel batches de fabriek per dag aankan. In de weekplanning zie je per dag hoe vol het is; plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
+    kop("Capaciteit", "Hoeveel batches de fabriek per dag aankan. In Batches plannen zie je per dag hoe vol het is; plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
     h("section", { class: "blok" }, h("h2", {}, "Per weekdag"),
       h("div", { class: "weekdagen" }, WEEKDAGEN.map((n, i) => h("label", { for: `wd-${i + 1}` }, n, invoer[i]))),
       magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: () => {
@@ -779,7 +779,7 @@ function capaciteitPerStap(regels: NonNullable<Capaciteit["per_stap"]>) {
   return h("section", { class: "blok" },
     h("div", { class: "kop" },
       h("div", {}, h("h2", { style: "margin:0" }, "Per stap en product"),
-        h("p", { class: "sub" }, "Wat een stap per dag aankan. Planning per stap, het Dagoverzicht en de weekplanning waarschuwen als een stap te vol zit; plannen kan wel.")),
+        h("p", { class: "sub" }, "Wat een stap per dag aankan. Stappen plannen, het Dagoverzicht en Batches plannen waarschuwen als een stap te vol zit; plannen kan wel.")),
       magPlannen() ? h("button", { class: "knop", onclick: () => zet(null, null, null) }, "Regel toevoegen") : null),
     regels.length
       ? tabel(["Stap", "Product", "Per dag", ""], regels.map((x) => [

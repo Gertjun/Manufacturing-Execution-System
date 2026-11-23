@@ -156,9 +156,9 @@ const HULP: Partial<Record<Rol, Hulp>> = {
       {
         kop: "Plannen",
         punten: [
-          "Per week: Batches plannen, per dag het aantal en het product. Het systeem geeft de nummers.",
+          "Batches plannen: per dag het aantal en het product. Het systeem geeft de nummers.",
           "Batches wijzigen: Eerder, Later of Andere dag, of Laten vervallen met een reden.",
-          "Per stap: per dag en stap Toevoegen. Een ⚠ betekent dat de vorige stap niet op tijd is, niet bij de route hoort of de stap te vol zit. Plannen mag dan toch.",
+          "Stappen plannen: per dag en stap Toevoegen. Een ⚠ betekent dat de vorige stap niet op tijd is, niet bij de route hoort of de stap te vol zit. Plannen mag dan toch.",
           "Lotvoorstellen: Nieuw lotvoorstel met 4 batches van hetzelfde product. De operator kiest het voorstel in stap 16.",
         ],
       },

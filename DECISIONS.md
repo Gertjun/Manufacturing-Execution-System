@@ -298,3 +298,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Besluit (Geert):** `ROADMAP.md` wordt bijgewerkt in dezelfde commit als elke wijziging (elke versie, en een wijziging zonder versie die de planning raakt): kopregel met datum en versie, gebouwde punten eruit, inleiding van de fase en de tijdlijn. Dit vervangt de afspraak dat de tijdlijn alleen verandert als een fase klaar is.
 - **Controle:** `tests/test_roadmap.sh` draait bij elke push op GitHub en faalt als de kopregel een andere versie noemt dan `VERSIE`, een gebouwd nummer (uit de versiekoppen van de changelog) nog als open punt of in een open balk van de tijdlijn staat, het volgende vrije nummer niet klopt, of een taaknaam in de tijdlijn een dubbele punt heeft.
 - **Waarom:** de roadmap stond op 0.38.0 terwijl 0.47.0 klaar was, en een dubbele punt in een taaknaam maakte de tijdlijn op GitHub onleesbaar. Geert leest de roadmap zelf op GitHub; die moet kloppen.
+
+### D68 – Planning: Batches plannen en Stappen plannen (23 nov 2026, 0.47.2)
+- **Besluit (Geert):** het scherm "Per week" blijft, ook na de keuze tussen Dagoverzicht en Batchroute (#48): het is de enige plek waar een batch ontstaat (nummer, product, startdag). Dagoverzicht en Batchroute zijn alleen overzichten. In het menu heet het nu **Batches plannen**, en "Per stap" heet **Stappen plannen**. De dagen in Batches plannen staan onder elkaar (0.47.1).
+- **Waarom:** de oude namen zeiden over welke periode het ging, niet wat je er doet. Zo heeft elk scherm in Planning één duidelijke taak.
+

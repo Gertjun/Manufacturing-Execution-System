@@ -5,6 +5,12 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.47.2 — 23 november 2026
+- Planning: andere namen in het menu, zodat je meteen ziet wat je er doet (D68).
+  - "Per week" heet nu **Batches plannen**: nieuwe batches aanmaken, met hun startdag en product.
+  - "Per stap" heet nu **Stappen plannen**: per dag en stap vastleggen welke batches of lots aan de beurt zijn.
+  - De knoppen en verwijzingen in de andere schermen en de hulp gebruiken dezelfde namen.
+
 ## 0.47.1 — 23 november 2026
 - Planning → Per week: de dagen staan nu **onder elkaar** (maandag bovenaan, zondag onderaan), niet meer naast elkaar. Op elk schermformaat hetzelfde.
 

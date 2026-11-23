@@ -56,7 +56,7 @@ const inloggen = async (naam) => {
 };
 
 try {
-  console.log("\nPer week");
+  console.log("\nBatches plannen");
   await inloggen("planner1");
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
   check("Planner komt in het Portaal Planning", page.url().includes("#/planning"));
@@ -146,8 +146,8 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   const vol = (await page.locator(".dagkaart.vandaag .stap-vol").count()) ? await page.locator(".dagkaart.vandaag .stap-vol").innerText() : "";
   check("Weekplanning: vandaag PS1 te vol", verwacht > 100 && vol.includes(`PS1 ${verwacht} %`), `${verwacht}: ${vol}`);
 
-  console.log("\nPer stap");
-  await page.locator(".dagkaart.vandaag").getByRole("link", { name: "Per stap" }).click();
+  console.log("\nStappen plannen");
+  await page.locator(".dagkaart.vandaag").getByRole("link", { name: "Stappen plannen" }).click();
   await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS1$/ }) }).click();
   await page.getByRole("heading", { name: /^PS1 / }).waitFor();
   await page.getByRole("button", { name: "Toevoegen" }).click();
@@ -162,7 +162,7 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   check("PS1 heeft 2 batches in de gekozen volgorde", rijen.join() === [nummers[2], nummers[0]].join(), rijen.join());
   check("Teller in de stappenlijst", (await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS1$/ }) }).innerText()).includes("2"));
   verwacht = await belastingPS1();
-  check("Per stap: capaciteit van PS1 met waarschuwing", (await page.locator(".capaciteit-stap").innerText()).includes(`${verwacht} % van de capaciteit: te vol`),
+  check("Stappen plannen: capaciteit van PS1 met waarschuwing", (await page.locator(".capaciteit-stap").innerText()).includes(`${verwacht} % van de capaciteit: te vol`),
     await page.locator(".capaciteit-stap").innerText());
   await shot("02-per-stap");
 

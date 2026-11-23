@@ -1,7 +1,7 @@
 /**
  * Op een staande telefoon (D64) is een lijst van 18 stappen links te lang: daar staat in plaats van de
  * lijst een keuzelijst met dezelfde stappen. Werkt voor elke `nav.stappenlijst` (Beheer → Stappen en velden,
- * Planning → Per stap); de CSS bepaalt welke van de twee zichtbaar is.
+ * Planning → Stappen plannen); de CSS bepaalt welke van de twee zichtbaar is.
  */
 export function volgStappenlijsten(scherm: HTMLElement) {
   const maak = () => {
