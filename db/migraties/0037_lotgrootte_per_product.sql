@@ -202,6 +202,16 @@ CREATE OR REPLACE FUNCTION gewicht_per_item(p_product uuid, p_stap uuid) RETURNS
       FROM product p, processtap s WHERE p.id = p_product AND s.id = p_stap
 $$;
 
+CREATE OR REPLACE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LANGUAGE sql STABLE AS $
+    -- Sinds 0035 (#90, D80) in kilogram: hoeveel batches of lots per dag passen, met het gewicht per batch van
+    -- het product (een lot gebruikt de ingestelde lotgrootte). Minstens 1; NULL als het gewicht nog niet is ingevuld. Een oude
+    -- regel zonder kilogram (van vóór 0035) telt nog in stuks.
+    SELECT CASE WHEN c.kg_per_dag IS NULL THEN c.max_per_dag
+                WHEN gewicht_per_item(p_product, p_stap) IS NULL THEN NULL
+                ELSE greatest(1, floor(c.kg_per_dag / gewicht_per_item(p_product, p_stap)))::int END
+      FROM capaciteit_stap c WHERE c.processtap_id = p_stap AND c.product_id = p_product
+$;
+
 ALTER FUNCTION verval_lotvoorstellen_bij_lotgrootte() SET search_path = fabriek, public;
 ALTER FUNCTION maak_lot(text, uuid[], uuid, uuid, uuid, uuid, text) SET search_path = fabriek, public;
 ALTER FUNCTION controleer_lot_voorstel(uuid) SET search_path = fabriek, public;
