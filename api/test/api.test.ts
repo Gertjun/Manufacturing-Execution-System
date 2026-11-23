@@ -1949,8 +1949,10 @@ describe("Pilotoverzicht (#77, D66)", () => {
     const token = await kiesNaam(await login("operator", "PC-03"), "Operator C");
     const nr = "B-2026-8077";
     assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
+    const moment = new Date(Date.now() - 60 * 60e3);
+    const momentDag = moment.toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
     const r = await app.inject({ method: "POST", url: "/registraties", payload: { id: randomUUID(), stapcode: "PS1", batchnummer: nr },
-      headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": new Date(Date.now() - 60 * 60e3).toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
+      headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": moment.toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
     assert.equal(r.statusCode, 201, r.body);
     await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: "B-2026-9998" }); // geweigerd
 
@@ -1959,7 +1961,7 @@ describe("Pilotoverzicht (#77, D66)", () => {
     assert.equal(o.body.te_laat_minuten, 15);
     const vandaag = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
     assert.equal(o.body.tot, vandaag);
-    const rij = o.body.per_dag_pc.find((x: any) => x.pc === "PC-03" && x.dag === vandaag);
+    const rij = o.body.per_dag_pc.find((x: any) => x.pc === "PC-03" && x.dag === momentDag);
     assert.ok(rij, JSON.stringify(o.body.per_dag_pc.slice(0, 3)));
     assert.ok(rij.gestart >= 1 && rij.te_laat >= 1 && rij.langst_minuten >= 59 && rij.geweigerd >= 1, JSON.stringify(rij));
     assert.ok(o.body.kerncijfers.geweigerd >= 2);
