@@ -2,7 +2,8 @@
 
 ## 0.64.0 — 23 november 2026 · #105
 - **Lotgrootte per product in de database.** Elk product krijgt een instelbare norm (standaard vier, instelbaar van 1 tot 50). Een lot bewaart norm, werkelijk aantal en een verplichte reden bij afwijking. Open lotvoorstellen vervallen wanneer de productinstelling wijzigt. De capaciteitsberekening gebruikt voortaan de ingestelde lotgrootte.
-- Bestaande lots bewaren hun werkelijke aantal batches en krijgen de historische norm vier; afwijkende aantallen worden expliciet als historisch vastgelegd. Lots met een ongeldig aantal (0 of >50) stoppen de migratie voor beoordeling. API en schermen zijn nog niet omgeschakeld; dit is een tussenstap; de aansluiting op de rest van de keten blijft nog open.
+- Bestaande lots bewaren hun werkelijke aantal batches en krijgen de historische norm vier; afwijkende aantallen worden expliciet als historisch vastgelegd. Lots met een ongeldig aantal (0 of >50) stoppen de migratie voor beoordeling.
+- De API lotvorming valideert de productnorm en vereist een reden bij afwijking. Productloze batches van oudere clients blijven tijdelijk lotvormbaar met norm vier; gemengde productloze/productgekoppelde lots zijn verboden. Productkeuze bij batchaanmaak en de schermen zijn nog niet omgeschakeld; de volledige routeketen blijft open.
 
 > **Dit bestand:** per versie wat er nieuw of anders is, in gewone taal. Het is de enige geschiedenis van het project.
 > **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`ROADMAP.md`](ROADMAP.md).
