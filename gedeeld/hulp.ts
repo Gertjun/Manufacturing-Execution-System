@@ -156,7 +156,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
       {
         kop: "Plannen",
         punten: [
-          "Batches plannen: per dag het aantal en het product. Het systeem geeft de nummers.",
+          "Batches plannen: per dag het aantal en het product. Het systeem geeft de nummers. Per dag zie je per product hoeveel er starten tegen wat de eerste stap aankan.",
           "Batches wijzigen: Eerder, Later of Andere dag, of Laten vervallen met een reden.",
           "Stappen plannen: per dag en stap Toevoegen. Een ⚠ betekent dat de vorige stap niet op tijd is, niet bij de route hoort of de stap te vol zit. Plannen mag dan toch.",
           "Lotvoorstellen: Nieuw lotvoorstel met 4 batches van hetzelfde product. De operator kiest het voorstel in stap 16.",
@@ -166,7 +166,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         kop: "Instellen",
         punten: [
           "Producten: per product de route, welke stappen en in welke volgorde. Route opslaan.",
-          "Capaciteit: batches per weekdag en afwijkende dagen, en per stap en product. Het systeem waarschuwt bij te vol, maar blokkeert niet.",
+          "Capaciteit: per stap en product wat er per dag kan; de eerste stap van de route bepaalt hoeveel batches van een product per dag starten. Afwijkende dagen voor een product en/of stap, als percentage (0 % = geen productie). Het systeem waarschuwt bij te vol, maar blokkeert niet.",
           "Etiketten: per dag printen, voor de etiketprinter (100 × 50 mm) of een A4-vel (3 × 7).",
         ],
       },

@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.48.0 — 23 november 2026
+- Planning → Capaciteit gaat nu helemaal **per stap en product** (D69). Elke dag van de week geldt dezelfde capaciteit.
+  - Het blok **Per weekdag** (één aantal batches per dag voor de hele fabriek) is weg. Hoeveel batches van een product per dag kunnen starten, volgt uit de capaciteit van de eerste stap van zijn route.
+  - **Afwijkende dagen** gelden nu voor alle producten of één product, en voor alle stappen of één stap, als percentage van de gewone capaciteit: 0 % = geen productie, 50 % = de helft. Ook voor meer dagen achter elkaar (van … tot en met). Gelden er op een dag meer afwijkingen, dan telt het laagste percentage.
+- Batches plannen: per dag per product hoeveel batches er starten tegen wat de eerste stap aankan (bijvoorbeeld "PRD-A 5 / 8", of "dicht" op een dag zonder productie), met de afwijkingen van die dag. Bovenaan de ruimte per product voor de rest van de week.
+- De waarschuwing bij het plannen gaat over het product: "PRD-A heeft op … al 5 van de 8 batches" of "PRD-B wordt op … niet gemaakt (onderhoud lijn 2)". Plannen mag nog steeds.
+- Stappen plannen en het Dagoverzicht rekenen de afwijkende dagen mee en melden een stap die dicht is.
+- Bestaande afwijkende dagen worden overgenomen voor alle producten en stappen (een dag met 0 batches wordt "geen productie"; anders het deel van de weekdag). De instelling per weekdag vervalt. Niemand hoeft iets te doen; het invoerscherm merkt er niets van.
+- Laptoppakket: verse testdata, en bij het opstarten schuiven de datums van één regel tegelijk mee.
+
 ## 0.47.2 — 23 november 2026
 - Planning: andere namen in het menu, zodat je meteen ziet wat je er doet (D68).
   - "Per week" heet nu **Batches plannen**: nieuwe batches aanmaken, met hun startdag en product.

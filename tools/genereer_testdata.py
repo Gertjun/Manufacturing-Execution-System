@@ -386,8 +386,13 @@ while dag <= eind.date():
 # De dag van de fabriek (Amsterdam), ook als dit script op een server in UTC draait (rond middernacht).
 from zoneinfo import ZoneInfo
 vandaag = dt.datetime.now(ZoneInfo("Europe/Amsterdam")).date()
-# Een dag met minder capaciteit (onderhoud) over een paar dagen; de planner heeft er toch 6 op gezet.
-con.execute("INSERT INTO capaciteit_dag (dag, max_batches, reden) VALUES (%s, 4, 'gepland onderhoud lijn 1')", (vandaag + dt.timedelta(days=3),))
+# Een dag met minder capaciteit (onderhoud aan PS1, de eerste stap) over een paar dagen; de planner heeft er toch
+# batches op gezet (D69). En over twee weken een feestdag zonder productie.
+con.execute("""INSERT INTO capaciteit_afwijking (van, tot, processtap_id, procent, reden)
+               SELECT %s, %s, id, 50, 'gepland onderhoud lijn 1' FROM processtap WHERE code = 'PS1'""",
+            (vandaag + dt.timedelta(days=3), vandaag + dt.timedelta(days=3)))
+con.execute("INSERT INTO capaciteit_afwijking (van, tot, procent, reden) VALUES (%s, %s, 0, 'feestdag (fictief)')",
+            (vandaag + dt.timedelta(days=14), vandaag + dt.timedelta(days=14)))
 plan_dag, gepland_vooruit = vandaag, 0
 for _ in range(5):
     plan_dag += dt.timedelta(days=1)

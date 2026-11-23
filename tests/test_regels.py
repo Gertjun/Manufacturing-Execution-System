@@ -581,6 +581,26 @@ def main():
     check("PS2: niet ingesteld", val("SELECT capaciteit_stap_voor(%s, %s)", (sid["PS2"], prd["PRD-A"])) is None)
     faalt("Twee regels voor alle producten in één stap", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 5)", (sid["PS1"],), "unique")
     faalt("Capaciteit 0", "INSERT INTO capaciteit_stap (processtap_id, max_per_dag) VALUES (%s, 0)", (sid["PS2"],), "check")
+
+    print("\nAfwijkende capaciteit per product en stap (D69)")
+    afdag = val("SELECT current_date + 40")
+    def cap_op(stap, product, dag=None):
+        return val("SELECT capaciteit_stap_op(%s, %s, %s)", (sid[stap], prd[product] if product else None, dag or afdag))
+    con.execute("INSERT INTO capaciteit_afwijking (van, tot, product_id, procent, reden) VALUES (%s, %s + 1, %s, 0, 'onderhoud lijn 2')", (afdag, afdag, prd["PRD-B"]))
+    con.execute("INSERT INTO capaciteit_afwijking (van, tot, processtap_id, procent, reden) VALUES (%s, %s, %s, 50, 'korte dag')", (afdag, afdag, sid["PS1"]))
+    check("PRD-B die dag dicht (0 %), ook in een stap zonder capaciteit", cap_op("PS1", "PRD-B") == 0 and cap_op("PS2", "PRD-B") == 0)
+    check("PS1 voor PRD-A: 50 % van 8 = 4", cap_op("PS1", "PRD-A") == 4)
+    check("Laagste percentage telt bij twee regels", val("SELECT procent FROM capaciteit_afwijking_voor(%s, %s, %s)", (sid["PS1"], prd["PRD-B"], afdag)) == 0)
+    check("Stap zonder capaciteit en zonder dicht: niet ingesteld", cap_op("PS2", "PRD-A") is None)
+    check("Dag erna: alleen PRD-B dicht, PS1 weer 8", cap_op("PS1", "PRD-A", val("SELECT current_date + 41")) == 8 and cap_op("PS1", "PRD-B", val("SELECT current_date + 41")) == 0)
+    con.execute("INSERT INTO capaciteit_afwijking (van, tot, processtap_id, product_id, procent, reden) VALUES (current_date + 45, current_date + 45, %s, %s, 10, 'storing')", (sid["PS1"], prd["PRD-B"]))
+    check("Naar beneden afgerond, maar minstens 1 (10 % van 3)", cap_op("PS1", "PRD-B", val("SELECT current_date + 45")) == 1)
+    faalt("Tot vóór van", "INSERT INTO capaciteit_afwijking (van, tot, procent, reden) VALUES (%s, %s - 1, 0, 'fout')", (afdag, afdag), "check")
+    faalt("Meer dan 100 %", "INSERT INTO capaciteit_afwijking (van, tot, procent, reden) VALUES (%s, %s, 120, 'fout')", (afdag, afdag), "check")
+    faalt("Zonder reden", "INSERT INTO capaciteit_afwijking (van, tot, procent, reden) VALUES (%s, %s, 0, ' ')", (afdag, afdag), "check")
+    faalt("Afwijking verwijderen kan niet (uitzetten wel)", "DELETE FROM capaciteit_afwijking", (), "inactief")
+    con.execute("UPDATE capaciteit_afwijking SET actief = false")
+    check("Uitgezet: weer de gewone capaciteit", cap_op("PS1", "PRD-B") == 3 and cap_op("PS1", "PRD-A") == 4 * 2)
     capdag = val("SELECT current_date + 20")
     na = [r[0] for r in con.execute("SELECT plan_batches(2, %s, %s, NULL, %s)", (capdag, prd["PRD-A"], pl_acc2))]
     nb = [r[0] for r in con.execute("SELECT plan_batches(1, %s, %s, NULL, %s)", (capdag, prd["PRD-B"], pl_acc2))]

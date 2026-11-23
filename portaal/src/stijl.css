@@ -385,10 +385,14 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 .bezetbalk span { display: block; height: 100%; background: var(--actie); border-radius: var(--radius-xs); }
 .dagkaart.te-vol { border-color: var(--status-waarschuwing); border-width: 2px; }
 .dagkaart.te-vol .bezetbalk span { background: var(--status-waarschuwing); }
+/* Batches plannen: per product de starts tegen de capaciteit van de eerste stap van de route (D69). */
+.startlijst { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.startrij { display: grid; grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr) max-content; gap: var(--space-2); align-items: center; font-size: var(--text-sm); }
+.startrij-naam { font-weight: 700; }
+.dagkaart.te-vol .startrij:not(.te-vol) .bezetbalk span { background: var(--actie); }
+.startrij.te-vol .bezetbalk span { background: var(--status-waarschuwing); }
+.afwijking-tekst { margin: 0; font-size: var(--text-sm); }
 .te-vol-tekst { color: var(--tol); font-weight: 700; margin: 0; }
-.weekdagen { display: grid; grid-template-columns: repeat(7, minmax(90px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-3); }
-.weekdagen label { display: grid; gap: var(--space-1); font-weight: 700; }
-.weekdagen input { font: inherit; padding: var(--space-1) var(--space-2); border: 1.5px solid var(--inkt-zacht); border-radius: var(--radius-sm); width: 100%; }
 
 /* Certificaat per lot (A4) */
 .certificaat { background: var(--vlak); color: var(--print-inkt); max-width: 210mm; padding: 16mm 16mm 12mm; margin-top: var(--space-4); border: 1px solid var(--lijn); box-shadow: var(--print-schaduw); position: relative; font-size: 10.5pt; }
@@ -626,8 +630,6 @@ a.merk:hover { text-decoration: underline; }
   .kop > :first-child { flex-basis: 100%; }
   .kop > :not(:first-child) { flex: 1 1 auto; min-width: 0; }
   .kop-rechts { justify-content: flex-start; }
-  .weekdagen { grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)) !important; }
-  .weekdagen input { width: 100%; }
   .blok { padding: var(--space-3); }
   .blok-kop { flex-wrap: nowrap; }
   .tegels { grid-template-columns: repeat(2, minmax(0, 1fr)); }

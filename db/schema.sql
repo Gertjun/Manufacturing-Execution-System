@@ -1845,31 +1845,9 @@ END $$;
 CREATE TRIGGER stilstand_melding AFTER INSERT ON stilstand FOR EACH ROW EXECUTE FUNCTION meld_stilstand();
 
 -- ---------------------------------------------------------------------
--- Capaciteit in de planning (sinds migratie 0009, versie 0.16.0)
+-- Capaciteit in de planning: per stap en product (sinds migratie 0020, D55), met afwijkende dagen
+-- (sinds migratie 0029, D69). De capaciteit per weekdag uit 0.16.0 (D36) is vervallen.
 -- ---------------------------------------------------------------------
-CREATE TABLE capaciteit (
-    weekdag      int PRIMARY KEY CHECK (weekdag BETWEEN 1 AND 7),  -- 1 = maandag (ISO)
-    max_batches  int NOT NULL CHECK (max_batches BETWEEN 0 AND 500),
-    id           uuid NOT NULL UNIQUE DEFAULT gen_random_uuid()
-);
-CREATE TRIGGER capaciteit_log BEFORE INSERT OR UPDATE OR DELETE ON capaciteit
-    FOR EACH ROW EXECUTE FUNCTION log_config();
-
-CREATE TABLE capaciteit_dag (
-    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    dag          date NOT NULL UNIQUE,
-    max_batches  int NOT NULL CHECK (max_batches BETWEEN 0 AND 500),
-    reden        text NOT NULL CHECK (length(btrim(reden)) > 0),
-    actief       boolean NOT NULL DEFAULT true
-);
-CREATE TRIGGER capaciteit_dag_log BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_dag
-    FOR EACH ROW EXECUTE FUNCTION log_config();
-
--- Capaciteit op een dag: de uitzondering als die er is, anders die van de weekdag (NULL = niet ingesteld).
-CREATE FUNCTION capaciteit_op(p_dag date) RETURNS int LANGUAGE sql STABLE AS $$
-    SELECT coalesce((SELECT max_batches FROM capaciteit_dag WHERE dag = p_dag AND actief),
-                    (SELECT max_batches FROM capaciteit WHERE weekdag = extract(isodow FROM p_dag)::int))
-$$;
 
 -- Capaciteit per stap en product (sinds migratie 0020, D55): hoeveel items een stap per dag aankan.
 -- Een regel zonder product geldt voor elk product zonder eigen regel. Bij gemengde producten telt elk item
@@ -1890,11 +1868,54 @@ CREATE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LA
                     (SELECT max_per_dag FROM capaciteit_stap WHERE processtap_id = p_stap AND product_id IS NULL))
 $$;
 
--- Wat er op een dag in een stap gepland is, per product, met de capaciteit. Telt de Planning per stap, plus
--- de batches die die dag starten volgens de weekplanning als dit hun eerste stap is (en ze niet al in deze stap
--- gepland staan). 'van_week' = hoeveel daarvan uit de weekplanning komen.
+-- Afwijkende capaciteit (sinds 0.48.0, D69): in een periode kan een stap en/of product minder aan.
+-- Stap leeg = alle stappen, product leeg = alle producten. 0 % = geen productie.
+-- Gelden er meer regels tegelijk, dan telt het laagste percentage.
+CREATE TABLE capaciteit_afwijking (
+    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    van            date NOT NULL,
+    tot            date NOT NULL,
+    processtap_id  uuid REFERENCES processtap(id),
+    product_id     uuid REFERENCES product(id),
+    procent        int  NOT NULL CHECK (procent BETWEEN 0 AND 100),
+    reden          text NOT NULL CHECK (length(btrim(reden)) BETWEEN 2 AND 200),
+    actief         boolean NOT NULL DEFAULT true,
+    CONSTRAINT capaciteit_afwijking_periode CHECK (tot >= van AND tot - van <= 366)
+);
+CREATE INDEX capaciteit_afwijking_tot ON capaciteit_afwijking (tot) WHERE actief;
+CREATE TRIGGER capaciteit_afwijking_log BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_afwijking
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- De afwijking die op een dag voor een stap en product geldt: het laagste percentage (NULL = geen).
+CREATE FUNCTION capaciteit_afwijking_voor(p_stap uuid, p_product uuid, p_dag date)
+RETURNS TABLE (procent int, reden text) LANGUAGE sql STABLE AS $$
+    SELECT a.procent, a.reden FROM capaciteit_afwijking a
+     WHERE a.actief AND p_dag BETWEEN a.van AND a.tot
+       AND (a.processtap_id IS NULL OR a.processtap_id = p_stap)
+       AND (a.product_id IS NULL OR a.product_id = p_product)
+     ORDER BY a.procent, a.van, a.reden LIMIT 1
+$$;
+
+-- De capaciteit van een stap voor een product op een dag: de gewone capaciteit (capaciteit_stap_voor)
+-- maal het percentage van een afwijking, naar beneden afgerond maar minstens 1. 0 % = 0, ook als er geen
+-- gewone capaciteit is ingesteld (dan is de stap die dag dicht). NULL = niet ingesteld.
+CREATE FUNCTION capaciteit_stap_op(p_stap uuid, p_product uuid, p_dag date) RETURNS int LANGUAGE sql STABLE AS $$
+    SELECT CASE
+             WHEN a.procent = 0 THEN 0
+             WHEN g.max IS NULL THEN NULL
+             WHEN a.procent IS NULL THEN g.max
+             ELSE greatest(1, floor(g.max * a.procent / 100.0))::int
+           END
+      FROM (SELECT capaciteit_stap_voor(p_stap, p_product) AS max) g
+      LEFT JOIN capaciteit_afwijking_voor(p_stap, p_product, p_dag) a ON true
+$$;
+
+-- Wat er op een dag in een stap gepland is, per product, met de capaciteit van die dag (nu met afwijkingen)
+-- en de reden van een afwijking. Telt de Planning per stap, plus de batches die die dag starten volgens
+-- Batches plannen als dit hun eerste stap is (en ze niet al in deze stap gepland staan).
+-- 'van_week' = hoeveel daarvan uit Batches plannen komen.
 CREATE FUNCTION stap_belasting(p_stap uuid, p_dag date)
-RETURNS TABLE (product_id uuid, aantal int, van_week int, max_per_dag int) LANGUAGE sql STABLE AS $$
+RETURNS TABLE (product_id uuid, aantal int, van_week int, max_per_dag int, reden text) LANGUAGE sql STABLE AS $$
     WITH items AS (
         SELECT coalesce(b.product_id, lot_product(sp.lot_id),
                         (SELECT vb.product_id FROM lot_voorstel_batch x JOIN batch vb ON vb.id = x.batch_id
@@ -1907,7 +1928,9 @@ RETURNS TABLE (product_id uuid, aantal int, van_week int, max_per_dag int) LANGU
          WHERE b.geplande_dag = p_dag AND b.status <> 'vervallen'
            AND route_eerste(b.product_id, 'batch') = p_stap
            AND NOT EXISTS (SELECT 1 FROM stapplanning sp WHERE sp.batch_id = b.id AND sp.processtap_id = p_stap))
-    SELECT i.product_id, count(*)::int, count(*) FILTER (WHERE i.van_week)::int, capaciteit_stap_voor(p_stap, i.product_id)
+    SELECT i.product_id, count(*)::int, count(*) FILTER (WHERE i.van_week)::int,
+           capaciteit_stap_op(p_stap, i.product_id, p_dag),
+           (SELECT a.reden FROM capaciteit_afwijking_voor(p_stap, i.product_id, p_dag) a)
       FROM items i GROUP BY i.product_id
 $$;
 
@@ -2586,7 +2609,7 @@ END $$;
 REVOKE EXECUTE ON FUNCTION ruim_weigeringen_op(int) FROM PUBLIC;
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

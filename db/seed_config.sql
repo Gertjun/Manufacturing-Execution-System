@@ -93,9 +93,6 @@ INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES
   ('ONDERH', 'Gepland onderhoud', 'gepland'),
   ('OVERIG', 'Overig', 'overig');
 
--- Fictieve capaciteit: 6 batches per dag, ook in het weekend (de fictieve fabriek draait 24/7; sinds 0.16.0).
-INSERT INTO capaciteit (weekdag, max_batches) VALUES (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6);
-
 -- Certificaat (sinds 0.17.0): fictieve bedrijfsgegevens en welke velden op het certificaat komen.
 INSERT INTO instelling (sleutel, waarde) VALUES
   ('bedrijfsnaam', 'Voorbeeldfabriek B.V. (fictief)'),

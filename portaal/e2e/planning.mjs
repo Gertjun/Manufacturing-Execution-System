@@ -21,8 +21,6 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 for (const f of ["schema.sql", "seed_config.sql", "seed_accounts_demo.sql"]) await db.query(readFileSync(new URL(`../../db/${f}`, import.meta.url), "utf8"));
-// Elke dag (ook in het weekend) 6 batches, zodat de test op elke dag hetzelfde loopt.
-await db.query("UPDATE fabriek.capaciteit SET max_batches = 6");
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
@@ -107,23 +105,44 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
 
-  console.log("\nCapaciteit");
-  check("Vandaag 5 van de 6 (vervallen telt niet)", (await page.locator(".dagkaart.vandaag .bezetting").innerText()) === "5 / 6");
+  console.log("\nCapaciteit per product (D69)");
+  // PS1 (eerste stap van de route) kan 8 batches per dag aan voor alle producten zonder eigen regel.
+  const prdA = () => page.locator(".dagkaart.vandaag .startrij", { hasText: "PRD-A" });
+  check("Vandaag PRD-A 5 van de 8 (vervallen telt niet)", (await prdA().locator(".bezetting").innerText()) === "5 / 8");
+  check("Kop van de dag: 5 batches", (await page.locator(".dagkaart.vandaag .dagkaart-kop .bezetting").innerText()) === "5 batches");
   await page.locator(".kop").getByRole("button", { name: "Batches plannen" }).click();
-  await page.getByRole("dialog").getByLabel("Aantal batches").fill("2");
+  await page.getByRole("dialog").getByLabel("Aantal batches").fill("4");
+  await page.getByRole("dialog").getByLabel(/Product/).selectOption({ label: "PRD-A – Product A standaard" });
   await page.getByRole("dialog").getByRole("button", { name: "Plannen" }).click();
   await page.getByRole("dialog").getByRole("heading", { name: "Meer dan de capaciteit?" }).waitFor();
-  check("Waarschuwing vóór het plannen boven de capaciteit", true);
+  check("Waarschuwing vóór het plannen boven de capaciteit", (await page.getByRole("dialog").innerText()).includes("PRD-A heeft op"));
   await page.getByRole("dialog").getByRole("button", { name: "Toch plannen" }).click();
   await page.locator(".dagkaart.vandaag.te-vol").waitFor();
-  check("Dag staat als te vol", (await page.locator(".dagkaart.vandaag .bezetting").innerText()) === "⚠ 7 / 6");
+  check("PRD-A staat als te vol", (await prdA().locator(".bezetting").innerText()) === "⚠ 9 / 8");
   await shot("05b-te-vol");
+
+  console.log("\nAfwijkende dagen (D69)");
   await page.getByRole("link", { name: "Capaciteit" }).click();
-  await page.getByLabel("zaterdag").fill("2");
-  await page.getByRole("button", { name: "Opslaan" }).click();
-  await page.locator("#melding", { hasText: "Capaciteit opgeslagen" }).waitFor();
-  const [za] = await q("SELECT max_batches FROM fabriek.capaciteit WHERE weekdag = 6");
-  check("Capaciteit zaterdag opgeslagen", za.max_batches === 2);
+  await page.getByRole("heading", { name: "Afwijkende dagen" }).waitFor();
+  check("Geen blok per weekdag meer", (await page.getByRole("heading", { name: "Per weekdag" }).count()) === 0);
+  await page.getByRole("button", { name: "Afwijking toevoegen" }).click();
+  await dialoog().locator("#v-product").selectOption("PRD-A");
+  await dialoog().getByLabel("Reden").fill("onderhoud lijn 1");
+  await dialoog().getByRole("button", { name: "Opslaan" }).click();
+  await page.locator("tr", { hasText: "onderhoud lijn 1" }).waitFor();
+  const [af] = await q("SELECT a.procent, a.van = current_date AND a.tot = current_date AS vandaag, a.processtap_id, p.code FROM fabriek.capaciteit_afwijking a JOIN fabriek.product p ON p.id = a.product_id WHERE a.actief");
+  check("Afwijking opgeslagen: PRD-A, alle stappen, vandaag, 0 %", af?.procent === 0 && af.vandaag && af.processtap_id === null && af.code === "PRD-A", JSON.stringify(af));
+  check("In de tabel: Geen productie", (await page.locator("tr", { hasText: "onderhoud lijn 1" }).innerText()).includes("Geen productie"));
+  await shot("05d-afwijkende-dagen");
+  await page.getByRole("link", { name: "Batches plannen" }).click();
+  await page.getByRole("heading", { name: /^Week van/ }).waitFor();
+  check("Batches plannen: PRD-A vandaag dicht", (await prdA().locator(".bezetting").innerText()) === "⚠ 9 / dicht");
+  check("Batches plannen: reden van de afwijking", (await page.locator(".dagkaart.vandaag .afwijking-tekst").innerText()).includes("PRD-A, alle stappen: geen productie (onderhoud lijn 1)"));
+  check("Batches plannen: PS1 dicht", (await page.locator(".dagkaart.vandaag .stap-vol").innerText()).includes("PS1 dicht"));
+  await page.getByRole("link", { name: "Capaciteit" }).click();
+  await page.getByRole("button", { name: /onderhoud lijn 1 weghalen/ }).click();
+  await page.locator("#melding", { hasText: "Weggehaald" }).waitFor();
+  check("Afwijking weggehaald", (await q("SELECT count(*)::int AS n FROM fabriek.capaciteit_afwijking WHERE actief"))[0].n === 0);
 
   console.log("\nCapaciteit per stap en product (D55)");
   check("Regels uit de instellingen staan erbij", (await page.locator("tr", { hasText: "PS1" }).filter({ hasText: "PRD-B" }).innerText()).includes("3"));
@@ -258,7 +277,7 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
   check("Ploegleider ziet de planning zonder knoppen om te plannen",
-    (await page.getByRole("button", { name: "Batches plannen" }).count()) === 0 && (await page.locator(".planrij").count()) === 8);
+    (await page.getByRole("button", { name: "Batches plannen" }).count()) === 0 && (await page.locator(".planrij").count()) === 10, "10 batches: 6 + 4 van PRD-A");
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n").slice(0, 8).join(" | "));
   await shot("fout").catch(() => {});

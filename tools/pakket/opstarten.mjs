@@ -284,8 +284,11 @@ async function verschuifNaarNu(d) {
     SELECT c.table_name, c.column_name FROM information_schema.columns c
     JOIN information_schema.tables t USING (table_schema, table_name)
     WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'date'`);
-  for (const k of datums) {
-    await d.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::int WHERE "${k.column_name}" IS NOT NULL`, [dagen]);
+  // Per tabel alle datumkolommen in één keer (zoals hierboven), zodat een regel als "tot niet vóór van" blijft kloppen.
+  const datumsPerTabel = new Map();
+  for (const k of datums) datumsPerTabel.set(k.table_name, [...(datumsPerTabel.get(k.table_name) ?? []), k.column_name]);
+  for (const [tabel, kols] of datumsPerTabel) {
+    await d.query(`UPDATE "${tabel}" SET ${kols.map((c) => `"${c}" = "${c}" + $1::int`).join(", ")}`, [dagen]);
   }
 }
 

@@ -146,11 +146,70 @@ async function batchIds(tx: { query: (s: string, p?: unknown[]) => Promise<{ row
   return nummers.map((n) => kaart.get(n)!);
 }
 
-/** Capaciteit en bezetting op één dag. */
-const BEZETTING_SQL = `
-  SELECT capaciteit_op($1::date) AS capaciteit,
-         (SELECT count(*) FROM batch WHERE status <> 'vervallen'
-             AND coalesce(geplande_dag, coalesce(gestart_op, aangemaakt_op)::date) = $1::date)::int AS bezet`;
+/**
+ * Starts per product per dag (D69): hoeveel batches van een product op die dag starten (gepland, of gestart als ze niet
+ * gepland waren; zonder vervallen) en de capaciteit van de eerste stap van zijn route op die dag. Per dag van $1 tot en
+ * met $1 + $2 - 1: elk actief product met capaciteit, en elk product (ook geen product) met batches op die dag.
+ */
+const STARTS_SQL = `
+  WITH d AS (SELECT g::date AS dag FROM generate_series($1::date, $1::date + ($2::int - 1), interval '1 day') g),
+       st AS (SELECT coalesce(b.geplande_dag, coalesce(b.gestart_op, b.aangemaakt_op)::date) AS dag, b.product_id, count(*)::int AS aantal
+                FROM batch b
+               WHERE b.status <> 'vervallen'
+                 AND coalesce(b.geplande_dag, coalesce(b.gestart_op, b.aangemaakt_op)::date) BETWEEN $1::date AND $1::date + ($2::int - 1)
+               GROUP BY 1, 2),
+       pr AS (SELECT p.id, p.code, p.naam FROM product p WHERE p.actief OR p.id IN (SELECT product_id FROM st)
+              UNION ALL SELECT NULL, NULL, NULL),
+       x AS (SELECT d.dag, pr.id, pr.code, pr.naam, coalesce(st.aantal, 0) AS aantal, route_eerste(pr.id, 'batch') AS stap
+               FROM d CROSS JOIN pr LEFT JOIN st ON st.dag = d.dag AND st.product_id IS NOT DISTINCT FROM pr.id)
+  SELECT to_char(x.dag, 'YYYY-MM-DD') AS dag, x.code AS product, x.naam, x.aantal,
+         capaciteit_stap_op(x.stap, x.id, x.dag) AS max,
+         (SELECT a.reden FROM capaciteit_afwijking_voor(x.stap, x.id, x.dag) a) AS reden,
+         x.dag >= current_date AS komt
+    FROM x
+   WHERE x.aantal > 0 OR (x.id IS NOT NULL AND capaciteit_stap_op(x.stap, x.id, x.dag) IS NOT NULL)
+   ORDER BY x.dag, x.code NULLS LAST`;
+/** Dag (JJJJ-MM-DD) plus een aantal dagen, zonder tijdzone. */
+function plusDagenIso(dag: string, n: number): string {
+  const d = new Date(`${dag}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+interface StartRij { dag: string; product: string | null; naam: string | null; aantal: number; max: number | null; reden: string | null; komt: boolean }
+
+/** Afwijkende capaciteit die op een dag geldt, voor de uitleg in Batches plannen. */
+const AFWIJKING_SQL = `
+  SELECT a.id, to_char(a.van, 'YYYY-MM-DD') AS van, to_char(a.tot, 'YYYY-MM-DD') AS tot, s.code AS stap, p.code AS product, a.procent, a.reden
+    FROM capaciteit_afwijking a LEFT JOIN processtap s ON s.id = a.processtap_id LEFT JOIN product p ON p.id = a.product_id
+   WHERE a.actief`;
+const Afwijking = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  van: Dag,
+  tot: Dag,
+  stap: Type.Union([Type.Null(), Type.String()], { description: "null = alle stappen" }),
+  product: Type.Union([Type.Null(), Type.String()], { description: "null = alle producten" }),
+  procent: Type.Integer({ description: "Percentage van de gewone capaciteit; 0 = geen productie" }),
+  reden: Type.String(),
+});
+const ProductStart = Type.Object({
+  product: Type.Union([Type.Null(), Type.String()], { description: "Productcode; null = batches zonder product" }),
+  naam: Type.Union([Type.Null(), Type.String()]),
+  aantal: Type.Integer({ description: "Batches van dit product die deze dag starten, zonder vervallen" }),
+  max: NulGeheel({ description: "Capaciteit van de eerste stap van de route op deze dag; 0 = die dag geen productie; null = niet ingesteld" }),
+  reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
+});
+
+/** Waarschuwing na het plannen: de producten die op die dag nu boven hun capaciteit zitten. */
+function startWaarschuwing(rijen: StartRij[]): string | null {
+  const te = rijen.filter((r) => r.max !== null && r.aantal > r.max);
+  if (!te.length) return null;
+  return te.map((r) => {
+    const naam = r.product ?? "Zonder product";
+    return r.max === 0
+      ? `${naam} wordt deze dag niet gemaakt${r.reden ? ` (${r.reden})` : ""}`
+      : `${naam} heeft deze dag nu ${r.aantal} batches; de capaciteit is ${r.max}${r.reden ? ` (${r.reden})` : ""}`;
+  }).join(". ");
+}
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // ---------- Producten ----------
@@ -252,15 +311,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             dagen: Type.Array(Type.Object({
               dag: Dag,
               batches: Type.Array(BatchPlan),
-              capaciteit: NulGeheel({ description: "Hoeveel batches deze dag aankan (null = niet ingesteld)" }),
               bezet: Type.Integer({ description: "Batches op deze dag, zonder vervallen" }),
-              reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
-              stappen_vol: Type.Optional(Type.Array(Type.Object({ stap: Type.String(), procent: Type.Integer() }), {
-                description: "Stappen die deze dag boven hun capaciteit per stap en product zitten (D55)",
-              })),
+              producten: Type.Array(ProductStart, { description: "Per product de starts en de capaciteit van de eerste stap van zijn route (D69)" }),
+              afwijkingen: Type.Array(Afwijking, { description: "Afwijkende capaciteit die deze dag geldt (D69)" }),
+              stappen_vol: Type.Optional(Type.Array(Type.Object({
+                stap: Type.String(),
+                procent: Type.Integer(),
+                dicht: Type.Boolean({ description: "Er is iets gepland in een stap die deze dag dicht is (0 %)" }),
+              }), { description: "Stappen die deze dag boven hun capaciteit per stap en product zitten (D55)" })),
             })),
             achterstand: Type.Array(BatchPlan),
-            vrij: Type.Integer({ description: "Ruimte in deze periode vanaf vandaag (dagen boven de capaciteit tellen niet negatief mee)" }),
+            ruimte: Type.Array(Type.Object({ product: Type.String(), aantal: Type.Integer() }), {
+              description: "Per product hoeveel batches er in deze periode vanaf vandaag nog kunnen starten (dagen boven de capaciteit tellen niet negatief mee)",
+            }),
           }),
         },
       },
@@ -279,36 +342,38 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `${BATCH_PLAN_SQL} WHERE b.status = 'gepland' AND b.geplande_dag < least($1::date, current_date) ORDER BY b.geplande_dag, b.volgorde`,
         [req.query.van],
       );
-      const cap = await lees<{ dag: string; capaciteit: number | null; reden: string | null; vandaag: boolean }>(
-        app.db,
-        `SELECT to_char(d, 'YYYY-MM-DD') AS dag, capaciteit_op(d::date) AS capaciteit,
-                (SELECT reden FROM capaciteit_dag WHERE dag = d::date AND actief) AS reden, d::date >= current_date AS vandaag
-           FROM generate_series($1::date, $1::date + ($2 - 1), interval '1 day') d`,
-        [req.query.van, dagen],
-      );
-      const vol = await lees<{ dag: string; stap: string; procent: number }>(
+      const starts = await lees<StartRij>(app.db, STARTS_SQL, [req.query.van, dagen]);
+      const afwijkingen = await lees<{ van: string; tot: string } & Record<string, unknown>>(app.db,
+        `${AFWIJKING_SQL} AND a.tot >= $1::date AND a.van <= $1::date + ($2::int - 1) ORDER BY a.procent, a.van`, [req.query.van, dagen]);
+      const vol = await lees<{ dag: string; stap: string; procent: number; dicht: boolean }>(
         app.db,
         `SELECT to_char(d, 'YYYY-MM-DD') AS dag, s.code AS stap,
-                round(100 * sum(b.aantal::numeric / b.max_per_dag))::int AS procent
+                coalesce(round(100 * sum(b.aantal::numeric / nullif(b.max_per_dag, 0))), 0)::int AS procent,
+                bool_or(b.max_per_dag = 0) AS dicht
            FROM generate_series($1::date, $1::date + ($2 - 1), interval '1 day') d
            CROSS JOIN processtap s
            CROSS JOIN LATERAL stap_belasting(s.id, d::date) b
           WHERE s.actief AND b.max_per_dag IS NOT NULL
-            AND EXISTS (SELECT 1 FROM capaciteit_stap c WHERE c.processtap_id = s.id)
           GROUP BY d, s.code, s.volgorde
-         HAVING sum(b.aantal::numeric / b.max_per_dag) > 1
+         HAVING bool_or(b.max_per_dag = 0) OR sum(b.aantal::numeric / nullif(b.max_per_dag, 0)) > 1
           ORDER BY d, s.volgorde`,
         [req.query.van, dagen],
       );
-      const lijst = cap.map((c) => {
-        const batches = rijen.filter((r) => r.dag === c.dag);
+      const lijst = Array.from({ length: dagen }, (_, i) => {
+        const dag = plusDagenIso(req.query.van, i);
+        const batches = rijen.filter((r) => r.dag === dag);
         return {
-          dag: c.dag, batches, capaciteit: c.capaciteit, reden: c.reden, bezet: batches.filter((b) => b.status !== "vervallen").length,
-          stappen_vol: vol.filter((v) => v.dag === c.dag).map(({ stap, procent }) => ({ stap, procent })),
+          dag, batches, bezet: batches.filter((b) => b.status !== "vervallen").length,
+          producten: starts.filter((r) => r.dag === dag).map(({ product, naam, aantal, max, reden }) => ({ product, naam, aantal, max, reden })),
+          afwijkingen: afwijkingen.filter((a) => a.van <= dag && a.tot >= dag),
+          stappen_vol: vol.filter((v) => v.dag === dag).map(({ stap, procent, dicht }) => ({ stap, procent, dicht })),
         };
       });
-      const vrij = lijst.reduce((t, d, i) => t + (cap[i].vandaag && d.capaciteit !== null ? Math.max(0, d.capaciteit - d.bezet) : 0), 0);
-      return { dagen: lijst, achterstand, vrij } as never;
+      const ruimte = new Map<string, number>();
+      for (const r of starts) {
+        if (r.komt && r.product && r.max !== null) ruimte.set(r.product, (ruimte.get(r.product) ?? 0) + Math.max(0, r.max - r.aantal));
+      }
+      return { dagen: lijst, achterstand, ruimte: [...ruimte].map(([product, aantal]) => ({ product, aantal })) } as never;
     },
   );
 
@@ -328,7 +393,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         response: {
           201: Type.Object({
             batchnummers: Type.Array(Type.String()),
-            waarschuwing: Type.Union([Type.Null(), Type.String()], { description: "Gezet als de dag nu meer batches heeft dan de capaciteit" }),
+            waarschuwing: Type.Union([Type.Null(), Type.String()], { description: "Gezet als een product die dag nu boven de capaciteit van de eerste stap van zijn route zit (D69)" }),
           }),
         },
       },
@@ -344,11 +409,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         ]);
         return rows.map((r) => r.nr as string);
       });
-      const [b] = await lees<{ capaciteit: number | null; bezet: number }>(app.db, BEZETTING_SQL, [req.body.dag]);
-      return reply.status(201).send({
-        batchnummers: nummers,
-        waarschuwing: b.capaciteit !== null && b.bezet > b.capaciteit ? `Deze dag heeft nu ${b.bezet} batches; de capaciteit is ${b.capaciteit}` : null,
-      });
+      const starts = await lees<StartRij & { id?: string }>(app.db,
+        `SELECT * FROM (${STARTS_SQL}) s WHERE s.product IS NOT DISTINCT FROM (SELECT code FROM product WHERE id = $3::uuid)`,
+        [req.body.dag, 1, req.body.productId ?? null]);
+      return reply.status(201).send({ batchnummers: nummers, waarschuwing: startWaarschuwing(starts) });
     },
   );
 
@@ -457,22 +521,26 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   const StapCapaciteit = Type.Union([
     Type.Null(),
     Type.Object({
-      procent: Type.Integer({ description: "Hoe vol de stap is: de som van aantal/max per product, in procenten" }),
+      procent: Type.Integer({ description: "Hoe vol de stap is: de som van aantal/max per product, in procenten (producten met max 0 tellen niet mee)" }),
+      dicht: Type.Boolean({ description: "Er is iets gepland voor een product waarvoor de stap deze dag dicht is (0 %, D69)" }),
       regels: Type.Array(Type.Object({
         product: OptTekst,
         aantal: Type.Integer(),
         van_week: Type.Integer({ description: "Batches die deze dag starten volgens de weekplanning (alleen bij hun eerste stap)" }),
-        max: NulGeheel({ description: "Capaciteit per dag voor dit product; null = niet ingesteld (telt niet mee)" }),
+        max: NulGeheel({ description: "Capaciteit op deze dag voor dit product, met een afwijking verrekend (D69); 0 = dicht; null = niet ingesteld (telt niet mee)" }),
+        reden: Type.Union([Type.Null(), Type.String()], { description: "Reden van een afwijkende capaciteit op deze dag" }),
       })),
     }),
   ], { description: "Capaciteit van de stap op deze dag; null als er voor de stap geen capaciteit is ingesteld" });
   /** Per actieve stap de belasting op dag $1 (zie stap_belasting). */
   const STAP_CAPACITEIT_SQL = `
     SELECT s.code,
-           CASE WHEN EXISTS (SELECT 1 FROM capaciteit_stap c WHERE c.processtap_id = s.id) THEN json_build_object(
-             'procent', coalesce((SELECT round(100 * sum(b.aantal::numeric / b.max_per_dag)) FROM stap_belasting(s.id, $1::date) b
+           CASE WHEN EXISTS (SELECT 1 FROM capaciteit_stap c WHERE c.processtap_id = s.id)
+                  OR EXISTS (SELECT 1 FROM stap_belasting(s.id, $1::date) b WHERE b.max_per_dag = 0) THEN json_build_object(
+             'procent', coalesce((SELECT round(100 * sum(b.aantal::numeric / nullif(b.max_per_dag, 0))) FROM stap_belasting(s.id, $1::date) b
                                    WHERE b.max_per_dag IS NOT NULL), 0)::int,
-             'regels', coalesce((SELECT json_agg(json_build_object('product', p.code, 'aantal', b.aantal, 'van_week', b.van_week, 'max', b.max_per_dag)
+             'dicht', coalesce((SELECT bool_or(b.max_per_dag = 0) FROM stap_belasting(s.id, $1::date) b), false),
+             'regels', coalesce((SELECT json_agg(json_build_object('product', p.code, 'aantal', b.aantal, 'van_week', b.van_week, 'max', b.max_per_dag, 'reden', b.reden)
                                                  ORDER BY p.code NULLS LAST)
                                    FROM stap_belasting(s.id, $1::date) b LEFT JOIN product p ON p.id = b.product_id), '[]'))
            END AS capaciteit
@@ -711,92 +779,78 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...IEDEREEN),
       schema: {
         tags: ["planning"],
-        description: "Capaciteit per weekdag, uitzonderingen vanaf 30 dagen geleden, en (met dag) de bezetting op die dag.",
-        querystring: Type.Object({ dag: Type.Optional(Dag) }),
+        description: "Capaciteit per stap en product (D55) en de afwijkende capaciteit die vandaag of later geldt, of tot 30 dagen geleden eindigde (D69).",
         response: {
           200: Type.Object({
-            weekdagen: Type.Array(Type.Object({ weekdag: Type.Integer(), max_batches: Type.Integer() })),
-            uitzonderingen: Type.Array(Type.Object({ dag: Dag, max_batches: Type.Integer(), reden: Type.String() })),
-            dag: Type.Union([Type.Null(), Type.Object({ dag: Dag, capaciteit: NulGeheel(), bezet: Type.Integer() })]),
-            per_stap: Type.Optional(Type.Array(Type.Object({ stap: Type.String(), stapnaam: Type.String(), product: OptTekst, max_per_dag: Type.Integer() }), {
+            per_stap: Type.Array(Type.Object({ stap: Type.String(), stapnaam: Type.String(), product: OptTekst, max_per_dag: Type.Integer() }), {
               description: "Capaciteit per stap en product (D55); product null = voor alle producten zonder eigen regel",
-            })),
+            }),
+            afwijkingen: Type.Array(Afwijking),
           }),
         },
       },
     },
-    async (req) => {
-      const weekdagen = await lees(app.db, "SELECT weekdag, max_batches FROM capaciteit ORDER BY weekdag");
-      const uitzonderingen = await lees(app.db,
-        "SELECT to_char(dag, 'YYYY-MM-DD') AS dag, max_batches, reden FROM capaciteit_dag WHERE actief AND dag >= current_date - 30 ORDER BY dag");
-      let dag = null;
-      if (req.query.dag) {
-        const [b] = await lees<{ capaciteit: number | null; bezet: number }>(app.db, BEZETTING_SQL, [req.query.dag]);
-        dag = { dag: req.query.dag, ...b };
-      }
+    async () => {
       const per_stap = await lees(app.db,
         `SELECT s.code AS stap, s.naam AS stapnaam, p.code AS product, c.max_per_dag
            FROM capaciteit_stap c JOIN processtap s ON s.id = c.processtap_id LEFT JOIN product p ON p.id = c.product_id
           ORDER BY s.volgorde, p.code NULLS FIRST`);
-      return { weekdagen, uitzonderingen, dag, per_stap } as never;
-    },
-  );
-
-  app.put(
-    "/capaciteit/weekdagen",
-    {
-      preHandler: vereist(...PLANNEN),
-      schema: {
-        tags: ["planning"],
-        body: Type.Object({ weekdagen: Type.Array(Type.Object({ weekdag: Type.Integer({ minimum: 1, maximum: 7 }), max_batches: Type.Integer({ minimum: 0, maximum: 500 }) }), { minItems: 1, maxItems: 7 }) }),
-        response: { 204: Type.Null() },
-      },
-    },
-    async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        for (const w of req.body.weekdagen) {
-          await tx.query(
-            `INSERT INTO capaciteit (weekdag, max_batches) VALUES ($1, $2)
-             ON CONFLICT (weekdag) DO UPDATE SET max_batches = EXCLUDED.max_batches WHERE capaciteit.max_batches <> EXCLUDED.max_batches`,
-            [w.weekdag, w.max_batches],
-          );
-        }
-      });
-      return reply.status(204).send(null);
-    },
-  );
-
-  app.put(
-    "/capaciteit/dagen/:dag",
-    {
-      preHandler: vereist(...PLANNEN),
-      schema: {
-        tags: ["planning"],
-        description: "Afwijkende capaciteit op één dag, bijvoorbeeld bij onderhoud of een feestdag.",
-        params: Type.Object({ dag: Dag }),
-        body: Type.Object({ max_batches: Type.Integer({ minimum: 0, maximum: 500 }), reden: Type.String({ minLength: 2, maxLength: 200 }) }),
-        response: { 204: Type.Null() },
-      },
-    },
-    async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query(
-          `INSERT INTO capaciteit_dag (dag, max_batches, reden) VALUES ($1, $2, $3)
-           ON CONFLICT (dag) DO UPDATE SET max_batches = EXCLUDED.max_batches, reden = EXCLUDED.reden, actief = true`,
-          [req.params.dag, req.body.max_batches, req.body.reden.trim()],
-        ));
-      return reply.status(204).send(null);
+      const afwijkingen = await lees(app.db, `${AFWIJKING_SQL} AND a.tot >= current_date - 30 ORDER BY a.van, a.tot, s.volgorde NULLS FIRST, p.code NULLS FIRST`);
+      return { per_stap, afwijkingen } as never;
     },
   );
 
   app.post(
-    "/capaciteit/dagen/:dag/weghalen",
+    "/capaciteit/afwijkingen",
     {
       preHandler: vereist(...PLANNEN),
-      schema: { tags: ["planning"], params: Type.Object({ dag: Dag }), response: { 204: Type.Null() } },
+      schema: {
+        tags: ["planning"],
+        description:
+          "Afwijkende capaciteit in een periode (D69), bijvoorbeeld onderhoud of een feestdag. Stap null = alle stappen, product null = alle producten. " +
+          "procent is het deel van de gewone capaciteit; 0 = geen productie. Gelden er meer regels tegelijk, dan telt het laagste percentage.",
+        body: Type.Object({
+          van: Dag,
+          tot: Type.Optional(Dag),
+          stap: Type.Union([Type.Null(), StapCode]),
+          product: Type.Union([Type.Null(), Type.String({ maxLength: 40 })]),
+          procent: Type.Integer({ minimum: 0, maximum: 100 }),
+          reden: Type.String({ minLength: 2, maxLength: 200 }),
+        }),
+        response: { 201: Afwijking },
+      },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, (tx) => tx.query("UPDATE capaciteit_dag SET actief = false WHERE dag = $1 AND actief", [req.params.dag]));
+      const rij = await inTransactie(app.db, req.user.naam, async (tx) => {
+        const stap = req.body.stap
+          ? (await tx.query("SELECT id FROM processtap WHERE code = $1 AND actief", [req.body.stap])).rows[0]?.id
+          : null;
+        if (req.body.stap && !stap) throw niet("Stap");
+        const product = req.body.product
+          ? (await tx.query("SELECT id FROM product WHERE code = $1", [req.body.product])).rows[0]?.id
+          : null;
+        if (req.body.product && !product) throw niet("Product");
+        const { rows } = await tx.query(
+          `INSERT INTO capaciteit_afwijking (van, tot, processtap_id, product_id, procent, reden)
+           VALUES ($1::date, coalesce($2::date, $1::date), $3, $4, $5, $6) RETURNING id`,
+          [req.body.van, req.body.tot ?? null, stap, product, req.body.procent, req.body.reden.trim()],
+        );
+        return (await tx.query(`${AFWIJKING_SQL} AND a.id = $1`, [rows[0].id])).rows[0];
+      });
+      return reply.status(201).send(rij);
+    },
+  );
+
+  app.post(
+    "/capaciteit/afwijkingen/:id/weghalen",
+    {
+      preHandler: vereist(...PLANNEN),
+      schema: { tags: ["planning"], params: Type.Object({ id: Type.String({ format: "uuid" }) }), response: { 204: Type.Null() } },
+    },
+    async (req, reply) => {
+      const n = await inTransactie(app.db, req.user.naam, async (tx) =>
+        (await tx.query("UPDATE capaciteit_afwijking SET actief = false WHERE id = $1 AND actief", [req.params.id])).rowCount);
+      if (!n) throw niet("Afwijking");
       return reply.status(204).send(null);
     },
   );

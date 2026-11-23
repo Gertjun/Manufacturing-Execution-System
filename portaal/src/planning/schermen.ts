@@ -65,8 +65,14 @@ async function productOpties(): Promise<[string, string][]> {
 }
 
 // ---------- Week ----------
-interface Dag { dag: string; batches: BatchPlan[]; capaciteit: number | null; bezet: number; reden: string | null; stappen_vol?: { stap: string; procent: number }[] }
-interface Week { dagen: Dag[]; achterstand: BatchPlan[]; vrij: number }
+interface ProductStart { product: string | null; naam: string | null; aantal: number; max: number | null; reden: string | null }
+interface Afwijking { id: string; van: string; tot: string; stap: string | null; product: string | null; procent: number; reden: string }
+interface Dag { dag: string; batches: BatchPlan[]; bezet: number; producten: ProductStart[]; afwijkingen: Afwijking[]; stappen_vol?: { stap: string; procent: number; dicht?: boolean }[] }
+interface Week { dagen: Dag[]; achterstand: BatchPlan[]; ruimte: { product: string; aantal: number }[] }
+const teVolStart = (p: ProductStart) => p.max !== null && p.aantal > p.max;
+/** "PRD-B, alle stappen: geen productie (onderhoud lijn 2)" (D69). */
+const afwijkingTekst = (a: Afwijking) =>
+  `${a.product ?? "Alle producten"}, ${a.stap ?? "alle stappen"}: ${a.procent === 0 ? "geen productie" : `${a.procent} %`} (${a.reden})`;
 
 export async function week(van?: string) {
   const actueel = vastHouden();
@@ -79,6 +85,7 @@ export async function week(van?: string) {
   const vandaag = isoDag();
 
   const plannen = async (dag: string) => {
+    // De capaciteit per product hangt van de dag af; die van een dag buiten deze week kent het scherm niet (de API waarschuwt achteraf).
     const r = await vraag("Batches plannen", [
       { naam: "dag", label: "Dag", type: "date", waarde: dag },
       { naam: "aantal", label: "Aantal batches", type: "number", waarde: "4", controle: (v) => (/^\d+$/.test(v) && +v >= 1 && +v <= 50 ? null : "Kies 1 tot 50") },
@@ -86,10 +93,17 @@ export async function week(van?: string) {
       { naam: "opmerking", label: "Opmerking", optioneel: true },
     ], "Plannen", "Het systeem geeft de volgende vrije batchnummers. De batches komen achteraan op die dag.");
     if (!r) return;
-    // Waarschuwen als de dag daarmee te vol wordt (plannen mag wel).
-    const d = w.dagen.find((x) => x.dag === r.dag);
-    if (d && d.capaciteit !== null && d.bezet + Number(r.aantal) > d.capaciteit &&
-        !(await bevestig("Meer dan de capaciteit?", `${dagNaam(r.dag)} heeft al ${d.bezet} van de ${d.capaciteit} batches${d.reden ? ` (${d.reden})` : ""}. Met ${r.aantal} erbij wordt het ${d.bezet + Number(r.aantal)}. Toch plannen?`, "Toch plannen", true))) return;
+    // Waarschuwen als het product die dag daarmee te vol wordt (plannen mag wel, D36/D69).
+    const code = r.product ? producten.find(([id]) => id === r.product)?.[1].split(" – ")[0] ?? null : null;
+    const p = w.dagen.find((x) => x.dag === r.dag)?.producten.find((x) => x.product === code);
+    const erbij = Number(r.aantal);
+    if (p && p.max !== null && p.aantal + erbij > p.max) {
+      const naam = code ?? "Batches zonder product";
+      const tekst = p.max === 0
+        ? `${naam} wordt op ${dagNaam(r.dag)} niet gemaakt${p.reden ? ` (${p.reden})` : ""}. Toch plannen?`
+        : `${naam} heeft op ${dagNaam(r.dag)} al ${p.aantal} van de ${p.max} batches${p.reden ? ` (${p.reden})` : ""}. Met ${erbij} erbij wordt het ${p.aantal + erbij}. Toch plannen?`;
+      if (!(await bevestig("Meer dan de capaciteit?", tekst, "Toch plannen", true))) return;
+    }
     await wijzig(async () => {
       const a = await stuur<{ batchnummers: string[]; waarschuwing: string | null }>("POST", "/planning/batches", {
         dag: r.dag, aantal: Number(r.aantal), productId: r.product || null, opmerking: r.opmerking || null,
@@ -143,26 +157,39 @@ export async function week(van?: string) {
         : null);
   };
 
+  /** Per product: starts en de capaciteit van de eerste stap van zijn route (D69). Alleen producten met batches. */
+  const productRij = (p: ProductStart) => {
+    const te = teVolStart(p);
+    const naam = p.product ?? "Zonder product";
+    const getal = p.max === null ? `${p.aantal}` : p.max === 0 ? `${p.aantal} / dicht` : `${p.aantal} / ${p.max}`;
+    const vol = p.max ? Math.min(1, p.aantal / p.max) : te ? 1 : 0;
+    return h("li", { class: `startrij${te ? " te-vol" : ""}` },
+      h("span", { class: "startrij-naam" }, naam),
+      p.max !== null
+        ? h("span", { class: "bezetbalk", role: "img", "aria-label": p.max === 0 ? `${naam}: ${p.aantal} batches, deze dag geen productie` : `${naam}: ${p.aantal} van ${p.max} batches` },
+            h("span", { style: `width:${Math.round(vol * 100)}%` }))
+        : h("span", { class: "sub" }, "geen capaciteit"),
+      h("span", { class: te ? "bezetting te-vol-tekst" : "bezetting" }, te ? "⚠ " : "", getal));
+  };
+
   const dagKaart = (d: Dag) => {
     const geplandeLijst = d.batches.filter((b) => b.gepland);
     const ongepland = d.batches.filter((b) => !b.gepland);
-    const teVol = d.capaciteit !== null && d.bezet > d.capaciteit;
-    const vol = d.capaciteit ? Math.min(1, d.bezet / d.capaciteit) : d.bezet ? 1 : 0;
+    const metBatches = d.producten.filter((p) => p.aantal > 0);
+    const teVol = metBatches.some(teVolStart);
     return h("section", { class: `dagkaart${d.dag === vandaag ? " vandaag" : ""}${d.dag < vandaag ? " voorbij" : ""}${teVol ? " te-vol" : ""}` },
       h("div", { class: "dagkaart-kop" },
         h("h2", {}, dagNaam(d.dag), d.dag === vandaag ? h("span", { class: "sub" }, " (vandaag)") : null),
-        h("span", { class: teVol ? "bezetting te-vol-tekst" : "bezetting" },
-          d.capaciteit === null ? `${d.bezet} ${d.bezet === 1 ? "batch" : "batches"}` : `${teVol ? "⚠ " : ""}${d.bezet} / ${d.capaciteit}`)),
-      d.capaciteit !== null && d.capaciteit > 0
-        ? h("div", { class: "bezetbalk", role: "img", "aria-label": `${d.bezet} van ${d.capaciteit} batches` }, h("span", { style: `width:${Math.round(vol * 100)}%` }))
-        : null,
-      teVol ? h("p", { class: "te-vol-tekst" }, `Te vol: ${d.bezet - d.capaciteit!} meer dan de capaciteit`) : null,
-      // Capaciteit per stap en product (D55): stappen die deze dag te vol zitten, met een link naar die stap.
+        h("span", { class: teVol ? "bezetting te-vol-tekst" : "bezetting" }, `${teVol ? "⚠ " : ""}${d.bezet} ${d.bezet === 1 ? "batch" : "batches"}`)),
+      metBatches.length ? h("ul", { class: "startlijst" }, metBatches.map(productRij)) : null,
+      // Capaciteit per stap en product (D55): stappen die deze dag te vol of dicht zijn, met een link naar die stap.
       d.stappen_vol?.length
         ? h("p", { class: "te-vol-tekst stap-vol" }, h("span", { "aria-hidden": "true" }, "⚠ "), "Te vol: ",
-            d.stappen_vol.flatMap((v, i) => [i ? ", " : "", h("a", { href: `#/planning/dag/${d.dag}/${v.stap}` }, `${v.stap} ${v.procent} %`)]))
+            d.stappen_vol.flatMap((v, i) => [i ? ", " : "", h("a", { href: `#/planning/dag/${d.dag}/${v.stap}` }, v.dicht ? `${v.stap} dicht` : `${v.stap} ${v.procent} %`)]))
         : null,
-      d.reden ? h("p", { class: "sub" }, `Capaciteit ${d.capaciteit}: ${d.reden}`) : d.capaciteit === 0 && !d.bezet ? h("p", { class: "sub" }, "Geen productie") : null,
+      d.afwijkingen.length
+        ? h("p", { class: "sub afwijking-tekst" }, "Afwijkend: ", d.afwijkingen.map(afwijkingTekst).join("; "))
+        : null,
       d.batches.length
         ? h("ol", { class: "planlijst" }, geplandeLijst.map(rij), ongepland.map(rij))
         : h("p", { class: "sub" }, "Niets gepland."),
@@ -176,7 +203,8 @@ export async function week(van?: string) {
 
   toon(
     kop(`Week van ${new Date(`${maandag}T12:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}`,
-      `Welke batches op welke dag. Een operator start een geplande batch in de eerste stap; daarna liggen dag en product vast. Deze week nog ruimte voor ${w.vrij} ${w.vrij === 1 ? "batch" : "batches"}.`,
+      `Welke batches op welke dag. Een operator start een geplande batch in de eerste stap van de route; daarna liggen dag en product vast.${
+        w.ruimte.length ? ` Deze week nog ruimte voor ${w.ruimte.map((r) => `${r.aantal} van ${r.product}`).join(", ")}.` : ""}`,
       h("div", { class: "knoppen-klein" },
         h("a", { class: "knop knop-stil", href: `#/planning/week/${plusDagen(maandag, -7)}` }, "Vorige week"),
         h("a", { class: "knop knop-stil", href: "#/planning/week" }, "Deze week"),
@@ -200,18 +228,19 @@ export async function week(van?: string) {
 
 // ---------- Dag per stap ----------
 interface PlanItem { id: string; soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[]; vorige?: Vorige | null }
-interface StapCapaciteit { procent: number; regels: { product: string | null; aantal: number; van_week: number; max: number | null }[] }
+interface StapCapaciteit { procent: number; dicht?: boolean; regels: { product: string | null; aantal: number; van_week: number; max: number | null; reden?: string | null }[] }
 interface StapPlan { code: string; naam: string; niveau: string; is_lot_stap: boolean; items: PlanItem[]; capaciteit?: StapCapaciteit | null }
 
 /** "75 % van de capaciteit: 2 van PRD-A (max 4), 1 van PRD-B (max 1)". Met ⚠ boven de 100 % (D55). */
 function capaciteitRegel(c: StapCapaciteit | null | undefined, eenheid: string): Node | null {
   if (!c) return null;
-  const teVol = c.procent > 100;
-  const delen = c.regels.map((r) => `${r.aantal} ${r.product ? `van ${r.product}` : "zonder product"}${r.max ? ` (max ${r.max})` : " (geen capaciteit ingesteld)"}`);
+  const teVol = c.procent > 100 || !!c.dicht;
+  const delen = c.regels.map((r) => `${r.aantal} ${r.product ? `van ${r.product}` : "zonder product"}${
+    r.max === 0 ? " (deze dag dicht" : r.max ? ` (max ${r.max}` : " (geen capaciteit ingesteld"}${r.reden ? `: ${r.reden}` : ""})`);
   const week = c.regels.reduce((n, r) => n + r.van_week, 0);
   return h("p", { class: teVol ? "capaciteit-stap te-vol-tekst" : "capaciteit-stap sub" },
     teVol ? h("span", { "aria-hidden": "true" }, "⚠ ") : null,
-    c.regels.length ? `${c.procent} % van de capaciteit${teVol ? ": te vol" : ""}. ${delen.join(", ")}.` : `Nog niets gepland; de capaciteit is ingesteld per ${eenheid}.`,
+    c.regels.length ? `${c.procent} % van de capaciteit${teVol ? (c.dicht ? ": gepland op een dag dat de stap dicht is" : ": te vol") : ""}. ${delen.join(", ")}.` : `Nog niets gepland; de capaciteit is ingesteld per ${eenheid}.`,
     week ? ` Waarvan ${week} ${week === 1 ? "batch start" : "batches starten"} deze dag volgens Batches plannen.` : "");
 }
 interface Kandidaat { soort: string; nummer: string; klaar: boolean; toelichting: string | null; vorige?: Vorige | null }
@@ -376,7 +405,8 @@ export async function overzicht(datum?: string) {
           h("tr", { class: s.items.length ? undefined : "leeg-rij" },
             h("th", { scope: "row" }, h("a", { href: `#/planning/dag/${d}/${s.code}` }, h("span", { class: "code" }, s.code), " ", s.naam),
               s.capaciteit && s.capaciteit.regels.length
-                ? h("div", { class: s.capaciteit.procent > 100 ? "te-vol-tekst" : "sub" }, `${s.capaciteit.procent > 100 ? "⚠ " : ""}${s.capaciteit.procent} % van de capaciteit`)
+                ? h("div", { class: s.capaciteit.procent > 100 || s.capaciteit.dicht ? "te-vol-tekst" : "sub" },
+                    s.capaciteit.dicht ? "⚠ Dicht voor wat er gepland is" : `${s.capaciteit.procent > 100 ? "⚠ " : ""}${s.capaciteit.procent} % van de capaciteit`)
                 : null),
             h("td", {}, s.items.length
               ? h("ol", { class: "dag-items" }, s.items.map((i) =>
@@ -712,11 +742,9 @@ async function routeBewerken(code: string) {
 
 // ---------- Capaciteit ----------
 interface Capaciteit {
-  weekdagen: { weekdag: number; max_batches: number }[];
-  uitzonderingen: { dag: string; max_batches: number; reden: string }[];
-  per_stap?: { stap: string; stapnaam: string; product: string | null; max_per_dag: number }[];
+  per_stap: { stap: string; stapnaam: string; product: string | null; max_per_dag: number }[];
+  afwijkingen: Afwijking[];
 }
-const WEEKDAGEN = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"];
 
 export async function capaciteit() {
   const actueel = vastHouden();
@@ -724,41 +752,51 @@ export async function capaciteit() {
   let c: Capaciteit;
   try { c = await haal<Capaciteit>("/planning/capaciteit"); } catch (e) { return fout(e); }
   if (!actueel()) return;
-  const invoer = WEEKDAGEN.map((_, i) => h("input", {
-    type: "number", min: 0, max: 500, id: `wd-${i + 1}`, disabled: !magPlannen(),
-    value: String(c.weekdagen.find((w) => w.weekdag === i + 1)?.max_batches ?? ""),
-  }) as HTMLInputElement);
   toon(
-    kop("Capaciteit", "Hoeveel batches de fabriek per dag aankan. In Batches plannen zie je per dag hoe vol het is; plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
-    h("section", { class: "blok" }, h("h2", {}, "Per weekdag"),
-      h("div", { class: "weekdagen" }, WEEKDAGEN.map((n, i) => h("label", { for: `wd-${i + 1}` }, n, invoer[i]))),
-      magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: () => {
-        const weekdagen = invoer.map((x, i) => ({ weekdag: i + 1, max_batches: Number(x.value) }));
-        if (weekdagen.some((w) => !Number.isInteger(w.max_batches) || w.max_batches < 0 || w.max_batches > 500)) return melding("Vul per dag een heel getal van 0 tot 500 in", "fout");
-        return wijzig(() => stuur("PUT", "/planning/capaciteit/weekdagen", { weekdagen }), "Capaciteit opgeslagen", capaciteit);
-      } }, "Opslaan") : null),
-    h("section", { class: "blok" },
-      h("div", { class: "kop" }, h("h2", { style: "margin:0" }, "Afwijkende dagen"),
-        magPlannen() ? h("button", { class: "knop", onclick: async () => {
-          const r = await vraag("Afwijkende capaciteit", [
-            { naam: "dag", label: "Dag", type: "date", waarde: isoDag() },
-            { naam: "max", label: "Aantal batches", type: "number", waarde: "0", controle: (v) => (/^\d+$/.test(v) && +v <= 500 ? null : "Een heel getal van 0 tot 500") },
-            { naam: "reden", label: "Reden", hint: "Bijvoorbeeld feestdag of onderhoud", controle: (v) => (v.trim().length < 2 ? "Geef een reden" : null) },
-          ], "Opslaan");
-          if (r) await wijzig(() => stuur("PUT", `/planning/capaciteit/dagen/${r.dag}`, { max_batches: Number(r.max), reden: r.reden }), "Opgeslagen", capaciteit);
-        } }, "Dag toevoegen") : null),
-      c.uitzonderingen.length
-        ? tabel(["Dag", "Batches", "Reden", ""], c.uitzonderingen.map((u) => [
-            dagNaam(u.dag), h("span", { class: "getal" }, u.max_batches), u.reden,
-            magPlannen() ? h("button", { class: "knop knop-klein knop-stil", onclick: () =>
-              wijzig(() => stuur("POST", `/planning/capaciteit/dagen/${u.dag}/weghalen`), "Weggehaald", capaciteit) }, "Weghalen") : null]), "compact")
-        : h("p", { class: "leeg" }, "Geen afwijkende dagen.")),
-    capaciteitPerStap(c.per_stap ?? []),
+    kop("Capaciteit", "Wat elke stap per dag aankan, per product, elke dag van de week. Hoeveel batches van een product per dag kunnen starten, volgt uit de eerste stap van zijn route. Plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
+    capaciteitPerStap(c.per_stap),
+    afwijkendeDagen(c.afwijkingen),
   );
 }
 
+/** Afwijkende dagen (D69): in een periode kan een product en/of stap minder aan, als percentage; 0 % = geen productie. */
+function afwijkendeDagen(lijst: Afwijking[]) {
+  const toevoegen = async () => {
+    let stappen: StapKort[], prod: Product[];
+    try { [stappen, prod] = await Promise.all([haal<StapKort[]>("/config/stappen"), haal<Product[]>("/planning/producten")]); } catch (e) { return melding((e as Error).message, "fout"); }
+    const r = await vraag("Afwijkende capaciteit", [
+      { naam: "van", label: "Van", type: "date", waarde: isoDag() },
+      { naam: "tot", label: "Tot en met", type: "date", optioneel: true, hint: "Leeg = alleen de dag hierboven" },
+      { naam: "product", label: "Product", opties: [["*", "Alle producten"] as [string, string], ...prod.map((x): [string, string] => [x.code, `${x.code} – ${x.naam}`])] },
+      { naam: "stap", label: "Stap", opties: [["*", "Alle stappen"] as [string, string], ...stappen.map((x): [string, string] => [x.code, `${x.code} ${x.naam}`])] },
+      { naam: "procent", label: "Capaciteit (%)", type: "number", waarde: "0", hint: "Deel van de gewone capaciteit. 0 = geen productie, 50 = de helft",
+        controle: (v: string) => (/^\d+$/.test(v) && +v <= 100 ? null : "Een heel getal van 0 tot 100") },
+      { naam: "reden", label: "Reden", hint: "Bijvoorbeeld feestdag, onderhoud lijn 2 of korte dag",
+        controle: (v: string) => (v.trim().length < 2 ? "Geef een reden" : v.length > 200 ? "Hoogstens 200 tekens" : null) },
+    ], "Opslaan", "Gelden er op een dag meer afwijkingen voor dezelfde stap en hetzelfde product, dan telt het laagste percentage.");
+    if (!r) return;
+    if (r.tot && r.tot < r.van) return melding("Tot en met ligt vóór Van", "fout");
+    await wijzig(() => stuur("POST", "/planning/capaciteit/afwijkingen", {
+      van: r.van, tot: r.tot || undefined, product: r.product === "*" ? null : r.product, stap: r.stap === "*" ? null : r.stap, procent: Number(r.procent), reden: r.reden.trim(),
+    }), "Afwijking opgeslagen", capaciteit);
+  };
+  const periode = (a: Afwijking) => (a.van === a.tot ? dagNaam(a.van, false) : `${dagNaam(a.van, false)} t/m ${dagNaam(a.tot, false)}`);
+  return h("section", { class: "blok" },
+    h("div", { class: "kop" },
+      h("div", {}, h("h2", { style: "margin:0" }, "Afwijkende dagen"),
+        h("p", { class: "sub" }, "Feestdagen, onderhoud of een korte dag: voor alle producten of één product, voor alle stappen of één stap.")),
+      magPlannen() ? h("button", { class: "knop", onclick: toevoegen }, "Afwijking toevoegen") : null),
+    lijst.length
+      ? tabel(["Periode", "Product", "Stap", "Capaciteit", "Reden", ""], lijst.map((a) => [
+          periode(a), a.product ?? "Alle producten", a.stap ?? "Alle stappen",
+          h("span", { class: "getal" }, a.procent === 0 ? "Geen productie" : `${a.procent} %`), a.reden,
+          magPlannen() ? h("button", { class: "knop knop-klein knop-stil", "aria-label": `Afwijking ${periode(a)} ${a.reden} weghalen`, onclick: () =>
+            wijzig(() => stuur("POST", `/planning/capaciteit/afwijkingen/${a.id}/weghalen`), "Weggehaald", capaciteit) }, "Weghalen") : null]), "compact")
+      : h("p", { class: "leeg" }, "Geen afwijkende dagen."));
+}
+
 /** Capaciteit per stap en product (D55): per stap wat hij per dag aankan, voor alle producten of per product. */
-function capaciteitPerStap(regels: NonNullable<Capaciteit["per_stap"]>) {
+function capaciteitPerStap(regels: Capaciteit["per_stap"]) {
   const zet = async (stap: string | null, product: string | null, huidig: number | null) => {
     let stappen: StapKort[], prod: Product[];
     try { [stappen, prod] = await Promise.all([haal<StapKort[]>("/config/stappen"), haal<Product[]>("/planning/producten")]); } catch (e) { return melding((e as Error).message, "fout"); }
@@ -779,7 +817,7 @@ function capaciteitPerStap(regels: NonNullable<Capaciteit["per_stap"]>) {
   return h("section", { class: "blok" },
     h("div", { class: "kop" },
       h("div", {}, h("h2", { style: "margin:0" }, "Per stap en product"),
-        h("p", { class: "sub" }, "Wat een stap per dag aankan. Stappen plannen, het Dagoverzicht en Batches plannen waarschuwen als een stap te vol zit; plannen kan wel.")),
+        h("p", { class: "sub" }, "Wat een stap per dag aankan. De eerste stap van een route bepaalt hoeveel batches van dat product per dag kunnen starten. Stappen plannen, het Dagoverzicht en Batches plannen waarschuwen als een stap te vol zit; plannen kan wel.")),
       magPlannen() ? h("button", { class: "knop", onclick: () => zet(null, null, null) }, "Regel toevoegen") : null),
     regels.length
       ? tabel(["Stap", "Product", "Per dag", ""], regels.map((x) => [

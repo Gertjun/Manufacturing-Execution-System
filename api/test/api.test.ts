@@ -1005,7 +1005,7 @@ describe("Portaal Planning", () => {
     assert.equal(c.procent, 150);  // 2/4 PRD-A + 1/1 PRD-B
     assert.deepEqual(c.regels.map((r: any) => [r.product, r.aantal, r.max]), [["PRD-A", 2, 4], ["PRD-B", 1, 1]]);
     const week = await verzoek("GET", `/planning/week?van=${vandaag}`, planner);
-    assert.deepEqual(week.body.dagen.find((d: any) => d.dag === morgen).stappen_vol, [{ stap: "PS2", procent: 150 }]);
+    assert.deepEqual(week.body.dagen.find((d: any) => d.dag === morgen).stappen_vol, [{ stap: "PS2", procent: 150, dicht: false }]);
     assert.equal((await verzoek("GET", `/planning/stappen?dag=${morgen}`, planner)).body.find((s: any) => s.code === "PS3").capaciteit, null);
     for (const product of ["PRD-B", null]) {
       assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", planner, { product, max_per_dag: null })).status, 204);
@@ -1295,28 +1295,49 @@ describe("Etiketten", () => {
 });
 
 describe("Capaciteit", () => {
-  test("weekdagen, uitzondering, bezetting in de week en waarschuwing bij te veel", async () => {
+  test("starts per product, afwijkende dagen per product en stap (D69), waarschuwing bij te veel", async () => {
     const t = await login("planner1");
     const c = await verzoek("GET", "/planning/capaciteit", t);
-    assert.deepEqual(c.body.weekdagen.map((w: any) => w.max_batches), [6, 6, 6, 6, 6, 6, 6]);
-    await verzoek("PUT", "/planning/capaciteit/weekdagen", t, { weekdagen: [{ weekdag: 6, max_batches: 0 }, { weekdag: 7, max_batches: 0 }] });
-    // Een maandag ver in de toekomst, zodat er nog niets op staat.
+    assert.equal(c.status, 200, JSON.stringify(c.body));
+    assert.ok(c.body.per_stap.some((r: any) => r.stap === "PS1" && r.product === "PRD-B" && r.max_per_dag === 3));
+    assert.deepEqual(c.body.afwijkingen, []);
+    assert.equal(c.body.weekdagen, undefined, "de capaciteit per weekdag is vervallen");
+    // Een maandag ver in de toekomst, zodat er nog niets op staat. PS1 (eerste stap) kan 8 aan, of 3 van PRD-B.
     const dag = "2027-03-01";
-    assert.equal((await verzoek("PUT", `/planning/capaciteit/dagen/${dag}`, t, { max_batches: 2, reden: "onderhoud lijn 1" })).status, 204);
-    const p1 = await verzoek("POST", "/planning/batches", t, { dag, aantal: 2 });
-    assert.equal(p1.body.waarschuwing, null);
-    const p2 = await verzoek("POST", "/planning/batches", t, { dag, aantal: 1 });
-    assert.equal(p2.body.waarschuwing, "Deze dag heeft nu 3 batches; de capaciteit is 2");
+    const prdB = (await verzoek("GET", "/planning/producten", t)).body.find((p: any) => p.code === "PRD-B").id;
+    assert.equal((await verzoek("POST", "/planning/batches", t, { dag, aantal: 3, productId: prdB })).body.waarschuwing, null);
+    assert.equal((await verzoek("POST", "/planning/batches", t, { dag, aantal: 1, productId: prdB })).body.waarschuwing,
+      "PRD-B heeft deze dag nu 4 batches; de capaciteit is 3");
+    // Onderhoud aan de lijn van PRD-B: twee dagen geen productie van PRD-B.
+    const a = await verzoek("POST", "/planning/capaciteit/afwijkingen", t, { van: dag, tot: "2027-03-02", stap: null, product: "PRD-B", procent: 0, reden: "onderhoud lijn 2" });
+    assert.equal(a.status, 201, JSON.stringify(a.body));
+    assert.deepEqual({ ...a.body, id: undefined }, { id: undefined, van: dag, tot: "2027-03-02", stap: null, product: "PRD-B", procent: 0, reden: "onderhoud lijn 2" });
+    assert.equal((await verzoek("POST", "/planning/batches", t, { dag: "2027-03-02", aantal: 1, productId: prdB })).body.waarschuwing,
+      "PRD-B wordt deze dag niet gemaakt (onderhoud lijn 2)");
+    // Een halve dag voor PS1, alle producten: 8 -> 4 en 3 -> 1.
+    assert.equal((await verzoek("POST", "/planning/capaciteit/afwijkingen", t, { van: "2027-03-03", stap: "PS1", product: null, procent: 50, reden: "korte dag" })).status, 201);
     const w = await verzoek("GET", `/planning/week?van=${dag}&dagen=7`, t);
-    assert.deepEqual([w.body.dagen[0].capaciteit, w.body.dagen[0].bezet, w.body.dagen[0].reden], [2, 3, "onderhoud lijn 1"]);
-    assert.equal(w.body.dagen[5].capaciteit, 0);
-    assert.equal(w.body.vrij, 4 * 6, "dinsdag t/m vrijdag; de volle maandag telt niet negatief");
-    await verzoek("POST", `/planning/capaciteit/dagen/${dag}/weghalen`, t);
-    const d = await verzoek("GET", `/planning/capaciteit?dag=${dag}`, t);
-    assert.deepEqual(d.body.dag, { dag, capaciteit: 6, bezet: 3 });
-    assert.equal((await verzoek("PUT", "/planning/capaciteit/weekdagen", t, { weekdagen: [{ weekdag: 6, max_batches: 2 }] })).status, 204);
-    assert.equal((await verzoek("GET", "/planning/capaciteit", t)).body.weekdagen[5].max_batches, 2);
-    assert.equal((await verzoek("PUT", "/planning/capaciteit/weekdagen", await login("kwaliteit1"), { weekdagen: [{ weekdag: 6, max_batches: 9 }] })).status, 403);
+    assert.equal(w.status, 200, JSON.stringify(w.body));
+    const prod = (i: number, code: string) => w.body.dagen[i].producten.find((p: any) => p.product === code);
+    assert.deepEqual(prod(0, "PRD-B"), { product: "PRD-B", naam: "Product B fijn", aantal: 4, max: 0, reden: "onderhoud lijn 2" });
+    assert.deepEqual([prod(0, "PRD-A").aantal, prod(0, "PRD-A").max], [0, 8]);
+    assert.deepEqual([prod(2, "PRD-A").max, prod(2, "PRD-B").max, prod(2, "PRD-B").reden], [4, 1, "korte dag"]);
+    assert.equal(w.body.dagen[0].bezet, 4);
+    assert.deepEqual(w.body.dagen[0].afwijkingen.map((x: any) => x.reden), ["onderhoud lijn 2"]);
+    assert.deepEqual(w.body.dagen[2].afwijkingen.map((x: any) => x.reden), ["korte dag"]);
+    assert.deepEqual(w.body.dagen[0].stappen_vol, [{ stap: "PS1", procent: 0, dicht: true }]);
+    const ruimte = Object.fromEntries(w.body.ruimte.map((r: any) => [r.product, r.aantal]));
+    assert.equal(ruimte["PRD-A"], 6 * 8 + 4, "zes dagen 8 en de korte dag 4");
+    assert.equal(ruimte["PRD-B"], 4 * 3 + 1, "twee dagen dicht (de volle maandag telt niet negatief), de korte dag 1");
+    // Ongeldig: tot vóór van, onbekende stap, geen recht.
+    assert.ok([400, 409, 422].includes((await verzoek("POST", "/planning/capaciteit/afwijkingen", t, { van: dag, tot: "2027-02-01", stap: null, product: null, procent: 0, reden: "fout" })).status));
+    assert.equal((await verzoek("POST", "/planning/capaciteit/afwijkingen", t, { van: dag, stap: "PS99", product: null, procent: 0, reden: "fout" })).status, 404);
+    assert.equal((await verzoek("POST", "/planning/capaciteit/afwijkingen", await login("kwaliteit1"), { van: dag, stap: null, product: null, procent: 0, reden: "x x" })).status, 403);
+    // Weghalen: daarna weer de gewone capaciteit.
+    assert.equal((await verzoek("POST", `/planning/capaciteit/afwijkingen/${a.body.id}/weghalen`, t)).status, 204);
+    assert.equal((await verzoek("POST", `/planning/capaciteit/afwijkingen/${a.body.id}/weghalen`, t)).status, 404);
+    const w2 = await verzoek("GET", `/planning/week?van=${dag}&dagen=1`, t);
+    assert.deepEqual([w2.body.dagen[0].producten.find((p: any) => p.product === "PRD-B").max, w2.body.dagen[0].afwijkingen.length], [3, 0]);
   });
 });
 
