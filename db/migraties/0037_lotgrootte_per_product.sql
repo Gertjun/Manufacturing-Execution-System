@@ -202,7 +202,7 @@ CREATE OR REPLACE FUNCTION gewicht_per_item(p_product uuid, p_stap uuid) RETURNS
       FROM product p, processtap s WHERE p.id = p_product AND s.id = p_stap
 $$;
 
-CREATE OR REPLACE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LANGUAGE sql STABLE AS $
+CREATE OR REPLACE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LANGUAGE sql STABLE AS $body$
     -- Sinds 0035 (#90, D80) in kilogram: hoeveel batches of lots per dag passen, met het gewicht per batch van
     -- het product (een lot gebruikt de ingestelde lotgrootte). Minstens 1; NULL als het gewicht nog niet is ingevuld. Een oude
     -- regel zonder kilogram (van vóór 0035) telt nog in stuks.
