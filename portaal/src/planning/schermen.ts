@@ -37,7 +37,7 @@ async function wijzig(actie: () => Promise<unknown>, gelukt: string, opnieuw: ()
   }
 }
 
-interface Product { id: string; code: string; naam: string; actief: boolean; route?: string[] | null }
+interface Product { id: string; code: string; naam: string; actief: boolean; batches_per_lot: number; route?: string[] | null }
 interface BatchPlan {
   batchnummer: string; status: string; gepland: boolean; dag: string | null; volgorde: number | null;
   product_id: string | null; product: string | null; opmerking: string | null; vervallen_reden: string | null;
@@ -359,7 +359,7 @@ export async function dag(datum?: string, stapcode?: string) {
       h("section", { class: "blok", style: "margin-top:0" },
         h("div", { class: "kop" },
           h("div", {}, h("h2", { style: "margin:0" }, `${s.code} ${s.naam}`),
-            h("p", { class: "sub" }, s.is_lot_stap ? "Hier worden 4 batches één lot. Je plant een lotvoorstel." : s.niveau === "lot" ? "Per lot" : "Per batch"),
+            h("p", { class: "sub" }, s.is_lot_stap ? "Hier worden batches volgens de productlotnorm één lot. Je plant een lotvoorstel." : s.niveau === "lot" ? "Per lot" : "Per batch"),
             capaciteitRegel(s.capaciteit, s.niveau === "lot" ? "lot" : "batch")),
           kanWijzigen ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, s.is_lot_stap ? "Lotvoorstel toevoegen" : "Toevoegen") : null),
         s.items.length
@@ -511,10 +511,10 @@ function kiesUit(titel: string, uitleg: string, opties: { waarde: string; tekst:
 
 // ---------- Lotvoorstellen ----------
 interface Voorstel {
-  nummer: number; status: string; opmerking: string | null; aangemaakt_op: string; door: string; lotnummer: string | null; afwijking_reden: string | null;
+  nummer: number; batch_aantal_norm: number; product_id: string | null; status: string; opmerking: string | null; aangemaakt_op: string; door: string; lotnummer: string | null; afwijking_reden: string | null;
   batches: { batchnummer: string; status: string; klaar_voor_lot: boolean; laatste_stap: string | null }[];
 }
-interface LotKandidaat { batchnummer: string; status: string; product: string | null; dag: string | null; laatste_stap: string | null; klaar_voor_lot: boolean; voorstel: number | null }
+interface LotKandidaat { batchnummer: string; status: string; product_id: string | null; product: string | null; batches_per_lot: number; dag: string | null; laatste_stap: string | null; klaar_voor_lot: boolean; voorstel: number | null }
 
 const VOORSTEL_STATUS: Record<string, string> = { open: "Open", gebruikt: "Gevolgd", afgeweken: "Afgeweken", vervallen: "Vervallen" };
 
@@ -531,12 +531,23 @@ export async function lots() {
     let k: LotKandidaat[];
     try { k = await haal<LotKandidaat[]>("/planning/lotkandidaten"); } catch (e) { melding((e as Error).message, "fout"); return null; }
     k = k.filter((x) => !x.voorstel || x.voorstel === v?.nummer);
-    if (k.length < 4) { melding("Er zijn minder dan 4 batches zonder lotvoorstel. Plan eerst meer batches.", "info"); return null; }
-    return kiesUit(v ? `Lotvoorstel ${v.nummer} aanpassen` : "Nieuw lotvoorstel", "Kies precies 4 batches. Bovenaan staan de batches die alle batchstappen al hebben doorlopen.",
-      k.map((x) => ({
+    const producten = [...new Map(k.filter((x) => x.product_id && x.product && x.batches_per_lot).map((x) => [x.product_id!, x])).values()];
+    if (!producten.length) { melding("Er zijn geen batches met een product en lotnorm beschikbaar.", "info"); return null; }
+    const gekozenProduct = await kiesUit(v ? `Lotvoorstel ${v.nummer} aanpassen` : "Product voor lotvoorstel",
+      "Een lot bevat batches van één product en volgt de lotnorm van dat product.",
+      producten.map((x) => ({ waarde: x.product_id!, tekst: x.product!, uitleg: `${x.batches_per_lot} batches per lot` })), 1,
+      v?.product_id ? [v.product_id] : []);
+    if (!gekozenProduct) return null;
+    const product = producten.find((x) => x.product_id === gekozenProduct[0])!;
+    const norm = product.batches_per_lot;
+    const kandidaten = k.filter((x) => x.product_id === gekozenProduct[0]);
+    if (kandidaten.length < norm) { melding(`Er zijn minder dan ${norm} batches van dit product beschikbaar. Plan eerst meer batches.`, "info"); return null; }
+    return kiesUit(v ? `Lotvoorstel ${v.nummer} aanpassen` : "Nieuw lotvoorstel",
+      `Kies precies ${norm} batches. Bovenaan staan de batches die alle batchstappen al hebben doorlopen.`,
+      kandidaten.map((x) => ({
         waarde: x.batchnummer, tekst: x.batchnummer,
         uitleg: [x.klaar_voor_lot ? "Klaar voor een lot" : x.status === "gepland" ? "Nog niet gestart" : x.status === "in_beoordeling" ? "In beoordeling" : x.laatste_stap ? `Laatst ${x.laatste_stap}` : "In productie", x.product].filter(Boolean).join(". "),
-      })), 4, v?.batches.map((b) => b.batchnummer));
+      })), norm, v?.product_id === gekozenProduct[0] ? v.batches.map((b) => b.batchnummer) : []);
   };
 
   const nieuw = async () => {
@@ -564,7 +575,7 @@ export async function lots() {
     return h("section", { class: "blok voorstel" },
       h("div", { class: "kop" },
         h("div", {}, h("h2", { style: "margin:0" }, `Lotvoorstel ${v.nummer}`),
-          h("p", { class: "sub" }, nKlaar === 4 ? "Alle 4 batches zijn klaar. De operator kan het lot samenstellen." : `${nKlaar} van 4 batches klaar voor een lot.`)),
+          h("p", { class: "sub" }, nKlaar === v.batch_aantal_norm ? `Alle ${v.batch_aantal_norm} batches zijn klaar. De operator kan het lot samenstellen.` : `${nKlaar} van ${v.batch_aantal_norm} batches klaar voor een lot.`)),
         magPlannen() ? h("div", { class: "knoppen-klein" },
           h("button", { class: "knop knop-klein", onclick: () => aanpassen(v) }, "Batches wijzigen"),
           h("button", { class: "knop knop-klein knop-stil", onclick: () => laatVervallen(v) }, "Laten vervallen")) : null),
@@ -577,7 +588,7 @@ export async function lots() {
   };
 
   toon(
-    kop("Lotvoorstellen", "De planner stelt voor welke 4 batches samen een lot worden. De operator kiest het voorstel bij het samenstellen; afwijken mag, met een reden.",
+    kop("Lotvoorstellen", "De planner stelt batches samen volgens de lotnorm van het product. De operator kiest het voorstel bij het samenstellen; afwijken mag, met een reden.",
       magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: nieuw }, "Nieuw lotvoorstel") : null),
     open.length ? h("div", { class: "voorstellen" }, open.map(kaart)) : h("p", { class: "leeg" }, "Er zijn geen open lotvoorstellen."),
     klaar.length
@@ -624,6 +635,14 @@ export async function producten(code?: string) {
     if (!r) return;
     await wijzig(() => stuur("POST", "/planning/producten", r), `${r.code} toegevoegd`, producten);
   };
+  const lotnorm = async (x: Product) => {
+    const r = await vraag(`Lotgrootte van ${x.code}`, [
+      { naam: "aantal", label: "Batches per lot", type: "getal", waarde: String(x.batches_per_lot),
+        controle: (v) => (/^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 50 ? null : "Vul een heel getal van 1 tot 50 in") },
+    ], "Opslaan", "Deze norm geldt voor nieuwe lots. Open lotvoorstellen van dit product vervallen bij wijziging.");
+    if (!r) return;
+    await wijzig(() => stuur("PATCH", `/planning/producten/${x.id}`, { batches_per_lot: Number(r.aantal) }), `Lotgrootte van ${x.code} opgeslagen`, producten);
+  };
   const hernoem = async (x: Product) => {
     const r = await vraag(`Naam van ${x.code}`, [{ naam: "naam", label: "Naam", waarde: x.naam }], "Opslaan");
     if (!r) return;
@@ -635,12 +654,13 @@ export async function producten(code?: string) {
     kop("Producten", "Het product of recept dat je bij een batch plant, en de route: welke stappen het doorloopt en in welke volgorde. Een uitgezet product kun je niet meer kiezen; eerdere batches houden het.",
       magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Product toevoegen") : null),
     p.length
-      ? tabel(["Code", "Naam", "Route", ""], p.map((x) => [
+      ? tabel(["Code", "Naam", "Lotnorm", "Route", ""], p.map((x) => [
           h("strong", { class: x.actief ? "" : "inactief" }, x.code),
           h("span", { class: x.actief ? "" : "inactief" }, x.naam, x.actief ? "" : " (uit)"),
-          h("span", { class: "product-route", title: x.route ? x.route.join(" → ") : undefined }, routeSamenvatting(x.route, alle)),
+          h(`${x.batches_per_lot} batches`), h("span", { class: "product-route", title: x.route ? x.route.join(" → ") : undefined }, routeSamenvatting(x.route, alle)),
           h("div", { class: "knoppen-klein" },
             x.actief ? h("a", { class: "knop knop-klein", href: `#/planning/producten/${encodeURIComponent(x.code)}` }, magPlannen() ? "Route wijzigen" : "Route bekijken") : null,
+            magPlannen() && x.actief ? h("button", { class: "knop knop-klein", onclick: () => lotnorm(x) }, "Lotgrootte") : null,
             magPlannen() && x.actief ? h("button", { class: "knop knop-klein", onclick: () => hernoem(x) }, "Naam wijzigen") : null,
             magPlannen() ? h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(x, !x.actief) }, x.actief ? "Uitzetten" : "Weer aanzetten") : null)]), "compact")
       : h("p", { class: "leeg" }, "Nog geen producten. Voeg er een toe."),
@@ -697,7 +717,7 @@ async function routeBewerken(code: string) {
             h("button", { class: "knop knop-klein knop-stil", disabled: !eerderKan, "aria-label": `${s.code} eerder`, onclick: () => verplaats(c, -1) }, h("span", { "aria-hidden": "true" }, "↑ "), "Eerder"),
             h("button", { class: "knop knop-klein knop-stil", disabled: !laterKan, "aria-label": `${s.code} later`, onclick: () => verplaats(c, 1) }, h("span", { "aria-hidden": "true" }, "↓ "), "Later"),
             h("button", { class: "knop knop-klein knop-stil", "aria-label": `${s.code} weghalen uit de route`, onclick: () => weg(c) }, "Weghalen"))
-        : s.is_lot_stap ? h("span", { class: "sub" }, "Altijd in de route: hier worden 4 batches één lot") : null);
+        : s.is_lot_stap ? h("span", { class: "sub" }, "Altijd in de route: hier worden batches volgens de productlotnorm één lot") : null);
   };
 
   const opslaan = async () => {
@@ -718,7 +738,7 @@ async function routeBewerken(code: string) {
     const buiten = alle.filter((s) => !route.includes(s.code));
     toon(
       kop(`Route van ${code}`,
-        `${product!.naam}. Welke stappen dit product doorloopt en in welke volgorde. Eerst de batchstappen, dan ${lotstap?.code ?? "de lotstap"} (4 batches worden één lot), dan de lotstappen. ` +
+        `${product!.naam}. Welke stappen dit product doorloopt en in welke volgorde. Eerst de batchstappen, dan ${lotstap?.code ?? "de lotstap"} (de ingestelde lotnorm wordt één lot), dan de lotstappen. ` +
         "Lopende batches van dit product volgen een gewijzigde route meteen; wat al gedaan is, blijft staan.",
         h("a", { class: "knop knop-stil", href: "#/planning/producten" }, "Terug naar producten")),
       h("p", { class: "sub" }, isStandaard() ? "Nu: alle processtappen (de standaardroute), zonder keuringen." : `Nu: ${routeSamenvatting(route, alle)}.`),
@@ -854,7 +874,7 @@ function capaciteitPerStap(regels: CapRegel[], nogInvullen: number, uren: number
   const gewichtZetten = async (p: CapProduct) => {
     const r = await vraag(`Gewicht per batch van ${p.code}`, [
       { naam: "kg", label: "Gewicht per batch (kg)", type: "getal", waarde: p.batchgewicht_kg ? kgGetal(p.batchgewicht_kg, 3).replace(/\./g, "") : "", controle: kgCheck },
-    ], "Opslaan", "Een lot weegt 4 batches. Hiermee rekent het systeem de kilogrammen om naar batches en lots per dag. Voor de pilot een vast gewicht per product.");
+    ], "Opslaan", "Een lot weegt het ingestelde aantal batches per product. Hiermee rekent het systeem de kilogrammen om naar batches en lots per dag. Voor de pilot een vast gewicht per product.");
     if (r) await wijzig(() => stuur("PATCH", `/planning/producten/${p.id}`, { batchgewicht_kg: leesKg(r.kg) }), "Gewicht opgeslagen", capaciteit);
   };
   const weg = (x: CapRegel) => wijzig(() => opslaan(x, null), "Weggehaald", capaciteit);
