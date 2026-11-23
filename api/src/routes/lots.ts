@@ -34,7 +34,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           lotnummer: LotNummer,
           batchnummers: Type.Array(BatchNummer, { minItems: 1, maxItems: 50 }),
           afwijkingReden: Type.Optional(
-            Type.Union([Type.Null(), Type.String({ minLength: 3, maxLength: 500, description: "Verplicht als de batches afwijken van een lotvoorstel" })]),
+            Type.Union([Type.Null(), Type.String({ minLength: 3, maxLength: 500, description: "Verplicht als het aantal batches afwijkt van de productnorm of een lotvoorstel" })]),
           ),
         }),
         response: {
@@ -60,13 +60,37 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         }
       }
       await invoerTransactie(app.db, req, async (tx) => {
-        const { rows } = await tx.query("SELECT batchnummer, id FROM batch WHERE batchnummer = ANY($1)", [req.body.batchnummers]);
-        const gevonden = new Map(rows.map((r) => [r.batchnummer as string, r.id as string]));
+        if (new Set(req.body.batchnummers).size !== req.body.batchnummers.length) {
+          throw new ApiFout(400, "Een batch mag maar één keer in een lot voorkomen");
+        }
+        const { rows } = await tx.query<{
+          batchnummer: string;
+          id: string;
+          product_id: string | null;
+          batches_per_lot: number | null;
+        }>(
+          `SELECT b.batchnummer, b.id, b.product_id, p.batches_per_lot
+             FROM batch b LEFT JOIN product p ON p.id = b.product_id
+            WHERE b.batchnummer = ANY($1)`,
+          [req.body.batchnummers],
+        );
+        const gevonden = new Map(rows.map((r) => [r.batchnummer, r]));
         const ontbreekt = req.body.batchnummers.filter((n) => !gevonden.has(n));
         if (ontbreekt.length) throw niet(`Batch ${ontbreekt.join(", ")}`);
+        const producten = rows.map((r) => r.product_id);
+        const productloos = producten.some((id) => id === null);
+        const productgekoppeld = producten.some((id) => id !== null);
+        if (productloos && productgekoppeld || new Set(producten.filter((id): id is string => id !== null)).size > 1) {
+          throw new ApiFout(400, "Een lot bestaat uit batches van hetzelfde product");
+        }
+        // Legacy clients sturen nog batches zonder product; daarvoor blijft norm 4 gelden.
+        const norm = productloos ? 4 : rows[0].batches_per_lot!;
+        if (req.body.batchnummers.length !== norm && !req.body.afwijkingReden?.trim()) {
+          throw new ApiFout(400, `Een lot bestaat uit precies ${norm} batches; geef een reden om hiervan af te wijken`);
+        }
         await tx.query("SELECT maak_lot($1, $2, $3, $4, $5, $6, $7)", [
           req.body.lotnummer,
-          req.body.batchnummers.map((n) => gevonden.get(n)),
+          req.body.batchnummers.map((n) => gevonden.get(n)!.id),
           pcId,
           operatorId,
           req.body.id ?? null,
