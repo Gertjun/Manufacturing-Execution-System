@@ -548,9 +548,8 @@ def main():
     faalt("Lotgrootte nul is ongeldig", "UPDATE product SET batches_per_lot = 0 WHERE id = %s", (prd["PRD-C"],), "check")
     faalt("Lotgrootte boven 50 is ongeldig", "UPDATE product SET batches_per_lot = 51 WHERE id = %s", (prd["PRD-C"],), "check")
     con.execute("UPDATE product SET batchgewicht_kg = 10, batches_per_lot = 3 WHERE id = %s", (prd["PRD-C"],))
-    check("Capaciteit lotgewicht gebruikt de ingestelde lotgrootte",
-          val("SELECT gewicht_per_item(%s, (SELECT id FROM processtap WHERE is_lot_stap))", (prd["PRD-C"],)) == 30,
-          f"gewicht={val(\"SELECT gewicht_per_item(%s, (SELECT id FROM processtap WHERE is_lot_stap))\", (prd[\"PRD-C\"],))}")
+    gewicht_lot = val("SELECT gewicht_per_item(%s, (SELECT id FROM processtap WHERE is_lot_stap))", (prd["PRD-C"],))
+    check("Capaciteit lotgewicht gebruikt de ingestelde lotgrootte", gewicht_lot == 30, f"gewicht={gewicht_lot}")
     check("Bestaande lots bewaren hun oorspronkelijke norm", val("SELECT batch_aantal_norm FROM lot WHERE id = %s", (lot_c,)) == 4)
     con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = NULL WHERE id = %s", (prd["PRD-C"],))
     check("Elk fictief product heeft een vastgestelde routeversie",
@@ -614,10 +613,9 @@ def main():
     check("Elke stap uit de route staat in capaciteit_route; PRD-B zonder PS12 (#81)",
           val("SELECT count(*) FROM capaciteit_route WHERE product_id = %s", (prd["PRD-A"],)) == val("SELECT count(*) FROM route(%s)", (prd["PRD-A"],))
           and val("SELECT count(*) FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-B"], sid["PS12"])) == 0)
-    check("Zonder capaciteit: nog invullen (NULL)",
-          val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-A"], sid["PS2"])) is None
-          and val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-C"], sid["PS1"])) == 8,
-          f"PRD-A PS2={val(\"SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s\", (prd[\"PRD-A\"], sid[\"PS2\"]))}; PRD-C PS1={val(\"SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s\", (prd[\"PRD-C\"], sid[\"PS1\"]))}")
+    cap_a = val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-A"], sid["PS2"]))
+    cap_c = val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prd["PRD-C"], sid["PS1"]))
+    check("Zonder capaciteit: nog invullen (NULL)", cap_a is None and cap_c == 8, f"PRD-A PS2={cap_a}; PRD-C PS1={cap_c}")
 
     print("\nAfwijkende capaciteit per product en stap (D69)")
     afdag = val("SELECT current_date + 40")
