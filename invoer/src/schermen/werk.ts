@@ -441,6 +441,7 @@ function nieuweBatchVorm(s: Stap) {
 
 function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Node[] {
   const gekozen = new Set<string>();
+  const productKandidaten = w.wachtend.filter((x) => x.product && x.batches_per_lot);
   const lotnr = h("input", {
     id: "nieuw-lot", type: "text", class: "breed", placeholder: "L-2026-0001", autocomplete: "off",
     pattern: "L-[0-9]{4}-[0-9]{4}", required: true, title: "Formaat: L-jaar-volgnummer, bv. L-2026-0001",
@@ -450,7 +451,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
 
   const normVanKeuze = () => {
     const eerste = [...gekozen][0];
-    return eerste ? w.wachtend.find((x) => x.nummer === eerste)?.batches_per_lot ?? 4 : 4;
+    return eerste ? productKandidaten.find((x) => x.nummer === eerste)?.batches_per_lot ?? 4 : 4;
   };
   const werkBij = () => {
     const norm = normVanKeuze();
@@ -520,19 +521,19 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
       ? h(
           "ul",
           { class: "lijst" },
-          w.wachtend.map((x) => {
+          productKandidaten.map((x) => {
             const vink = h("input", { type: "checkbox", value: x.nummer }) as HTMLInputElement;
             vinken.set(x.nummer, vink);
             const rij = h("label", { class: "rij" }, h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer),
               h("div", { class: "rij-info" }, [x.product, x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))), vink);
             vink.addEventListener("change", () => {
-              if (vink.checked && gekozen.size >= (w.wachtend.find((y) => y.nummer === [...gekozen][0])?.batches_per_lot ?? x.batches_per_lot ?? 4)) {
+              if (vink.checked && gekozen.size >= (productKandidaten.find((y) => y.nummer === [...gekozen][0])?.batches_per_lot ?? x.batches_per_lot ?? 4)) {
                 vink.checked = false;
                  melding(`Een lot van ${x.product ?? "dit product"} bestaat uit ${x.batches_per_lot ?? 4} batches`);
                 return;
               }
               // Eén product per lot (D55).
-              const ander = [...gekozen].map((nr) => w.wachtend.find((y) => y.nummer === nr)).find((y) => (y?.product ?? null) !== (x.product ?? null) || (y?.batches_per_lot ?? 4) !== (x.batches_per_lot ?? 4));
+              const ander = [...gekozen].map((nr) => productKandidaten.find((y) => y.nummer === nr)).find((y) => (y?.product ?? null) !== (x.product ?? null) || (y?.batches_per_lot ?? 4) !== (x.batches_per_lot ?? 4));
               if (vink.checked && ander) {
                 vink.checked = false;
                 melding(`Een lot bestaat uit batches van hetzelfde product en dezelfde lotnorm. ${ander.nummer} is ${ander.product ?? "zonder product"}, ${x.nummer} is ${x.product ?? "zonder product"}.`);
@@ -546,6 +547,6 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
           }),
         )
       : h("p", { class: "leeg" }, "Er zijn nog geen batches die alle stappen hebben doorlopen."),
-    w.wachtend.length > 0 ? h("div", { class: "nieuw", style: "margin-top:16px" }, h("label", { for: "nieuw-lot" }, "Lotnummer", lotnr), teller, knop) : null,
+    productKandidaten.length > 0 ? h("div", { class: "nieuw", style: "margin-top:16px" }, h("label", { for: "nieuw-lot" }, "Lotnummer", lotnr), teller, knop) : null,
   ].filter(Boolean) as Node[];
 }
