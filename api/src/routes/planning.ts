@@ -247,7 +247,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       const p = await inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query(
-          "INSERT INTO product (code, naam, batchgewicht_kg, batches_per_lot) VALUES ($1, $2, $3, $4) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, batches_per_lot, batches_per_lot, NULL::text[] AS route", [
+          "INSERT INTO product (code, naam, batchgewicht_kg, batches_per_lot) VALUES ($1, $2, $3, $4) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, batches_per_lot, NULL::text[] AS route", [
           req.body.code.trim(),
           req.body.naam.trim(),
           req.body.batchgewicht_kg ?? null,
@@ -276,7 +276,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         const { rows } = await tx.query(
           `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief),
                   batchgewicht_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE batchgewicht_kg END, batches_per_lot = coalesce($6::int, batches_per_lot) WHERE id = $1
-           RETURNING id::text, code, naam, actief, batchgewicht_kg::float,
+           RETURNING id::text, code, naam, actief, batchgewicht_kg::float, batches_per_lot,
                      (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
                        WHERE ps.product_id = product.id AND s.actief) AS route`,
           [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null, req.body.batchgewicht_kg !== undefined, req.body.batchgewicht_kg ?? null, req.body.batches_per_lot ?? null],
@@ -1010,7 +1010,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `SELECT x.batchnummer, x.status, x.product_id, x.product, x.batches_per_lot, x.dag, x.laatste_stap, x.voorstel,
                 x.status = 'in_productie' AND batch_klaar_voor_lot((SELECT id FROM batch WHERE batchnummer = x.batchnummer)) AS klaar_voor_lot
            FROM (${BATCH_PLAN_SQL} WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling')) x
-          ORDER BY 8 DESC, x.dag, x.volgorde NULLS LAST, x.batchnummer`,
+          ORDER BY 9 DESC, x.dag, x.volgorde NULLS LAST, x.batchnummer`,
       ) as never,
   );
 
