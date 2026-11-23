@@ -391,6 +391,9 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `aangemaakt_op` | timestamptz |  |  |
 | `route_versie_id` | uuid | FK leeg | `product_route_versie` |
 | `route_historie_status` | text |  |  |
+| `batch_aantal_norm` | int |  |  |
+| `batch_aantal` | int |  |  |
+| `afwijking_reden` | text | leeg |  |
 
 ### lot_voorstel
 
