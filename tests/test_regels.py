@@ -540,6 +540,16 @@ def main():
     con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (gepl + [gepl_a], pl_acc2))
     faalt("Product wijzigen van een batch in een open lotvoorstel", "UPDATE batch SET product_id = %s WHERE id = %s",
           (prd["PRD-A"], gepl_a), "open lotvoorstel")
+    oud_voorstel = val("SELECT id FROM lot_voorstel WHERE status = 'open' ORDER BY nummer DESC LIMIT 1")
+    check("Lotvoorstel bewaart de oorspronkelijke lotnorm vier", val("SELECT batch_aantal_norm FROM lot_voorstel WHERE id = %s", (oud_voorstel,)) == 4)
+    con.execute("UPDATE product SET batches_per_lot = 3 WHERE id = %s", (prd["PRD-B"],))
+    check("Wijziging lotnorm laat bestaand voorstel vervallen", val("SELECT status FROM lot_voorstel WHERE id = %s", (oud_voorstel,)) == "vervallen")
+    con.execute("SELECT bewaar_lot_voorstel(NULL, %s, NULL, %s)", (gepl, pl_acc2))
+    nieuw_voorstel = val("SELECT id FROM lot_voorstel WHERE status = 'open' ORDER BY nummer DESC LIMIT 1")
+    check("Lotvoorstel volgt norm drie batches", val("SELECT batch_aantal_norm FROM lot_voorstel WHERE id = %s", (nieuw_voorstel,)) == 3
+          and val("SELECT count(*) FROM lot_voorstel_batch WHERE voorstel_id = %s", (nieuw_voorstel,)) == 3)
+    con.execute("UPDATE product SET batches_per_lot = 4 WHERE id = %s", (prd["PRD-B"],))
+    check("Normwijziging vervalt ook een voorstel van drie batches", val("SELECT status FROM lot_voorstel WHERE id = %s", (nieuw_voorstel,)) == "vervallen")
     con.execute("SELECT zet_route(%s, NULL)", (prd["PRD-C"],))
     check("Route leegmaken = standaardroute", routecodes(prd["PRD-C"]) == routecodes(None))
     check("Routewijzigingen staan in het logboek",
@@ -550,7 +560,9 @@ def main():
     con.execute("UPDATE product SET batchgewicht_kg = 10, batches_per_lot = 3 WHERE id = %s", (prd["PRD-C"],))
     gewicht_lot = val("SELECT gewicht_per_item(%s, (SELECT id FROM processtap WHERE is_lot_stap))", (prd["PRD-C"],))
     check("Capaciteit lotgewicht gebruikt de ingestelde lotgrootte", gewicht_lot == 30, f"gewicht={gewicht_lot}")
-    check("Bestaande lots bewaren hun oorspronkelijke norm", val("SELECT batch_aantal_norm FROM lot WHERE id = %s", (lot_c,)) == 4)
+    check("Bestaande lots bewaren hun oorspronkelijke norm en werkelijk aantal",
+          val("SELECT batch_aantal_norm FROM lot WHERE id = %s", (lot_c,)) == 4
+          and val("SELECT batch_aantal FROM lot WHERE id = %s", (lot_c,)) == 4)
     con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = 410 WHERE id = %s", (prd["PRD-C"],))
     check("Elk fictief product heeft een vastgestelde routeversie",
           val("SELECT count(*) FROM product_route_versie WHERE status = 'vastgesteld'") == len(prd))
