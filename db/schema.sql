@@ -192,7 +192,7 @@ CREATE TABLE lot (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     lotnummer text NOT NULL UNIQUE CHECK (lotnummer ~ '^L-[0-9]{4}-[0-9]{4}$'),
     status text NOT NULL DEFAULT 'in_productie' CHECK (status IN ('in_productie','gereed','geblokkeerd')),
-    aangemaakt_op timestamptz NOT NULL DEFAULT now(),
+    aangemaakt_op timestamptz NOT NULL DEFAULT now()
 );
 
 -- Producten (configuratie, door de planner beheerd; sinds migratie 0003)
@@ -200,7 +200,7 @@ CREATE TABLE product (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code text NOT NULL UNIQUE CHECK (code ~ '^[A-Za-z0-9._-]{1,20}$'),
     naam text NOT NULL,
-    actief boolean NOT NULL DEFAULT true,
+    actief boolean NOT NULL DEFAULT true
 );
 CREATE TRIGGER product_log BEFORE INSERT OR UPDATE OR DELETE ON product
     FOR EACH ROW EXECUTE FUNCTION log_config();
