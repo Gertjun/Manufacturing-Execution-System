@@ -112,7 +112,7 @@ describe("inloggen en rollen", () => {
   test("operator moet eerst een naam kiezen voor invoer", async () => {
     const t = await login("operator", "PC-01");
     const r = await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0999" });
-    assert.equal(r.status, 422);
+    assert.equal(r.status, 400);
     assert.match(r.body.fout, /naam/);
   });
   test("analist mag geen invoer doen", async () => {
@@ -321,9 +321,9 @@ describe("productie van batch tot lot", () => {
     assert.equal(lot.body.registratie.status, "open");
   });
 
-  test("lot met minder dan 4 batches wordt al door de API geweigerd", async () => {
+  test("lot met minder dan de productnorm wordt door de API geweigerd", async () => {
     const r = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0002", batchnummers: ["B-2026-0100"] });
-    assert.equal(r.status, 400);
+    assert.equal(r.status, 422);
   });
 
   test("lotstappen, herbewerking en lotpaspoort", async () => {
