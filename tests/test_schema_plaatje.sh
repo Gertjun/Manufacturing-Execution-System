@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 NIEUW=$(mktemp)
 python3 tools/schema_plaatje.py "host=${PGHOST:-localhost} port=${PGPORT:-5432} user=${PGUSER:-postgres}" "$NIEUW" >/dev/null
 if ! diff -u docs/DATABASE.md "$NIEUW" >/dev/null; then
-  diff -u docs/DATABASE.md "$NIEUW" | head -40
+  diff -u docs/DATABASE.md "$NIEUW" | head -80
   rm -f "$NIEUW"
   echo "FOUT: docs/DATABASE.md is niet bij. Maak hem opnieuw: python3 tools/schema_plaatje.py \"host=localhost user=postgres\""
   exit 1
