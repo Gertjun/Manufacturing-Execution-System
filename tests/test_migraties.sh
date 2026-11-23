@@ -34,9 +34,9 @@ va=$(psql -Atc "SELECT string_agg(nummer || ' ' || naam, ', ' ORDER BY nummer) F
 vb=$(psql -Atc "SELECT string_agg(nummer || ' ' || naam, ', ' ORDER BY nummer) FROM fabriek.schema_versie" -d $B)
 [ "$va" = "$vb" ] || { echo "FOUT: schema_versie in schema.sql ($va) wijkt af van de migraties ($vb)."; exit 1; }
 historisch=$(psql -At -d $B -c "SELECT batch_aantal_norm || '|' || batch_aantal || '|' || (length(afwijking_reden) >= 3) || '|' || (route_versie_id IS NULL) || '|' || (route_historie_status = 'historisch_onbekend') FROM fabriek.lot WHERE lotnummer = 'L-2026-9998'")
-[ "$historisch" = "4|3|t|t|t" ] || { echo "FOUT: bestaand lot met 3 batches niet veilig gemigreerd: $historisch"; exit 1; }
+[ "$historisch" = "4|3|true|true|true" ] || { echo "FOUT: bestaand lot met 3 batches niet veilig gemigreerd: $historisch"; exit 1; }
 exact=$(psql -At -d $B -c "SELECT batch_aantal_norm || '|' || batch_aantal || '|' || (afwijking_reden IS NULL) FROM fabriek.lot WHERE lotnummer = 'L-2026-9999'")
-[ "$exact" = "4|4|t" ] || { echo "FOUT: bestaand lot met 4 batches niet correct gemigreerd: $exact"; exit 1; }
+[ "$exact" = "4|4|true" ] || { echo "FOUT: bestaand lot met 4 batches niet correct gemigreerd: $exact"; exit 1; }
 echo "Migratie 0037 behoudt bestaande lot-samenstelling (3 en 4 batches) en laat onbekende historische routes ongemoeid."
 psql -q -c "DROP DATABASE $A" -c "DROP DATABASE $B"
 echo "Schema en migraties gelijk ($va)."
