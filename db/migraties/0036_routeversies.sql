@@ -88,7 +88,11 @@ BEGIN
       FROM route(p_product) r JOIN processtap s ON s.id = r.processtap_id ORDER BY r.plek;
     UPDATE product_route_versie SET status = 'vastgesteld', vastgesteld_op = clock_timestamp() WHERE id = v_id;
     RETURN v_id;
-END $$;
+END $;
+
+ALTER FUNCTION bescherm_product_route_versie() SET search_path = fabriek, public;
+ALTER FUNCTION bescherm_product_route_versie_stap() SET search_path = fabriek, public;
+ALTER FUNCTION leg_routeversie_vast(uuid, text, text) SET search_path = fabriek, public;
 
 ALTER TABLE batch
     ADD COLUMN route_versie_id uuid REFERENCES product_route_versie(id),
