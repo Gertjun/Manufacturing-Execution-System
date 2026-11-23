@@ -9,6 +9,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.64.0 — 23 november 2026 · #104 (databasefundament)
+- De lotgrootte is per product vastgelegd (1–50; bestaande producten blijven op 4).
+- Elk nieuw lot bewaart de ingestelde norm, het werkelijke aantal en een eventuele afwijkingsreden. Historische lots behouden hun oorspronkelijke norm van vier.
+- Lotvoorstellen bewaren hun norm en vervallen automatisch als de productnorm verandert.
+- De capaciteitsberekening voor een lot gebruikt de ingestelde lotgrootte.
+- Dit is de databasefase; API, planning, invoerscherm en volledige routeversie-aansluiting volgen nog binnen #104.
+
 ## 0.63.0 — 23 november 2026 · #103
 - **Routeversies als databasefundament** (#103, D85).
   - Een vastgestelde routeversie bewaart de volgorde en een momentopname van stapcode, naam en niveau.
