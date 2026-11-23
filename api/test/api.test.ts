@@ -149,9 +149,6 @@ describe("productie van batch tot lot", () => {
 
   test("dubbel batchnummer geeft 409", async () => {
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100" })).status, 201);
-    const producten = await verzoek("GET", "/planning/producten", op);
-    const productId = producten.body.find((p: any) => p.code === "PRD-A").id;
-    await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = $2", [productId, "B-2026-0100"]);
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100" })).status, 409);
   });
 
@@ -281,13 +278,9 @@ describe("productie van batch tot lot", () => {
   });
 
   test("vier batches doorlopen PS1-PS15 en worden een lot", async () => {
-    const prod = await verzoek("GET", "/planning/producten", op);
-    const productId = prod.body.find((p: any) => p.code === "PRD-A").id;
-    await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = ANY($2)", [productId, ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]]);
     await doorloop(op, "B-2026-0100", "batch", 2, 15);
     for (const nr of ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]) {
       assert.equal((await verzoek("POST", "/batches", op, { batchnummer: nr })).status, 201);
-      await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = $2", [productId, nr]);
       await doorloop(op, nr, "batch", 1, 15);
     }
     const gereed = await verzoek("GET", "/batches?gereedVoorLot=true", op);
@@ -1002,22 +995,32 @@ describe("Portaal Planning", () => {
     assert.equal(v2.status, "afgeweken");
   });
 
-  test("lotvoorstel exact gevolgd wordt 'gebruikt'", async () => {
-    const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 4 });
-    const nrs: string[] = r.body.batchnummers;
-    const p = await verzoek("POST", "/planning/lotvoorstellen", planner, { batchnummers: nrs });
-    assert.equal(p.status, 201);
-    const plan = await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS16", items: [{ nummer: String(p.body.nummer) }] });
-    assert.equal(plan.body[0].status, "gepland");
-    for (const nr of nrs) await doorloop(op, nr, "batch", 1, 15);
-    const kand = await verzoek("GET", "/planning/kandidaten?stap=PS16", planner);
-    assert.equal(kand.body.find((k: any) => k.nummer === String(p.body.nummer)).klaar, true);
-    const lot = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0103", batchnummers: [...nrs].reverse() });
-    assert.equal(lot.status, 201, JSON.stringify(lot.body));
-    const alle = await verzoek("GET", "/planning/lotvoorstellen?alle=true", planner);
-    assert.equal(alle.body.find((v: any) => v.nummer === p.body.nummer).status, "gebruikt");
-    const v = await verzoek("GET", "/planning/vandaag?stap=PS16", op);
-    assert.equal(v.body[0].status, "gedaan");
+  test("lotvoorstel exact gevolgd wordt 'gebruikt' (productnorm 3)", async () => {
+    const producten = await verzoek("GET", "/planning/producten", planner);
+    const productId = producten.body.find((p: any) => p.code === "PRD-A").id;
+    await beheerDb.query("UPDATE product SET batches_per_lot = 3 WHERE id = $1", [productId]);
+    try {
+      const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 3, productId });
+      const nrs: string[] = r.body.batchnummers;
+      const p = await verzoek("POST", "/planning/lotvoorstellen", planner, { batchnummers: nrs });
+      assert.equal(p.status, 201, JSON.stringify(p.body));
+      assert.equal(p.body.batch_aantal_norm, 3);
+      const plan = await verzoek("PUT", "/planning/stappen", planner, { dag: vandaag, stap: "PS16", items: [{ nummer: String(p.body.nummer) }] });
+      assert.equal(plan.body[0].status, "gepland");
+      for (const nr of nrs) await doorloop(op, nr, "batch", 1, 15);
+      const kand = await verzoek("GET", "/planning/kandidaten?stap=PS16", planner);
+      assert.equal(kand.body.find((k: any) => k.nummer === String(p.body.nummer)).klaar, true);
+      const lot = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0103", batchnummers: [...nrs].reverse() });
+      assert.equal(lot.status, 201, JSON.stringify(lot.body));
+      assert.equal(lot.body.lot.batch_aantal_norm, 3);
+      assert.equal(lot.body.lot.batch_aantal, 3);
+      const alle = await verzoek("GET", "/planning/lotvoorstellen?alle=true", planner);
+      assert.equal(alle.body.find((v: any) => v.nummer === p.body.nummer).status, "gebruikt");
+      const v = await verzoek("GET", "/planning/vandaag?stap=PS16", op);
+      assert.equal(v.body[0].status, "gedaan");
+    } finally {
+      await beheerDb.query("UPDATE product SET batches_per_lot = 4 WHERE id = $1", [productId]);
+    }
   });
 
   test("route per product (D55): PRD-C slaat PS6 over; alleen planners wijzigen een route", async () => {
