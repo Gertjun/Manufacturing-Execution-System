@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 A=batchgui_test_schema; B=batchgui_test_migraties
 psql -q -c "DROP DATABASE IF EXISTS $A" -c "DROP DATABASE IF EXISTS $B" -c "CREATE DATABASE $A" -c "CREATE DATABASE $B" 2>/dev/null
 psql -q -v ON_ERROR_STOP=1 -d $A -f db/schema.sql >/dev/null 2>&1
-for f in db/migraties/*.sql; do psql -q -v ON_ERROR_STOP=1 -d $B -f "$f" >/dev/null 2>&1 || { echo "Migratie $f mislukt"; exit 1; }; done
+for f in db/migraties/*.sql; do psql -q -v ON_ERROR_STOP=1 -d $B -f "$f" >/dev/null || { echo "Migratie $f mislukt"; exit 1; }; done
 # Migraties zetten zelf geen regels in schema_versie (dat doet migreer.mjs); zet ze hier zoals migreer.mjs.
 for f in db/migraties/*.sql; do n=$(basename "$f" | cut -c1-4); naam=$(basename "$f" .sql | cut -c6-); psql -q -d $B -c "INSERT INTO fabriek.schema_versie (nummer, naam) VALUES ($(echo $n | sed "s/^0*//"), '$naam') ON CONFLICT DO NOTHING"; done
 # Alleen de opbouw vergelijken: commentaar, psql-opdrachten, lege regels en interne volgnummers
