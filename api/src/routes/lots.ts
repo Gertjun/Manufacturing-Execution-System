@@ -124,7 +124,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const zoek = req.query.zoek ? `%${req.query.zoek.toUpperCase()}%` : null;
       return lees(
         app.db,
-        `SELECT l.lotnummer, l.status, l.aangemaakt_op, l.batch_aantal_norm, l.batch_aantal,
+        `SELECT l.lotnummer, l.status, l.aangemaakt_op, l.batch_aantal_norm, l.batch_aantal, l.afwijking_reden,
                 (SELECT coalesce(array_agg(b.batchnummer ORDER BY b.batchnummer), '{}') FROM batch b WHERE b.lot_id = l.id) AS batches,
                 (SELECT count(*) FROM lotpaspoort p WHERE p.lotnummer = l.lotnummer AND p.markering <> 'ok') AS afwijkingen,
                 (SELECT count(*) FROM stapregistratie r WHERE r.lot_id = l.id AND r.herbewerking_start) AS herbewerkingen,
