@@ -193,11 +193,6 @@ CREATE TABLE lot (
     lotnummer text NOT NULL UNIQUE CHECK (lotnummer ~ '^L-[0-9]{4}-[0-9]{4}$'),
     status text NOT NULL DEFAULT 'in_productie' CHECK (status IN ('in_productie','gereed','geblokkeerd')),
     aangemaakt_op timestamptz NOT NULL DEFAULT now(),
-    batch_aantal_norm int NOT NULL DEFAULT 4 CHECK (batch_aantal_norm BETWEEN 1 AND 50),
-    batch_aantal int NOT NULL DEFAULT 4 CHECK (batch_aantal BETWEEN 1 AND 50),
-    afwijking_reden text,
-    CHECK ((batch_aantal = batch_aantal_norm AND afwijking_reden IS NULL)
-        OR (batch_aantal <> batch_aantal_norm AND length(btrim(coalesce(afwijking_reden, ''))) BETWEEN 3 AND 500))
 );
 
 -- Producten (configuratie, door de planner beheerd; sinds migratie 0003)
@@ -206,24 +201,9 @@ CREATE TABLE product (
     code text NOT NULL UNIQUE CHECK (code ~ '^[A-Za-z0-9._-]{1,20}$'),
     naam text NOT NULL,
     actief boolean NOT NULL DEFAULT true,
-    batches_per_lot int NOT NULL DEFAULT 4 CHECK (batches_per_lot BETWEEN 1 AND 50)
 );
 CREATE TRIGGER product_log BEFORE INSERT OR UPDATE OR DELETE ON product
     FOR EACH ROW EXECUTE FUNCTION log_config();
-CREATE FUNCTION verval_lotvoorstellen_bij_lotgrootte() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    UPDATE lot_voorstel v SET status = 'vervallen', afgesloten_op = clock_timestamp()
-     WHERE v.status = 'open'
-       AND EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
-                    WHERE x.voorstel_id = v.id AND b.product_id = NEW.id);
-    RETURN NEW;
-END $$;
-CREATE TRIGGER product_lotgrootte_verval_voorstellen
-AFTER UPDATE OF batches_per_lot ON product
-FOR EACH ROW WHEN (OLD.batches_per_lot IS DISTINCT FROM NEW.batches_per_lot)
-EXECUTE FUNCTION verval_lotvoorstellen_bij_lotgrootte();
-
-
 -- Route per product (sinds migratie 0018, D55): welke stappen een product doorloopt, in welke volgorde.
 -- Een product zonder regels hier volgt de standaardroute: alle actieve stappen.
 CREATE TABLE product_stap (
@@ -358,6 +338,15 @@ ALTER TABLE lot
         CHECK (route_historie_status IN ('historisch_onbekend','vastgelegd','gereconstrueerd','handmatig_beoordeeld')),
     ADD CONSTRAINT lot_route_historie_consistent
         CHECK ((route_versie_id IS NULL) = (route_historie_status = 'historisch_onbekend'));
+ALTER TABLE lot
+    ADD COLUMN batch_aantal_norm int NOT NULL,
+    ADD COLUMN batch_aantal int NOT NULL,
+    ADD COLUMN afwijking_reden text,
+    ADD CONSTRAINT lot_batch_aantal_norm_geldig CHECK (batch_aantal_norm BETWEEN 1 AND 50),
+    ADD CONSTRAINT lot_batch_aantal_geldig CHECK (batch_aantal BETWEEN 1 AND 50),
+    ADD CONSTRAINT lot_batch_aantal_afwijking CHECK (
+        (batch_aantal = batch_aantal_norm AND afwijking_reden IS NULL)
+        OR (batch_aantal <> batch_aantal_norm AND length(btrim(afwijking_reden)) BETWEEN 3 AND 500));
 CREATE VIEW route_historie_rapport AS
 SELECT 'batch'::text AS object_type, b.id AS object_id, b.batchnummer AS object_nummer,
        b.product_id, b.gestart_op AS moment, b.route_versie_id,
@@ -2273,6 +2262,20 @@ CREATE TRIGGER capaciteit_stap_log BEFORE INSERT OR UPDATE OR DELETE ON capacite
 -- later mogelijk per batch); een lot weegt het ingestelde aantal batches. De capaciteit per stap staat in kg per dag; per uur en per
 -- maand worden ervan afgeleid met de uren van de diensten en het gemiddelde aantal dagen in een maand.
 ALTER TABLE product ADD COLUMN batchgewicht_kg numeric CHECK (batchgewicht_kg > 0 AND batchgewicht_kg <= 100000);
+ALTER TABLE product ADD COLUMN batches_per_lot int NOT NULL DEFAULT 4 CHECK (batches_per_lot BETWEEN 1 AND 50);
+
+CREATE FUNCTION verval_lotvoorstellen_bij_lotgrootte() RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+    UPDATE lot_voorstel v SET status = 'vervallen', afgesloten_op = clock_timestamp()
+     WHERE v.status = 'open'
+       AND EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
+                    WHERE x.voorstel_id = v.id AND b.product_id = NEW.id);
+    RETURN NEW;
+END $;
+CREATE TRIGGER product_lotgrootte_verval_voorstellen
+AFTER UPDATE OF batches_per_lot ON product
+FOR EACH ROW WHEN (OLD.batches_per_lot IS DISTINCT FROM NEW.batches_per_lot)
+EXECUTE FUNCTION verval_lotvoorstellen_bij_lotgrootte();
 ALTER TABLE capaciteit_stap ADD COLUMN kg_per_dag numeric CHECK (kg_per_dag > 0 AND kg_per_dag <= 100000000);
 ALTER TABLE capaciteit_stap ALTER COLUMN max_per_dag DROP NOT NULL;
 ALTER TABLE capaciteit_stap ADD CONSTRAINT capaciteit_stap_ingevuld CHECK (kg_per_dag IS NOT NULL OR max_per_dag IS NOT NULL);
