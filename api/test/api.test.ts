@@ -1002,7 +1002,7 @@ describe("Portaal Planning", () => {
   test("lotvoorstel exact gevolgd wordt 'gebruikt' (productnorm 3)", async () => {
     const producten = await verzoek("GET", "/planning/producten", planner);
     const productId = producten.body.find((p: any) => p.code === "PRD-A").id;
-    await beheerDb.query("UPDATE product SET batches_per_lot = 3 WHERE id = $1", [productId]);
+    await beheerDb.query("UPDATE fabriek.product SET batches_per_lot = 3 WHERE id = $1", [productId]);
     try {
       const r = await verzoek("POST", "/planning/batches", planner, { dag: vandaag, aantal: 3, productId });
       const nrs: string[] = r.body.batchnummers;
@@ -1023,7 +1023,7 @@ describe("Portaal Planning", () => {
       const v = await verzoek("GET", "/planning/vandaag?stap=PS16", op);
       assert.equal(v.body[0].status, "gedaan");
     } finally {
-      await beheerDb.query("UPDATE product SET batches_per_lot = 4 WHERE id = $1", [productId]);
+      await beheerDb.query("UPDATE fabriek.product SET batches_per_lot = 4 WHERE id = $1", [productId]);
     }
   });
 
@@ -1954,7 +1954,9 @@ describe("Pilotoverzicht (#77, D66)", () => {
     const r = await app.inject({ method: "POST", url: "/registraties", payload: { id: randomUUID(), stapcode: "PS1", batchnummer: nr },
       headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": moment.toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
     assert.equal(r.statusCode, 201, r.body);
-    await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: "B-2026-9998" }); // geweigerd
+    const geweigerd = await app.inject({ method: "POST", url: "/registraties", payload: { stapcode: "PS1", batchnummer: "B-2026-9998" },
+      headers: { authorization: `Bearer ${token}`, "x-batchgui-moment": moment.toISOString(), "x-batchgui-verzonden": new Date().toISOString() } });
+    assert.equal(geweigerd.statusCode, 422); // geweigerd
 
     const o = await verzoek("GET", "/pilot", pm);
     assert.equal(o.status, 200, JSON.stringify(o.body));
