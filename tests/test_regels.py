@@ -551,7 +551,7 @@ def main():
     check("Capaciteit lotgewicht gebruikt de ingestelde lotgrootte",
           val("SELECT gewicht_per_item(%s, (SELECT id FROM processtap WHERE is_lot_stap))", (prd["PRD-C"],)) == 30)
     check("Bestaande lots bewaren hun oorspronkelijke norm", val("SELECT batch_aantal_norm FROM lot WHERE id = %s", (lot_c,)) == 4)
-    con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = 410 WHERE id = %s", (prd["PRD-C"],))
+    con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = NULL WHERE id = %s", (prd["PRD-C"],))
     check("Elk fictief product heeft een vastgestelde routeversie",
           val("SELECT count(*) FROM product_route_versie WHERE status = 'vastgesteld'") == len(prd))
     check("Routeversie bevat dezelfde stappen als de effectieve productroute",
