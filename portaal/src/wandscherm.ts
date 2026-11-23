@@ -33,9 +33,38 @@ function duur(iso: string | null): string {
   return `${Math.round(min / 1440)} d`;
 }
 
+/**
+ * Alles op één scherm, zonder scrollen (#91, D81). Eerst kleiner schrijven (tot 70 % van de gewone grootte), daarna
+ * minder regels per kaart ("+ n meer"); de laatste stand is altijd zonder scrollbalk (de rest valt onder de rand weg).
+ */
+let pasInOpnieuw: (() => void) | null = null;
+function pasIn(scherm: HTMLElement, teken: (regels: number) => void, regels: number) {
+  // Past = geen scrollbalk en in geen enkele kaart valt een regel weg onder de rand.
+  const past = () => scherm.scrollHeight <= scherm.clientHeight + 1
+    && [...scherm.querySelectorAll<HTMLElement>(".wand-stap")].every((k) => k.scrollHeight <= k.clientHeight + 1);
+  for (let r = regels; r >= 1; r--) {
+    teken(r);
+    scherm.style.fontSize = "";
+    let f = parseFloat(getComputedStyle(scherm).fontSize);
+    const min = Math.max(11, f * 0.7);
+    while (!past() && f > min) { f = Math.max(min, f - 0.5); scherm.style.fontSize = `${f}px`; }
+    if (past()) return;
+  }
+}
+window.addEventListener("resize", () => pasInOpnieuw?.());
+
+/** Aantal kolommen voor n kaarten: ongeveer zo veel als de verhouding van het scherm toelaat (6 bij 21 op een breed scherm). */
+const kolommen = (n: number) => Math.max(1, Math.min(n, Math.round(Math.sqrt((n * window.innerWidth) / window.innerHeight * 0.9))));
+
+/** Afmelden op het wandscherm (#91): anders komt een tv of pc die als schermaccount is ingelogd er niet meer uit. */
+const afmeldKnop = () => h("button", { class: "wand-afmelden", type: "button", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden");
+
 export function stopWandscherm() {
   clearTimeout(timer);
   timer = undefined;
+  pasInOpnieuw = null;
+  const scherm = document.getElementById("scherm");
+  if (scherm) scherm.style.fontSize = "";
   document.body.classList.remove("wand");
   wakeLock?.release().catch(() => {});
   wakeLock = null;
@@ -71,6 +100,11 @@ export async function wandscherm(deel?: string, arg?: string) {
       return;
     }
     const w = laatste;
+    const n0 = w.stappen.length;
+    pasInOpnieuw = () => pasIn(scherm, (r) => tekenMet(w, r, fout), maxRegels(w.keuze ? n0 : 18));
+    pasInOpnieuw();
+  };
+  const tekenMet = (w: Wand, regelsPerKaart: number, fout?: string) => {
     const k = w.kerncijfers;
     const cijfer = (n: number | string, tekst: string, klasse = "") => h("div", { class: `wand-cijfer ${klasse}` }, h("span", { class: "wand-getal" }, n), h("span", {}, tekst));
     // Met gekozen stappen gaan de cijfers over die stappen; anders over de fabriek.
@@ -96,12 +130,16 @@ export async function wandscherm(deel?: string, arg?: string) {
           fout
             ? h("span", { class: "wand-storing", role: "status" }, `⚠ Geen verbinding sinds ${laatsteGelukt ? klok(laatsteGelukt) : "–"}`)
             : h("span", {}, `Bijgewerkt ${klok(new Date(w.tijd))}`))),
-      h("div", { class: `wand-raster${w.keuze && n <= 6 ? ` wand-n${n}` : ""}` }, w.stappen.map((s) => stapKaart(s, maxRegels(w.keuze ? n : 18)))),
+      h("div", {
+        class: `wand-raster${w.keuze && n <= 6 ? ` wand-n${n}` : ""}`,
+        // Kolommen naar de verhouding van het scherm, zodat alle kaarten erop passen (#91).
+        style: w.keuze && n <= 6 ? "" : `grid-template-columns: repeat(${kolommen(n)}, minmax(0, 1fr))`,
+      }, w.stappen.map((s) => stapKaart(s, regelsPerKaart))),
       h("footer", { class: "wand-voet" },
         h("span", { class: "wand-uitleg" },
           h("span", { class: "wl wl-bezig" }, "▶ Bezig"), h("span", { class: "wl wl-klaar" }, "● Klaar om te starten"),
           h("span", { class: "wl wl-gepland" }, "○ Gepland, nog niet klaar"), h("span", { class: "wl wl-lang" }, "Gele rand: wacht of loopt langer dan normaal"), h("span", { class: "wl wl-stil" }, "⛔ Stilstand")),
-        sessie.rol === "scherm" ? null : h("nav", { class: "wand-hallen", "aria-label": "Hal" },
+        sessie.rol === "scherm" ? afmeldKnop() : h("nav", { class: "wand-hallen", "aria-label": "Hal" },
           h("a", { href: "#/wandscherm", "aria-current": w.hal || w.keuze ? undefined : "page" }, "Alle hallen"),
           w.hallen.map((x) => h("a", { href: `#/wandscherm/${encodeURIComponent(x)}`, "aria-current": x === w.hal ? "page" : undefined }, x)),
           h("button", { class: "wand-kies", type: "button", "aria-current": w.keuze ? "page" : undefined, onclick: () => void kiesStappen(w.keuze ?? []) },
@@ -178,7 +216,7 @@ function stapKaart(s: Stap, MAX_REGELS: number) {
       ? h("p", { class: "wand-stil" }, h("strong", {}, `⛔ ${s.stilstand.oorzaak}`), ` sinds ${duur(s.stilstand.sinds)}`)
       : null,
     leeg
-      ? h("p", { class: "wand-niets" }, "Niets te doen")
+      ? (s.stilstand ? null : h("p", { class: "wand-niets" }, "Niets te doen"))
       : h("ul", { class: "wand-lijst" }, regels.slice(0, meer > 0 ? MAX_REGELS - 1 : MAX_REGELS),
           meer > 0 ? h("li", { class: "wr wr-meer" }, `+ ${meer + 1} meer`) : null));
 }
@@ -201,12 +239,15 @@ async function kwaliteitScherm() {
   let laatste: KwWand | null = null;
   let laatsteGelukt: Date | null = null;
   const route = location.hash;
-  const MAX = 10;
 
   const teken = (fout?: string) => {
     if (location.hash !== route) return;
     if (!laatste) return void scherm.replaceChildren(h("div", { class: "wand-leeg" }, fout ?? "Laden…"));
     const w = laatste;
+    pasInOpnieuw = () => pasIn(scherm, (r) => tekenMet(w, r, fout), 10);
+    pasInOpnieuw();
+  };
+  const tekenMet = (w: KwWand, MAX: number, fout?: string) => {
     const k = w.kerncijfers;
     const cijfer = (n: number | string, tekst: string, klasse = "") => h("div", { class: `wand-cijfer ${klasse}` }, h("span", { class: "wand-getal" }, n), h("span", {}, tekst));
     const getal = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 3 });
@@ -255,7 +296,7 @@ async function kwaliteitScherm() {
           h("span", { class: "wl wl-klaar" }, "● Wacht op meting of besluit"), h("span", { class: "wl" }, "? In beoordeling"),
           h("span", { class: "wl wl-lang" }, "Gele rand: wacht langer dan normaal"),
           h("span", { class: "wl wl-tol" }, "▲ Buiten tolerantie"), h("span", { class: "wl wl-grens" }, "◆ Buiten grens")),
-        sessie.rol === "scherm" ? null : h("nav", { class: "wand-hallen", "aria-label": "Wandscherm" },
+        sessie.rol === "scherm" ? afmeldKnop() : h("nav", { class: "wand-hallen", "aria-label": "Wandscherm" },
           h("a", { href: "#/wandscherm" }, "Fabriek"),
           h("a", { href: "#/wandscherm/kwaliteit", "aria-current": "page" }, "Kwaliteit"),
           h("a", { href: "#/" }, "Terug naar de portalen"))),

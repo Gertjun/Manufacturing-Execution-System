@@ -385,3 +385,9 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Oude regels:** een regel in stuks van vóór 0.57.0 blijft gelden tot hij in kg is ingevuld (`max_per_dag`, nu leeg mag; nooit allebei leeg). Op de laptop met testdata is alles omgerekend met 410 kg per batch.
 - **OEE (later, #22):** de capaciteit in kg per uur is de basis voor de prestatie (gemaakt ÷ wat er in de draaitijd had gekund).
 - **Gekozen boven:** capaciteit per uur opslaan (dan hangt de dagcapaciteit af van wijzigingen in de diensten), of alle planning omzetten naar kilogram (groot en riskant vóór de pilot; de planner plant batches).
+
+### D81 – Wandscherm: altijd passend, en afmelden kan (23 nov 2026, 0.58.0)
+- **Besluit (Geert):** het wandscherm moet altijd volledig op het scherm passen zonder scrollen, en wie erop zit moet eruit kunnen (#91, D74).
+- **Passen:** het scherm is precies de hoogte van het venster; het raster vult de rest, met kaarten van gelijke hoogte en een aantal kolommen naar de verhouding van het scherm (afgerond √(n × breedte ÷ hoogte × 0,9); 6 bij 21 stappen op een tv). `pasIn()` maakt eerst de tekst kleiner (tot 70 %, niet onder 11 px) en zet daarna minder regels per kaart ("+ n meer"), tot geen kaart en geen scherm meer overloopt. Bij een ander formaat gebeurt dat opnieuw. Wat dan nog niet past, valt weg in plaats van een scrollbalk te geven.
+- **Afmelden:** een schermaccount heeft op het wandscherm een kleine knop Afmelden (onopvallend, zodat hij in de hal niet stoort). De keuze van de tv (D54) blijft bewaard voor de volgende keer inloggen. Andere accounts houden "Terug naar de portalen".
+- **Gekozen boven:** automatisch doorbladeren tussen pagina's (je mist wat net weg is), of een vast lettertype per formaat (past niet bij elk aantal stappen of regels).

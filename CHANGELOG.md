@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.58.0 — 23 november 2026 · #91
+- **Wandscherm past altijd zonder scrollen** (ook het wandscherm Kwaliteit, D81).
+  - Het aantal kolommen volgt de verhouding van het scherm. Bij alle 21 stappen op een tv zijn dat er 6.
+  - Alle kaarten zijn even hoog en vullen samen het scherm.
+  - Past het niet, dan wordt de tekst eerst iets kleiner (tot 70 %). Daarna staan er minder regels per kaart, met "+ n meer".
+  - Er komt nooit een scrollbalk: op een tv kan niemand scrollen. Na het draaien van het scherm of een ander formaat past het zich weer aan.
+  - De kop (titel, cijfers, klok) blijft op een tv en een liggend scherm één regel.
+- **Afmelden op het wandscherm:** een schermaccount heeft rechtsonder een kleine knop Afmelden. Eerder kwam je er niet meer uit: elk adres van de server ging terug naar het wandscherm.
+- Een stap met een stilstand toont niet meer ook "Niets te doen".
+
 ## 0.57.0 — 23 november 2026 · #90
 - **Capaciteit in kilogram** (Planning → Capaciteit, D80). Per product en stap staat de capaciteit nu in kg, niet meer in batches.
   - Per uur, per dag en per maand staan naast elkaar. Je vult er één in en de andere twee worden berekend: met de productie-uren per dag (de diensten samen, nu 24) en gemiddeld 30,4 dagen per maand.

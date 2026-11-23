@@ -295,6 +295,14 @@ body.wand { background: var(--wand-bg); }
 body.wand .indeling { display: block; background: var(--wand-bg); }
 body.wand #menu { display: none; }
 body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tekst); font-size: clamp(14px, 1.05vw, 26px); min-height: 100vh; display: flex; flex-direction: column; gap: 1vw; }
+/* #91: het wandscherm past altijd zonder scrollen; pasIn() maakt de tekst kleiner of de lijsten korter. Wat dan nog
+   niet past, valt onder de rand weg in plaats van een scrollbalk te geven. */
+body.wand, body.wand .indeling { overflow: hidden; }
+body.wand #scherm { height: 100vh; box-sizing: border-box; }
+body.wand .wand-raster { flex: 1; min-height: 0; grid-auto-rows: minmax(0, 1fr); align-content: stretch; }
+body.wand .wand-stap { min-height: 0; overflow: hidden; }
+.wand-afmelden { background: none; border: 1px solid var(--wand-rand); color: var(--wand-tekst-3); border-radius: var(--radius-sm); padding: .2em .8em; font: inherit; cursor: pointer; }
+.wand-afmelden:hover, .wand-afmelden:focus-visible { color: var(--op-kleur); border-color: var(--wand-tekst-3); }
 .wand-leeg { font-size: var(--text-2xl); color: var(--wand-tekst-3); padding: 20vh 0; text-align: center; }
 .wand-kop { display: grid; grid-template-columns: auto 1fr auto; gap: 2vw; align-items: center; }
 .wand-kop h1 { font-size: 2.3em; margin: 0; color: var(--op-kleur); }
@@ -336,7 +344,8 @@ body.wand #scherm { max-width: none; padding: 1.2vw 1.6vw; color: var(--wand-tek
 .wand-hallen { display: flex; gap: 1em; }
 .wand-hallen a { color: var(--wand-tekst-3); }
 .wand-hallen a[aria-current="page"] { color: var(--op-kleur); font-weight: 700; }
-@media (max-width: 1100px) { .wand-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); } .wand-kop { grid-template-columns: 1fr; } .wand-klok { justify-items: start; } }
+/* Smal scherm (telefoon, staand): kop onder elkaar. Op een tv of liggend scherm blijft de kop één regel (#91). */
+@media screen and (max-width: 800px) { .wand-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); } .wand-kop { grid-template-columns: 1fr; } .wand-klok { justify-items: start; } }
 .keuze-raster { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-4); max-height: 55vh; overflow-y: auto; margin-bottom: var(--space-2); }
 .keuze-raster label { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
 .keuze-raster select { font: inherit; padding: var(--space-1) var(--space-1); }

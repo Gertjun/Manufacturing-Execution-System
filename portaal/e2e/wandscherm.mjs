@@ -64,6 +64,26 @@ try {
   await page.waitForFunction(() => location.hash === "#/wandscherm");
   check("Schermaccount kan niet naar een portaal", true);
 
+  console.log("\nAltijd passend en eruit kunnen (#91)");
+  const pastOpScherm = () => page.evaluate(() => { const s = document.getElementById("scherm"); return s.scrollHeight <= s.clientHeight + 1 && document.documentElement.scrollHeight <= innerHeight + 1; });
+  await page.locator(".wand-stap").first().waitFor();
+  check("Past zonder scrollen (groot scherm)", await pastOpScherm());
+  for (const [b, hg] of [[1280, 720], [1024, 600]]) {
+    await page.setViewportSize({ width: b, height: hg });
+    await page.waitForTimeout(400);
+    check(`Past zonder scrollen op ${b} × ${hg}`, await pastOpScherm(), await page.evaluate(() => `${document.getElementById("scherm").scrollHeight} > ${innerHeight}`));
+  }
+  await shot("01c-wandscherm-1024x600");
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  check("Afmelden op het wandscherm: terug naar inloggen", page.url().includes("#/login"));
+  await page.goto(`${BASIS}/`);
+  await page.getByLabel("Gebruikersnaam").waitFor();
+  check("Het adres van de server landt daarna op inloggen, niet op het wandscherm", !page.url().includes("wandscherm"), page.url());
+  await inloggen("scherm1");
+  await page.getByRole("heading", { name: "Vandaag in de fabriek" }).waitFor();
+
   console.log("\nPer stap (#54)");
   await page.goto(`${BASIS}/portaal/#/wandscherm/stappen/PS3,PS7`);
   await page.getByRole("heading", { name: "Vandaag in PS3, PS7" }).waitFor();
