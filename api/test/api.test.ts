@@ -149,6 +149,9 @@ describe("productie van batch tot lot", () => {
 
   test("dubbel batchnummer geeft 409", async () => {
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100" })).status, 201);
+    const producten = await verzoek("GET", "/planning/producten", op);
+    const productId = producten.body.find((p: any) => p.code === "PRD-A").id;
+    await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = $2", [productId, "B-2026-0100"]);
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0100" })).status, 409);
   });
 
@@ -280,7 +283,7 @@ describe("productie van batch tot lot", () => {
   test("vier batches doorlopen PS1-PS15 en worden een lot", async () => {
     const prod = await verzoek("GET", "/planning/producten", op);
     const productId = prod.body.find((p: any) => p.code === "PRD-A").id;
-    await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = ANY($2)", [productId, ["B-2026-0100", "B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]]);
+    await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = ANY($2)", [productId, ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]]);
     await doorloop(op, "B-2026-0100", "batch", 2, 15);
     for (const nr of ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]) {
       assert.equal((await verzoek("POST", "/batches", op, { batchnummer: nr })).status, 201);
