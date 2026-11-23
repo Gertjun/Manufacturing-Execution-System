@@ -9,12 +9,14 @@ import { BatchNummer, LotNummer, PaspoortRegel, RegistratieDetail, RegistratieKo
 const Lot = Type.Object({
   lotnummer: Type.String(),
   status: Type.String(),
+  batch_aantal_norm: Type.Integer(),
+  batch_aantal: Type.Integer(),
   aangemaakt_op: Type.String({ format: "date-time" }),
   batches: Type.Array(Type.String()),
 });
 
 const LOT_SQL = `
-  SELECT l.lotnummer, l.status, l.aangemaakt_op,
+  SELECT l.lotnummer, l.status, l.aangemaakt_op, l.batch_aantal_norm, l.batch_aantal,
          coalesce(array_agg(b.batchnummer ORDER BY b.batchnummer) FILTER (WHERE b.id IS NOT NULL), '{}') AS batches
     FROM lot l LEFT JOIN batch b ON b.lot_id = l.id`;
 

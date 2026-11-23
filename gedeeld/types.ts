@@ -140,7 +140,7 @@ export interface Registratie {
 
 export interface Werkvoorraad {
   open: Registratie[];
-  wachtend: { soort: "batch" | "lot"; nummer: string; sinds: string | null; product?: string | null; herbewerking?: string | null }[];
+  wachtend: { soort: "batch" | "lot"; nummer: string; sinds: string | null; product?: string | null; batches_per_lot?: number | null; herbewerking?: string | null }[];
 }
 
 export interface Overzicht {

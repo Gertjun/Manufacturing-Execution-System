@@ -58,6 +58,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 nummer: Type.String(),
                 sinds: Type.Union([Type.Null(), Type.String({ format: "date-time" })]),
                 product: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Productcode (D55)" })),
+                batches_per_lot: Type.Optional(Type.Union([Type.Null(), Type.Integer()])),
                 herbewerking: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Reden, als dit een herbewerking is die hier start (#61)" })),
               }),
             ),
@@ -71,7 +72,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       ]);
       const wachtend = await lees(
         app.db,
-        `SELECT w.soort, w.nummer, w.sinds, coalesce(pb.code, pl.code) AS product,
+        `SELECT w.soort, w.nummer, w.sinds, coalesce(pb.code, pl.code) AS product, coalesce(pb.batches_per_lot, pl.batches_per_lot) AS batches_per_lot,
                 (SELECT h.reden FROM herbewerking h JOIN processtap s ON s.id = h.processtap_id
                   WHERE h.status = 'open' AND s.code = $1 AND (h.batch_id = b.id OR h.lot_id = l.id)) AS herbewerking
            FROM werkvoorraad($1) w
