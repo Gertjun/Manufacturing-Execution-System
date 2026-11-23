@@ -455,8 +455,10 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
   };
   const werkBij = () => {
     const norm = normVanKeuze();
-    teller.textContent = `${gekozen.size} van ${norm} batches gekozen`;
-    knop.disabled = gekozen.size !== norm;
+    teller.textContent = gekozen.size === norm
+      ? `${gekozen.size} batches gekozen (productnorm)`
+      : `${gekozen.size} batches gekozen; productnorm ${norm} — afwijkingsreden verplicht`;
+    knop.disabled = gekozen.size < 1 || gekozen.size > 50;
   };
 
   knop.addEventListener("click", bezigBij(async () => {
@@ -464,20 +466,25 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
     if (!lotnr.reportValidity()) return;
     if (await bestaatAl(`/lots/${lotnr.value}`)) return melding(`Lot ${lotnr.value} bestaat al`, "fout");
     const batches = [...gekozen].sort();
-    // Wijkt de keuze af van een lotvoorstel? Dan een reden vragen (de planner ziet die).
+    const norm = normVanKeuze();
+    const normAfwijkend = batches.length !== norm;
     const afwijkend = voorstellen.find((v) => v.batches.some((b) => gekozen.has(b.batchnummer)) &&
       v.batches.map((b) => b.batchnummer).sort().join() !== batches.join());
     let reden: string | undefined;
-    if (afwijkend) {
-      const r = await vraag(`Afwijken van lotvoorstel ${afwijkend.nummer}?`, [{ naam: "reden", label: "Reden", controle: (v) => (v.length < 3 ? "Geef een korte reden" : null) }],
-        "Verder", `De planner stelde voor: ${afwijkend.batches.map((b) => b.batchnummer).join(", ")}. Je kiest een andere samenstelling; geef aan waarom.`);
+    if (normAfwijkend || afwijkend) {
+      const uitleg = [
+        normAfwijkend ? `Productnorm: ${norm} batches; gekozen: ${batches.length}.` : "",
+        afwijkend ? `Planner stelde voor: ${afwijkend.batches.map((b) => b.batchnummer).join(", ")}.` : "",
+      ].filter(Boolean).join(" ");
+      const r = await vraag("Afwijking bij lotvorming", [{ naam: "reden", label: "Reden", controle: (v) => (v.trim().length < 3 ? "Geef een korte reden" : null) }],
+        "Verder", `${uitleg} Geef aan waarom je afwijkt.`);
       if (!r) return;
-      reden = r.reden;
+      reden = r.reden.trim();
     }
     const ok = await bevestig(
       `Lot ${lotnr.value} samenstellen?`,
-      h("div", {}, h("p", {}, "Deze batches worden samengevoegd:"), h("ul", { class: "samenvatting" }, batches.map((b) => h("li", {}, b))),
-        h("p", { class: "waarschuwing" }, "Dit kan niet ongedaan worden gemaakt.")),
+      h("div", {}, h("p", {}, `Deze ${batches.length} batches worden samengevoegd (productnorm ${normVanKeuze()}):`), h("ul", { class: "samenvatting" }, batches.map((b) => h("li", {}, b))),
+        h("p", { class: "waarschuwing" }, "Een afwijkend aantal vereist een reden. Dit kan niet ongedaan worden gemaakt.")),
       "Samenstellen",
     );
     if (!ok) return;
