@@ -85,10 +85,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["lots"],
         querystring: Type.Object({
           zoek: Type.Optional(Type.String({ description: "Deel van een lot- of batchnummer" })),
+          product: Type.Optional(Type.String({ description: "Alleen lots van dit product (productcode, D55). Leeg = alle producten" })),
           limiet: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 50 })),
         }),
         response: {
-          200: Type.Array(Type.Intersect([Lot, Type.Object({ afwijkingen: Type.Integer(), herbewerkingen: Type.Integer() })])),
+          200: Type.Array(Type.Intersect([Lot, Type.Object({ afwijkingen: Type.Integer(), herbewerkingen: Type.Integer(), product: Type.Union([Type.String(), Type.Null()]) })])),
         },
       },
     },
@@ -99,12 +100,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         `SELECT l.lotnummer, l.status, l.aangemaakt_op,
                 (SELECT coalesce(array_agg(b.batchnummer ORDER BY b.batchnummer), '{}') FROM batch b WHERE b.lot_id = l.id) AS batches,
                 (SELECT count(*) FROM lotpaspoort p WHERE p.lotnummer = l.lotnummer AND p.markering <> 'ok') AS afwijkingen,
-                (SELECT count(*) FROM stapregistratie r WHERE r.lot_id = l.id AND r.herbewerking_start) AS herbewerkingen
+                (SELECT count(*) FROM stapregistratie r WHERE r.lot_id = l.id AND r.herbewerking_start) AS herbewerkingen,
+                (SELECT min(pr.code) FROM batch b JOIN product pr ON pr.id = b.product_id WHERE b.lot_id = l.id) AS product
            FROM lot l
-          WHERE $1::text IS NULL OR l.lotnummer LIKE $1
-             OR EXISTS (SELECT 1 FROM batch b WHERE b.lot_id = l.id AND b.batchnummer LIKE $1)
+          WHERE ($1::text IS NULL OR l.lotnummer LIKE $1
+             OR EXISTS (SELECT 1 FROM batch b WHERE b.lot_id = l.id AND b.batchnummer LIKE $1))
+            AND ($3::text IS NULL OR EXISTS (SELECT 1 FROM batch b JOIN product pr ON pr.id = b.product_id
+                                              WHERE b.lot_id = l.id AND pr.code = $3))
           ORDER BY l.aangemaakt_op DESC LIMIT $2`,
-        [zoek, req.query.limiet ?? 50],
+        [zoek, req.query.limiet ?? 50, req.query.product || null],
       ) as never;
     },
   );

@@ -3,7 +3,7 @@ import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
 import { vraagIetsMelden } from "../../gedeeld/melden";
-import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen, ONDERDELEN_MET_PRODUCT, gekozenProduct, producten, sessie, stuur, tegelsVoor } from "./basis";
+import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
@@ -49,8 +49,6 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
     ...(heeftMeldingen()
       ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
       : []),
-    // De productkiezer staat, net als Meldingen, buiten het inklapbare deel (D55).
-    ...(ONDERDELEN_MET_PRODUCT[actiefPortaal]?.includes(actiefOnderdeel) ? [await productKiezer()].filter((x): x is Node => !!x) : []),
     inhoud);
   inhoud.replaceChildren(
     ...portalen.map((p) =>
@@ -76,20 +74,6 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
 }
 
 // ---------- Inloggen ----------
-/** Productkiezer voor de analyses: "Alle producten" of één product. Onthouden op deze computer. */
-async function productKiezer(): Promise<Node | null> {
-  let lijst: { code: string; naam: string }[];
-  try { lijst = await producten(); } catch { return null; }
-  if (lijst.length < 2) return null;
-  const sel = h("select", {
-    id: "product-keuze",
-    onchange: (e: Event) => { gekozenProduct.code = (e.target as HTMLSelectElement).value || null; void route(); },
-  },
-  h("option", { value: "" }, "Alle producten"),
-  lijst.map((p) => h("option", { value: p.code, selected: p.code === gekozenProduct.code }, `${p.code} – ${p.naam}`)));
-  return h("div", { class: "menu-product" }, h("label", { for: "product-keuze" }, "Product"), sel);
-}
-
 function loginScherm() {
   const naam = h("input", { id: "gebruikersnaam", type: "text", autocomplete: "username", required: true }) as HTMLInputElement;
   const ww = h("input", { id: "wachtwoord", type: "password", autocomplete: "current-password", required: true }) as HTMLInputElement;

@@ -138,8 +138,13 @@ try {
   // #89: producten met verschillende grenzen door elkaar: geen grens- of tolerantielijnen, wel uitleg.
   check("Alle producten: bij S9.2 geen grenslijnen en uitleg over de verschillende grenzen",
     (await page.locator(".grafiek > svg .grenslijn").count()) === 0 && (await page.locator("main p", { hasText: "producten met verschillende grenzen" }).count()) === 1);
+  // #93: de productkeuze staat geel in de filterbalk, niet meer in het menu.
+  check("Productkeuze in de filterbalk, niet in het menu", (await page.locator(".filters .filter-product #product-keuze").count()) === 1
+    && (await page.locator("#menu #product-keuze").count()) === 0);
+  const oudeFilter = await page.$(".filter-product");
   await page.selectOption("#product-keuze", "PRD-C");
-  await page.locator(".filter-product", { hasText: "PRD-C" }).waitFor();
+  await page.waitForFunction((el) => !el.isConnected, oudeFilter);
+  check("Gekozen product: voller geel", await page.locator(".filter-product.gekozen").waitFor({ timeout: 10000 }).then(() => true, () => false));
   await page.locator(".grafiek > svg").waitFor();
   const cN = await metingen();
   const [db9] = await q(`SELECT count(*)::int AS n FROM fabriek.waarde_actueel w JOIN fabriek.veld v ON v.id = w.veld_id
@@ -164,7 +169,13 @@ try {
     (await page.locator(".tabel tbody tr", { hasText: "S9.2 Gewicht" }).innerText()).includes("kies een product"));
   await page.getByRole("link", { name: "Lotpaspoort" }).click();
   await page.getByRole("heading", { name: "Lotpaspoort" }).waitFor();
-  check("Geen productkiezer bij het lotpaspoort", (await page.locator("#product-keuze").count()) === 0);
+  await page.locator(".tabel tbody tr").first().waitFor();
+  const alleLots = await page.locator(".tabel tbody tr").count();
+  await page.selectOption("#product-keuze", "PRD-C");
+  await page.waitForFunction((n) => document.querySelectorAll(".tabel tbody tr").length !== n || [...document.querySelectorAll(".tabel tbody tr")].every((r) => r.children[1]?.textContent === "PRD-C"), alleLots);
+  const lotProducten = await page.locator(".tabel tbody tr td:nth-child(2)").allInnerTexts();
+  check("Lotpaspoort: productkeuze toont alleen lots van PRD-C (#93)", lotProducten.length > 0 && lotProducten.every((t) => t === "PRD-C"), lotProducten.join(","));
+  await page.selectOption("#product-keuze", "");
 
   console.log("\nTe beoordelen");
   await page.getByRole("link", { name: /Te beoordelen/ }).click();

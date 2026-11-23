@@ -80,7 +80,9 @@ try {
   await dialoog().getByLabel(/Bovengrens/).fill("8,5");
   await dialoog().getByRole("button", { name: "Veld toevoegen" }).click();
   await page.locator("tr", { hasText: "S3.4" }).waitFor();
-  check("Nieuw veld kreeg code S3.4", (await page.locator("tr", { hasText: "S3.4" }).innerText()).includes("6 tot 8,5"));
+  const s34 = page.locator("tr", { hasText: "S3.4" });
+  check("Nieuw veld kreeg code S3.4, grenzen in twee kolommen (#96)", (await s34.locator('td[data-kop="Ondergrens"]').innerText()).trim() === "6"
+    && (await s34.locator('td[data-kop="Bovengrens"]').innerText()).trim() === "8,5");
 
   await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "Wijzigen" }).click();
   await dialoog().getByLabel(/Tolerantie \(/).fill("8");
@@ -107,28 +109,51 @@ try {
   await shot("01-stappen-en-velden");
   check("S3.4 staat uit", (await page.locator("tr", { hasText: "S3.4" }).innerText()).includes("(uit)"));
 
-  console.log("\nGrenzen per product (D55)");
-  await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "S3.1 grenzen per product" }).click();
-  await dialoog().getByLabel("Product").selectOption("PRD-B");
-  await dialoog().getByRole("button", { name: "Verder" }).click();
-  check("Grenzen per product: voorgevuld met de grenzen van het veld", (await dialoog().getByLabel(/Tolerantie \(/).inputValue()) === "8");
+  console.log("\nGrenzen per product (D55, #96: eerst het product kiezen)");
+  check("Geen knop 'Per product' meer bij elk veld", (await page.getByRole("button", { name: "Per product" }).count()) === 0);
+  // #95: de knoppen van het stapblok staan bij elke stap op dezelfde plek.
+  const knopPlek = async () => { const b = await page.getByRole("button", { name: "Veld toevoegen" }).boundingBox(); return `${Math.round(b.x)},${Math.round(b.y)}`; };
+  const plekPS3 = await knopPlek();
+  await page.getByRole("link", { name: /PS1\b/ }).first().click();
+  await page.getByRole("heading", { name: /^PS1 / }).waitFor();
+  check("Knoppen van het stapblok op dezelfde plek (#95)", (await knopPlek()) === plekPS3, `${plekPS3} / ${await knopPlek()}`);
+  await page.goto(`${BASIS}/portaal/#/beheer/stappen/PS3`);
+  await page.getByRole("heading", { name: "PS3 Mengen" }).waitFor();
+  await page.locator("#stap-product").selectOption("PRD-B");
+  await page.locator(".filter-product.gekozen").waitFor();
+  await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "S3.1 grenzen voor PRD-B" }).click();
+  check("Grenzen voor PRD-B: voorgevuld met de grenzen van het veld", (await dialoog().getByLabel(/Tolerantie \(/).inputValue()) === "8");
   await dialoog().getByLabel(/Tolerantie \(/).fill("2,5");
   await dialoog().getByLabel("Bovengrens").fill("100");
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
-  await page.locator("tr", { hasText: "S3.1" }).getByText("PRD-B: ±2,5 °C").waitFor();
-  check("PRD-B heeft eigen grenzen voor S3.1", (await page.locator("tr", { hasText: "S3.1" }).innerText()).includes("PRD-B: 20 tot 100 °C"));
+  await page.locator("tr", { hasText: "S3.1" }).getByText("±2,5 °C").waitFor();
+  const s31 = page.locator("tr", { hasText: "S3.1" });
+  check("PRD-B heeft eigen grenzen voor S3.1", (await s31.locator('td[data-kop="Bovengrens"]').innerText()).trim() === "100 °C"
+    && (await s31.locator(".eigen-grens").count()) === 1);
   const [vp] = await q(`SELECT vp.tolerantie::float AS t, vp.grens_max::float AS m FROM fabriek.veld_product vp JOIN fabriek.veld v ON v.id = vp.veld_id
                          JOIN fabriek.product p ON p.id = vp.product_id WHERE v.code = 'S3.1' AND p.code = 'PRD-B'`);
+  check("Tabel past in de breedte, knoppen zichtbaar (#95)", await page.locator(".stap-blok .tabel-kader").evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
   check("Opgeslagen in de database", vp?.t === 2.5 && vp?.m === 100, JSON.stringify(vp));
   await shot("01b-grenzen-per-product");
-  await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "S3.1 grenzen per product" }).click();
-  await dialoog().getByLabel("Product").selectOption("PRD-B");
-  await dialoog().getByRole("button", { name: "Verder" }).click();
+  await page.locator("#stap-product").selectOption("");
+  await page.locator("tr", { hasText: "S3.1" }).getByText("Eigen grenzen: PRD-B").waitFor();
+  check("Alle producten: bij het veld staat welke producten eigen grenzen hebben", true);
+  await page.locator("#stap-product").selectOption("PRD-B");
+  await page.locator(".filter-product.gekozen").waitFor();
+  await page.locator("tr", { hasText: "S3.1" }).getByRole("button", { name: "S3.1 grenzen voor PRD-B" }).click();
   await dialoog().getByLabel("Grenzen voor dit product").selectOption("veld");
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
   await page.locator("#melding", { hasText: "volgt weer de grenzen" }).waitFor();
-  await page.waitForFunction(() => ![...document.querySelectorAll("tr")].some((r) => r.textContent.includes("S3.1") && r.textContent.includes("PRD-B:")));
+  await page.waitForFunction(() => !document.querySelector(".eigen-grens"));
   check("Zelfde als het veld: eigen grenzen weg", (await q("SELECT count(*)::int AS n FROM fabriek.veld_product vp JOIN fabriek.veld v ON v.id = vp.veld_id WHERE v.code = 'S3.1'"))[0].n === 0);
+  // Een product met een eigen route toont alleen zijn eigen stappen (PRD-C slaat PS6 over, D55).
+  await page.locator("#stap-product").selectOption("PRD-C");
+  await page.locator(".filter-product.gekozen").waitFor();
+  await page.waitForFunction(() => document.querySelector("#stap-product")?.value === "PRD-C");
+  check("PRD-C: PS6 staat niet in de stappenlijst", (await page.locator(".stappenlijst a .code", { hasText: /^PS6$/ }).count()) === 0
+    && (await page.locator(".stappenlijst a .code", { hasText: /^PS5$/ }).count()) === 1);
+  await page.locator("#stap-product").selectOption("");
+  await page.waitForFunction(() => !document.querySelector(".filter-product.gekozen"));
 
   console.log("\nMedewerkers (#87)");
   await page.getByRole("link", { name: "Medewerkers" }).click();

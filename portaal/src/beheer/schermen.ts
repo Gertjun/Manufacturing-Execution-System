@@ -36,13 +36,21 @@ const getalOfNull = (t: string | undefined) => (t === undefined || t.trim() === 
 const tekst = (n: number | null) => (n === null ? "" : toonGetal(n).replace(/\./g, ""));
 
 // ---------- Stappen en velden ----------
+/** Gekozen product bovenaan Stappen en velden (#96); leeg = de grenzen van het veld zelf. */
+let stapProduct: string | null = null;
 export async function stappen(code?: string) {
   const actueel = vastHouden();
   toon(kop("Stappen en velden"), laden());
   let alle: Stap[];
   try { alle = await haal<Stap[]>("/config/stappen?ookInactief=true"); } catch (e) { return fout(e); }
   if (!actueel()) return;
-  const s = alle.find((x) => x.code === code) ?? alle[0];
+  let lijst: { code: string; naam: string; route: string[] | null }[] = [];
+  try { lijst = await haal<typeof lijst>("/planning/producten"); } catch { /* zonder producten: alleen de grenzen van het veld */ }
+  if (!actueel()) return;
+  if (stapProduct && !lijst.some((p) => p.code === stapProduct)) stapProduct = null;
+  const gekozen = lijst.find((p) => p.code === stapProduct);
+  const magStap = (x: Stap) => !gekozen || (gekozen.route ? gekozen.route.includes(x.code) : x.soort !== "keuring");
+  const s = alle.find((x) => x.code === code && magStap(x)) ?? alle.find(magStap) ?? alle[0];
   const opnieuw = () => stappen(s.code);
 
   const veldVragen = (v?: Veld, soort?: string): VraagVeld[] => {
@@ -130,20 +138,12 @@ export async function stappen(code?: string) {
   const tolerantieTekst = (t: { tolerantie: number | null; tolerantie_soort: string }, eenheid: string | null) =>
     t.tolerantie !== null ? `±${toonGetal(t.tolerantie)}${t.tolerantie_soort === "procent" ? " %" : eenheid ? ` ${eenheid}` : ""}` : "";
 
-  // Grenzen per product (D55): eerst het product kiezen, dan de grenzen; "Zelfde als het veld" haalt ze weg.
-  const perProduct = async (v: Veld) => {
-    let lijst: { code: string; naam: string }[];
-    try { lijst = await haal<{ code: string; naam: string }[]>("/planning/producten"); } catch (e) { return melding((e as Error).message, "fout"); }
-    if (!lijst.length) return melding("Er zijn nog geen producten. Voeg ze toe in Planning → Producten.", "fout");
-    const keuze = await vraag(`${v.code} ${v.naam}: grenzen per product`, [{
-      naam: "product", label: "Product",
-      opties: lijst.map((p): [string, string] => [p.code, `${p.code} – ${p.naam}${v.per_product?.some((x) => x.product === p.code) ? " (eigen grenzen)" : ""}`]),
-    }], "Verder", "Een product zonder eigen grenzen volgt de grenzen van het veld.");
-    if (!keuze) return;
-    const eigen = v.per_product?.find((x) => x.product === keuze.product);
+  // Grenzen per product (D55): het product staat bovenaan gekozen (#96); "Zelfde als het veld" haalt ze weg.
+  const perProduct = async (v: Veld, product: string) => {
+    const eigen = v.per_product?.find((x) => x.product === product);
     const bron = eigen ?? v;
     const isParameter = v.soort === "procesparameter";
-    const r = await vraag(`${v.code} voor ${keuze.product}`, [
+    const r = await vraag(`${v.code} voor ${product}`, [
       { naam: "gebruik", label: "Grenzen voor dit product", opties: [["eigen", "Eigen grenzen (hieronder)"], ["veld", "Zelfde als het veld"]], waarde: "eigen" },
       { naam: "grens_min", label: "Ondergrens", type: "getal", waarde: tekst(bron.grens_min), optioneel: true },
       { naam: "grens_max", label: "Bovengrens", type: "getal", waarde: tekst(bron.grens_max), optioneel: true },
@@ -155,10 +155,10 @@ export async function stappen(code?: string) {
         : []),
     ], "Opslaan", `Het veld zelf: ${grenzen(v, v.eenheid) || "geen grenzen"}${isParameter && v.tolerantie !== null ? `, ${tolerantieTekst(v, v.eenheid)}` : ""}. Nieuwe grenzen gelden voor metingen vanaf nu; eerdere metingen houden de grenzen van toen.`);
     if (!r) return;
-    const pad = `/beheer/velden/${encodeURIComponent(v.code)}/producten/${encodeURIComponent(keuze.product)}`;
+    const pad = `/beheer/velden/${encodeURIComponent(v.code)}/producten/${encodeURIComponent(product)}`;
     if (r.gebruik === "veld") {
-      if (!eigen) return melding(`${keuze.product} volgt al de grenzen van het veld`, "ok");
-      return wijzig(() => stuur("DELETE", pad), `${keuze.product} volgt weer de grenzen van ${v.code}`, opnieuw);
+      if (!eigen) return melding(`${product} volgt al de grenzen van het veld`, "ok");
+      return wijzig(() => stuur("DELETE", pad), `${product} volgt weer de grenzen van ${v.code}`, opnieuw);
     }
     const min = getalOfNull(r.grens_min), max = getalOfNull(r.grens_max);
     if (min !== null && max !== null && min > max) return melding("De ondergrens is hoger dan de bovengrens", "fout");
@@ -166,8 +166,22 @@ export async function stappen(code?: string) {
       grens_min: min, grens_max: max,
       tolerantie: isParameter ? getalOfNull(r.tolerantie) : null,
       ...(isParameter ? { tolerantie_soort: r.tolerantie_soort } : {}),
-    }), `Grenzen van ${v.code} voor ${keuze.product} opgeslagen`, opnieuw);
+    }), `Grenzen van ${v.code} voor ${product} opgeslagen`, opnieuw);
   };
+
+  // Productkeuze bovenaan (#96): de stappen van dat product en hun grenzen voor dat product.
+  const product = lijst.find((p) => p.code === stapProduct) ?? null;
+  const inRoute = (x: Stap) => !product || (product.route ? product.route.includes(x.code) : x.soort !== "keuring");
+  const productSel = h("select", {
+    id: "stap-product",
+    onchange: (e: Event) => { stapProduct = (e.target as HTMLSelectElement).value || null; void stappen(s.code); },
+  }, h("option", { value: "" }, "Alle producten: de grenzen van het veld"),
+  lijst.map((p) => h("option", { value: p.code, selected: p.code === product?.code }, `${p.code} – ${p.naam}`)));
+  const getalCel = (n: number | null, eenheid: string | null) => (n === null ? "" : `${toonGetal(n)}${eenheid ? ` ${eenheid}` : ""}`);
+  const voorProduct = (v: Veld) => (product ? v.per_product?.find((x) => x.product === product.code) ?? null : null);
+  const stapLink = (x: Stap) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam);
+  const zichtbaar = alle.filter(inRoute);
+  const extra = (v: Veld) => [v.verplicht ? "" : "niet verplicht", v.op_certificaat ? "op het certificaat" : ""].filter(Boolean).join(", ").replace(/^./, (c) => c.toUpperCase());
 
   toon(
     kop("Stappen en velden", "Per stap de velden die operators invullen. Het invoerscherm bouwt zijn formulieren hieruit op.",
@@ -176,17 +190,19 @@ export async function stappen(code?: string) {
         h("label", { class: "knop", for: "sjabloon-bestand" }, "Sjabloon inlezen"),
         h("input", { id: "sjabloon-bestand", type: "file", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", class: "verborgen",
           onchange: (e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void sjabloonInlezen(f, s.code); } }))),
+    lijst.length ? h("div", { class: "filters" }, h("label", { for: "stap-product", class: `filter filter-product${product ? " gekozen" : ""}` }, "Product", productSel)) : null,
     h("div", { class: "beheer-indeling" },
       h("nav", { class: "stappenlijst", "aria-label": "Stappen" },
         h("div", { class: "lijstkop" }, "Per batch"),
-        alle.filter((x) => x.niveau === "batch" && x.soort !== "keuring").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam)),
+        zichtbaar.filter((x) => x.niveau === "batch" && x.soort !== "keuring").map(stapLink),
         h("div", { class: "lijstkop" }, "Per lot"),
-        alle.filter((x) => x.niveau === "lot" && x.soort !== "keuring").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam)),
-        alle.some((x) => x.soort === "keuring") ? h("div", { class: "lijstkop" }, "Keuringen") : null,
-        alle.filter((x) => x.soort === "keuring").map((x) => h("a", { href: `#/beheer/stappen/${x.code}`, "aria-current": x.code === s.code ? "page" : undefined }, h("span", { class: "code" }, x.code), x.naam))),
-      h("section", { class: "blok", style: "margin-top:0" },
-        h("div", { class: "kop" },
-          h("div", {}, h("h2", { style: "margin:0" }, `${s.code} ${s.naam}`),
+        zichtbaar.filter((x) => x.niveau === "lot" && x.soort !== "keuring").map(stapLink),
+        zichtbaar.some((x) => x.soort === "keuring") ? h("div", { class: "lijstkop" }, "Keuringen") : null,
+        zichtbaar.filter((x) => x.soort === "keuring").map(stapLink)),
+      // Vaste opbouw (#95): titel links, knoppen altijd rechtsboven, ook bij een lange uitleg.
+      h("section", { class: "blok stap-blok" },
+        h("div", { class: "stap-blok-kop" },
+          h("div", {}, h("h2", {}, `${s.code} ${s.naam}`),
             h("p", { class: "sub" }, s.soort === "keuring"
               ? `Keuringsstap, per ${s.niveau === "batch" ? "batch" : "lot"}: alleen Kwaliteit meet. Waar het product aan moet voldoen staat per product in de specificatie (Kwaliteit → Specificaties).`
               : `${s.niveau === "batch" ? "Per batch" : "Per lot"}${s.is_lot_stap ? ", hier worden 4 batches één lot" : ""}`)),
@@ -194,22 +210,29 @@ export async function stappen(code?: string) {
             h("button", { class: "knop", onclick: hernoem }, "Naam wijzigen"),
             h("button", { class: "knop knop-hoofd", onclick: veldToevoegen }, "Veld toevoegen"))),
         s.velden.length
-          ? tabel(["Code", "Naam", "Soort", "Wie meet", "Grenzen", "Tolerantie", "Verplicht", "Certificaat", ""], s.velden.map((v) => [
-              h("strong", { class: v.actief ? "" : "inactief" }, v.code),
-              h("span", { class: v.actief ? "" : "inactief" }, v.naam, v.actief ? "" : " (uit)"),
-              SOORTEN.find(([k]) => k === v.soort)?.[1].replace(/ \(.*\)/, "") ?? v.soort,
-              v.gemeten_door === "kwaliteit" ? h("strong", {}, "Kwaliteit") : "Productie",
-              h("div", {}, grenzen(v, v.eenheid),
-                (v.per_product ?? []).map((p) => h("div", { class: "sub per-product" }, `${p.product}: ${grenzen(p, v.eenheid) || "geen grenzen"}`))),
-              h("div", {}, tolerantieTekst(v, v.eenheid),
-                v.soort === "procesparameter" ? (v.per_product ?? []).map((p) => h("div", { class: "sub per-product" }, `${p.product}: ${tolerantieTekst(p, v.eenheid) || "geen"}`)) : null),
-              jaNee(v.verplicht),
-              v.op_certificaat ? "Ja" : "",
-              h("div", { class: "knoppen-klein" },
-                v.actief ? h("button", { class: "knop knop-klein", onclick: () => veldWijzigen(v) }, "Wijzigen") : null,
-                v.actief ? h("button", { class: "knop knop-klein", "aria-label": `${v.code} grenzen per product`, onclick: () => perProduct(v) }, "Per product") : null,
-                h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(v, !v.actief) }, v.actief ? "Uitzetten" : "Weer aanzetten")),
-            ]), "compact")
+          // Het product staat geel bovenaan; de kolommen heten daarom gewoon Ondergrens en Bovengrens.
+          ? tabel(["Code", "Naam", "Soort", "Ondergrens", "Bovengrens", "Tolerantie", ""], s.velden.map((v) => {
+              const eigen = voorProduct(v);
+              const g = eigen ?? v;
+              const eigenTag = eigen ? h("span", { class: "etiket eigen-grens", title: `Eigen grenzen voor ${product!.code}` }, "eigen") : null;
+              return [
+                h("strong", { class: v.actief ? "" : "inactief" }, v.code),
+                h("div", {}, h("span", { class: v.actief ? "" : "inactief" }, v.naam, v.actief ? "" : " (uit)"), eigenTag ? " " : null, eigenTag,
+                  // Verplicht is het gewone geval; alleen de uitzonderingen staan erbij.
+                  extra(v) ? h("div", { class: "sub" }, extra(v)) : null,
+                  !product && v.per_product?.length ? h("div", { class: "sub per-product" }, `Eigen grenzen: ${v.per_product.map((p) => p.product).join(", ")}`) : null),
+                // Wie meet staat erbij als het Kwaliteit is; Productie is het gewone geval.
+                h("div", {}, SOORTEN.find(([k]) => k === v.soort)?.[1].replace(/ \(.*\)/, "") ?? v.soort,
+                  v.gemeten_door === "kwaliteit" ? h("div", { class: "sub" }, h("strong", {}, "Kwaliteit"), " meet") : null),
+                h("span", { class: "getal" }, getalCel(g.grens_min, v.eenheid)),
+                h("span", { class: "getal" }, getalCel(g.grens_max, v.eenheid)),
+                v.soort === "procesparameter" ? tolerantieTekst(g, v.eenheid) : "",
+                h("div", { class: "knoppen-klein rij-knoppen" },
+                  v.actief ? h("button", { class: "knop knop-mini", onclick: () => veldWijzigen(v) }, "Wijzigen") : null,
+                  v.actief && product ? h("button", { class: "knop knop-mini", "aria-label": `${v.code} grenzen voor ${product.code}`, onclick: () => perProduct(v, product.code) }, "Grenzen") : null,
+                  h("button", { class: "knop knop-mini knop-stil", onclick: () => zetActief(v, !v.actief) }, v.actief ? "Uitzetten" : "Weer aanzetten")),
+              ];
+            }), "compact stap-velden")
           : h("p", { class: "leeg" }, "Deze stap heeft nog geen velden.")),
     ),
   );

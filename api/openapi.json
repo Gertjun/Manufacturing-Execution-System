@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.59.0",
+    "version": "0.60.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -6727,6 +6727,15 @@
           },
           {
             "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "product",
+            "required": false,
+            "description": "Alleen lots van dit product (productcode, D55). Leeg = alle producten"
+          },
+          {
+            "schema": {
               "type": "integer",
               "minimum": 1,
               "maximum": 500,
@@ -6777,7 +6786,8 @@
                         "type": "object",
                         "required": [
                           "afwijkingen",
-                          "herbewerkingen"
+                          "herbewerkingen",
+                          "product"
                         ],
                         "properties": {
                           "afwijkingen": {
@@ -6785,6 +6795,10 @@
                           },
                           "herbewerkingen": {
                             "type": "integer"
+                          },
+                          "product": {
+                            "type": "string",
+                            "nullable": true
                           }
                         }
                       }

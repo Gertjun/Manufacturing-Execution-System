@@ -50,7 +50,8 @@ a { color: var(--actie); }
 .knop-link { background: none; border: none; color: var(--op-kleur); font: inherit; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; }
 
 /* ---------- Inhoud ---------- */
-#scherm { padding: var(--space-5) var(--space-6) var(--space-8); max-width: 1280px; outline: none; }
+/* Geen maximale breedte (#95): tekst blijft smal via p { max-width: 75ch }, tabellen en grafieken vullen de breedte. */
+#scherm { padding: var(--space-5) var(--space-6) var(--space-8); outline: none; }
 .kop { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
 /* De titel krijgt de ruimte; knoppen en filters rechts blijven op één regel naast de titel staan (0.42.1). */
 .kop > :first-child { flex: 1 1 22rem; min-width: 0; }
@@ -176,7 +177,6 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
   #menu-inhoud[data-dicht] { display: none; }
   #scherm { padding: var(--space-4) var(--space-4) var(--space-7); }
   /* Productkiezer op één regel, zodat de inhoud hoog in beeld blijft. */
-  .menu-product { grid-template-columns: auto 1fr; align-items: center; gap: var(--space-3); margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .melding { transition: none; } }
 
@@ -364,9 +364,6 @@ body.wand .wand-stap { min-height: 0; overflow: hidden; }
 /* Meldingen */
 .menu-meldingen { margin-bottom: var(--space-1); border: 1px solid var(--lijn-op-donker); }
 /* Productkiezer bovenin het menu (D55) */
-.menu-product { display: grid; gap: var(--space-1); margin: var(--space-1) 0 var(--space-2); }
-.menu-product label { color: var(--menu-zacht); font-size: var(--text-sm); }
-.menu-product select { width: 100%; }
 .meldingen { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-2); }
 .melding-rij { display: grid; grid-template-columns: 30px 1fr auto; gap: var(--space-3); align-items: center; background: var(--vlak); border: 1px solid var(--lijn); border-left: 6px solid var(--lijn); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
 .melding-rij p { margin: 0; }
@@ -527,8 +524,10 @@ a.merk:hover { text-decoration: underline; }
 
 /* Periode met het gekozen product erachter (D55) */
 .filter-groep { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; }
-.filter-product { padding-bottom: var(--space-2); color: var(--inkt-zacht); }
-.filter-product strong { color: var(--inkt); }
+/* Productkeuze (#93): geel, zodat je ziet over welk product de cijfers gaan; voller geel als er één gekozen is. */
+.filter-product { background: var(--signaal-vlak); border: 2px solid var(--signaal); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2) var(--space-2); color: var(--inkt); font-weight: 700; }
+.filter-product.gekozen { background: var(--signaal); }
+.filter-product select { font-weight: 400; }
 
 /* Lotpaspoort: afwijking openklappen (#56) */
 .label-knop { display: inline-flex; align-items: center; gap: var(--space-1); background: none; border: 1px solid transparent; border-radius: var(--radius-sm); padding: var(--space-1); min-height: var(--doel-min); cursor: pointer; font: inherit; color: inherit; }
@@ -720,3 +719,18 @@ a.merk:hover { text-decoration: underline; }
 .dag-kiezer { display: inline-flex; align-items: center; }
 .dag-kiezer input[type="date"] { font: inherit; min-height: var(--doel-min); padding: 0 var(--space-2); border: 1px solid var(--lijn-sterk, var(--inkt-zacht)); border-radius: var(--radius-sm); background: var(--vlak); color: var(--inkt); }
 .verborgen-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* #95: tekst blijft smal (p max 75ch), tabellen en grafieken gebruiken de hele breedte. Een grafiek wordt niet hoger dan het scherm. */
+
+.grafiek > svg { max-height: 70vh; }
+/* Stappen en velden (#95): titel links, knoppen altijd rechtsboven; knoppen per veld op één regel, rechts. */
+.stap-blok { margin-top: 0; }
+.stap-blok-kop { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); align-items: start; margin-bottom: var(--space-3); }
+.stap-blok-kop h2 { margin: 0; }
+.stap-blok-kop .knoppen-klein { flex-wrap: nowrap; }
+.tabel.stap-velden td .rij-knoppen { flex-wrap: nowrap; justify-content: flex-end; }
+.eigen-grens { background: var(--signaal-vlak); }
+@media screen and (max-width: 600px) {
+  .stap-blok-kop { grid-template-columns: minmax(0, 1fr); }
+  .tabel.stap-velden td .rij-knoppen { flex-wrap: wrap; justify-content: flex-start; }
+}

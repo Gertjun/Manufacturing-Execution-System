@@ -5,7 +5,7 @@ import { tabelNaarExcel } from "../excel";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../../../gedeeld/ui";
 import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
-import { ApiFout, gekozenProduct, haal, periode, PERIODES, qs, sessie, stuur } from "../basis";
+import { ApiFout, gekozenProduct, haal, periode, PERIODES, producten, qs, sessie, stuur } from "../basis";
 import { afwijkingenPerWeek, gemengdeGrenzen, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
 import { aanvullen, perTekst, perWoord, resolutie, RESOLUTIES, volgende, type Per } from "../resolutie";
 
@@ -30,9 +30,33 @@ export function periodeKeuze(opnieuw: () => void, metProduct = true, metPer = fa
         h("select", { id: "per", onchange: (e: Event) => { resolutie.per = (e.target as HTMLSelectElement).value as Per; opnieuw(); } },
           RESOLUTIES.map((r) => h("option", { value: r.id, selected: r.id === resolutie.per }, r.naam))))
     : null;
-  const product = metProduct && gekozenProduct.code ? h("span", { class: "filter-product" }, "Product ", h("strong", {}, gekozenProduct.code)) : null;
+  const product = metProduct ? productKeuze(opnieuw) : null;
   if (!perSel && !product) return label;
   return h("div", { class: "filter-groep" }, label, perSel, product);
+}
+
+/** Productkeuze in de filterbalk (#93, D55), geel zodat je ziet over welk product de cijfers gaan.
+ *  Onthouden op deze computer; met minder dan twee producten staat hij er niet. */
+export function productKeuze(opnieuw: () => void): HTMLElement {
+  let label: HTMLElement;
+  const code = gekozenProduct.code;
+  const sel = h("select", {
+    id: "product-keuze",
+    onchange: (e: Event) => {
+      const nieuw = (e.target as HTMLSelectElement).value || null;
+      gekozenProduct.code = nieuw;
+      label.classList.toggle("gekozen", !!nieuw);
+      label.dataset.product = nieuw ?? "";
+      opnieuw();
+    },
+  }, h("option", { value: "" }, "Alle producten"), code ? h("option", { value: code, selected: true }, code) : null) as HTMLSelectElement;
+  label = h("label", { for: "product-keuze", class: `filter filter-product${code ? " gekozen" : ""}`, "data-product": code ?? "" }, "Product", sel);
+  producten().then((lijst) => {
+    if (lijst.length < 2 && !gekozenProduct.code) { label.remove(); return; }
+    sel.replaceChildren(h("option", { value: "" }, "Alle producten"),
+      ...lijst.map((p) => h("option", { value: p.code, selected: p.code === gekozenProduct.code }, `${p.code} – ${p.naam}`)));
+  }).catch(() => {});
+  return label;
 }
 
 export function tabel(koppen: string[], rijen: (Node | string | number | null)[][], klasse = "") {
@@ -355,7 +379,7 @@ function metingDetail(m: MetingDetail): Node {
             : h("p", { class: "sub" }, "Het lot is niet herbewerkt.")));
 }
 
-interface Lot { lotnummer: string; status: string; aangemaakt_op: string; batches: string[]; afwijkingen?: number; herbewerkingen?: number }
+interface Lot { lotnummer: string; status: string; aangemaakt_op: string; batches: string[]; product?: string | null; afwijkingen?: number; herbewerkingen?: number }
 const lotStatus: Record<string, string> = { in_productie: "In productie", gereed: "Gereed", geblokkeerd: "Geblokkeerd" };
 
 export async function lotpaspoort(nummer?: string) {
@@ -368,11 +392,11 @@ export async function lotpaspoort(nummer?: string) {
   const laad = async () => {
     const mijn = ++laatste;
     try {
-      const lots = await haal<Lot[]>(`/lots${qs({ zoek: zoek.value.trim(), limiet: 30 })}`);
+      const lots = await haal<Lot[]>(`/lots${qs({ zoek: zoek.value.trim(), product: gekozenProduct.code ?? "", limiet: 30 })}`);
       if (!actueel() || mijn !== laatste) return;
       lijst.replaceChildren(lots.length
-        ? tabel(["Lot", "Status", "Gemaakt", "Batches", "Afwijkingen", "Herbewerkingen"], lots.map((l) => [
-            h("a", { href: `#/kwaliteit/lotpaspoort/${l.lotnummer}`, class: "sterk" }, l.lotnummer), lotStatus[l.status] ?? l.status, datum(l.aangemaakt_op),
+        ? tabel(["Lot", "Product", "Status", "Gemaakt", "Batches", "Afwijkingen", "Herbewerkingen"], lots.map((l) => [
+            h("a", { href: `#/kwaliteit/lotpaspoort/${l.lotnummer}`, class: "sterk" }, l.lotnummer), l.product ?? "", lotStatus[l.status] ?? l.status, datum(l.aangemaakt_op),
             l.batches.join(", "), h("span", { class: l.afwijkingen ? "getal let-op" : "getal" }, l.afwijkingen ?? 0), h("span", { class: "getal" }, l.herbewerkingen ?? 0),
           ]))
         : h("p", { class: "leeg" }, "Geen lots gevonden."));
@@ -382,7 +406,7 @@ export async function lotpaspoort(nummer?: string) {
   zoek.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(laad, 250); });
   toon(
     kop("Lotpaspoort", "Alles over één lot en zijn 4 batches. Zoek op lotnummer of op een batch die erin zit."),
-    h("div", { class: "filters" }, h("label", { for: "zoek-lot", class: "filter breed" }, "Zoeken", zoek)),
+    h("div", { class: "filters" }, h("label", { for: "zoek-lot", class: "filter breed" }, "Zoeken", zoek), productKeuze(() => void laad())),
     lijst,
   );
   await laad();

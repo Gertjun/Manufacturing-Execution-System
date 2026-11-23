@@ -516,6 +516,9 @@ describe("analyses voor Kwaliteit", () => {
     const lots = await verzoek("GET", "/lots?zoek=0100", t);
     assert.equal(lots.body[0].lotnummer, "L-2026-0001");
     assert.equal(lots.body[0].herbewerkingen, 1);
+    // #93: lots per product; een ander product geeft niets.
+    assert.deepEqual((await verzoek("GET", "/lots?zoek=0100&product=BESTAATNIET", t)).body, []);
+    if (lots.body[0].product) assert.equal((await verzoek("GET", `/lots?zoek=0100&product=${lots.body[0].product}`, t)).body[0].lotnummer, "L-2026-0001");
     const tb = await verzoek("GET", "/analyse/te-beoordelen", t);
     assert.equal(tb.status, 200);
     const bp = await verzoek("GET", "/batches/B-2026-0100/paspoort", t);

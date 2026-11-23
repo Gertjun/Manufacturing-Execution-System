@@ -83,13 +83,15 @@ try {
   // S18.3 heeft eigen grenzen voor PRD-B (D55): met alle producten geen eenduidige specificatie, dus geen Cpk.
   check("Vochtgehalte, alle producten: geen Cpk, wel uitleg", (await page.locator(".tegel", { hasText: "Cpk" }).count()) === 0
     && (await page.locator("main p", { hasText: "eigen grenzen per product" }).count()) === 1);
+  let oud = await page.$(".filter-product");
   await page.selectOption("#product-keuze", "PRD-A");
-  await page.locator(".filter-product", { hasText: "PRD-A" }).waitFor();
+  await page.waitForFunction((el) => !el.isConnected, oud);
   await page.selectOption("#periode", "90");  // één product heeft minder metingen: langere periode voor een Cpk
   await page.locator(".tegel", { hasText: "Cpk" }).waitFor({ timeout: 10000 }).catch(() => {});
   check("Vochtgehalte, PRD-A: specificatie en Cpk", (await page.locator(".tegel", { hasText: "Cpk" }).count()) === 1);
+  oud = await page.$(".filter-product");
   await page.selectOption("#product-keuze", "");
-  await page.locator(".filter-product").waitFor({ state: "detached" });
+  await page.waitForFunction((el) => !el.isConnected, oud);
   await page.selectOption("#periode", "30");
   await page.screenshot({ path: `${SHOTS}/03-vocht.png`, fullPage: true });
   await page.getByLabel("Periode").selectOption("7");

@@ -5,6 +5,16 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.60.0 — 23 november 2026 · #93 #95 #96
+- **Productkeuze in de filterbalk** (#93). Het product kies je niet meer in het menu, maar naast Periode en Groeperen, in een geel vak; met één product gekozen is het geel voller. Het **lotpaspoort** heeft de keuze ook: dan staan alleen de lots van dat product in de lijst, met een kolom Product.
+- **Schermbreedte** (#95). Tabellen en grafieken gebruiken de hele breedte van het scherm; tekst blijft smal zodat hij leesbaar is. Een grafiek wordt niet hoger dan het scherm.
+- **Stappen en velden: eerst het product kiezen** (#96).
+  - Bovenaan staat een productkeuze (geel). Kies je een product, dan zie je alleen de stappen van dat product en per veld zijn grenzen voor dat product, met "eigen" als het eigen grenzen heeft. De knop **Grenzen** past ze aan. De knop "Per product" bij elk veld is weg.
+  - Zonder product zie je de grenzen van het veld zelf, en bij het veld welke producten eigen grenzen hebben.
+  - Grenzen staan in twee kolommen: **Ondergrens** en **Bovengrens**.
+  - Het blok van de gekozen stap heeft een vaste opbouw: de knoppen staan bij elke stap op dezelfde plek, en de tabel past zonder schuiven op een laptop. "Wie meet" staat er alleen bij als Kwaliteit meet; "niet verplicht" en "op het certificaat" staan onder de naam.
+- API: `/lots` kan filteren op `product` en geeft het product van elk lot terug (oudere invoerschermen merken niets, D18).
+
 ## 0.59.0 — 23 november 2026 · #48 #97 #98 #99
 - **Dagoverzicht en Batchroute blijven allebei** (#48, D74). "(proef)" staat niet meer in het menu en de proefmelding is weg.
 - **Naar een dag springen:** in Stappen plannen en het Dagoverzicht staat naast Vorige dag, Vandaag en Volgende dag een datumveld met kalender (#97).

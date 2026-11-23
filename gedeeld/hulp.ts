@@ -126,7 +126,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
       {
         kop: "Analyses",
         punten: [
-          "Kies bovenin het menu een product, of alle producten. Die keuze blijft op deze computer staan.",
+          "Kies boven de grafiek of tabel een product (het gele vak), of alle producten. Die keuze blijft op deze computer staan, ook in het lotpaspoort.",
           "Regelkaarten (onder 20 metingen voorlopig), Afwijkingen, Trend per veld en Grondstoffen terugzoeken. Elke tabel kan Naar Excel.",
         ],
       },
@@ -223,7 +223,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         kop: "Analyses",
         punten: [
           "Je ziet de portalen Kwaliteit en Productieanalyse, maar kunt niets wijzigen.",
-          "Kies bovenin het menu een product en boven de tabel de periode. Elke tabel kan Naar Excel.",
+          "Kies boven de tabel het product (het gele vak) en de periode. Elke tabel kan Naar Excel.",
         ],
       },
     ],

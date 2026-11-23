@@ -195,13 +195,8 @@ export const periode = {
   },
 };
 
-// ---------- Productkiezer (D55): bovenin Kwaliteit en Productieanalyse, onthouden op deze computer ----------
+// ---------- Productkiezer (D55, #93): in de filterbalk van de analyses, onthouden op deze computer ----------
 const PRODUCT_SLEUTEL = "portaal.product";
-/** Schermen waarvan de analyse per product kan; alleen daar staat de productkiezer. */
-export const ONDERDELEN_MET_PRODUCT: Record<string, string[]> = {
-  kwaliteit: ["overzicht", "regelkaarten", "afwijkingen", "trend", "herbewerkingen"],
-  productie: ["doorlooptijden", "week", "correcties"],
-};
 export const gekozenProduct = {
   get code(): string | null {
     try { return localStorage.getItem(PRODUCT_SLEUTEL) || null; } catch { return null; }
