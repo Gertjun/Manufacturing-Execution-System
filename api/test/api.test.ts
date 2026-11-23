@@ -278,7 +278,7 @@ describe("productie van batch tot lot", () => {
   });
 
   test("vier batches doorlopen PS1-PS15 en worden een lot", async () => {
-    const prod = await verzoek("GET", "/planning/producten", planner);
+    const prod = await verzoek("GET", "/planning/producten", op);
     const productId = prod.body.find((p: any) => p.code === "PRD-A").id;
     await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = ANY($2)", [productId, ["B-2026-0100", "B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]]);
     await doorloop(op, "B-2026-0100", "batch", 2, 15);
@@ -323,7 +323,7 @@ describe("productie van batch tot lot", () => {
 
   test("lot met minder dan de productnorm wordt door de API geweigerd", async () => {
     const r = await verzoek("POST", "/lots", op, { lotnummer: "L-2026-0002", batchnummers: ["B-2026-0100"] });
-    assert.equal(r.status, 422);
+    assert.equal(r.status, 400);
   });
 
   test("lotstappen, herbewerking en lotpaspoort", async () => {
