@@ -237,7 +237,8 @@ h2:not(:first-child) { margin-top: var(--space-5); }
 .server-tegels .tegel-getal { font-size: var(--text-xl); }
 
 /* ---------- Planning ---------- */
-.weekraster { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+/* Per week: de dagen onder elkaar, één dag per rij (op verzoek van Geert, 0.47.1). */
+.weekraster { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-4); }
 .dagkaart { background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); display: grid; gap: var(--space-2); align-content: start; }
 .dagkaart.vandaag { border: 2px solid var(--inkt); }
 .dagkaart.voorbij { background: var(--vlak-3); }

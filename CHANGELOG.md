@@ -5,6 +5,9 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.47.1 — 23 november 2026
+- Planning → Per week: de dagen staan nu **onder elkaar** (maandag bovenaan, zondag onderaan), niet meer naast elkaar. Op elk schermformaat hetzelfde.
+
 ## 0.47.0 — 22 november 2026 · #77
 - Nieuw: **pilotoverzicht** (Beheer → Pilotoverzicht; de productiemanager ziet het bij Productieanalyse). Voor de wekelijkse controle en de evaluatie na 8 weken:
   - Kerncijfers: stappen afgerond, hoeveel invoer op tijd op de server was, stappen van papier, geweigerde invoer en opmerkingen.
