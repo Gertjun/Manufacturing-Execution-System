@@ -2264,14 +2264,14 @@ CREATE TRIGGER capaciteit_stap_log BEFORE INSERT OR UPDATE OR DELETE ON capacite
 ALTER TABLE product ADD COLUMN batchgewicht_kg numeric CHECK (batchgewicht_kg > 0 AND batchgewicht_kg <= 100000);
 ALTER TABLE product ADD COLUMN batches_per_lot int NOT NULL DEFAULT 4 CHECK (batches_per_lot BETWEEN 1 AND 50);
 
-CREATE FUNCTION verval_lotvoorstellen_bij_lotgrootte() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE FUNCTION verval_lotvoorstellen_bij_lotgrootte() RETURNS trigger LANGUAGE plpgsql AS $body$
 BEGIN
     UPDATE lot_voorstel v SET status = 'vervallen', afgesloten_op = clock_timestamp()
      WHERE v.status = 'open'
        AND EXISTS (SELECT 1 FROM lot_voorstel_batch x JOIN batch b ON b.id = x.batch_id
                     WHERE x.voorstel_id = v.id AND b.product_id = NEW.id);
     RETURN NEW;
-END $;
+END $body$;
 CREATE TRIGGER product_lotgrootte_verval_voorstellen
 AFTER UPDATE OF batches_per_lot ON product
 FOR EACH ROW WHEN (OLD.batches_per_lot IS DISTINCT FROM NEW.batches_per_lot)
