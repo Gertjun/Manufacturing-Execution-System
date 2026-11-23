@@ -280,6 +280,8 @@ describe("productie van batch tot lot", () => {
   });
 
   test("vier batches doorlopen PS1-PS15 en worden een lot", async () => {
+    const producten = await verzoek("GET", "/planning/producten", op);
+    const productId = producten.body.find((p: any) => p.code === "PRD-A").id;
     await doorloop(op, "B-2026-0100", "batch", 2, 15);
     for (const nr of ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]) {
       assert.equal((await verzoek("POST", "/batches", op, { batchnummer: nr, productId })).status, 201);
