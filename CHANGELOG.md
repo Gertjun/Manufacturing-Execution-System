@@ -1,6 +1,6 @@
 # Changelog – wat is er per versie veranderd
 
-## 0.64.0 — 23 november 2026 · #104 (eerste deel)
+## 0.64.0 — 23 november 2026 · #105
 - **Lotgrootte per product in de database.** Elk product krijgt een instelbare norm (standaard vier, instelbaar van 1 tot 50). Een lot bewaart norm, werkelijk aantal en een verplichte reden bij afwijking. Open lotvoorstellen vervallen wanneer de productinstelling wijzigt. De capaciteitsberekening gebruikt voortaan de ingestelde lotgrootte.
 - Bestaande lots worden alleen gemigreerd als ze aantoonbaar uit vier batches bestaan; bij afwijkende historische data stopt de migratie voor beoordeling. API en schermen zijn nog niet omgeschakeld; dit is een tussenstap binnen #104.
 
