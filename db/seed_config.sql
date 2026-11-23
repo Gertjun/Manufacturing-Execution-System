@@ -65,6 +65,9 @@ SELECT zet_route(id, ARRAY['PS1','PS2','PS3','PS4','PS5','PS6','PS7','PS8','PS9'
 SELECT zet_route(id, ARRAY['PS1','PS2','PS3','TK1','PS4','PS5','PS7','PS8','PS9','TK2','PS11','PS10','PS12','PS13','PS15','PS16','PS18','EK'])
   FROM product WHERE code = 'PRD-C';
 
+-- Routeversies (D85): fictieve producten krijgen een eerste onveranderlijke momentopname.
+SELECT leg_routeversie_vast(id, 'seed', 'Fictieve beginroute uit seed_config.sql') FROM product;
+
 -- Fictieve specificaties voor PRD-C (#80, D73): versie 1, vastgesteld (in de seed zonder account).
 INSERT INTO specificatie (product_id, processtap_id, versie, opmerking)
 SELECT p.id, s.id, 1, 'Fictieve specificatie'

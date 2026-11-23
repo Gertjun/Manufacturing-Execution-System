@@ -522,6 +522,11 @@ def main():
     faalt("PRD-C-lot: PS17 hoort niet bij de route", "SELECT start_stap('PS17', NULL, %s, %s, %s)", (lot_c, pc, op), "hoort niet bij de route")
     doe(None, "PS18", lot_c)
     check("Lot gereed na de laatste lotstap van zijn route (PS18)", val("SELECT status FROM lot WHERE id = %s", (lot_c,)) == "gereed")
+    check("Historierapport bevat alle historische batches en lots zonder koppeling",
+          val("SELECT count(*) FROM route_historie_rapport") ==
+          val("SELECT count(*) FROM batch WHERE route_versie_id IS NULL") +
+          val("SELECT count(*) FROM lot WHERE route_versie_id IS NULL"))
+
     pl_acc2 = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'planner1'")
     nrs = [r[0] for r in con.execute("SELECT plan_batches(3, current_date + 5, %s, NULL, %s)", (prd["PRD-B"], pl_acc2))]
     gepl = [val("SELECT id FROM batch WHERE batchnummer = %s", (n,)) for n in nrs]
@@ -536,6 +541,15 @@ def main():
     check("Route leegmaken = standaardroute", routecodes(prd["PRD-C"]) == routecodes(None))
     check("Routewijzigingen staan in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'product_stap' AND record_id = %s", (prd["PRD-C"],)) >= 15)
+    check("Elk fictief product heeft een vastgestelde routeversie",
+          val("SELECT count(*) FROM product_route_versie WHERE status = 'vastgesteld'") == len(prd))
+    check("Routeversie bevat dezelfde stappen als de effectieve productroute",
+          val("""SELECT count(*) FROM product_route_versie_stap vs JOIN product_route_versie v ON v.id = vs.route_versie_id
+                  WHERE v.product_id = %s AND v.status = 'vastgesteld'""", (prd["PRD-B"],)) == len(routecodes(prd["PRD-B"])))
+    versie_id = val("SELECT id FROM product_route_versie WHERE product_id = %s AND status = 'vastgesteld' ORDER BY versie DESC LIMIT 1", (prd["PRD-B"],))
+    faalt("Vastgestelde routeversie kan niet worden aangepast",
+          "UPDATE product_route_versie_stap SET plek = plek + 1 WHERE route_versie_id = %s AND plek = 1",
+          (versie_id,), "onveranderlijk")
 
     print("\nGrenzen per product (D55)")
     def markering_van(reg, code):

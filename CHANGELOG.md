@@ -5,6 +5,14 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.63.0 — 23 november 2026 · #103
+- **Routeversies als databasefundament** (#103, D85).
+  - Een vastgestelde routeversie bewaart de volgorde en een momentopname van stapcode, naam en niveau.
+  - Vastgestelde routeversies en hun stappen zijn onveranderlijk; een versie kan alleen als geheel vervallen worden verklaard.
+  - Bestaande producten krijgen een momentopname van hun huidige effectieve route.
+  - Bestaande batches en lots worden bewust niet automatisch aan die momentopname gekoppeld. Het nieuwe overzicht `route_historie_rapport` toont welke historische route nog onbekend is en welke huidige versie alleen als kandidaat beschikbaar is.
+  - Dit is de eerste databasefase: bestaande productie- en invoerlogica is nog niet omgeschakeld naar routeversies.
+
 ## 0.62.0 — 23 november 2026 · #100
 - **Plaatje van de database** in [`docs/DATABASE.md`](docs/DATABASE.md) (#100): een overzicht van alle 43 tabellen en hun verbanden (GitHub tekent het als diagram), een lijst met per tabel de uitleg en waar hij naar verwijst, en per tabel de kolommen.
   - Automatisch gemaakt uit `db/schema.sql` met `tools/schema_plaatje.py`, dus altijd gelijk aan de echte database.

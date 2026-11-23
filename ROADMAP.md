@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 23 november 2026 · huidige versie 0.62.0
+Bijgewerkt: 23 november 2026 · huidige versie 0.63.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -27,7 +27,7 @@ gantt
     In één keer goed, signaleren (32 66)     :a3b, 2026-11-24, 7d
 
     section A4 Verbeterlijst
-    Gebouwd in 0.52 tot en met 0.62          :done, a4g, 2026-11-23, 1d
+    Gebouwd in 0.52 tot en met 0.63          :done, a4g, 2026-11-23, 1d
     Geert bekijkt de demo (poort A4)         :a4p, 2026-11-24, 3d
 
     section B Praktijk
@@ -148,6 +148,6 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
   - Gebouwde punten hier weghalen; het nummer staat dan in de changelog achter de versie.
   - Inleiding van de fase: in welke versie wat gebouwd is, en wat nog open staat.
   - Tijdlijn: gebouwde punten naar de balk "Gebouwd in …" (`done`) van hun fase, open balken alleen met open nummers, data schuiven als de planning schuift.
-  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #103), in de fase waar ze horen.
+  - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #104), in de fase waar ze horen.
 - `tests/test_roadmap.sh` controleert dit bij elke push op GitHub: de versie in de kopregel, geen gebouwd nummer meer als open punt of in een open balk, het volgende vrije nummer, en geen dubbele punt in een taaknaam van de tijdlijn.
 - Rapporten op claude.ai zijn momentopnamen; wat eruit volgt komt hier als punt.

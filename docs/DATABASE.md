@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 43 tabellen en 94 verbanden.
+Schema `fabriek`: 45 tabellen en 100 verbanden.
 
 ## Overzicht
 
@@ -41,6 +41,8 @@ erDiagram
     ploeg
     processtap
     product
+    product_route_versie
+    product_route_versie_stap
     product_stap
     rooster
     rooster_ploeg
@@ -61,6 +63,7 @@ erDiagram
     batch ||--o{ lot_voorstel_batch : "batch_id"
     batch |o--o{ stapplanning : "batch_id"
     batch |o--o{ stapregistratie : "batch_id"
+    gebruiker |o--o{ product_route_versie : "vastgesteld_door"
     gebruiker |o--o| operator : "gebruiker_id"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
@@ -82,6 +85,7 @@ erDiagram
     processtap ||--o{ capaciteit_stap : "processtap_id"
     processtap ||--o{ herbewerking : "processtap_id"
     processtap ||--o{ pc_stap : "processtap_id"
+    processtap ||--o{ product_route_versie_stap : "processtap_id"
     processtap ||--o{ product_stap : "processtap_id"
     processtap ||--o{ specificatie : "processtap_id"
     processtap ||--o{ stap_grondstof : "processtap_id"
@@ -92,7 +96,11 @@ erDiagram
     product |o--o{ batch : "product_id"
     product |o--o{ capaciteit_afwijking : "product_id"
     product ||--o{ capaciteit_stap : "product_id"
+    product ||--o{ product_route_versie : "product_id"
     product ||--o{ product_stap : "product_id"
+    product_route_versie |o--o{ batch : "route_versie_id"
+    product_route_versie |o--o{ lot : "route_versie_id"
+    product_route_versie ||--o{ product_route_versie_stap : "route_versie_id"
     product ||--o{ specificatie : "product_id"
     product |o--o{ stapregistratie : "product_id"
     product ||--o{ veld_product : "product_id"
@@ -117,7 +125,7 @@ erDiagram
 
 | Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |
 | --- | ---: | --- | --- |
-| [`batch`](#batch) | 14 | `gebruiker`, `lot`, `operator`, `product` |  |
+| [`batch`](#batch) | 16 | `gebruiker`, `lot`, `operator`, `product` |  |
 | [`batch_besluit`](#batch_besluit) | 6 | `batch`, `gebruiker` | Besluiten over een batch: in_beoordeling – ploegleider of kwaliteit; de batch kan dan niet verder vrijgegeven – keurresultaat OK, alleen kwaliteit; door… |
 | [`capaciteit_afwijking`](#capaciteit_afwijking) | 8 | `processtap`, `product` | Afwijkende capaciteit (sinds 0.48.0, D69): in een periode kan een stap en/of product minder aan. |
 | [`capaciteit_stap`](#capaciteit_stap) | 5 | `processtap`, `product` | Capaciteit per stap en product (sinds migratie 0020, D55): hoeveel items een stap per dag aankan. |
@@ -132,7 +140,7 @@ erDiagram
 | [`instelling`](#instelling) | 3 |  | Certificaat per lot (sinds migratie 0010, versie 0.17.0) |
 | [`invoerconflict`](#invoerconflict) | 19 | `gebruiker`, `grondstof`, `grondstof_gebruik`, `operator`, `pc`, `stapregistratie`, `veld`, `waarde` | Conflicten bij gelijktijdige invoer (sinds 0032, #85, D75): vullen twee mensen hetzelfde veld of dezelfde grondstof van een stap in, dan blijft de eerste… |
 | [`keuring`](#keuring) | 8 | `gebruiker`, `herbewerking`, `stapregistratie` | Keuring door Kwaliteit (sinds migratie 0022, #64): een stap met velden die Kwaliteit meet. |
-| [`lot`](#lot) | 4 |  |  |
+| [`lot`](#lot) | 6 |  |  |
 | [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
 | [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
@@ -145,6 +153,8 @@ erDiagram
 | [`ploeg`](#ploeg) | 6 |  | Ploegoverdracht (sinds migratie 0006, versie 0.12.0) |
 | [`processtap`](#processtap) | 8 |  |  |
 | [`product`](#product) | 5 |  | Producten (configuratie, door de planner beheerd; sinds migratie 0003) |
+| [`product_route_versie`](#product_route_versie) | 9 | `gebruiker`, `product` | Vastgestelde, onveranderlijke momentopnames van een productroute (D85). |
+| [`product_route_versie_stap`](#product_route_versie_stap) | 7 | `processtap`, `product_route_versie` | Stappen en snapshotgegevens die bij één vastgestelde productroute horen. |
 | [`product_stap`](#product_stap) | 3 | `processtap`, `product` | Route per product (sinds migratie 0018, D55): welke stappen een product doorloopt, in welke volgorde. |
 | [`rooster`](#rooster) | 3 |  | Ploegen en rooster (sinds 0033, #86, D76). |
 | [`rooster_ploeg`](#rooster_ploeg) | 6 |  |  |
@@ -183,6 +193,8 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `gepland_door` | uuid | FK leeg | `gebruiker` |
 | `gestart_op` | timestamptz | leeg |  |
 | `vervallen_reden` | text | leeg |  |
+| `route_versie_id` | uuid | FK leeg | `product_route_versie` |
+| `route_historie_status` | text |  |  |
 
 ### batch_besluit
 
@@ -375,6 +387,8 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `lotnummer` | text | UK |  |
 | `status` | text |  |  |
 | `aangemaakt_op` | timestamptz |  |  |
+| `route_versie_id` | uuid | FK leeg | `product_route_versie` |
+| `route_historie_status` | text |  |  |
 
 ### lot_voorstel
 
@@ -508,6 +522,32 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `naam` | text |  |  |
 | `actief` | bool |  |  |
 | `batchgewicht_kg` | numeric | leeg |  |
+
+### product_route_versie
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `product_id` | uuid | FK | `product` |
+| `versie` | int |  |  |
+| `status` | text |  |  |
+| `bron` | text |  |  |
+| `toelichting` | text | leeg |  |
+| `aangemaakt_op` | timestamptz |  |  |
+| `vastgesteld_op` | timestamptz | leeg |  |
+| `vastgesteld_door` | uuid | FK leeg | `gebruiker` |
+
+### product_route_versie_stap
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `route_versie_id` | uuid | PK FK | `product_route_versie` |
+| `processtap_id` | uuid | PK FK | `processtap` |
+| `plek` | int |  |  |
+| `stap_code` | text |  |  |
+| `stap_naam` | text |  |  |
+| `niveau` | text |  |  |
+| `is_lot_stap` | bool |  |  |
 
 ### product_stap
 
