@@ -194,9 +194,6 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `vervallen_reden` | text | leeg |  |
 | `route_versie_id` | uuid | FK leeg | `product_route_versie` |
 | `route_historie_status` | text |  |  |
-| `batch_aantal_norm` | int |  |  |
-| `batch_aantal` | int |  |  |
-| `afwijking_reden` | text | leeg |  |
 
 ### batch_besluit
 
