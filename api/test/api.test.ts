@@ -112,7 +112,7 @@ describe("inloggen en rollen", () => {
   test("operator moet eerst een naam kiezen voor invoer", async () => {
     const t = await login("operator", "PC-01");
     const r = await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0999" });
-    assert.equal(r.status, 400);
+    assert.equal(r.status, 422);
     assert.match(r.body.fout, /naam/);
   });
   test("analist mag geen invoer doen", async () => {
@@ -278,6 +278,9 @@ describe("productie van batch tot lot", () => {
   });
 
   test("vier batches doorlopen PS1-PS15 en worden een lot", async () => {
+    const prod = await verzoek("GET", "/planning/producten", planner);
+    const productId = prod.body.find((p: any) => p.code === "PRD-A").id;
+    await beheerDb.query("UPDATE batch SET product_id = $1 WHERE batchnummer = ANY($2)", [productId, ["B-2026-0100", "B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]]);
     await doorloop(op, "B-2026-0100", "batch", 2, 15);
     for (const nr of ["B-2026-0101", "B-2026-0102", "B-2026-0103", "B-2026-0104"]) {
       assert.equal((await verzoek("POST", "/batches", op, { batchnummer: nr })).status, 201);
