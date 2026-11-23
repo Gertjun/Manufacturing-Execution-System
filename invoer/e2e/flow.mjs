@@ -385,6 +385,9 @@ try {
   await page.getByLabel("Gebruikersnaam").fill("kwaliteit1");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
+  // Afmelden landt op de startpagina (#82); Kwaliteit kiest daar zelf het invoerscherm (lab-pc, D58).
+  check("Afmelden in het invoerscherm landt op de startpagina", page.url().includes("/portaal/"), page.url());
+  await page.locator(".starttegel-invoer").click();
   await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.getByRole("heading", { name: "Process Step 1" }).waitFor();

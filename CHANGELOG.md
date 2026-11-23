@@ -5,6 +5,10 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.48.2 — 23 november 2026 · #82
+- **Afmelden landt altijd op de startpagina**, ook in het invoerscherm. Daar logt de volgende persoon in; een operator gaat dan meteen door naar het invoerscherm, Kwaliteit en een ploegleider kiezen zelf.
+- Zonder verbinding blijft het invoerscherm na het afmelden staan, met zijn eigen inlog: de startpagina laadt dan niet, en wat nog in de wachtrij staat blijft zichtbaar en gaat later mee.
+
 ## 0.48.1 — 23 november 2026
 - Grafieken in het portaal Kwaliteit: **grenzen en tolerantie zijn beter te zien** (D70).
   - Trend per veld: de grenzen zijn een **rode doorgetrokken lijn** en de tolerantie twee **oranje gestreepte lijnen**, in plaats van een lichtblauwe schaduw die op wit nauwelijks opviel. De instelling blijft een dunne grijze stippellijn. De legenda toont nu ook de lijnen.

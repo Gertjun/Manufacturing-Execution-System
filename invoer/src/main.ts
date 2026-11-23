@@ -131,7 +131,14 @@ async function afmelden() {
     "Afmelden",
   ))) return;
   sessie.afmelden();
-  location.hash = "#/login";
+  naarStartpagina();
+}
+
+/** Na afmelden naar de startpagina (inloggen voor iedereen, #82). Zonder verbinding blijft het invoerscherm staan:
+ *  de startpagina laadt dan niet, het invoerscherm wel (offline), en de wachtrij blijft zichtbaar. */
+function naarStartpagina() {
+  if (laatsteStatus ? laatsteStatus.verbonden : navigator.onLine) location.assign("../portaal/index.html#/login");
+  else location.hash = "#/login";
 }
 
 /** Overstap van de startpagina: vraag een token met deze pc erbij (/auth/pc). Lukt dat niet, dan gewoon inloggen. */
