@@ -63,8 +63,8 @@ erDiagram
     batch ||--o{ lot_voorstel_batch : "batch_id"
     batch |o--o{ stapplanning : "batch_id"
     batch |o--o{ stapregistratie : "batch_id"
-    gebruiker |o--o{ product_route_versie : "vastgesteld_door"
     gebruiker |o--o| operator : "gebruiker_id"
+    gebruiker |o--o{ product_route_versie : "vastgesteld_door"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
     grondstof ||--o{ stap_grondstof : "grondstof_id"
@@ -125,7 +125,7 @@ erDiagram
 
 | Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |
 | --- | ---: | --- | --- |
-| [`batch`](#batch) | 16 | `gebruiker`, `lot`, `operator`, `product` |  |
+| [`batch`](#batch) | 16 | `gebruiker`, `lot`, `operator`, `product`, `product_route_versie` |  |
 | [`batch_besluit`](#batch_besluit) | 6 | `batch`, `gebruiker` | Besluiten over een batch: in_beoordeling – ploegleider of kwaliteit; de batch kan dan niet verder vrijgegeven – keurresultaat OK, alleen kwaliteit; door… |
 | [`capaciteit_afwijking`](#capaciteit_afwijking) | 8 | `processtap`, `product` | Afwijkende capaciteit (sinds 0.48.0, D69): in een periode kan een stap en/of product minder aan. |
 | [`capaciteit_stap`](#capaciteit_stap) | 5 | `processtap`, `product` | Capaciteit per stap en product (sinds migratie 0020, D55): hoeveel items een stap per dag aankan. |
@@ -140,7 +140,7 @@ erDiagram
 | [`instelling`](#instelling) | 3 |  | Certificaat per lot (sinds migratie 0010, versie 0.17.0) |
 | [`invoerconflict`](#invoerconflict) | 19 | `gebruiker`, `grondstof`, `grondstof_gebruik`, `operator`, `pc`, `stapregistratie`, `veld`, `waarde` | Conflicten bij gelijktijdige invoer (sinds 0032, #85, D75): vullen twee mensen hetzelfde veld of dezelfde grondstof van een stap in, dan blijft de eerste… |
 | [`keuring`](#keuring) | 8 | `gebruiker`, `herbewerking`, `stapregistratie` | Keuring door Kwaliteit (sinds migratie 0022, #64): een stap met velden die Kwaliteit meet. |
-| [`lot`](#lot) | 6 |  |  |
+| [`lot`](#lot) | 6 | `product_route_versie` |  |
 | [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
 | [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
