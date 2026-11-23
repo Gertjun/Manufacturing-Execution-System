@@ -2,19 +2,12 @@
 
 ## 0.64.0 — 23 november 2026 · #105
 - **Lotgrootte per product in de database.** Elk product krijgt een instelbare norm (standaard vier, instelbaar van 1 tot 50). Een lot bewaart norm, werkelijk aantal en een verplichte reden bij afwijking. Open lotvoorstellen vervallen wanneer de productinstelling wijzigt. De capaciteitsberekening gebruikt voortaan de ingestelde lotgrootte.
-- Bestaande lots worden alleen gemigreerd als ze aantoonbaar uit vier batches bestaan; bij afwijkende historische data stopt de migratie voor beoordeling. API en schermen zijn nog niet omgeschakeld; dit is een tussenstap binnen #104.
+- Bestaande lots worden alleen gemigreerd als ze aantoonbaar uit vier batches bestaan; bij afwijkende historische data stopt de migratie voor beoordeling. API en schermen zijn nog niet omgeschakeld; dit is een tussenstap; de aansluiting op de rest van de keten blijft nog open.
 
 > **Dit bestand:** per versie wat er nieuw of anders is, in gewone taal. Het is de enige geschiedenis van het project.
 > **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`ROADMAP.md`](ROADMAP.md).
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
-
-## 0.64.0 — 23 november 2026 · #104 (databasefundament)
-- De lotgrootte is per product vastgelegd (1–50; bestaande producten blijven op 4).
-- Elk nieuw lot bewaart de ingestelde norm, het werkelijke aantal en een eventuele afwijkingsreden. Historische lots behouden hun oorspronkelijke norm van vier.
-- Lotvoorstellen bewaren hun norm en vervallen automatisch als de productnorm verandert.
-- De capaciteitsberekening voor een lot gebruikt de ingestelde lotgrootte.
-- Dit is de databasefase; API, planning, invoerscherm en volledige routeversie-aansluiting volgen nog binnen #104.
 
 ## 0.63.0 — 23 november 2026 · #103
 - **Routeversies als databasefundament** (#103, D85).

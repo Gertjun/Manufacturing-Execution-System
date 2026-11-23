@@ -29,7 +29,7 @@ gantt
     section A4 Verbeterlijst
     Gebouwd in 0.52 tot en met 0.64          :done, a4g, 2026-11-23, 1d
     Routeversies en lotgrootte door de keten (104) :a4r, 2026-11-24, 14d
-    Lotgrootte per product: database (105)  :done, a4l, 2026-11-23, 1d
+    Lotgrootte per product databasebasis (105)  :done, a4l, 2026-11-23, 1d
     Geert bekijkt de demo (poort A4)         :a4p, 2026-12-08, 3d
 
     section B Praktijk
