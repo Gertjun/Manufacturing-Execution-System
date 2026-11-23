@@ -13,14 +13,15 @@ const OptTekst = Type.Union([Type.Null(), Type.String()]);
 
 const Product = Type.Object({
   id: Type.String(), code: Type.String(), naam: Type.String(), actief: Type.Boolean(),
-  batchgewicht_kg: Type.Optional(NulGetal({ description: "Gewicht van één batch in kg (sinds 0.57.0, #90); een lot = 4 batches; null = nog invullen" })),
+  batchgewicht_kg: Type.Optional(NulGetal({ description: "Gewicht van één batch in kg (sinds 0.57.0, #90); null = nog invullen" })),
+  batches_per_lot: Type.Integer({ minimum: 1, maximum: 50, description: "Instelbare lotgrootte per product (standaard 4)" }),
   route: Type.Optional(Type.Union([Type.Null(), Type.Array(Type.String())], {
     description: "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
   })),
 });
 /** Product met zijn route: de stapcodes in volgorde, of null bij de standaardroute. */
 const PRODUCT_SQL = `
-  SELECT p.id::text, p.code, p.naam, p.actief, p.batchgewicht_kg::float AS batchgewicht_kg,
+  SELECT p.id::text, p.code, p.naam, p.actief, p.batchgewicht_kg::float AS batchgewicht_kg, p.batches_per_lot,
          (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
            WHERE ps.product_id = p.id AND s.actief) AS route
     FROM product p`;
@@ -43,7 +44,7 @@ const BatchPlan = Type.Object({
 const BATCH_PLAN_SQL = `
   SELECT b.batchnummer, b.status, b.bron = 'planner' AS gepland,
          to_char(coalesce(b.geplande_dag, coalesce(b.gestart_op, b.aangemaakt_op)::date), 'YYYY-MM-DD') AS dag,
-         b.volgorde, b.product_id::text, p.code || ' – ' || p.naam AS product, b.opmerking, b.vervallen_reden,
+         b.volgorde, b.product_id::text, p.code || ' – ' || p.naam AS product, p.batches_per_lot, b.opmerking, b.vervallen_reden,
          (SELECT s.code FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id
            WHERE r.batch_id = b.id ORDER BY r.gestart_op DESC LIMIT 1) AS laatste_stap,
          l.lotnummer,
@@ -93,7 +94,7 @@ const PlanItem = Type.Object({
   volgorde: Type.Integer(),
   opmerking: OptTekst,
   status: Type.Union([Type.Literal("gepland"), Type.Literal("bezig"), Type.Literal("gedaan")]),
-  batches: Type.Array(Type.String(), { description: "Bij een lotvoorstel: de 4 batches" }),
+  batches: Type.Array(Type.String(), { description: "Bij een lotvoorstel: de batches volgens de productlotnorm" }),
   vorige: Type.Optional(Type.Union([Type.Null(), Vorige])),
 });
 
@@ -115,6 +116,7 @@ const PLAN_ITEMS_SQL = `
 
 const Voorstel = Type.Object({
   nummer: Type.Integer(),
+  batch_aantal_norm: Type.Integer(),
   status: Type.String(),
   opmerking: OptTekst,
   aangemaakt_op: Type.String({ format: "date-time" }),
@@ -127,7 +129,7 @@ const Voorstel = Type.Object({
 });
 
 const VOORSTEL_SQL = `
-  SELECT v.nummer, v.status, v.opmerking, v.aangemaakt_op, g.gebruikersnaam AS door, l.lotnummer, v.afwijking_reden,
+  SELECT v.nummer, v.batch_aantal_norm, v.status, v.opmerking, v.aangemaakt_op, g.gebruikersnaam AS door, l.lotnummer, v.afwijking_reden,
          (SELECT json_agg(json_build_object(
                    'batchnummer', b.batchnummer, 'status', b.status,
                    'klaar_voor_lot', b.status = 'in_productie' AND batch_klaar_voor_lot(b.id),
@@ -238,17 +240,18 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["planning"],
         body: Type.Object({ code: Type.String({ pattern: "^[A-Za-z0-9._-]{1,20}$" }), naam: Type.String({ minLength: 1, maxLength: 100 }),
-          batchgewicht_kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000 })])) }),
+          batchgewicht_kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000 })])), batches_per_lot: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })) }),
         response: { 201: Product },
       },
     },
     async (req, reply) => {
       const p = await inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query(
-          "INSERT INTO product (code, naam, batchgewicht_kg) VALUES ($1, $2, $3) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, NULL::text[] AS route", [
+          "INSERT INTO product (code, naam, batchgewicht_kg, batches_per_lot) VALUES ($1, $2, $3, $4) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, batches_per_lot, batches_per_lot, NULL::text[] AS route", [
           req.body.code.trim(),
           req.body.naam.trim(),
           req.body.batchgewicht_kg ?? null,
+          req.body.batches_per_lot ?? 4,
         ]);
         return rows[0];
       });
@@ -264,7 +267,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["planning"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
         body: Type.Object({ naam: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })), actief: Type.Optional(Type.Boolean()),
-          batchgewicht_kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000 })], { description: "null = weghalen" })) }),
+          batchgewicht_kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000 })], { description: "null = weghalen" })), batches_per_lot: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })) }),
         response: { 200: Product },
       },
     },
@@ -272,11 +275,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query(
           `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief),
-                  batchgewicht_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE batchgewicht_kg END WHERE id = $1
+                  batchgewicht_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE batchgewicht_kg END, batches_per_lot = coalesce($6::int, batches_per_lot) WHERE id = $1
            RETURNING id::text, code, naam, actief, batchgewicht_kg::float,
                      (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
                        WHERE ps.product_id = product.id AND s.actief) AS route`,
-          [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null, req.body.batchgewicht_kg !== undefined, req.body.batchgewicht_kg ?? null],
+          [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null, req.body.batchgewicht_kg !== undefined, req.body.batchgewicht_kg ?? null, req.body.batches_per_lot ?? null],
         );
         if (!rows[0]) throw niet("Product");
         return rows[0];
@@ -995,7 +998,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         description: "Batches die je in een lotvoorstel kunt zetten: nog geen lot, niet afgekeurd of vervallen. 'voorstel' = staat al in dit open voorstel.",
         response: {
           200: Type.Array(Type.Object({
-            batchnummer: Type.String(), status: Type.String(), product: OptTekst, dag: Type.Union([Type.Null(), Dag]),
+            batchnummer: Type.String(), status: Type.String(), product_id: OptTekst, product: OptTekst, batches_per_lot: Type.Integer(), dag: Type.Union([Type.Null(), Dag]),
             laatste_stap: OptTekst, klaar_voor_lot: Type.Boolean(), voorstel: NulGeheel(),
           })),
         },
@@ -1004,15 +1007,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async () =>
       lees(
         app.db,
-        `SELECT x.batchnummer, x.status, x.product, x.dag, x.laatste_stap, x.voorstel,
+        `SELECT x.batchnummer, x.status, x.product_id, x.product, x.batches_per_lot, x.dag, x.laatste_stap, x.voorstel,
                 x.status = 'in_productie' AND batch_klaar_voor_lot((SELECT id FROM batch WHERE batchnummer = x.batchnummer)) AS klaar_voor_lot
            FROM (${BATCH_PLAN_SQL} WHERE b.status IN ('gepland', 'in_productie', 'in_beoordeling')) x
-          ORDER BY 7 DESC, x.dag, x.volgorde NULLS LAST, x.batchnummer`,
+          ORDER BY 8 DESC, x.dag, x.volgorde NULLS LAST, x.batchnummer`,
       ) as never,
   );
 
   const VoorstelInvoer = Type.Object({
-    batchnummers: Type.Array(BatchNummer, { minItems: 4, maxItems: 4 }),
+    batchnummers: Type.Array(BatchNummer, { minItems: 1, maxItems: 50 }),
     opmerking: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 300 })])),
   });
 

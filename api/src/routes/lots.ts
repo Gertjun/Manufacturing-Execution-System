@@ -19,7 +19,7 @@ const LOT_SQL = `
     FROM lot l LEFT JOIN batch b ON b.lot_id = l.id`;
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
-  // PS16: 4 batches samenvoegen tot een lot. Opent meteen de PS16-registratie.
+  // PS16: productafhankelijke lotgrootte samenvoegen tot een lot. Opent meteen de PS16-registratie.
   app.post(
     "/",
     {
@@ -30,7 +30,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           id: Type.Optional(Type.String({ format: "uuid", description: "Id voor het lot, door het apparaat gemaakt" })),
           registratieId: Type.Optional(Type.String({ format: "uuid", description: "Id voor de PS16-registratie" })),
           lotnummer: LotNummer,
-          batchnummers: Type.Array(BatchNummer, { minItems: 4, maxItems: 4 }),
+          batchnummers: Type.Array(BatchNummer, { minItems: 1, maxItems: 50 }),
           afwijkingReden: Type.Optional(
             Type.Union([Type.Null(), Type.String({ minLength: 3, maxLength: 500, description: "Verplicht als de batches afwijken van een lotvoorstel" })]),
           ),
@@ -244,7 +244,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
-  // Lotpaspoort: alle actuele waarden van het lot en zijn 4 batches.
+  // Lotpaspoort: alle actuele waarden van het lot en zijn batches.
   app.get(
     "/:lotnummer/paspoort",
     {
