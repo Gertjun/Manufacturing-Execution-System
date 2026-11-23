@@ -217,3 +217,4 @@ ALTER FUNCTION maak_lot(text, uuid[], uuid, uuid, uuid, uuid, text) SET search_p
 ALTER FUNCTION controleer_lot_voorstel(uuid) SET search_path = fabriek, public;
 ALTER FUNCTION bewaar_lot_voorstel(uuid, uuid[], text, uuid) SET search_path = fabriek, public;
 ALTER FUNCTION gewicht_per_item(uuid, uuid) SET search_path = fabriek, public;
+ALTER FUNCTION capaciteit_stap_voor(uuid, uuid) SET search_path = fabriek, public;
