@@ -85,6 +85,7 @@ def main() -> None:
         with psycopg.connect(verbinding, dbname="postgres", autocommit=True) as c:
             c.execute(f"DROP DATABASE IF EXISTS {TIJDELIJK}")
 
+    print("DEBUG lot columns:", [x[1] for x in kolommen if x[0] == "lot"])
     uitleg = uitleg_per_tabel(SCHEMA.read_text(encoding="utf-8"))
     per_tabel: dict[str, list[tuple]] = {t: [] for t in tabellen}
     for rel, kol, typ, _, pk, fk, uk in kolommen:
