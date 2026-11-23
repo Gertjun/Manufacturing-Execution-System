@@ -385,7 +385,7 @@ function metingDetail(m: MetingDetail): Node {
             : h("p", { class: "sub" }, "Het lot is niet herbewerkt.")));
 }
 
-interface Lot { lotnummer: string; status: string; aangemaakt_op: string; batches: string[]; product?: string | null; afwijkingen?: number; herbewerkingen?: number }
+interface Lot { lotnummer: string; status: string; aangemaakt_op: string; batch_aantal_norm: number; batch_aantal: number; afwijking_reden: string | null; batches: string[]; product?: string | null; afwijkingen?: number; herbewerkingen?: number }
 const lotStatus: Record<string, string> = { in_productie: "In productie", gereed: "Gereed", geblokkeerd: "Geblokkeerd" };
 
 export async function lotpaspoort(nummer?: string) {
@@ -411,7 +411,7 @@ export async function lotpaspoort(nummer?: string) {
   let timer: number | undefined;
   zoek.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(laad, 250); });
   toon(
-    kop("Lotpaspoort", "Alles over één lot en zijn 4 batches. Zoek op lotnummer of op een batch die erin zit."),
+    kop("Lotpaspoort", "Alles over een lot en het ingestelde aantal batches. Zoek op lotnummer of op een batch die erin zit."),
     h("div", { class: "filters" }, h("label", { for: "zoek-lot", class: "filter breed" }, "Zoeken", zoek), productKeuze(() => void laad())),
     lijst,
   );
@@ -442,7 +442,8 @@ async function toonLotpaspoort(nummer: string) {
         magHerbewerken() && ["in_productie", "gereed"].includes(lot.status) && !openHerb ? herbewerkingKnop(lot.lotnummer, opnieuw) : null,
         h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken"))),
     h("dl", { class: "feiten" },
-      h("div", {}, h("dt", {}, "Batches"), h("dd", {}, lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)]))),
+      h("div", {}, h("dt", {}, "Batches"), h("dd", {}, `${lot.batch_aantal} (productnorm ${lot.batch_aantal_norm})`, lot.batches.length ? [": ", lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)])] : null)),
+      lot.afwijking_reden ? h("div", {}, h("dt", {}, "Afwijkingsreden"), h("dd", {}, lot.afwijking_reden)) : null,
       h("div", {}, h("dt", {}, "Afwijkingen"), h("dd", {}, pas.aantal_afwijkingen === 0 ? "Geen" : String(pas.aantal_afwijkingen))),
       h("div", {}, h("dt", {}, "Herbewerkingen"), h("dd", {}, herb.length ? herb.map((r) => `${r.stap}: ${r.reden} (${STAND[r.stand].toLowerCase()})`).join("; ") : "Geen")),
       h("div", {}, h("dt", {}, "Metingen"), h("dd", {}, String(pas.regels.length))),

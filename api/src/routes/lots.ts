@@ -11,12 +11,13 @@ const Lot = Type.Object({
   status: Type.String(),
   batch_aantal_norm: Type.Integer(),
   batch_aantal: Type.Integer(),
+  afwijking_reden: Type.Union([Type.Null(), Type.String()]),
   aangemaakt_op: Type.String({ format: "date-time" }),
   batches: Type.Array(Type.String()),
 });
 
 const LOT_SQL = `
-  SELECT l.lotnummer, l.status, l.aangemaakt_op, l.batch_aantal_norm, l.batch_aantal,
+  SELECT l.lotnummer, l.status, l.aangemaakt_op, l.batch_aantal_norm, l.batch_aantal, l.afwijking_reden,
          coalesce(array_agg(b.batchnummer ORDER BY b.batchnummer) FILTER (WHERE b.id IS NOT NULL), '{}') AS batches
     FROM lot l LEFT JOIN batch b ON b.lot_id = l.id`;
 
