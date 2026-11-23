@@ -2296,7 +2296,7 @@ $$;
 
 CREATE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LANGUAGE sql STABLE AS $$
     -- Sinds 0035 (#90, D80) in kilogram: hoeveel batches of lots per dag passen, met het gewicht per batch van
-    -- het product (een lot gebruikt het ingestelde aantal batches). Minstens 1; NULL als het gewicht nog niet is ingevuld. Een oude
+    -- het product (een lot gebruikt de ingestelde lotgrootte). Minstens 1; NULL als het gewicht nog niet is ingevuld. Een oude
     -- regel zonder kilogram (van vóór 0035) telt nog in stuks.
     SELECT CASE WHEN c.kg_per_dag IS NULL THEN c.max_per_dag
                 WHEN gewicht_per_item(p_product, p_stap) IS NULL THEN NULL
