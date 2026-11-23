@@ -326,7 +326,7 @@ export async function stapScherm(code: string) {
     { class: "kop" },
     h("div", {}, h("h1", {}, s.naam), h("p", { class: "sub" },
       isKeuring ? `Keuring door Kwaliteit, per ${s.niveau === "batch" ? "batch" : "lot"}. Start de keuring, meet en geef vrij, laat herbewerken of keur af.`
-        : s.is_lot_stap ? "Hier worden 4 batches één lot." : s.niveau === "batch" ? "Per batch" : "Per lot")),
+        : s.is_lot_stap ? "Hier worden batches volgens de productlotnorm één lot." : s.niveau === "batch" ? "Per batch" : "Per lot")),
     h("div", { class: "kop-rechts" },
       vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand"),
       opVloer && !stil ? h("button", { class: "knop", onclick: () => stilstandMelden(s, opnieuw) }, "Stilstand melden") : null),
@@ -445,12 +445,17 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
     id: "nieuw-lot", type: "text", class: "breed", placeholder: "L-2026-0001", autocomplete: "off",
     pattern: "L-[0-9]{4}-[0-9]{4}", required: true, title: "Formaat: L-jaar-volgnummer, bv. L-2026-0001",
   }) as HTMLInputElement;
-  const teller = h("span", { class: "hint" }, "Kies 4 batches");
+  const teller = h("span", { class: "hint" }, "Kies batches volgens de lotnorm van het product");
   const knop = h("button", { class: "knop knop-hoofd", disabled: true, type: "button" }, "Lot samenstellen") as HTMLButtonElement;
 
+  const normVanKeuze = () => {
+    const eerste = [...gekozen][0];
+    return eerste ? w.wachtend.find((x) => x.nummer === eerste)?.batches_per_lot ?? 4 : 4;
+  };
   const werkBij = () => {
-    teller.textContent = gekozen.size === 4 ? "4 batches gekozen" : `${gekozen.size} van 4 batches gekozen`;
-    knop.disabled = gekozen.size !== 4;
+    const norm = normVanKeuze();
+    teller.textContent = `${gekozen.size} van ${norm} batches gekozen`;
+    knop.disabled = gekozen.size !== norm;
   };
 
   knop.addEventListener("click", bezigBij(async () => {
@@ -499,9 +504,9 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
     ? h("section", { class: "plan" },
         h("h2", {}, "Lotvoorstellen van de planner"),
         h("ul", { class: "lijst" }, voorstellen.map((v) => {
-          const klaar = v.batches.every((b) => klaarSet.has(b.batchnummer));
+          const klaar = v.batches.length === v.batch_aantal_norm && v.batches.every((b) => klaarSet.has(b.batchnummer));
           return h("li", { class: "rij" },
-            h("div", {}, h("div", { class: "rij-hoofd" }, `Lotvoorstel ${v.nummer}`),
+            h("div", {}, h("div", { class: "rij-hoofd" }, `Lotvoorstel ${v.nummer} · ${v.batch_aantal_norm} batches`),
               h("div", { class: "rij-info" }, v.batches.flatMap((b, i) => [i ? ", " : "", h("span", { class: "nummer" }, b.batchnummer), klaarSet.has(b.batchnummer) ? "" : " (nog niet klaar)"])),
               v.opmerking ? h("div", { class: "rij-info" }, v.opmerking) : null),
             klaar ? h("button", { class: "knop knop-hoofd", type: "button", onclick: () => kiesVoorstel(v) }, "Dit voorstel kiezen") : h("span", { class: "label label-wacht" }, "Nog niet klaar"));
@@ -521,16 +526,16 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
             const rij = h("label", { class: "rij" }, h("div", {}, h("div", { class: "rij-hoofd" }, x.nummer),
               h("div", { class: "rij-info" }, [x.product, x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))), vink);
             vink.addEventListener("change", () => {
-              if (vink.checked && gekozen.size >= 4) {
+              if (vink.checked && gekozen.size >= (w.wachtend.find((y) => y.nummer === [...gekozen][0])?.batches_per_lot ?? x.batches_per_lot ?? 4)) {
                 vink.checked = false;
-                melding("Een lot bestaat uit precies 4 batches");
+                 melding(`Een lot van ${x.product ?? "dit product"} bestaat uit ${x.batches_per_lot ?? 4} batches`);
                 return;
               }
               // Eén product per lot (D55).
-              const ander = [...gekozen].map((nr) => w.wachtend.find((y) => y.nummer === nr)).find((y) => (y?.product ?? null) !== (x.product ?? null));
+              const ander = [...gekozen].map((nr) => w.wachtend.find((y) => y.nummer === nr)).find((y) => (y?.product ?? null) !== (x.product ?? null) || (y?.batches_per_lot ?? 4) !== (x.batches_per_lot ?? 4));
               if (vink.checked && ander) {
                 vink.checked = false;
-                melding(`Een lot bestaat uit batches van hetzelfde product. ${ander.nummer} is ${ander.product ?? "zonder product"}, ${x.nummer} is ${x.product ?? "zonder product"}.`);
+                melding(`Een lot bestaat uit batches van hetzelfde product en dezelfde lotnorm. ${ander.nummer} is ${ander.product ?? "zonder product"}, ${x.nummer} is ${x.product ?? "zonder product"}.`);
                 return;
               }
               vink.checked ? gekozen.add(x.nummer) : gekozen.delete(x.nummer);
@@ -541,6 +546,6 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
           }),
         )
       : h("p", { class: "leeg" }, "Er zijn nog geen batches die alle stappen hebben doorlopen."),
-    w.wachtend.length >= 4 ? h("div", { class: "nieuw", style: "margin-top:16px" }, h("label", { for: "nieuw-lot" }, "Lotnummer", lotnr), teller, knop) : null,
+    w.wachtend.length > 0 ? h("div", { class: "nieuw", style: "margin-top:16px" }, h("label", { for: "nieuw-lot" }, "Lotnummer", lotnr), teller, knop) : null,
   ].filter(Boolean) as Node[];
 }
