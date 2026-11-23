@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 23 november 2026 · huidige versie 0.51.1
+Bijgewerkt: 23 november 2026 · huidige versie 0.52.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -27,7 +27,8 @@ gantt
     In één keer goed, signaleren (32 66)     :a3b, 2026-11-24, 7d
 
     section A4 Verbeterlijst
-    Prioriteit 1 (85 86 87 88 89 90 91)      :a4a, 2026-11-24, 10d
+    Gebouwd in 0.52                          :done, a4g, 2026-11-23, 1d
+    Prioriteit 1 (86 87 88 89 90 91)         :a4a, 2026-11-24, 10d
     Prioriteit 2 (48 93 94 95 96 97 98 99 100) :a4b, after a4a, 7d
 
     section B Praktijk
@@ -82,10 +83,9 @@ Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026):
 **Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.
 
 ### A4. Verbeterlijst van 23 november — vóór de pilot
-Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
+Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
 
 **Prioriteit 1 – juistheid van de gegevens:**
-- #85 **Gelijktijdige invoer: conflict melden** (middel) — Openen twee mensen op hun eigen pc dezelfde keuring of meting en voeren ze allebei iets in, dan wint nu stil één van de twee. Nodig: de tweede krijgt een melding met beide waarden en kiest welke blijft (of een ploegleider of Kwaliteit beslist). Hetzelfde voor acties van operators die elkaar kruisen, ook als invoer later uit een offline wachtrij komt.
 - #86 **Ploegen A–E in twee divisies, met rooster** (middel) — 5 ploegen (A tot en met E) × 2 divisies = 10 ploegen. Beide divisies werken tegelijk, dus er zijn altijd twee ploegen aan het werk. Cyclus van 10 dagen per ploeg: 2 ochtend, 2 middag, 2 nacht, 4 vrij. Diensttijden ochtend, middag en nacht blijven zoals nu. Ploegoverdracht en analyses per ploeg gaan uit van het rooster.
 - #87 **Medewerkers in plaats van Operators, met accounts** (klein–middel) — Beheer → Operators heet Medewerkers, met een blok Operators en een blok Kwaliteit. Per medewerker ploeg (A–E) en divisie (1 of 2); persoon en account zijn één regel (D74), het aparte scherm Accounts gaat erin op.
 - #88 **Invoerscherm voor Kwaliteit** (middel) — Een eigen startscherm voor Kwaliteit, zonder het aantal batches per processtap: welke tussen- en eindkeuringen vandaag moeten, wanneer de volgende (waarschijnlijk) komen, van welk product, en wat al wacht.

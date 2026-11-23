@@ -367,6 +367,25 @@ try {
   const [corr] = await q("SELECT gemeten, markering FROM fabriek.waarde_actueel w JOIN fabriek.veld v ON v.id = w.veld_id JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND v.code = 'S1.1'");
   check("Correctie in de database, nu binnen tolerantie", Number(corr.gemeten) === 82 && corr.markering === "ok");
 
+  console.log("\nTwee keer ingevuld (#85)");
+  // Een tweede pc vulde S1.2 ook in, met een andere waarde: de server bewaart dat als conflict.
+  await q(`SELECT fabriek.leg_invoerconflict_vast(r.id, v.id, NULL, 999, (SELECT id FROM fabriek.operator WHERE naam = 'Operator B'),
+             (SELECT id FROM fabriek.pc WHERE naam = 'PC-02'))
+             FROM fabriek.stapregistratie r JOIN fabriek.batch b ON b.id = r.batch_id JOIN fabriek.processtap s ON s.id = r.processtap_id
+             JOIN fabriek.veld v ON v.processtap_id = s.id
+            WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS1' AND v.code = 'S1.2'`);
+  await page.reload();
+  const conflict = page.locator(".veld", { hasText: "S1.2" }).locator(".conflict");
+  await conflict.waitFor();
+  check("Conflict bij het veld: wat er staat en wat Operator B invulde", (await conflict.innerText()).includes("999") && (await conflict.innerText()).includes("Operator B"));
+  check("Bovenaan: twee keer ingevuld", (await page.locator(".waarschuwing", { hasText: "Twee keer ingevuld: S1.2" }).count()) === 1);
+  await shot("12b-conflict");
+  await conflict.getByRole("button", { name: "999 nemen" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "999 nemen" }).click();
+  await page.locator(".conflict").waitFor({ state: "detached" });
+  const [s12] = await q("SELECT gemeten, correctie_reden FROM fabriek.waarde_actueel w JOIN fabriek.veld v ON v.id = w.veld_id JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND v.code = 'S1.2'");
+  check("Gekozen voor de tweede: nu 999, als correctie met de naam erbij", Number(s12.gemeten) === 999 && s12.correctie_reden.includes("Operator B"), JSON.stringify(s12));
+
   await page.goto(`${BASIS}/invoer/#/zoek/B-2026-0005`);
   await page.getByRole("button", { name: "In beoordeling zetten" }).click();
   await page.getByLabel("Reden").fill("kleur wijkt af");

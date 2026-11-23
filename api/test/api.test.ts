@@ -228,13 +228,33 @@ describe("productie van batch tot lot", () => {
     assert.match(te.body.fout, /vóór het einde van de vorige stap/);
   });
 
-  test("ingevuld veld opnieuw invullen geeft 409 met uitleg", async () => {
+  test("ingevuld veld opnieuw invullen: zelfde waarde is goed, een andere wordt een conflict (#85)", async () => {
     const lijst = await verzoek("GET", "/registraties?status=open&stapcode=PS1", op);
-    const r = await verzoek("POST", `/registraties/${lijst.body[0].id}/waarden`, op, {
-      waarden: [{ veldcode: "S1.2", gemeten: 400 }],
-    });
-    assert.equal(r.status, 409);
-    assert.match(r.body.fout, /ploegleider/);
+    const id = lijst.body[0].id;
+    const nu = (await verzoek("GET", `/registraties/${id}`, op)).body.velden.find((v: any) => v.code === "S1.2").waarde.gemeten;
+    const zelfde = await verzoek("POST", `/registraties/${id}/waarden`, op, { waarden: [{ veldcode: "S1.2", gemeten: nu }] });
+    assert.equal(zelfde.status, 200, JSON.stringify(zelfde.body));
+    assert.equal(zelfde.body.conflicten.length, 0);
+    const invoer = { waarden: [{ id: randomUUID(), veldcode: "S1.2", gemeten: 400 }] };
+    const r = await verzoek("POST", `/registraties/${id}/waarden`, op, invoer);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.conflicten.length, 1);
+    assert.equal(r.body.conflicten[0].code, "S1.2");
+    assert.equal(r.body.conflicten[0].nieuw, "400");
+    assert.equal(r.body.conflicten[0].wie_kiest, "ploegleider");
+    assert.equal(r.body.velden.find((v: any) => v.code === "S1.2").waarde.gemeten, nu, "de eerste waarde blijft staan");
+    // Opnieuw versturen uit de wachtrij: geen tweede conflict.
+    assert.equal((await verzoek("POST", `/registraties/${id}/waarden`, op, invoer)).body.conflicten.length, 1);
+    assert.equal((await verzoek("GET", "/conflicten", op)).status, 403);
+    const open = await verzoek("GET", "/conflicten", pl);
+    assert.equal(open.status, 200);
+    const c = open.body.find((x: any) => x.registratie_id === id);
+    assert.ok(c && c.stap === "PS1" && c.nummer.startsWith("B-"));
+    assert.equal((await verzoek("POST", `/conflicten/${c.id}/oplossen`, op, { keuze: "bestaand" })).status, 403);
+    const opgelost = await verzoek("POST", `/conflicten/${c.id}/oplossen`, pl, { keuze: "bestaand" });
+    assert.equal(opgelost.status, 200, JSON.stringify(opgelost.body));
+    assert.equal(opgelost.body.conflicten.length, 0);
+    assert.equal(opgelost.body.velden.find((v: any) => v.code === "S1.2").waarde.gemeten, nu);
   });
 
   test("operator kan niet corrigeren, ploegleider wel", async () => {
@@ -242,12 +262,17 @@ describe("productie van batch tot lot", () => {
     const id = lijst.body[0].id;
     const pad = `/registraties/${id}/waarden/S1.1/correctie`;
     assert.equal((await verzoek("POST", pad, op, { gemeten: 82, reden: "tikfout" })).status, 403);
-    const r = await verzoek("POST", pad, pl, { gemeten: 82, reden: "tikfout" });
+    const oud = (await verzoek("GET", `/registraties/${id}`, pl)).body.velden.find((v: any) => v.code === "S1.1").waarde.id;
+    const r = await verzoek("POST", pad, pl, { gemeten: 82, reden: "tikfout", vervangt: oud });
     assert.equal(r.status, 201);
     const s11 = r.body.velden.find((v: any) => v.code === "S1.1");
     assert.equal(s11.waarde.gemeten, 82);
     assert.equal(s11.waarde.gecorrigeerd, true);
     assert.equal(s11.waarde.markering, "ok");
+    // Een tweede ploegleider die nog de oude waarde zag, overschrijft de correctie niet (#85).
+    const laat = await verzoek("POST", pad, pl, { gemeten: 83, reden: "tikfout", vervangt: oud });
+    assert.equal(laat.status, 409);
+    assert.match(laat.body.fout, /intussen/);
     await verzoek("POST", `/registraties/${id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-A", partij: "LEV-GS-A-TEST" }] });
     assert.equal((await verzoek("POST", `/registraties/${id}/afronden`, op)).status, 200);
   });
@@ -1116,8 +1141,13 @@ describe("Grondstoffen", () => {
     assert.equal(g.body.grondstoffen[0].gebruik.partij, "LEV-A-9001");
     // Zelfde id opnieuw versturen (offline wachtrij) geeft geen tweede regel.
     assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ id, code: "GS-A", partij: "LEV-A-9001" }] })).status, 200);
-    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-A", partij: "ander" }] })).status, 409);
+    // Een andere partij voor dezelfde grondstof: conflict, de eerste blijft staan (#85). Afronden kan gewoon.
+    const ander = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-A", partij: "ander" }] });
+    assert.equal(ander.status, 200, JSON.stringify(ander.body));
+    assert.deepEqual(ander.body.conflicten.map((x: any) => [x.soort, x.code, x.bestaand, x.nieuw]), [["grondstof", "GS-A", "LEV-A-9001, 125,5", "ander"]]);
+    assert.equal(ander.body.grondstoffen[0].gebruik.partij, "LEV-A-9001");
     assert.equal((await verzoek("POST", `/registraties/${start.body.id}/afronden`, op)).status, 200);
+    await verzoek("POST", `/conflicten/${ander.body.conflicten[0].id}/oplossen`, pl, { keuze: "bestaand" });
     assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen/GS-A/correctie`, op, { partij: "LEV-A-9002", reden: "tikfout" })).status, 403);
     const c = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen/GS-A/correctie`, pl, { partij: "LEV-A-9002", reden: "tikfout" });
     assert.equal(c.status, 201, JSON.stringify(c.body));

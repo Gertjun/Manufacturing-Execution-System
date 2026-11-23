@@ -91,6 +91,20 @@ export interface Keuring {
   wacht?: boolean;
 }
 
+/** Een veld of grondstof die twee keer is ingevuld (sinds 0.52.0, #85, D75). */
+export interface Conflict {
+  id: string;
+  soort: "waarde" | "grondstof";
+  code: string;
+  bestaand: string;
+  bestaand_door: string | null;
+  bestaand_op: string;
+  nieuw: string;
+  nieuw_door: string;
+  nieuw_op: string;
+  wie_kiest: "ploegleider" | "kwaliteit";
+}
+
 export interface Registratie {
   id: string;
   stapcode: string;
@@ -118,6 +132,8 @@ export interface Registratie {
   product?: string | null;
   /** Keuring door Kwaliteit (sinds 0.37.0, #64). */
   keuring?: Keuring | null;
+  /** Open conflicten: een veld of grondstof is twee keer ingevuld (sinds 0.52.0, #85). */
+  conflicten?: Conflict[];
   /** Alleen lokaal: er wachten nog acties voor deze registratie. */
   lokaal?: boolean;
 }

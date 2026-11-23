@@ -909,6 +909,65 @@ def main():
     r4 = val("SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op))
     check("Na de vrijgave gaat de batch verder met PS4", r4 is not None)
 
+    print("\nConflicten bij gelijktijdige invoer (#85)")
+    con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE processtap_id = (SELECT id FROM processtap WHERE code = 'PS1')")
+    bc = nieuwe_batch("B-2026-0991")
+    rc = val("SELECT start_stap('PS1', %s, NULL, %s, %s)", (bc, pc, op))
+    op_b = val("SELECT id FROM operator WHERE naam = 'Operator B'")
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,80,81,%s)", (rc, veld["S1.1"], op))
+    check("Dezelfde waarde nog eens is geen conflict",
+          val("SELECT leg_invoerconflict_vast(%s, %s, 80, 81, %s, %s)", (rc, veld["S1.1"], op_b, pc)) == "zelfde"
+          and val("SELECT count(*) FROM invoerconflict WHERE stapregistratie_id = %s", (rc,)) == 0)
+    inv = "11111111-1111-4111-8111-111111111111"
+    check("Een andere waarde is een conflict",
+          val("SELECT leg_invoerconflict_vast(%s, %s, 80, 83, %s, %s, %s)", (rc, veld["S1.1"], op_b, pc, inv)) == "conflict")
+    val("SELECT leg_invoerconflict_vast(%s, %s, 80, 83, %s, %s, %s)", (rc, veld["S1.1"], op_b, pc, inv))
+    check("Opnieuw versturen (zelfde id) maakt geen tweede conflict",
+          val("SELECT count(*) FROM invoerconflict WHERE stapregistratie_id = %s", (rc,)) == 1)
+    cid = val("SELECT id FROM invoerconflict WHERE invoer_id = %s", (inv,))
+    check("De eerste waarde blijft staan tot er gekozen is",
+          val("SELECT gemeten::float FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 81)
+    check("Melding voor ploegleider en beheerder, met beide waarden",
+          one("SELECT voor_rollen, tekst LIKE '%%81 en 83%%' FROM melding WHERE bron_id = %s", (cid,)) == (["ploegleider", "beheerder"], True))
+    faalt("Een operator lost geen conflict op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, op_account), "Alleen een ploegleider")
+    faalt("Kwaliteit lost een conflict in een veld van Productie niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, kw), "Alleen een ploegleider")
+    faalt("Een conflict wijzig je niet zomaar", "UPDATE invoerconflict SET gemeten = 1 WHERE id = %s", (cid,), "niet gewijzigd")
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s, 'weegschaal B is geijkt')", (cid, pl))
+    w = one("SELECT gemeten::float, vervangt_waarde_id IS NOT NULL, correctie_reden FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"]))
+    check("Kiezen voor de tweede: correctie met reden, origineel bewaard",
+          w[0] == 83 and w[1] and "Operator B" in w[2] and "geijkt" in w[2]
+          and val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 2)
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, pl))
+    check("Hetzelfde besluit opnieuw versturen verandert niets",
+          val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 2)
+    faalt("Een opgelost conflict kies je niet opnieuw", "SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (cid, bh), "al opgelost door ploegleider1")
+    con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'LEV-1',%s)", (rc, gs["GS-A"], op))
+    check("Zelfde partij (andere hoofdletters) is geen conflict",
+          val("SELECT leg_grondstofconflict_vast(%s, %s, ' lev-1', NULL, %s, %s)", (rc, gs["GS-A"], op_b, pc)) == "zelfde")
+    check("Andere partij is een conflict",
+          val("SELECT leg_grondstofconflict_vast(%s, %s, 'LEV-2', NULL, %s, %s)", (rc, gs["GS-A"], op_b, pc)) == "conflict")
+    gcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND grondstof_id IS NOT NULL", (rc,))
+    con.execute("SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (gcid, pl))
+    check("Kiezen voor de eerste: partij blijft, conflict gesloten",
+          val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s AND grondstof_id = %s", (rc, gs["GS-A"])) == "LEV-1"
+          and val("SELECT status FROM invoerconflict WHERE id = %s", (gcid,)) == "bestaand")
+    con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code = 'S1.2'")
+    kw_op1 = val("SELECT operator_van_account(%s)", (kw,))
+    con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,410,%s)", (rc, veld["S1.2"], kw_op1))
+    val("SELECT leg_invoerconflict_vast(%s, %s, NULL, 415, %s, %s)", (rc, veld["S1.2"], kw_op1, pc))
+    kcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"]))
+    check("Conflict in een veld van Kwaliteit: melding voor Kwaliteit",
+          val("SELECT voor_rollen FROM melding WHERE bron_id = %s", (kcid,)) == ["kwaliteit", "beheerder"])
+    faalt("Een ploegleider lost een conflict van Kwaliteit niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, pl), "Alleen Kwaliteit")
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, kw))
+    check("Kwaliteit kiest de tweede meting",
+          val("SELECT gemeten::float FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"])) == 415)
+    faalt("Kwaliteit corrigeert verder niet zelf",
+          "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) "
+          "SELECT stapregistratie_id, veld_id, 1, id, 'x', %s FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s",
+          (kw, rc, veld["S1.2"]), "ploegleider")
+    con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE code = 'S1.2'")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

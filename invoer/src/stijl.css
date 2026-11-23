@@ -143,6 +143,14 @@ input.breed { width: 14em; }
 /* Een tekstvak vult de breedte van zijn formulier (0.42.1). */
 textarea { width: 100%; }
 input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
+/* Twee keer ingevuld (#85): over de volle breedte van de rij. */
+.conflict { grid-column: 1 / -1; display: grid; gap: var(--space-2); background: var(--signaal-vlak); border-left: 6px solid var(--signaal);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-xs); }
+.conflict-kop { margin: 0; font-weight: 700; }
+.conflict-lijst { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-3); margin: 0; }
+.conflict-lijst dt { color: var(--inkt-zacht); }
+.conflict-lijst dd { margin: 0; }
+.conflict-knoppen { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .veld-fout { flex-basis: 100%; margin: 0; color: var(--grens); font-weight: 700; font-size: var(--text-sm); }
 .veld-fout:empty { display: none; }
 .veld-fout:not(:empty)::before { content: "⚠ "; }

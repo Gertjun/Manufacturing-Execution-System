@@ -5,6 +5,8 @@ import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode, NulGetal } from "./schemas.js";
 
+const intussenGewijzigd = () => new ApiFout(409, "Dit is intussen door iemand anders gewijzigd; bekijk de stap opnieuw");
+
 const Id = Type.Object({ id: Type.String({ format: "uuid" }) });
 
 export async function registratieDetail(db: Db, id: string) {
@@ -50,8 +52,34 @@ export async function registratieDetail(db: Db, id: string) {
        FROM keuring k LEFT JOIN gebruiker g ON g.id = k.besloten_door WHERE k.stapregistratie_id = $1`,
     [id],
   );
-  return { ...reg, velden, grondstoffen, keuring: keuring ?? null };
+  const conflicten = await lees(db, `${CONFLICT_SQL} WHERE c.stapregistratie_id = $1 AND c.status = 'open' ORDER BY c.ontvangen_op`, [id]);
+  return { ...reg, velden, grondstoffen, keuring: keuring ?? null, conflicten };
 }
+
+/** Open conflicten met wat er nu staat en wat er als tweede binnenkwam (#85, D75). */
+export const CONFLICT_SQL = `
+  SELECT c.id, CASE WHEN c.veld_id IS NULL THEN 'grondstof' ELSE 'waarde' END AS soort,
+         coalesce(v.code, g.code) AS code,
+         CASE WHEN c.veld_id IS NULL
+              THEN u.partij || coalesce(', ' || replace(u.hoeveelheid::text, '.', ','), '')
+              ELSE replace(w.gemeten::text, '.', ',') || coalesce(' (setting ' || replace(w.setting::text, '.', ',') || ')', '') END AS bestaand,
+         coalesce(gw.gebruikersnaam, ow.naam, gu.gebruikersnaam, ou.naam) AS bestaand_door,
+         coalesce(w.ingevoerd_op, u.ingevoerd_op) AS bestaand_op,
+         CASE WHEN c.veld_id IS NULL
+              THEN c.partij || coalesce(', ' || replace(c.hoeveelheid::text, '.', ','), '')
+              ELSE replace(c.gemeten::text, '.', ',') || coalesce(' (setting ' || replace(c.setting::text, '.', ',') || ')', '') END AS nieuw,
+         oc.naam AS nieuw_door, c.ingevoerd_op AS nieuw_op,
+         CASE WHEN v.gemeten_door = 'kwaliteit' THEN 'kwaliteit' ELSE 'ploegleider' END AS wie_kiest
+    FROM invoerconflict c
+    JOIN operator oc ON oc.id = c.ingevoerd_door
+    LEFT JOIN veld v ON v.id = c.veld_id
+    LEFT JOIN grondstof g ON g.id = c.grondstof_id
+    LEFT JOIN waarde_actueel w ON w.stapregistratie_id = c.stapregistratie_id AND w.veld_id = c.veld_id
+    LEFT JOIN operator ow ON ow.id = w.ingevoerd_door
+    LEFT JOIN gebruiker gw ON gw.id = w.gecorrigeerd_door
+    LEFT JOIN grondstof_gebruik_actueel u ON u.stapregistratie_id = c.stapregistratie_id AND u.grondstof_id = c.grondstof_id
+    LEFT JOIN operator ou ON ou.id = u.ingevoerd_door
+    LEFT JOIN gebruiker gu ON gu.id = u.gecorrigeerd_door`;
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // Een stap starten voor een batch (PS1-PS15) of een lot (PS17-PS18).
@@ -176,11 +204,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const { operatorId } = await invoerContext(app.db, req);
+      const { pcId, operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
         for (const w of req.body.waarden) {
           if (w.id) {
-            const { rows } = await tx.query("SELECT stapregistratie_id FROM waarde WHERE id = $1", [w.id]);
+            const { rows } = await tx.query(
+              "SELECT stapregistratie_id FROM waarde WHERE id = $1 UNION ALL SELECT stapregistratie_id FROM invoerconflict WHERE invoer_id = $1", [w.id]);
             if (rows[0]) {
               if (rows[0].stapregistratie_id !== req.params.id) throw new ApiFout(409, "Dit waarde-id hoort bij een andere registratie");
               continue; // al ontvangen
@@ -200,10 +229,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               [w.id ?? null, req.params.id, veld.rows[0].id, w.setting ?? null, w.gemeten, operatorId],
             );
           } catch (e) {
-            if ((e as { constraint?: string }).constraint === "waarde_een_origineel") {
-              throw new ApiFout(409, `Veld ${w.veldcode} is al ingevuld; een ploegleider kan corrigeren`);
-            }
-            throw e;
+            if ((e as { constraint?: string }).constraint !== "waarde_een_origineel") throw e;
+            // Al ingevuld, door iemand anders of op een andere pc: dezelfde waarde is goed, een andere wordt
+            // een conflict dat een ploegleider (of Kwaliteit) oplost (#85, D75). De rest van de invoer gaat door.
+            await tx.query("ROLLBACK TO SAVEPOINT w");
+            await tx.query("SELECT leg_invoerconflict_vast($1, $2, $3, $4, $5, $6, $7)",
+              [req.params.id, veld.rows[0].id, w.setting ?? null, w.gemeten, operatorId, pcId, w.id ?? null]);
           }
         }
       });
@@ -245,11 +276,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const { operatorId } = await invoerContext(app.db, req);
+      const { pcId, operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
         for (const g of req.body.grondstoffen) {
           if (g.id) {
-            const { rows } = await tx.query("SELECT stapregistratie_id FROM grondstof_gebruik WHERE id = $1", [g.id]);
+            const { rows } = await tx.query(
+              "SELECT stapregistratie_id FROM grondstof_gebruik WHERE id = $1 UNION ALL SELECT stapregistratie_id FROM invoerconflict WHERE invoer_id = $1", [g.id]);
             if (rows[0]) {
               if (rows[0].stapregistratie_id !== req.params.id) throw new ApiFout(409, "Dit id hoort bij een andere registratie");
               continue; // al ontvangen
@@ -265,10 +297,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
               [g.id ?? null, req.params.id, gs[0].id, g.partij, g.hoeveelheid ?? null, operatorId],
             );
           } catch (e) {
-            if ((e as { constraint?: string }).constraint === "grondstof_gebruik_een_origineel") {
-              throw new ApiFout(409, `Grondstof ${g.code} is al ingevuld; een ploegleider kan corrigeren`);
-            }
-            throw e;
+            if ((e as { constraint?: string }).constraint !== "grondstof_gebruik_een_origineel") throw e;
+            await tx.query("ROLLBACK TO SAVEPOINT g");
+            await tx.query("SELECT leg_grondstofconflict_vast($1, $2, $3, $4, $5, $6, $7)",
+              [req.params.id, gs[0].id, g.partij, g.hoeveelheid ?? null, operatorId, pcId, g.id ?? null]);
           }
         }
       });
@@ -287,6 +319,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           partij: Type.String({ minLength: 1, maxLength: 60 }),
           hoeveelheid: Type.Optional(NulGetal({ exclusiveMinimum: 0 })),
           reden: Type.String({ minLength: 1 }),
+          vervangt: Type.Optional(Type.String({ format: "uuid", description: "Id van de regel die je zag (sinds 0.52.0): is die intussen vervangen, dan weigert de server (#85)" })),
         }),
         response: { 201: RegistratieDetail },
       },
@@ -299,6 +332,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           [req.params.id, req.params.code],
         );
         if (!rows[0]) throw niet("Grondstofregel");
+        if (req.body.vervangt && req.body.vervangt !== rows[0].id) throw intussenGewijzigd();
         await tx.query(
           `INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, vervangt_id, correctie_reden, gecorrigeerd_door)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -322,6 +356,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           setting: Type.Optional(NulGetal()),
           gemeten: Type.Number(),
           reden: Type.String({ minLength: 1 }),
+          vervangt: Type.Optional(Type.String({ format: "uuid", description: "Id van de waarde die je zag (sinds 0.52.0): is die intussen vervangen, dan weigert de server (#85)" })),
         }),
         response: { 201: RegistratieDetail },
       },
@@ -334,6 +369,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           [req.params.id, req.params.veldcode],
         );
         if (!rows[0]) throw niet("Waarde");
+        if (req.body.vervangt && req.body.vervangt !== rows[0].id) throw intussenGewijzigd();
         const setting = req.body.setting === undefined ? rows[0].setting : req.body.setting;
         await tx.query(
           `INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)

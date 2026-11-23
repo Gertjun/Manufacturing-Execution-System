@@ -2,7 +2,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist } from "../auth.js";
 import { inTransactie, lees } from "../db.js";
-import { niet } from "../fouten.js";
+import { ApiFout, niet } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
 import { RegistratieDetail } from "./schemas.js";
 
@@ -70,8 +70,17 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [k] = await lees<{ stapregistratie_id: string }>(app.db, "SELECT stapregistratie_id FROM keuring WHERE id = $1", [req.params.id]);
       if (!k) throw niet("Keuring");
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("SELECT beslis_keuring($1, $2, $3, $4, $5)", [req.params.id, req.body.besluit, req.body.reden ?? null, req.user.sub, req.body.stapcode ?? null]));
+      try {
+        await inTransactie(app.db, req.user.naam, (tx) =>
+          tx.query("SELECT beslis_keuring($1, $2, $3, $4, $5)", [req.params.id, req.body.besluit, req.body.reden ?? null, req.user.sub, req.body.stapcode ?? null]));
+      } catch (e) {
+        // Twee mensen van Kwaliteit op dezelfde keuring (#85): het eerste besluit telt; zeg wie dat nam.
+        if (!String((e as Error).message).includes("al beslist")) throw e;
+        const [b] = await lees<{ status: string; door: string | null }>(app.db,
+          "SELECT k.status, g.gebruikersnaam AS door FROM keuring k LEFT JOIN gebruiker g ON g.id = k.besloten_door WHERE k.id = $1", [req.params.id]);
+        const wat = { vrijgegeven: "vrijgegeven", herbewerken: "herbewerken", afgekeurd: "afgekeurd" }[b?.status ?? ""] ?? b?.status;
+        throw new ApiFout(409, `Over deze stap is al beslist door ${b?.door ?? "iemand anders"}: ${wat}`);
+      }
       return (await registratieDetail(app.db, k.stapregistratie_id)) as never;
     },
   );

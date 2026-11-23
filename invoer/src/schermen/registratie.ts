@@ -3,10 +3,10 @@
 import { GeenVerbinding, stuur } from "../api";
 import { berekenMarkering, leesGetal, markeringTekst, toonGetal } from "../markering";
 import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../../gedeeld/etiket";
-import { beslisKeuring, corrigeer, corrigeerGrondstof, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, stappen, type GrondstofInvoer, type Invoer } from "../registraties";
+import { beslisKeuring, corrigeer, corrigeerGrondstof, losConflictOp, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, stappen, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
 import { opStatus } from "../wachtrij";
-import type { Markering, Registratie, VeldMetWaarde } from "../types";
+import type { Conflict, Markering, Registratie, VeldMetWaarde } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 
 function grensTekst(v: VeldMetWaarde): string {
@@ -56,6 +56,36 @@ export async function registratieScherm(id: string) {
       }
     });
   }
+}
+
+/**
+ * Twee keer ingevuld (#85, D75): wat er staat en wat er als tweede binnenkwam. Wie mag kiezen, ziet twee knoppen;
+ * de rest ziet wie kiest. Kiezen kan alleen met verbinding, net als corrigeren.
+ */
+function conflictBlok(reg: Registratie, c: Conflict, teken: (r: Registratie) => void): HTMLElement {
+  const rol = sessie.rol;
+  const magKiezen = !reg.lokaal && (rol === "beheerder" || rol === c.wie_kiest);
+  const kies = (keuze: "bestaand" | "nieuw") => bezigBij(async () => {
+    const tekst = keuze === "bestaand" ? `${c.bestaand} laten staan` : `${c.nieuw} nemen`;
+    const r = await vraag(`${c.code}: ${tekst}`, [{ naam: "reden", label: "Toelichting (niet verplicht)", optioneel: true }], tekst);
+    if (!r) return;
+    try {
+      teken(await losConflictOp(reg, c.id, keuze, r.reden || null));
+      melding(`${c.code}: ${tekst}`, "ok");
+    } catch (e) {
+      melding(e instanceof GeenVerbinding ? "Kiezen kan alleen met verbinding" : (e as Error).message, "fout");
+    }
+  });
+  return h("div", { class: "conflict", role: "group", "aria-label": `${c.code} twee keer ingevuld` },
+    h("p", { class: "conflict-kop" }, "⚠ Twee keer ingevuld"),
+    h("dl", { class: "conflict-lijst" },
+      h("dt", {}, "Staat nu"), h("dd", {}, h("strong", { class: "getal" }, c.bestaand), ` door ${c.bestaand_door ?? "?"}, ${tijd(c.bestaand_op)}`),
+      h("dt", {}, "Ook ingevuld"), h("dd", {}, h("strong", { class: "getal" }, c.nieuw), ` door ${c.nieuw_door}, ${tijd(c.nieuw_op)}`)),
+    magKiezen
+      ? h("div", { class: "conflict-knoppen" },
+          h("button", { class: "knop knop-klein", onclick: kies("bestaand") }, `${c.bestaand} laten staan`),
+          h("button", { class: "knop knop-klein", onclick: kies("nieuw") }, `${c.nieuw} nemen`))
+      : h("p", { class: "sub" }, c.wie_kiest === "kwaliteit" ? "Kwaliteit kiest welke blijft." : "Een ploegleider kiest welke blijft."));
 }
 
 function teken(reg: Registratie) {
@@ -236,6 +266,7 @@ function teken(reg: Registratie) {
       midden = h("div", { class: "sub" }, "Niet ingevuld");
     }
     rij.append(links, midden, rechts);
+    for (const c of (reg.conflicten ?? []).filter((x) => x.soort === "waarde" && x.code === v.code)) rij.append(conflictBlok(reg, c, teken));
     return rij;
   });
 
@@ -287,6 +318,7 @@ function teken(reg: Registratie) {
       midden = h("div", { class: "sub" }, "Niet ingevuld");
     }
     rij.append(links, midden, rechts);
+    for (const c of (reg.conflicten ?? []).filter((x) => x.soort === "grondstof" && x.code === g.code)) rij.append(conflictBlok(reg, c, teken));
     return rij;
   });
 
@@ -402,6 +434,9 @@ function teken(reg: Registratie) {
         reg.herbewerking_start ? h("p", { class: "waarschuwing" }, `Herbewerking: ${reg.reden}`) : null,
         reg.nageleverd_door ? h("p", { class: "sub" }, `Nageleverd van papier door ${reg.nageleverd_door}: ${reg.nageleverd_reden ?? ""}`) : null,
         reg.status === "afgebroken" ? h("p", { class: "waarschuwing" }, reg.reden ?? "Afgebroken") : null,
+        reg.conflicten?.length
+          ? h("p", { class: "waarschuwing" }, `Twee keer ingevuld: ${reg.conflicten.map((c) => c.code).join(", ")}. De eerste invoer telt tot er gekozen is.`)
+          : null,
         reg.keuring && reg.keuring.status !== "open" && reg.keuring.reden ? h("p", { class: "sub" }, `Kwaliteit: ${reg.keuring.reden}`) : null,
       ),
       h("div", { class: "kop-rechts" }, statusLabel, keuringLabel,

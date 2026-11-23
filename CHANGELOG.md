@@ -5,6 +5,19 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.52.0 — 23 november 2026 · #85
+- **Twee keer ingevuld:** vullen twee mensen hetzelfde veld of dezelfde grondstof van een stap in (op twee pc's tegelijk, of later uit een offline wachtrij), dan weigerde de server de tweede invoer. Nu blijft de eerste staan en wordt de tweede bewaard als conflict (D75).
+  - In het invoerscherm staat bij het veld "Twee keer ingevuld": wat er staat en wat er ook is ingevuld, door wie en wanneer. Bovenaan de stap staat welke velden het zijn.
+  - Een ploegleider kiest met één knop welke blijft ("… laten staan" of "… nemen"), met een toelichting als hij wil. Kiest hij de tweede, dan is dat een gewone correctie; het origineel blijft bewaard en de reden noemt wie de gekozen waarde invulde.
+  - Een veld dat Kwaliteit meet: Kwaliteit kiest (op de lab-pc). De beheerder kan altijd kiezen.
+  - Er komt een melding voor wie mag kiezen, met "Bekijken" naar de batch of het lot.
+  - Dezelfde waarde nog eens invoeren is geen conflict, en opnieuw versturen uit de wachtrij maakt er geen tweede.
+  - Afronden kan gewoon; een conflict los je ook achteraf op.
+- **Corrigeren door twee ploegleiders tegelijk:** wie corrigeert op basis van een waarde die een ander intussen al heeft gecorrigeerd, krijgt "Dit is intussen door iemand anders gewijzigd; bekijk de stap opnieuw". Eerder overschreef de tweede correctie de eerste zonder dat iemand het merkte.
+- **Keuring:** beslissen twee mensen van Kwaliteit over dezelfde keuring, dan telt (zoals al) het eerste besluit; de tweede ziet nu door wie en wat er besloten is.
+- API: `GET /conflicten` en `POST /conflicten/{id}/oplossen`; een stap heeft `conflicten`; een correctie kan `vervangt` meesturen. `api/openapi.json` is weer bij (stond nog op 0.23.0).
+- **Oudere invoerschermen:** werken gewoon. Ze tonen het conflict niet, maar het wordt wel bewaard en gemeld.
+
 ## Zonder nieuwe versie (na 0.51.1)
 - Roadmap: nieuwe fase A4 met Geerts verbeterlijst van 23 november (#85–#91 en #93–#100 vóór de pilot; #92, #101 en #102 in fase F). #48 is besloten: Dagoverzicht en Batchroute blijven allebei. Keuzes in D74. Het volgende vrije nummer is #103.
 

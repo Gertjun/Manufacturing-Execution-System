@@ -25,6 +25,7 @@ import certificaatRoutes from "./routes/certificaat.js";
 import werkvoorraadRoutes from "./routes/werkvoorraad.js";
 import herbewerkingRoutes from "./routes/herbewerkingen.js";
 import keuringRoutes from "./routes/keuringen.js";
+import conflictRoutes from "./routes/conflicten.js";
 import specificatieRoutes from "./routes/specificaties.js";
 import naleveringRoutes from "./routes/nalevering.js";
 import terugmeldingRoutes from "./routes/terugmeldingen.js";
@@ -125,6 +126,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(werkvoorraadRoutes, { prefix: "/werkvoorraad" });
   await app.register(herbewerkingRoutes, { prefix: "/herbewerkingen" });
   await app.register(keuringRoutes, { prefix: "/keuringen" });
+  await app.register(conflictRoutes, { prefix: "/conflicten" });
   await app.register(specificatieRoutes, { prefix: "/specificaties" });
   await app.register(naleveringRoutes, { prefix: "/nalevering" });
   await app.register(terugmeldingRoutes, { prefix: "/terugmeldingen" });

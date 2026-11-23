@@ -94,12 +94,27 @@ export const Keuring = Type.Object({
   besloten_op: OptTijd,
 });
 
+/** Open conflict: een veld of grondstof is twee keer ingevuld (sinds 0.52.0, #85, D75). */
+export const Conflict = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  soort: Type.Union([Type.Literal("waarde"), Type.Literal("grondstof")]),
+  code: Type.String({ description: "Veldcode of grondstofcode" }),
+  bestaand: Type.String({ description: "Wat er nu staat, als tekst" }),
+  bestaand_door: OptTekst,
+  bestaand_op: Tijd,
+  nieuw: Type.String({ description: "De tweede invoer, als tekst" }),
+  nieuw_door: Type.String(),
+  nieuw_op: Tijd,
+  wie_kiest: Type.Union([Type.Literal("ploegleider"), Type.Literal("kwaliteit")]),
+});
+
 export const RegistratieDetail = Type.Intersect([
   RegistratieKort,
   Type.Object({
     velden: Type.Array(VeldMetWaarde),
     grondstoffen: Type.Array(GrondstofMetGebruik),
     keuring: Type.Optional(Type.Union([Type.Null(), Keuring])),
+    conflicten: Type.Optional(Type.Array(Conflict, { description: "Open conflicten in deze stap (sinds 0.52.0, #85)" })),
   }),
 ]);
 

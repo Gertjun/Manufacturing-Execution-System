@@ -182,10 +182,13 @@ export async function slaGrondstoffenOp(reg: Registratie, invoer: GrondstofInvoe
 
 /** Correctie van een grondstofregel door een ploegleider: alleen met verbinding. */
 export async function corrigeerGrondstof(reg: Registratie, code: string, partij: string, hoeveelheid: number | null | undefined, reden: string) {
+  // Met het id dat je zag: heeft een ander het intussen gecorrigeerd, dan weigert de server (#85).
+  const vervangt = reg.grondstoffen?.find((g) => g.code === code)?.gebruik?.id;
   const antwoord = await stuur<Registratie>("POST", `/registraties/${reg.id}/grondstoffen/${encodeURIComponent(code)}/correctie`, {
     partij,
     ...(hoeveelheid === undefined ? {} : { hoeveelheid }),
     reden,
+    ...(vervangt ? { vervangt } : {}),
   });
   await opslag.zet("registraties", { ...antwoord, lokaal: false });
   return antwoord;
@@ -222,11 +225,20 @@ export async function rondAf(reg: Registratie) {
 
 /** Correctie door een ploegleider: alleen met verbinding, want direct gecontroleerd. */
 export async function corrigeer(reg: Registratie, veldcode: string, gemeten: number, setting: number | null | undefined, reden: string) {
+  const vervangt = reg.velden?.find((v) => v.code === veldcode)?.waarde?.id;
   const antwoord = await stuur<Registratie>("POST", `/registraties/${reg.id}/waarden/${veldcode}/correctie`, {
     gemeten,
     ...(setting === undefined ? {} : { setting }),
     reden,
+    ...(vervangt ? { vervangt } : {}),
   });
+  await opslag.zet("registraties", { ...antwoord, lokaal: false });
+  return antwoord;
+}
+
+/** Een conflict oplossen (#85): welke invoer blijft. Alleen met verbinding, zoals een correctie. */
+export async function losConflictOp(reg: Registratie, id: string, keuze: "bestaand" | "nieuw", reden: string | null) {
+  const antwoord = await stuur<Registratie>("POST", `/conflicten/${id}/oplossen`, { keuze, reden });
   await opslag.zet("registraties", { ...antwoord, lokaal: false });
   return antwoord;
 }
