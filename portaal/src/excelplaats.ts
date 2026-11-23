@@ -1,5 +1,5 @@
 /**
- * "Naar Excel" staat op één vaste plek (0.42.1): rechts in de kopregel van het blok met de tabel,
+ * "Naar Excel" (en "Filteren", #94) staat op één vaste plek (0.42.1): rechts in de kopregel van het blok met de tabel,
  * of rechts in de paginakop als de tabel los op de pagina staat. Zo krijgt geen tabel een losse
  * regel met alleen deze knop. Staan er meer tabellen in één blok, dan blijft de knop boven zijn tabel.
  * Werkt op elk scherm dat tabel() gebruikt, ook als het later inhoud bijlaadt.
@@ -7,12 +7,13 @@
 export function volgExcelKnoppen(scherm: HTMLElement) {
   const plaats = () => {
     for (const acties of Array.from(scherm.querySelectorAll<HTMLElement>(".tabel-met-acties > .tabel-acties"))) {
-      const knop = acties.querySelector("button");
-      if (!knop) continue;
+      const knoppen = Array.from(acties.querySelectorAll("button"));
+      if (!knoppen.length) continue;
       const kop = kopVoor(acties, scherm);
       if (!kop) continue;
       const rechts = rechterdeel(kop);
-      rechts.append(knop);
+      // Filteren en Naar Excel (#94) gaan samen naar de kopregel.
+      rechts.append(...knoppen);
       acties.remove();
     }
   };

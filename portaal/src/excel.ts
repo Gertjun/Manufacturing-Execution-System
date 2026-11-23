@@ -267,8 +267,8 @@ export async function leesXlsxBladen(bestand: Blob): Promise<Map<string, Cel[][]
 /** Leest een tabel van het scherm (kop en zichtbare tekst per cel) en biedt hem aan als download. */
 export function tabelNaarExcel(tabel: HTMLTableElement, titel: string) {
   const koppen = [...tabel.querySelectorAll("thead th")].map((th) => (th.textContent ?? "").trim());
-  // Opengeklapte details (zoals een meting in het lotpaspoort) horen niet in de export.
-  const rijen = [...tabel.querySelectorAll("tbody tr:not(.meting-detail)")].map((tr) =>
+  // Opengeklapte details (zoals een meting in het lotpaspoort) horen niet in de export; weggefilterde regels ook niet (#94).
+  const rijen = [...tabel.querySelectorAll("tbody tr:not(.meting-detail):not([hidden])")].map((tr) =>
     [...tr.querySelectorAll("td")].map((td) => {
       // Knoppen horen niet in de export.
       const kopie = td.cloneNode(true) as HTMLElement;

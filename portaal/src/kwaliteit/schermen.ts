@@ -7,6 +7,7 @@ import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
 import { ApiFout, gekozenProduct, haal, periode, PERIODES, producten, qs, sessie, stuur } from "../basis";
 import { afwijkingenPerWeek, gemengdeGrenzen, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
+import { filterKnop, maakSorteerbaar } from "../tabelsorteer";
 import { aanvullen, perTekst, perWoord, resolutie, RESOLUTIES, volgende, type Per } from "../resolutie";
 
 // ---------- kleine bouwstenen ----------
@@ -86,7 +87,12 @@ export function tabel(koppen: string[], rijen: (Node | string | number | null)[]
       tabelNaarExcel(t, kopTekst);
     },
   }, "Naar Excel") as HTMLButtonElement;
-  return h("div", { class: "tabel-met-acties" }, rijen.length ? h("div", { class: "tabel-acties" }, knop) : null, h("div", { class: "tabel-kader" }, t));
+  // Sorteren op elke kolom (klik op de kop) en filteren per kolom bij langere tabellen (#94, D83).
+  maakSorteerbaar(t);
+  const filterVak = h("div", { class: "tabel-filtervak" });
+  const filter = filterKnop(t, filterVak);
+  return h("div", { class: "tabel-met-acties" }, rijen.length ? h("div", { class: "tabel-acties" }, filter, knop) : null,
+    filter ? filterVak : null, h("div", { class: "tabel-kader" }, t));
 }
 
 /** Een getal, of tekst die alleen uit cijfers en eenheden bestaat ("120,5 kg", "3 u 15", "99,8 %", "−2"). */

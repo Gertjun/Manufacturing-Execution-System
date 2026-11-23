@@ -274,6 +274,42 @@ try {
   const soorten = await page.locator(".tabel tbody tr .label").allInnerTexts();
   check("Filter 'buiten grens' werkt", soorten.length > 0 && soorten.every((t) => t === "Buiten grens"), soorten.slice(0, 3).join("|"));
   await shot("10-afwijkingen");
+
+  console.log("\nSorteren en filteren per kolom (#94)");
+  const kolom = async (naam) => page.locator(`.tabel tbody tr:not([hidden]) td[data-kop="${naam}"]`).allInnerTexts();
+  const getal = (t) => { const m = /([−-]?)([\d.]+)(?:,(\d+))?/.exec(t); return m ? (m[1] ? -1 : 1) * Number(`${m[2].replace(/\./g, "")}.${m[3] ?? 0}`) : NaN; };
+  await page.selectOption("#f-soort", "");
+  await page.waitForFunction(() => document.querySelectorAll(".tabel tbody tr").length > 10);
+  await page.getByRole("button", { name: "Filteren" }).waitFor();
+  const voor = await kolom("Ingevoerd");
+  await page.locator("th", { hasText: "Gemeten" }).getByRole("button").click();
+  const op = (await kolom("Gemeten")).map(getal);
+  check("Klik op Gemeten: oplopend", op.length > 1 && op.every((x, i) => i === 0 || op[i - 1] <= x) && (await page.locator('th[aria-sort="ascending"]').innerText()).includes("Gemeten"), op.slice(0, 5).join(","));
+  await page.locator("th", { hasText: "Gemeten" }).getByRole("button").click();
+  const af = (await kolom("Gemeten")).map(getal);
+  check("Nog een klik: aflopend", af.every((x, i) => i === 0 || af[i - 1] >= x) && (await page.locator('th[aria-sort="descending"]').count()) === 1);
+  await page.locator("th", { hasText: "Gemeten" }).getByRole("button").click();
+  check("Derde klik: weer de oorspronkelijke volgorde", JSON.stringify(await kolom("Ingevoerd")) === JSON.stringify(voor) && (await page.locator("th[aria-sort]").count()) === 0);
+  await page.locator("th", { hasText: "Ingevoerd" }).getByRole("button").click();
+  const opTijd = await kolom("Ingevoerd");
+  // De lijst staat nieuwste eerst; oplopend op tijd begint dus bij de oudste.
+  check("Sorteren op datum: oudste eerst", opTijd[0] === voor[voor.length - 1] && opTijd[opTijd.length - 1] === voor[0], `${opTijd[0]} / ${voor[voor.length - 1]}`);
+  await page.locator("th", { hasText: "Ingevoerd" }).getByRole("button").click();
+  await page.locator("th", { hasText: "Ingevoerd" }).getByRole("button").click();
+  const operators = await kolom("Operator");
+  const deel = operators[0];
+  await page.getByRole("button", { name: "Filteren" }).click();
+  await page.locator(".tabel-filters").waitFor();
+  const opVeld = page.locator(".tabel-filters").getByLabel("Operator");
+  // Weinig verschillende waarden: een keuzelijst; veel: een zoekveld.
+  if ((await opVeld.evaluate((el) => el.tagName)) === "SELECT") await opVeld.selectOption(operators[0]); else await opVeld.fill(deel);
+  const gefilterd = await kolom("Operator");
+  const verwacht = operators.filter((o) => o.toLowerCase().includes(deel.toLowerCase())).length;
+  check("Filter per kolom: alleen regels met die operator", gefilterd.length === verwacht && gefilterd.every((o) => o.toLowerCase().includes(deel.toLowerCase())), `${gefilterd.length} / ${verwacht}`);
+  check("De knop zegt hoeveel regels je ziet", verwacht === operators.length || (await page.getByRole("button", { name: /^Filteren \(\d+ van \d+\)$/ }).count()) === 1);
+  await page.getByRole("button", { name: "Filters wissen" }).click();
+  check("Filters wissen: alles weer zichtbaar", (await kolom("Operator")).length === operators.length);
+  await shot("10b-afwijkingen-filteren");
   await page.getByRole("link", { name: "Herbewerkingen en afkeur" }).click();
   await page.getByRole("heading", { name: /Afgekeurde batches/ }).waitFor();
   await shot("11-herbewerkingen-afkeur");

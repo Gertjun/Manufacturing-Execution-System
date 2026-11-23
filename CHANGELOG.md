@@ -5,6 +5,13 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.61.0 — 23 november 2026 · #94
+- **Sorteren en filteren in elke tabel** van de portalen (#94).
+  - **Sorteren:** klik op een kolomkop. Eerst oplopend (▲), dan aflopend (▼), bij de derde klik weer de gewone volgorde. Getallen, datums en tijdsduren sorteren als getal; lege cellen staan altijd onderaan.
+  - **Filteren:** bij tabellen met 6 of meer regels staat naast "Naar Excel" een knop **Filteren**. Die opent per kolom een keuzelijst (bij weinig verschillende waarden) of een zoekveld. De knop zegt hoeveel regels je ziet ("Filteren (12 van 40)"); **Filters wissen** zet alles terug.
+  - **Naar Excel** neemt de gesorteerde en gefilterde regels mee: je krijgt wat je ziet.
+  - Werkt in alle schermen met de gedeelde tabel; op een telefoon (tabel als kaartjes) kan filteren wel, sorteren niet.
+
 ## 0.60.0 — 23 november 2026 · #93 #95 #96
 - **Productkeuze in de filterbalk** (#93). Het product kies je niet meer in het menu, maar naast Periode en Groeperen, in een geel vak; met één product gekozen is het geel voller. Het **lotpaspoort** heeft de keuze ook: dan staan alleen de lots van dat product in de lijst, met een kolom Product.
 - **Schermbreedte** (#95). Tabellen en grafieken gebruiken de hele breedte van het scherm; tekst blijft smal zodat hij leesbaar is. Een grafiek wordt niet hoger dan het scherm.

@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 23 november 2026 · huidige versie 0.60.0
+Bijgewerkt: 23 november 2026 · huidige versie 0.61.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -27,8 +27,8 @@ gantt
     In één keer goed, signaleren (32 66)     :a3b, 2026-11-24, 7d
 
     section A4 Verbeterlijst
-    Gebouwd in 0.52 tot en met 0.60          :done, a4g, 2026-11-23, 1d
-    Prioriteit 2 (94 100)          :a4b, 2026-11-24, 5d
+    Gebouwd in 0.52 tot en met 0.61          :done, a4g, 2026-11-23, 1d
+    Prioriteit 2 (100)          :a4b, 2026-11-24, 5d
 
     section B Praktijk
     PoC laten zien, Geert (11)               :b1, 2026-11-30, 21d
@@ -82,12 +82,11 @@ Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026):
 **Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.
 
 ### A4. Verbeterlijst van 23 november — vóór de pilot
-Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75) #86 (ploegen A–E in twee divisies met rooster, 0.53.0, D76) #87 (Medewerkers met ploeg en account, 0.54.0, D77) #88 (startscherm voor Kwaliteit, 0.55.0, D78) #89 (trend bij alle producten, 0.56.0, D79) #90 (capaciteit in kilogram, 0.57.0, D80) en #91 (wandscherm passend en afmelden, 0.58.0, D81). Prioriteit 1 is daarmee klaar. Uit prioriteit 2 gebouwd: #48, #97, #98 en #99 (0.59.0) en #93, #95 en #96 (0.60.0, D82). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
+Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75) #86 (ploegen A–E in twee divisies met rooster, 0.53.0, D76) #87 (Medewerkers met ploeg en account, 0.54.0, D77) #88 (startscherm voor Kwaliteit, 0.55.0, D78) #89 (trend bij alle producten, 0.56.0, D79) #90 (capaciteit in kilogram, 0.57.0, D80) en #91 (wandscherm passend en afmelden, 0.58.0, D81). Prioriteit 1 is daarmee klaar. Uit prioriteit 2 gebouwd: #48, #97, #98 en #99 (0.59.0) #93, #95 en #96 (0.60.0, D82) en #94 (0.61.0, D83). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
 
 **Prioriteit 1 – juistheid van de gegevens:**
 
 **Prioriteit 2 – gebruiksgemak:**
-- #94 **Filteren en sorteren in tabellen** (middel) — Per kolom sorteren en filteren, in de gedeelde tabel, zodat het in alle schermen werkt.
 - #100 **Schema van de database** (klein) — Een plaatje van de tabellen en hun verbanden, automatisch gemaakt uit `db/schema.sql` en in de repository, zodat het altijd actueel is (het datamodel op claude.ai is een momentopname).
 
 **Poort A4:** prioriteit 1 en 2 gebouwd en door Geert in de demo bekeken.
