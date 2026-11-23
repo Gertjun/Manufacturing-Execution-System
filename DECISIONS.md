@@ -376,3 +376,12 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Lijnen per meting:** de lijnen komen uit de grenzen die bij elke meting zijn opgeslagen (D55), als traplijn door de tijd, zoals de tolerantie (D70). Een gewijzigde grens geldt zo pas vanaf dat moment en een oudere meting staat niet ten onrechte buiten de lijn. Een oudere server zonder grenzen per punt valt terug op de grenzen van het veld.
 - **Gemengd** = minstens twee producten waarvan de eerste meting andere grenzen of tolerantie heeft. Alleen een wijziging in de tijd bij één product is geen menging.
 - **Gekozen boven:** een lijn per product in verschillende kleuren (onleesbaar bij drie of meer producten en botst met de kleuren voor tolerantie en grens), of de afstand tot de eigen grens uitzetten (abstract; Geert wil de gemeten waarde zien).
+
+### D80 – Capaciteit in kilogram, met een gewicht per batch (23 nov 2026, 0.57.0)
+- **Besluit (Geert):** capaciteit staat in kilogram, niet in batches. Je vult per uur, per dag of per maand in; de andere twee rekent het systeem uit (#90, D74).
+- **Opslag:** `capaciteit_stap.kg_per_dag`. Per uur = per dag ÷ productie-uren per dag (`productie_uren_per_dag()`, de actieve diensten samen, nu 24). Per maand = per dag × 365/12 (de fabriek werkt elke dag even lang, D69). Zo is er één getal als bron en kunnen de drie nooit uit elkaar lopen.
+- **Gewicht per batch:** `product.batchgewicht_kg`, voor de pilot vast per product (Geert); een lot weegt 4 batches. Moet het later per batch verschillen, dan komt er een gewicht bij de batch; dit gewicht blijft dan de standaard.
+- **Planning blijft in stuks:** `capaciteit_stap_voor` rekent de kilogrammen om naar batches of lots per dag (naar beneden afgerond, minstens 1). Alle bestaande planning, waarschuwingen en afwijkende dagen (D69) werken zo onveranderd. Zonder gewicht per batch: nog invullen.
+- **Oude regels:** een regel in stuks van vóór 0.57.0 blijft gelden tot hij in kg is ingevuld (`max_per_dag`, nu leeg mag; nooit allebei leeg). Op de laptop met testdata is alles omgerekend met 410 kg per batch.
+- **OEE (later, #22):** de capaciteit in kg per uur is de basis voor de prestatie (gemaakt ÷ wat er in de draaitijd had gekund).
+- **Gekozen boven:** capaciteit per uur opslaan (dan hangt de dagcapaciteit af van wijzigingen in de diensten), of alle planning omzetten naar kilogram (groot en riskant vóór de pilot; de planner plant batches).

@@ -173,7 +173,7 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         kop: "Instellen",
         punten: [
           "Producten: per product de route, welke stappen en in welke volgorde. Route opslaan.",
-          "Capaciteit: per product elke stap van de route, wat er per dag kan (leeg = nog invullen); de eerste stap bepaalt hoeveel batches van een product per dag starten. Afwijkende dagen voor een product en/of stap, als percentage (0 % = geen productie). Het systeem waarschuwt bij te vol, maar blokkeert niet.",
+          "Capaciteit: per product elke stap van de route, in kg per uur, dag of maand (vul er één in; leeg = nog invullen), en het gewicht per batch. Daaruit volgt hoeveel batches of lots per dag passen; de eerste stap bepaalt hoeveel batches van een product per dag starten. Afwijkende dagen voor een product en/of stap, als percentage (0 % = geen productie). Het systeem waarschuwt bij te vol, maar blokkeert niet.",
           "Etiketten: per dag printen, voor de etiketprinter (100 × 50 mm) of een A4-vel (3 × 7).",
         ],
       },

@@ -85,14 +85,18 @@ SELECT v.id, p.id, x.min, x.max, x.tol, 'absoluut'
        x(veld, product, min, max, tol)
   JOIN veld v ON v.code = x.veld JOIN product p ON p.code = x.product;
 
--- Fictieve capaciteit per stap en product (D55, D71): PS1 kan 8 batches per dag aan van PRD-A en PRD-C, 3 van PRD-B;
--- PS9 6 batches; PS16 2 lots per dag. De andere stappen staan in Planning → Capaciteit als "nog invullen".
-INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag)
-SELECT s.id, p.id, x.max
-  FROM (VALUES ('PS1', 8), ('PS9', 6), ('PS16', 2)) x(stap, max)
+-- Fictief gewicht per batch (sinds 0.57.0, #90): 410 kg; een lot weegt dus 1640 kg.
+UPDATE product SET batchgewicht_kg = 410;
+
+-- Fictieve capaciteit per stap en product in kg per dag (D55, D71, D80): PS1 3280 kg (8 batches) van PRD-A en PRD-C,
+-- 1230 kg (3 batches) van PRD-B; PS9 2460 kg (6 batches); PS16 3280 kg (2 lots). De andere stappen staan in
+-- Planning → Capaciteit als "nog invullen".
+INSERT INTO capaciteit_stap (processtap_id, product_id, kg_per_dag)
+SELECT s.id, p.id, x.kg
+  FROM (VALUES ('PS1', 3280), ('PS9', 2460), ('PS16', 3280)) x(stap, kg)
   JOIN processtap s ON s.code = x.stap CROSS JOIN product p
  WHERE in_route(p.id, s.id);
-UPDATE capaciteit_stap SET max_per_dag = 3
+UPDATE capaciteit_stap SET kg_per_dag = 1230
  WHERE processtap_id = (SELECT id FROM processtap WHERE code = 'PS1') AND product_id = (SELECT id FROM product WHERE code = 'PRD-B');
 
 -- Fictieve grondstoffen en in welke stap ze worden ingevoerd (sinds 0.11.0).

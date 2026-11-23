@@ -31814,6 +31814,11 @@ UPDATE fabriek.operator o SET ploeg_id = rp.id
   JOIN fabriek.rooster_ploeg rp ON rp.code = v.ploeg
  WHERE o.naam = v.naam;
 
+-- Capaciteit in kilogram (sinds 0.57.0, #90): gewicht per batch en de capaciteit omgezet van stuks naar kg.
+UPDATE fabriek.product SET batchgewicht_kg = 410;
+UPDATE fabriek.capaciteit_stap c SET kg_per_dag = c.max_per_dag * 410 * CASE WHEN s.niveau = 'lot' THEN 4 ELSE 1 END, max_per_dag = NULL
+  FROM fabriek.processtap s WHERE s.id = c.processtap_id AND c.kg_per_dag IS NULL;
+
 --
 -- PostgreSQL database dump complete
 --

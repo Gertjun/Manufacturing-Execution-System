@@ -2109,13 +2109,41 @@ CREATE TRIGGER capaciteit_stap_log BEFORE INSERT OR UPDATE OR DELETE ON capacite
     FOR EACH ROW EXECUTE FUNCTION log_config();
 
 -- De capaciteit van een stap voor een product (NULL = nog niet ingevuld). Sinds 0.49.0 (D71) alleen per product.
+-- Capaciteit in kilogram (sinds 0035, #90, D80). Een product heeft een vast gewicht per batch (voor de pilot;
+-- later mogelijk per batch); een lot weegt 4 batches. De capaciteit per stap staat in kg per dag; per uur en per
+-- maand worden ervan afgeleid met de uren van de diensten en het gemiddelde aantal dagen in een maand.
+ALTER TABLE product ADD COLUMN batchgewicht_kg numeric CHECK (batchgewicht_kg > 0 AND batchgewicht_kg <= 100000);
+ALTER TABLE capaciteit_stap ADD COLUMN kg_per_dag numeric CHECK (kg_per_dag > 0 AND kg_per_dag <= 100000000);
+ALTER TABLE capaciteit_stap ALTER COLUMN max_per_dag DROP NOT NULL;
+ALTER TABLE capaciteit_stap ADD CONSTRAINT capaciteit_stap_ingevuld CHECK (kg_per_dag IS NOT NULL OR max_per_dag IS NOT NULL);
+
+-- Gewicht van één item in een stap: een batch, of een lot (4 batches). NULL = gewicht nog niet ingevuld.
+CREATE FUNCTION gewicht_per_item(p_product uuid, p_stap uuid) RETURNS numeric LANGUAGE sql STABLE AS $$
+    SELECT p.batchgewicht_kg * CASE WHEN s.niveau = 'lot' THEN 4 ELSE 1 END
+      FROM product p, processtap s WHERE p.id = p_product AND s.id = p_stap
+$$;
+
+-- Productie-uren per dag: de actieve diensten samen (standaard 24).
+CREATE FUNCTION productie_uren_per_dag() RETURNS numeric LANGUAGE sql STABLE AS $$
+    SELECT coalesce((SELECT sum(extract(epoch FROM CASE WHEN eindigt > begint THEN eindigt - begint
+                                                        ELSE eindigt - begint + interval '24 hours' END)) / 3600
+                       FROM ploeg WHERE actief), 24)::numeric
+$$;
+
 CREATE FUNCTION capaciteit_stap_voor(p_stap uuid, p_product uuid) RETURNS int LANGUAGE sql STABLE AS $$
-    SELECT max_per_dag FROM capaciteit_stap WHERE processtap_id = p_stap AND product_id = p_product
+    -- Sinds 0035 (#90, D80) in kilogram: hoeveel batches of lots per dag passen, met het gewicht per batch van
+    -- het product (een lot = 4 batches). Minstens 1; NULL als het gewicht nog niet is ingevuld. Een oude
+    -- regel zonder kilogram (van vóór 0035) telt nog in stuks.
+    SELECT CASE WHEN c.kg_per_dag IS NULL THEN c.max_per_dag
+                WHEN gewicht_per_item(p_product, p_stap) IS NULL THEN NULL
+                ELSE greatest(1, floor(c.kg_per_dag / gewicht_per_item(p_product, p_stap)))::int END
+      FROM capaciteit_stap c WHERE c.processtap_id = p_stap AND c.product_id = p_product
 $$;
 
 -- Per actief product elke stap van zijn route met de capaciteit; max_per_dag NULL = nog invullen (#81, sinds 0.49.0).
 CREATE VIEW capaciteit_route AS
-SELECT p.id AS product_id, r.processtap_id, r.plek, c.max_per_dag
+SELECT p.id AS product_id, r.processtap_id, r.plek, capaciteit_stap_voor(r.processtap_id, p.id) AS max_per_dag,
+       c.kg_per_dag, c.max_per_dag AS stuks_per_dag
   FROM product p
  CROSS JOIN LATERAL route(p.id) r
   LEFT JOIN capaciteit_stap c ON c.processtap_id = r.processtap_id AND c.product_id = p.id
@@ -3039,7 +3067,7 @@ CREATE TRIGGER invoerconflict_vast BEFORE UPDATE OR DELETE ON invoerconflict
     FOR EACH ROW EXECUTE FUNCTION invoerconflict_vast();
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

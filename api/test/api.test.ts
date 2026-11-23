@@ -1474,6 +1474,38 @@ describe("Wandscherm Kwaliteit (#83)", () => {
   });
 });
 
+describe("Capaciteit in kilogram (#90)", () => {
+  test("kg per uur, dag of maand; batches per dag uit het gewicht per batch; zonder gewicht nog invullen", async () => {
+    const t = await login("planner1");
+    const lees = async () => (await verzoek("GET", "/planning/capaciteit", t)).body;
+    let c = await lees();
+    assert.equal(c.uren_per_dag, 24);
+    assert.ok(Math.abs(c.dagen_per_maand - 365 / 12) < 1e-9);
+    const regel = (b: any, stap: string, prod: string) => b.per_stap.find((x: any) => x.stap === stap && x.product === prod);
+    assert.deepEqual([regel(c, "PS2", "PRD-A").kg_per_dag, regel(c, "PS2", "PRD-A").gewicht], [null, 410]);
+    // 200 kg per uur × 24 uur = 4800 kg per dag = 11 batches van 410 kg.
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", t, { product: "PRD-A", kg: 200, per: "uur" })).status, 204);
+    c = await lees();
+    assert.deepEqual([regel(c, "PS2", "PRD-A").kg_per_dag, regel(c, "PS2", "PRD-A").max_per_dag], [4800, 11]);
+    // Per maand: 146000 kg / (365/12) = 4800 kg per dag.
+    await verzoek("PUT", "/planning/capaciteit/stappen/PS2", t, { product: "PRD-A", kg: 146000, per: "maand" });
+    assert.equal(regel(await lees(), "PS2", "PRD-A").kg_per_dag, 4800);
+    // Lotstap: een lot weegt 4 batches.
+    assert.equal(regel(c, "PS16", "PRD-A").gewicht, 1640);
+    // Zonder gewicht per batch: nog invullen.
+    const prod = (await verzoek("GET", "/planning/producten", t)).body.find((x: any) => x.code === "PRD-A");
+    assert.equal(prod.batchgewicht_kg, 410);
+    assert.equal((await verzoek("PATCH", `/planning/producten/${prod.id}`, t, { batchgewicht_kg: null })).body.batchgewicht_kg, null);
+    c = await lees();
+    assert.equal(regel(c, "PS2", "PRD-A").max_per_dag, null);
+    assert.ok(c.nog_invullen > 0);
+    assert.equal((await verzoek("PATCH", `/planning/producten/${prod.id}`, t, { batchgewicht_kg: 410 })).body.batchgewicht_kg, 410);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", t, { product: "PRD-A", kg: null })).status, 204);
+    assert.equal(regel(await lees(), "PS2", "PRD-A").kg_per_dag, null);
+    assert.equal((await verzoek("PUT", "/planning/capaciteit/stappen/PS2", t, { product: "PRD-A" })).status, 400);
+  });
+});
+
 describe("Capaciteit", () => {
   test("starts per product, afwijkende dagen per product en stap (D69), waarschuwing bij te veel", async () => {
     const t = await login("planner1");

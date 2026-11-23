@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist, type Rol } from "../auth.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
-import { BatchNummer, StapCode, NulGeheel } from "./schemas.js";
+import { BatchNummer, StapCode, NulGeheel, NulGetal } from "./schemas.js";
 
 /** Plannen mag de planner (en de beheerder); kijken mag iedereen. */
 export const PLANNEN: Rol[] = ["planner", "beheerder"];
@@ -13,13 +13,14 @@ const OptTekst = Type.Union([Type.Null(), Type.String()]);
 
 const Product = Type.Object({
   id: Type.String(), code: Type.String(), naam: Type.String(), actief: Type.Boolean(),
+  batchgewicht_kg: Type.Optional(NulGetal({ description: "Gewicht van één batch in kg (sinds 0.57.0, #90); een lot = 4 batches; null = nog invullen" })),
   route: Type.Optional(Type.Union([Type.Null(), Type.Array(Type.String())], {
     description: "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
   })),
 });
 /** Product met zijn route: de stapcodes in volgorde, of null bij de standaardroute. */
 const PRODUCT_SQL = `
-  SELECT p.id::text, p.code, p.naam, p.actief,
+  SELECT p.id::text, p.code, p.naam, p.actief, p.batchgewicht_kg::float AS batchgewicht_kg,
          (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
            WHERE ps.product_id = p.id AND s.actief) AS route
     FROM product p`;
@@ -211,6 +212,9 @@ function startWaarschuwing(rijen: StartRij[]): string | null {
   }).join(". ");
 }
 
+/** Gemiddeld aantal dagen per maand; de fabriek werkt elke dag even lang (D69, D80). */
+const DAGEN_PER_MAAND = 365 / 12;
+
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // ---------- Producten ----------
   app.get(
@@ -233,15 +237,18 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       preHandler: vereist(...PLANNEN),
       schema: {
         tags: ["planning"],
-        body: Type.Object({ code: Type.String({ pattern: "^[A-Za-z0-9._-]{1,20}$" }), naam: Type.String({ minLength: 1, maxLength: 100 }) }),
+        body: Type.Object({ code: Type.String({ pattern: "^[A-Za-z0-9._-]{1,20}$" }), naam: Type.String({ minLength: 1, maxLength: 100 }),
+          batchgewicht_kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000 })])) }),
         response: { 201: Product },
       },
     },
     async (req, reply) => {
       const p = await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("INSERT INTO product (code, naam) VALUES ($1, $2) RETURNING id::text, code, naam, actief, NULL::text[] AS route", [
+        const { rows } = await tx.query(
+          "INSERT INTO product (code, naam, batchgewicht_kg) VALUES ($1, $2, $3) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, NULL::text[] AS route", [
           req.body.code.trim(),
           req.body.naam.trim(),
+          req.body.batchgewicht_kg ?? null,
         ]);
         return rows[0];
       });
@@ -256,18 +263,20 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["planning"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-        body: Type.Object({ naam: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })), actief: Type.Optional(Type.Boolean()) }),
+        body: Type.Object({ naam: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })), actief: Type.Optional(Type.Boolean()),
+          batchgewicht_kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000 })], { description: "null = weghalen" })) }),
         response: { 200: Product },
       },
     },
     async (req) =>
       inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query(
-          `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief) WHERE id = $1
-           RETURNING id::text, code, naam, actief,
+          `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief),
+                  batchgewicht_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE batchgewicht_kg END WHERE id = $1
+           RETURNING id::text, code, naam, actief, batchgewicht_kg::float,
                      (SELECT array_agg(s.code ORDER BY ps.plek) FROM product_stap ps JOIN processtap s ON s.id = ps.processtap_id
                        WHERE ps.product_id = product.id AND s.actief) AS route`,
-          [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null],
+          [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null, req.body.batchgewicht_kg !== undefined, req.body.batchgewicht_kg ?? null],
         );
         if (!rows[0]) throw niet("Product");
         return rows[0];
@@ -787,21 +796,32 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             per_stap: Type.Array(Type.Object({
               product: Type.String(), productnaam: Type.String(), stap: Type.String(), stapnaam: Type.String(),
               niveau: Type.String({ description: "batch of lot: wat de capaciteit telt" }),
-              max_per_dag: NulGeheel({ description: "Per dag; null = nog niet ingevuld" }),
+              max_per_dag: NulGeheel({ description: "Batches of lots per dag, berekend uit de kilogrammen en het gewicht per batch; null = nog niet ingevuld" }),
+              kg_per_dag: Type.Optional(NulGetal({ description: "Capaciteit in kg per dag (sinds 0.57.0, #90, D80)" })),
+              stuks_per_dag: Type.Optional(NulGeheel({ description: "Oude regel in stuks (van vóór 0.57.0); vul hem opnieuw in in kilogram" })),
+              gewicht: Type.Optional(NulGetal({ description: "Gewicht van één batch of lot in kg" })),
             }), { description: "Per actief product elke stap van zijn route, in de volgorde van de route" }),
             nog_invullen: Type.Integer({ description: "Aantal stappen uit een route zonder capaciteit" }),
             afwijkingen: Type.Array(Afwijking),
+            uren_per_dag: Type.Optional(Type.Number({ description: "Productie-uren per dag: de actieve diensten samen" })),
+            dagen_per_maand: Type.Optional(Type.Number({ description: "Gemiddeld aantal dagen per maand (365/12); de fabriek werkt elke dag (D69)" })),
+            producten: Type.Optional(Type.Array(Type.Object({ id: Type.String(), code: Type.String(), naam: Type.String(), batchgewicht_kg: NulGetal() }))),
           }),
         },
       },
     },
     async () => {
       const per_stap = await lees<{ max_per_dag: number | null }>(app.db,
-        `SELECT p.code AS product, p.naam AS productnaam, s.code AS stap, s.naam AS stapnaam, s.niveau, c.max_per_dag
+        `SELECT p.code AS product, p.naam AS productnaam, s.code AS stap, s.naam AS stapnaam, s.niveau, c.max_per_dag,
+                c.kg_per_dag::float AS kg_per_dag, CASE WHEN c.kg_per_dag IS NULL THEN c.stuks_per_dag END AS stuks_per_dag,
+                gewicht_per_item(p.id, s.id)::float AS gewicht
            FROM capaciteit_route c JOIN processtap s ON s.id = c.processtap_id JOIN product p ON p.id = c.product_id
           ORDER BY p.code, c.plek`);
       const afwijkingen = await lees(app.db, `${AFWIJKING_SQL} AND a.tot >= current_date - 30 ORDER BY a.van, a.tot, s.volgorde NULLS FIRST, p.code NULLS FIRST`);
-      return { per_stap, nog_invullen: per_stap.filter((r) => r.max_per_dag === null).length, afwijkingen } as never;
+      const [u] = await lees<{ uren: number }>(app.db, "SELECT productie_uren_per_dag()::float AS uren");
+      const producten = await lees(app.db, "SELECT id::text, code, naam, batchgewicht_kg::float AS batchgewicht_kg FROM product WHERE actief ORDER BY code");
+      return { per_stap, nog_invullen: per_stap.filter((r) => r.max_per_dag === null).length, afwijkingen,
+        uren_per_dag: u.uren, dagen_per_maand: DAGEN_PER_MAAND, producten } as never;
     },
   );
 
@@ -867,12 +887,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["planning"],
         description:
-          "Capaciteit van een stap per dag voor één product (D55, D71). max_per_dag null haalt de regel weg (de stap staat dan weer op nog invullen). " +
-          "Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
+          "Capaciteit van een stap voor één product in kilogram (#90, D80): kg per uur, dag of maand (per, standaard dag); " +
+          "opgeslagen als kg per dag, met de productie-uren per dag en 365/12 dagen per maand. kg null haalt de regel weg (nog invullen). " +
+          "max_per_dag (stuks per dag) werkt nog voor oudere schermen. Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
         params: Type.Object({ stap: StapCode }),
         body: Type.Object({
           product: Type.String({ minLength: 1, maxLength: 40 }),
-          max_per_dag: Type.Union([Type.Null(), Type.Integer({ minimum: 1, maximum: 500 })]),
+          kg: Type.Optional(Type.Union([Type.Null(), Type.Number({ exclusiveMinimum: 0, maximum: 100000000 })])),
+          per: Type.Optional(Type.Union([Type.Literal("uur"), Type.Literal("dag"), Type.Literal("maand")])),
+          max_per_dag: Type.Optional(Type.Union([Type.Null(), Type.Integer({ minimum: 1, maximum: 500 })])),
         }),
         response: { 204: Type.Null() },
       },
@@ -885,13 +908,23 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         );
         if (!rows[0]) throw niet("Stap");
         if (!rows[0].product) throw niet("Product");
-        if (req.body.max_per_dag === null) {
+        const { kg, per, max_per_dag } = req.body;
+        if (kg === undefined && max_per_dag === undefined) throw new ApiFout(400, "Geef kg (met per) of max_per_dag");
+        if (kg === null || (kg === undefined && max_per_dag === null)) {
           await tx.query("DELETE FROM capaciteit_stap WHERE processtap_id = $1 AND product_id = $2", [rows[0].stap, rows[0].product]);
+        } else if (kg !== undefined) {
+          // Opslaan als kg per dag; per uur en per maand rekenen we om (D80).
+          await tx.query(
+            `INSERT INTO capaciteit_stap (processtap_id, product_id, kg_per_dag)
+             VALUES ($1, $2, round($3::numeric * CASE $4 WHEN 'uur' THEN productie_uren_per_dag() WHEN 'maand' THEN 1 / $5::numeric ELSE 1 END, 3))
+             ON CONFLICT (processtap_id, product_id) DO UPDATE SET kg_per_dag = EXCLUDED.kg_per_dag, max_per_dag = NULL`,
+            [rows[0].stap, rows[0].product, kg, per ?? "dag", DAGEN_PER_MAAND],
+          );
         } else {
           await tx.query(
             `INSERT INTO capaciteit_stap (processtap_id, product_id, max_per_dag) VALUES ($1, $2, $3)
-             ON CONFLICT (processtap_id, product_id) DO UPDATE SET max_per_dag = EXCLUDED.max_per_dag`,
-            [rows[0].stap, rows[0].product, req.body.max_per_dag],
+             ON CONFLICT (processtap_id, product_id) DO UPDATE SET max_per_dag = EXCLUDED.max_per_dag, kg_per_dag = NULL`,
+            [rows[0].stap, rows[0].product, max_per_dag],
           );
         }
       });

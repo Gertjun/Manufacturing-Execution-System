@@ -749,11 +749,19 @@ async function routeBewerken(code: string) {
 }
 
 // ---------- Capaciteit ----------
-interface CapRegel { product: string; productnaam: string; stap: string; stapnaam: string; niveau: string; max_per_dag: number | null }
+interface CapRegel {
+  product: string; productnaam: string; stap: string; stapnaam: string; niveau: string; max_per_dag: number | null;
+  /** Sinds 0.57.0 (#90, D80): capaciteit in kg per dag, een oude regel in stuks, en het gewicht van één batch of lot. */
+  kg_per_dag?: number | null; stuks_per_dag?: number | null; gewicht?: number | null;
+}
+interface CapProduct { id: string; code: string; naam: string; batchgewicht_kg: number | null }
 interface Capaciteit {
   per_stap: CapRegel[];
   nog_invullen: number;
   afwijkingen: Afwijking[];
+  uren_per_dag?: number;
+  dagen_per_maand?: number;
+  producten?: CapProduct[];
 }
 
 export async function capaciteit() {
@@ -763,8 +771,8 @@ export async function capaciteit() {
   try { c = await haal<Capaciteit>("/planning/capaciteit"); } catch (e) { return fout(e); }
   if (!actueel()) return;
   toon(
-    kop("Capaciteit", "Wat elke stap per dag aankan, per product, elke dag van de week, in de volgorde van de route. Elke stap uit de route staat hier vanzelf; zonder capaciteit staat hij op \"nog invullen\". De eerste stap bepaalt hoeveel batches van een product per dag kunnen starten. Plannen boven de capaciteit kan, maar je krijgt een waarschuwing."),
-    ...capaciteitPerStap(c.per_stap, c.nog_invullen),
+    kop("Capaciteit", `Wat elke stap aankan in kilogram, per product, elke dag van de week, in de volgorde van de route. Vul per uur, per dag of per maand in; de andere twee rekent het systeem uit (${kgGetal(c.uren_per_dag ?? 24)} productie-uren per dag, de diensten samen, en ${kgGetal(c.dagen_per_maand ?? 365 / 12, 1)} dagen per maand). Met het gewicht per batch volgt hoeveel batches of lots dat per dag zijn; de eerste stap bepaalt hoeveel batches per dag kunnen starten. Plannen boven de capaciteit kan, maar je krijgt een waarschuwing.`),
+    ...capaciteitPerStap(c.per_stap, c.nog_invullen, c.uren_per_dag ?? 24, c.dagen_per_maand ?? 365 / 12, c.producten ?? []),
     afwijkendeDagen(c.afwijkingen),
   );
 }
@@ -805,59 +813,92 @@ function afwijkendeDagen(lijst: Afwijking[]) {
       : h("p", { class: "leeg" }, "Geen afwijkende dagen."));
 }
 
-/** Capaciteit per product (D55, D71): elke stap van de route vanzelf in de lijst; ontbreekt de capaciteit, dan "nog invullen" (#81). */
-function capaciteitPerStap(regels: CapRegel[], nogInvullen: number): (Node | null)[] {
-  const eenheid = (x: CapRegel) => (x.niveau === "lot" ? "Lots per dag" : "Batches per dag");
-  const perDag = (v: string) => (/^\d+$/.test(v) && +v >= 1 && +v <= 500 ? null : "Een heel getal van 1 tot 500");
-  const opslaan = (x: CapRegel, max: number | null) =>
-    stuur("PUT", `/planning/capaciteit/stappen/${x.stap}`, { product: x.product, max_per_dag: max });
+/** Kilogram met punt voor duizendtallen en hoogstens zoveel decimalen (nl-NL). */
+const kgGetal = (n: number, dec = 0) => n.toLocaleString("nl-NL", { maximumFractionDigits: dec });
+const kgTekst = (n: number, dec = 0) => `${kgGetal(n, dec)} kg`;
+/** Getal uit een invoerveld, met komma of punt als decimaalteken; punten als duizendtallen weg als er ook een komma is. */
+const leesKg = (v: string) => { const t = v.trim().replace(/\s/g, ""); const n = Number(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t); return Number.isFinite(n) && n > 0 ? n : null; };
+
+/**
+ * Capaciteit per product in kilogram (D55, D71, D80): elke stap van de route vanzelf in de lijst; ontbreekt de
+ * capaciteit, dan "nog invullen" (#81). Per uur, dag en maand naast elkaar, plus hoeveel batches of lots per dag dat zijn.
+ */
+function capaciteitPerStap(regels: CapRegel[], nogInvullen: number, uren: number, dagenPerMaand: number, producten: CapProduct[]): (Node | null)[] {
+  const per = { uur: 1 / uren, dag: 1, maand: dagenPerMaand };
+  const kgCheck = (v: string) => (leesKg(v) !== null ? null : "Vul een aantal kilogram in, groter dan 0");
+  const opslaan = (x: CapRegel, kg: number | null, eenheid: "uur" | "dag" | "maand" = "dag") =>
+    stuur("PUT", `/planning/capaciteit/stappen/${x.stap}`, { product: x.product, kg, per: eenheid });
   const zet = async (x: CapRegel) => {
     const r = await vraag(`Capaciteit ${x.stap} voor ${x.product}`, [
-      { naam: "max", label: eenheid(x), type: "number", waarde: x.max_per_dag === null ? "" : String(x.max_per_dag), controle: perDag },
-    ], "Opslaan", "Draaien er producten door elkaar, dan telt elk item voor zijn deel: 6 van A (max 8) en 1 van B (max 3) is 108 %.");
+      { naam: "kg", label: "Capaciteit (kg)", type: "getal", waarde: x.kg_per_dag ? kgGetal(x.kg_per_dag, 3).replace(/\./g, "") : "", controle: kgCheck },
+      { naam: "per", label: "Per", opties: [["dag", "Per dag"], ["uur", "Per uur"], ["maand", "Per maand"]], waarde: "dag" },
+    ], "Opslaan", `De andere twee rekent het systeem uit: ${kgGetal(uren)} productie-uren per dag en ${kgGetal(dagenPerMaand, 1)} dagen per maand. Draaien er producten door elkaar, dan telt elk item voor zijn deel: 6 van A (max 8) en 1 van B (max 3) is 108 %.`);
     if (!r) return;
-    await wijzig(() => opslaan(x, Number(r.max)), "Capaciteit opgeslagen", capaciteit);
+    await wijzig(() => opslaan(x, leesKg(r.kg), r.per as "uur" | "dag" | "maand"), "Capaciteit opgeslagen", capaciteit);
   };
-  /** Alle open stappen van één product in één venster; wat leeg blijft, blijft op "nog invullen". */
+  /** Alle open stappen van één product in één venster, in kg per dag; wat leeg blijft, blijft op "nog invullen". */
   const vulIn = async (product: string, open: CapRegel[]) => {
     const r = await vraag(`Capaciteit invullen voor ${product}`, open.map((x) => ({
-      naam: x.stap, label: `${x.stap} ${x.stapnaam}`, type: "number", optioneel: true, hint: eenheid(x), controle: perDag,
-    })), "Opslaan", "Vul in wat je weet; wat leeg blijft, staat daarna nog op \"nog invullen\".");
+      naam: x.stap, label: `${x.stap} ${x.stapnaam}`, type: "getal", optioneel: true, hint: "kg per dag", controle: kgCheck,
+    })), "Opslaan", "Vul in wat je weet, in kg per dag; wat leeg blijft, staat daarna nog op \"nog invullen\". Per uur of per maand kan bij Wijzigen.");
     if (!r) return;
     const ingevuld = open.filter((x) => r[x.stap]);
     if (!ingevuld.length) return;
-    await wijzig(async () => { for (const x of ingevuld) await opslaan(x, Number(r[x.stap])); },
+    await wijzig(async () => { for (const x of ingevuld) await opslaan(x, leesKg(r[x.stap])); },
       `${ingevuld.length === 1 ? "1 stap" : `${ingevuld.length} stappen`} opgeslagen`, capaciteit);
   };
+  const gewichtZetten = async (p: CapProduct) => {
+    const r = await vraag(`Gewicht per batch van ${p.code}`, [
+      { naam: "kg", label: "Gewicht per batch (kg)", type: "getal", waarde: p.batchgewicht_kg ? kgGetal(p.batchgewicht_kg, 3).replace(/\./g, "") : "", controle: kgCheck },
+    ], "Opslaan", "Een lot weegt 4 batches. Hiermee rekent het systeem de kilogrammen om naar batches en lots per dag. Voor de pilot een vast gewicht per product.");
+    if (r) await wijzig(() => stuur("PATCH", `/planning/producten/${p.id}`, { batchgewicht_kg: leesKg(r.kg) }), "Gewicht opgeslagen", capaciteit);
+  };
   const weg = (x: CapRegel) => wijzig(() => opslaan(x, null), "Weggehaald", capaciteit);
-  const producten = [...new Set(regels.map((x) => x.product))];
+  const stuks = (n: number, niveau: string) => `${n} ${niveau === "lot" ? (n === 1 ? "lot" : "lots") : (n === 1 ? "batch" : "batches")}`;
+  const codes = [...new Set(regels.map((x) => x.product))];
   // Eén blok per product, zodat "Naar Excel" en "Invullen" in de kopregel van dat product staan (D63).
   return [
     nogInvullen
       ? h("p", { class: "blok let-op-blok", role: "status" }, h("span", { "aria-hidden": "true" }, "⚠ "),
-          `${nogInvullen === 1 ? "1 stap heeft" : `${nogInvullen} stappen hebben`} nog geen capaciteit. Zonder capaciteit kan de planning niet waarschuwen als een stap te vol zit.`)
+          `${nogInvullen === 1 ? "1 stap heeft" : `${nogInvullen} stappen hebben`} nog geen capaciteit (of het product nog geen gewicht per batch). Zonder capaciteit kan de planning niet waarschuwen als een stap te vol zit.`)
       : null,
-    ...(producten.length
-      ? producten.map((p) => {
-          const rijen = regels.filter((x) => x.product === p);
-          const open = rijen.filter((x) => x.max_per_dag === null);
+    ...(codes.length
+      ? codes.map((code) => {
+          const rijen = regels.filter((x) => x.product === code);
+          const p = producten.find((x) => x.code === code);
+          const open = rijen.filter((x) => x.max_per_dag === null && !x.kg_per_dag);
+          const zonderGewicht = !!p && p.batchgewicht_kg === null;
           return h("section", { class: "blok cap-product" },
             h("div", { class: "kop" },
-              h("div", {}, h("h2", { style: "margin:0" }, `${p} – ${rijen[0].productnaam}`),
+              h("div", {}, h("h2", { style: "margin:0" }, `${code} – ${rijen[0].productnaam}`),
+                zonderGewicht
+                  ? h("p", { class: "label-nog-invullen" }, "Gewicht per batch nog invullen")
+                  : p ? h("p", { class: "sub" }, `Gewicht per batch ${kgTekst(p.batchgewicht_kg!, 3)}, een lot ${kgTekst(p.batchgewicht_kg! * 4, 3)}`) : null,
                 h("p", { class: open.length ? "label-nog-invullen" : "sub" }, open.length ? `${open.length === 1 ? "1 stap" : `${open.length} stappen`} nog invullen` : "Alle stappen van de route ingevuld")),
-              magPlannen() && open.length ? h("button", { class: "knop", onclick: () => vulIn(p, open) }, `Invullen voor ${p}`) : null),
-            tabel(["Stap", "Per dag", ""], rijen.map((x) => [
-              h("span", {}, h("strong", {}, x.stap), ` ${x.stapnaam}`),
-              x.max_per_dag === null
-                ? h("span", { class: "getal label-nog-invullen" }, "Nog invullen")
-                : h("span", { class: "getal" }, `${x.max_per_dag} ${x.niveau === "lot" ? (x.max_per_dag === 1 ? "lot" : "lots") : (x.max_per_dag === 1 ? "batch" : "batches")}`),
               magPlannen()
                 ? h("div", { class: "knoppen-klein" },
-                    h("button", { class: "knop knop-klein", "aria-label": `Capaciteit ${x.stap} ${x.product} ${x.max_per_dag === null ? "invullen" : "wijzigen"}`, onclick: () => zet(x) },
-                      x.max_per_dag === null ? "Invullen" : "Wijzigen"),
-                    x.max_per_dag === null ? null
-                      : h("button", { class: "knop knop-klein knop-stil", "aria-label": `Capaciteit ${x.stap} ${x.product} weghalen`, onclick: () => weg(x) }, "Weghalen"))
-                : null]), "compact"));
+                    p ? h("button", { class: "knop", onclick: () => gewichtZetten(p) }, zonderGewicht ? "Gewicht invullen" : "Gewicht per batch") : null,
+                    open.length ? h("button", { class: "knop", onclick: () => vulIn(code, open) }, `Invullen voor ${code}`) : null)
+                : null),
+            tabel(["Stap", "Per uur", "Per dag", "Per maand", "Batches of lots per dag", ""], rijen.map((x) => {
+              const kg = x.kg_per_dag ?? null;
+              const nogInvullen = h("span", { class: "getal label-nog-invullen" }, "Nog invullen");
+              return [
+                h("span", {}, h("strong", {}, x.stap), ` ${x.stapnaam}`),
+                kg ? h("span", { class: "getal" }, kgTekst(kg * per.uur, 1)) : "",
+                kg ? h("span", { class: "getal" }, kgTekst(kg)) : x.stuks_per_dag ? h("span", { class: "plan-waarschuwing" }, `${stuks(x.stuks_per_dag, x.niveau)} (oud, vul in in kg)`) : nogInvullen,
+                kg ? h("span", { class: "getal" }, kgTekst(kg * per.maand)) : "",
+                x.max_per_dag !== null ? h("span", { class: "getal" }, kg ? `≈ ${stuks(x.max_per_dag, x.niveau)}` : stuks(x.max_per_dag, x.niveau))
+                  : kg ? h("span", { class: "label-nog-invullen" }, "gewicht nog invullen") : "",
+                magPlannen()
+                  ? h("div", { class: "knoppen-klein" },
+                      h("button", { class: "knop knop-klein", "aria-label": `Capaciteit ${x.stap} ${x.product} ${kg || x.stuks_per_dag ? "wijzigen" : "invullen"}`, onclick: () => zet(x) },
+                        kg || x.stuks_per_dag ? "Wijzigen" : "Invullen"),
+                      kg || x.stuks_per_dag
+                        ? h("button", { class: "knop knop-klein knop-stil", "aria-label": `Capaciteit ${x.stap} ${x.product} weghalen`, onclick: () => weg(x) }, "Weghalen")
+                        : null)
+                  : null];
+            }), "compact"));
         })
       : [h("p", { class: "blok leeg" }, "Nog geen actieve producten. Maak ze aan bij Planning → Producten.")]),
   ];

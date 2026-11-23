@@ -990,6 +990,27 @@ def main():
     con.execute("UPDATE rooster_ploeg SET actief = true WHERE code = 'A2'")
     check("Rooster en ploegen staan in het logboek", val("SELECT count(*) FROM config_log WHERE tabel = 'rooster_ploeg'") >= 12)
 
+    print("\nCapaciteit in kilogram (#90)")
+    sidk = {c: i for c, i in con.execute("SELECT code, id FROM processtap")}
+    prdk = {c: i for c, i in con.execute("SELECT code, id FROM product")}
+    check("Seed: PS1 voor PRD-A 3280 kg per dag bij 410 kg per batch = 8 batches",
+          one("SELECT kg_per_dag::int, capaciteit_stap_voor(%s, %s) FROM capaciteit_stap WHERE processtap_id = %s AND product_id = %s",
+              (sidk["PS1"], prdk["PRD-A"], sidk["PS1"], prdk["PRD-A"])) == (3280, 8))
+    check("Lotstap: 3280 kg per dag = 2 lots van 4 × 410 kg", val("SELECT capaciteit_stap_voor(%s, %s)", (sidk["PS16"], prdk["PRD-A"])) == 2)
+    con.execute("UPDATE product SET batchgewicht_kg = 500 WHERE code = 'PRD-A'")
+    check("Ander gewicht per batch: 3280 kg = 6 batches (naar beneden)", val("SELECT capaciteit_stap_voor(%s, %s)", (sidk["PS1"], prdk["PRD-A"])) == 6)
+    con.execute("UPDATE product SET batchgewicht_kg = NULL WHERE code = 'PRD-A'")
+    check("Zonder gewicht per batch: nog invullen", val("SELECT capaciteit_stap_voor(%s, %s)", (sidk["PS1"], prdk["PRD-A"])) is None
+          and val("SELECT max_per_dag FROM capaciteit_route WHERE product_id = %s AND processtap_id = %s", (prdk["PRD-A"], sidk["PS1"])) is None)
+    con.execute("UPDATE product SET batchgewicht_kg = 410 WHERE code = 'PRD-A'")
+    check("Minder dan één batch per dag telt als 1", (con.execute("UPDATE capaciteit_stap SET kg_per_dag = 100 WHERE processtap_id = %s AND product_id = %s", (sidk["PS9"], prdk["PRD-A"])) and
+          val("SELECT capaciteit_stap_voor(%s, %s)", (sidk["PS9"], prdk["PRD-A"])) == 1))
+    con.execute("UPDATE capaciteit_stap SET kg_per_dag = 2460 WHERE processtap_id = %s AND product_id = %s", (sidk["PS9"], prdk["PRD-A"]))
+    faalt("Een regel zonder kilogram en zonder stuks kan niet", "UPDATE capaciteit_stap SET kg_per_dag = NULL, max_per_dag = NULL WHERE processtap_id = %s AND product_id = %s",
+          (sidk["PS9"], prdk["PRD-A"]), "capaciteit_stap_ingevuld")
+    faalt("Een gewicht per batch van 0 kan niet", "UPDATE product SET batchgewicht_kg = 0 WHERE code = 'PRD-A'", (), "check")
+    check("Productie-uren per dag: de drie diensten samen = 24", float(val("SELECT productie_uren_per_dag()")) == 24)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

@@ -146,7 +146,10 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
 
   console.log("\nCapaciteit per stap en product (D55, D71)");
   const blokB = page.locator(".cap-product", { has: page.getByRole("heading", { name: /^PRD-B / }) });
-  check("Regels uit de instellingen staan erbij", (await blokB.locator("tr", { hasText: /^PS1 Process/ }).innerText()).includes("3 batches"));
+  const ps1B = await blokB.locator("tr", { hasText: /^PS1 Process/ }).innerText();
+  // #90: in kilogram per uur, dag en maand, en hoeveel batches dat zijn bij 410 kg per batch.
+  check("Regels uit de instellingen in kg, met batches per dag", ps1B.includes("51,3 kg") && ps1B.includes("1.230 kg") && ps1B.includes("37.413 kg") && ps1B.includes("3 batches"), ps1B);
+  check("Gewicht per batch bij het product", (await blokB.innerText()).includes("Gewicht per batch 410 kg, een lot 1.640 kg"));
   check("Stap uit de route zonder capaciteit: nog invullen (#81)", (await blokB.locator("tr", { hasText: /^PS2 Process/ }).innerText()).includes("Nog invullen"));
   check("Stap buiten de route van PRD-B staat er niet bij", (await blokB.locator("tr", { hasText: /^PS12 Process/ }).count()) === 0);
   check("Melding: stappen zonder capaciteit", (await page.locator(".let-op-blok", { hasText: "nog geen capaciteit" }).count()) === 1);
@@ -155,16 +158,18 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   const voor = await capTeller();
   check("Menu telt de stappen zonder capaciteit", voor > 0, String(voor));
   await page.getByRole("button", { name: "Capaciteit PS1 PRD-A wijzigen" }).click();
-  await dialoog().getByLabel("Batches per dag").fill("5");
+  // 85,5 kg per uur × 24 uur = 2052 kg per dag = 5 batches van 410 kg.
+  await dialoog().getByLabel("Capaciteit (kg)").fill("85,5");
+  await dialoog().locator("#v-per").selectOption("uur");
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
   await page.locator("#melding", { hasText: "Capaciteit opgeslagen" }).waitFor();
-  const [cs] = await q(`SELECT c.max_per_dag FROM fabriek.capaciteit_stap c JOIN fabriek.processtap s ON s.id = c.processtap_id
+  const [cs] = await q(`SELECT c.kg_per_dag::float AS kg, fabriek.capaciteit_stap_voor(s.id, p.id) AS max FROM fabriek.capaciteit_stap c JOIN fabriek.processtap s ON s.id = c.processtap_id
                          JOIN fabriek.product p ON p.id = c.product_id WHERE s.code = 'PS1' AND p.code = 'PRD-A'`);
-  check("Capaciteit PS1 voor PRD-A opgeslagen", cs?.max_per_dag === 5);
+  check("Capaciteit PS1 voor PRD-A: 85,5 kg per uur = 2052 kg per dag = 5 batches", cs?.kg === 2052 && cs?.max === 5, JSON.stringify(cs));
   // Alle open stappen van één product in één venster; leeg blijft nog invullen.
   await page.getByRole("button", { name: "Invullen voor PRD-C" }).click();
-  await dialoog().locator("#v-PS2").fill("4");
-  await dialoog().locator("#v-PS3").fill("6");
+  await dialoog().locator("#v-PS2").fill("1640");
+  await dialoog().locator("#v-PS3").fill("2460");
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
   await page.locator("#melding", { hasText: "2 stappen opgeslagen" }).waitFor();
   const [c2] = await q(`SELECT count(*)::int AS n FROM fabriek.capaciteit_stap c JOIN fabriek.processtap s ON s.id = c.processtap_id

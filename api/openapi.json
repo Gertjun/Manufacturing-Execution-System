@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.56.0",
+    "version": "0.57.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -16897,6 +16897,11 @@
                       "actief": {
                         "type": "boolean"
                       },
+                      "batchgewicht_kg": {
+                        "type": "number",
+                        "description": "Gewicht van één batch in kg (sinds 0.57.0, #90); een lot = 4 batches; null = nog invullen",
+                        "nullable": true
+                      },
                       "route": {
                         "description": "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
                         "type": "array",
@@ -16936,6 +16941,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 100
+                  },
+                  "batchgewicht_kg": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 100000,
+                    "nullable": true
                   }
                 }
               }
@@ -16967,6 +16978,11 @@
                     },
                     "actief": {
                       "type": "boolean"
+                    },
+                    "batchgewicht_kg": {
+                      "type": "number",
+                      "description": "Gewicht van één batch in kg (sinds 0.57.0, #90); een lot = 4 batches; null = nog invullen",
+                      "nullable": true
                     },
                     "route": {
                       "description": "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
@@ -17003,6 +17019,13 @@
                   },
                   "actief": {
                     "type": "boolean"
+                  },
+                  "batchgewicht_kg": {
+                    "description": "null = weghalen",
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 100000,
+                    "nullable": true
                   }
                 }
               }
@@ -17045,6 +17068,11 @@
                     },
                     "actief": {
                       "type": "boolean"
+                    },
+                    "batchgewicht_kg": {
+                      "type": "number",
+                      "description": "Gewicht van één batch in kg (sinds 0.57.0, #90); een lot = 4 batches; null = nog invullen",
+                      "nullable": true
                     },
                     "route": {
                       "description": "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
@@ -17129,6 +17157,11 @@
                     },
                     "actief": {
                       "type": "boolean"
+                    },
+                    "batchgewicht_kg": {
+                      "type": "number",
+                      "description": "Gewicht van één batch in kg (sinds 0.57.0, #90); een lot = 4 batches; null = nog invullen",
+                      "nullable": true
                     },
                     "route": {
                       "description": "Stappen van het product in volgorde (D55); null = de standaardroute, alle actieve stappen",
@@ -18884,7 +18917,22 @@
                           },
                           "max_per_dag": {
                             "type": "integer",
-                            "description": "Per dag; null = nog niet ingevuld",
+                            "description": "Batches of lots per dag, berekend uit de kilogrammen en het gewicht per batch; null = nog niet ingevuld",
+                            "nullable": true
+                          },
+                          "kg_per_dag": {
+                            "type": "number",
+                            "description": "Capaciteit in kg per dag (sinds 0.57.0, #90, D80)",
+                            "nullable": true
+                          },
+                          "stuks_per_dag": {
+                            "type": "integer",
+                            "description": "Oude regel in stuks (van vóór 0.57.0); vul hem opnieuw in in kilogram",
+                            "nullable": true
+                          },
+                          "gewicht": {
+                            "type": "number",
+                            "description": "Gewicht van één batch of lot in kg",
                             "nullable": true
                           }
                         }
@@ -18939,6 +18987,41 @@
                           },
                           "reden": {
                             "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "uren_per_dag": {
+                      "type": "number",
+                      "description": "Productie-uren per dag: de actieve diensten samen"
+                    },
+                    "dagen_per_maand": {
+                      "type": "number",
+                      "description": "Gemiddeld aantal dagen per maand (365/12); de fabriek werkt elke dag (D69)"
+                    },
+                    "producten": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "code",
+                          "naam",
+                          "batchgewicht_kg"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "naam": {
+                            "type": "string"
+                          },
+                          "batchgewicht_kg": {
+                            "type": "number",
+                            "nullable": true
                           }
                         }
                       }
@@ -19091,7 +19174,7 @@
         "tags": [
           "planning"
         ],
-        "description": "Capaciteit van een stap per dag voor één product (D55, D71). max_per_dag null haalt de regel weg (de stap staat dan weer op nog invullen). Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
+        "description": "Capaciteit van een stap voor één product in kilogram (#90, D80): kg per uur, dag of maand (per, standaard dag); opgeslagen als kg per dag, met de productie-uren per dag en 365/12 dagen per maand. kg null haalt de regel weg (nog invullen). max_per_dag (stuks per dag) werkt nog voor oudere schermen. Bij gemengde producten telt elk item voor zijn deel van de capaciteit.",
         "requestBody": {
           "required": true,
           "content": {
@@ -19099,14 +19182,41 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "product",
-                  "max_per_dag"
+                  "product"
                 ],
                 "properties": {
                   "product": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 40
+                  },
+                  "kg": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 100000000,
+                    "nullable": true
+                  },
+                  "per": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "uur"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "dag"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "maand"
+                        ]
+                      }
+                    ]
                   },
                   "max_per_dag": {
                     "type": "integer",

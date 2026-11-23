@@ -3,7 +3,7 @@
 > **Dit bestand (toekomst):** alles wat nog moet of kan gebeuren: functies, verbeteringen, praktijktests, acties van Geert en IT, en open besluiten, geordend in fasen met poorten en een globale planning. Het is de enige takenlijst.
 > **Niet hier:** wat al gebouwd is → [`CHANGELOG.md`](CHANGELOG.md) (verleden); waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md) (verleden); de stand van nu en hoe het werkt → [`README.md`](README.md) (heden).
 
-Bijgewerkt: 23 november 2026 · huidige versie 0.56.0
+Bijgewerkt: 23 november 2026 · huidige versie 0.57.0
 
 Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
@@ -27,8 +27,8 @@ gantt
     In één keer goed, signaleren (32 66)     :a3b, 2026-11-24, 7d
 
     section A4 Verbeterlijst
-    Gebouwd in 0.52 tot en met 0.56          :done, a4g, 2026-11-23, 1d
-    Prioriteit 1 (90 91)                     :a4a, 2026-11-24, 7d
+    Gebouwd in 0.52 tot en met 0.57          :done, a4g, 2026-11-23, 1d
+    Prioriteit 1 (91)                        :a4a, 2026-11-24, 3d
     Prioriteit 2 (48 93 94 95 96 97 98 99 100) :a4b, after a4a, 7d
 
     section B Praktijk
@@ -83,10 +83,9 @@ Geerts keuze na de vraag "wat kan nog beter vóór de pilot" (21 november 2026):
 **Poort A3:** alle punten hierboven gebouwd en door Geert in de demo bekeken.
 
 ### A4. Verbeterlijst van 23 november — vóór de pilot
-Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75) #86 (ploegen A–E in twee divisies met rooster, 0.53.0, D76) #87 (Medewerkers met ploeg en account, 0.54.0, D77) #88 (startscherm voor Kwaliteit, 0.55.0, D78) en #89 (trend bij alle producten, 0.56.0, D79). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
+Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026), met de keuzes in D74. Twee punten waren al klaar: een lot bestaat al alleen uit batches van één product (D55), en de vraag over de doorlooptijden is beantwoord (#99). Gebouwd: #85 (twee keer ingevuld, 0.52.0, D75) #86 (ploegen A–E in twee divisies met rooster, 0.53.0, D76) #87 (Medewerkers met ploeg en account, 0.54.0, D77) #88 (startscherm voor Kwaliteit, 0.55.0, D78) #89 (trend bij alle producten, 0.56.0, D79) en #90 (capaciteit in kilogram, 0.57.0, D80). Volgorde: eerst wat de juistheid van de gegevens raakt (prioriteit 1), dan het gebruiksgemak (prioriteit 2). Wat tijdens de pilot kan, staat in fase F.
 
 **Prioriteit 1 – juistheid van de gegevens:**
-- #90 **Capaciteit in kilogram, per uur, dag en maand** (middel) — Capaciteit in kg in plaats van batches. Eén van de drie invullen, de andere twee worden berekend. Voor de pilot een vast gewicht per batch per product; later mogelijk per batch verschillend (D74).
 - #91 **Wandscherm: altijd passend en eruit kunnen** (klein) — Het wandscherm past altijd op het scherm zonder scrollen. En: wie in een browser als schermaccount is ingelogd, komt er nu niet meer uit (elk adres gaat terug naar het wandscherm); erbij komt een onopvallende knop Afmelden.
 
 **Prioriteit 2 – gebruiksgemak:**
@@ -131,7 +130,7 @@ Geerts lijst met 23 punten na een eigen rondgang door de demo (23 november 2026)
 ### F. Verbeteren tijdens de pilot — maart tot april 2027
 Wat Kwaliteit en Productie het meest helpt zodra er echte data is. De volgorde kan na de eerste pilotweken veranderen.
 - #30 **Afkeur met omvang, herhaling en maatregel** (middel) — Bij afkeur de geschonden grens tonen, verdachte batches (zelfde grondstofpartij, dag of lot) en eerdere afwijkingen van hetzelfde veld. Daarna een eenvoudige maatregel: wat, wie, wanneer klaar, na 30 dagen controleren of het hielp.
-- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden. De capaciteit in kg per uur (#90) is daarvoor de basis. De OEE komt in Productieanalyse, naast Stilstand en beschikbaarheid.
+- #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden. De capaciteit in kg per uur (0.57.0, D80) is daarvoor de basis. De OEE komt in Productieanalyse, naast Stilstand en beschikbaarheid.
 - #101 **Meetwaarde als gekleurde balk** (klein) — In Lotpaspoort en Afwijkingen de kolommen Gemeten en Grenzen als balk met de grenzen en tolerantie in kleur en een punt voor de gemeten waarde. Met echte data is beter te zien hoe die balk moet werken.
 - #102 **Doorlooptijden in het lotpaspoort** (klein) — De doorlooptijden van het lot en zijn batches, vergeleken met de rest. Hoort eigenlijk niet bij Kwaliteit: past bij het productiedossier per lot (#69), dat het overzicht over alle afdelingen wordt.
 - #92 **Wandscherm instellen in Beheer** (klein) — Per wandschermaccount in Beheer kiezen wat het toont (hal, stappen of Kwaliteit); de tv toont na het inloggen wat daar staat en hoeft er niemand meer heen (D74).

@@ -5,6 +5,15 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.57.0 — 23 november 2026 · #90
+- **Capaciteit in kilogram** (Planning → Capaciteit, D80). Per product en stap staat de capaciteit nu in kg, niet meer in batches.
+  - Per uur, per dag en per maand staan naast elkaar. Je vult er één in en de andere twee worden berekend: met de productie-uren per dag (de diensten samen, nu 24) en gemiddeld 30,4 dagen per maand.
+  - **Gewicht per batch** per product, voor de pilot een vast gewicht. Een lot weegt 4 batches. Daarmee staat erbij hoeveel batches of lots per dag passen ("≈ 5 batches"). Zonder gewicht staat het product op "nog invullen".
+  - De planning (Batches plannen, Stappen plannen, de waarschuwing bij te vol) rekent zoals voorheen in batches en lots, nu berekend uit de kilogrammen.
+  - Een oude regel in batches blijft gelden. Je ziet hem als "8 batches (oud, vul in in kg)" tot je hem in kg invult.
+- Fictieve inrichting: 410 kg per batch (een lot 1640 kg); de capaciteit is omgerekend (PS1 3280 kg per dag voor PRD-A en PRD-C, 1230 kg voor PRD-B; PS9 2460 kg; PS16 3280 kg).
+- API: `batchgewicht_kg` bij producten; `PUT /planning/capaciteit/stappen/{stap}` met `kg` en `per` (uur, dag, maand); `GET /planning/capaciteit` geeft `kg_per_dag`, `gewicht`, `uren_per_dag` en `dagen_per_maand`. `max_per_dag` werkt nog voor oudere schermen.
+
 ## 0.56.0 — 23 november 2026 · #89
 - **Trend per veld bij "Alle producten"** (Portaal Kwaliteit, D79). Eerder trok de grafiek de grenzen van het veld, terwijl elk punt gekleurd was naar de grenzen van zijn eigen product. Zo kon een punt "binnen grenzen" boven de grenslijn staan.
   - Hebben de metingen in de grafiek producten met verschillende grenzen of tolerantie, dan staan er geen grens-, tolerantie- en instellingslijnen meer.
