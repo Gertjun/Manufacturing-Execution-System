@@ -74,6 +74,13 @@ const teVolStart = (p: ProductStart) => p.max !== null && p.aantal > p.max;
 const afwijkingTekst = (a: Afwijking) =>
   `${a.product ?? "Alle producten"}, ${a.stap ?? "alle stappen"}: ${a.procent === 0 ? "geen productie" : `${a.procent} %`} (${a.reden})`;
 
+/** Naar een dag springen met de kalender van de browser (#97). */
+function dagKiezer(d: string, naar: (dag: string) => string) {
+  return h("label", { class: "dag-kiezer" }, h("span", { class: "verborgen-label" }, "Naar dag"),
+    h("input", { type: "date", value: d, "aria-label": "Naar dag", title: "Kies een dag in de kalender",
+      onchange: (e: Event) => { const v = (e.target as HTMLInputElement).value; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) location.hash = naar(v); } }));
+}
+
 export async function week(van?: string) {
   const actueel = vastHouden();
   const maandag = maandagVan(geldigeDag(van) ?? isoDag());
@@ -343,6 +350,7 @@ export async function dag(datum?: string, stapcode?: string) {
         h("a", { class: "knop knop-stil", href: `#/planning/dag/${plusDagen(d, -1)}/${s.code}` }, "Vorige dag"),
         h("a", { class: "knop knop-stil", href: `#/planning/dag/${isoDag()}/${s.code}` }, "Vandaag"),
         h("a", { class: "knop knop-stil", href: `#/planning/dag/${plusDagen(d, 1)}/${s.code}` }, "Volgende dag"),
+        dagKiezer(d, (dag) => `#/planning/dag/${dag}/${s.code}`),
         h("a", { class: "knop knop-stil", href: `#/planning/week/${d}` }, "Naar Batches plannen"))),
     h("div", { class: "beheer-indeling" },
       h("nav", { class: "stappenlijst", "aria-label": "Stappen" },
@@ -372,11 +380,8 @@ export async function dag(datum?: string, stapcode?: string) {
   );
 }
 
-// ---------- Proef: Dagoverzicht en Batchroute (D52) ----------
-// Twee overzichten om naast elkaar te proberen. Geert kiest er één; de andere gaat er weer uit.
-const proefMelding = () =>
-  h("p", { class: "proef-melding" }, h("strong", {}, "Proef. "),
-    "Dit overzicht en de Batchroute (of het Dagoverzicht) staan er allebei om te vergelijken. Na de keuze blijft er één over.");
+// ---------- Dagoverzicht en Batchroute (D52) ----------
+// Twee overzichten; Geert houdt ze allebei (#48, D74).
 
 export async function overzicht(datum?: string) {
   const actueel = vastHouden();
@@ -394,8 +399,8 @@ export async function overzicht(datum?: string) {
       h("div", { class: "knoppen-klein" },
         h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${plusDagen(d, -1)}` }, "Vorige dag"),
         h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${isoDag()}` }, "Vandaag"),
-        h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${plusDagen(d, 1)}` }, "Volgende dag"))),
-    proefMelding(),
+        h("a", { class: "knop knop-stil", href: `#/planning/overzicht/${plusDagen(d, 1)}` }, "Volgende dag"),
+        dagKiezer(d, (dag) => `#/planning/overzicht/${dag}`))),
     h("p", {}, `${aantal} gepland in ${stappen.filter((s) => s.items.length).length} van ${stappen.length} stappen`,
       metWaarschuwing ? [". ", waarschuwing(`${metWaarschuwing} met een vorige stap die niet op tijd is`)] : "."),
     h("section", { class: "blok" },
@@ -446,7 +451,6 @@ export async function route(filter?: string) {
   const lotStap = r.stappen.find((s) => s.is_lot_stap);
   toon(
     kop("Batchroute", "Per batch die nog niet in een lot zit: welke stap klaar is, welke bezig is en wanneer de rest gepland staat. Klik op een geplande dag om die stap te wijzigen."),
-    proefMelding(),
     h("div", { class: "filters" },
       h("a", { class: `knop knop-klein ${alleenLetOp ? "knop-stil" : "knop-hoofd"}`, href: "#/planning/route", "aria-current": alleenLetOp ? undefined : "page" }, `Alle batches (${r.batches.length})`),
       h("a", { class: `knop knop-klein ${alleenLetOp ? "knop-hoofd" : "knop-stil"}`, href: "#/planning/route/let-op", "aria-current": alleenLetOp ? "page" : undefined }, `Met waarschuwing (${letOp.length})`)),

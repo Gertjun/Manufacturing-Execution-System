@@ -715,3 +715,8 @@ a.merk:hover { text-decoration: underline; }
 .rooster-patroon li { display: grid; gap: 2px; min-width: 6.5em; padding: var(--space-2) var(--space-3); border: 1px solid var(--lijn); border-radius: var(--radius-sm); background: var(--vlak); }
 .rooster-patroon li.vrij { color: var(--inkt-zacht); background: transparent; border-style: dashed; }
 .rooster-dag { font-size: var(--text-sm); color: var(--inkt-zacht); }
+
+/* Naar een dag springen (#97): een datumveld naast Vorige dag, Vandaag en Volgende dag. */
+.dag-kiezer { display: inline-flex; align-items: center; }
+.dag-kiezer input[type="date"] { font: inherit; min-height: var(--doel-min); padding: 0 var(--space-2); border: 1px solid var(--lijn-sterk, var(--inkt-zacht)); border-radius: var(--radius-sm); background: var(--vlak); color: var(--inkt); }
+.verborgen-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

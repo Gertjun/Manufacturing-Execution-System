@@ -222,13 +222,23 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   check("⚠ bij PS3 in de stappenlijst", (await page.locator(".stappenlijst a").filter({ has: page.locator(".code", { hasText: /^PS3$/ }) }).innerText()).includes("⚠"));
   await shot("02c-per-stap-waarschuwing");
 
-  console.log("\nProef: Dagoverzicht en Batchroute");
-  await page.getByRole("link", { name: "Dagoverzicht (proef)" }).click();
+  console.log("\nDagoverzicht en Batchroute (#48: allebei, zonder proef)");
+  await page.getByRole("link", { name: "Dagoverzicht", exact: true }).click();
   await page.locator(".dagoverzicht").waitFor();
   check("Dagoverzicht toont alle 21 stappen", (await page.locator(".dagoverzicht tbody tr").count()) === 21);
+  check("Geen proefmelding meer (#48)", (await page.locator(".proef-melding").count()) === 0);
+  // #97: naar een dag springen met de kalender.
+  const verder = new Date(Date.now() + 9 * 864e5).toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" });
+  await page.locator(".dag-kiezer input").fill(verder);
+  await page.waitForFunction((d) => location.hash === `#/planning/overzicht/${d}`, verder);
+  await page.locator(".dagoverzicht").waitFor();
+  check("Kalender: naar een dag springen", (await page.locator(".dag-kiezer input").inputValue()) === verder);
+  await page.getByRole("link", { name: "Vandaag" }).click();
+  await page.waitForFunction((d) => document.querySelector(".dag-kiezer input")?.value !== d && !!document.querySelector(".dagoverzicht"), verder);
+  await page.locator("main p", { hasText: "niet op tijd" }).first().waitFor({ timeout: 5000 }).catch(() => {});
   check("Dagoverzicht telt de waarschuwing", (await page.locator("main p", { hasText: "niet op tijd" }).count()) >= 1);
   await shot("06-dagoverzicht");
-  await page.getByRole("link", { name: "Batchroute (proef)" }).click();
+  await page.getByRole("link", { name: "Batchroute", exact: true }).click();
   await page.locator(".route-tabel").waitFor();
   const letOpCel = page.locator(".route-tabel tr", { hasText: nummers[1] }).locator("td.route-let-op");
   check("Batchroute: geplande PS3 met ⚠", (await letOpCel.count()) === 1 && (await letOpCel.getAttribute("title")).includes("PS2 is nog niet gepland"));

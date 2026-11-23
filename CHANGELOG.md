@@ -5,6 +5,19 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.59.0 — 23 november 2026 · #48 #97 #98 #99
+- **Dagoverzicht en Batchroute blijven allebei** (#48, D74). "(proef)" staat niet meer in het menu en de proefmelding is weg.
+- **Naar een dag springen:** in Stappen plannen en het Dagoverzicht staat naast Vorige dag, Vandaag en Volgende dag een datumveld met kalender (#97).
+- **Ploegoverdracht: welke afwijkingen.** Per dienst staat er niet alleen hoeveel afwijkingen er waren, maar ook welke (#98).
+  - In Productieanalyse: tijd, batch of lot, stap en veld, gemeten waarde, grenzen en buiten tolerantie of buiten grens. Bij vijf of minder staat het meteen open.
+  - In het invoerscherm (Overdracht): dezelfde lijst, kort.
+  - Hoogstens de nieuwste 50 per dienst.
+- **Doorlooptijden:** de tabel per week heeft twee kolommen erbij (#99).
+  - **Wachten op het lot:** hoe lang batches na hun laatste batchstap wachten tot het lot wordt samengesteld.
+  - **Totaal per lot:** van de eerste batch tot het lot gereed is.
+  - Onder de tabel staat waarom het totaal niet de som van de andere kolommen is: het zijn medianen, en de wachttijd zat er eerder niet in.
+- API: `afwijkingen` in de samenvatting van een dienst; `wacht_op_lot_uren_mediaan` en `totaal_uren_mediaan` in `/analyse/doorlooptijden`.
+
 ## 0.58.0 — 23 november 2026 · #91
 - **Wandscherm past altijd zonder scrollen** (ook het wandscherm Kwaliteit, D81).
   - Het aantal kolommen volgt de verhouding van het scherm. Bij alle 21 stappen op een tv zijn dat er 6.

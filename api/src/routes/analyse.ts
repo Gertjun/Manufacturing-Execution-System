@@ -392,6 +392,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 batch_uren_mediaan: NulGetal(),
                 lots: Type.Integer(),
                 lot_uren_mediaan: NulGetal(),
+                wacht_op_lot_uren_mediaan: Type.Optional(NulGetal({ description: "Gemiddeld per lot hoe lang de batches na hun laatste batchstap op het samenstellen wachtten; mediaan over de lots (#99)" })),
+                totaal_uren_mediaan: Type.Optional(NulGetal({ description: "Eerste batch gestart tot lot gereed; mediaan over de lots (#99). Niet de som van de andere medianen." })),
               }),
             ),
           }),
@@ -439,18 +441,28 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                  WHERE e.status = 'afgerond'
                    AND ${PERIODE_SQL("e.afgerond_op", 1, 2)} AND ${PRODUCT_SQL("bt.product_id", 3)}),
               l AS (
-                SELECT ${perBegin(req.query.per, "g.klaar")} AS week, extract(epoch FROM g.klaar - lot.aangemaakt_op) / 3600 AS uren
+                SELECT ${perBegin(req.query.per, "g.klaar")} AS week, extract(epoch FROM g.klaar - lot.aangemaakt_op) / 3600 AS uren,
+                       -- #99: hoe lang de batches gemiddeld op het lot wachtten (klaar met hun laatste batchstap tot samenstellen),
+                       -- en de hele doorlooptijd: eerste batch gestart tot lot gereed.
+                       bw.wacht AS wacht_uren, extract(epoch FROM g.klaar - bw.begin) / 3600 AS totaal_uren
                   FROM lot
                   JOIN LATERAL (SELECT max(r.afgerond_op) AS klaar FROM stapregistratie r
                                  WHERE r.lot_id = lot.id AND r.processtap_id = route_laatste(lot_product(lot.id), 'lot')
                                    AND r.status = 'afgerond') g ON g.klaar IS NOT NULL
+                  LEFT JOIN LATERAL (
+                    SELECT avg(greatest(0, extract(epoch FROM lot.aangemaakt_op - x.klaar) / 3600)) AS wacht, min(x.begin) AS begin
+                      FROM (SELECT max(r.afgerond_op) AS klaar, min(r.gestart_op) AS begin
+                              FROM batch bb JOIN stapregistratie r ON r.batch_id = bb.id
+                             WHERE bb.lot_id = lot.id AND r.status = 'afgerond' GROUP BY bb.id) x) bw ON true
                  WHERE lot.status = 'gereed' AND ${PERIODE_SQL("g.klaar", 1, 2)} AND ${PRODUCT_SQL("lot_product(lot.id)", 3)}),
               weken AS (SELECT week FROM b UNION SELECT week FROM l)
          SELECT w.week,
                 (SELECT count(*) FROM b WHERE b.week = w.week) AS batches,
                 (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY uren)::numeric, 1) FROM b WHERE b.week = w.week) AS batch_uren_mediaan,
                 (SELECT count(*) FROM l WHERE l.week = w.week) AS lots,
-                (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY uren)::numeric, 1) FROM l WHERE l.week = w.week) AS lot_uren_mediaan
+                (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY uren)::numeric, 1) FROM l WHERE l.week = w.week) AS lot_uren_mediaan,
+                (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY wacht_uren)::numeric, 1) FROM l WHERE l.week = w.week) AS wacht_op_lot_uren_mediaan,
+                (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY totaal_uren)::numeric, 1) FROM l WHERE l.week = w.week) AS totaal_uren_mediaan
            FROM weken w ORDER BY w.week`,
         p,
       );

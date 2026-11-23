@@ -10,6 +10,8 @@ export interface Samenvatting {
   ploeg: string; ploegnaam: string; dag: string; begin_op: string; eind_op: string; loopt_nog: boolean;
   /** Ploegen volgens het rooster, zoals A1 en A2 (sinds 0.53.0, #86); ontbreekt bij een oudere server. */
   ploegen?: string[];
+  /** Welke afwijkingen (sinds 0.59.0, #98); ontbreekt bij een oudere server. */
+  afwijkingen?: { tijd: string; nummer: string; stap: string; veld: string; veldnaam: string; eenheid: string | null; gemeten: number; markering: string }[];
   cijfers: { stappen_afgerond: number; batches_gestart: number; lots_gemaakt: number; afwijkingen: number; correcties: number; in_beoordeling_gezet: number };
   per_stap: { stap: string; stapnaam: string; afgerond: number }[];
   nog_open: { stap: string; nummer: string; sinds: string; operator: string }[];
@@ -106,6 +108,12 @@ export async function overdrachtScherm() {
           h("h2", {}, "Deze ploeg tot nu toe"),
           h("p", {}, cijferRegel(s)),
           s.per_stap.length ? h("p", { class: "sub" }, s.per_stap.map((p) => `${p.stap}: ${p.afgerond}`).join(" · ")) : null,
+          s.afwijkingen?.length
+            ? h("div", {}, h("h3", {}, `Afwijkingen (${s.afwijkingen.length})`),
+                h("ul", { class: "lijst-klein" }, s.afwijkingen.map((a) => h("li", {},
+                  `${a.nummer}, ${a.stap} ${a.veld} ${a.veldnaam}: ${a.gemeten.toLocaleString("nl-NL")}${a.eenheid ? ` ${a.eenheid}` : ""}, `,
+                  h("strong", {}, a.markering === "buiten_grens" ? "buiten grens" : "buiten tolerantie"), `, ${tijd(a.tijd)}`))))
+            : null,
           s.nog_open.length
             ? h("div", {}, h("h3", {}, `Nog open (${s.nog_open.length})`),
                 h("ul", { class: "lijst-klein" }, s.nog_open.map((o) => h("li", {}, `${o.stap} ${o.nummer}, ${o.operator}, sinds ${tijd(o.sinds)}`))))

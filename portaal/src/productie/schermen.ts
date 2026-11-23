@@ -97,7 +97,8 @@ export async function stap(code: string) {
 // ---------- Doorlooptijden ----------
 interface Doorloop {
   stappen: { stap: string; stapnaam: string; niveau: string; aantal: number; bewerking_mediaan: number; bewerking_p90: number; wachten_mediaan: number | null; wachten_p90: number | null }[];
-  per_week: { week: string; batches: number; batch_uren_mediaan: number | null; lots: number; lot_uren_mediaan: number | null }[];
+  per_week: { week: string; batches: number; batch_uren_mediaan: number | null; lots: number; lot_uren_mediaan: number | null;
+    wacht_op_lot_uren_mediaan?: number | null; totaal_uren_mediaan?: number | null }[];
 }
 
 export async function doorlooptijden() {
@@ -139,10 +140,13 @@ export async function doorlooptijden() {
               h("span", { class: "getal" }, minuten(s.wachten_mediaan)), h("span", { class: "getal" }, minuten(s.wachten_p90)),
               h("span", { class: "getal" }, minuten(s.bewerking_mediaan)), h("span", { class: "getal" }, minuten(s.bewerking_p90))]), "compact")),
           h("section", { class: "blok" }, h("h2", {}, `Doorlooptijd ${perWoord(per)}`),
-            tabel([perKop(per), "Batches klaar", "Batch: eerste tot laatste batchstap (mediaan)", "Lots gereed", "Lot: samenstellen tot gereed (mediaan)"],
+            h("p", { class: "sub" }, "Totaal per lot is de hele weg van de eerste batch tot het lot gereed is. Dat is niet de som van de andere kolommen: het zijn medianen, en de batches wachten nog op elkaar voordat het lot wordt samengesteld (#99)."),
+            tabel([perKop(per), "Batches klaar", "Batch: eerste tot laatste batchstap", "Wachten op het lot", "Lots gereed", "Lot: samenstellen tot gereed", "Totaal per lot"],
               [...d.per_week].reverse().map((w) => [perCel(w.week, per),
                 h("span", { class: "getal" }, w.batches), h("span", { class: "getal" }, uren(w.batch_uren_mediaan)),
-                h("span", { class: "getal" }, w.lots), h("span", { class: "getal" }, uren(w.lot_uren_mediaan))]), "compact")),
+                h("span", { class: "getal" }, uren(w.wacht_op_lot_uren_mediaan ?? null)),
+                h("span", { class: "getal" }, w.lots), h("span", { class: "getal" }, uren(w.lot_uren_mediaan)),
+                h("strong", { class: "getal" }, uren(w.totaal_uren_mediaan ?? null))]), "compact")),
         ]),
   );
 }
@@ -215,6 +219,9 @@ interface PloegSamenvatting {
   ploeg: string; ploegnaam: string; dag: string; begin_op: string; eind_op: string; loopt_nog: boolean;
   /** Ploegen volgens het rooster, zoals A1 en A2 (sinds 0.53.0, #86). */
   ploegen?: string[];
+  /** Welke afwijkingen (sinds 0.59.0, #98). */
+  afwijkingen?: { tijd: string; nummer: string; stap: string; veld: string; veldnaam: string; eenheid: string | null; setting: number | null;
+    gemeten: number; grens_min: number | null; grens_max: number | null; markering: "buiten_tolerantie" | "buiten_grens"; operator: string }[];
   cijfers: { stappen_afgerond: number; batches_gestart: number; lots_gemaakt: number; afwijkingen: number; correcties: number; in_beoordeling_gezet: number };
   per_stap: { stap: string; stapnaam: string; afgerond: number }[];
   nog_open: { stap: string; nummer: string; sinds: string; operator: string }[];
@@ -269,6 +276,17 @@ export async function overdracht(dag?: string) {
                   n.bijzonderheden ? h("p", {}, n.bijzonderheden) : null,
                   h("p", { class: "sub" }, `${n.door}${n.pc ? ` op ${n.pc}` : ""}${n.hal ? `, ${n.hal}` : ""}, ${kort(n.geschreven_op)}`))))
               : h("p", { class: "leeg" }, x.loopt_nog ? "Nog geen overdracht geschreven." : "Deze ploeg heeft geen overdracht geschreven."),
+            // #98: welke afwijkingen, niet alleen hoeveel.
+            x.afwijkingen?.length
+              ? h("details", { class: "meer", open: x.afwijkingen.length <= 5 },
+                  h("summary", {}, `${x.cijfers.afwijkingen} ${x.cijfers.afwijkingen === 1 ? "afwijking" : "afwijkingen"}${x.cijfers.afwijkingen > x.afwijkingen.length ? ` (de nieuwste ${x.afwijkingen.length})` : ""}`),
+                  tabel(["Tijd", "Batch of lot", "Veld", "Gemeten", "Grenzen", ""], x.afwijkingen.map((a) => [
+                    kort(a.tijd), a.nummer, `${a.stap} · ${a.veld} ${a.veldnaam}`,
+                    h("span", { class: "getal" }, `${a.setting !== null ? `${toonGetal(a.setting)} / ` : ""}${toonGetal(a.gemeten)}${a.eenheid ? ` ${a.eenheid}` : ""}`),
+                    a.grens_min !== null || a.grens_max !== null ? `${a.grens_min !== null ? toonGetal(a.grens_min) : "…"} – ${a.grens_max !== null ? toonGetal(a.grens_max) : "…"}` : "",
+                    h("span", { class: `label label-${a.markering}` }, a.markering === "buiten_grens" ? "Buiten grens" : "Buiten tolerantie"),
+                  ]), "compact"))
+              : null,
             x.nog_open.length
               ? h("details", { class: "meer" }, h("summary", {}, `${x.nog_open.length} ${x.nog_open.length === 1 ? "stap" : "stappen"} open aan het eind`),
                   tabel(["Stap", "Batch of lot", "Sinds", "Operator"], x.nog_open.map((o) => [o.stap, o.nummer, kort(o.sinds), o.operator]), "compact"))

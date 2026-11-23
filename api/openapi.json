@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Batch input GUI API",
-    "version": "0.58.0",
+    "version": "0.59.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -11598,6 +11598,16 @@
                           "lot_uren_mediaan": {
                             "type": "number",
                             "nullable": true
+                          },
+                          "wacht_op_lot_uren_mediaan": {
+                            "type": "number",
+                            "description": "Gemiddeld per lot hoe lang de batches na hun laatste batchstap op het samenstellen wachtten; mediaan over de lots (#99)",
+                            "nullable": true
+                          },
+                          "totaal_uren_mediaan": {
+                            "type": "number",
+                            "description": "Eerste batch gestart tot lot gereed; mediaan over de lots (#99). Niet de som van de andere medianen.",
+                            "nullable": true
                           }
                         }
                       }
@@ -20414,6 +20424,82 @@
                         }
                       }
                     },
+                    "afwijkingen": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "tijd",
+                          "nummer",
+                          "stap",
+                          "veld",
+                          "veldnaam",
+                          "eenheid",
+                          "setting",
+                          "gemeten",
+                          "grens_min",
+                          "grens_max",
+                          "markering",
+                          "operator"
+                        ],
+                        "properties": {
+                          "tijd": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "nummer": {
+                            "type": "string"
+                          },
+                          "stap": {
+                            "type": "string"
+                          },
+                          "veld": {
+                            "type": "string"
+                          },
+                          "veldnaam": {
+                            "type": "string"
+                          },
+                          "eenheid": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "setting": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "gemeten": {
+                            "type": "number"
+                          },
+                          "grens_min": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "grens_max": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "markering": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "buiten_tolerantie"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "buiten_grens"
+                                ]
+                              }
+                            ]
+                          },
+                          "operator": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
                     "notities": {
                       "type": "array",
                       "items": {
@@ -20742,6 +20828,82 @@
                             "sinds": {
                               "type": "string",
                               "format": "date-time"
+                            },
+                            "operator": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "afwijkingen": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "tijd",
+                            "nummer",
+                            "stap",
+                            "veld",
+                            "veldnaam",
+                            "eenheid",
+                            "setting",
+                            "gemeten",
+                            "grens_min",
+                            "grens_max",
+                            "markering",
+                            "operator"
+                          ],
+                          "properties": {
+                            "tijd": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "nummer": {
+                              "type": "string"
+                            },
+                            "stap": {
+                              "type": "string"
+                            },
+                            "veld": {
+                              "type": "string"
+                            },
+                            "veldnaam": {
+                              "type": "string"
+                            },
+                            "eenheid": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "setting": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "gemeten": {
+                              "type": "number"
+                            },
+                            "grens_min": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "grens_max": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "markering": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "buiten_tolerantie"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "buiten_grens"
+                                  ]
+                                }
+                              ]
                             },
                             "operator": {
                               "type": "string"

@@ -37,6 +37,13 @@ const Samenvatting = Type.Object({
   }),
   per_stap: Type.Array(Type.Object({ stap: Type.String(), stapnaam: Type.String(), afgerond: Type.Integer() })),
   nog_open: Type.Array(Type.Object({ stap: Type.String(), nummer: Type.String(), sinds: Type.String({ format: "date-time" }), operator: Type.String() })),
+  // Welke afwijkingen (sinds 0.59.0, #98): niet alleen hoeveel. Hoogstens 50, nieuwste eerst.
+  afwijkingen: Type.Optional(Type.Array(Type.Object({
+    tijd: Type.String({ format: "date-time" }), nummer: Type.String(), stap: Type.String(), veld: Type.String(), veldnaam: Type.String(),
+    eenheid: OptTekst, setting: Type.Union([Type.Null(), Type.Number()]), gemeten: Type.Number(),
+    grens_min: Type.Union([Type.Null(), Type.Number()]), grens_max: Type.Union([Type.Null(), Type.Number()]),
+    markering: Type.Union([Type.Literal("buiten_tolerantie"), Type.Literal("buiten_grens")]), operator: Type.String(),
+  }))),
   notities: Type.Array(Notitie),
 });
 
@@ -84,6 +91,18 @@ async function samenvatting(db: Db, p: Periode, hal: string | null) {
     [p.ploeg_id, p.dag, hal],
   );
   const [r] = await lees<{ ploegen: string[] }>(db, "SELECT ploegen_in_dienst($1::date, $2) AS ploegen", [p.dag, p.code]);
+  const afwijkingen = await lees(
+    db,
+    `SELECT w.ingevoerd_op AS tijd, coalesce(b.batchnummer, l.lotnummer) AS nummer, s.code AS stap, v.code AS veld, v.naam AS veldnaam, v.eenheid,
+            w.setting::float AS setting, w.gemeten::float AS gemeten, w.grens_min::float AS grens_min, w.grens_max::float AS grens_max, w.markering,
+            o.naam AS operator
+       FROM waarde w JOIN stapregistratie sr ON sr.id = w.stapregistratie_id JOIN processtap s ON s.id = sr.processtap_id
+       JOIN veld v ON v.id = w.veld_id JOIN operator o ON o.id = coalesce(w.ingevoerd_door, sr.operator_id)
+       LEFT JOIN batch b ON b.id = sr.batch_id LEFT JOIN lot l ON l.id = sr.lot_id
+      WHERE w.vervangt_waarde_id IS NULL AND w.markering <> 'ok' AND w.ingevoerd_op >= $1 AND w.ingevoerd_op < $2
+      ORDER BY w.ingevoerd_op DESC LIMIT 50`,
+    t,
+  );
   return {
     ploeg: p.code,
     ploegnaam: p.naam,
@@ -95,6 +114,7 @@ async function samenvatting(db: Db, p: Periode, hal: string | null) {
     cijfers: c,
     per_stap,
     nog_open,
+    afwijkingen,
     notities,
   };
 }

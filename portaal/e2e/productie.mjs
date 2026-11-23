@@ -76,6 +76,10 @@ try {
   await shot("03-doorlooptijden");
   check("Tooltip toont wachten en bewerking", /Wachten: .*Bewerking:/s.test(await page.locator(".tip").innerText()));
   check("Tabel per stap heeft 21 rijen", (await page.locator(".blok").nth(1).locator("tbody tr").count()) === 21);
+  // #99: wachten op het lot en het totaal per lot in de tabel per week.
+  const perWeek = page.locator("section", { has: page.getByRole("heading", { name: /^Doorlooptijd per/ }) });
+  const weekKoppen = await perWeek.locator("thead th").allInnerTexts();
+  check("Doorlooptijd per week: wachten op het lot en totaal per lot", weekKoppen.includes("Wachten op het lot") && weekKoppen.includes("Totaal per lot"), weekKoppen.join(" | "));
 
   console.log("\nProductie per week");
   await page.getByRole("link", { name: "Productie per week" }).click();
@@ -149,6 +153,11 @@ try {
   check("Drie ploegen op een hele dag", (await page.locator("section.ploeg").count()) === 3);
   const [nOd] = await q("SELECT count(*)::int AS n FROM fabriek.overdracht WHERE dag = $1", [gisteren.d]);
   check("Alle overdrachten van die dag staan erbij", (await page.locator("section.ploeg .notities li").count()) === nOd.n, `${nOd.n}`);
+  // #98: welke afwijkingen een ploeg had, met batch, veld en waarde.
+  const [afwOd] = await q(`SELECT count(*)::int AS n FROM fabriek.waarde w WHERE w.vervangt_waarde_id IS NULL AND w.markering <> 'ok'
+      AND w.ingevoerd_op >= ($1::date + time '06:00') AT TIME ZONE 'Europe/Amsterdam' AND w.ingevoerd_op < ($1::date + 1 + time '06:00') AT TIME ZONE 'Europe/Amsterdam'`, [gisteren.d]);
+  const afwRijen = await page.locator("section.ploeg details", { hasText: /afwijking/ }).locator("tbody tr").count();
+  check("Ploegoverdracht: de afwijkingen zelf, per ploeg", afwRijen === Math.min(afwOd.n, 150) || (afwOd.n > 0 && afwRijen > 0), `${afwRijen} van ${afwOd.n}`);
   await shot("07-overdracht");
   await page.getByRole("link", { name: "Vandaag" }).click();
   // Wachten op de kop van vandaag: de vorige dag staat er misschien nog (die heeft ook een .leeg).

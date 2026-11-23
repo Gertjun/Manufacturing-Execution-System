@@ -536,6 +536,10 @@ describe("analyses voor Productie", () => {
     const ps2 = dl.body.stappen.find((s: any) => s.stap === "PS2");
     assert.ok(ps2.aantal >= 4 && ps2.bewerking_mediaan >= 0 && ps2.wachten_mediaan >= 0);
     assert.ok(dl.body.per_week.length >= 1 && dl.body.per_week.some((w: any) => w.lots >= 1));
+    // #99: wachten op het lot en de totale doorlooptijd per lot; het totaal is minstens zo lang als het lotdeel.
+    const metLot = dl.body.per_week.find((w: any) => w.lots >= 1);
+    assert.ok(metLot.totaal_uren_mediaan !== null && metLot.wacht_op_lot_uren_mediaan !== null, JSON.stringify(metLot));
+    assert.ok(metLot.totaal_uren_mediaan >= metLot.lot_uren_mediaan, JSON.stringify(metLot));
     const pr = await verzoek("GET", "/analyse/productie", t);
     assert.ok(pr.body.reduce((a: number, w: any) => a + w.batches_gestart, 0) >= 5);
     // #58: per dag, week of maand geeft andere groepen, maar dezelfde totalen; elk begin is een maandag of de eerste van de maand.
@@ -1225,6 +1229,9 @@ describe("Ploegoverdracht", () => {
     assert.equal(nu.status, 200, JSON.stringify(nu.body));
     assert.equal(nu.body.loopt_nog, true);
     assert.equal(typeof nu.body.cijfers.stappen_afgerond, "number");
+    // #98: welke afwijkingen, met hoogstens 50 en evenveel als het cijfer (tot 50).
+    assert.ok(Array.isArray(nu.body.afwijkingen));
+    assert.equal(nu.body.afwijkingen.length, Math.min(50, nu.body.cijfers.afwijkingen));
     assert.equal((await verzoek("POST", "/overdracht", op, { bijzonderheden: "  " })).status, 400);
     const id = randomUUID();
     const n = await verzoek("POST", "/overdracht", op, { id, bijzonderheden: "Menger 2 hersteld", aandachtspunten: "Filter PS7 vervangen", moment: new Date().toISOString() });
