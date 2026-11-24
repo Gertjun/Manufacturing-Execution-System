@@ -98,3 +98,7 @@ De acht expliciete MES-ontwerpbestanden in docs/mes vallen eveneens onder D87; g
 
 ## D90 – Faseacceptatie
 Werk in één concept-PR per fase met logische commits. Draai relevante lokale tests; vraag Node 22 selectief via `compatibiliteit-test` aan. Bij gereedheid `acceptatie-test` (beide suites op exacte head/base), labels bij herhaling eerst verwijderen. Conceptstatus is geen acceptatiebewijs. Oude instructie automatische Node 22 bij elke PR-update geldt alleen voor niet-concept-PRs. Geen merge zonder actuele volledige acceptatie. Behoud tests op bedrijfsregels; vervang alleen onterecht vaste fixtureverwachtingen.
+
+## MES-migratie: bestaande functionaliteit kritisch beoordelen
+
+Werkafspraak met Geert (24 november 2026): D89 en de MES-ontwerpdocumenten zijn leidend. Bestaande functies zijn geen automatisch te behouden scope. Beoordeel per functie of behoud, vereenvoudiging, vervanging of verwijdering beter past. Meld twijfel en gemotiveerde verwijderingsvoorstellen (inclusief impact op gebruikers, gegevens en tests) vóór omvangrijke compatibiliteitsinvesteringen; verwijder bestaande functies alleen na akkoord van Geert. Gewone implementatiewerkzaamheden binnen het verleende mandaat gaan zelfstandig door. Historische productiegegevens en identiteiten blijven beschermd. D92 (accountimport) is het eerste voorbeeld.
