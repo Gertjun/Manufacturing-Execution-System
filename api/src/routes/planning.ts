@@ -1,3 +1,4 @@
+import { requiresPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist, type Rol } from "../auth.js";
@@ -6,7 +7,6 @@ import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, StapCode, NulGeheel, NulGetal } from "./schemas.js";
 
 /** Plannen mag de planner (en de beheerder); kijken mag iedereen. */
-export const PLANNEN: Rol[] = ["planner", "beheerder"];
 
 const Dag = Type.String({ format: "date", examples: ["2026-11-20"] });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
@@ -234,7 +234,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/producten",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("engineering.product.manage"),
       schema: {
         tags: ["planning"],
         body: Type.Object({ code: Type.String({ pattern: "^[A-Za-z0-9._-]{1,20}$" }), naam: Type.String({ minLength: 1, maxLength: 100 }),
@@ -259,7 +259,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/producten/:id",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("engineering.product.manage"),
       schema: {
         tags: ["planning"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
@@ -286,7 +286,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/producten/:id/route",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("engineering.product.manage"),
       schema: {
         tags: ["planning"],
         description:
@@ -389,7 +389,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/batches",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Plant een aantal batches op een dag. Het systeem geeft de volgende vrije batchnummers.",
@@ -428,7 +428,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/batches/:batchnummer",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Dag, product of opmerking van een geplande batch wijzigen. Na de start ligt alles behalve de opmerking vast.",
@@ -465,7 +465,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/batches/:batchnummer/volgorde",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Een geplande batch één plaats eerder of later op zijn dag zetten.",
@@ -497,7 +497,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/batches/:batchnummer/vervallen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Een geplande batch die nog niet gestart is laten vervallen (hij blijft bewaard).",
@@ -740,7 +740,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/stappen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Zet de planning van één stap op één dag: de items in deze volgorde (vervangt wat er stond).",
@@ -828,7 +828,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/capaciteit/afwijkingen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description:
@@ -869,7 +869,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/capaciteit/afwijkingen/:id/weghalen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], params: Type.Object({ id: Type.String({ format: "uuid" }) }), response: { 204: Type.Null() } },
     },
     async (req, reply) => {
@@ -883,7 +883,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/capaciteit/stappen/:stap",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description:
@@ -1019,7 +1019,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/lotvoorstellen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], body: VoorstelInvoer, response: { 201: Voorstel } },
     },
     async (req, reply) => {
@@ -1036,7 +1036,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/lotvoorstellen/:nummer",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], params: Type.Object({ nummer: Type.Integer() }), body: VoorstelInvoer, response: { 200: Voorstel } },
     },
     async (req) => {
@@ -1054,7 +1054,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/lotvoorstellen/:nummer/vervallen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], params: Type.Object({ nummer: Type.Integer() }), response: { 204: Type.Null() } },
     },
     async (req, reply) => {

@@ -525,3 +525,7 @@ Geert staat toe dat oude accounts niet worden overgenomen als een nieuwe inricht
 ### D96 – Voorspelling toekomstige keuringen uitgesteld (24 nov 2026)
 
 Geert besluit de voorspelling uit D78/#88 niet mee te nemen in de basis-MES. Verwijder de actieve voorspellingsroute en het schermblok Verwacht; behoud openstaande metingen en besluiten en toegang tot beschikbare keuringsstappen. #88 keert terug als nice-to-have in fase 10. Geen productiehistorie verwijderen. Bij eventuele herintroductie de nieuwe planning, scope en betrouwbare doorlooptijden gebruiken.
+
+### D97 – Vrijheid bij herinrichting fictieve gegevens (24 nov 2026)
+
+Geert bevestigt dat er nog geen pilot is geweest en historische PoC-gegevens uitsluitend fictief zijn. Demo- en testgegevens mogen volledig worden vervangen door representatieve MES-varianten, inclusief accounts; behoud geen complexiteit alleen voor oude fixtures. Echte of onbekende databases nooit automatisch wissen. Nieuwe migraties, back-up/herstel en tests blijven gericht op betrouwbare gegevensintegriteit. Uitstelvoorstellen voor niet-noodzakelijke functies blijven onderdeel van de werkafspraak.

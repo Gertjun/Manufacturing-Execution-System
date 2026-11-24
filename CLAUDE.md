@@ -108,3 +108,6 @@ Werktempo: voer binnen het bestaande mandaat meerdere opeenvolgende implementati
 ## Integrale testreview vóór faseacceptatie (24 november 2026)
 
 Na de functionele implementatie van iedere MES-fase, vóór volledige acceptatie-CI: inventariseer alle door workflows aangeroepen tests, fixtures, schemaqueries en verwachtingen. Toets ze aan de goedgekeurde MES-besluiten en actuele databasestructuur. Behoud dekking van bedrijfsregels, vervang verouderde verwachtingen door passende positieve/negatieve regressies, los instabiliteit op en controleer workflowtriggers en afhankelijkheden. Leg de review en resterende risico's vast. Tijdens implementatie blijven gerichte tests toegestaan; geen volledige acceptatierun vóór de review. D90 blijft gelden.
+
+## D97 – Fictieve demo- en testgegevens
+Er is nog geen pilot uitgevoerd. Geert geeft toestemming om uitsluitend fictieve gegevens en accounts volledig te vervangen door representatieve MES-fixtures indien dat de basis vereenvoudigt. Geen permanente compatibiliteitslaag uitsluitend voor oude fictieve data. Veilige upgrade- en herstelprocedures voor toekomstige echte gegevens blijven vereist; geen destructieve migratie op onbekende databases. Meld voorstellen voor uitstel van nice-to-haves vóór omvangrijke implementatie.
