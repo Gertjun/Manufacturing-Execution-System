@@ -1,8 +1,9 @@
+import { persoonlijkeTransactie } from "../auth.js";
 import { requiresPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { IEDEREEN, vereist, invoerTransactie, type Rol } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
+import { lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, StapCode, NulGeheel, NulGetal } from "./schemas.js";
 
@@ -243,7 +244,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const p = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const p = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           "INSERT INTO product (code, naam, batchgewicht_kg) VALUES ($1, $2, $3) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, NULL::text[] AS route", [
           req.body.code.trim(),
@@ -269,7 +270,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      inTransactie(app.db, req.user.naam, async (tx) => {
+      persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief),
                   batchgewicht_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE batchgewicht_kg END WHERE id = $1
@@ -298,7 +299,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      inTransactie(app.db, req.user.naam, async (tx) => {
+      persoonlijkeTransactie(app.db, req, async (tx) => {
         await tx.query("SELECT zet_route($1, $2)", [req.params.id, req.body.stappen?.length ? req.body.stappen : null]);
         await tx.query("SET CONSTRAINTS ALL IMMEDIATE");
         const { rows } = await tx.query(`${PRODUCT_SQL} WHERE p.id = $1`, [req.params.id]);
@@ -754,7 +755,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, niveau, is_lot_stap FROM processtap WHERE code = $1 AND actief", [req.body.stap]);
         const stap = rows[0];
         if (!stap) throw niet("Stap");
@@ -845,7 +846,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const rij = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const rij = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const stap = req.body.stap
           ? (await tx.query("SELECT id FROM processtap WHERE code = $1 AND actief", [req.body.stap])).rows[0]?.id
           : null;
@@ -872,7 +873,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: { tags: ["planning"], params: Type.Object({ id: Type.String({ format: "uuid" }) }), response: { 204: Type.Null() } },
     },
     async (req, reply) => {
-      const n = await inTransactie(app.db, req.user.naam, async (tx) =>
+      const n = await persoonlijkeTransactie(app.db, req, async (tx) =>
         (await tx.query("UPDATE capaciteit_afwijking SET actief = false WHERE id = $1 AND actief", [req.params.id])).rowCount);
       if (!n) throw niet("Afwijking");
       return reply.status(204).send(null);
@@ -900,7 +901,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `SELECT s.id AS stap, p.id AS product FROM processtap s LEFT JOIN product p ON p.code = $2 WHERE s.code = $1 AND s.actief`,
           [req.params.stap, req.body.product],
@@ -1022,7 +1023,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: { tags: ["planning"], body: VoorstelInvoer, response: { 201: Voorstel } },
     },
     async (req, reply) => {
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const ids = await batchIds(tx, req.body.batchnummers);
         const { rows } = await tx.query("SELECT bewaar_lot_voorstel(NULL, $1, $2, $3) AS id", [ids, req.body.opmerking ?? null, req.user.sub]);
         return rows[0].id as string;
@@ -1039,7 +1040,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: { tags: ["planning"], params: Type.Object({ nummer: Type.Integer() }), body: VoorstelInvoer, response: { 200: Voorstel } },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id FROM lot_voorstel WHERE nummer = $1 FOR UPDATE", [req.params.nummer]);
         if (!rows[0]) throw niet("Lotvoorstel");
         const ids = await batchIds(tx, req.body.batchnummers);
@@ -1057,7 +1058,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: { tags: ["planning"], params: Type.Object({ nummer: Type.Integer() }), response: { 204: Type.Null() } },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           "UPDATE lot_voorstel SET status = 'vervallen', afgesloten_op = now() WHERE nummer = $1 AND status = 'open' RETURNING id",
           [req.params.nummer],

@@ -1,8 +1,9 @@
+import { persoonlijkeTransactie } from "../auth.js";
 import { requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 
-import { inTransactie, lees, type Tx } from "../db.js";
+import { lees, type Tx } from "../db.js";
 import { TESTACCOUNTS } from "../testaccounts.js";
 import { ApiFout, leesbaar, niet } from "../fouten.js";
 import { Veld } from "./config.js";
@@ -37,7 +38,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const b = req.body;
-      const code = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const code = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, volgorde FROM processtap WHERE code = $1 FOR UPDATE", [b.stapcode]);
         if (!rows[0]) throw niet("Stap");
         const stap = rows[0];
@@ -95,7 +96,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if (kolommen.some((k) => !toegestaan.includes(k))) throw new ApiFout(400, "Onbekend veld in wijziging");
       const waarden = kolommen.map((k) => (req.body as Record<string, unknown>)[k]);
       const set = kolommen.map((k, i) => `${k} = $${i + 2}`).join(", ");
-      const n = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const n = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const r = await tx.query(`UPDATE veld SET ${set} WHERE code = $1`, [req.params.code, ...waarden]);
         return r.rowCount;
       });
@@ -126,7 +127,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      inTransactie(app.db, req.user.naam, async (tx) => {
+      persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `INSERT INTO veld_product (veld_id, product_id, grens_min, grens_max, tolerantie, tolerantie_soort)
            SELECT v.id, p.id, $3, $4, $5, $6 FROM veld v, product p WHERE v.code = $1 AND p.code = $2
@@ -153,7 +154,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const n = await inTransactie(app.db, req.user.naam, async (tx) =>
+      const n = await persoonlijkeTransactie(app.db, req, async (tx) =>
         (await tx.query(
           `DELETE FROM veld_product vp USING veld v, product p
             WHERE vp.veld_id = v.id AND vp.product_id = p.id AND v.code = $1 AND p.code = $2`,
@@ -365,7 +366,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       let rijen: ImportRij[];
       let grenzen: GrensRij[];
       try {
-        [rijen, grenzen] = await inTransactie(app.db, req.user.naam, async (tx) => {
+        [rijen, grenzen] = await persoonlijkeTransactie(app.db, req, async (tx) => {
           const uit = await verwerk(tx);
           const gr = await verwerkGrenzen(tx);
           if (!uitvoeren || uit.some((x) => x.actie === "fout") || gr.some((x) => x.actie === "fout")) throw new Terugdraaien(uit, gr);
@@ -444,7 +445,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("UPDATE processtap SET naam = $2 WHERE code = $1 RETURNING code, naam", [req.params.code, req.body.naam.trim()]));
       if (!r.rows[0]) throw niet("Stap");
       return r.rows[0];
@@ -498,7 +499,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { gebruikersnaam, rol, wachtwoord, naam, bestaandeNaam, ploeg } = req.body;
       if ((rol !== undefined && rol !== "pending") || naam !== undefined || bestaandeNaam !== undefined || ploeg !== undefined)
         throw new ApiFout(422, "Maak eerst een persoonlijk account zonder rol of personeelsindeling");
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx, req.user.sub, "account.manage");
         const { rows: [g] } = await tx.query<{ id: string }>(
           "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ($1, 'pending', wachtwoord_hash($2), true) RETURNING id",
@@ -527,7 +528,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         throw new ApiFout(422, "Rollen en personeelsindeling horen niet bij technisch accountbeheer");
       if (req.params.gebruikersnaam === req.user.naam && actief === false)
         throw new ApiFout(422, "Je kunt je eigen account niet uitzetten");
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx, req.user.sub, "account.manage");
         return tx.query(
           wachtwoord === undefined
@@ -561,7 +562,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: { tags: ["beheer"], body: Type.Object({ naam: Type.String({ minLength: 1, maxLength: 60 }), ploeg: Type.Optional(PloegCode) }, { additionalProperties: false }), response: { 201: Operator } },
     },
     async (req, reply) => {
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx, req.user.sub, "personnel.manage");
         const { rows: [o] } = await tx.query<{ id: string }>("INSERT INTO operator (naam) VALUES ($1) RETURNING id", [req.body.naam.trim()]);
         if (req.body.ploeg) await zetPloeg(tx, o.id, req.body.ploeg);
@@ -583,7 +584,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx, req.user.sub, "personnel.manage");
         const u = await tx.query("UPDATE operator SET naam = coalesce($2, naam), actief = coalesce($3, actief) WHERE id = $1 RETURNING id",
           [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null]);
@@ -629,7 +630,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const id = await inTransactie(app.db, req.user.naam, async (tx) =>
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) =>
         (await tx.query("INSERT INTO grondstof (code, naam, eenheid) VALUES ($1, $2, $3) RETURNING id",
           [req.body.code.trim(), req.body.naam.trim(), req.body.eenheid?.trim() || null])).rows[0].id);
       const [g] = await lees(app.db, `${GRONDSTOF_SQL} WHERE g.id = $1`, [id]);
@@ -654,7 +655,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `UPDATE grondstof SET naam = coalesce($2, naam), eenheid = CASE WHEN $4 THEN $3 ELSE eenheid END, actief = coalesce($5, actief)
             WHERE code = $1 RETURNING id`,
@@ -710,7 +711,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, (tx) =>
+      await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("INSERT INTO pc (naam, locatie) VALUES ($1, $2)", [req.body.naam.toUpperCase(), req.body.locatie ?? null]));
       const [pc] = await lees(app.db, `${PC_SQL} WHERE p.naam = $1 GROUP BY p.id`, [req.body.naam.toUpperCase()]);
       return reply.status(201).send(pc as never);
@@ -732,7 +733,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id FROM pc WHERE naam = $1", [req.params.naam]);
         if (!rows[0]) throw niet("Pc");
         const id = rows[0].id;

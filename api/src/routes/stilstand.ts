@@ -1,8 +1,9 @@
+import { persoonlijkeTransactie } from "../auth.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { operatorVan } from "../auth.js";
 import { requiresPermission, personalSession, requireTransactionPermission } from "../modules/authorization/access.js";
-import { inTransactie, lees, type Db } from "../db.js";
+import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { StapCode } from "./schemas.js";
 
@@ -85,7 +86,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           return reply.status(200).send(al as never);
         }
       }
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx,req.user.sub,"downtime.record");
         const { rows: s } = await tx.query("SELECT id FROM processtap WHERE code = $1 AND actief", [req.body.stapcode]);
         if (!s[0]) throw niet("Stap");
@@ -127,7 +128,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const al = await eenStilstand(app.db, req.params.id);
       if (!al) throw niet("Stilstand");
       if ((al as { eind_op: string | null }).eind_op) return al as never; // al beëindigd (opnieuw verstuurd)
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx,req.user.sub,"downtime.record");
         return tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1 AND eind_op IS NULL",
           [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null, req.body.notitie ?? null]);
@@ -152,7 +153,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES ($1, $2, $3) RETURNING code, naam, categorie, actief",
           [req.body.code.trim(), req.body.naam.trim(), req.body.categorie]));
       return reply.status(201).send(r.rows[0]);
@@ -174,7 +175,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query(`UPDATE stilstand_oorzaak SET naam = coalesce($2, naam), categorie = coalesce($3, categorie), actief = coalesce($4, actief)
                    WHERE code = $1 RETURNING code, naam, categorie, actief`,
           [req.params.code, req.body.naam?.trim() ?? null, req.body.categorie ?? null, req.body.actief ?? null]));

@@ -1,8 +1,9 @@
+import { persoonlijkeTransactie } from "../auth.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { operatorVan } from "../auth.js";
 import { requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
-import { inTransactie, lees, type Db } from "../db.js";
+import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 
 const Dag = Type.String({ format: "date" });
@@ -259,7 +260,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       // Een tijdstip uit de toekomst (verkeerde klok) telt als nu.
       const moment = req.body.moment && Date.parse(req.body.moment) < Date.now() ? req.body.moment : new Date().toISOString();
       const hal = await halVan(app.db, req.user.pcId);
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx,req.user.sub,"handover.record");
         const { rows } = await tx.query("SELECT ploeg_id, dag FROM ploeg_van($1)", [moment]);
         if (!rows[0]) throw new ApiFout(422, "Er is geen ploeg ingesteld voor dit tijdstip");
@@ -292,7 +293,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query(
           `UPDATE ploeg SET naam = coalesce($2, naam), begint = coalesce($3::time, begint), eindigt = coalesce($4::time, eindigt), actief = coalesce($5, actief)
             WHERE code = $1 RETURNING code, naam, to_char(begint, 'HH24:MI') AS begint, to_char(eindigt, 'HH24:MI') AS eindigt, actief`,
@@ -370,7 +371,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const patroon = req.body.patroon.map((x) => x.trim().toUpperCase());
-      await inTransactie(app.db, req.user.naam, (tx) =>
+      await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("INSERT INTO rooster (patroon) VALUES ($1) ON CONFLICT (enkel) DO UPDATE SET patroon = EXCLUDED.patroon", [patroon]));
       return { patroon };
     },
@@ -391,7 +392,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query(`INSERT INTO rooster_ploeg (letter, divisie, cyclus_start) VALUES (upper($1), $2, $3)
                   RETURNING code, letter, divisie, cyclus_start::text, actief`, [req.body.letter, req.body.divisie, req.body.cyclus_start]));
       return reply.status(201).send(r.rows[0]);
@@ -410,7 +411,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query(`UPDATE rooster_ploeg SET cyclus_start = coalesce($2::date, cyclus_start), actief = coalesce($3, actief)
                    WHERE code = upper($1) RETURNING code, letter, divisie, cyclus_start::text, actief`,
           [req.params.code, req.body.cyclus_start ?? null, req.body.actief ?? null]));

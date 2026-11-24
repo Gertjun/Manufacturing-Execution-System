@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: configuratieaudit gebruikt gevalideerde persoonlijke sessie; onbewezen herkomst expliciet gemarkeerd (0080).
 - MES: directe configuratie-auditwrites geblokkeerd; afgeschermde trigger (0079).
 - MES: expliciete tijdelijke leesinterface en intrekking oude SELECT-kolomgrants (0078).
 - MES: expliciete tabelschrijfrechten voor de tijdelijke applicatie-interface (0077).

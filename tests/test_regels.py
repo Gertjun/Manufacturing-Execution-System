@@ -611,7 +611,7 @@ def main():
     con.execute("SELECT set_config('fabriek.gebruiker', 'beheerder1', false)")
     con.execute("UPDATE veld SET tolerantie = 8 WHERE code='S1.1'")
     check("Grenswijziging staat in het logboek",
-          val("SELECT count(*) FROM config_log WHERE actie='UPDATE' AND gewijzigd_door='beheerder1'") == 1)
+          val("SELECT gewijzigd_door FROM config_log WHERE tabel='veld' AND record_id=%s ORDER BY id DESC LIMIT 1", (veld["S1.1"],)) == "[niet persoonlijk bewezen]")
     check("Oude meting houdt de tolerantie van toen (5)",
           val("SELECT tolerantie FROM waarde WHERE veld_id=%s ORDER BY ingevoerd_op LIMIT 1", (veld["S1.1"],)) == 5)
 

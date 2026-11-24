@@ -111,8 +111,8 @@ export function apparaatMoment(req: FastifyRequest): string | null {
   return new Date(m + afwijking).toISOString();
 }
 
-/** Transactie voor invoer, met het moment van het apparaat (D43). */
-export function invoerTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) => Promise<T>): Promise<T> {
+/** Persoonlijk gebonden transactie; apparaatmoment alleen voor productie-invoer. */
+export function persoonlijkeTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) => Promise<T>, moment?: string | null): Promise<T> {
   if (!req.user.sessionProof || req.user.ww || req.user.rol === "scherm") {
     return Promise.reject(new ApiFout(401, "Persoonlijke uitvoeringssessie vereist"));
   }
@@ -122,7 +122,12 @@ export function invoerTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) =>
       [req.user.sessionProof, req.user.sub]);
     if (r?.actor !== req.user.sub) throw new ApiFout(401, "Persoonlijke uitvoeringssessie ongeldig");
     return fn(tx);
-  }, apparaatMoment(req));
+  }, moment);
+}
+
+/** Transactie voor invoer, met het moment van het apparaat (D43). */
+export function invoerTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return persoonlijkeTransactie(db, req, fn, apparaatMoment(req));
 }
 
 /**
