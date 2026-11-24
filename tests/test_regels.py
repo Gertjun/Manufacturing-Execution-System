@@ -79,6 +79,14 @@ def main():
         faalt("Papieren nalevering zonder bewijs geweigerd","SELECT execution_paper_entry(NULL,NULL,NULL,NULL,NULL,NULL,NULL,'test',NULL,NULL)",bevat="Geldig persoonlijk")
         faalt("Directe lotcreatie geweigerd","INSERT INTO lot DEFAULT VALUES",bevat="permission denied")
         faalt("Directe batchcreatie geweigerd","INSERT INTO batch DEFAULT VALUES",bevat="permission denied")
+        for tabel in ("specificatie", "specificatie_regel", "certificaat"):
+            for recht in ("INSERT", "UPDATE"):
+                check(f"D101 {tabel}: geen {recht} via tabel- of kolomgrant",
+                      not val("SELECT has_any_column_privilege(current_user,%s,%s)",("fabriek."+tabel,recht)))
+            check(f"D101 {tabel}: geen DELETE",
+                  not val("SELECT has_table_privilege(current_user,%s,'DELETE')",("fabriek."+tabel,)))
+        faalt("Legacy-specificatiecreatie eigenaar-only","SELECT nieuwe_specificatie(NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Legacy-specificatievaststelling eigenaar-only","SELECT stel_specificatie_vast(NULL,NULL)",bevat="permission denied")
         faalt("Meetwaarden niet rechtstreeks wijzigbaar","UPDATE waarde SET gemeten=0 WHERE false",bevat="permission denied")
         faalt("Grondstofhistorie niet rechtstreeks wijzigbaar","UPDATE grondstof_gebruik SET partij='test' WHERE false",bevat="permission denied")
         faalt("Lotmetadata niet rechtstreeks wijzigbaar","UPDATE lot SET lotnummer='L-2000-0001' WHERE false",bevat="permission denied")
