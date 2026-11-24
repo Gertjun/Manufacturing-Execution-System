@@ -47,6 +47,29 @@ def main():
         check(naam, False, "geen foutmelding")
 
     con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD24/D100 effectieve sequencerechten")
+    # Simuleer achtergebleven oude grants, inclusief PUBLIC en delegatie.
+    con.execute("GRANT SELECT,USAGE,UPDATE ON ALL SEQUENCES IN SCHEMA fabriek TO PUBLIC")
+    con.execute("GRANT SELECT,USAGE,UPDATE ON ALL SEQUENCES IN SCHEMA fabriek TO mes_app WITH GRANT OPTION")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    for login in ("mes_app","batchgui_app","mes_security_channel"):
+        if val("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(login,)):
+            for recht in ("SELECT","USAGE","UPDATE"):
+                check(f"D100 {login}: geen effectief sequence-{recht}",
+                      val("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                             WHERE n.nspname='fabriek' AND c.relkind='S'
+                               AND has_sequence_privilege(%s,c.oid,%s)""",(login,recht))==0)
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("D100 auditsequence niet rechtstreeks te verhogen",
+              "SELECT nextval('fabriek.config_log_id_seq')",bevat="permission denied")
+        faalt("D100 auditsequence niet rechtstreeks te wijzigen",
+              "SELECT setval('fabriek.config_log_id_seq',1)",bevat="permission denied")
+        faalt("D100 auditsequence niet rechtstreeks leesbaar",
+              "SELECT last_value FROM fabriek.config_log_id_seq",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
     print("\nDatabase-uitgegeven sessiebewijs")
     con.execute("SET ROLE mes_app")
     try:

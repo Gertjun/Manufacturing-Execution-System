@@ -550,3 +550,20 @@ BEGIN
    END LOOP;
  END IF;
 END $$;
+
+-- D24/D100: geen directe sequence-interface op het actuele MES-schema.
+-- IDENTITY-kolommen genereren hun waarden via INSERT; de enige bigserial
+-- (config_log.id) wordt door de eigenaartrigger gevuld. Oudere schemas
+-- behouden hun historische interface totdat de migraties toegepast zijn.
+DO $$
+DECLARE login text; grantee text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=92) THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app','mes_security_channel'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee:=CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA fabriek FROM %s CASCADE',grantee);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
