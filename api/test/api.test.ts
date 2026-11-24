@@ -1547,6 +1547,24 @@ describe("Certificaat per lot", () => {
     assert.equal((await verzoek("GET", "/certificaten/lots/L-2026-0001", qa)).body.uitgegeven.length, 0);
   });
 
+  test("Historische herdruk vereist actuele lotscope (D101)", async () => {
+    const kw = await login("kwaliteit1");
+    const concept = await verzoek("GET", "/certificaten/lots/L-2026-0001", kw);
+    assert.equal(concept.status,200);
+    // Fictieve historische fixture, uitsluitend eigenaar; geen nieuwe API-uitgifte.
+    const { rows: [cert] } = await beheerDb.query(`
+      INSERT INTO fabriek.certificaat(lot_id,inhoud,uitgegeven_door)
+      SELECT l.id,$1::jsonb,g.id FROM fabriek.lot l CROSS JOIN fabriek.gebruiker g
+      WHERE l.lotnummer='L-2026-0001' AND g.gebruikersnaam='kwaliteit1' RETURNING nummer
+    `, [JSON.stringify(concept.body.concept)]);
+    assert.ok(cert);
+    const r = await verzoek("GET", `/certificaten/${cert.nummer}`, kw);
+    assert.equal(r.status,200,JSON.stringify(r.body));
+    assert.deepEqual(r.body.inhoud,concept.body.concept);
+    assert.equal((await verzoek("GET", `/certificaten/${cert.nummer}`, await login("mes.system"))).status,404);
+    assert.equal((await verzoek("GET", `/certificaten/${cert.nummer}`, await login("mes.security.a"))).status,404);
+  });
+
   test("certificaatinstellingen read-only, bestaande veldconfiguratie zichtbaar", async () => {
     const kw = await login("kwaliteit1");
     const bh = await login("mes.system");
