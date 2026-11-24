@@ -111,3 +111,6 @@ Na de functionele implementatie van iedere MES-fase, vóór volledige acceptatie
 
 ## D97 – Fictieve demo- en testgegevens
 Er is nog geen pilot uitgevoerd. Geert geeft toestemming om uitsluitend fictieve gegevens en accounts volledig te vervangen door representatieve MES-fixtures indien dat de basis vereenvoudigt. Geen permanente compatibiliteitslaag uitsluitend voor oude fictieve data. Veilige upgrade- en herstelprocedures voor toekomstige echte gegevens blijven vereist; geen destructieve migratie op onbekende databases. Meld voorstellen voor uitstel van nice-to-haves vóór omvangrijke implementatie.
+
+## D98 en legacy-besluitenreview
+ISA-88/95 zijn leidende architectuurkaders; D89 en actuele goedgekeurde MES-besluiten gaan vóór strijdige PoC-besluiten. Raadpleeg reviewregister in DECISIONS.md vóór verdere legacy-integratie. D98: geen zelfstandige ongeplande batchcreatie in definitief MES; werkvrijgave in fase 4/5, geen verdere investering in oude route. Overige uitstelvoorstellen in reviewregister zijn nog niet automatisch goedgekeurd. Geen formele normclaim zonder volledige normtekst en toetsbewijs.
