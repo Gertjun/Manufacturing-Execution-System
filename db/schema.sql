@@ -5503,7 +5503,7 @@ REVOKE ALL ON authorization_personnel_link FROM PUBLIC;
 -- registraties wijzigen. De organisatie verifieert dat beide IDs dezelfde persoon betreffen.
 CREATE FUNCTION authorization_link_personnel_confirmed(p_personnel uuid,p_user uuid,p_requester uuid,p_approver uuid,
     p_reason text,p_requester_password text,p_approver_password text)
-RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_a text; v_b text; v_login record;
 BEGIN
     IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.operator'::regclass)) THEN
@@ -5538,7 +5538,7 @@ BEGIN
     INSERT INTO authorization_personnel_link(personnel_id,user_id,requested_by,approved_by,reason)
       VALUES(p_personnel,p_user,p_requester,p_approver,p_reason);
     RETURN 'linked';
-END $;
+END $$;
 REVOKE ALL ON FUNCTION authorization_link_personnel_confirmed(uuid,uuid,uuid,uuid,text,text,text) FROM PUBLIC;
 
 -- Migratie 0086: begrensde operationele kwalificaties met onafhankelijk bewijs (D89 P02/P04/P05).
@@ -5573,16 +5573,16 @@ REVOKE ALL ON qualification_issue,qualification_revocation FROM PUBLIC;
 -- Alleen expliciet aan operationele activiteiten gekoppelde definities.
 -- Andere domeinen en niet-geclassificeerde kwalificaties blijven gesloten.
 CREATE FUNCTION qualification_is_operations(p_code text) RETURNS boolean
-LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
  SELECT EXISTS (SELECT 1 FROM activity_qualification WHERE qualification_code=p_code)
  AND NOT EXISTS (SELECT 1 FROM activity_qualification a JOIN authorization_permission p ON p.code=a.permission_code
    WHERE a.qualification_code=p_code AND p.domain<>'operations')
-$;
+$$;
 
 CREATE FUNCTION qualification_issue_confirmed(p_user uuid,p_code text,p_from timestamptz,p_until timestamptz,
  p_requester uuid,p_approver uuid,p_evidence text,p_requester_password text,p_approver_password text)
 RETURNS TABLE(status text,qualification_id uuid)
-LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_name text; v_login record; v_id uuid;
 BEGIN
  IF current_user<>pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.personnel_qualification'::regclass)) THEN
@@ -5622,11 +5622,11 @@ BEGIN
  INSERT INTO qualification_issue(qualification_id,requested_by,approved_by,evidence)
  VALUES(v_id,p_requester,p_approver,p_evidence);
  RETURN QUERY SELECT 'issued'::text,v_id;
-END $;
+END $$;
 
 -- Beperkende maatregel: geen tweede bevestiging nodig om onveilige toegang te stoppen.
 CREATE FUNCTION qualification_revoke_confirmed(p_id uuid,p_actor uuid,p_reason text,p_password text)
-RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_target uuid; v_q personnel_qualification%ROWTYPE; v_name text; v_login record; v_now timestamptz;
 BEGIN
  IF current_user<>pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.personnel_qualification'::regclass)) THEN
@@ -5655,7 +5655,7 @@ BEGIN
  INSERT INTO qualification_revocation(qualification_id,revoked_by,reason,revoked_at)
  VALUES(p_id,p_actor,p_reason,v_now);
  RETURN 'revoked';
-END $;
+END $$;
 
 REVOKE ALL ON FUNCTION qualification_is_operations(text),
  qualification_issue_confirmed(uuid,text,timestamptz,timestamptz,uuid,uuid,text,text,text),
