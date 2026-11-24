@@ -3,7 +3,10 @@
 > **Dit bestand:** per versie wat er nieuw of anders is, in gewone taal. Het is de enige geschiedenis van het project.
 > **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`ROADMAP.md`](ROADMAP.md).
 
-Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
+Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
+
+## Unreleased
+- CI: hergebruik van exact geteste inhoud en releases uitsluitend op aanvraag (D88).
 
 ## 0.62.1 — 24 november 2026
 - Browserdemo: datumvelden van dezelfde tabel worden tegelijk verschoven bij het opstarten. Capaciteitsperiodes blijven daardoor geldig; de bestaande databaseregels zijn ongewijzigd.

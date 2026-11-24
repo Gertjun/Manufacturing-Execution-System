@@ -29,6 +29,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
@@ -36,13 +37,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verificatie:
+    name: Eerder geteste inhoud verifiëren
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      hergebruik: ${{ steps.bewijs.outputs.hergebruik }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Bewijs zoeken
+        id: bewijs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          resultaat="$(node tools/verifieer_acceptatie.mjs "$GITHUB_SHA")" || resultaat=false
+          [ "$resultaat" = true ] || resultaat=false
+          echo "hergebruik=$resultaat" >> "$GITHUB_OUTPUT"
   compatibility:
     name: Node.js 22-compatibiliteit
-    if: github.event.action != 'labeled'
+    needs: verificatie
+    if: always() && github.event.action != 'labeled' && (github.event_name != 'push' || needs.verificatie.outputs.hergebruik != 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Repository ophalen
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Geteste tree vastleggen
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
+          git rev-parse 'HEAD^{tree}'
       - name: Node.js 22 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -77,7 +108,8 @@ jobs:
 
   full-tests:
     name: Volledige testsuite (Node.js 26)
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test')
+    needs: verificatie
+    if: always() && ((github.event_name == 'push' && needs.verificatie.outputs.hergebruik != 'true') || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test'))
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -92,6 +124,17 @@ jobs:
     steps:
       - name: Repository ophalen
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Geteste tree vastleggen
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
+          git rev-parse 'HEAD^{tree}'
       - name: Node.js 26 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:

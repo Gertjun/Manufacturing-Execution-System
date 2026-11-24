@@ -19,7 +19,7 @@ elif m.group(1) != versie:
 
 # Gebouwde punten: de nummers achter de versiekoppen in de changelog.
 gebouwd = set()
-for kop in re.findall(r"^## \d+\.\d+\.\d+ .*$", changelog, re.M):
+for kop in re.findall(r"^## (?:\d+\.\d+\.\d+|Unreleased)(?: .*)?$", changelog, re.M):
     if "·" in kop:
         gebouwd |= {int(n) for n in re.findall(r"#(\d+)", kop.split("·", 1)[1])}
 

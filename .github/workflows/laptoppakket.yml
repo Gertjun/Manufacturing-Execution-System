@@ -1,16 +1,12 @@
 name: Laptoppakket
 
 # Bouwt het laptoppakket voor Windows (batch-gui-laptop-<versie>-windows.zip) en hangt het als
-# bijlage aan de GitHub Release van die versie. Draait na de workflow Release, en met de hand
+# bijlage aan de GitHub Release van die versie. Draait alleen met de hand
 # (Actions → Laptoppakket → Run workflow) om ontbrekende pakketten van eerdere versies te maken.
 # Elk pakket wordt gebouwd met de code en het bouwscript van zijn eigen tag. De release zelf
 # (tag en tekst) verandert niet; er komt alleen een bijlage bij. Alle gegevens zijn fictief.
 
 on:
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       versies:
@@ -27,7 +23,6 @@ concurrency:
 
 jobs:
   lijst:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       versies: ${{ steps.lijst.outputs.versies }}

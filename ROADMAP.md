@@ -5,7 +5,7 @@
 
 Bijgewerkt: 24 november 2026 · huidige versie 0.62.1
 
-Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog achter de versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
+Elk punt heeft een vast nummer (#n). Is een punt gebouwd, dan verdwijnt het hier en staat het nummer in de changelog onder Unreleased (in de kop na `·`) of achter de uitgegeven versie. De data zijn een schatting, geen belofte. De software is zelden het knelpunt; de tijd zit in de punten waar Geert, IT of de fabriek aan zet zijn (gemarkeerd met *Geert* of *IT*). Schuift zo'n punt, dan schuift alles erna mee.
 
 ## In één oogopslag
 
@@ -145,7 +145,7 @@ Vóór of tijdens de pilot; de uitkomst wordt een punt in een fase of een beslui
 ## Hoe we deze roadmap bijhouden
 - **Bij elke wijziging bijwerken**, in dezelfde commit als de wijziging zelf: elke nieuwe versie, en ook een wijziging zonder versie die de planning raakt.
   - Kopregel: datum en huidige versie.
-  - Gebouwde punten hier weghalen; het nummer staat dan in de changelog achter de versie.
+  - Gebouwde punten hier weghalen; het nummer staat dan in de changelog onder Unreleased (in de kop na `·`) of achter de uitgegeven versie.
   - Inleiding van de fase: in welke versie wat gebouwd is, en wat nog open staat.
   - Tijdlijn: gebouwde punten naar de balk "Gebouwd in …" (`done`) van hun fase, open balken alleen met open nummers, data schuiven als de planning schuift.
   - Nieuwe taken, adviezen, open vragen en praktijktests met het volgende vrije nummer (nu #103), in de fase waar ze horen.
