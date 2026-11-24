@@ -566,9 +566,14 @@ def main():
     con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = 410 WHERE id = %s", (prd["PRD-C"],))
     check("Elk fictief product heeft een vastgestelde routeversie",
           val("SELECT count(*) FROM product_route_versie WHERE status = 'vastgesteld'") == len(prd))
-    historie_lot = one("SELECT route_versie_id, kandidaat_route_versie_id, status FROM route_historie_rapport WHERE object_type = 'lot' AND object_id = %s", (lot_c,))
-    check("Lot zonder bewezen route blijft historisch onbekend; huidige route is alleen kandidaat",
-          historie_lot[0] is None and historie_lot[1] is not None and historie_lot[2] == "historisch_onbekend",
+    historie_batch = one("SELECT route_versie_id, kandidaat_route_versie_id, status FROM route_historie_rapport WHERE object_type = 'batch' AND object_id = %s", (b[0],))
+    check("Overeenkomende huidige route is alleen kandidaat en wordt niet automatisch toegewezen",
+          historie_batch[0] is None and historie_batch[1] is not None and historie_batch[2] == "historisch_onbekend",
+          historie_batch)
+    historie_lot = one("SELECT route_versie_id, kandidaat_route_versie_id, status, reden FROM route_historie_rapport WHERE object_type = 'lot' AND object_id = %s", (lot_c,))
+    check("Gewijzigde huidige route wordt niet als kandidaat voor historisch lot getoond",
+          historie_lot[0] is None and historie_lot[1] is None and historie_lot[2] == "historisch_onbekend"
+          and "wijkt af" in historie_lot[3],
           historie_lot)
     check("Routeversie bevat dezelfde stappen als de effectieve productroute",
           val("""SELECT count(*) FROM product_route_versie_stap vs JOIN product_route_versie v ON v.id = vs.route_versie_id
