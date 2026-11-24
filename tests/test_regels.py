@@ -618,35 +618,38 @@ def main():
     doorloop(b[4], 1, 15)
     faalt("Operator-account mag geen besluit vastleggen",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','twijfel',%s)",
-          (b[4], op_account), "of Kwaliteit mag een batch in beoordeling")
+          (b[4], op_account), "MES-blokkeerbevoegdheid")
+    faalt("D101 oude kwaliteitsrol zonder grant mag geen batch blokkeren",
+          "INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'in_beoordeling','test',%s)",
+          (b[4],kw),"MES-blokkeerbevoegdheid")
     faalt("Keurresultaat zonder eerst in beoordeling",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','x',%s)",
-          (b[4], kw), "in beoordeling")
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','kleur wijkt af',%s)", (b[4], pl))
+          (b[4], mes_quality_decider), "in beoordeling")
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','kleur wijkt af',%s)", (b[4], mes_corrector))
     faalt("Batch in beoordeling kan niet in een lot",
           "SELECT maak_lot('L-2026-0001', %s, %s, %s)", ([b[0], b[1], b[2], b[4]], pc, op), "status in_beoordeling")
     faalt("Ploegleider mag geen keurresultaat invoeren",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','x',%s)",
-          (b[4], pl), "Alleen Kwaliteit")
+          (b[4], mes_corrector), "MES-batchbeslisbevoegdheid")
     faalt("Beheerder mag geen keurresultaat invoeren",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','x',%s)",
-          (b[4], bh), "Alleen Kwaliteit")
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','NOK: afvoeren',%s)", (b[4], kw))
+          (b[4], bh), "MES-batchbeslisbevoegdheid")
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','NOK: afvoeren',%s)", (b[4], mes_quality_decider))
     check("Afgekeurde batch heeft status afgekeurd", val("SELECT status FROM batch WHERE id=%s", (b[4],)) == "afgekeurd")
     faalt("Afgekeurde batch kan niet meer vrijgegeven worden",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','x',%s)",
-          (b[4], kw), "geen besluit meer")
+          (b[4], mes_quality_decider), "geen besluit meer")
     # Kwaliteit mag ook in beoordeling zetten; OK geeft de batch weer vrij.
     doorloop(b[5], 1, 1)
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','steekproef',%s)", (b[5], kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','steekproef',%s)", (b[5], mes_quality_decider))
     faalt("Batch in beoordeling kan niet naar de volgende stap", "SELECT start_stap('PS2', %s, NULL, %s, %s)", (b[5], pc, op), "in_beoordeling")
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','OK',%s)", (b[5], kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','OK',%s)", (b[5], mes_quality_decider))
     check("Keurresultaat OK: batch weer in productie", val("SELECT status FROM batch WHERE id=%s", (b[5],)) == "in_productie")
     reg2 = val("SELECT start_stap('PS2', %s, NULL, %s, %s)", (b[5], pc, op))
     check("Na OK kan de batch door naar de volgende stap", reg2 is not None)
     # NOK terwijl PS2 open staat: die stap wordt afgebroken.
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','tweede steekproef',%s)", (b[5], pl))
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','vervuild',%s)", (b[5], kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','tweede steekproef',%s)", (b[5], mes_corrector))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','vervuild',%s)", (b[5], mes_quality_decider))
     st, reden, eind = one("SELECT status, reden, afgerond_op FROM stapregistratie WHERE id=%s", (reg2,))
     check("NOK sluit de open stap af als afgebroken", st == "afgebroken" and reden == "Batch afgekeurd: vervuild" and eind is not None, f"{st} {reden}")
     faalt("Afgebroken stap kan niet meer worden afgerond", "SELECT rond_stap_af(%s)", (reg2,), "al afgerond")
@@ -683,7 +686,7 @@ def main():
     faalt("Herbewerking naar een batchstap", "SELECT start_herbewerking(%s, 'PS10', 'x', %s, %s)", (lot, pc, op), "lot-stap")
     faalt("Opdrachtloze herbewerking geweigerd","SELECT start_herbewerking(%s, 'PS17', 'te nat na verpakken', %s, %s)",(lot,pc,op),"Vooraf geregistreerde")
     check("Geweigerde herbewerking laat lot gereed",val("SELECT status FROM lot WHERE id=%s",(lot,))=="gereed")
-    rework_approver = val("SELECT id FROM gebruiker WHERE gebruikersnaam='kwaliteit1'")
+    rework_approver = mes_quality_decider
     first_order = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id=%s),'PS17','te nat na verpakken',%s)",(lot,rework_approver))
     faalt("Afwijkende reden bij opdracht geweigerd","SELECT start_herbewerking(%s,'PS17','andere reden',%s,%s)",(lot,pc,op),"Vooraf geregistreerde")
     # De historische fictieve Operator A krijgt geen impliciete MES-rechten.
@@ -1119,11 +1122,14 @@ def main():
           belasting("PS1", capdag)["PRD-A"] == (1, 1, 8)))
 
     print("\nHerbewerking met opdracht (#61)")
-    pm = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'productiemanager1'")
+    pm = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'mes.manager'")
     hb = batch_met("B-2026-0801", prd["PRD-A"])
     for k in range(1, 7):
         doe(hb, f"PS{k}")
-    faalt("Ploegleider maakt geen herbewerking aan", "SELECT maak_herbewerking('B-2026-0801', 'PS3', 'kleur', %s)", (pl,), "Kwaliteit of de productiemanager")
+    faalt("Ploegleider maakt geen herbewerking aan", "SELECT maak_herbewerking('B-2026-0801', 'PS3', 'kleur', %s)", (pl,), "MES-herbewerkingsbevoegdheid")
+    faalt("D101 oude productiemanager zonder grant maakt geen opdracht",
+          "SELECT maak_herbewerking('B-2026-0801','PS3','test',%s)",
+          (val("SELECT id FROM gebruiker WHERE gebruikersnaam='productiemanager1'"),),"MES-herbewerkingsbevoegdheid")
     faalt("Herbewerking naar een stap die nog niet doorlopen is", "SELECT maak_herbewerking('B-2026-0801', 'PS8', 'x', %s)", (pm,), "nog niet doorlopen")
     faalt("Batch naar een lotstap", "SELECT maak_herbewerking('B-2026-0801', 'PS17', 'x', %s)", (pm,), "geen batchstap")
     faalt("Herbewerking zonder reden", "SELECT maak_herbewerking('B-2026-0801', 'PS3', '  ', %s)", (pm,), "reden")
@@ -1169,19 +1175,19 @@ def main():
           and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_beoordeling")
     check("Geen opdracht ontstaan tijdens blokkade", val("SELECT count(*) FROM herbewerking WHERE batch_id=%s",(hb2,)) == 0)
     # Afzonderlijk eigenaar-fixturebesluit; de bevestigde API-route wordt elders getest.
-    con.execute("INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'vrijgegeven','afzonderlijk kwaliteitsbesluit',%s)",(hb2,kw))
+    con.execute("INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'vrijgegeven','afzonderlijk kwaliteitsbesluit',%s)",(hb2,mes_quality_decider))
     h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,))
-    faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, kw), "reden")
-    con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, kw))
+    faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, mes_quality_decider), "reden")
+    con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, mes_quality_decider))
     check("Ingetrokken: batch gaat gewoon verder met PS4", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h2,)) == "ingetrokken" and "B-2026-0802" in voorraad("PS4"))
-    faalt("Intrekken kan maar één keer", "SELECT trek_herbewerking_in(%s, 'x', %s)", (h2, kw), "al gestart of ingetrokken")
+    faalt("Intrekken kan maar één keer", "SELECT trek_herbewerking_in(%s, 'x', %s)", (h2, mes_quality_decider), "al gestart of ingetrokken")
     h3 = val("SELECT maak_herbewerking('B-2026-0802', 'PS1', 'grondstof verkeerd', %s)", (pm,))
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','toch afkeuren',%s)", (hb2, kw))
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','afvoeren',%s)", (hb2, kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','toch afkeuren',%s)", (hb2, mes_quality_decider))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','afvoeren',%s)", (hb2, mes_quality_decider))
     check("Batch afgekeurd: open herbewerking vervalt", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h3,)) == "ingetrokken")
     # Lot: opdracht vooraf; de oude functie zonder opdracht blijft werken (oudere invoerschermen, D18).
-    faalt("Batch die in een lot zit", "SELECT maak_herbewerking((SELECT batchnummer FROM batch WHERE lot_id = %s LIMIT 1), 'PS3', 'x', %s)", (lot, kw), "zit al in een lot")
-    hl = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS17', 'opnieuw drogen', %s)", (lot, kw))
+    faalt("Batch die in een lot zit", "SELECT maak_herbewerking((SELECT batchnummer FROM batch WHERE lot_id = %s LIMIT 1), 'PS3', 'x', %s)", (lot, mes_quality_decider), "zit al in een lot")
+    hl = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS17', 'opnieuw drogen', %s)", (lot, mes_quality_decider))
     check("Lot: herbewerking te plannen, lot staat in de werkvoorraad van PS17", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (hl,)) == "te_plannen"
           and val("SELECT lotnummer FROM lot WHERE id = %s", (lot,)) in voorraad("PS17"))
     rl = val("SELECT start_herbewerking(%s, 'PS17', 'opnieuw drogen', %s, %s)", (lot, pc, op))
@@ -1208,12 +1214,14 @@ def main():
     check("Volgende stap nog niet in de werkvoorraad", "B-2026-0971" not in voorraad("PS6"))
     check("... en PS5 ook niet opnieuw", "B-2026-0971" not in voorraad("PS5"))
     faalt("PS6 starten kan niet", "SELECT start_stap('PS6', %s, NULL, %s, %s)", (kb, pc, op), "Wacht op Kwaliteit")
-    faalt("Vrijgeven zonder meting", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw), "Nog niet gemeten: S5.2")
-    faalt("Ploegleider beslist niet over een keuring", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, pl), "Alleen Kwaliteit")
+    faalt("D101 oude kwaliteitsrol zonder grant beslist niet over keuring",
+          "SELECT beslis_keuring(%s,'vrijgegeven',NULL,%s)",(k5,kw),"MES-keuringsbeslisbevoegdheid")
+    faalt("Vrijgeven zonder meting", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, mes_quality_decider), "Nog niet gemeten: S5.2")
+    faalt("Ploegleider beslist niet over een keuring", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, pl), "MES-keuringsbeslisbevoegdheid")
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,412,%s)", (r5, veld["S5.2"], kw_op))
     check("Kwaliteit meet na het afronden", val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (r5, veld["S5.2"])) == 1)
-    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw))
-    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, mes_quality_decider))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, mes_quality_decider))
     check("Vrijgegeven (twee keer versturen mag): PS6 in de werkvoorraad", "B-2026-0971" in voorraad("PS6"))
     faalt("Na de vrijgave meet Kwaliteit niet meer zonder correctie",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,1,%s)", (r5, veld["S5.1"], kw_op), "")
@@ -1227,8 +1235,8 @@ def main():
     con.execute("SELECT rond_stap_af(%s)", (r5b,))
     k5b = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5b,))
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,470,%s)", (r5b, veld["S5.2"], kw_op))
-    faalt("Herbewerken zonder reden", "SELECT beslis_keuring(%s, 'herbewerken', '', %s)", (k5b, kw), "reden")
-    con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te zwaar', %s, 'PS5')", (k5b, kw))
+    faalt("Herbewerken zonder reden", "SELECT beslis_keuring(%s, 'herbewerken', '', %s)", (k5b, mes_quality_decider), "reden")
+    con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te zwaar', %s, 'PS5')", (k5b, mes_quality_decider))
     check("Herbewerken: opdracht terug naar PS5, batch staat daar klaar",
           val("SELECT stand FROM herbewerking_stand WHERE id = (SELECT herbewerking_id FROM keuring WHERE id = %s)", (k5b,)) == "te_plannen"
           and "B-2026-0972" in voorraad("PS5") and "B-2026-0972" not in voorraad("PS6"))
@@ -1238,14 +1246,14 @@ def main():
     k5c = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5c,))
     check("De herbewerkte stap wacht opnieuw op Kwaliteit", k5c is not None and k5c != k5b)
     # Afkeuren: keurresultaat NOK.
-    con.execute("SELECT beslis_keuring(%s, 'afgekeurd', 'veel te zwaar', %s)", (k5c, kw))
+    con.execute("SELECT beslis_keuring(%s, 'afgekeurd', 'veel te zwaar', %s)", (k5c, mes_quality_decider))
     check("Afkeuren: batch afgekeurd, met in beoordeling ervoor",
           val("SELECT status FROM batch WHERE id = %s", (kb2,)) == "afgekeurd"
           and [r[0] for r in con.execute("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op", (kb2,))][-2:] == ["in_beoordeling", "afgekeurd"])
     # Lot: na PS18 pas gereed na de vrijgave.
     lots = {r[0]: r[1] for r in con.execute("SELECT lotnummer, id FROM lot WHERE status = 'gereed'")}
     lk = next(iter(lots.values()))
-    hk = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS18', 'opnieuw meten', %s)", (lk, kw))
+    hk = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS18', 'opnieuw meten', %s)", (lk, mes_quality_decider))
     r18k = val("SELECT start_stap('PS18', NULL, %s, %s, %s)", (lk, pc, op))
     for code in ("S18.1", "S18.2"):
         con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
@@ -1254,7 +1262,7 @@ def main():
     check("Lot na PS18 nog niet gereed: wacht op Kwaliteit", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "in_productie")
     k18 = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r18k,))
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,3.1,%s)", (r18k, veld["S18.3"], kw_op))
-    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'droog genoeg', %s)", (k18, kw))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'droog genoeg', %s)", (k18, mes_quality_decider))
     check("Na de vrijgave is het lot gereed", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "gereed")
 
     print("\nEen gestarte stap overnemen (#55)")
@@ -1419,7 +1427,7 @@ def main():
           and val("SELECT count(*) FROM specificatie_regel WHERE specificatie_id = %s", (v3,)) == 0)
     check("Specificaties staan in het logboek", val("SELECT count(*) FROM config_log WHERE tabel = 'specificatie'") >= 3)
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 250, %s)", (rtk, veld_tk["TK1.2"], kw_op))
-    con.execute("SELECT beslis_keuring((SELECT id FROM keuring WHERE stapregistratie_id = %s), 'vrijgegeven', NULL, %s)", (rtk, kw))
+    con.execute("SELECT beslis_keuring((SELECT id FROM keuring WHERE stapregistratie_id = %s), 'vrijgegeven', NULL, %s)", (rtk, mes_quality_decider))
     r4 = val("SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op))
     check("Na de vrijgave gaat de batch verder met PS4", r4 is not None)
 

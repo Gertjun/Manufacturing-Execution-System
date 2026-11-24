@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- D101 (0091): batchblokkade, kwaliteitsbesluiten en aanmaak/intrekking herbewerkingsopdrachten op actuele MES-permissions en productscope; fixtures en regressies aangepast. Bevestigde applicatiepaden blijven verplicht; validatie open.
 - D101 (0090): papieren nalevering ook in onderliggende eigenaarfunctie op actuele MES-permissions per batchproduct; oorspronkelijke papieren operator blijft onderscheiden van de transcribent. Negatieve legacy-regressies toegevoegd; validatie open.
 - D101 (0089): meetwaarde- en grondstofcorrecties en conflictbesluiten vereisen actuele MES-permissions met productscope; kwaliteitscorrecties alleen via gecontroleerd conflictpad. Fictieve correctie-identiteit en regressies aangepast; validatie open.
 - D101 (0088): keuringsstart en oorspronkelijke kwaliteitsmeting vereisen actuele MES-grants en productscope; geen legacy kwaliteitsrol. Fictieve meetidentiteit omgezet; regressies voorbereid. Correctie-/besluitpaden blijven afzonderlijk open.

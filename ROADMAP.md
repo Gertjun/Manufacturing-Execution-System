@@ -193,3 +193,5 @@ Fase 1 (0077): tabelschrijfallowlist; audit-/melding-insert, kolomgrants, leesre
 Fase 1 (0088–0089): keuringsstart en oorspronkelijke kwaliteitsmeting op MES-permissions; fictieve meetidentiteit aangepast. Correcties en conflictbesluiten op MES-permissions; papieren nalevering, overige legacy-besluiten, fixtures en bewijs nog open.
 
 Fase 1 (0090): papieren nalevering onafhankelijk van oude rollen; regressies voorbereid. Overige kwaliteitsbesluiten, effectieve rechten, UI en fixtures open.
+
+D101 (0091): onderliggende batch- en keuringsbesluiten en herbewerkingsopdrachten omgezet naar MES-permissions; bevestigde wrappers blijven leidend. Uitgestelde specificatie- en certificaatwrites blijven afgeschermd. Gebundelde validatie en overige rechtenaudit open.
