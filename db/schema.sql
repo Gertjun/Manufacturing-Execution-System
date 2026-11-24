@@ -3556,8 +3556,37 @@ INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
  ('maintenance_technician','maintenance.downtime.read'),
  ('display_integration','display.downtime.read');
 
+-- Migratie 0049: batch-, lot- en herbewerkingsrechten.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('execution.batch.create','operations'), ('execution.lot.create','operations'),
+ ('execution.hold','operations'), ('inspection.hold','quality'),
+ ('inspection.batch.decide','quality'), ('execution.rework','operations'),
+ ('inspection.rework.order','quality'), ('operations.rework.order','operations');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('operator','execution.batch.create'), ('shift_supervisor','execution.batch.create'),
+ ('operator','execution.lot.create'), ('shift_supervisor','execution.lot.create'),
+ ('shift_supervisor','execution.hold'), ('manufacturing_manager','execution.hold'),
+ ('quality_technician','inspection.hold'), ('quality_approver','inspection.hold'),
+ ('quality_approver','inspection.batch.decide'),
+ ('operator','execution.rework'), ('shift_supervisor','execution.rework'),
+ ('quality_approver','inspection.rework.order'), ('manufacturing_manager','operations.rework.order');
+
+-- Een volledig lot mag alleen zichtbaar zijn wanneer alle leden binnen de
+-- leesbevoegdheid vallen. Lege lots vereisen onbegrensde leesbevoegdheid.
+CREATE FUNCTION authorization_read_lot(p_user uuid,p_lot uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $
+ SELECT EXISTS (SELECT 1 FROM lot WHERE id=p_lot)
+ AND CASE WHEN EXISTS (SELECT 1 FROM batch WHERE lot_id=p_lot)
+ THEN NOT EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=p_lot
+                  AND NOT authorization_read_execution(p_user,b.product_id))
+ ELSE authorization_read_execution(p_user,NULL) END
+ AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.lot_id=p_lot
+                  AND NOT authorization_read_execution(p_user,r.product_id))
+$;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

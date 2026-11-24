@@ -43,3 +43,5 @@ D96: negatieve regressie voor verwijderde /keuringen/verwacht; behoud de positie
 0047: regressies voor scheiding planning en engineering, geweigerde legacy-only/technische/security-accounts, verlopen/ingetrokken grants, en geen globale wijzigingen met beperkte scope. D97 staat vervanging van fictieve fixtures toe zonder bedrijfsregeltests te verliezen. Nog geen uitvoeringsbewijs.
 
 0048: regressies voor operationele functiescheiding, geweigerde scoped globale acties, idempotentie uitsluitend voor oorspronkelijke identiteit, ongeldige operatorheader en gelijktijdig beëindigen stilstand zonder overschrijven. Nog niet uitgevoerd.
+
+0049: regressies voor batch/lotleesrecht, scope van elk lotlid, idempotentie van oorspronkelijke operator, gescheiden blokkade/kwaliteitsbesluit/herbewerkingsopdracht. Test ook gemengde of onbekende productcontext, oude DB-rolchecks, en kritische herbevestiging vóór acceptatie. Nog niet uitgevoerd.
