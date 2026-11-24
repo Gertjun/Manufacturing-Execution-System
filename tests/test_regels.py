@@ -130,12 +130,26 @@ def main():
     con.execute("SET ROLE mes_app")
     try:
         faalt("Applicatie kan geen wachtwoordhash lezen", "SELECT wachtwoord_hash FROM gebruiker", bevat="permission denied")
+        faalt("Productieaccount kan niet worden overgenomen", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (demo_operator,), "Kritisch account")
+        faalt("Technisch account kan niet worden uitgezet", "UPDATE gebruiker SET actief=false WHERE gebruikersnaam='mes.system'", bevat="Kritisch account")
         faalt("Security-wachtwoordreset geblokkeerd", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (sec_a,), "Kritisch account")
         faalt("Security-rolwijziging geblokkeerd", "UPDATE gebruiker SET rol='analist' WHERE id=%s", (sec_a,), "Kritisch account")
         faalt("Security-account hernoemen geblokkeerd", "UPDATE gebruiker SET gebruikersnaam='andere-naam' WHERE id=%s", (sec_a,), "Kritisch account")
         faalt("App mag bevestigde besluitfunctie niet uitvoeren", "SELECT * FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,req), "permission denied")
     finally:
         con.execute("RESET ROLE")
+    # Ook een nog niet geldige grant beschermt de identiteit.
+    future_user = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-future','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code,valid_from) VALUES (%s,'operator',now()+interval '1 day')", (future_user,))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Toekomstige grant beschermt wachtwoord", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (future_user,), "Kritisch account")
+        check("Eigen bevestigde wachtwoordwijziging blijft mogelijk", val("SELECT change_password_confirmed(%s,'demo-test','persoonlijk-test')", (future_user,)) == "changed")
+    finally:
+        con.execute("RESET ROLE")
+    temporary_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-temp-grant','pending',wachtwoord_hash('demo-test'),true) RETURNING id")
+    temporary_request = val(submit, (sec_a,temporary_target))
+    faalt("Geen grant bij tijdelijk wachtwoord", decide, (sec_b,temporary_request), "Ongeldig persoonlijk doelaccount")
     confirm_req = val(submit, (sec_a,target))
     check("Onjuist wachtwoord verleent geen bevoegdheid",
           val("SELECT status FROM authorization_decide_confirmed(%s,%s,true,'Test','onjuist')", (sec_b,confirm_req)) == "denied")

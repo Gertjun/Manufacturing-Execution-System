@@ -51,3 +51,5 @@ D98: zelfstandige ongeplande batchcreatie door operators vervalt bij fase 4/5. O
 D99: de volledige legacy-review is goedgekeurd. Beveilig behouden/tijdelijke interfaces, investeer niet in oude procesmodellen die bij fase 2–8 vervangen worden; autorisatiefundament blijft leidend. Basis display-identiteit blijft fase 1, uitgebreide schermconfiguratie fase 9. Zie DECISIONS.md en ROADMAP.md.
 
 0051: technische en security-identiteiten afzonderlijk; overlappende grants worden geweigerd bij roltoekenning en conflicterende actieve grants geven geen bevoegdheid. Geen automatische wijziging van bestaande grants. Gecontroleerd accountbeheer en recovery blijven open.
+
+0053: bestaande legacy-identiteiten en accounts met niet-ingetrokken grants vereisen gecontroleerd herstel; gewone technische reset is beperkt tot onbevoegde pending-accounts. Nieuwe grants vereisen een niet-tijdelijk wachtwoord. Eigen bevestigde wijziging blijft mogelijk. Initiële identiteitsoverdracht en onafhankelijk herstel nog uitwerken; geen claim dat database-eigenaar technisch onmachtig is.
