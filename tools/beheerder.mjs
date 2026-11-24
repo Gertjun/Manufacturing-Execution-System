@@ -205,11 +205,55 @@ export async function securityBinding(c, io, intrekken) {
   return true;
 }
 
+// Eerste personeelskoppeling: eigenaar faciliteert; DB vereist twee bevoegde
+// persoonlijke bevestigingen. De organisatie verifieert de werkelijke identiteit.
+export async function koppelPersoneel(c, io) {
+  const id = (await io.vraag("Personeels-UUID: ")).trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+    throw new Error("Ongeldige personeels-UUID.");
+  const { rows: [person] } = await c.query(
+    "SELECT id,naam FROM fabriek.operator WHERE id=$1 AND actief AND gebruiker_id IS NULL", [id]);
+  if (!person) throw new Error("Geen actieve ongekoppelde personeelsidentiteit.");
+  const zoek = async (label) => {
+    const name = (await io.vraag(label)).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id,gebruikersnaam FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen", [name]);
+    if (!r) throw new Error("Geen geschikt persoonlijk account.");
+    return r;
+  };
+  const target = await zoek("Doelaccount: ");
+  const manager = await zoek("Personeelsbeheerder: ");
+  const security = await zoek("Onafhankelijke securitybeoordelaar: ");
+  if (new Set([target.id,manager.id,security.id]).size !== 3)
+    throw new Error("Drie verschillende persoonlijke identiteiten vereist.");
+  const reason = (await io.vraag("Reden en referentie van geverifieerde identiteitscontrole: ")).trim();
+  if (!reason) throw new Error("Reden vereist.");
+  console.log(JSON.stringify({ personeel: person, doelaccount: target, aanvrager: manager, beoordelaar: security, reason }));
+  if (await io.vraag("Typ KOPPEL als de identiteit is gecontroleerd en beide personen instemmen: ") !== "KOPPEL") return false;
+  const a = await io.wachtwoord("Personeelsbeheerder, bevestig persoonlijk uw MES-wachtwoord: ");
+  const b = await io.wachtwoord("Securitybeoordelaar, bevestig persoonlijk uw MES-wachtwoord: ");
+  let result;
+  try {
+    ({ rows: [result] } = await c.query(
+      "SELECT fabriek.authorization_link_personnel_confirmed($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::text,$7::text) AS status",
+      [person.id,target.id,manager.id,security.id,reason,a,b]));
+  } catch {
+    throw new Error("Koppeling geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
+  }
+  if (result?.status !== "linked") {
+    console.log("Koppeling niet uitgevoerd; persoonlijke bevestiging geweigerd of tijdelijk geblokkeerd.");
+    return false;
+  }
+  console.log("Personeelskoppeling geregistreerd. Geen MES-grants gewijzigd.");
+  return true;
+}
+
 // Los gestart: node tools/beheerder.mjs
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { argumenten, leesInstellingen, stop, verbind } = await import("./lib.mjs");
   const { opties } = argumenten();
-  const acties = ['herstel-account', 'security-binden', 'security-intrekken'].filter(a => opties[a]);
+  const acties = ['herstel-account', 'security-binden', 'security-intrekken', 'personeel-koppelen'].filter(a => opties[a]);
   if (acties.length > 1) stop('Kies precies één beheerdershandeling.');
   if (acties.length && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Deze beheerdershandeling vereist een persoonlijk interactief terminalvenster.');
   const inst = leesInstellingen(opties);
@@ -220,6 +264,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       if (!await herstelAccount(c, io)) process.exitCode = 1;
     } else if (opties['security-binden'] || opties['security-intrekken']) {
       if (!await securityBinding(c, io, !!opties['security-intrekken'])) process.exitCode = 1;
+    } else if (opties['personeel-koppelen']) {
+      if (!await koppelPersoneel(c, io)) process.exitCode = 1;
     } else await beheerderMenu(c, io);
   } catch (e) {
     stop(e.message);
