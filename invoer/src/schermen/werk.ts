@@ -1,6 +1,8 @@
 // Stappenoverzicht en het werk binnen één stap.
 import { ApiFout, GeenVerbinding, haal, nieuwId, stuur } from "../api";
 import { sessie } from "../sessie";
+import { heeftRecht, heeftProductRecht, rechten } from "../rechten";
+const enigRecht = (...codes: string[]) => heeftRecht(...codes) || !!rechten()?.products.some(p => codes.includes(p.permission));
 import { lokaleRegistraties, maakLot, nieuweBatch, startStap, stappen } from "../registraties";
 import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
@@ -49,7 +51,7 @@ function keuringLijst(lijst: KeuringRij[], metStap: boolean) {
         h("div", { class: "rij-info" }, [metStap ? `${k.stap} ${k.stapnaam}` : null, k.product, `afgerond ${tijd(k.sinds)}`,
           k.te_meten ? `${k.te_meten} ${k.te_meten === 1 ? "meting" : "metingen"} te doen` : "alles gemeten",
           k.afwijkingen ? `${k.afwijkingen} afwijkend` : null].filter(Boolean).join(" · "))),
-      h("span", { class: "knop knop-klein" }, sessie.rol === "kwaliteit" ? "Meten" : "Bekijken")))));
+      h("span", { class: "knop knop-klein" }, heeftProductRecht(k.product,"inspection.record") ? "Meten" : "Bekijken")))));
 }
 
 /** Actuele werkvoorraad voor Kwaliteit; geen voorspellingen (D96). */
@@ -82,7 +84,7 @@ async function kwaliteitScherm() {
 
 export async function stappenScherm() {
   // Kwaliteit heeft een eigen startscherm (#88): zonder de aantallen per processtap.
-  if (sessie.rol === "kwaliteit") return kwaliteitScherm();
+  if (!enigRecht("execution.start","execution.record","execution.complete","execution.lot.create") && enigRecht("inspection.start","inspection.record","inspection.decide")) return kwaliteitScherm();
   const actueel = vastHouden();
   toon(h("h1", {}, "Kies een stap"), laden());
   const [{ data: alle }, overzicht, l, overdracht] = await Promise.all([
@@ -115,7 +117,7 @@ export async function stappenScherm() {
   };
 
   // Keuringsstappen (#80) doet Kwaliteit, op zijn eigen startscherm (#88); op de vloer staan ze niet tussen de stappen.
-  const proces = alle.filter((s) => s.soort !== "keuring");
+  const proces = alle.filter(s => s.soort !== "keuring" || enigRecht("inspection.start","inspection.record","inspection.decide"));
   const batch = proces.filter((s) => s.niveau === "batch");
   const lot = proces.filter((s) => s.niveau === "lot");
   toon(
@@ -271,7 +273,7 @@ export async function stapScherm(code: string) {
   if (!actueel()) return;
 
   const isKeuring = s.soort === "keuring";
-  const opVloer = (sessie.rol === "operator" || sessie.rol === "ploegleider") && !isKeuring;
+  const opVloer = heeftRecht("downtime.record") && !isKeuring;
   const opnieuw = () => void stapScherm(code);
   const kop = h(
     "div",
@@ -290,9 +292,11 @@ export async function stapScherm(code: string) {
   ];
 
   // Alleen operators en ploegleiders voeren in; andere rollen kijken mee. Een keuringsstap (#80) doet alleen Kwaliteit.
-  const kanInvoeren = isKeuring ? sessie.rol === "kwaliteit" : sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const startRecht = isKeuring ? "inspection.start" : "execution.start";
+  const kanStarten = (product: string | null | undefined) => heeftProductRecht(product, startRecht);
+  const lotRecht = enigRecht("execution.lot.create");
   let klaar: Node[];
-  if (s.is_lot_stap && kanInvoeren) klaar = lotSamenstellen(s, w, voorstellen);
+  if (s.is_lot_stap && lotRecht) klaar = lotSamenstellen(s, { ...w, wachtend: w.wachtend.filter(x => heeftProductRecht(x.product,"execution.lot.create")) }, voorstellen);
   else {
     const eerste = eersteBatchStap === s.code;
     klaar = [
@@ -310,7 +314,7 @@ export async function stapScherm(code: string) {
                   h("div", { class: "rij-info" }, x.herbewerking
                     ? [x.product, `Terug naar deze stap: ${x.herbewerking}`].filter(Boolean).join(" · ")
                     : [x.product, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))),
-                !kanInvoeren ? null : h(
+                !kanStarten(x.product) || s.is_lot_stap ? null : h(
                   "button",
                   {
                     class: "knop knop-hoofd",
@@ -325,7 +329,7 @@ export async function stapScherm(code: string) {
             ),
           )
         : h("p", { class: "leeg" }, eerste ? "Er staan geen geplande batches klaar. Vraag de planner, of maak als uitzondering een ongeplande batch." : "Nog niets klaar voor deze stap."),
-      eerste && kanInvoeren
+      eerste && heeftRecht("execution.batch.create") && kanStarten(null)
         ? h("details", { class: "uitzondering" },
             h("summary", {}, "Ongeplande batch aanmaken (uitzondering)"),
             h("p", { class: "sub" }, "Alleen als een batch niet in de planning staat. De planner ziet hem als niet gepland."),
@@ -343,7 +347,7 @@ export async function stapScherm(code: string) {
     if (open) { location.hash = `#/reg/${open.id}`; return; }
     const x = w.wachtend.find((y) => y.nummer === code);
     if (!x) { melding(`${code} staat niet klaar in ${s.naam}`, "fout"); return; }
-    if (!kanInvoeren) { melding(`${code} staat klaar in ${s.naam}`, "info"); return; }
+    if (!(s.is_lot_stap ? heeftProductRecht(x.product,"execution.lot.create") : kanStarten(x.product))) { melding(`${code} staat klaar in ${s.naam}`, "info"); return; }
     if (s.is_lot_stap) {
       const vink = document.querySelector<HTMLInputElement>(`input[type=checkbox][value="${CSS.escape(code)}"]`);
       if (vink) { vink.checked = !vink.checked; vink.dispatchEvent(new Event("change")); melding(`${code} ${vink.checked ? "gekozen" : "niet meer gekozen"}`, "info"); }
@@ -427,6 +431,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
       "Samenstellen",
     );
     if (!ok) return;
+    if (!batches.every(n => w.wachtend.some(x => x.nummer === n && heeftProductRecht(x.product,"execution.lot.create")))) return melding("Geen lotvormingsbevoegdheid voor alle batches", "fout");
     try {
       const reg = await maakLot(lotnr.value, batches, reden, w.wachtend.find((y) => y.nummer === batches[0])?.product);
       location.hash = `#/reg/${reg.id}`;
