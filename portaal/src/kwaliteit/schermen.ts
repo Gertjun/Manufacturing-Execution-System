@@ -442,7 +442,7 @@ async function toonLotpaspoort(nummer: string) {
         magHerbewerken() && ["in_productie", "gereed"].includes(lot.status) && !openHerb ? herbewerkingKnop(lot.lotnummer, opnieuw) : null,
         h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken"))),
     h("dl", { class: "feiten" },
-      h("div", {}, h("dt", {}, "Batches"), h("dd", {}, `${lot.batch_aantal} (productnorm ${lot.batch_aantal_norm})`, lot.batches.length ? [": ", lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)])] : null)),
+      h("div", {}, h("dt", {}, "Batches"), h("dd", {}, `${lot.batch_aantal} (productnorm ${lot.batch_aantal_norm})`, lot.batches.length ? [": ", ...lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)])] : null)),
       lot.afwijking_reden ? h("div", {}, h("dt", {}, "Afwijkingsreden"), h("dd", {}, lot.afwijking_reden)) : null,
       h("div", {}, h("dt", {}, "Afwijkingen"), h("dd", {}, pas.aantal_afwijkingen === 0 ? "Geen" : String(pas.aantal_afwijkingen))),
       h("div", {}, h("dt", {}, "Herbewerkingen"), h("dd", {}, herb.length ? herb.map((r) => `${r.stap}: ${r.reden} (${STAND[r.stand].toLowerCase()})`).join("; ") : "Geen")),
