@@ -56,7 +56,88 @@ END $$;
 REVOKE INSERT, UPDATE ON fabriek.onderhoud_log, fabriek.schema_versie FROM mes_app;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA fabriek TO mes_app;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA fabriek TO mes_app;
+-- Oudere back-ups behouden hun bestaande interface tot de migratie.
+-- Vanaf 0076 expliciete signatures, geen automatische overloads.
+DO $$
+DECLARE sig text; f regprocedure;
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=76) THEN
+   GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA fabriek TO mes_app;
+ ELSE
+   REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA fabriek FROM PUBLIC,mes_app;
+   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='batchgui_app') THEN
+     REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA fabriek FROM batchgui_app;
+   END IF;
+   FOREACH sig IN ARRAY ARRAY[
+     'apparaat_moment(timestamptz)',
+     'authorization_permits(uuid,text,text,uuid,text)',
+     'authorization_read_execution(uuid,uuid)',
+     'authorization_read_lot(uuid,uuid)',
+     'batch_klaar_voor_lot(uuid)',
+     'batch_stap_gedaan(uuid,uuid)',
+     'bereken_markering(numeric,numeric,numeric,numeric,numeric,text)',
+     'bewaar_lot_voorstel(uuid,uuid[],text,uuid)',
+     'capaciteit_afwijking_voor(uuid,uuid,date)',
+     'capaciteit_stap_op(uuid,uuid,date)',
+     'capaciteit_stap_voor(uuid,uuid)',
+     'controleer_lot_voorstel(uuid)',
+     'controleer_route(uuid)',
+     'demo_account_names(text[])',
+     'execution_batch_hold(uuid,text)',
+     'execution_bind_transaction(text,uuid)',
+     'execution_cancel_planned_batch(text,text)',
+     'execution_create_legacy_batch(uuid,text,uuid)',
+     'execution_create_lot(text,uuid[],uuid,uuid,uuid,uuid,text)',
+     'execution_paper_entry(text,text,text[],uuid,uuid,timestamptz,timestamptz,text,jsonb,jsonb)',
+     'execution_plan_legacy_batches(int,date,uuid,text)',
+     'execution_resolve_conflict(uuid,text,text)',
+     'execution_session_actor(text)',
+     'execution_session_change_password(uuid,bigint,text,text)',
+     'execution_session_login(text,text,text)',
+     'execution_step_complete(uuid,uuid,uuid)',
+     'execution_step_rework(uuid,text,text,uuid,uuid,uuid)',
+     'execution_step_start(text,uuid,uuid,uuid,uuid,uuid)',
+     'execution_transaction_actor()',
+     'fabriekstijdzone()',
+     'gewicht_per_item(uuid,uuid)',
+     'grenzen_van(uuid,uuid)',
+     'handel_terugmelding_af(uuid,uuid,text)',
+     'heeft_apparaat_moment()',
+     'in_route(uuid,uuid)',
+     'leg_grondstofconflict_vast(uuid,uuid,text,numeric,uuid,uuid,uuid)',
+     'leg_invoerconflict_vast(uuid,uuid,numeric,numeric,uuid,uuid,uuid)',
+     'leg_weigering_vast(uuid,uuid,uuid,text,int,text,text,text)',
+     'lot_product(uuid)',
+     'mag_invoeren_namens(uuid,uuid,uuid)',
+     'meld_iets(uuid,uuid,uuid,uuid,text,text,text)',
+     'nieuwe_specificatie(uuid,uuid,uuid)',
+     'operator_van_account(uuid)',
+     'plan_stand(uuid)',
+     'planning_vorige_stap(uuid,uuid,uuid,date)',
+     'ploeg_van(timestamptz)',
+     'ploegen_in_dienst(date,text)',
+     'productie_uren_per_dag()',
+     'quality_decision_confirmed(uuid,bigint,text,uuid,text,text,text,text)',
+     'rework_cancel_confirmed(uuid,bigint,uuid,text,text)',
+     'rework_order_confirmed(uuid,bigint,text,text,text,uuid,text)',
+     'rooster_op(date)',
+     'route(uuid)',
+     'route_eerste(uuid,text)',
+     'route_laatste(uuid,text)',
+     'route_vorige(uuid,uuid)',
+     'stap_belasting(uuid,date)',
+     'stap_meet_kwaliteit(uuid)',
+     'stel_specificatie_vast(uuid,uuid)',
+     'wachtwoord_hash(text)',
+     'werkvoorraad(text)',
+     'zet_route(uuid,text[])'
+   ] LOOP
+     f:=to_regprocedure('fabriek.'||sig);
+     IF f IS NULL THEN RAISE EXCEPTION 'Ontbrekende applicatiefunctie: %',sig; END IF;
+     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO mes_app',f);
+   END LOOP;
+ END IF;
+END $$;
 
 -- Tijdelijke compatibiliteit voor bestaande installaties: dezelfde beperkte rechten,
 -- zonder wachtwoorden te wijzigen of een oude login automatisch uit te schakelen.

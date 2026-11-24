@@ -88,6 +88,11 @@ def main():
         faalt("Planning annuleren zonder bewijs geweigerd","SELECT execution_cancel_planned_batch(NULL,'test')",bevat="Geldig persoonlijk")
         faalt("Oude loginwrapper eigenaar-only","SELECT login_with_session(NULL,NULL,NULL)",bevat="permission denied")
         faalt("Oude login eigenaar-only","SELECT inloggen(NULL,NULL,NULL)",bevat="permission denied")
+        check("Gecontroleerde startfunctie beschikbaar",val("SELECT has_function_privilege(current_user,'fabriek.execution_step_start(text,uuid,uuid,uuid,uuid,uuid)','EXECUTE')"))
+        check("Geen impliciete PUBLIC-uitvoerrechten",val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+          WHERE n.nspname='fabriek' AND a.grantee=0 AND a.privilege_type='EXECUTE'""")==0)
+        faalt("Onderhoudsfunctie niet beschikbaar voor app","SELECT ruim_inlogpogingen_op()",bevat="permission denied")
         faalt("Oude wachtwoordbevestiging eigenaar-only","SELECT change_password_confirmed(NULL,NULL,NULL)",bevat="permission denied")
         check("Alle fabriekfuncties hebben expliciet veilig tijdelijk zoekpad",val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
           WHERE n.nspname='fabriek' AND p.prokind='f' AND NOT EXISTS

@@ -170,3 +170,5 @@ Fase 1 (0073): tijdelijke batchcreatie/planning beveiligd; processtart en afrond
 Fase 1 (0074): directe stapregistratie-writes ingetrokken; gecontroleerde start/afronding/rework, interne paden en acceptatie nog te toetsen.
 
 Fase 1 (0075): functiezoekpaden en oude authenticatie-ingangen aangescherpt; volledige rechtenaudit en acceptatie open.
+
+Fase 1 (0076): expliciete functieallowlist; transitieve runtimevalidatie, tabelrechten en overige legacy-writes open.
