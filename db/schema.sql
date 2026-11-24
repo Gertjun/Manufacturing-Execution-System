@@ -3816,8 +3816,59 @@ BEGIN
     RETURN v_grant;
 END $$;
 
+-- Migratie 0054: expliciete bootstrap uitsluitend op een lege identiteitsadministratie.
+SET search_path = fabriek, public;
+
+CREATE TABLE authorization_bootstrap (
+    singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    system_user uuid NOT NULL REFERENCES gebruiker(id),
+    security_user_a uuid NOT NULL REFERENCES gebruiker(id),
+    security_user_b uuid NOT NULL REFERENCES gebruiker(id),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    database_actor text NOT NULL,
+    reason text NOT NULL CHECK (btrim(reason) <> ''),
+    CHECK (system_user <> security_user_a AND system_user <> security_user_b AND security_user_a <> security_user_b)
+);
+
+CREATE FUNCTION authorization_bootstrap_empty(p_system text,p_system_password text,
+    p_a text,p_a_password text,p_b text,p_b_password text,p_reason text)
+RETURNS void LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_system uuid; v_a uuid; v_b uuid;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.gebruiker'::regclass)) THEN
+        RAISE EXCEPTION 'Bootstrap vereist database-eigenaar';
+    END IF;
+    LOCK TABLE gebruiker IN SHARE ROW EXCLUSIVE MODE;
+    IF EXISTS (SELECT 1 FROM gebruiker) OR EXISTS (SELECT 1 FROM authorization_bootstrap) THEN
+        RAISE EXCEPTION 'Bootstrap uitsluitend op lege identiteitsadministratie';
+    END IF;
+    IF p_system IS NULL OR p_a IS NULL OR p_b IS NULL
+       OR p_system !~ '^[a-z0-9._-]{3,40}$' OR p_a !~ '^[a-z0-9._-]{3,40}$' OR p_b !~ '^[a-z0-9._-]{3,40}$'
+       OR p_system=p_a OR p_system=p_b OR p_a=p_b
+       OR length(coalesce(p_system_password,'')) < 8 OR length(coalesce(p_a_password,'')) < 8
+       OR length(coalesce(p_b_password,'')) < 8
+       OR p_system_password=p_a_password OR p_system_password=p_b_password OR p_a_password=p_b_password
+       OR btrim(coalesce(p_reason,''))='' THEN
+        RAISE EXCEPTION 'Drie afzonderlijke identiteiten, wachtwoorden en reden vereist';
+    END IF;
+    INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES(p_system,'beheerder',wachtwoord_hash(p_system_password)) RETURNING id INTO v_system;
+    INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES(p_a,'pending',wachtwoord_hash(p_a_password)) RETURNING id INTO v_a;
+    INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES(p_b,'pending',wachtwoord_hash(p_b_password)) RETURNING id INTO v_b;
+    INSERT INTO authorization_grant(user_id,role_code) VALUES
+      (v_system,'system_administrator'),(v_a,'security_administrator'),(v_b,'security_administrator');
+    INSERT INTO authorization_bootstrap(system_user,security_user_a,security_user_b,database_actor,reason)
+      VALUES(v_system,v_a,v_b,current_user,p_reason);
+END $$;
+CREATE TRIGGER authorization_bootstrap_immutable BEFORE UPDATE OR DELETE ON authorization_bootstrap
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON authorization_bootstrap FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION authorization_bootstrap_empty(text,text,text,text,text,text,text) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -3839,5 +3890,6 @@ ALTER FUNCTION authorization_audit_immutable() SET search_path = pg_catalog,fabr
 ALTER FUNCTION change_password_confirmed(uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 ALTER FUNCTION authorization_guard_legacy_role() SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION authorization_protect_identity() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_bootstrap_empty(text,text,text,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 
 COMMIT;

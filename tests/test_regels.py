@@ -67,6 +67,12 @@ def main():
 
     print("\\nMES autorisaties (uitbreidingsmodel)")
     con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag bootstrap niet uitvoeren", "SELECT authorization_bootstrap_empty('test.sys','test-pass1','test.sec.a','test-pass2','test.sec.b','test-pass3','test')", bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    faalt("Bootstrap op bestaande database geweigerd", "SELECT authorization_bootstrap_empty('test.sys','test-pass1','test.sec.a','test-pass2','test.sec.b','test-pass3','test')", bevat="lege identiteitsadministratie")
     auth_user = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
     check("Geen automatische MES-bevoegdheid", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (auth_user,)))
     con.execute("INSERT INTO authorization_role VALUES ('test_operator','operations'), ('test_technical','technical')")

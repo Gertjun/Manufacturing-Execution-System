@@ -89,50 +89,29 @@ export async function aantalBeheerders(c) {
   return rows[0].n;
 }
 
-async function nieuweBeheerder(c, io, door) {
-  let naam;
-  for (;;) {
-    naam = (await io.vraag("Gebruikersnaam (kleine letters, cijfers, punt, streepje; bijv. geert): ")).toLowerCase();
-    if (!NAAM.test(naam)) { console.log("Gebruik 3 tot 40 tekens: a-z, 0-9, punt, liggend streepje of streepje."); continue; }
-    const { rowCount } = await c.query("SELECT 1 FROM fabriek.gebruiker WHERE gebruikersnaam = $1", [naam]);
-    if (rowCount) { console.log("Die gebruikersnaam bestaat al. Kies een andere, of geef die gebruiker een nieuw wachtwoord."); continue; }
-    break;
-  }
-  const w = await kiesWachtwoord(io);
-  await metLogboek(c, door, () =>
-    c.query("INSERT INTO fabriek.gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, 'beheerder', fabriek.wachtwoord_hash($2))", [naam, w]),
-  );
-  console.log(`\nBeheerder ${naam} is aangemaakt. Log in op Portaal Beheer met deze gebruikersnaam en dit wachtwoord.\n`);
-  return naam;
-}
-
-/** Vraagt om de eerste beheerder als er nog geen actieve beheerder is. Geeft true als er één is aangemaakt. */
+// Geen automatische bootstrap op een bestaande database, ook niet als alle accounts uit staan.
 export async function eersteBeheerder(c, io) {
-  if ((await aantalBeheerders(c)) > 0) return false;
-  console.log("\nEr is nog geen beheerder. Maak nu de eerste beheerder aan; daarmee richt je in Portaal Beheer");
-  console.log("de rest in (accounts, operators, pc's, stappen en velden).\n");
-  await nieuweBeheerder(c, io, "eerste start (op de computer zelf)");
+  const { rows: [r] } = await c.query("SELECT count(*)::int AS n FROM fabriek.gebruiker");
+  if (r.n > 0) return false;
+  console.log("Lege identiteitsadministratie: gecontroleerde MES-bootstrap vereist.");
+  console.log("De drie verschillende accounthouders kiezen persoonlijk hun eigen wachtwoord.");
+  const reason = await io.vraag("Reden en referentie van de goedgekeurde inrichting: ");
+  if (!reason) throw new Error("Bootstrap afgebroken: reden vereist.");
+  const values = [];
+  for (const label of ["System Administrator", "Security Administrator A", "Security Administrator B"]) {
+    const name = (await io.vraag(label + " gebruikersnaam: ")).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam; niets gewijzigd.");
+    values.push(name, await kiesWachtwoord(io));
+  }
+  await metLogboek(c, "gecontroleerde MES-bootstrap", () =>
+    c.query("SELECT fabriek.authorization_bootstrap_empty($1,$2,$3,$4,$5,$6,$7)", [...values, reason]));
+  console.log("MES-bootstrap voltooid; drie afzonderlijke beheeridentiteiten ingericht.");
   return true;
 }
 
-/** Noodsleutel: bestaande beheerder een nieuw wachtwoord geven, of een nieuwe beheerder aanmaken. */
 export async function beheerderMenu(c, io) {
   if (await eersteBeheerder(c, io)) return;
-  const { rows } = await c.query("SELECT id, gebruikersnaam, actief FROM fabriek.gebruiker WHERE rol = 'beheerder' ORDER BY gebruikersnaam");
-  console.log("\nBeheerders:");
-  rows.forEach((r, i) => console.log(`  ${i + 1}. ${r.gebruikersnaam}${r.actief ? "" : "  (uitgezet)"}`));
-  console.log(`  ${rows.length + 1}. Nieuwe beheerder aanmaken`);
-  const keuze = Number(await io.vraag("\nKies een nummer (Enter = niets doen): "));
-  if (!keuze) { console.log("Er is niets veranderd.\n"); return; }
-  if (keuze === rows.length + 1) { await nieuweBeheerder(c, io, "noodsleutel (op de computer zelf)"); return; }
-  const g = rows[keuze - 1];
-  if (!g) { console.log("Onbekend nummer; er is niets veranderd.\n"); return; }
-  console.log(`Nieuw wachtwoord voor ${g.gebruikersnaam}:`);
-  const w = await kiesWachtwoord(io);
-  await metLogboek(c, "noodsleutel (op de computer zelf)", () =>
-    c.query("UPDATE fabriek.gebruiker SET wachtwoord_hash = fabriek.wachtwoord_hash($2), actief = true WHERE id = $1", [g.id, w]),
-  );
-  console.log(`\nHet wachtwoord van ${g.gebruikersnaam} is gewijzigd${g.actief ? "" : " en het account staat weer aan"}. Dit staat in het logboek.\n`);
+  console.log("Oude noodsleutel uitgeschakeld. Gecontroleerd accountherstel is vereist; er is niets gewijzigd.");
 }
 
 // Los gestart: node tools/beheerder.mjs

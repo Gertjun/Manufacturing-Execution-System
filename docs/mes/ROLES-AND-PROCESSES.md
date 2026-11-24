@@ -53,3 +53,5 @@ D99: de volledige legacy-review is goedgekeurd. Beveilig behouden/tijdelijke int
 0051: technische en security-identiteiten afzonderlijk; overlappende grants worden geweigerd bij roltoekenning en conflicterende actieve grants geven geen bevoegdheid. Geen automatische wijziging van bestaande grants. Gecontroleerd accountbeheer en recovery blijven open.
 
 0053: bestaande legacy-identiteiten en accounts met niet-ingetrokken grants vereisen gecontroleerd herstel; gewone technische reset is beperkt tot onbevoegde pending-accounts. Nieuwe grants vereisen een niet-tijdelijk wachtwoord. Eigen bevestigde wijziging blijft mogelijk. Initiële identiteitsoverdracht en onafhankelijk herstel nog uitwerken; geen claim dat database-eigenaar technisch onmachtig is.
+
+0054: bootstrap uitsluitend door database-eigenaar op lege identiteitsadministratie, drie afzonderlijke persoonlijke beheeridentiteiten met verschillende wachtwoorden en vastgelegde reden. Oude noodsleutel wijzigt bestaande accounts niet meer. Persoonlijke aanwezigheid en externe autorisatie moeten organisatorisch worden gecontroleerd; gecontroleerd herstel en pakketacceptatie nog open.

@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: gecontroleerde lege-databasebootstrap met drie beheeridentiteiten; oude noodsleutel uitgeschakeld (0054), herstel nog open.
 - MES: bescherming tegen gewone wachtwoordresets voor bevoegde en legacy-identiteiten; geen roltoekenning bij tijdelijk wachtwoord (0053).
 - MES: nieuwe accounts zonder oude rol en afscherming directe legacy-rolwijziging (0052); accountbeheerinterface nog om te schakelen.
 - MES: technisch beheer en securitybeheer gescheiden in autorisatiebeslissing en roltoekenning (0051); regressies toegevoegd, uitvoering nog open.
