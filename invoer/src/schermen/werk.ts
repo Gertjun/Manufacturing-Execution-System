@@ -241,7 +241,7 @@ function stilstandBlok(st: Stilstand, s: Stap, magMelden: boolean, opnieuw: () =
 
 // ---------- Planning ----------
 interface PlanItem { soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[] }
-interface Voorstel { nummer: number; opmerking: string | null; batches: { batchnummer: string }[] }
+interface Voorstel { nummer: number; batch_aantal_norm: number; opmerking: string | null; batches: { batchnummer: string }[] }
 
 /** Planning van vandaag voor deze stap; zonder verbinding de laatst bekende, en anders niets. */
 async function planVandaag(code: string): Promise<PlanItem[]> {
