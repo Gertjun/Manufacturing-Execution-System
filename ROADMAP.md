@@ -37,6 +37,8 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 ### Afsluiting tussentijdse audit (D100)
  
 Werk in deze volgorde; dit is de afbakening van #106–#108 en #136, geen nieuwe zelfstandige takenlijst:
+
+D101: alle legacy-rollen verliezen binnen fase 1 hun zelfstandige autorisatiewerking; behoud historische gegevens en noodzakelijke compatibiliteitsvelden. Controleer API, database, UI en regressies. Geen automatische grants, geen nieuwe domeinfunctionaliteit.
  
 1. Gerichte baseline (concept-PR, label `database-baseline`, afzonderlijke PostgreSQL-job; ronde 8 volledig groen op da06084d, zie ACCEPTANCE-CRITERIA.md voor exact bewijs; inhoudelijke auditreview nog open): schone installatie, migraties vanaf main, beperkte DB-rechten, autorisatie-unit-tests en relevante API-regressies. Eerst uitvoeringsbewijs en oorzaken van fouten vaststellen; geen nieuwe reeks speculative hardening-migraties.
 2. Bundel alleen resterende blokkers: persoonlijk account-/sessiebeheer, rollen/permissions/scope/kwalificaties, onafhankelijke toekenning/intrekking, gecontroleerde personeelskoppeling, kritische herbevestiging en audit, effectieve DB-privileges en veilige tijdelijke interfaces. Zie acceptatiecriteria voor de bewijsgrens.
