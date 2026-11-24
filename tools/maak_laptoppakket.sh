@@ -35,6 +35,8 @@ cp "$ROOT/api/package.json" "$ROOT/api/package-lock.json" "$DOEL/server/"
 cp -r "$ROOT/invoer/dist" "$DOEL/web/invoer"
 cp -r "$ROOT/portaal/dist" "$DOEL/web/portaal"
 cp "$ROOT/db/schema.sql" "$ROOT/db/seed_config.sql" "$ROOT/db/seed_accounts_demo.sql" "$ROOT/tools/pakket/testdata.sql" "$DOEL/db/"
+# De historische demo-dump is gemaakt vóór de lotgroottekolommen; vul die expliciet aan voor het actuele schema.
+node "$ROOT/tools/pakket/prepare-testdata.mjs" "$DOEL/db/testdata.sql"
 cp "$ROOT/db/rechten.sql" "$DOEL/db/" && cp -r "$ROOT/db/migraties" "$DOEL/db/migraties"
 mkdir -p "$DOEL/tools" && cp "$ROOT/tools/lib.mjs" "$ROOT/tools/migreer.mjs" "$ROOT/tools/beheerder.mjs" "$DOEL/tools/"
 cp "$ROOT/VERSIE" "$DOEL/"
