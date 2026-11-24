@@ -302,6 +302,21 @@ async function bouwDatabase(metTestdata) {
     await d.query(sqlBestand("testdata.sql"));
     await verschuifNaarNu(d);
     await d.query("COMMIT");
+    // Alleen bij expliciete aanmaak van een NIEUWE fictieve database:
+    // de oude dump bevat legacy accounts, geen actuele MES-grants.
+    // Voeg afzonderlijke demo-identiteiten toe; geen mapping bij upgrades.
+    await d.query(`
+      INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES ('mes.laptop.system','beheerder',fabriek.wachtwoord_hash('demo'))
+      ON CONFLICT (gebruikersnaam) DO NOTHING
+    `);
+    await d.query(`
+      INSERT INTO fabriek.authorization_grant(user_id,role_code)
+      SELECT id,'system_administrator' FROM fabriek.gebruiker
+      WHERE gebruikersnaam='mes.laptop.system'
+      AND NOT EXISTS (SELECT 1 FROM fabriek.authorization_grant a WHERE a.user_id=gebruiker.id AND a.role_code='system_administrator')
+    `);
+
   } else {
     console.log("Lege fabriek: alleen configuratie (stappen, velden, accounts, operators, pc's) …");
     await d.query(sqlBestand("seed_config.sql"));
