@@ -2,7 +2,7 @@ import { personalSession, requireTransactionPermission } from "../modules/author
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { invoerContext, invoerTransactie } from "../auth.js";
-import { inTransactie, lees, type Db, type Tx } from "../db.js";
+import { lees, type Db, type Tx } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode, NulGetal } from "./schemas.js";
 
@@ -347,7 +347,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         await registrationPermission(tx, req.user.sub, req.params.id, "execution.correct");
         const { rows } = await tx.query(
           `SELECT u.id, u.grondstof_id, u.hoeveelheid FROM grondstof_gebruik_actueel u JOIN grondstof g ON g.id = u.grondstof_id
@@ -385,7 +385,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         await registrationPermission(tx, req.user.sub, req.params.id, "execution.correct");
         const { rows } = await tx.query(
           `SELECT w.id, w.veld_id, w.setting FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id

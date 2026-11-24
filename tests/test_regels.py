@@ -63,6 +63,8 @@ def main():
         finally:
             con.execute("RESET fabriek.execution_proof")
         faalt("Directe stapregistratie zonder bewijs geweigerd","INSERT INTO stapregistratie DEFAULT VALUES",bevat="Geldig persoonlijk")
+        faalt("Directe meetinvoer zonder bewijs geweigerd","INSERT INTO waarde DEFAULT VALUES",bevat="Geldig persoonlijk")
+        faalt("Directe grondstofinvoer zonder bewijs geweigerd","INSERT INTO grondstof_gebruik DEFAULT VALUES",bevat="Geldig persoonlijk")
         faalt("Oude loginwrapper eigenaar-only","SELECT login_with_session(NULL,NULL,NULL)",bevat="permission denied")
         faalt("Oude wachtwoordwrapper eigenaar-only","SELECT change_password_session(NULL,1,NULL,NULL)",bevat="permission denied")
     finally:

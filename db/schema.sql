@@ -4696,8 +4696,57 @@ CREATE TRIGGER stapregistratie_00_identity BEFORE INSERT OR UPDATE ON stapregist
 
 REVOKE ALL ON FUNCTION execution_transaction_actor(),execution_bind_transaction(text,uuid),execution_registration_identity_guard() FROM PUBLIC;
 
+-- Migratie 0069: identiteitsbinding bij metingen en grondstofverbruik.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION execution_measurement_identity_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE; v_permission text; v_quality boolean; v_correction boolean;
+BEGIN
+    IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+    v_actor:=execution_transaction_actor();
+    SELECT * INTO v_reg FROM stapregistratie WHERE id=NEW.stapregistratie_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stapregistratie'; END IF;
+    IF TG_TABLE_NAME='waarde' THEN
+        SELECT gemeten_door='kwaliteit' INTO v_quality FROM veld WHERE id=NEW.veld_id;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend meetveld'; END IF;
+        v_correction:=NEW.vervangt_waarde_id IS NOT NULL;
+    ELSE
+        v_quality:=false;
+        v_correction:=NEW.vervangt_id IS NOT NULL;
+    END IF;
+    IF v_correction THEN
+        IF NEW.gecorrigeerd_door IS DISTINCT FROM v_actor THEN
+            RAISE EXCEPTION 'Correctie komt niet overeen met bewezen identiteit' USING ERRCODE='42501';
+        END IF;
+        -- Kwaliteitsconflicten krijgen een afzonderlijk gecontroleerd pad;
+        -- geen impliciet correctierecht op kwaliteitsmetingen.
+        IF v_quality THEN
+            RAISE EXCEPTION 'Kwaliteitscorrectie vereist gecontroleerde conflictafhandeling' USING ERRCODE='42501';
+        END IF;
+        v_permission:='execution.correct';
+    ELSE
+        IF NOT EXISTS (SELECT 1 FROM operator o WHERE o.id=NEW.ingevoerd_door AND o.gebruiker_id=v_actor AND o.actief) THEN
+            RAISE EXCEPTION 'Invoerder komt niet overeen met bewezen identiteit' USING ERRCODE='42501';
+        END IF;
+        v_permission:=CASE WHEN v_quality THEN 'inspection.record' ELSE 'execution.record' END;
+    END IF;
+    IF NOT authorization_permits(v_actor,v_permission,NULL,v_reg.product_id,NULL)
+       OR (v_reg.lot_id IS NOT NULL AND EXISTS (
+          SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+           AND NOT authorization_permits(v_actor,v_permission,NULL,b.product_id,NULL))) THEN
+        RAISE EXCEPTION 'Geen actuele meet- of correctiebevoegdheid' USING ERRCODE='42501';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER waarde_00_identity BEFORE INSERT ON waarde
+ FOR EACH ROW EXECUTE FUNCTION execution_measurement_identity_guard();
+CREATE TRIGGER grondstof_gebruik_00_identity BEFORE INSERT ON grondstof_gebruik
+ FOR EACH ROW EXECUTE FUNCTION execution_measurement_identity_guard();
+REVOKE ALL ON FUNCTION execution_measurement_identity_guard() FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
