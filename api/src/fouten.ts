@@ -39,6 +39,9 @@ export function foutAfhandeling(err: FastifyError | ApiFout | PgFout, req: Fasti
   }
   const pgCode = (err as PgFout).code;
   switch (pgCode) {
+    case "42501": // Onvoldoende databasebevoegdheid, geen interne details aan client
+      req.log.warn({ pgCode }, "Databasebevoegdheid geweigerd");
+      return reply.status(403).send({ fout: "Geen geldige bevoegdheid voor deze handeling" });
     case "P0001": // RAISE EXCEPTION uit een databaseregel
       return reply.status(422).send({ fout: err.message });
     case "23514": // CHECK

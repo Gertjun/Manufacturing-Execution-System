@@ -628,7 +628,13 @@ def main():
     con.execute("UPDATE gebruiker SET wachtwoord_hash = public.crypt('nieuw-ww', public.gen_salt('bf')) WHERE gebruikersnaam = 'analist1'")
     log = one("SELECT nieuw FROM config_log WHERE tabel = 'gebruiker' ORDER BY id DESC LIMIT 1")[0]
     check("Wachtwoordwijziging gelogd zonder hash", log.get("wachtwoord") == "gewijzigd" and "wachtwoord_hash" not in log)
-    faalt("Laatste beheerder kan niet weg", "UPDATE gebruiker SET actief = false WHERE gebruikersnaam = 'beheerder1'", (), "minstens één actieve beheerder")
+    # De demo heeft inmiddels twee legacy-beheerders; toets de laatste zonder blijvende fixturewijziging.
+    con.execute("BEGIN")
+    try:
+        con.execute("UPDATE gebruiker SET actief=false WHERE rol='beheerder' AND gebruikersnaam<>'beheerder1'")
+        faalt("Laatste beheerder kan niet weg", "UPDATE gebruiker SET actief = false WHERE gebruikersnaam = 'beheerder1'", (), "minstens één actieve beheerder")
+    finally:
+        con.execute("ROLLBACK")
     faalt("Gebruikersnaam verandert niet", "UPDATE gebruiker SET gebruikersnaam = 'x' WHERE gebruikersnaam = 'analist1'", (), "verandert niet")
     pc2 = val("SELECT id FROM pc WHERE naam = 'PC-02'")
     ps1 = val("SELECT id FROM processtap WHERE code = 'PS1'")
@@ -1025,11 +1031,15 @@ def main():
     for k in range(1, 4):
         doe(hb2, f"PS{k}")
     con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','druk te laag',%s)", (hb2, pm))
-    faalt("Batch in beoordeling: productiemanager beslist niet", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'x', %s)", (pm,), "alleen Kwaliteit")
+    faalt("Batch in beoordeling: productiemanager kan blokkade niet omzeilen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'x', %s)", (pm,), "Kwaliteitsblokkade")
+    faalt("Ook Kwaliteit kan blokkade niet via herbewerking opheffen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,), "Kwaliteitsblokkade")
+    check("Blokkade en besluit blijven behouden",
+          val("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op DESC LIMIT 1", (hb2,)) == "in_beoordeling"
+          and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_beoordeling")
+    check("Geen opdracht ontstaan tijdens blokkade", val("SELECT count(*) FROM herbewerking WHERE batch_id=%s",(hb2,)) == 0)
+    # Afzonderlijk eigenaar-fixturebesluit; de bevestigde API-route wordt elders getest.
+    con.execute("INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'vrijgegeven','afzonderlijk kwaliteitsbesluit',%s)",(hb2,kw))
     h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,))
-    check("Kwaliteit: keurresultaat herbewerken, batch weer in productie",
-          val("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op DESC LIMIT 1", (hb2,)) == "herbewerken"
-          and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_productie")
     faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, kw), "reden")
     con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, kw))
     check("Ingetrokken: batch gaat gewoon verder met PS4", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h2,)) == "ingetrokken" and "B-2026-0802" in voorraad("PS4"))

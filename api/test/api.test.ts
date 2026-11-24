@@ -256,8 +256,8 @@ describe("productie van batch tot lot", () => {
     assert.equal(open.status, 200);
     const c = open.body.find((x: any) => x.registratie_id === id);
     assert.ok(c && c.stap === "PS1" && c.nummer.startsWith("B-"));
-    assert.equal((await verzoek("POST", `/conflicten/${c.id}/oplossen`, op, { keuze: "bestaand" })).status, 403);
-    const opgelost = await verzoek("POST", `/conflicten/${c.id}/oplossen`, pl, { keuze: "bestaand" });
+    assert.equal((await verzoek("POST", `/conflicten/${c.id}/oplossen`, op, { keuze: "bestaand", reden: "Eerste invoer gecontroleerd" })).status, 403);
+    const opgelost = await verzoek("POST", `/conflicten/${c.id}/oplossen`, pl, { keuze: "bestaand", reden: "Eerste invoer gecontroleerd" });
     assert.equal(opgelost.status, 200, JSON.stringify(opgelost.body));
     assert.equal(opgelost.body.conflicten.length, 0);
     assert.equal(opgelost.body.velden.find((v: any) => v.code === "S1.2").waarde.gemeten, nu);
@@ -304,10 +304,9 @@ describe("productie van batch tot lot", () => {
     assert.match(fout.body.fout, /B-2026-0104 heeft status in_beoordeling/);
     assert.equal((await verzoek("POST", "/batches/B-2026-0104/besluiten", op, { besluit: "afgekeurd", reden: "x" })).status, 403);
     const plNok = await verzoek("POST", "/batches/B-2026-0104/besluiten", pl, { besluit: "afgekeurd", reden: "x" });
-    assert.equal(plNok.status, 422);
-    assert.match(plNok.body.fout, /Alleen Kwaliteit/);
+    assert.equal(plNok.status, 403);
     const kw = await login("kwaliteit1");
-    const b2 = await verzoek("POST", "/batches/B-2026-0104/besluiten", kw, { besluit: "afgekeurd", reden: "NOK: afvoeren" });
+    const b2 = await verzoek("POST", "/batches/B-2026-0104/besluiten", kw, { besluit: "afgekeurd", reden: "NOK: afvoeren", wachtwoord: "demo" });
     assert.equal(b2.status, 201);
     assert.equal(b2.body.status, "afgekeurd");
     const detail = await verzoek("GET", "/batches/B-2026-0104", op);
@@ -343,6 +342,10 @@ describe("productie van batch tot lot", () => {
     await verzoek("POST", `/registraties/${r18.body.id}/afronden`, op);
 
     // Herbewerking naar PS17; daarna PS17 en PS18 opnieuw.
+    const zonder = await verzoek("POST", "/lots/L-2026-0001/herbewerking", op, { stapcode: "PS17", reden: "te nat na verpakken" });
+    assert.notEqual(zonder.status, 201, "Geen herbewerking zonder vooraf geregistreerde opdracht");
+    const opdracht = await verzoek("POST", "/herbewerkingen", await login("kwaliteit1"), { nummer: "L-2026-0001", stapcode: "PS17", reden: "te nat na verpakken", wachtwoord: "demo" });
+    assert.equal(opdracht.status, 201, JSON.stringify(opdracht.body));
     const herb = await verzoek("POST", "/lots/L-2026-0001/herbewerking", op, { stapcode: "PS17", reden: "te nat na verpakken" });
     assert.equal(herb.status, 201);
     assert.equal(herb.body.poging, 2);
@@ -380,7 +383,7 @@ describe("productie van batch tot lot", () => {
   });
 
   test("keuring: Kwaliteit meet na het afronden en geeft vrij; daarna pas de volgende stap (#64)", async () => {
-    const bh = await login("beheerder1");
+    const bh = await login("mes.engineer");
     assert.equal((await verzoek("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "kwaliteit" })).status, 200);
     const cfg = await verzoek("GET", "/config/stappen", op);
     assert.equal(cfg.body.find((s: any) => s.code === "PS2").velden.find((v: any) => v.code === "S2.2").gemeten_door, "kwaliteit");
@@ -389,8 +392,7 @@ describe("productie van batch tot lot", () => {
     const start = await verzoek("POST", "/registraties", op, { stapcode: "PS2", batchnummer: "B-2026-0120" });
     assert.equal(start.body.velden.find((v: any) => v.code === "S2.2").gemeten_door, "kwaliteit");
     const fout = await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: [{ veldcode: "S2.2", gemeten: 410 }] });
-    assert.equal(fout.status, 422);
-    assert.match(fout.body.fout, /meet Kwaliteit/);
+    assert.equal(fout.status, 403);
     assert.equal((await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: [{ veldcode: "S2.1", setting: 80, gemeten: 81 }] })).status, 200);
     const af = await verzoek("POST", `/registraties/${start.body.id}/afronden`, op);
     assert.equal(af.status, 200, JSON.stringify(af.body));
@@ -400,17 +402,17 @@ describe("productie van batch tot lot", () => {
     assert.equal(k.te_meten, 1);
     assert.ok(!(await verzoek("GET", "/werkvoorraad/PS3", op)).body.wachtend.some((w: any) => w.nummer === "B-2026-0120"));
     const kw = await login("kwaliteit1", "PC-01");
-    const vroeg = await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven" });
+    const vroeg = await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven", wachtwoord: "demo" });
     assert.equal(vroeg.status, 422);
     assert.match(vroeg.body.fout, /Nog niet gemeten: S2.2/);
-    assert.equal((await verzoek("POST", `/keuringen/${k.id}/besluit`, op, { besluit: "vrijgegeven" })).status, 403);
+    assert.equal((await verzoek("POST", `/keuringen/${k.id}/besluit`, op, { besluit: "vrijgegeven", wachtwoord: "demo" })).status, 403);
     const meet = await verzoek("POST", `/registraties/${start.body.id}/waarden`, kw, { waarden: [{ veldcode: "S2.2", gemeten: 412 }] });
     assert.equal(meet.status, 200, JSON.stringify(meet.body));
-    const vrij = await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven" });
+    const vrij = await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven", wachtwoord: "demo" });
     assert.equal(vrij.status, 200, JSON.stringify(vrij.body));
     assert.equal(vrij.body.keuring.status, "vrijgegeven");
     assert.equal(vrij.body.keuring.besloten_door, "kwaliteit1");
-    assert.equal((await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven" })).status, 200);
+    assert.equal((await verzoek("POST", `/keuringen/${k.id}/besluit`, kw, { besluit: "vrijgegeven", wachtwoord: "demo" })).status, 409);
     assert.ok((await verzoek("GET", "/werkvoorraad/PS3", op)).body.wachtend.some((w: any) => w.nummer === "B-2026-0120"));
     await verzoek("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "productie" });
   });
@@ -422,11 +424,11 @@ describe("productie van batch tot lot", () => {
     const stappen = await verzoek("GET", "/herbewerkingen/stappen?nummer=B-2026-0110", pm);
     assert.deepEqual(stappen.body.map((x: any) => x.code), ["PS1", "PS2", "PS3"]);
     assert.equal((await verzoek("GET", "/herbewerkingen/stappen?nummer=B-2026-9999", pm)).status, 404);
-    assert.equal((await verzoek("POST", "/herbewerkingen", pl, { nummer: "B-2026-0110", stapcode: "PS2", reden: "x" })).status, 403);
-    const fout = await verzoek("POST", "/herbewerkingen", pm, { nummer: "B-2026-0110", stapcode: "PS5", reden: "x" });
+    assert.equal((await verzoek("POST", "/herbewerkingen", pl, { nummer: "B-2026-0110", stapcode: "PS2", reden: "x", wachtwoord: "demo" })).status, 403);
+    const fout = await verzoek("POST", "/herbewerkingen", pm, { nummer: "B-2026-0110", stapcode: "PS5", reden: "x", wachtwoord: "demo" });
     assert.equal(fout.status, 422);
     assert.match(fout.body.fout, /nog niet doorlopen/);
-    const h = await verzoek("POST", "/herbewerkingen", pm, { nummer: "B-2026-0110", stapcode: "PS2", reden: "menger te kort" });
+    const h = await verzoek("POST", "/herbewerkingen", pm, { nummer: "B-2026-0110", stapcode: "PS2", reden: "menger te kort", wachtwoord: "demo" });
     assert.equal(h.status, 201, JSON.stringify(h.body));
     assert.equal(h.body.stand, "te_plannen");
     assert.equal(h.body.door, "productiemanager1");
@@ -440,7 +442,7 @@ describe("productie van batch tot lot", () => {
     assert.equal(start.body.poging, 2);
     const lijst = await verzoek("GET", "/herbewerkingen?nummer=B-2026-0110", op);
     assert.deepEqual(lijst.body.map((x: any) => x.stand), ["bezig"]);
-    const intrek = await verzoek("POST", `/herbewerkingen/${h.body.id}/intrekken`, pm, { reden: "x" });
+    const intrek = await verzoek("POST", `/herbewerkingen/${h.body.id}/intrekken`, pm, { reden: "x", wachtwoord: "demo" });
     assert.equal(intrek.status, 422);
     assert.ok((await verzoek("GET", "/herbewerkingen", op)).body.some((x: any) => x.nummer === "B-2026-0110"));
   });
@@ -488,7 +490,7 @@ describe("werkvoorraad en apparaat-id's", () => {
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0300" })).status, 201);
     const reg = await verzoek("POST", "/registraties", op, { stapcode: "PS1", batchnummer: "B-2026-0300" });
     await verzoek("POST", "/batches/B-2026-0300/besluiten", pl, { besluit: "in_beoordeling", reden: "twijfel" });
-    await verzoek("POST", "/batches/B-2026-0300/besluiten", kw, { besluit: "afgekeurd", reden: "vervuild" });
+    await verzoek("POST", "/batches/B-2026-0300/besluiten", kw, { besluit: "afgekeurd", reden: "vervuild", wachtwoord: "demo" });
     const na = await verzoek("GET", `/registraties/${reg.body.id}`, op);
     assert.equal(na.status, 200);
     assert.equal(na.body.status, "afgebroken");
@@ -1322,7 +1324,7 @@ describe("Meldingen", () => {
     assert.equal((await verzoek("GET", "/meldingen?ongelezen=true", pl)).body.meldingen[0].id, m.id);
     // Besluiten.
     await verzoek("POST", "/batches/B-2026-0710/besluiten", pl, { besluit: "in_beoordeling", reden: "gewicht te hoog" });
-    await verzoek("POST", "/batches/B-2026-0710/besluiten", kw, { besluit: "afgekeurd", reden: "te zwaar" });
+    await verzoek("POST", "/batches/B-2026-0710/besluiten", kw, { besluit: "afgekeurd", reden: "te zwaar", wachtwoord: "demo" });
     const pnM = await verzoek("GET", "/meldingen?ongelezen=true", pn);
     assert.deepEqual(pnM.body.meldingen.map((x: any) => x.soort), ["afgekeurd"]);
     assert.match(pnM.body.meldingen[0].tekst, /B-2026-0710 afgekeurd \(keurresultaat NOK\) door kwaliteit1: te zwaar/);

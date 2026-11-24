@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- D100: regressies voor onafhankelijke kwaliteitsblokkade, voorafgaande herbewerkingsopdracht, persoonlijke bevestiging en gemotiveerde conflictkeuze; SQLSTATE 42501 vertaald naar 403.
 - D100: API-regressies op bevoegde engineering-/managementidentiteiten, persoonlijke accountstroom en wachtwoordwrapper; schermidentiteit expliciet uitgesloten van persoonlijke routes.
 - D100: herstel eerder bedoelde begrensde kolomgrants na algemene REVOKE; expliciete MES-grants voor fictieve API-regressieaccounts.
 - D100: effectieve tabeleigenaar correct onderscheiden van gewone app-rol; herstel testhelper en API-teardown.
