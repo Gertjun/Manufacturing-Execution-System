@@ -80,6 +80,25 @@ def main():
         faalt("Directe lotcreatie geweigerd","INSERT INTO lot DEFAULT VALUES",bevat="permission denied")
         faalt("Directe batchcreatie geweigerd","INSERT INTO batch DEFAULT VALUES",bevat="permission denied")
         faalt("Configuratie zonder sessiebewijs geweigerd","UPDATE veld SET naam=naam WHERE code='S1.1'",bevat="Geldig persoonlijk")
+        for tabel in ("stilstand","overdracht","stapplanning"):
+            faalt(f"D101 {tabel}: geen operationele insert zonder bewijs",f"INSERT INTO {tabel} DEFAULT VALUES",bevat="Geldig persoonlijk")
+        for tabel in ("lot_voorstel","lot_voorstel_batch"):
+            check(f"D101 {tabel}: geen directe insert",not val("SELECT has_any_column_privilege(current_user,%s,'INSERT')",("fabriek."+tabel,)))
+            check(f"D101 {tabel}: geen directe update",not val("SELECT has_any_column_privilege(current_user,%s,'UPDATE')",("fabriek."+tabel,)))
+            check(f"D101 {tabel}: geen directe delete",not val("SELECT has_table_privilege(current_user,%s,'DELETE')",("fabriek."+tabel,)))
+        faalt("Oude lotvoorstelfunctie eigenaar-only","SELECT bewaar_lot_voorstel(NULL,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Lotvoorstel opslaan zonder bewijs geweigerd","SELECT planning_save_legacy_proposal(NULL,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Lotvoorstel annuleren zonder bewijs geweigerd","SELECT planning_cancel_legacy_proposal(1)",bevat="Geldig persoonlijk")
+        proof = val("SELECT session_proof FROM execution_session_login('mes.operator','demo',NULL)")
+        check("Persoonlijk operationeel bewijs beschikbaar",bool(proof))
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",(proof,))
+        try:
+            faalt("Operator kan geen planning schrijven","INSERT INTO stapplanning DEFAULT VALUES",bevat="MES-operationele bevoegdheid")
+            faalt("Operator kan geen lotvoorstel opslaan","SELECT planning_save_legacy_proposal(NULL,NULL,NULL)",bevat="MES-planningsbevoegdheid")
+            faalt("Stilstand kan niet op andermans naam","INSERT INTO stilstand(gemeld_door) VALUES ((SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'))",bevat="Ongeldige persoonlijke")
+            faalt("Overdracht kan niet op andermans naam","INSERT INTO overdracht(gebruiker_id) VALUES ((SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'))",bevat="Ongeldige persoonlijke")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
         faalt("Directe systeemmelding geweigerd","INSERT INTO melding DEFAULT VALUES",bevat="permission denied")
         faalt("Leesregistratie zonder bewijs geweigerd","INSERT INTO melding_gelezen DEFAULT VALUES",bevat="Geldig persoonlijk")
         check("Geen directe meldingsinsert via kolomgrant",not val("SELECT has_any_column_privilege(current_user,'fabriek.melding','INSERT')"))
