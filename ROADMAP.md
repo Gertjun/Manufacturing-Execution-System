@@ -154,3 +154,5 @@ Fase 1 (0065): controle uitvoeringsbevoegdheid bij opdrachtconsumptie gebouwd; b
 Fase 1 (0066): databasefundament sessiebewijs gebouwd; API-integratie en afdwingen bij writes nog open.
 
 Fase 1 (0067): API-authenticatie gebruikt sessiebewijs; transactiebinding en databasehandhaving volgen.
+
+Fase 1 (0068): transactionele bewijscontrole en eerste stapregistratieguard; overige writes, definer-paden en acceptatie open.

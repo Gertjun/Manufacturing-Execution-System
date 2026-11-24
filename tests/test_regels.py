@@ -55,6 +55,14 @@ def main():
         faalt("Sessieregister niet direct op te ruimen","SELECT execution_session_cleanup()",bevat="permission denied")
         check("Onbekend sessiebewijs geweigerd",val("SELECT execution_session_actor(%s)",("0"*64,)) is None)
         check("Leeg sessiebewijs geweigerd",val("SELECT execution_session_actor(NULL)") is None)
+        faalt("Transactie zonder bewijs geweigerd","SELECT execution_transaction_actor()",bevat="Geldig persoonlijk")
+        faalt("Vervalst bewijs bindt geen transactie","SELECT execution_bind_transaction(%s,NULL)",("0"*64,),bevat="ongeldig")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",("0"*64,))
+        try:
+            faalt("Zelf ingestelde GUC bewijst geen identiteit","SELECT execution_transaction_actor()",bevat="Geldig persoonlijk")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
+        faalt("Directe stapregistratie zonder bewijs geweigerd","INSERT INTO stapregistratie DEFAULT VALUES",bevat="Geldig persoonlijk")
         faalt("Oude loginwrapper eigenaar-only","SELECT login_with_session(NULL,NULL,NULL)",bevat="permission denied")
         faalt("Oude wachtwoordwrapper eigenaar-only","SELECT change_password_session(NULL,1,NULL,NULL)",bevat="permission denied")
     finally:
