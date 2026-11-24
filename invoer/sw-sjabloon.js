@@ -11,38 +11,20 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith("invoer-") && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
   );
 });
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || !url.pathname.startsWith("/invoer/")) return; // API niet cachen
-  if (e.request.mode === "navigate") {
-    // Eerst het netwerk (nieuwste versie), anders de bewaarde pagina.
-    e.respondWith(
-      fetch(e.request)
-        .then((r) => {
-          const kopie = r.clone();
-          caches.open(CACHE).then((c) => c.put("/invoer/", kopie));
-          return r;
-        })
-        .catch(() => caches.match("/invoer/")),
-    );
+  if (e.request.method !== "GET" || url.origin !== self.location.origin || e.request.headers.has("authorization")) return;
+  // Alleen vooraf bekende statische buildbestanden; geen dynamische antwoorden,
+  // querystrings of API-data, ook niet wanneer een toekomstig pad /invoer/ bevat.
+  if (url.search) return;
+  if (e.request.mode === "navigate" && ["/invoer/","/invoer/index.html"].includes(url.pathname)) {
+    e.respondWith(fetch(e.request).catch(async () => (await caches.open(CACHE)).match("/invoer/")));
     return;
   }
-  // Bestanden met een hash in de naam veranderen nooit: eerst uit de cache.
-  e.respondWith(
-    caches.match(e.request).then(
-      (gevonden) =>
-        gevonden ||
-        fetch(e.request).then((r) => {
-          if (r.ok) {
-            const kopie = r.clone();
-            caches.open(CACHE).then((c) => c.put(e.request, kopie));
-          }
-          return r;
-        }),
-    ),
-  );
+  if (!BESTANDEN.includes(url.pathname)) return;
+  e.respondWith((async () => (await caches.open(CACHE)).match(url.pathname) || fetch(e.request))());
 });
