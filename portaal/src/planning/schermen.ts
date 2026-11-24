@@ -540,6 +540,7 @@ export async function lots() {
     if (!gekozenProduct) return null;
     const product = producten.find((x) => x.product_id === gekozenProduct[0])!;
     const norm = product.batches_per_lot;
+    if (norm === null || norm < 1) { melding("Dit product heeft geen geldige lotnorm.", "fout"); return null; }
     const kandidaten = k.filter((x) => x.product_id === gekozenProduct[0]);
     if (kandidaten.length < norm) { melding(`Er zijn minder dan ${norm} batches van dit product beschikbaar. Plan eerst meer batches.`, "info"); return null; }
     return kiesUit(v ? `Lotvoorstel ${v.nummer} aanpassen` : "Nieuw lotvoorstel",
