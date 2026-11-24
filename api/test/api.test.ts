@@ -1299,6 +1299,11 @@ describe("Meldingen", () => {
     const pn = await login("planner1");
     for (const t of [pl, kw, pn]) await verzoek("POST", "/meldingen/alles-gelezen", t);
     assert.equal((await verzoek("GET", "/meldingen", op)).status, 403);
+    for (const name of ["mes.system","mes.security.a","mes.quality"]) {
+      const t = await login(name);
+      assert.equal((await verzoek("GET", "/meldingen", t)).status, 403);
+      assert.equal((await verzoek("POST", "/meldingen/alles-gelezen", t)).status, 403);
+    }
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0710" })).status, 201);
     const start = await verzoek("POST", "/registraties", op, { stapcode: "PS1", batchnummer: "B-2026-0710" });
     await verzoek("POST", `/registraties/${start.body.id}/waarden`, op, { waarden: waardenVoor(start.body, { "S1.2": [null, 470] }) });
@@ -1312,6 +1317,9 @@ describe("Meldingen", () => {
     assert.equal(m.hal, "Hal 1");
     assert.equal((await verzoek("GET", "/meldingen", pn)).body.ongelezen, 0, "planner krijgt geen grenswaarden");
     // Gelezen geldt per persoon.
+    assert.equal((await verzoek("POST", `/meldingen/${m.id}/gelezen`, pn)).status, 404, "planner kan een niet-zichtbare melding niet markeren");
+    const before = await beheerDb.query("SELECT gebruiker_id FROM fabriek.melding_gelezen WHERE melding_id=$1",[m.id]);
+    assert.equal(before.rowCount,0);
     assert.equal((await verzoek("POST", `/meldingen/${m.id}/gelezen`, kw)).status, 204);
     assert.equal((await verzoek("GET", "/meldingen", kw)).body.ongelezen, 0);
     assert.equal((await verzoek("GET", "/meldingen?ongelezen=true", pl)).body.meldingen[0].id, m.id);
