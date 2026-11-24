@@ -4031,8 +4031,58 @@ CREATE TRIGGER authorization_personnel_identity_guard BEFORE INSERT OR UPDATE ON
     FOR EACH ROW EXECUTE FUNCTION authorization_personnel_identity_guard();
 REVOKE EXECUTE ON FUNCTION authorization_personnel_identity_guard() FROM PUBLIC;
 
+-- Migratie 0059: persoonlijk bevestigd autorisatiekanaal, zonder eigenaarlogin.
+SET search_path = fabriek, public;
+
+-- Afzonderlijke NOLOGIN-groepsrol. IT maakt persoonlijke database-logins
+-- uitsluitend na organisatorische goedkeuring; geen automatische leden.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mes_security_channel') THEN
+        CREATE ROLE mes_security_channel NOLOGIN;
+    END IF;
+END $$;
+
+-- Elke handeling verifieert opnieuw de persoonlijke MES-identiteit.
+-- Onjuiste wachtwoorden retourneren status zodat de poging gecommit kan worden.
+CREATE FUNCTION authorization_channel_submit(p_actor uuid,p_user uuid,p_role text,
+    p_area text,p_product uuid,p_equipment text,p_from timestamptz,p_until timestamptz,
+    p_reason text,p_password text)
+RETURNS TABLE(status text,request_id uuid)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_id uuid;
+BEGIN
+    SELECT gebruikersnaam INTO v_name FROM gebruiker
+      WHERE id=p_actor AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+    SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN QUERY SELECT 'locked'::text,NULL::uuid; RETURN; END IF;
+    IF v_login.id IS DISTINCT FROM p_actor THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+    v_id := authorization_submit(p_actor,p_user,p_role,p_area,p_product,p_equipment,p_from,p_until,p_reason);
+    RETURN QUERY SELECT 'submitted'::text,v_id;
+END $$;
+
+CREATE FUNCTION authorization_channel_decide(p_actor uuid,p_request uuid,p_approved boolean,p_reason text,p_password text)
+RETURNS TABLE(status text,grant_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+    SELECT * FROM authorization_decide_confirmed(p_actor,p_request,p_approved,p_reason,p_password)
+$$;
+CREATE FUNCTION authorization_channel_revoke(p_actor uuid,p_grant uuid,p_reason text,p_password text)
+RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+    SELECT authorization_revoke_confirmed(p_actor,p_grant,p_reason,p_password)
+$$;
+
+-- Alleen voor de aparte groepsrol; gewone applicatie en PUBLIC nooit.
+REVOKE ALL ON FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,uuid,boolean,text,text),
+ authorization_channel_revoke(uuid,uuid,text,text) FROM PUBLIC;
+GRANT USAGE ON SCHEMA fabriek TO mes_security_channel;
+GRANT EXECUTE ON FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,uuid,boolean,text,text),
+ authorization_channel_revoke(uuid,uuid,text,text) TO mes_security_channel;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -4063,5 +4113,8 @@ ALTER FUNCTION change_password_session(uuid,bigint,text,text) SET search_path = 
 ALTER FUNCTION authorization_recovery_readiness(uuid) SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION operator_van_account(uuid) SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION authorization_personnel_identity_guard() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_decide(uuid,uuid,boolean,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_revoke(uuid,uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 
 COMMIT;

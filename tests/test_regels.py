@@ -144,6 +144,29 @@ def main():
         faalt("App mag bevestigde besluitfunctie niet uitvoeren", "SELECT * FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,req), "permission denied")
     finally:
         con.execute("RESET ROLE")
+    channel_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
+    channel_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
+    channel_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-channel','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    channel_submit = "SELECT * FROM authorization_channel_submit(%s,%s,'operator',NULL,NULL,NULL,now(),NULL,'Testkanaal',%s)"
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Gewone app mag securitykanaal niet aanroepen",channel_submit,(channel_a,channel_target,'demo'),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    con.execute("SET ROLE mes_security_channel")
+    try:
+        faalt("Securitykanaal mag geen directe grants schrijven","INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(channel_target,),"permission denied")
+        faalt("Securitykanaal mag onbevestigde aanvraag niet uitvoeren","SELECT authorization_submit(%s,%s,'operator',NULL,NULL,NULL,now(),NULL,'Test')",(channel_a,channel_target),"permission denied")
+        check("Onjuiste herbevestiging weigert aanvraag",one(channel_submit,(channel_a,channel_target,'onjuist'))[0]=="denied")
+        status, channel_request = one(channel_submit,(channel_a,channel_target,'demo'))
+        check("Bevestigde aanvraag via apart kanaal",status=="submitted")
+        channel_decide = "SELECT * FROM authorization_channel_decide(%s,%s,true,'Testbesluit',%s)"
+        faalt("Geen eigen aanvraag goedkeuren",channel_decide,(channel_a,channel_request,'demo'),"Onafhankelijke")
+        status, channel_grant = one(channel_decide,(channel_b,channel_request,'demo'))
+        check("Onafhankelijk besluit via apart kanaal",status=="decided" and channel_grant is not None)
+        check("Bevestigde intrekking via apart kanaal",val("SELECT authorization_channel_revoke(%s,%s,'Testintrekking','demo')",(channel_b,channel_grant))=="revoked")
+    finally:
+        con.execute("RESET ROLE")
     personnel_manager = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.manager'")
     personnel_system = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'")
     check("Manufacturing Manager heeft personeelsbeheer", val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_manager,)))
