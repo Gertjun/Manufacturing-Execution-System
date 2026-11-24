@@ -23,8 +23,18 @@ const nieuwste = Math.max(...readdirSync(join(ROOT, "db", "migraties")).map((f) 
   const huidig = rows[0].er ? Number((await c.query("SELECT max(nummer) AS n FROM fabriek.schema_versie")).rows[0].n) : 1;
   await c.end();
   if (huidig < nieuwste) stop(`De database staat op schemaversie ${huidig}, versie ${VERSIE} heeft ${nieuwste} nodig. Voer eerst tools/migreer.mjs uit.`);
-  const { rows: b } = await verbind(inst.db).then(async (c2) => { const r = await c2.query("SELECT count(*)::int AS n FROM fabriek.gebruiker WHERE rol = 'beheerder' AND actief"); await c2.end(); return r; });
-  if (b[0].n === 0) console.log("Let op: er is nog geen actieve beheerder. Maak er een met: node tools/beheerder.mjs");
+  const c2 = await verbind(inst.db);
+  try {
+    const { rows: b } = await c2.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM fabriek.gebruiker g
+        WHERE g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen
+          AND g.rol <> 'scherm'
+          AND fabriek.authorization_permits(g.id,'system.read',NULL,NULL,NULL)
+      ) AS beschikbaar
+    `);
+    if (!b[0]?.beschikbaar) console.log("Let op: geen actieve persoonlijke identiteit met globale MES-bevoegdheid system.read. Laat de identiteitsadministratie gecontroleerd beoordelen; geen automatische roltoekenning.");
+  } finally { await c2.end(); }
   if (huidig > nieuwste) stop(`De database (schemaversie ${huidig}) is nieuwer dan deze applicatie (${VERSIE}, schemaversie ${nieuwste}). Gebruik de nieuwere versie.`);
 }
 
