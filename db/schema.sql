@@ -5319,8 +5319,65 @@ ALTER FUNCTION meld_invoerconflict() SET search_path=pg_catalog,fabriek,pg_temp;
 REVOKE ALL ON FUNCTION notification_recipient(uuid,text[]),notification_read_guard(),
  meld_waarde(),meld_besluit(),meld_lotvoorstel(),meld_stilstand(),meld_herbewerking(),meld_keuring(),meld_invoerconflict() FROM PUBLIC;
 
+-- Migratie 0083: configuratiewrites vereisen actuele persoonlijke MES-autorisatie (D100/D101).
+SET search_path = fabriek, public;
+
+-- Globale bevoegdheid conform de bestaande API-contracten. Geen scope
+-- afleiden uit een clientwaarde. De eigenaar blijft voor gecontroleerd
+-- onderhoud en bestaande SECURITY DEFINER-processen verantwoordelijk.
+CREATE FUNCTION configuration_write_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE v_actor uuid;
+BEGIN
+ IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN
+   v_actor:=execution_transaction_actor();
+   IF NOT authorization_permits(v_actor,TG_ARGV[0],NULL,NULL,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele MES-configuratiebevoegdheid: %',TG_ARGV[0] USING ERRCODE='42501';
+   END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $;
+REVOKE ALL ON FUNCTION configuration_write_guard() FROM PUBLIC;
+
+-- Na bestaande identiteitstriggers; vóór log_config en overige wijzigingen.
+CREATE TRIGGER processtap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON processtap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('process.parameter.manage');
+CREATE TRIGGER veld_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON veld
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('process.parameter.manage');
+CREATE TRIGGER veld_product_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON veld_product
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('process.parameter.manage');
+CREATE TRIGGER product_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON product
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('engineering.product.manage');
+CREATE TRIGGER product_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON product_stap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('engineering.product.manage');
+CREATE TRIGGER grondstof_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON grondstof
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('material.definition.manage');
+CREATE TRIGGER stap_grondstof_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON stap_grondstof
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('material.definition.manage');
+CREATE TRIGGER pc_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON pc
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('workstation.manage');
+CREATE TRIGGER pc_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON pc_stap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('workstation.manage');
+CREATE TRIGGER gebruiker_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON gebruiker
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('account.manage');
+CREATE TRIGGER operator_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON operator
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('personnel.manage');
+CREATE TRIGGER ploeg_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON ploeg
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('shift.manage');
+CREATE TRIGGER rooster_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON rooster
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('shift.manage');
+CREATE TRIGGER rooster_ploeg_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON rooster_ploeg
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('shift.manage');
+CREATE TRIGGER stilstand_oorzaak_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON stilstand_oorzaak
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('downtime.reason.manage');
+CREATE TRIGGER capaciteit_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_stap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('planning.manage');
+CREATE TRIGGER capaciteit_afwijking_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_afwijking
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('planning.manage');
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
