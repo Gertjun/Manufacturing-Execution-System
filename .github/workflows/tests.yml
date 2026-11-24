@@ -95,6 +95,19 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
           (cd demo && npm ci --no-audit --no-fund)
           tests/test_schermen.sh
+      - name: Windows-laptoppakket bouwen voor praktijktest
+        if: matrix.node == 26
+        run: |
+          tools/maak_laptoppakket.sh "$RUNNER_TEMP/batch-gui-laptop" windows
+          ls -lh "$RUNNER_TEMP"/batch-gui-laptop-*-windows.zip
+      - name: Windows-laptoppakket als testartefact bewaren
+        if: matrix.node == 26
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: batch-gui-laptop-${{ github.sha }}
+          path: ${{ runner.temp }}/batch-gui-laptop-*-windows.zip
+          if-no-files-found: error
+          retention-days: 14
       - name: Logboeken van de schermtests tonen
         if: failure() && matrix.node == 26
         run: tail -n 40 /tmp/schermtest-*.log || true
