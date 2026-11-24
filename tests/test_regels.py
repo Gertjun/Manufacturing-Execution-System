@@ -1181,7 +1181,7 @@ def main():
 
     print("\nKeuring door Kwaliteit (#64)")
     con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code IN ('S18.3', 'S5.2')")
-    kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    kw_op = val("SELECT operator_van_account(id) FROM gebruiker WHERE gebruikersnaam='mes.quality'")
     check("Kwaliteit heeft een naam voor de invoer", kw_op is not None)
     kb = batch_met("B-2026-0971", prd["PRD-A"])
     for k in range(1, 5):
@@ -1347,7 +1347,7 @@ def main():
 
     print("\nKeuringsstappen en specificaties (#80, D73)")
     con.execute("SELECT zet_route(%s, %s)", (prd["PRD-C"], route_c_keuring))
-    kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    kw_op = val("SELECT operator_van_account(id) FROM gebruiker WHERE gebruikersnaam='mes.quality'")
     tk = batch_met("B-2026-0980", prd["PRD-C"])
     for code in ["PS1", "PS2", "PS3"]:
         doe(tk, code)
@@ -1355,12 +1355,21 @@ def main():
     faalt("Een operator start geen keuringsstap", "SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, op), "is een keuring")
     faalt("Nainvoeren van een keuring kan niet", "SELECT lever_stap_na('TK1', 'B-2026-0980', NULL, %s, %s, now() - interval '2 hours', now() - interval '1 hour', 'papier', %s, '[]', '[]')",
           (pc, kw_op, pl), "is een keuring")
+    legacy_kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    faalt("D101 oude kwaliteitsrol zonder grant start geen keuring",
+          "SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, legacy_kw_op), "MES-keuringsbevoegdheid")
+    con.execute("UPDATE gebruiker SET rol='pending' WHERE gebruikersnaam='mes.quality'")
+    check("D101 kwaliteitsidentiteit zonder legacyrol heeft startpermission",
+          val("SELECT authorization_permits(id,'inspection.start',NULL,%s,NULL) FROM gebruiker WHERE gebruikersnaam='mes.quality'", (prd["PRD-C"],)))
     rtk = val("SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, kw_op))
     check("Kwaliteit start TK1: meteen afgerond, keuring open",
           one("SELECT r.status, k.status FROM stapregistratie r JOIN keuring k ON k.stapregistratie_id = r.id WHERE r.id = %s", (rtk,)) == ("afgerond", "open"))
     faalt("PS4 wacht op de keuring", "SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op), "wacht op Kwaliteit")
     veld_tk = {c: i for c, i in con.execute("SELECT code, id FROM veld WHERE code LIKE 'TK%%' OR code LIKE 'EK%%'")}
     spec_tk1 = val("SELECT id FROM specificatie WHERE processtap_id = %s AND status = 'vastgesteld'", (sid["TK1"],))
+    faalt("D101 oude kwaliteitsrol zonder grant meet niet",
+          "INSERT INTO waarde(stapregistratie_id,veld_id,gemeten,ingevoerd_door) VALUES (%s,%s,4.4,%s)",
+          (rtk,veld_tk["TK1.1"],legacy_kw_op),"MES-meetbevoegdheid")
     w = one("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 4.4, %s) RETURNING markering, grens_max::float, specificatie_id",
             (rtk, veld_tk["TK1.1"], kw_op))
     check("Meting getoetst aan de specificatie: max 4,0, buiten grens, versie bewaard", w == ("buiten_grens", 4.0, spec_tk1), str(w))
@@ -1443,7 +1452,7 @@ def main():
           val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s AND grondstof_id = %s", (rc, gs["GS-A"])) == "LEV-1"
           and val("SELECT status FROM invoerconflict WHERE id = %s", (gcid,)) == "bestaand")
     con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code = 'S1.2'")
-    kw_op1 = val("SELECT operator_van_account(%s)", (kw,))
+    kw_op1 = val("SELECT operator_van_account(id) FROM gebruiker WHERE gebruikersnaam='mes.quality'")
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,410,%s)", (rc, veld["S1.2"], kw_op1))
     val("SELECT leg_invoerconflict_vast(%s, %s, NULL, 415, %s, %s)", (rc, veld["S1.2"], kw_op1, pc))
     kcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"]))

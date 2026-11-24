@@ -55,7 +55,7 @@ operators = {naam: oid for oid, naam in con.execute("SELECT id, naam FROM operat
 opnamen = sorted(operators)
 gebruiker = {n: i for i, n in con.execute("SELECT id, gebruikersnaam FROM gebruiker")}
 # Kwaliteit meet in het lab onder een eigen naam (#64); niet in de lijst van operators op de vloer.
-kwaliteit_op = con.execute("SELECT operator_van_account(%s)", (gebruiker["kwaliteit1"],)).fetchone()[0]
+kwaliteit_op = con.execute("SELECT operator_van_account(%s)", (gebruiker["mes.quality"],)).fetchone()[0]
 producten = [r[0] for r in con.execute("SELECT id FROM product WHERE actief ORDER BY code")]
 productcode = {i: c for i, c in con.execute("SELECT id, code FROM product")}
 stap_grondstoffen: dict = {}

@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- D101 (0088): keuringsstart en oorspronkelijke kwaliteitsmeting vereisen actuele MES-grants en productscope; geen legacy kwaliteitsrol. Fictieve meetidentiteit omgezet; regressies voorbereid. Correctie-/besluitpaden blijven afzonderlijk open.
 - D101 (0087): de laatste legacy-beheerdersrol is geen verplichte accountvoorwaarde meer; gebruikersnaam blijft onveranderlijk, kritieke MES-identiteiten en sessies blijven beschermd. Oude fictieve accounts mogen worden vervangen, historische identiteiten blijven intact. API-rolhelpers verwijderd en serverdiagnose gebruikt system.read. Regressiebewijs open.
 - D24/D100: API-start vereist beperkte database-identiteit; laptop scheidt onderhoud en runtime, gebruikt SCRAM en zet oude authenticatie offline om. Regressies voor effectieve rechten, bootstrap, diagnose en back-upherstel toegevoegd; validatie open.
 - D100: lot-herbewerking gebruikt vergrendeling in gecontroleerde DB-functie zonder extra app-schrijfgrant; grondstofconflict blokkeert afronding tot gemotiveerd besluit (regressie).

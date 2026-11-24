@@ -189,3 +189,5 @@ Fase 1 (0075): functiezoekpaden en oude authenticatie-ingangen aangescherpt; vol
 Fase 1 (0076): expliciete functieallowlist; transitieve runtimevalidatie, tabelrechten en overige legacy-writes open.
 
 Fase 1 (0077): tabelschrijfallowlist; audit-/melding-insert, kolomgrants, leesrechten en resterende legacy-autorisatie nog afschermen.
+
+Fase 1 (0088): keuringsstart en oorspronkelijke kwaliteitsmeting op MES-permissions; fictieve meetidentiteit aangepast. Correcties, legacy-besluiten, fixtures en bewijs nog open.
