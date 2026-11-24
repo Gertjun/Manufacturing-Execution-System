@@ -466,3 +466,32 @@ BEGIN
    END LOOP;
  END IF;
 END $$;
+
+-- D101/0082: alleen vaste eventtriggers schrijven meldingen; leesregistratie
+-- blijft INSERT-only met persoonlijk bewijs en actuele ontvangersbevoegdheid.
+DO $$
+DECLARE login text; grantee text; c record;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=82) THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee := CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON fabriek.melding FROM %s',grantee);
+       EXECUTE format('REVOKE UPDATE,DELETE,TRUNCATE ON fabriek.melding_gelezen FROM %s',grantee);
+       FOR c IN SELECT attrelid::regclass AS tabel,attname FROM pg_attribute
+         WHERE attrelid IN ('fabriek.melding'::regclass,'fabriek.melding_gelezen'::regclass)
+           AND attnum>0 AND NOT attisdropped AND attacl IS NOT NULL LOOP
+         EXECUTE format('REVOKE UPDATE (%I) ON %s FROM %s',c.attname,c.tabel,grantee);
+         IF c.tabel='fabriek.melding'::regclass THEN
+           EXECUTE format('REVOKE INSERT (%I) ON %s FROM %s',c.attname,c.tabel,grantee);
+         END IF;
+       END LOOP;
+       EXECUTE format('REVOKE EXECUTE ON FUNCTION fabriek.notification_read_guard(), fabriek.meld_waarde(), fabriek.meld_besluit(), fabriek.meld_lotvoorstel(), fabriek.meld_stilstand(), fabriek.meld_herbewerking(), fabriek.meld_keuring(), fabriek.meld_invoerconflict() FROM %s',grantee);
+       IF login<>'mes_app' THEN
+         EXECUTE format('REVOKE EXECUTE ON FUNCTION fabriek.notification_recipient(uuid,text[]) FROM %s',grantee);
+       END IF;
+     END IF;
+   END LOOP;
+   GRANT EXECUTE ON FUNCTION fabriek.notification_recipient(uuid,text[]) TO mes_app;
+ END IF;
+END $$;
