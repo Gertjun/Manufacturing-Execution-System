@@ -12,6 +12,29 @@ BEGIN
   EXECUTE format('GRANT CONNECT ON DATABASE %I TO mes_app', current_database());
 END $$;
 
+-- D100: herstel de expliciete ACL vanaf een schoon uitgangspunt, ook bij upgrades.
+-- Tabel-REVOKE alleen verwijdert niet alle afzonderlijke kolomgrants.
+-- CASCADE trekt ook rechten in die via een oude grant-optie zijn doorgegeven.
+DO $$
+DECLARE login text; grantee text; c record;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=92) THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app','mes_security_channel'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee:=CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA fabriek FROM %s CASCADE',grantee);
+       FOR c IN SELECT cl.relname,a.attname FROM pg_attribute a
+         JOIN pg_class cl ON cl.oid=a.attrelid JOIN pg_namespace n ON n.oid=cl.relnamespace
+         WHERE n.nspname='fabriek' AND cl.relkind IN ('r','p','v','m','f')
+           AND a.attnum>0 AND NOT a.attisdropped AND a.attacl IS NOT NULL
+       LOOP
+         EXECUTE format('REVOKE ALL PRIVILEGES (%I) ON fabriek.%I FROM %s CASCADE',c.attname,c.relname,grantee);
+       END LOOP;
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
+
 GRANT USAGE ON SCHEMA fabriek TO mes_app;
 
 -- Lezen en invoeren op alle tabellen en views; nooit tabellen leegmaken of wijzigen.

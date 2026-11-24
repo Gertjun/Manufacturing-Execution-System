@@ -47,6 +47,32 @@ def main():
         check(naam, False, "geen foutmelding")
 
     con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD100 historische tabel- en kolomgrants")
+    con.execute("GRANT UPDATE(gemeten), REFERENCES(id) ON waarde TO mes_app WITH GRANT OPTION")
+    con.execute("GRANT SELECT(proof_hash) ON execution_session TO PUBLIC")
+    con.execute("GRANT SELECT(wachtwoord_hash) ON gebruiker TO mes_security_channel")
+    con.execute("GRANT TRIGGER ON waarde TO mes_app")
+    con.execute("GRANT INSERT(role_code) ON authorization_grant TO PUBLIC")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    for login in ("mes_app","batchgui_app","mes_security_channel"):
+        if val("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(login,)):
+            for tabel,kolom,recht in (("waarde","gemeten","UPDATE"),("waarde","id","REFERENCES"),
+                                       ("execution_session","proof_hash","SELECT"),
+                                       ("gebruiker","wachtwoord_hash","SELECT"),
+                                       ("authorization_grant","role_code","INSERT")):
+                check(f"D100 {login}: oude {tabel}.{kolom} {recht} ingetrokken",
+                      not val("SELECT has_column_privilege(%s,%s,%s,%s)",(login,"fabriek."+tabel,kolom,recht)))
+            check(f"D100 {login}: geen TRIGGER-rechten",
+                  val("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                         WHERE n.nspname='fabriek' AND c.relkind IN ('r','p','v','m','f')
+                           AND has_table_privilege(%s,c.oid,'TRIGGER')""",(login,))==0)
+            check(f"D100 {login}: geen UPDATE-delegatie op waarde",
+                  not val("SELECT has_column_privilege(%s,'fabriek.waarde','gemeten','UPDATE WITH GRANT OPTION')",(login,)))
+    check("D100 toegestane meetinvoer blijft mogelijk",
+          val("SELECT has_table_privilege('mes_app','fabriek.waarde','INSERT')"))
+    check("D100 begrensde accountleesinterface behouden",
+          val("SELECT has_column_privilege('mes_app','fabriek.gebruiker','gebruikersnaam','SELECT')"))
     print("\nD24/D100 effectieve sequencerechten")
     # Simuleer achtergebleven oude grants, inclusief PUBLIC en delegatie.
     con.execute("GRANT SELECT,USAGE,UPDATE ON ALL SEQUENCES IN SCHEMA fabriek TO PUBLIC")
