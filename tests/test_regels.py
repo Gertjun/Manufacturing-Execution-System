@@ -491,6 +491,14 @@ def main():
     rework_approver = val("SELECT id FROM gebruiker WHERE gebruikersnaam='kwaliteit1'")
     first_order = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id=%s),'PS17','te nat na verpakken',%s)",(lot,rework_approver))
     faalt("Afwijkende reden bij opdracht geweigerd","SELECT start_herbewerking(%s,'PS17','andere reden',%s,%s)",(lot,pc,op),"Vooraf geregistreerde")
+    # De historische fictieve Operator A krijgt geen impliciete MES-rechten.
+    faalt("Operator zonder actuele uitvoeringsbevoegdheid geweigerd",
+          "SELECT start_herbewerking(%s,'PS17','te nat na verpakken',%s,%s)",(lot,pc,op),"uitvoeringsbevoegdheid")
+    check("Geweigerde uitvoering consumeert opdracht niet",
+          val("SELECT status FROM herbewerking WHERE id=%s",(first_order,))=="open")
+    # Expliciete fixturegrant door eigenaar, uitsluitend voor deze fictieve test.
+    rework_fixture_user = val("SELECT gebruiker_id FROM operator WHERE id=%s",(op,))
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(rework_fixture_user,))
     h17 = val("SELECT start_herbewerking(%s, 'PS17', 'te nat na verpakken', %s, %s)", (lot, pc, op))
     check("Vooraf bestaande opdracht gekoppeld",val("SELECT stapregistratie_id FROM herbewerking WHERE id=%s",(first_order,))==h17)
     check("Herbewerking zet het lot terug in productie", val("SELECT status FROM lot WHERE id=%s", (lot,)) == "in_productie")

@@ -4510,8 +4510,52 @@ REVOKE ALL ON FUNCTION maak_herbewerking(text,text,text,uuid,uuid),trek_herbewer
  koppel_herbewerking(),rework_history_guard(),rework_order_permission(uuid,uuid,uuid),
  rework_order_confirmed(uuid,bigint,text,text,text,uuid,text),rework_cancel_confirmed(uuid,bigint,uuid,text,text) FROM PUBLIC;
 
+-- Migratie 0065: actuele uitvoeringsbevoegdheid bij consumptie van een legacy-herbewerkingsopdracht.
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION koppel_herbewerking() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_id uuid; v_actor uuid; v_product uuid;
+BEGIN
+    IF NOT NEW.herbewerking_start THEN RETURN NULL; END IF;
+    SELECT h.id INTO v_id FROM herbewerking h
+      WHERE h.status='open' AND h.processtap_id=NEW.processtap_id
+        AND h.batch_id IS NOT DISTINCT FROM NEW.batch_id
+        AND h.lot_id IS NOT DISTINCT FROM NEW.lot_id
+        AND h.aangemaakt_door IS NOT NULL
+        AND btrim(h.reden)=btrim(NEW.reden)
+      FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Vooraf geregistreerde herbewerkingsopdracht vereist';
+    END IF;
+
+    -- De gekoppelde medewerker moet actief en persoonlijk zijn. Het
+    -- autorisatiefundament controleert ook geldigheid en kwalificaties.
+    SELECT g.id INTO v_actor FROM operator o JOIN gebruiker g ON g.id=o.gebruiker_id
+      WHERE o.id=NEW.operator_id AND o.actief AND g.actief
+        AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen
+      FOR SHARE OF o,g;
+    IF v_actor IS NULL THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist voor herbewerking';
+    END IF;
+    IF NEW.batch_id IS NOT NULL THEN
+        SELECT product_id INTO v_product FROM batch WHERE id=NEW.batch_id;
+    ELSE
+        v_product:=lot_product(NEW.lot_id);
+    END IF;
+    IF NOT authorization_permits(v_actor,'execution.rework',NULL,v_product,NULL)
+       OR (NEW.lot_id IS NOT NULL AND EXISTS (
+           SELECT 1 FROM batch b WHERE b.lot_id=NEW.lot_id
+             AND NOT authorization_permits(v_actor,'execution.rework',NULL,b.product_id,NULL))) THEN
+        RAISE EXCEPTION 'Geen actuele uitvoeringsbevoegdheid voor herbewerking';
+    END IF;
+    UPDATE herbewerking SET status='gestart',stapregistratie_id=NEW.id WHERE id=v_id;
+    RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION koppel_herbewerking() FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
