@@ -122,7 +122,7 @@ async function afmelden() {
   const n = (await acties()).filter((a) => a.status === "wacht").length;
   if (n > 0 && !(await bevestig(
     "Toch afmelden?",
-    `Er ${n === 1 ? "staat nog 1 actie" : `staan nog ${n} acties`} klaar om te versturen. Ze blijven op deze pc bewaard en worden verstuurd zodra iemand weer inlogt, met de naam van wie ze invoerde. Verwijder de gegevens van de browser niet.`,
+    `Er ${n === 1 ? "staat nog 1 actie" : `staan nog ${n} acties`} klaar om te versturen. Ze blijven op deze pc bewaard. Alleen je eigen sessie mag ze versturen; andere of oude registraties vragen gecontroleerde beoordeling. Verwijder de gegevens van de browser niet.`,
     "Afmelden",
   ))) return;
   sessie.afmelden();

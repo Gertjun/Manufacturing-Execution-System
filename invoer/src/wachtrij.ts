@@ -19,6 +19,7 @@ export interface Actie {
   /** Moment van invoer op dit apparaat; gaat mee naar de server (D43). */
   aangemaakt: string;
   /** Operator die de actie invoerde. Acties van vóór 0.20.0 hebben dit niet. */
+  userId?: string;
   operatorId?: string;
   operatornaam?: string;
 }
@@ -55,11 +56,12 @@ export async function acties(): Promise<Actie[]> {
   return opslag.alle<Actie>("wachtrij");
 }
 
-export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam">) {
+export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam" | "userId">) {
   await opslag.zet("wachtrij", {
     ...actie,
     status: "wacht",
     aangemaakt: new Date().toISOString(),
+    userId: sessie.inhoud()?.sub,
     operatorId: sessie.inhoud()?.operatorId,
     operatornaam: sessie.operatornaam ?? undefined,
   });
@@ -109,8 +111,16 @@ export async function verwerk(): Promise<void> {
   try {
     for (;;) {
       const alle = await opslag.alle<Actie>("wachtrij");
+      const identiteit = sessie.inhoud();
+      if (!sessie.geldig() || !identiteit || identiteit.gedeeld) { meld({ inloggenNodig: true }); break; }
       const volgende = alle.find((a) => a.status === "wacht");
       if (!volgende) break;
+      // Onzekere herkomst of andere persoon: niets versturen of heretiketteren.
+      if (!volgende.userId || volgende.userId !== identiteit.sub || volgende.operatorId !== identiteit.operatorId) {
+        await opslag.zet("wachtrij", { ...volgende, status: "fout", fout: "Persoonlijke herkomst niet bevestigd; bewaard voor gecontroleerde beoordeling" });
+        await tel();
+        continue;
+      }
       try {
         const antwoord = await stuur("POST", volgende.pad, volgende.body, koppen(volgende));
         meld({ verbonden: true });

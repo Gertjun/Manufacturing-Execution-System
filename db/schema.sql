@@ -3166,8 +3166,18 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek, public AS $
              AND (q.valid_until IS NULL OR now() < q.valid_until) AND q.revoked_at IS NULL))
 $;
 
+-- D93/D94: geen gedeelde login en geen overdracht van invoerrechten via eerdere login.
+SET search_path = fabriek, public;
+CREATE OR REPLACE FUNCTION mag_invoeren_namens(p_gebruiker uuid, p_operator uuid, p_pc uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = fabriek, public AS $
+    SELECT EXISTS (SELECT 1 FROM operator o JOIN gebruiker g ON g.id = o.gebruiker_id
+      JOIN pc ON pc.id = p_pc AND pc.actief
+      WHERE o.id = p_operator AND o.actief AND g.id = p_gebruiker
+        AND g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen)
+$;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

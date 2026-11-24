@@ -33,16 +33,6 @@ async function login(naam: string, pc?: string): Promise<string> {
   return r.body.token;
 }
 
-/** Gedeeld account (D6): kies een naam. Eigen account (D53): de naam ligt vast, het token blijft. */
-async function kiesNaam(token: string, naam = "Operator C"): Promise<string> {
-  if (!JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).gedeeld) return token;
-  const ops = await verzoek("GET", "/auth/operators", token);
-  const id = ops.body.find((o: { naam: string }) => o.naam === naam).id;
-  const r = await verzoek("POST", "/auth/operator", token, { operatorId: id });
-  assert.equal(r.status, 200);
-  return r.body.token;
-}
-
 /** Normale fictieve waarden voor alle velden van een registratie. */
 function waardenVoor(reg: any, afwijkend: Record<string, [number | null, number]> = {}) {
   return reg.velden.map((v: any) => {
@@ -109,11 +99,9 @@ describe("inloggen en rollen", () => {
   test("zonder token geen toegang", async () => {
     assert.equal((await verzoek("GET", "/config/stappen")).status, 401);
   });
-  test("operator moet eerst een naam kiezen voor invoer", async () => {
-    const t = await login("operator", "PC-01");
-    const r = await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0999" });
-    assert.equal(r.status, 400);
-    assert.match(r.body.fout, /naam/);
+  test("gedeeld account kan niet inloggen", async () => {
+    const r = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "operator", wachtwoord: "demo", pc: "PC-01" });
+    assert.equal(r.status, 403);
   });
   test("analist mag geen invoer doen", async () => {
     const t = await login("analist1");
@@ -139,8 +127,8 @@ describe("productie van batch tot lot", () => {
   let pl: string;
 
   before(async () => {
-    op = await kiesNaam(await login("operator", "PC-01"));
-    pl = await kiesNaam(await login("ploegleider1", "PC-02"));
+    op = await login("operator.c", "PC-01");
+    pl = await login("ploegleider1", "PC-02");
   });
 
   test("batchnummer met verkeerd formaat geeft 400", async () => {
@@ -468,14 +456,14 @@ describe("beheer", () => {
 
 describe("werkvoorraad en apparaat-id's", () => {
   test("batch met eigen id twee keer versturen geeft één batch", async () => {
-    const op = await kiesNaam(await login("operator", "PC-03"));
+    const op = await login("operator.c", "PC-03");
     const id = randomUUID();
     assert.equal((await verzoek("POST", "/batches", op, { id, batchnummer: "B-2026-0200" })).status, 201);
     assert.equal((await verzoek("POST", "/batches", op, { id, batchnummer: "B-2026-0200" })).status, 200);
     assert.equal((await verzoek("POST", "/batches", op, { id, batchnummer: "B-2026-0201" })).status, 409);
   });
   test("NOK breekt een open stap af", async () => {
-    const op = await kiesNaam(await login("operator", "PC-03"));
+    const op = await login("operator.c", "PC-03");
     const pl = await login("ploegleider1");
     const kw = await login("kwaliteit1");
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0300" })).status, 201);
@@ -820,7 +808,7 @@ describe("Portaal Planning", () => {
 
   before(async () => {
     planner = await login("planner1");
-    op = await kiesNaam(await login("operator", "PC-04"));
+    op = await login("operator.c", "PC-04");
     const { rows } = await beheerDb.query("SELECT current_date::text AS v, (current_date + 1)::text AS m");
     vandaag = rows[0].v;
     morgen = rows[0].m;
@@ -1122,7 +1110,7 @@ describe("Wandscherm", () => {
     assert.equal(fout.status, 404);
     assert.match(fout.body.fout, /PS99/);
     // Operators zien het wandscherm niet (die hebben het invoerscherm).
-    assert.equal((await verzoek("GET", "/wandscherm", await login("operator", "PC-01"))).status, 403);
+    assert.equal((await verzoek("GET", "/wandscherm", await login("operator.c", "PC-01"))).status, 403);
     await beheerDb.query("UPDATE fabriek.gebruiker SET actief = false WHERE gebruikersnaam = 'scherm1'");
     assert.equal((await verzoek("GET", "/wandscherm", t)).status, 401);
     await beheerDb.query("UPDATE fabriek.gebruiker SET actief = true WHERE gebruikersnaam = 'scherm1'");
@@ -1140,8 +1128,8 @@ describe("Wandscherm", () => {
 
 describe("Grondstoffen", () => {
   test("invoeren, verplicht bij afronden, correctie, terugzoeken en lotpaspoort", async () => {
-    const op = await kiesNaam(await login("operator", "PC-05"));
-    const pl = await kiesNaam(await login("ploegleider1", "PC-05"));
+    const op = await login("operator.c", "PC-05");
+    const pl = await login("ploegleider1", "PC-05");
     const cfg = await verzoek("GET", "/config/stappen", op);
     assert.deepEqual(cfg.body.find((s: any) => s.code === "PS1").grondstoffen.map((g: any) => g.code), ["GS-A"]);
     assert.equal((await verzoek("POST", "/batches", op, { batchnummer: "B-2026-0700" })).status, 201);
@@ -1202,7 +1190,7 @@ describe("Grondstoffen", () => {
 
 describe("Ploegoverdracht", () => {
   test("huidige ploeg, schrijven (ook opnieuw versturen), vorige ploeg en per dag", async () => {
-    const op = await kiesNaam(await login("operator", "PC-02"));
+    const op = await login("operator.c", "PC-02");
     const ploegen = await verzoek("GET", "/overdracht/ploegen", op);
     assert.deepEqual(ploegen.body.map((p: any) => p.code), ["O", "M", "N"]);
     const nu = await verzoek("GET", "/overdracht", op);
@@ -1284,7 +1272,7 @@ describe("Ploegoverdracht", () => {
 
 describe("Meldingen", () => {
   test("buiten grens, beoordeling en keurresultaat komen bij de juiste rollen; gelezen per persoon", async () => {
-    const op = await kiesNaam(await login("operator", "PC-06"));
+    const op = await login("operator.c", "PC-06");
     const pl = await login("ploegleider2");
     const kw = await login("kwaliteit1");
     const pn = await login("planner1");
@@ -1322,7 +1310,7 @@ describe("Meldingen", () => {
 
 describe("Stilstand", () => {
   test("melden, opnieuw versturen, één tegelijk, beëindigen, melding, wandscherm en analyse", async () => {
-    const op = await kiesNaam(await login("operator", "PC-07"));
+    const op = await login("operator.c", "PC-07");
     const oorzaken = await verzoek("GET", "/stilstand/oorzaken", op);
     assert.equal(oorzaken.body[0].categorie, "storing");
     const id = randomUUID();
@@ -1605,9 +1593,8 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
   }
 
   test("start, waarden en afronden krijgen het moment van invoer, gecorrigeerd voor de klok van de pc", async () => {
-    const tokenA = await kiesNaam(await login("operator", "PC-01"), "Operator C");
-    const ops = await verzoek("GET", "/auth/operators", tokenA);
-    const opB = ops.body.find((o: { naam: string }) => o.naam === "Operator D");
+    const tokenA = await login("operator.d", "PC-01");
+    const [opB] = (await beheerDb.query("SELECT id FROM fabriek.operator WHERE naam = 'Operator D'")).rows;
     assert.ok(opB, "Operator D bestaat");
     const nu = Date.now();
     const klok = -60 * 60 * 1000; // klok van de pc loopt een uur achter
@@ -1620,7 +1607,7 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     assert.equal((await metKoppen("POST", "/batches", tokenA, koppen(3 * 3600e3), { id: randomUUID(), batchnummer: nr })).status, 201);
     const start = await metKoppen("POST", "/registraties", tokenA, koppen(3 * 3600e3), { id: randomUUID(), stapcode: "PS1", batchnummer: nr });
     assert.equal(start.status, 201, JSON.stringify(start.body));
-    assert.equal(start.body.operator, "Operator D", "de operator van de wachtrij, niet die van het token");
+    assert.equal(start.body.operator, "Operator D", "persoonlijke operator van de wachtrij");
     const verschil = Math.abs(Date.parse(start.body.gestart_op) - (nu - 3 * 3600e3));
     assert.ok(verschil < 60_000, `gestart_op wijkt ${verschil} ms af`);
 
@@ -1651,7 +1638,7 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
   });
 
   test("zonder koppen (oudere invoerschermen) blijft alles zoals het was", async () => {
-    const token = await kiesNaam(await login("operator", "PC-01"), "Operator C");
+    const token = await login("operator.c", "PC-01");
     const nr = "B-2026-8002";
     assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
     const start = await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: nr });
@@ -1660,13 +1647,12 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     assert.ok(Math.abs(Date.parse(start.body.gestart_op) - Date.now()) < 60_000);
   });
 
-  test("een ongeldige operatorkop telt niet", async () => {
-    const token = await kiesNaam(await login("operator", "PC-01"), "Operator C");
+  test("een ongeldige operatorkop wordt geweigerd", async () => {
+    const token = await login("operator.c", "PC-01");
     const nr = "B-2026-8003";
     assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
     const start = await metKoppen("POST", "/registraties", token, { "x-batchgui-operator": "geen-uuid" }, { stapcode: "PS1", batchnummer: nr });
-    assert.equal(start.status, 201);
-    assert.equal(start.body.operator, "Operator C");
+    assert.equal(start.status, 403);
   });
 
   test("startpagina: inloggen zonder pc, dan met /auth/pc naar het invoerscherm (D54)", async () => {
@@ -1702,16 +1688,14 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     assert.ok(JSON.parse(Buffer.from(r.body.token.split(".")[1], "base64url").toString()).operatorId, "naam in het token");
   });
 
-  test("eigen account: naam ligt vast, invoer op een andere naam alleen na inlog op deze pc (D53)", async () => {
+  test("eigen account: naam ligt vast, andere identiteit ook na login geweigerd (D94)", async () => {
     const r = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "operator.a", wachtwoord: "demo", pc: "PC-08" });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.naamKiezen, false);
     assert.equal(r.body.operator.naam, "Operator A");
     const tokenA = r.body.token;
-    const ops = (await verzoek("GET", "/auth/operators", tokenA)).body;
-    assert.ok(!ops.some((o: { naam: string }) => o.naam === "Operator A" || o.naam === "Operator B"), "namen met een eigen account staan niet in de keuzelijst");
-    const opC = ops.find((o: { naam: string }) => o.naam === "Operator C");
-    assert.equal((await verzoek("POST", "/auth/operator", tokenA, { operatorId: opC.id })).status, 403, "eigen account kiest geen andere naam");
+    assert.equal((await verzoek("GET", "/auth/operators", tokenA)).status, 404);
+    assert.equal((await verzoek("POST", "/auth/operator", tokenA, { operatorId: randomUUID() })).status, 404);
     const nr = "B-2026-8020";
     assert.equal((await verzoek("POST", "/batches", tokenA, { batchnummer: nr })).status, 201);
     const start = await verzoek("POST", "/registraties", tokenA, { stapcode: "PS1", batchnummer: nr });
@@ -1721,13 +1705,11 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     const nr2 = "B-2026-8021";
     const fout = await metKoppen("POST", "/batches", tokenA, { "x-batchgui-operator": opB.id }, { batchnummer: nr2 });
     assert.equal(fout.status, 403, JSON.stringify(fout.body));
-    assert.match(fout.body.melding ?? fout.body.message ?? JSON.stringify(fout.body), /Operator B/);
-    // Na een inlog van operator.b op PC-08 mag het wel (persoonswissel, wachtrij van de pc).
+
+    // Een eerdere login geeft geen bevoegdheid namens een andere persoon.
     await login("operator.b", "PC-08");
-    assert.equal((await metKoppen("POST", "/batches", tokenA, { "x-batchgui-operator": opB.id }, { batchnummer: nr2 })).status, 201);
-    // Gedeeld account mag geen naam met een eigen account kiezen.
-    const gedeeld = await login("operator", "PC-08");
-    assert.equal((await verzoek("POST", "/auth/operator", gedeeld, { operatorId: opB.id })).status, 403);
+    assert.equal((await metKoppen("POST", "/batches", tokenA, { "x-batchgui-operator": opB.id }, { batchnummer: nr2 })).status, 403);
+
   });
 });
 
@@ -1875,7 +1857,7 @@ describe("Een 0 blijft een 0 (0.23.0)", () => {
     assert.equal(Number(r.body.grens_min), 0);
     const leeg = await verzoek("PATCH", "/beheer/velden/S6.1", bh, { grens_min: null });
     assert.equal(leeg.body.grens_min, null, "null blijft null");
-    const token = await kiesNaam(await login("operator", "PC-01"), "Operator C");
+    const token = await login("operator.c", "PC-01");
     const nr = "B-2026-8010";
     assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
     const start = await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: nr });
@@ -1889,7 +1871,7 @@ describe("Een 0 blijft een 0 (0.23.0)", () => {
 
 describe("Pilotoverzicht (#77, D66)", () => {
   test("geweigerde invoer van een pc wordt vastgelegd, niet-ingelogd en lezen niet", async () => {
-    const token = await kiesNaam(await login("operator", "PC-02"), "Operator C");
+    const token = await login("operator.c", "PC-02");
     const voor = Number((await beheerDb.query("SELECT count(*) FROM fabriek.geweigerde_invoer")).rows[0].count);
     const fout = await verzoek("POST", "/registraties", token, { stapcode: "PS1", batchnummer: "B-2026-9999" });
     assert.ok(fout.status >= 400 && fout.status < 500, JSON.stringify(fout.body));
@@ -1909,7 +1891,7 @@ describe("Pilotoverzicht (#77, D66)", () => {
     const bh = await login("beheerder1");
     assert.equal((await verzoek("GET", "/pilot", await login("planner1"))).status, 403);
     // Een start die een uur te laat binnenkomt (offline op de pc).
-    const token = await kiesNaam(await login("operator", "PC-03"), "Operator C");
+    const token = await login("operator.c", "PC-03");
     const nr = "B-2026-8077";
     assert.equal((await verzoek("POST", "/batches", token, { batchnummer: nr })).status, 201);
     const r = await app.inject({ method: "POST", url: "/registraties", payload: { id: randomUUID(), stapcode: "PS1", batchnummer: nr },

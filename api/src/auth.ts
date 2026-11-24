@@ -69,7 +69,7 @@ function kop(req: FastifyRequest, naam: string): string | undefined {
  */
 export function operatorVan(req: FastifyRequest): string | undefined {
   const k = kop(req, "x-batchgui-operator");
-  if (k && UUID.test(k) && INVOER.includes(req.user.rol)) return k.toLowerCase();
+  if (k && (!UUID.test(k) || k.toLowerCase() !== req.user.operatorId)) throw new ApiFout(403, "De operator van deze invoer komt niet overeen met je persoonlijke account");
   return req.user.operatorId;
 }
 
@@ -102,12 +102,12 @@ export async function invoerContext(db: Db, req: FastifyRequest): Promise<{ pcId
   const { pcId } = req.user;
   const operatorId = operatorVan(req);
   if (!pcId) throw new ApiFout(400, "Geen pc bekend; log in vanaf een geregistreerde pc");
-  if (!operatorId) throw new ApiFout(400, req.user.gedeeld ? "Kies eerst je naam" : "Je account heeft geen naam; log opnieuw in");
-  if (operatorId !== req.user.operatorId) {
+  if (!operatorId) throw new ApiFout(400, "Je account heeft geen naam; log opnieuw in");
+  {
     const [r] = await lees<{ mag: boolean; naam: string | null }>(db,
       "SELECT mag_invoeren_namens($1, $2, $3) AS mag, (SELECT naam FROM operator WHERE id = $2) AS naam", [req.user.sub, operatorId, pcId]);
     if (!r?.mag) {
-      throw new ApiFout(403, `Deze invoer staat op naam van ${r?.naam ?? "een onbekende naam"}, die de laatste 7 dagen niet op deze pc heeft ingelogd. Een ploegleider kan hem bekijken.`);
+      throw new ApiFout(403, `Deze invoer staat op naam van ${r?.naam ?? "een onbekende naam"}, die niet bevoegd is voor deze persoonlijke sessie. Een ploegleider kan hem bekijken.`);
     }
   }
   return { pcId, operatorId };

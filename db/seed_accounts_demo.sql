@@ -18,12 +18,17 @@ FROM (VALUES ('operator',     'operator'),
              ('productiemanager1', 'productiemanager'),
              ('scherm1',      'scherm'),
              ('operator.a',   'operator'),
-             ('operator.b',   'operator')) v(naam, rol);
+             ('operator.b',   'operator'),
+             ('operator.c',   'operator'),
+             ('operator.d',   'operator')) v(naam, rol);
 
--- Het oude gedeelde operatoraccount (naam kiezen, D6) blijft in de demo om de overgang te laten zien (D53).
+-- Alleen als negatieve regressiefixture: gedeelde login wordt geweigerd (D93).
 UPDATE gebruiker SET gedeeld = true WHERE gebruikersnaam = 'operator';
 -- Eigen accounts, gekoppeld aan een bestaande naam: hun invoer staat op Operator A en Operator B.
 UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.a') WHERE naam = 'Operator A';
 UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.b') WHERE naam = 'Operator B';
+
+UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.c') WHERE naam = 'Operator C';
+UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.d') WHERE naam = 'Operator D';
 
 COMMIT;

@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES D94: eerdere pc-login geeft geen invoerrecht namens een ander; lokale acties met onzekere herkomst worden bewaard voor beoordeling. Persoonlijke testaccounts C en D toegevoegd. Offline acceptatie nog open.
 - MES: gedeelde operatorlogins en naamkeuze geblokkeerd in API en invoerscherm; test- en offline-migratie nog in uitvoering (D93).
 - MES #107: Excel-import en sjabloon voor gebruikersaccounts verwijderd (D92); persoonlijk accountbeheer en tijdelijke wachtwoorden behouden.
 - MES #107–#108 (deel): migratie 0036 voegt rollen, rechten, scopes, kwalificaties en een legacy-rolmomentopname toe; databasebeslissing en directe schrijfbeperkingen. Oude autorisatie nog actief; integratie en tests volgen.

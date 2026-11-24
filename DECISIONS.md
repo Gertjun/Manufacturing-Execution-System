@@ -513,3 +513,7 @@ Op verzoek van Geert vervalt de accountimport uit D61/#76, inclusief het account
 ### D93 – Gedeeld operatoraccount vervalt (24 nov 2026)
 
 Geert akkoord: uitsluitend persoonlijke operatoraccounts; geen naamkeuze na inloggen. Historische operatoridentiteiten behouden. Oude offline registraties gecontroleerd afhandelen, niet wissen. Testaccounts en regressies aanpassen; geen omschakeling naar productie vóór acceptatie.
+
+### D94 – Geen bevoegdheid namens een ander door eerdere pc-login (24 nov 2026)
+
+Geert akkoord mits passend bij ISA-georiënteerde architectuur. De zevendagenregel voor persoonsverwisseling vervalt; dit is geen claim van formele ISA-conformiteit. Persoonlijke sessie en oorspronkelijke operator moeten overeenkomen. Lokale oude/onverifieerbare acties worden niet gewist of automatisch heretiketteerd. De tijdelijke implementatie zet deze apart voor beoordeling; vooraf begrensde offline autorisatie en gecontroleerde afhandeling volgen nog. De maximale ouderdom van offline registraties is een afzonderlijke ontwerpkeuze.
