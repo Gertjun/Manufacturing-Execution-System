@@ -1304,6 +1304,17 @@ def main():
           ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu + dt.timedelta(hours=1), "storing", mes_corrector, w1, g1), "toekomst")
     faalt("Einde vóór het begin kan niet", na,
           ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu - dt.timedelta(hours=2), "storing", mes_corrector, w1, g1), "na het begin")
+    # De eerdere kwalificatietest heeft voor execution.record een fictieve
+    # opleiding verplicht gemaakt. Toets die eis ook bij papieren nalevering,
+    # en geef uitsluitend deze testidentiteit de passende fictieve kwalificatie.
+    check("D101 supervisor zonder vereiste kwalificatie mag niet registreren",
+          not val("SELECT authorization_permits(%s,'execution.record',NULL,(SELECT product_id FROM batch WHERE id=%s),NULL)", (mes_corrector,bn)))
+    faalt("D101 papieren nalevering zonder kwalificatie geweigerd", na,
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", mes_corrector, w1, g1), "MES-bevoegdheid")
+    con.execute("INSERT INTO personnel_qualification(user_id,qualification_code) VALUES (%s,'test_training')", (mes_corrector,))
+    for permission in ("execution.correct","execution.start","execution.record","execution.complete","execution.lot.create"):
+        check("D101 bevoegde gekwalificeerde supervisor: "+permission,
+              val("SELECT authorization_permits(%s,%s,NULL,(SELECT product_id FROM batch WHERE id=%s),NULL)", (mes_corrector,permission,bn)))
     rn = val(na, ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "server en pc uit", mes_corrector, w1, g1))
     r = con.execute("""SELECT status, gestart_op, afgerond_op, nageleverd_door, nageleverd_reden, afgerond_door,
                               (SELECT count(*) FROM waarde w WHERE w.stapregistratie_id = r.id AND w.ingevoerd_op = r.afgerond_op)
