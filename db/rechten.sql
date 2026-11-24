@@ -421,3 +421,21 @@ BEGIN
    GRANT SELECT (id,gebruikersnaam,rol,actief,gedeeld,wachtwoord_wijzigen,session_version) ON fabriek.gebruiker TO mes_app;
  END IF;
 END $$;
+
+-- Vanaf 0079 geen directe auditwrites, ook niet via oude kolomgrants.
+DO $$
+DECLARE login text; grantee text; c record;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=79) THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee := CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON fabriek.config_log FROM %s',grantee);
+       EXECUTE format('REVOKE EXECUTE ON FUNCTION fabriek.log_config() FROM %s',grantee);
+       FOR c IN SELECT attname FROM pg_attribute WHERE attrelid='fabriek.config_log'::regclass AND attnum>0 AND NOT attisdropped AND attacl IS NOT NULL LOOP
+         EXECUTE format('REVOKE INSERT (%I), UPDATE (%I) ON fabriek.config_log FROM %s',c.attname,c.attname,grantee);
+       END LOOP;
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
