@@ -92,7 +92,7 @@ DO $$
 DECLARE login text; f record;
 BEGIN
   FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable','authorization_guard_legacy_role','authorization_bootstrap_empty','authorization_recover_confirmed','authorization_session_version','authorization_recovery_readiness') LOOP
+           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable','authorization_guard_legacy_role','authorization_bootstrap_empty','authorization_recover_confirmed','authorization_session_version','authorization_recovery_readiness','authorization_personnel_identity_guard') LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f.sig);
     FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
@@ -163,6 +163,23 @@ BEGIN
         EXECUTE format('REVOKE UPDATE (session_version), INSERT (session_version) ON fabriek.gebruiker FROM %s', CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END);
         IF login<>'PUBLIC' THEN
           EXECUTE format('GRANT SELECT (session_version), UPDATE (gebruikersnaam,rol,actief,gedeeld,wachtwoord_hash,wachtwoord_wijzigen), INSERT (gebruikersnaam,rol,actief,gedeeld,wachtwoord_hash,wachtwoord_wijzigen) ON fabriek.gebruiker TO %I',login);
+        END IF;
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+-- Geen directe wijzigingen aan de koppeling tussen persoon en account.
+DO $$
+DECLARE login text;
+BEGIN
+  IF to_regprocedure('fabriek.authorization_personnel_identity_guard()') IS NOT NULL THEN
+    FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app','PUBLIC'] LOOP
+      IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+        EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.operator FROM %s', CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END);
+        EXECUTE format('REVOKE INSERT (gebruiker_id,id), UPDATE (gebruiker_id,id) ON fabriek.operator FROM %s', CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END);
+        IF login<>'PUBLIC' THEN
+          EXECUTE format('GRANT INSERT (naam,actief,ploeg_id), UPDATE (naam,actief,ploeg_id) ON fabriek.operator TO %I',login);
         END IF;
       END IF;
     END LOOP;

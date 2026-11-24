@@ -144,6 +144,19 @@ def main():
         faalt("App mag bevestigde besluitfunctie niet uitvoeren", "SELECT * FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,req), "permission denied")
     finally:
         con.execute("RESET ROLE")
+    personnel_manager = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.manager'")
+    personnel_system = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'")
+    check("Manufacturing Manager heeft personeelsbeheer", val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_manager,)))
+    check("Technisch beheer heeft geen personeelsbeheer", not val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_system,)))
+    unlinked = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-unlinked','operator',wachtwoord_hash('demo-test')) RETURNING id")
+    check("Loginprojectie maakt geen persoon aan", val("SELECT operator_van_account(%s)",(unlinked,)) is None)
+    check("Geen nieuwe personeelskoppeling", val("SELECT count(*) FROM operator WHERE gebruiker_id=%s",(unlinked,)) == 0)
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag personeelskoppeling niet wijzigen", "UPDATE operator SET gebruiker_id=%s WHERE gebruiker_id=%s",(unlinked,demo_operator),"permission denied")
+        faalt("App mag gekoppelde persoon niet aanmaken", "INSERT INTO operator(naam,gebruiker_id) VALUES ('test-koppeling',%s)",(unlinked,),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
     recovery_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-recovery','pending',wachtwoord_hash('demo-test')) RETURNING id")
     recovery_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
     recovery_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")

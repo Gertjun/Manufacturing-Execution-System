@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: scheid personeelsbeheer van technisch accountbeheer en stop automatische personeelscreatie bij login (0058).
 - MES: eigenaar-only diagnose van onafhankelijke herstelmogelijkheden, zonder automatische noodtoegang (0057).
 - MES: accountgebonden sessiegeneratie en intrekking oude tokens bij identiteitswijziging (0056).
 - MES: eigenaar-only onafhankelijk accountherstel met persoonlijke herbevestiging en auditrecord (0055); sessie-intrekking en aansluiting nog open.

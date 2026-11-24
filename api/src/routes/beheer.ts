@@ -460,8 +460,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     tijdelijk: Type.Optional(Type.Boolean({ description: "Het wachtwoord is tijdelijk: de gebruiker kiest bij de volgende inlog een eigen wachtwoord (#76)" })),
     ploeg: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Ploeg van de medewerker, zoals A1 (sinds 0.54.0, #87)" })),
   });
-  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, o.naam, g.wachtwoord_wijzigen AS tijdelijk, rp.code AS ploeg
-                         FROM gebruiker g LEFT JOIN operator o ON o.gebruiker_id = g.id LEFT JOIN rooster_ploeg rp ON rp.id = o.ploeg_id`;
+  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, g.wachtwoord_wijzigen AS tijdelijk
+                         FROM gebruiker g`;
   const PloegCode = Type.Union([Type.Null(), Type.String({ pattern: "^[A-Za-z][1-9]$" })], { description: "Ploeg zoals A1 (letter en divisie, D76); null = geen ploeg" });
   /** Zet de ploeg van een medewerker; een onbekende ploeg is een fout. */
   async function zetPloeg(tx: Tx, operatorId: string, ploeg: string | null) {
@@ -551,17 +551,18 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                           FROM operator o LEFT JOIN gebruiker g ON g.id = o.gebruiker_id LEFT JOIN rooster_ploeg rp ON rp.id = o.ploeg_id`;
   app.get(
     "/operators",
-    { preHandler: requiresPermission("account.read"), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
+    { preHandler: requiresPermission("personnel.read"), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
     async () => (await lees(app.db, `${OPERATOR_SQL} ORDER BY o.actief DESC, o.naam`)) as never,
   );
   app.post(
     "/operators",
     {
-      preHandler: requiresPermission("account.manage"),
+      preHandler: requiresPermission("personnel.manage"),
       schema: { tags: ["beheer"], body: Type.Object({ naam: Type.String({ minLength: 1, maxLength: 60 }), ploeg: Type.Optional(PloegCode) }, { additionalProperties: false }), response: { 201: Operator } },
     },
     async (req, reply) => {
       const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "personnel.manage");
         const { rows: [o] } = await tx.query<{ id: string }>("INSERT INTO operator (naam) VALUES ($1) RETURNING id", [req.body.naam.trim()]);
         if (req.body.ploeg) await zetPloeg(tx, o.id, req.body.ploeg);
         return tx.query(`${OPERATOR_SQL} WHERE o.id = $1`, [o.id]);
@@ -572,7 +573,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/operators/:id",
     {
-      preHandler: requiresPermission("account.manage"),
+      preHandler: requiresPermission("personnel.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
@@ -583,6 +584,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "personnel.manage");
         const u = await tx.query("UPDATE operator SET naam = coalesce($2, naam), actief = coalesce($3, actief) WHERE id = $1 RETURNING id",
           [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null]);
         if (!u.rows[0]) throw niet("Operator");

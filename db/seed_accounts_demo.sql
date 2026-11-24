@@ -54,6 +54,12 @@ FROM (VALUES
  ('mes.display','scherm')
 ) v(naam,rol);
 
+-- Expliciete fictieve personeelskoppelingen; login maakt geen personen meer aan.
+INSERT INTO operator(naam,gebruiker_id)
+SELECT g.gebruikersnaam,g.id FROM gebruiker g
+WHERE NOT g.gedeeld AND g.rol IN ('operator','ploegleider','kwaliteit')
+AND NOT EXISTS (SELECT 1 FROM operator o WHERE o.gebruiker_id=g.id);
+
 -- Uitsluitend door de database-eigenaar geladen demo-bootstrap.
 -- Geen automatische toekenning tijdens upgrade van echte databases.
 INSERT INTO authorization_grant(user_id,role_code)

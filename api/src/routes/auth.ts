@@ -52,7 +52,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       }
       // Zonder pc mag ook (startpagina, D54); invoeren vraagt een pc (invoerContext), die komt via /auth/pc.
       // Eigen account: de naam waaronder je invoert ligt vast (D53). Gedeeld account: naam kiezen (D6).
-      // Twee stappen: operator_van_account kan een naam aanmaken, die een query pas in de volgende stap ziet.
+      // Alleen bestaande gecontroleerde personeelskoppelingen worden opgehaald.
       const [ac] = await inTransactie(app.db, gebruiker.naam, async (tx) => {
         const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [gebruiker.id]);
         return (await tx.query<{ gedeeld: boolean; operator_id: string | null; operatornaam: string | null; ww: boolean }>(
