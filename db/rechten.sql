@@ -535,3 +535,18 @@ BEGIN
    END LOOP;
  END IF;
 END $$;
+
+-- 0086: eigenaarprocedures; geen directe audit- of kwalificatiewrites.
+DO $$
+DECLARE login text; grantee text;
+BEGIN
+ IF to_regclass('fabriek.qualification_issue') IS NOT NULL THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app','mes_security_channel'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee:=CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE ALL ON fabriek.qualification_issue,fabriek.qualification_revocation FROM %s',grantee);
+       EXECUTE format('REVOKE ALL ON FUNCTION fabriek.qualification_is_operations(text),fabriek.qualification_issue_confirmed(uuid,text,timestamptz,timestamptz,uuid,uuid,text,text,text),fabriek.qualification_revoke_confirmed(uuid,uuid,text,text) FROM %s',grantee);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;

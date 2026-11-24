@@ -383,6 +383,42 @@ def main():
     faalt("Bestaande koppeling niet overschrijven",link_sql,link_args,"Uitsluitend eerste")
     faalt("Koppelbewijs onveranderlijk","UPDATE authorization_personnel_link SET reason='gewijzigd' WHERE personnel_id=%s",(link_person,),"onveranderlijk")
 
+    # 0086: operationele kwalificatie, twee inhoudelijke beoordelaars, intrekking.
+    qual_manager = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-qual-manager','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'manufacturing_manager')",(qual_manager,))
+    con.execute("INSERT INTO authorization_permission VALUES ('test.qualified.activity','operations')")
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_operator','test.qualified.activity')")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'test_operator')",(link_target,))
+    con.execute("INSERT INTO qualification VALUES ('test_0086','Fictieve kwalificatie 0086'),('test_0086_unknown','Niet geclassificeerd')")
+    con.execute("INSERT INTO activity_qualification VALUES ('test.qualified.activity','test_0086')")
+    issue_sql = "SELECT * FROM qualification_issue_confirmed(%s,%s,now()-interval '1 minute',now()+interval '1 day',%s,%s,'Fictief bewijs',%s,%s)"
+    issue_args = (link_target,'test_0086',link_manager,qual_manager,'demo-test','demo-test')
+    check("0086 Zonder kwalificatie geen activiteit",not val("SELECT authorization_permits(%s,'test.qualified.activity',NULL,NULL,NULL)",(link_target,)))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("0086 App mag kwalificatie niet toekennen",issue_sql,issue_args,"permission denied")
+        faalt("0086 App mag geen bewijs fabriceren","INSERT INTO qualification_issue DEFAULT VALUES",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    faalt("0086 Geen eigen of dubbele beoordeling",issue_sql,(link_target,'test_0086',link_manager,link_manager,'demo-test','demo-test'),"Onafhankelijke")
+    faalt("0086 Security beoordeelt geen vakbekwaamheid",issue_sql,(link_target,'test_0086',link_manager,link_security,'demo-test','demo-test'),"inhoudelijk")
+    faalt("0086 Ongeclassificeerde kwalificatie geweigerd",issue_sql,(link_target,'test_0086_unknown',link_manager,qual_manager,'demo-test','demo-test'),"geclassificeerde")
+    check("0086 Onjuiste bevestiging geweigerd",one(issue_sql,(*issue_args[:5],'onjuist'))==('denied',None))
+    check("0086 Geen kwalificatie na geweigerde bevestiging",val("SELECT count(*) FROM personnel_qualification WHERE user_id=%s AND qualification_code='test_0086'",(link_target,))==0)
+    qual_status, qual_id=one(issue_sql,issue_args)
+    check("0086 Onafhankelijke toekenning slaagt",qual_status=='issued' and qual_id is not None)
+    check("0086 Kwalificatie geeft toegang uitsluitend met grant",val("SELECT authorization_permits(%s,'test.qualified.activity',NULL,NULL,NULL)",(link_target,)))
+    check("0086 Bewijs koppelt beide beoordelaars",val("SELECT count(*) FROM qualification_issue WHERE qualification_id=%s AND requested_by=%s AND approved_by=%s",(qual_id,link_manager,qual_manager))==1)
+    faalt("0086 Overlap geweigerd",issue_sql,issue_args,"Overlappende")
+    revoke_q="SELECT qualification_revoke_confirmed(%s,%s,'Fictieve intrekking',%s)"
+    faalt("0086 Geen zelfintrekking",revoke_q,(qual_id,link_target,'demo-test'),"Onafhankelijke")
+    check("0086 Verkeerd wachtwoord trekt niet in",val(revoke_q,(qual_id,link_manager,'onjuist'))=='denied')
+    check("0086 Intrekking slaagt",val(revoke_q,(qual_id,link_manager,'demo-test'))=='revoked')
+    check("0086 Ingetrokken kwalificatie weigert activiteit",not val("SELECT authorization_permits(%s,'test.qualified.activity',NULL,NULL,NULL)",(link_target,)))
+    check("0086 Intrekking bewaart oorspronkelijke kwalificatie",val("SELECT count(*) FROM personnel_qualification q JOIN qualification_revocation r ON r.qualification_id=q.id AND r.revoked_at=q.revoked_at WHERE q.id=%s",(qual_id,))==1)
+    faalt("0086 Toekenningsbewijs onveranderlijk","UPDATE qualification_issue SET evidence='x' WHERE qualification_id=%s",(qual_id,),"onveranderlijk")
+    faalt("0086 Intrekkingsbewijs onveranderlijk","DELETE FROM qualification_revocation WHERE qualification_id=%s",(qual_id,),"onveranderlijk")
+
     recovery_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-recovery','pending',wachtwoord_hash('demo-test')) RETURNING id")
     recovery_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
     recovery_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
