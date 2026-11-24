@@ -444,3 +444,25 @@ BEGIN
    END LOOP;
  END IF;
 END $$;
+
+-- D99/D101: uitgestelde kwaliteitsinterfaces zijn read-only voor applicatielogins.
+-- Eigenaar behoudt historische fixtures en gecontroleerd technisch onderhoud.
+DO $$
+DECLARE login text; grantee text; t text; c record;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=81) THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee := CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       FOREACH t IN ARRAY ARRAY['specificatie','specificatie_regel','certificaat'] LOOP
+         EXECUTE format('REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON fabriek.%I FROM %s',t,grantee);
+         FOR c IN SELECT attname FROM pg_attribute WHERE attrelid=to_regclass('fabriek.'||t)
+             AND attnum>0 AND NOT attisdropped AND attacl IS NOT NULL LOOP
+           EXECUTE format('REVOKE INSERT (%I), UPDATE (%I) ON fabriek.%I FROM %s',c.attname,c.attname,t,grantee);
+         END LOOP;
+       END LOOP;
+       EXECUTE format('REVOKE EXECUTE ON FUNCTION fabriek.nieuwe_specificatie(uuid,uuid,uuid), fabriek.stel_specificatie_vast(uuid,uuid) FROM %s',grantee);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
