@@ -79,7 +79,22 @@ def main():
         faalt("Papieren nalevering zonder bewijs geweigerd","SELECT execution_paper_entry(NULL,NULL,NULL,NULL,NULL,NULL,NULL,'test',NULL,NULL)",bevat="Geldig persoonlijk")
         faalt("Directe lotcreatie geweigerd","INSERT INTO lot DEFAULT VALUES",bevat="permission denied")
         faalt("Directe batchcreatie geweigerd","INSERT INTO batch DEFAULT VALUES",bevat="permission denied")
-        for tabel in ("specificatie", "specificatie_regel", "certificaat"):
+        faalt("Configuratie zonder sessiebewijs geweigerd","UPDATE veld SET naam=naam WHERE code='S1.1'",bevat="Geldig persoonlijk")
+        faalt("Directe systeemmelding geweigerd","INSERT INTO melding DEFAULT VALUES",bevat="permission denied")
+        faalt("Leesregistratie zonder bewijs geweigerd","INSERT INTO melding_gelezen DEFAULT VALUES",bevat="Geldig persoonlijk")
+        check("Geen directe meldingsinsert via kolomgrant",not val("SELECT has_any_column_privilege(current_user,'fabriek.melding','INSERT')"))
+        check("Configuratieguard niet rechtstreeks uitvoerbaar",not val("SELECT has_function_privilege(current_user,'fabriek.configuration_write_guard()','EXECUTE')"))
+        proof = val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        check("Persoonlijk engineeringbewijs beschikbaar",bool(proof))
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",(proof,))
+        try:
+            con.execute("UPDATE veld SET naam=naam WHERE code='S1.1'")
+            check("Engineeringwijziging persoonlijk geaudit",val("""SELECT actor_origin='personal' AND actor_user_id=(SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer')
+              FROM config_log WHERE tabel='veld' AND record_id=(SELECT id FROM veld WHERE code='S1.1') ORDER BY id DESC LIMIT 1"""))
+            faalt("Engineer heeft geen accountbeheer","INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-engineer-account','pending',wachtwoord_hash('demo-test'),true)",bevat="MES-configuratiebevoegdheid")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
+        for tabel in ("specificatie", "specificatie_regel", "certificaat", "instelling", "terugmelding"):
             for recht in ("INSERT", "UPDATE"):
                 check(f"D101 {tabel}: geen {recht} via tabel- of kolomgrant",
                       not val("SELECT has_any_column_privilege(current_user,%s,%s)",("fabriek."+tabel,recht)))
@@ -196,7 +211,15 @@ def main():
         check("Geen tabelbreed accountschrijfrecht", not val("SELECT has_table_privilege(current_user,'fabriek.gebruiker','UPDATE')"))
         check("Sessiegeneratie niet direct schrijfbaar", not val("SELECT has_column_privilege(current_user,'fabriek.gebruiker','session_version','UPDATE')"))
         check("Personeelskoppeling niet direct schrijfbaar", not val("SELECT has_column_privilege(current_user,'fabriek.operator','gebruiker_id','UPDATE')"))
-        pending = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-pending','pending',wachtwoord_hash('demo-test'),true) RETURNING id")
+        faalt("Accountcreatie zonder persoonlijk bewijs geweigerd", "INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-pending','pending',wachtwoord_hash('demo-test'),true)", bevat="Geldig persoonlijk")
+        proof = val("SELECT session_proof FROM execution_session_login('mes.system','demo',NULL)")
+        check("Persoonlijk technisch bewijs beschikbaar", bool(proof))
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",(proof,))
+        try:
+            pending = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-pending','pending',wachtwoord_hash('demo-test'),true) RETURNING id")
+            faalt("Technisch account heeft geen procesparameterbeheer","UPDATE veld SET naam=naam WHERE code='S1.1'",bevat="MES-configuratiebevoegdheid")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
         check("Nieuw account heeft geen beheerrecht", not val("SELECT authorization_permits(%s,'account.manage',NULL,NULL,NULL)", (pending,)))
         faalt("Applicatie kan geen directe grant toevoegen", "INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_operator')", (auth_user,), "permission denied")
         faalt("Applicatie kan geen kwalificaties wijzigen", "UPDATE personnel_qualification SET revoked_at=now()", bevat="permission denied")
