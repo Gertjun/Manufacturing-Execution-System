@@ -521,3 +521,7 @@ Geert akkoord mits passend bij ISA-georiënteerde architectuur. De zevendagenreg
 ### D95 – Nieuwe MES-accounts voor de proof of concept (24 nov 2026)
 
 Geert staat toe dat oude accounts niet worden overgenomen als een nieuwe inrichting eenvoudiger is. Gekozen aanpak: nieuwe fictieve persoonlijke MES-identiteiten, minimaal twee afzonderlijke security-identiteiten, expliciete grants en later concrete kwalificaties. Oude testaccounts blijven tijdelijk regressiefixtures totdat de legacy-rolcontroles zijn omgeschakeld; geen permanente dubbele gezaghebbende autorisatie. Geen automatische conversie van bestaande rechten. Historische gebruiker- en operator-ID's en productiegegevens behouden; inactiveren pas via gecontroleerde omschakeling, geen destructieve migratie. Demo-bootstrap uitsluitend op fictieve testdata door database-eigenaar. Definitieve rollenmatrix met organisatie valideren.
+
+### D96 – Voorspelling toekomstige keuringen uitgesteld (24 nov 2026)
+
+Geert besluit de voorspelling uit D78/#88 niet mee te nemen in de basis-MES. Verwijder de actieve voorspellingsroute en het schermblok Verwacht; behoud openstaande metingen en besluiten en toegang tot beschikbare keuringsstappen. #88 keert terug als nice-to-have in fase 10. Geen productiehistorie verwijderen. Bij eventuele herintroductie de nieuwe planning, scope en betrouwbare doorlooptijden gebruiken.

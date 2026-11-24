@@ -44,7 +44,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 
 | Onderdeel | Adres | Voor wie |
 | --- | --- | --- |
-| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (eigen startscherm Keuringen met wat nu te doen is en wat eraan komt, D78; metingen en keuring, D58; keuringsstappen TK en EK, D73); werkt offline |
+| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (eigen startscherm Keuringen met openstaande metingen en besluiten en beschikbare keuringsstappen, D78/D96; metingen en keuring, D58; keuringsstappen TK en EK, D73); werkt offline |
 | Portaal Kwaliteit | `/portaal/` | Kwaliteit |
 | Startpagina | `/` (stuurt door naar `/portaal/`) | Iedereen, na het inloggen |
 | Portaal Manufacturing Operations | `/portaal/` | Ploegleiders, productieleiding |

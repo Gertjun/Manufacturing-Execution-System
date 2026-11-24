@@ -52,51 +52,16 @@ function keuringLijst(lijst: KeuringRij[], metStap: boolean) {
       h("span", { class: "knop knop-klein" }, sessie.rol === "kwaliteit" ? "Meten" : "Bekijken")))));
 }
 
-/** Komende keuring of meting van Kwaliteit (#88): wat klaarstaat en wanneer de rest waarschijnlijk komt. */
-interface Verwacht {
-  stap: string; stapnaam: string; soort: "keuring" | "meting"; niveau: "batch" | "lot"; nummer: string; product: string | null;
-  nu_in: string | null; nu_bezig: boolean; stappen_ertussen: number; klaar: boolean; verwacht_op: string; gepland: string | null;
-}
-
-const dagVan = (iso: string) => new Date(iso).toLocaleDateString("sv-SE");
-const dagNaam = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
-
-/** Eén regel in "Verwacht": wanneer, welke keuring of meting, welke batch of lot, en waar die nu is. */
-function verwachtRij(v: Verwacht) {
-  const waar = v.nu_in
-    ? `nu in ${v.nu_in}${v.nu_bezig ? " (bezig)" : ""}${v.stappen_ertussen ? `, nog ${v.stappen_ertussen} ${v.stappen_ertussen === 1 ? "stap" : "stappen"}` : ""}`
-    : "nog niet begonnen";
-  return h("li", {}, h("a", { class: "rij", href: `#/zoek/${encodeURIComponent(v.nummer)}` },
-    h("div", {},
-      h("div", { class: "rij-hoofd" }, h("span", { class: "verwacht-tijd" }, `rond ${new Date(v.verwacht_op).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`),
-        ` ${v.stap} ${v.stapnaam}`, v.soort === "meting" ? h("span", { class: "label label-kwaliteit" }, "Meting") : null),
-      h("div", { class: "rij-info" }, [v.nummer, v.product, waar, v.gepland ? `gepland ${new Date(`${v.gepland}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })}` : null]
-        .filter(Boolean).join(" · "))),
-    h("span", { class: "knop knop-klein" }, "Bekijken")));
-}
-
-/**
- * Startscherm voor Kwaliteit (#88, D78): geen aantallen per processtap, wel wat Kwaliteit vandaag moet doen
- * (wacht op een meting of besluit, klaar voor een keuring) en wat eraan komt, met een geschatte tijd.
- */
+/** Actuele werkvoorraad voor Kwaliteit; geen voorspellingen (D96). */
 async function kwaliteitScherm() {
   const actueel = vastHouden();
   toon(h("h1", {}, "Keuringen"), laden());
-  const [teKeuren, verwacht, alleStappen, overzicht] = await Promise.all([
+  const [teKeuren, alleStappen, overzicht] = await Promise.all([
     keuringen(),
-    haal<Verwacht[]>("/keuringen/verwacht?uren=48").catch(() => ({ data: [] as Verwacht[], vers: false })),
     stappen().catch(() => [] as Stap[]),
     haal<Overzicht[]>("/werkvoorraad").catch(() => ({ data: [] as Overzicht[], vers: false })),
   ]);
   if (!actueel()) return;
-  const klaar = verwacht.data.filter((v) => v.klaar);
-  const later = verwacht.data.filter((v) => !v.klaar);
-  const vandaag = dagVan(new Date().toISOString());
-  const perDag = new Map<string, Verwacht[]>();
-  for (const v of later) {
-    const d = dagVan(v.verwacht_op);
-    perDag.set(d, [...(perDag.get(d) ?? []), v]);
-  }
   const keuringTegels = alleStappen.filter((s) => s.soort === "keuring").map((s) => {
     const o = overzicht.data.find((x) => x.stapcode === s.code);
     const open = o?.open ?? 0, wachtend = o?.wachtend ?? 0;
@@ -104,25 +69,12 @@ async function kwaliteitScherm() {
       h("span", { class: "tegel-nr" }, s.code), h("span", { class: "tegel-naam" }, s.naam),
       h("span", { class: "tegel-werk" }, wachtend > 0 ? `${wachtend} klaar` : "Niets klaar"));
   });
-  const nuTeDoen = teKeuren.length + klaar.length;
   toon(
     h("div", { class: "kop" }, h("div", {}, h("h1", {}, "Keuringen"),
-      h("p", { class: "sub" }, "Wat Kwaliteit nu moet doen en wat er de komende twee dagen aankomt. De tijden zijn een schatting uit hoe lang de stappen gewoonlijk duren.")),
-      verwacht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
-    h("section", { class: "keuring-blok" }, h("h2", {}, `Nu te doen (${nuTeDoen})`),
-      nuTeDoen
-        ? [teKeuren.length ? keuringLijst(teKeuren, true) : null,
-           klaar.length ? h("ul", { class: "lijst", style: teKeuren.length ? "margin-top:var(--space-2)" : "" }, klaar.map((v) =>
-             h("li", {}, h("a", { class: "rij", href: `#/stap/${v.stap}` },
-               h("div", {},
-                 h("div", { class: "rij-hoofd" }, v.nummer, h("span", { class: "label label-keuring-open" }, `Klaar voor ${v.stap}`)),
-                 h("div", { class: "rij-info" }, [`${v.stap} ${v.stapnaam}`, v.product, `klaar sinds ${tijd(v.verwacht_op)}`].filter(Boolean).join(" · "))),
-               h("span", { class: "knop knop-klein" }, "Keuring starten"))))) : null]
-        : h("p", { class: "leeg" }, "Er wacht nu niets op Kwaliteit.")),
-    h("section", { class: "keuring-blok" }, h("h2", {}, "Verwacht"),
-      perDag.size
-        ? [...perDag].flatMap(([d, lijst]) => [h("h3", { class: "verwacht-dag" }, d === vandaag ? "Vandaag" : dagNaam(d)), h("ul", { class: "lijst" }, lijst.map(verwachtRij))])
-        : h("p", { class: "leeg" }, "De komende twee dagen komt er volgens de schatting geen keuring of meting aan.")),
+      h("p", { class: "sub" }, "Openstaande metingen en besluiten. Kies een keuringsstap voor batches of lots die klaarstaan.")),
+      overzicht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
+    h("section", { class: "keuring-blok" }, h("h2", {}, `Nu te doen (${teKeuren.length})`),
+      teKeuren.length ? keuringLijst(teKeuren, true) : h("p", { class: "leeg" }, "Geen openstaande metingen of besluiten.")),
     keuringTegels.length ? h("h2", {}, "Keuringsstappen") : null,
     keuringTegels.length ? h("div", { class: "route keuring" }, keuringTegels) : null,
   );
