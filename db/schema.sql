@@ -5271,8 +5271,56 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION log_config() FROM PUBLIC;
 
+-- D101: meldingen uit bestaande bedrijfsgebeurtenissen, geen oude accountrol.
+SET search_path = fabriek, public;
+
+-- Tijdelijke globale routering: historische ontvangerscategorieën zijn
+-- berichtmetadata, nooit de rol van het ingelogde account. Hal is geen area.
+CREATE FUNCTION notification_recipient(p_user uuid,p_roles text[])
+RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $
+ SELECT authorization_permits(p_user,'analysis.execution.read',NULL,NULL,NULL)
+ OR ('ploegleider'=ANY(p_roles) AND authorization_permits(p_user,'execution.correct',NULL,NULL,NULL))
+ OR ('kwaliteit'=ANY(p_roles) AND authorization_permits(p_user,'inspection.decide',NULL,NULL,NULL))
+ OR ('planner'=ANY(p_roles) AND authorization_permits(p_user,'planning.manage',NULL,NULL,NULL))
+ OR ('productiemanager'=ANY(p_roles) AND authorization_permits(p_user,'operations.rework.order',NULL,NULL,NULL))
+$;
+
+CREATE FUNCTION notification_read_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE actor uuid;
+BEGIN
+ IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
+ actor:=execution_transaction_actor();
+ IF NEW.gebruiker_id IS DISTINCT FROM actor OR NOT EXISTS (
+    SELECT 1 FROM melding m WHERE m.id=NEW.melding_id
+      AND m.aangemaakt_op>now()-interval '30 days' AND notification_recipient(actor,m.voor_rollen)
+ ) THEN RAISE EXCEPTION 'Geen persoonlijke MES-meldingsbevoegdheid' USING ERRCODE='42501'; END IF;
+ NEW.gelezen_op:=clock_timestamp();
+ RETURN NEW;
+END $;
+CREATE TRIGGER melding_gelezen_identity BEFORE INSERT ON melding_gelezen
+ FOR EACH ROW EXECUTE FUNCTION notification_read_guard();
+
+-- Alleen de vaste bestaande event-triggers mogen systeemmeldingen schrijven.
+ALTER FUNCTION meld_waarde() SECURITY DEFINER;
+ALTER FUNCTION meld_besluit() SECURITY DEFINER;
+ALTER FUNCTION meld_lotvoorstel() SECURITY DEFINER;
+ALTER FUNCTION meld_stilstand() SECURITY DEFINER;
+ALTER FUNCTION meld_herbewerking() SECURITY DEFINER;
+ALTER FUNCTION meld_keuring() SECURITY DEFINER;
+ALTER FUNCTION meld_invoerconflict() SECURITY DEFINER;
+ALTER FUNCTION meld_waarde() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_besluit() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_lotvoorstel() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_stilstand() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_herbewerking() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_keuring() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_invoerconflict() SET search_path=pg_catalog,fabriek,pg_temp;
+REVOKE ALL ON FUNCTION notification_recipient(uuid,text[]),notification_read_guard(),
+ meld_waarde(),meld_besluit(),meld_lotvoorstel(),meld_stilstand(),meld_herbewerking(),meld_keuring(),meld_invoerconflict() FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
