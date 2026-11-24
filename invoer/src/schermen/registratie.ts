@@ -5,6 +5,7 @@ import { berekenMarkering, leesGetal, markeringTekst, toonGetal } from "../marke
 import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../../gedeeld/etiket";
 import { beslisKeuring, corrigeer, corrigeerGrondstof, losConflictOp, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, stappen, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
+import { heeftProductRecht, rechtenOnline } from "../rechten";
 import { opStatus } from "../wachtrij";
 import type { Conflict, Markering, Registratie, VeldMetWaarde } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
@@ -63,8 +64,7 @@ export async function registratieScherm(id: string) {
  * de rest ziet wie kiest. Kiezen kan alleen met verbinding, net als corrigeren.
  */
 function conflictBlok(reg: Registratie, c: Conflict, teken: (r: Registratie) => void): HTMLElement {
-  const rol = sessie.rol;
-  const magKiezen = !reg.lokaal && (rol === "beheerder" || rol === c.wie_kiest);
+  const magKiezen = !reg.lokaal && rechtenOnline() && heeftProductRecht(reg.product, c.wie_kiest === "kwaliteit" ? "inspection.decide" : "execution.correct");
   const kies = (keuze: "bestaand" | "nieuw") => bezigBij(async () => {
     const tekst = keuze === "bestaand" ? `${c.bestaand} laten staan` : `${c.nieuw} nemen`;
     const r = await vraag(`${c.code}: ${tekst}`, [{ naam: "reden", label: "Toelichting (niet verplicht)", optioneel: true }], tekst);
@@ -89,15 +89,17 @@ function conflictBlok(reg: Registratie, c: Conflict, teken: (r: Registratie) => 
 }
 
 function teken(reg: Registratie) {
-  const opVloer = sessie.rol === "operator" || sessie.rol === "ploegleider";
-  const isKwaliteit = sessie.rol === "kwaliteit";
+  const opVloer = heeftProductRecht(reg.product, "execution.record");
+  const isKwaliteit = heeftProductRecht(reg.product, "inspection.record");
+  const magBeslissen = heeftProductRecht(reg.product, "inspection.decide") && !reg.lokaal && rechtenOnline();
+  const magAfronden = heeftProductRecht(reg.product, "execution.complete");
   // Keuring (#64): velden die Kwaliteit meet, vult Kwaliteit in; ook nog als de stap afgerond is en op Kwaliteit wacht.
   const keuringOpen = reg.keuring?.status === "open";
   const vanKwaliteit = (v: VeldMetWaarde) => v.gemeten_door === "kwaliteit";
   const magVeld = (v: VeldMetWaarde) => (vanKwaliteit(v) ? isKwaliteit && (reg.status === "open" || keuringOpen) : opVloer && reg.status === "open");
   const metKwaliteit = reg.velden!.some(vanKwaliteit);
   const magInvoeren = reg.status === "open" && opVloer;
-  const magCorrigeren = (sessie.rol === "ploegleider" || sessie.rol === "beheerder") && !reg.lokaal;
+  const magCorrigeren = heeftProductRecht(reg.product, "execution.correct") && !reg.lokaal && rechtenOnline();
   const invoer = new Map<string, { setting?: HTMLInputElement; gemeten: HTMLInputElement; label: HTMLElement; rij: HTMLElement; fout: HTMLElement }>();
   // Rijen die de operator al heeft verlaten: daar tonen we een foutmelding onder het veld (niet tijdens het typen, D50).
   const verlaten = new Set<string>();
@@ -181,8 +183,8 @@ function teken(reg: Registratie) {
       ? reg.velden!.filter((v) => vanKwaliteit(v) && v.verplicht && !v.waarde).length
       : reg.velden!.filter((v) => !vanKwaliteit(v) && v.verplicht && !v.waarde).length + (reg.grondstoffen ?? []).filter((g) => g.verplicht && !g.gebruik).length;
     opslaan.disabled = klaar === 0 || half > 0;
-    afronden.disabled = ontbreekt > 0 || reg.status !== "open";
-    vrijgeven.disabled = ontbreekt > 0 || !keuringOpen;
+    afronden.disabled = !magAfronden || reg.velden!.some(v => !vanKwaliteit(v) && v.verplicht && !v.waarde) || (reg.grondstoffen ?? []).some(g => g.verplicht && !g.gebruik) || reg.status !== "open";
+    vrijgeven.disabled = !magBeslissen || reg.velden!.some(v => vanKwaliteit(v) && v.verplicht && !v.waarde) || !keuringOpen;
     hint.textContent = isKwaliteit
       ? (half > 0 ? "Vul een geldig getal in" :
          klaar > 0 ? `${klaar} ${klaar === 1 ? "meting" : "metingen"} klaar om op te slaan` :
@@ -370,10 +372,15 @@ function teken(reg: Registratie) {
     location.hash = `#/stap/${reg.stapcode}`;
   }));
 
-  // Kwaliteit beslist (#64): vrijgeven, herbewerken of afkeuren. Ook offline: het besluit gaat in de wachtrij.
+  // Kritische besluiten alleen rechtstreeks en persoonlijk bevestigd.
   const nummer = reg.batchnummer ?? reg.lotnummer;
   const besluit = async (b: "vrijgegeven" | "herbewerken" | "afgekeurd", reden: string | null, stap?: string) => {
-    reg = await beslisKeuring(reg, b, reden, stap);
+    if (!magBeslissen) return melding("Actuele online beslisbevoegdheid vereist", "fout");
+    const token = sessie.token;
+    const r = await vraag("Persoonlijke bevestiging", [{ naam: "wachtwoord", label: "Je eigen wachtwoord", type: "password" }], "Besluit bevestigen");
+    if (!r || token !== sessie.token) return;
+    try { reg = await beslisKeuring(reg, b, reden, r.wachtwoord, stap); }
+    catch (e) { melding(e instanceof GeenVerbinding ? "Geen bevestiging ontvangen. Controleer de serverstatus voordat je opnieuw beslist." : (e as Error).message, "fout"); return; }
     melding(b === "vrijgegeven" ? `${nummer} vrijgegeven` : b === "herbewerken" ? `${nummer}: herbewerking aangemaakt` : `${nummer} afgekeurd`, b === "afgekeurd" ? "info" : "ok");
     teken(reg);
   };
@@ -445,10 +452,8 @@ function teken(reg: Registratie) {
     h("div", { class: "formulier" }, velden),
     grondstoffen.length ? h("h2", { class: "tussenkop-invoer" }, "Grondstoffen") : null,
     grondstoffen.length ? h("div", { class: "formulier" }, grondstoffen) : null,
-    reg.status === "open" && magInvoeren ? h("div", { class: "balk-onder" }, h("div", {}, hint, opslaan, afronden)) : null,
-    isKwaliteit && (reg.status === "open" || keuringOpen) && metKwaliteit
-      ? h("div", { class: "balk-onder" }, h("div", {}, hint, opslaan, keuringOpen ? [vrijgeven, herbewerken, afkeuren] : null))
-      : null,
+    (magInvoeren || (isKwaliteit && (reg.status === "open" || keuringOpen) && metKwaliteit) || (magAfronden && reg.status === "open") || (magBeslissen && keuringOpen))
+      ? h("div", { class: "balk-onder" }, h("div", {}, hint, magInvoeren || isKwaliteit ? opslaan : null, magAfronden && reg.status === "open" ? afronden : null, magBeslissen && keuringOpen ? [vrijgeven, herbewerken, afkeuren] : null)) : null,
   );
   werkBij();
 }
