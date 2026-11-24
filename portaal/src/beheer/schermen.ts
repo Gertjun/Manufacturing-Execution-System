@@ -459,7 +459,7 @@ export async function accounts() {
     if (actueel()) await wijzig(() => stuur("PATCH", "/beheer/gebruikers/"+encodeURIComponent(a.gebruikersnaam), { actief: !a.actief }), "Accountstatus gewijzigd", accounts);
   };
   toon(kop("Accounts", "Technisch accountbeheer. MES-grants, personeelskoppeling en gecontroleerd herstel zijn afzonderlijke processen.",
-      magWijzigen ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Account aanmaken") : undefined),
+      magWijzigen ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Account aanmaken") : null),
     tabel(["Gebruikersnaam", "Historisch accounttype", "Actief", "Wachtwoordstatus", ""], lijst.map(a => [
       a.gebruikersnaam, a.gedeeld ? "Historisch gedeeld (login geblokkeerd)" : rolNaam(a.rol), jaNee(a.actief),
       a.tijdelijk ? "Tijdelijk" : "Ingesteld",
@@ -498,7 +498,7 @@ export async function personeel() {
     if (actueel()) await wijzig(() => stuur("PATCH", "/beheer/operators/"+o.id, { actief: !o.actief }), "Personeelsstatus gewijzigd", personeel);
   };
   toon(kop("Personeel", "Personeelsidentiteiten en ploegindeling. Accountkoppeling en autorisatie volgen afzonderlijke gecontroleerde procedures.",
-      magWijzigen ? h("button", { class: "knop knop-hoofd", onclick: () => bewerken() }, "Persoon toevoegen") : undefined),
+      magWijzigen ? h("button", { class: "knop knop-hoofd", onclick: () => bewerken() }, "Persoon toevoegen") : null),
     tabel(["Naam", "Ploeg", "Gekoppeld account", "Actief", ""], lijst.map(o => [
       o.naam, o.ploeg ?? "Geen", o.account ?? "Niet gekoppeld", jaNee(o.actief),
       magWijzigen ? h("div", { class: "knoppen-klein" },
