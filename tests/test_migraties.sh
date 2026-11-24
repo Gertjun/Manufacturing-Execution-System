@@ -3,20 +3,36 @@
 # Gebruik: tests/test_migraties.sh   (PGHOST, PGPORT, PGUSER zoals voor psql; maakt twee tijdelijke databases)
 set -e
 cd "$(dirname "$0")/.."
-A=batchgui_test_schema; B=batchgui_test_migraties
-psql -q -c "DROP DATABASE IF EXISTS $A" -c "DROP DATABASE IF EXISTS $B" -c "CREATE DATABASE $A" -c "CREATE DATABASE $B" 2>/dev/null
+A=batchgui_test_schema; B=batchgui_test_migraties; C=batchgui_test_migratie_afwijking
+psql -q -c "DROP DATABASE IF EXISTS $A" -c "DROP DATABASE IF EXISTS $B" -c "DROP DATABASE IF EXISTS $C" -c "CREATE DATABASE $A" -c "CREATE DATABASE $B" 2>/dev/null
 psql -q -v ON_ERROR_STOP=1 -d $A -f db/schema.sql >/dev/null 2>&1
 for f in db/migraties/*.sql; do
+  # De afwijkende historische fixture wordt getest op een kopie van de database vóór 0037.
+  if [ "$(basename "$f")" = "0037_lotgrootte_per_product.sql" ]; then
+    psql -q -c "CREATE DATABASE $C TEMPLATE $B"
+    psql -q -v ON_ERROR_STOP=1 -d $C <<'SQL'
+INSERT INTO fabriek.product (code, naam) VALUES ('MIG-AFWIJKING', 'Migratietest afwijking') RETURNING id AS fixture_product_id \\gset
+INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9997') RETURNING id AS fixture_lot \\gset
+INSERT INTO fabriek.batch (batchnummer, status, lot_id, product_id)
+SELECT 'B-2026-' || lpad((9980 + g)::text, 4, '0'), 'in_lot', :'fixture_lot', :'fixture_product_id'
+FROM generate_series(1, 3) g;
+SQL
+    if psql -q -v ON_ERROR_STOP=1 -d $C -f "$f" >/tmp/batchgui_migratie_0037_afwijking.log 2>&1; then
+      echo "FOUT: migratie 0037 accepteerde een historisch lot met 3 batches."
+      exit 1
+    fi
+    grep -q "Migratie 0037 gestopt: een historisch lot bevat niet precies vier batches" /tmp/batchgui_migratie_0037_afwijking.log || {
+      cat /tmp/batchgui_migratie_0037_afwijking.log
+      echo "FOUT: migratie 0037 stopte om een andere reden dan de historische lotafwijking."
+      exit 1
+    }
+  fi
   psql -q -v ON_ERROR_STOP=1 -d $B -f "$f" >/dev/null || { echo "Migratie $f mislukt"; exit 1; }
-  # Vóór 0037: synthetische lots met 3 en 4 batches, om de historische backfill te testen.
+  # Vóór 0037: één bestaand lot met exact vier batches.
   if [ "$(basename "$f")" = "0036_routeversies.sql" ]; then
     psql -q -v ON_ERROR_STOP=1 -d $B <<'SQL'
-INSERT INTO fabriek.product (code, naam) VALUES ('MIG-TEST', 'Migratietest') RETURNING id AS fixture_product_id \gset
-INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9998') RETURNING id AS fixture_lot_3 \gset
-INSERT INTO fabriek.batch (batchnummer, status, lot_id, product_id)
-SELECT 'B-2026-' || lpad((9990 + g)::text, 4, '0'), 'in_lot', :'fixture_lot_3', :'fixture_product_id'
-FROM generate_series(1, 3) g;
-INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9999') RETURNING id AS fixture_lot_4 \gset
+INSERT INTO fabriek.product (code, naam) VALUES ('MIG-TEST', 'Migratietest') RETURNING id AS fixture_product_id \\gset
+INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9999') RETURNING id AS fixture_lot_4 \\gset
 INSERT INTO fabriek.batch (batchnummer, status, lot_id, product_id)
 SELECT 'B-2026-' || lpad((9993 + g)::text, 4, '0'), 'in_lot', :'fixture_lot_4', :'fixture_product_id'
 FROM generate_series(1, 4) g;
@@ -33,10 +49,8 @@ if ! diff -u /tmp/$A.sql /tmp/$B.sql; then echo "FOUT: schema.sql en de migratie
 va=$(psql -Atc "SELECT string_agg(nummer || ' ' || naam, ', ' ORDER BY nummer) FROM fabriek.schema_versie" -d $A)
 vb=$(psql -Atc "SELECT string_agg(nummer || ' ' || naam, ', ' ORDER BY nummer) FROM fabriek.schema_versie" -d $B)
 [ "$va" = "$vb" ] || { echo "FOUT: schema_versie in schema.sql ($va) wijkt af van de migraties ($vb)."; exit 1; }
-historisch=$(psql -At -d $B -c "SELECT batch_aantal_norm || '|' || batch_aantal || '|' || (length(afwijking_reden) >= 3) || '|' || (route_versie_id IS NULL) || '|' || (route_historie_status = 'historisch_onbekend') FROM fabriek.lot WHERE lotnummer = 'L-2026-9998'")
-[ "$historisch" = "4|3|true|true|true" ] || { echo "FOUT: bestaand lot met 3 batches niet veilig gemigreerd: $historisch"; exit 1; }
-exact=$(psql -At -d $B -c "SELECT batch_aantal_norm || '|' || batch_aantal || '|' || (afwijking_reden IS NULL) FROM fabriek.lot WHERE lotnummer = 'L-2026-9999'")
-[ "$exact" = "4|4|true" ] || { echo "FOUT: bestaand lot met 4 batches niet correct gemigreerd: $exact"; exit 1; }
-echo "Migratie 0037 behoudt bestaande lot-samenstelling (3 en 4 batches) en laat onbekende historische routes ongemoeid."
-psql -q -c "DROP DATABASE $A" -c "DROP DATABASE $B"
+historisch=$(psql -At -d $B -c "SELECT batch_aantal_norm || '|' || batch_aantal || '|' || (afwijking_reden IS NULL) || '|' || (route_versie_id IS NULL) || '|' || (route_historie_status = 'historisch_onbekend') FROM fabriek.lot WHERE lotnummer = 'L-2026-9999'")
+[ "$historisch" = "4|4|true|true|true" ] || { echo "FOUT: bestaand lot met 4 batches niet correct gemigreerd: $historisch"; exit 1; }
+echo "Migratie 0037 legt bestaande vier-batchslots vast en weigert afwijkende historische lots."
+psql -q -c "DROP DATABASE $A" -c "DROP DATABASE $B" -c "DROP DATABASE $C"
 echo "Schema en migraties gelijk ($va)."
