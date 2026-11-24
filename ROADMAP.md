@@ -36,6 +36,8 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 
 ### Afsluiting tussentijdse audit (D100)
 
+0087/D101: verplichte laatste legacy-beheerder vervalt; historische identiteiten blijven behouden, fictieve fixtures worden gecontroleerd vervangen. Resterende operationele rolchecks, effectieve privileges, UI en regressiebewijs open.
+
 D24-runtimecorrectie geïmplementeerd; gerichte PostgreSQL- en Linux-pakketvalidatie open. Windows, volledige historische schema-upgrade, effectieve ACL-audit en D101-restcontrole blijven open.
  
 Werk in deze volgorde; dit is de afbakening van #106–#108 en #136, geen nieuwe zelfstandige takenlijst:

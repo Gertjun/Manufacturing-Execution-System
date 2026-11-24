@@ -739,11 +739,21 @@ def main():
     con.execute("UPDATE gebruiker SET wachtwoord_hash = public.crypt('nieuw-ww', public.gen_salt('bf')) WHERE gebruikersnaam = 'analist1'")
     log = one("SELECT nieuw FROM config_log WHERE tabel = 'gebruiker' ORDER BY id DESC LIMIT 1")[0]
     check("Wachtwoordwijziging gelogd zonder hash", log.get("wachtwoord") == "gewijzigd" and "wachtwoord_hash" not in log)
-    # De demo heeft inmiddels twee legacy-beheerders; toets de laatste zonder blijvende fixturewijziging.
+    # D101: oude rol is geen beschikbaarheidsvoorwaarde. Eigenaar-fixture
+    # deactiveert legacy-identiteiten zonder historische records te verwijderen.
+    # MES-grant blijft onafhankelijk van legacy-rol; rollback bewaart fixtures.
     con.execute("BEGIN")
     try:
-        con.execute("UPDATE gebruiker SET actief=false WHERE rol='beheerder' AND gebruikersnaam<>'beheerder1'")
-        faalt("Laatste beheerder kan niet weg", "UPDATE gebruiker SET actief = false WHERE gebruikersnaam = 'beheerder1'", (), "minstens één actieve beheerder")
+        con.execute("UPDATE gebruiker SET rol='pending' WHERE gebruikersnaam='mes.system'")
+        check("System Administrator zonder legacy beheerdersrol behoudt expliciete MES-bevoegdheid",
+              val("SELECT authorization_permits(id,'system.read',NULL,NULL,NULL) FROM gebruiker WHERE gebruikersnaam='mes.system'"))
+        con.execute("UPDATE gebruiker SET actief=false WHERE rol='beheerder'")
+        check("Geen actieve legacy-beheerder vereist",
+              val("SELECT count(*) FROM gebruiker WHERE rol='beheerder' AND actief") == 0)
+        check("Oude beheerdersidentiteit historisch behouden",
+              val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam='beheerder1'") == 1)
+        check("MES-technische bevoegdheid blijft beschikbaar zonder legacy-beheerder",
+              val("SELECT authorization_permits(id,'system.read',NULL,NULL,NULL) FROM gebruiker WHERE gebruikersnaam='mes.system'"))
     finally:
         con.execute("ROLLBACK")
     faalt("Gebruikersnaam verandert niet", "UPDATE gebruiker SET gebruikersnaam = 'x' WHERE gebruikersnaam = 'analist1'", (), "verandert niet")
