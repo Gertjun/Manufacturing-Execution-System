@@ -1283,30 +1283,34 @@ def main():
     g1 = json.dumps([{"code": "GS-A", "partij": "LEV-PAPIER-01", "hoeveelheid": 120}])
     na = "SELECT lever_stap_na(%s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s)"
     faalt("Een operator kan niet nainvoeren", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", opa, w1, g1), "ploegleider of beheerder")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", opa, w1, g1), "MES-bevoegdheid")
+    faalt("D101 oude ploegleider zonder grant kan niet nainvoeren", na,
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", pl, w1, g1), "MES-bevoegdheid")
+    faalt("D101 oude beheerder zonder grant kan niet nainvoeren", na,
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", bh, w1, g1), "MES-bevoegdheid")
     faalt("Zonder reden kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "  ", pl, w1, g1), "reden")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "  ", mes_corrector, w1, g1), "reden")
     faalt("Meer dan 7 dagen terug kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(days=8), nu - dt.timedelta(days=8, hours=-1), "storing", pl, w1, g1), "7 dagen")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(days=8), nu - dt.timedelta(days=8, hours=-1), "storing", mes_corrector, w1, g1), "7 dagen")
     faalt("Einde in de toekomst kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu + dt.timedelta(hours=1), "storing", pl, w1, g1), "toekomst")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu + dt.timedelta(hours=1), "storing", mes_corrector, w1, g1), "toekomst")
     faalt("Einde vóór het begin kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu - dt.timedelta(hours=2), "storing", pl, w1, g1), "na het begin")
-    rn = val(na, ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "server en pc uit", pl, w1, g1))
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu - dt.timedelta(hours=2), "storing", mes_corrector, w1, g1), "na het begin")
+    rn = val(na, ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "server en pc uit", mes_corrector, w1, g1))
     r = con.execute("""SELECT status, gestart_op, afgerond_op, nageleverd_door, nageleverd_reden, afgerond_door,
                               (SELECT count(*) FROM waarde w WHERE w.stapregistratie_id = r.id AND w.ingevoerd_op = r.afgerond_op)
                          FROM stapregistratie r WHERE id = %s""", (rn,)).fetchone()
     check("Nageleverd: afgerond met de tijden van het papier, waarden op het einde",
           r[0] == "afgerond" and r[1] == nu - dt.timedelta(hours=3) and r[2] == nu - dt.timedelta(hours=2) and r[6] == 2, str(r))
-    check("Nageleverd: wie, waarom, en de operator van het papier", r[3] == pl and r[4] == "server en pc uit" and r[5] == op)
+    check("Nageleverd: wie, waarom, en de operator van het papier", r[3] == mes_corrector and r[4] == "server en pc uit" and r[5] == op)
     check("Nageleverd: in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'nalevering' AND record_id = %s", (rn,)) == 1)
     w2 = json.dumps([{"veldcode": c, "setting": 80 if soort[c] == "procesparameter" else None, "gemeten": 81 if c.endswith(".1") else 410}
                      for c in sorted(veld) if c.startswith("S2.")])
     faalt("Begin vóór het einde van de vorige stap kan niet", na,
-          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2, minutes=30), nu - dt.timedelta(hours=1), "storing", pl, w2, "[]"), "vóór het einde van de vorige stap")
+          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2, minutes=30), nu - dt.timedelta(hours=1), "storing", mes_corrector, w2, "[]"), "vóór het einde van de vorige stap")
     faalt("Gewone regels gelden: verplicht veld ontbreekt", na,
-          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2), nu - dt.timedelta(hours=1), "storing", pl, "[]", "[]"), "Nog niet ingevuld")
+          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2), nu - dt.timedelta(hours=1), "storing", mes_corrector, "[]", "[]"), "Nog niet ingevuld")
     check("Na een geweigerde nalevering staat er niets half",
           val("SELECT count(*) FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id WHERE r.batch_id = %s AND s.code = 'PS2'", (bn,)) == 0)
     # Lot samenstellen van papier: 4 batches door PS15, dan PS16 nainvoeren.
@@ -1319,7 +1323,7 @@ def main():
     w16 = json.dumps([{"veldcode": c, "setting": 80 if soort[c] == "procesparameter" else None, "gemeten": 81 if c.endswith(".1") else 1640}
                       for c in sorted(veld) if c.startswith("S16.")])
     rl = val("SELECT lever_stap_na('PS16', 'L-2026-0975', %s, %s, %s, %s, %s, %s, %s, %s, '[]')",
-             ([f"B-2026-097{i}" for i in range(5, 9)], pc, op, begin, eind, "lot op papier samengesteld", pl, w16))
+             ([f"B-2026-097{i}" for i in range(5, 9)], pc, op, begin, eind, "lot op papier samengesteld", mes_corrector, w16))
     lr = con.execute("""SELECT l.aangemaakt_op, r.gestart_op, r.afgerond_op, r.status, (SELECT count(*) FROM batch b WHERE b.lot_id = l.id)
                           FROM stapregistratie r JOIN lot l ON l.id = r.lot_id WHERE r.id = %s""", (rl,)).fetchone()
     check("Lot nageleverd: 4 batches, met de tijden van het papier",
