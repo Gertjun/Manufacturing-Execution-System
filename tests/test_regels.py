@@ -612,6 +612,10 @@ def main():
     con.execute("UPDATE veld SET tolerantie = 8 WHERE code='S1.1'")
     check("Grenswijziging staat in het logboek",
           val("SELECT gewijzigd_door FROM config_log WHERE tabel='veld' AND record_id=%s ORDER BY id DESC LIMIT 1", (veld["S1.1"],)) == "[niet persoonlijk bewezen]")
+    check("Onbewezen audit heeft geen persoonlijke ID",
+          one("SELECT actor_origin, actor_user_id FROM config_log WHERE tabel='veld' AND record_id=%s ORDER BY id DESC LIMIT 1", (veld["S1.1"],)) == ("unverified", None))
+    faalt("Persoonlijke audit vereist een stabiele ID",
+          "INSERT INTO config_log(tabel,record_id,actie,actor_origin) VALUES ('test',gen_random_uuid(),'INSERT','personal')", (), "config_log_actor_origin_check")
     check("Oude meting houdt de tolerantie van toen (5)",
           val("SELECT tolerantie FROM waarde WHERE veld_id=%s ORDER BY ingevoerd_op LIMIT 1", (veld["S1.1"],)) == 5)
 
