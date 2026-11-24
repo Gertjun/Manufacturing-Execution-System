@@ -5376,8 +5376,90 @@ CREATE TRIGGER capaciteit_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELET
 CREATE TRIGGER capaciteit_afwijking_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_afwijking
  FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('planning.manage');
 
+-- Migratie 0084: persoonlijke operationele wijzigingen (D100/D101).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION operations_write_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE actor uuid;
+BEGIN
+ IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN
+   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+   RETURN NEW;
+ END IF;
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,TG_ARGV[0],NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-operationele bevoegdheid: %',TG_ARGV[0] USING ERRCODE='42501';
+ END IF;
+ IF TG_TABLE_NAME='stilstand' THEN
+   IF TG_OP='INSERT' THEN
+     IF NEW.gemeld_door IS DISTINCT FROM actor OR NEW.eind_op IS NOT NULL OR NEW.beeindigd_door IS NOT NULL OR NEW.eind_notitie IS NOT NULL
+       OR (NEW.operator_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.operator_id AND gebruiker_id=actor AND actief)) THEN
+       RAISE EXCEPTION 'Ongeldige persoonlijke stilstandmelding' USING ERRCODE='42501';
+     END IF;
+   ELSIF TG_OP='UPDATE' THEN
+     IF NEW.id IS DISTINCT FROM OLD.id OR NEW.eind_op IS NULL
+       OR (NEW.beeindigd_door IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.beeindigd_door AND gebruiker_id=actor AND actief)) THEN
+       RAISE EXCEPTION 'Ongeldige persoonlijke stilstandbeëindiging' USING ERRCODE='42501';
+     END IF;
+   END IF;
+ ELSIF TG_TABLE_NAME='overdracht' AND TG_OP='INSERT' THEN
+   IF NEW.gebruiker_id IS DISTINCT FROM actor
+     OR (NEW.operator_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.operator_id AND gebruiker_id=actor AND actief)) THEN
+     RAISE EXCEPTION 'Ongeldige persoonlijke overdracht' USING ERRCODE='42501';
+   END IF;
+ ELSIF TG_TABLE_NAME='stapplanning' AND TG_OP='INSERT' THEN
+   IF NEW.aangemaakt_door IS DISTINCT FROM actor THEN
+     RAISE EXCEPTION 'Ongeldige persoonlijke stapplanning' USING ERRCODE='42501';
+   END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $;
+REVOKE ALL ON FUNCTION operations_write_guard() FROM PUBLIC;
+CREATE TRIGGER stilstand_0_mes_permission BEFORE INSERT OR UPDATE ON stilstand
+ FOR EACH ROW EXECUTE FUNCTION operations_write_guard('downtime.record');
+CREATE TRIGGER overdracht_0_mes_permission BEFORE INSERT ON overdracht
+ FOR EACH ROW EXECUTE FUNCTION operations_write_guard('handover.record');
+CREATE TRIGGER stapplanning_0_mes_permission BEFORE INSERT OR DELETE ON stapplanning
+ FOR EACH ROW EXECUTE FUNCTION operations_write_guard('planning.manage');
+
+-- Alleen de bestaande gecontroleerde opslaanfuctie mag voorstelleden wijzigen.
+-- Geen nieuw lotmodel: de bestaande PoC-regels blijven voorlopig gelden.
+CREATE FUNCTION planning_save_legacy_proposal(p_id uuid,p_batches uuid[],p_note text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE actor uuid;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,'planning.manage',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ -- Serialiseer tijdelijke voorstelwijzigingen en vergrendel bestaande voorstellen.
+ PERFORM pg_advisory_xact_lock(84001);
+ IF p_id IS NOT NULL THEN
+   PERFORM 1 FROM lot_voorstel WHERE id=p_id FOR UPDATE;
+ END IF;
+ RETURN bewaar_lot_voorstel(p_id,p_batches,p_note,actor);
+END $;
+
+CREATE FUNCTION planning_cancel_legacy_proposal(p_number int)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE actor uuid; target uuid;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,'planning.manage',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ PERFORM pg_advisory_xact_lock(84001);
+ UPDATE lot_voorstel SET status='vervallen',afgesloten_op=now()
+ WHERE nummer=p_number AND status='open' RETURNING id INTO target;
+ IF target IS NOT NULL THEN DELETE FROM stapplanning WHERE voorstel_id=target; END IF;
+ RETURN target;
+END $;
+REVOKE ALL ON FUNCTION planning_save_legacy_proposal(uuid,uuid[],text),planning_cancel_legacy_proposal(int) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
