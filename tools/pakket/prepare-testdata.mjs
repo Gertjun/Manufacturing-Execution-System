@@ -12,14 +12,14 @@ export function pasTestdataAan(sql) {
   let blok = sql.slice(start, end);
   const oud = "INSERT INTO fabriek.lot VALUES";
   if (!blok.includes(oud)) {
-    if (blok.includes("batch_aantal_norm")) return sql; // al bijgewerkt
+    if (blok.includes("batch_aantal_norm")) return sql;
     throw new Error("Lot-insert in testdata heeft een onverwacht formaat");
   }
   blok = blok.replace(oud,
     "INSERT INTO fabriek.lot (id, lotnummer, status, aangemaakt_op, batch_aantal_norm, batch_aantal, afwijking_reden) VALUES");
   let aantal = 0;
-  blok = blok.replace(/^(\s*\('[0-9a-f-]{36}',\s*'L-[^']+',\s*'[^']+',\s*'[^']+'\))([,;])$/gm,
-    (_regel, waarden, einde) => { aantal++; return `${waarden}, 4, 4, NULL)${einde}`; });
+  blok = blok.replace(/^(\s*\('[0-9a-f-]{36}',\s*'L-[^']+',\s*'[^']+',\s*'[^']+')\)([,;])$/gm,
+    (_regel, waarden, einde) => { aantal++; return waarden + ", 4, 4, NULL)" + einde; });
   if (aantal === 0) throw new Error("Geen historische lotregels gevonden in testdata");
   return sql.slice(0, start) + blok + sql.slice(end);
 }
