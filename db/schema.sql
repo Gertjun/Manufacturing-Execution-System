@@ -364,8 +364,11 @@ SELECT 'batch'::text AS object_type, b.id AS object_id, b.batchnummer AS object_
              (SELECT count(*) FROM product_route_versie_stap vs WHERE vs.route_versie_id = v.id)
          AND NOT EXISTS (
              SELECT 1 FROM route(b.product_id) r
+              JOIN processtap s ON s.id = r.processtap_id
               LEFT JOIN product_route_versie_stap vs
                 ON vs.route_versie_id = v.id AND vs.processtap_id = r.processtap_id AND vs.plek = r.plek
+               AND vs.stap_code = s.code AND vs.stap_naam = s.naam
+               AND vs.niveau = s.niveau AND vs.is_lot_stap = s.is_lot_stap
              WHERE vs.processtap_id IS NULL
          )
        ORDER BY v.versie DESC LIMIT 1
@@ -389,8 +392,11 @@ SELECT 'lot'::text, l.id, l.lotnummer,
              (SELECT count(*) FROM product_route_versie_stap vs WHERE vs.route_versie_id = v.id)
          AND NOT EXISTS (
              SELECT 1 FROM route(lot_product(l.id)) r
+              JOIN processtap s ON s.id = r.processtap_id
               LEFT JOIN product_route_versie_stap vs
                 ON vs.route_versie_id = v.id AND vs.processtap_id = r.processtap_id AND vs.plek = r.plek
+               AND vs.stap_code = s.code AND vs.stap_naam = s.naam
+               AND vs.niveau = s.niveau AND vs.is_lot_stap = s.is_lot_stap
              WHERE vs.processtap_id IS NULL
          )
        ORDER BY v.versie DESC LIMIT 1
