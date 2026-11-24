@@ -96,8 +96,8 @@ export const sessie = {
       const gekozen = Number(lees("invoer.vanStart") ?? 0);
       schrijf("invoer.vanStart", null);
       if (i.gedeeld || i.exp * 1000 <= Date.now() + 15 * 60 * 1000) return null;
-      if (i.rol === "operator" || i.rol === "ploegleider") return t;
-      return i.rol === "kwaliteit" && Date.now() - gekozen < 2 * 60 * 1000 ? t : null;
+      // Alleen een expliciete keuze; de server beslist via /auth/pc.
+      return gekozen > 0 && Date.now() - gekozen >= 0 && Date.now() - gekozen < 2 * 60 * 1000 ? t : null;
     } catch {
       return null;
     }
