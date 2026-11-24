@@ -194,20 +194,13 @@ export async function corrigeerGrondstof(reg: Registratie, code: string, partij:
   return antwoord;
 }
 
-/** Kwaliteit beslist over de keuring (#64). Werkt ook offline: het besluit gaat in de wachtrij. */
-export async function beslisKeuring(reg: Registratie, besluit: "vrijgegeven" | "herbewerken" | "afgekeurd", reden: string | null, stapcode?: string) {
-  reg.keuring = { ...reg.keuring!, status: besluit, reden, besloten_door: sessie.inhoud()?.naam ?? null, besloten_op: new Date().toISOString(), wacht: true };
-  reg.lokaal = true;
-  await opslag.zet("registraties", reg);
-  const tekst = { vrijgegeven: "vrijgeven", herbewerken: `herbewerken${stapcode ? ` vanaf ${stapcode}` : ""}`, afgekeurd: "afkeuren" }[besluit];
-  await voegToe({
-    omschrijving: `${reg.stapcode} ${reg.batchnummer ?? reg.lotnummer}: ${tekst}`,
-    methode: "POST",
-    pad: `/keuringen/${reg.keuring.id}/besluit`,
-    body: { besluit, reden, ...(stapcode ? { stapcode } : {}) },
-    registratieId: reg.id,
-  });
-  return reg;
+/** Kritisch besluit: uitsluitend rechtstreeks, persoonlijk bevestigd, geen optimistische status. */
+export async function beslisKeuring(reg: Registratie, besluit: "vrijgegeven" | "herbewerken" | "afgekeurd", reden: string | null, wachtwoord: string, stapcode?: string) {
+  if (!reg.keuring || reg.lokaal || await heeftWachtende(reg.id)) throw new Error("Verstuur eerst alle invoer en laad de registratie opnieuw");
+  if (!wachtwoord) throw new Error("Persoonlijke bevestiging vereist");
+  const antwoord = await stuur<Registratie>("POST", `/keuringen/${reg.keuring.id}/besluit`, { besluit, reden, wachtwoord, ...(stapcode ? { stapcode } : {}) });
+  await opslag.zet("registraties", { ...antwoord, lokaal: false });
+  return antwoord;
 }
 
 export async function rondAf(reg: Registratie) {
