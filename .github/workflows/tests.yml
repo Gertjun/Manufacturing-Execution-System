@@ -321,3 +321,33 @@ jobs:
           npm ci --prefix invoer --no-audit --no-fund
           npm ci --prefix portaal --no-audit --no-fund
           tests/test_laptoppakket.sh
+
+  laptop-security:
+    name: Gerichte laptoppakketbeveiliging (D24/D100)
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'laptop-security'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Head en base controleren
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
+          git rev-parse 'HEAD^{tree}'
+      - name: Node.js 22 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Pakketafhankelijkheden
+        run: |
+          npm ci --prefix api --no-audit --no-fund
+          npm ci --prefix invoer --no-audit --no-fund
+          npm ci --prefix portaal --no-audit --no-fund
+      - name: Laptoppakket — SCRAM, upgrade en herstel (Linux)
+        run: tests/test_laptoppakket.sh
