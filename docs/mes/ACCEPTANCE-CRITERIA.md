@@ -1,6 +1,6 @@
 # Acceptatiecriteria
 
-D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht testen, Node 22 automatisch, volledige Node 26 op actuele head/base bij softwareacceptatie. Geen testverzwakking; eigenaar merget. Documentatie-only volgens actuele allowlist; nieuwe docs/mes vallen voorlopig buiten bestaande uitzondering, dus normale workflow. Geen versie/release voor ontwerpdocumentatie.
+D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht testen, Node 22 automatisch, volledige Node 26 op actuele head/base bij softwareacceptatie. Geen testverzwakking; eigenaar merget. Documentatie-only volgens actuele allowlist; de acht expliciete docs/mes-bestanden vallen onder de documentatie-uitzondering. Geen versie/release voor ontwerpdocumentatie.
 
 | Poort | Minimaal bewijs |
 |---|---|

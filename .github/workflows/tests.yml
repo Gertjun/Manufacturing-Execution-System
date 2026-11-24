@@ -12,6 +12,14 @@ on:
       - 'docs/DATABASE.md'
       - 'docs/PRAKTIJKTESTS.md'
       - 'docs/SERVER.md'
+      - 'docs/mes/ACCEPTANCE-CRITERIA.md'
+      - 'docs/mes/BLUEPRINT.md'
+      - 'docs/mes/DATA-MODEL.md'
+      - 'docs/mes/ISA-CONFORMANCE.md'
+      - 'docs/mes/MBR-EBR-DESIGN.md'
+      - 'docs/mes/MIGRATION-STRATEGY.md'
+      - 'docs/mes/ROLES-AND-PROCESSES.md'
+      - 'docs/mes/TERMINOLOGY.md'
       - 'tools/pakket/README.md'
   pull_request:
     branches: [main]
@@ -24,6 +32,14 @@ on:
       - 'docs/DATABASE.md'
       - 'docs/PRAKTIJKTESTS.md'
       - 'docs/SERVER.md'
+      - 'docs/mes/ACCEPTANCE-CRITERIA.md'
+      - 'docs/mes/BLUEPRINT.md'
+      - 'docs/mes/DATA-MODEL.md'
+      - 'docs/mes/ISA-CONFORMANCE.md'
+      - 'docs/mes/MBR-EBR-DESIGN.md'
+      - 'docs/mes/MIGRATION-STRATEGY.md'
+      - 'docs/mes/ROLES-AND-PROCESSES.md'
+      - 'docs/mes/TERMINOLOGY.md'
       - 'tools/pakket/README.md'
     types: [opened, synchronize, reopened, labeled]
 
