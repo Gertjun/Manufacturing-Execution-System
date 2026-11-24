@@ -1,11 +1,10 @@
-// Eerste beheerder aanmaken, of een beheerder een nieuw wachtwoord geven ("noodsleutel").
-// Werkt alleen op de computer met de database zelf; elke wijziging komt in het logboek.
+// Gecontroleerde MES-bootstrap of alleen-lezen hersteldiagnose.
+// Bootstrap uitsluitend bij een lege identiteitsadministratie.
+// De oude noodsleutel is geblokkeerd; reguliere herstelbediening volgt afzonderlijk.
 //
 //   node tools/beheerder.mjs [--instellingen <pad>]
 //
-// Is er nog geen actieve beheerder, dan vraagt hij meteen om de eerste. Anders kies je:
-// een bestaande beheerder een nieuw wachtwoord geven (en weer aanzetten), of een nieuwe beheerder.
-// Het laptoppakket gebruikt dezelfde functies (opstarten.mjs, BEHEERDER HERSTELLEN.bat).
+// Het laptoppakket gebruikt dezelfde functies (opstarten.mjs).
 
 import readline from "node:readline";
 import { resolve } from "node:path";
