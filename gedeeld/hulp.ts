@@ -188,7 +188,6 @@ const HULP: Partial<Record<Rol, Hulp>> = {
         kop: "Medewerkers",
         punten: [
           "Medewerker toevoegen: naam bij de invoer, rol, ploeg (A1 … E2), gebruikersnaam en een tijdelijk wachtwoord van minstens 8 tekens; bij de eerste inlog kiest de medewerker een eigen wachtwoord. Operators en ploegleiders staan in één blok, Kwaliteit in een eigen blok.",
-          "Veel medewerkers tegelijk: Sjabloon downloaden, in Excel aanvullen, Sjabloon inlezen. Je ziet eerst een controle. Gooi het bestand met wachtwoorden daarna weg.",
           "Niets wordt verwijderd, alleen uitgezet. Er blijft altijd minstens één actieve beheerder.",
           "Zet het oude gedeelde account operator pas uit als de wachtrijen op de pc's leeg zijn.",
           "Tv in de hal: een account met rol scherm, op de tv inloggen en de browser op volledig scherm zetten (F11).",
