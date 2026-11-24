@@ -8,7 +8,7 @@ import { bouwApp, startpagina, type App } from "../src/app.js";
 import { maakPool, type Db } from "../src/db.js";
 
 const DB_URL = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
-// De applicatie zelf draait als batchgui_app (beperkte rechten, zie db/rechten.sql) als deze is gezet.
+// De applicatie zelf draait als mes_app (beperkte rechten, zie db/rechten.sql) als deze is gezet.
 const APP_DB_URL = process.env.TEST_APP_DATABASE_URL ?? DB_URL;
 
 let app: App;

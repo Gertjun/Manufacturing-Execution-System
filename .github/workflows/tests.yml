@@ -177,11 +177,11 @@ jobs:
       - name: Plaatje van de database bij (docs/DATABASE.md)
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: tests/test_schema_plaatje.sh
-      - name: API (als batchgui_app, met beperkte rechten)
+      - name: API (als mes_app, met beperkte rechten)
         working-directory: api
         env:
           TEST_DATABASE_URL: postgres://postgres@localhost:5432/batchgui
-          TEST_APP_DATABASE_URL: postgres://batchgui_app@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
         run: |
           npm ci --no-audit --no-fund
           npm run typecheck

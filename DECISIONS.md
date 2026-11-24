@@ -501,3 +501,7 @@ Door Geert goedgekeurd in zes ontwerprondes. De 69 identifiers hieronder zijn st
 ### D90 – Gebundelde faseacceptatie MES (24 nov 2026)
 
 Aanvulling op D88 en G03, goedgekeurd door Geert. In beginsel één PR per ontwikkelfase, logische commits, uitzonderingen bij grote of risicovolle wijzigingen. Concept-PRs geen automatische softwaretests bij pushes; label `compatibiliteit-test` start Node 22, label `acceptatie-test` start beide suites. Labels opnieuw aanbrengen voor nieuwe runs. Normale niet-concept-PRs behouden automatische Node 22. Volledige acceptatie vóór merge, bewijs exact huidige head/base en tree; geen testverzwakking. Main behoudt volledige terugvalcontrole als bewijs ontbreekt. Fase 1 bundelt resterend #106–#108 en herstel van datumafhankelijke schermtest. Geen PS-code verwijderen zonder procesinventarisatie.
+
+### D91 – Naam beperkte databasegebruiker (24 nov 2026)
+
+Op verzoek van Geert wordt `mes_app` de standaardnaam voor nieuwe installaties, tests en serverconfiguratie. D24 blijft inhoudelijk geldig. Bestaande `batchgui_app`-logins blijven tijdelijk compatibel via lidmaatschap van `mes_app`, zonder automatische wachtwoordwijziging of uitschakeling. IT schakelt gecontroleerd om en verwijdert oude toegang pas na verificatie van afhankelijkheden in het cluster. Nieuwe beschermde autorisatietabellen moeten ook tegen directe grants van de oude login worden beschermd. Database- en schemanaam blijven voorlopig gelijk.

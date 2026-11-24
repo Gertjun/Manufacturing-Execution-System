@@ -154,7 +154,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | --- | --- |
 | `db/schema.sql` | Tabellen, regels (triggers) en acties in schema `fabriek`; gelijk aan alle migraties samen |
 | `db/migraties/` | Genummerde database-updates (D23); nooit achteraf aanpassen |
-| `db/rechten.sql` | Rechten van de applicatiegebruiker `batchgui_app` (D24) |
+| `db/rechten.sql` | Rechten van de applicatiegebruiker `mes_app` (D24/D91; bestaande login tijdelijk compatibel) |
 | `db/seed_config.sql` | Stappen, voorbeeldvelden, operators, pc's, producten, grondstoffen, diensten, ploegen met rooster, oorzaken (geen accounts) |
 | `db/seed_accounts_demo.sql` | Fictieve testaccounts |
 | `db/seed_demo.sql` | Kleine fictieve productie voor de invoertest |
@@ -211,7 +211,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | --- | --- | --- |
 | Roadmap bij met de laatste versie | `tests/test_roadmap.sh` | ja |
 | Databaseregels | `python3 tests/test_regels.py "<verbinding>"` (leegt de database) | ja |
-| API | `cd api && npm test` met `TEST_DATABASE_URL` en `TEST_APP_DATABASE_URL` (voor `batchgui_app`) | ja |
+| API | `cd api && npm test` met `TEST_DATABASE_URL` en `TEST_APP_DATABASE_URL` (voor `mes_app`) | ja |
 | Schema en migraties gelijk | `tests/test_migraties.sh` | ja |
 | Plaatje van de database bij (`docs/DATABASE.md`, D84) | `tests/test_schema_plaatje.sh` | ja |
 | Beheertools | `tests/test_tools.sh` | ja |

@@ -52,9 +52,9 @@ Alleen de beheerders en het serviceaccount mogen `C:\batchgui\instellingen.json`
    cd C:\batchgui\huidig
    node tools\migreer.mjs
    ```
-   Dit maakt de database `batchgui`, het schema en de gebruiker `batchgui_app` aan. Zet daarna het wachtwoord van die gebruiker (hetzelfde als in de instellingen):
+   Dit maakt de database `batchgui`, het schema en de gebruiker `mes_app` aan. Zet daarna het wachtwoord van die gebruiker (hetzelfde als in de instellingen):
    ```
-   "C:\Program Files\PostgreSQL\18\bin\psql" -U postgres -d batchgui -c "ALTER ROLE batchgui_app PASSWORD 'het-wachtwoord'"
+   "C:\Program Files\PostgreSQL\18\bin\psql" -U postgres -d batchgui -c "ALTER ROLE mes_app PASSWORD 'het-wachtwoord'"
    ```
 6. **Eerste beheerder en configuratie:**
    ```
@@ -146,3 +146,7 @@ Alle tools lezen `instellingen.json` (of het bestand in `BATCHGUI_INSTELLINGEN`,
 - **Beheer → Server** toont een waarschuwing als de laatste back-up ouder is dan 2 uur of mislukt, als de laatste hersteltest ouder is dan 35 dagen of mislukt, en bij 20 of meer mislukte inlogpogingen in 24 uur.
 - Na 5 verkeerde wachtwoorden binnen 15 minuten wacht een gebruikersnaam 1 minuut. Alle pogingen staan in de tabel `fabriek.inlogpoging` (zonder wachtwoord); `backup.mjs` ruimt pogingen ouder dan 90 dagen op. Invoer van een pc die de server weigert, staat in `fabriek.geweigerde_invoer` (voor het pilotoverzicht); ook die ruimt `backup.mjs` na 90 dagen op.
 - De pagina's worden geleverd met beveiligingskoppen (Content-Security-Policy, X-Frame-Options). Zet er geen proxy voor die deze koppen weghaalt.
+
+### Overgang databaseaccount naar MES
+
+Nieuwe installaties gebruiken `mes_app`. Bij bestaande installaties blijft `batchgui_app` tijdelijk bruikbaar via de rechten van `mes_app`; het bestaande wachtwoord blijft ongewijzigd. IT stelt een eigen wachtwoord voor `mes_app` in, wijzigt alleen de databasegebruikersnaam en het bijbehorende wachtwoord in de serverinstellingen en verifieert de verbinding. Pas na gecontroleerde omschakeling mag IT de oude login buiten gebruik stellen; controleer eerst andere databases in hetzelfde PostgreSQL-cluster. Databasenaam en schema blijven ongewijzigd. Beide accounts blijven tijdens de overgang beperkt; bij nieuwe beschermde tabellen worden eventuele directe oude grants eveneens ingetrokken.

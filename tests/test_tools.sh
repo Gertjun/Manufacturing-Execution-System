@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 T=$(mktemp -d); DB=batchgui_test_tools
 H="${PGHOST:-localhost}"; P="${PGPORT:-5432}"; U="${PGUSER:-postgres}"
 cat > "$T/inst.json" <<JSON
-{ "db": {"host":"$H","port":$P,"database":"$DB","user":"batchgui_app","password":""},
+{ "db": {"host":"$H","port":$P,"database":"$DB","user":"mes_app","password":""},
   "beheerDb": {"user":"$U","password":"${PGPASSWORD:-}"},
   "backupMap": "$T/backups" }
 JSON
