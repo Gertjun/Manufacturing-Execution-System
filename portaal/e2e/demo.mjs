@@ -82,7 +82,7 @@ const regel = await p.evaluate(async () => {
   const t2 = l.token; // eigen account: de naam ligt vast (D53)
   return api({ methode: "POST", url: "/lots", headers: { authorization: "Bearer " + t2 }, body: JSON.stringify({ lotnummer: "L-2026-9999", batchnummers: ["B-2026-9001", "B-2026-0540", "B-2026-0541", "B-2026-0542"], id: crypto.randomUUID(), registratieId: crypto.randomUUID() }) });
 });
-check(regel.status === 422, `databaseregels gelden ook in de demo (${regel.status}: ${regel.body.slice(0, 120)})`);
+check(regel.status === 400, `de API weigert een lot met batches van verschillende producten (${regel.status}: ${regel.body.slice(0, 120)})`);
 await port.getByRole("link", { name: "Overzicht" }).click();
 await p.waitForTimeout(1500);
 await p.screenshot({ path: `${SHOTS}/03-naast-elkaar.png` });
