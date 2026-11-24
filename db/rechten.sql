@@ -396,3 +396,28 @@ BEGIN
    GRANT DELETE ON fabriek.pc_stap, fabriek.stapplanning, fabriek.lot_voorstel_batch, fabriek.product_stap, fabriek.veld_product, fabriek.capaciteit_stap, fabriek.specificatie, fabriek.specificatie_regel TO mes_app;
  END IF;
 END $$;
+
+-- Vanaf 0078: expliciete tijdelijke leesinterface. Geen automatische toegang tot nieuwe tabellen.
+-- Bestaande operationele leesrechten blijven voorlopig behouden; productscope volgt via de API.
+DO $$
+DECLARE login text; c record; grantee text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=78) THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee := CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE SELECT ON ALL TABLES IN SCHEMA fabriek FROM %s',grantee);
+       FOR c IN SELECT cl.relname, a.attname FROM pg_class cl
+         JOIN pg_namespace n ON n.oid=cl.relnamespace
+         JOIN pg_attribute a ON a.attrelid=cl.oid
+         WHERE n.nspname='fabriek' AND cl.relkind IN ('r','p','v','m','f')
+           AND a.attnum>0 AND NOT a.attisdropped AND a.attacl IS NOT NULL
+       LOOP
+         EXECUTE format('REVOKE SELECT (%I) ON fabriek.%I FROM %s',c.attname,c.relname,grantee);
+       END LOOP;
+     END IF;
+   END LOOP;
+   GRANT SELECT ON fabriek.operator, fabriek.pc, fabriek.processtap, fabriek.pc_stap, fabriek.veld, fabriek.config_log, fabriek.lot, fabriek.product, fabriek.product_stap, fabriek.batch, fabriek.batch_besluit, fabriek.veld_product, fabriek.specificatie, fabriek.specificatie_regel, fabriek.stapregistratie, fabriek.herbewerking, fabriek.keuring, fabriek.route_grenzen, fabriek.waarde, fabriek.waarde_actueel, fabriek.lotpaspoort, fabriek.lot_voorstel, fabriek.lot_voorstel_batch, fabriek.stapplanning, fabriek.grondstof, fabriek.stap_grondstof, fabriek.grondstof_gebruik, fabriek.grondstof_gebruik_actueel, fabriek.ploeg, fabriek.rooster, fabriek.rooster_ploeg, fabriek.overdracht, fabriek.melding, fabriek.melding_gelezen, fabriek.stilstand_oorzaak, fabriek.stilstand, fabriek.capaciteit_stap, fabriek.capaciteit_route, fabriek.capaciteit_afwijking, fabriek.instelling, fabriek.certificaat, fabriek.inlogpoging, fabriek.herbewerking_stand, fabriek.schema_versie, fabriek.onderhoud_log, fabriek.terugmelding, fabriek.geweigerde_invoer, fabriek.invoerconflict, fabriek.authorization_role, fabriek.authorization_permission, fabriek.authorization_role_permission, fabriek.authorization_grant, fabriek.qualification, fabriek.personnel_qualification, fabriek.activity_qualification, fabriek.authorization_legacy_snapshot, fabriek.authorization_request, fabriek.authorization_decision, fabriek.authorization_revocation, fabriek.authorization_bootstrap, fabriek.authorization_recovery TO mes_app;
+   GRANT SELECT (id,gebruikersnaam,rol,actief,gedeeld,wachtwoord_wijzigen,session_version) ON fabriek.gebruiker TO mes_app;
+ END IF;
+END $$;
