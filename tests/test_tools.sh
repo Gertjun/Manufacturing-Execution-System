@@ -21,10 +21,17 @@ psql -q -d $DB -f db/seed_config.sql >/dev/null && psql -q -d $DB -f db/seed_acc
 python3 tools/genereer_testdata.py "host=$H port=$P user=$U dbname=$DB" --dagen 5 >/dev/null
 N=$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)
 
-# Noodsleutel: beheerder1 een nieuw wachtwoord geven
-NR=$(psql -Atc "SELECT n FROM (SELECT gebruikersnaam, row_number() OVER (ORDER BY gebruikersnaam) n FROM fabriek.gebruiker WHERE rol='beheerder') x WHERE gebruikersnaam='beheerder1'" -d $DB)
-printf "$NR\\nnieuwwachtwoord\\nnieuwwachtwoord\\n" | node tools/beheerder.mjs | grep -q "is gewijzigd" || fout "beheerder.mjs: nieuw wachtwoord"
-[ "$(psql -Atc "SELECT count(*) FROM fabriek.controleer_login('beheerder1','nieuwwachtwoord')" -d $DB)" = "1" ] || fout "nieuw wachtwoord werkt niet"
+# D101: oude noodsleutel is uitgeschakeld; diagnose mag niets wijzigen.
+# Vergelijk gevoelige account- en autorisatiestatus alleen binnen SQL; geen hashes in logs.
+psql -q -d "$DB" -c "CREATE TABLE public.test_recovery_accounts AS SELECT * FROM fabriek.gebruiker; CREATE TABLE public.test_recovery_grants AS SELECT * FROM fabriek.authorization_grant; CREATE TABLE public.test_recovery_records AS SELECT * FROM fabriek.authorization_recovery"
+printf '%s\n' beheerder1 nieuwwachtwoord nieuwwachtwoord | node tools/beheerder.mjs > "$T/diagnose.txt" || fout "hersteldiagnose mislukt"
+grep -q "Oude noodsleutel uitgeschakeld" "$T/diagnose.txt" || fout "oude noodsleutel niet expliciet geblokkeerd"
+grep -q "Er is niets gewijzigd" "$T/diagnose.txt" || fout "diagnose niet afgerond"
+for pair in "gebruiker test_recovery_accounts" "authorization_grant test_recovery_grants" "authorization_recovery test_recovery_records"; do
+  set -- $pair
+  [ "$(psql -At -d "$DB" -c "SELECT count(*) FROM ((SELECT * FROM fabriek.$1 EXCEPT ALL SELECT * FROM public.$2) UNION ALL (SELECT * FROM public.$2 EXCEPT ALL SELECT * FROM fabriek.$1)) d")" = "0" ] || fout "diagnose wijzigde $1"
+done
+psql -q -d "$DB" -c "DROP TABLE public.test_recovery_accounts, public.test_recovery_grants, public.test_recovery_records"
 
 psql -q -d $DB -c "INSERT INTO fabriek.inlogpoging (gebruikersnaam, uitkomst, op) VALUES ('oud', 'mislukt', now() - interval '100 days'), ('recent', 'mislukt', now() - interval '10 days')"
 node tools/backup.mjs | grep -q "Back-up gemaakt.*1 oude inlogpogingen opgeruimd" || fout "back-up (met opruimen van oude inlogpogingen)"
@@ -62,4 +69,4 @@ echo "$L" | grep -q "herstel:t" || fout "onderhoudslogboek mist het herstel ($L)
 
 for d in $(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}%'"); do psql -q -c "DROP DATABASE \"$d\" WITH (FORCE)"; done
 rm -rf "$T"
-echo "Beheertools: alle controles geslaagd ($N waarden, noodsleutel, back-up, hersteltest, herstel, terugval, back-up vóór database-update, oude inlogpogingen opruimen)."
+echo "Beheertools: alle controles geslaagd ($N waarden, geblokkeerde noodsleutel en hersteldiagnose, back-up, hersteltest, herstel, terugval, back-up vóór database-update, oude inlogpogingen opruimen)."
