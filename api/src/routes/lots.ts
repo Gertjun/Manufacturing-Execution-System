@@ -68,7 +68,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             opnieuw=true; return;
           }
         }
-        await tx.query("SELECT maak_lot($1, $2, $3, $4, $5, $6, $7)", [
+        await tx.query("SELECT execution_create_lot($1, $2, $3, $4, $5, $6, $7)", [
           req.body.lotnummer,
           req.body.batchnummers.map((n) => gevonden.get(n)),
           pcId,

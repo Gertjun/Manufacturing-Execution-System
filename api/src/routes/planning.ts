@@ -1,7 +1,7 @@
 import { requiresPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist, type Rol } from "../auth.js";
+import { IEDEREEN, vereist, invoerTransactie, type Rol } from "../auth.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, StapCode, NulGeheel, NulGetal } from "./schemas.js";
@@ -507,12 +507,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rowCount } = await tx.query(
-          "UPDATE batch SET status = 'vervallen', vervallen_reden = $2 WHERE batchnummer = $1 RETURNING id",
+      await invoerTransactie(app.db, req, async (tx) => {
+        const { rows: [cancelled] } = await tx.query<{id:string|null}>(
+          "SELECT execution_cancel_planned_batch($1,$2) AS id",
           [req.params.batchnummer, req.body.reden.trim()],
         );
-        if (!rowCount) throw niet("Batch");
+        if (!cancelled?.id) throw niet("Batch");
         // Uit een open lotvoorstel halen kan niet stil: het voorstel wordt dan ongeldig.
         const { rows } = await tx.query(
           `SELECT v.nummer FROM lot_voorstel v JOIN lot_voorstel_batch x ON x.voorstel_id = v.id JOIN batch b ON b.id = x.batch_id

@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { invoerContext } from "../auth.js";
+import { invoerContext, invoerTransactie } from "../auth.js";
 import { personalSession, requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
@@ -189,7 +189,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const status = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const status = await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query<{id:string;product_id:string|null}>("SELECT id,product_id FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         if (!rows[0]) throw niet("Batch");
         const target = {product: rows[0].product_id ?? undefined};
@@ -202,12 +202,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           const { rows: [result] } = await tx.query<{status:string}>("SELECT quality_decision_confirmed($1,$2,'batch',$3,$4,$5,NULL,$6) AS status",[req.user.sub,req.user.sessionVersion,rows[0].id,req.body.besluit,req.body.reden,req.body.wachtwoord]);
           return result?.status;
         }
-        await tx.query("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES ($1, $2, $3, $4)", [
-          rows[0].id,
-          req.body.besluit,
-          req.body.reden,
-          req.user.sub,
-        ]);
+        await tx.query("SELECT execution_batch_hold($1,$2)", [rows[0].id, req.body.reden]);
         return "decided";
       });
       if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen");
