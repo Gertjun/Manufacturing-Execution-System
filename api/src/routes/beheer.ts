@@ -1,6 +1,7 @@
+import { requiresPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, vereist } from "../auth.js";
+
 import { inTransactie, lees, type Tx } from "../db.js";
 import { TESTACCOUNTS } from "../testaccounts.js";
 import { ApiFout, leesbaar, niet } from "../fouten.js";
@@ -15,7 +16,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/velden",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({
@@ -64,7 +65,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/velden/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ code: Type.String() }),
@@ -112,7 +113,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/velden/:code/producten/:product",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         description: "Eigen grenzen en tolerantie van een veld voor één product. Geldt voor metingen vanaf nu; eerdere metingen houden hun grenzen.",
@@ -143,7 +144,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.delete(
     "/velden/:code/producten/:product",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         description: "Eigen grenzen voor een product weghalen: daarna gelden de grenzen van het veld.",
@@ -213,7 +214,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/velden/import",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         description:
@@ -390,7 +391,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/logboek",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("system.read"),
       schema: {
         tags: ["beheer"],
         description: "Alle wijzigingen in de configuratie, nieuwste eerst. Wachtwoorden staan er nooit in; alleen dat ze gewijzigd zijn.",
@@ -434,7 +435,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/stappen/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ code: StapCode }),
@@ -472,14 +473,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.get(
     "/gebruikers",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Account) } } },
+    { preHandler: requiresPermission("account.read"), schema: { tags: ["beheer"], response: { 200: Type.Array(Account) } } },
     async () => (await lees(app.db, `${ACCOUNT_SQL} ORDER BY g.actief DESC, g.rol, g.gebruikersnaam`)) as never,
   );
 
   app.post(
     "/gebruikers",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("account.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({
@@ -522,7 +523,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/gebruikers/:gebruikersnaam",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("account.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ gebruikersnaam: Type.String() }),
@@ -569,13 +570,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                           FROM operator o LEFT JOIN gebruiker g ON g.id = o.gebruiker_id LEFT JOIN rooster_ploeg rp ON rp.id = o.ploeg_id`;
   app.get(
     "/operators",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
+    { preHandler: requiresPermission("account.read"), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
     async () => (await lees(app.db, `${OPERATOR_SQL} ORDER BY o.actief DESC, o.naam`)) as never,
   );
   app.post(
     "/operators",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("account.manage"),
       schema: { tags: ["beheer"], body: Type.Object({ naam: Type.String({ minLength: 1, maxLength: 60 }), ploeg: Type.Optional(PloegCode) }, { additionalProperties: false }), response: { 201: Operator } },
     },
     async (req, reply) => {
@@ -590,7 +591,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/operators/:id",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("account.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
@@ -627,13 +628,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       FROM grondstof g`;
   app.get(
     "/grondstoffen",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Grondstof) } } },
+    { preHandler: requiresPermission("material.definition.manage"), schema: { tags: ["beheer"], response: { 200: Type.Array(Grondstof) } } },
     async () => (await lees(app.db, `${GRONDSTOF_SQL} ORDER BY g.actief DESC, g.code`)) as never,
   );
   app.post(
     "/grondstoffen",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("material.definition.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({
@@ -655,7 +656,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/grondstoffen/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("material.definition.manage"),
       schema: {
         tags: ["beheer"],
         description: "Naam, eenheid of actief wijzigen, en/of de stappen waarin de grondstof wordt ingevoerd (vervangt de lijst).",
@@ -712,13 +713,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                     FROM pc p LEFT JOIN pc_stap ps ON ps.pc_id = p.id LEFT JOIN processtap s ON s.id = ps.processtap_id`;
   app.get(
     "/pcs",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Pc) } } },
+    { preHandler: requiresPermission("workstation.manage"), schema: { tags: ["beheer"], response: { 200: Type.Array(Pc) } } },
     async () => (await lees(app.db, `${PC_SQL} GROUP BY p.id ORDER BY p.naam`)) as never,
   );
   app.post(
     "/pcs",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("workstation.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({ naam: Type.String({ pattern: "^[A-Za-z0-9-]{2,20}$", examples: ["PC-21"] }), locatie: Type.Optional(Type.String()) }, { additionalProperties: false }),
@@ -735,7 +736,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/pcs/:naam",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("workstation.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ naam: Type.String() }),
@@ -786,7 +787,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/server",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("system.read"),
       schema: {
         tags: ["beheer"],
         description:

@@ -31,3 +31,5 @@ Verplichte reviewpoort voor iedere MES-fase (afspraak 24 november 2026): na func
 0041: regressies voor onbevoegde intrekking, verkeerde herbevestiging, succesvolle intrekking, dubbele intrekking, behoud grant/audit en onveranderlijke aanvragen/besluiten/intrekkingen. Nog niet uitgevoerd.
 
 0042: controleer persoonlijke login met beperkte kolomrechten, en dat een bestaande sessie na wijziging of deactivering van de oude accountrol geen toegang meer krijgt. De nieuwe MES-grants zijn nog niet de gezaghebbende bron voor bestaande routes.
+
+0044: test expliciet dat een oude beheerder zonder grant geen account- of parameterbeheer mag uitvoeren; system administrator mag accounts maar geen procesparameters wijzigen; process engineer mag parameters maar geen accounts beheren; security administrator mag geen technisch of engineeringbeheer uitvoeren; ingetrokken, verlopen en scoped grants geven geen globale beheertoegang. Oude API/UI-testfixtures bij de integrale review aanpassen.
