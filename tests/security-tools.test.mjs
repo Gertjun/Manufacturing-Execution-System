@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { securityActie } from "../tools/security.mjs";
-import { koppelPersoneel, herstelAccount, securityBinding } from "../tools/beheerder.mjs";
+import { koppelPersoneel, herstelAccount, securityBinding, kwalificatieActie } from "../tools/beheerder.mjs";
 const id="11111111-1111-4111-8111-111111111111";
 const product="22222222-2222-4222-8222-222222222222";
 function io(answers, passwords=[]) {
@@ -73,4 +73,25 @@ test("binding en intrekking gebruiken bestaande eigenaarfuncties",async()=>{
   assert.deepEqual(c.calls.at(-1).params,["db_security","security","test"]);
   assert.equal(await securityBinding(c,io(["db_security","test","BEVESTIG"]),true),true);
   assert.deepEqual(c.calls.at(-1).params,["db_security","test"]);
+});
+
+test("kwalificatie: exacte geldigheid, bewijs en twee persoonlijke bevestigingen",async()=>{
+  const c=db((sql,p)=>sql.includes("qualification_issue_confirmed")?[{status:"issued",qualification_id:id}]:people(sql,p)), output=[];
+  const from="2026-11-24T12:00:00Z", until="2027-11-24T12:00:00Z";
+  assert.equal(await kwalificatieActie(c,io(["doel","opleiding",from,until,"manager","beoordelaar","bewijs","BEVESTIG"],["geheim-a","geheim-b"]),"toekennen",v=>output.push(v)),true);
+  assert.deepEqual(c.calls.at(-1).params,["doel","opleiding",from,until,"manager","beoordelaar","bewijs","geheim-a","geheim-b"]);
+  assert.ok(output.every(x=>!x.includes("geheim-")));
+});
+test("kwalificatie: annulering en ontbrekende onafhankelijkheid blokkeren toekenning",async()=>{
+  const c=db(people),from="2026-11-24T12:00:00Z",until="2027-11-24T12:00:00Z";
+  await assert.rejects(kwalificatieActie(c,io(["doel","opleiding",from,until,"manager","manager"]),"toekennen",()=>{}),/Drie verschillende/);
+  assert.equal(await kwalificatieActie(c,io(["doel","opleiding",from,until,"manager","beoordelaar","bewijs","STOP"]),"toekennen",()=>{}),false);
+  assert.ok(c.calls.every(x=>!x.sql.includes("qualification_issue_confirmed")));
+});
+test("kwalificatie: intrekking exacte registratie en status",async()=>{
+  for(const status of ["revoked","denied","locked"]) {
+    const c=db((sql,p)=>sql.includes("qualification_revoke_confirmed")?[{status}]:sql.includes("FROM fabriek.personnel_qualification")?[{id,user_id:"doel",qualification_code:"opleiding"}]:people(sql,p));
+    assert.equal(await kwalificatieActie(c,io([id,"manager","bewijs","BEVESTIG"],["demo"]),"intrekken",()=>{}),status==="revoked");
+    assert.deepEqual(c.calls.at(-1).params,[id,"manager","bewijs","demo"]);
+  }
 });

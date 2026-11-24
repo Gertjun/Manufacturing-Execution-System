@@ -249,11 +249,86 @@ export async function koppelPersoneel(c, io) {
   return true;
 }
 
+// Gecontroleerde operationele kwalificaties. Alleen bestaande definities;
+// geen catalogusbeheer, grants of automatische beoordeling.
+export async function kwalificatieActie(c, io, actie, toon = console.log) {
+  const vraag = async (label) => {
+    const v = (await io.vraag(label)).trim();
+    if (!v) throw new Error("Verplicht veld ontbreekt.");
+    return v;
+  };
+  const zoek = async (label) => {
+    const name = (await vraag(label)).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id,gebruikersnaam FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen", [name]);
+    if (!r) throw new Error("Geen geschikt persoonlijk account.");
+    return r;
+  };
+  const datum = async (label) => {
+    const v = await vraag(label);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/.test(v) || !Number.isFinite(Date.parse(v)))
+      throw new Error("Datum/tijd met expliciete tijdzone vereist.");
+    return v;
+  };
+  if (actie === "overzicht") {
+    const { rows } = await c.query(`SELECT q.id,u.gebruikersnaam,q.qualification_code,q.valid_from,q.valid_until,q.revoked_at,
+       i.evidence,i.requested_by,i.approved_by,r.reason,r.revoked_by
+       FROM fabriek.personnel_qualification q JOIN fabriek.gebruiker u ON u.id=q.user_id
+       LEFT JOIN fabriek.qualification_issue i ON i.qualification_id=q.id
+       LEFT JOIN fabriek.qualification_revocation r ON r.qualification_id=q.id
+       ORDER BY u.gebruikersnaam,q.qualification_code,q.valid_from DESC`);
+    toon(JSON.stringify(rows,null,2));
+    return true;
+  }
+  let sql, params, labels, verwacht;
+  if (actie === "toekennen") {
+    const target = await zoek("Doelaccount: ");
+    const code = await vraag("Bestaande kwalificatiecode: ");
+    const from = await datum("Geldig vanaf (ISO 8601 met tijdzone): ");
+    const until = await datum("Geldig tot (ISO 8601 met tijdzone): ");
+    if (Date.parse(until)<=Date.parse(from)) throw new Error("Einddatum moet na begindatum liggen.");
+    const a = await zoek("Inhoudelijke aanvrager: ");
+    const b = await zoek("Onafhankelijke inhoudelijke beoordelaar: ");
+    if (new Set([target.id,a.id,b.id]).size !== 3) throw new Error("Drie verschillende persoonlijke identiteiten vereist.");
+    const evidence = await vraag("Bewijsreferentie: ");
+    params = [target.id,code,from,until,a.id,b.id,evidence];
+    toon(JSON.stringify({actie,target,code,from,until,aanvrager:a,beoordelaar:b,evidence},null,2));
+    labels = ["Aanvrager, bevestig persoonlijk uw MES-wachtwoord: ","Beoordelaar, bevestig persoonlijk uw MES-wachtwoord: "];
+    sql = "SELECT * FROM fabriek.qualification_issue_confirmed($1::uuid,$2::text,$3::timestamptz,$4::timestamptz,$5::uuid,$6::uuid,$7::text,$8::text,$9::text)";
+    verwacht = "issued";
+  } else if (actie === "intrekken") {
+    const id = await vraag("Kwalificatie-UUID: ");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error("Ongeldige kwalificatie-UUID.");
+    const { rows:[q] } = await c.query("SELECT q.id,q.user_id,u.gebruikersnaam,q.qualification_code,q.valid_from,q.valid_until FROM fabriek.personnel_qualification q JOIN fabriek.gebruiker u ON u.id=q.user_id WHERE q.id=$1 AND q.revoked_at IS NULL",[id]);
+    if (!q) throw new Error("Geen intrekbare kwalificatie.");
+    const actor = await zoek("Onafhankelijke inhoudelijke intrekker: ");
+    if (actor.id===q.user_id) throw new Error("Onafhankelijke intrekking vereist.");
+    const reason = await vraag("Reden en referentie: ");
+    params = [id,actor.id,reason];
+    toon(JSON.stringify({actie,kwalificatie:q,intrekker:actor,reason},null,2));
+    labels = ["Intrekker, bevestig persoonlijk uw MES-wachtwoord: "];
+    sql = "SELECT fabriek.qualification_revoke_confirmed($1::uuid,$2::uuid,$3::text,$4::text) AS status";
+    verwacht = "revoked";
+  } else throw new Error("Onbekende kwalificatiehandeling.");
+  if (await io.vraag("Typ BEVESTIG om deze concrete handeling uit te voeren: ") !== "BEVESTIG") return false;
+  const passwords=[];
+  for (const label of labels) passwords.push(await io.wachtwoord(label));
+  let result;
+  try {
+    ({rows:[result]}=await c.query(sql,[...params,...passwords]));
+  } catch {
+    throw new Error("Kwalificatiehandeling geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
+  }
+  toon(JSON.stringify(result));
+  return result?.status===verwacht;
+}
+
 // Los gestart: node tools/beheerder.mjs
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { argumenten, leesInstellingen, stop, verbind } = await import("./lib.mjs");
   const { opties } = argumenten();
-  const acties = ['herstel-account', 'security-binden', 'security-intrekken', 'personeel-koppelen'].filter(a => opties[a]);
+  const acties = ['herstel-account', 'security-binden', 'security-intrekken', 'personeel-koppelen','kwalificatie-overzicht','kwalificatie-toekennen','kwalificatie-intrekken'].filter(a => opties[a]);
   if (acties.length > 1) stop('Kies precies één beheerdershandeling.');
   if (acties.length && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Deze beheerdershandeling vereist een persoonlijk interactief terminalvenster.');
   const inst = leesInstellingen(opties);
@@ -266,6 +341,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       if (!await securityBinding(c, io, !!opties['security-intrekken'])) process.exitCode = 1;
     } else if (opties['personeel-koppelen']) {
       if (!await koppelPersoneel(c, io)) process.exitCode = 1;
+    } else if (acties[0]?.startsWith('kwalificatie-')) {
+      if (!await kwalificatieActie(c, io, acties[0].slice('kwalificatie-'.length))) process.exitCode = 1;
     } else await beheerderMenu(c, io);
   } catch (e) {
     stop(e.message);
