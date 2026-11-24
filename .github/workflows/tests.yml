@@ -293,6 +293,9 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
+      - name: Security- en beheertoolregressies
+        if: always() && steps.node.outcome == 'success'
+        run: node --test tests/security-tools.test.mjs
       - name: API afhankelijkheden
         id: npm
         if: always() && steps.node.outcome == 'success'
