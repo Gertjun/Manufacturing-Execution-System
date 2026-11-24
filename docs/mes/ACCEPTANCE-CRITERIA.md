@@ -17,3 +17,5 @@ D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht te
 | 10–11 | KPI-definities en bewijs, integratiecontracten, veilige uitrol |
 
 Migratietests: schone installatie en upgrade vanaf main, schema/diagram consistent, historische data en ID's behouden, DB-rechten beperkte app-account, transacties en herstel. Kritische negatieve tests: operator MBR wijzigen, auteur alleen goedkeuren, systeembeheer product vrijgeven, ongeschikt middel, ontbrekende kwalificatie, verlopen offline bevoegdheid, opheffen technische hold laat quality hold intact. Werkelijke testbewijslinks pas invullen na uitvoering.
+
+Fase 1, PR #6 (deelimplementatie): `api/test/authorization.test.ts` bevat scenario's voor gescheiden grants, ontbrekende scope, geldigheid, intrekking, kwalificaties, conflicterende beheerdomeinen en persoonlijke identiteit. Uitvoering en API/DB-integratie nog open.

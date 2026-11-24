@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES #107–#108 (deel): afzonderlijke autorisatiebeslismodule met negatieve unit-tests; nog niet aangesloten op API of database.
 - MES: API-titel en eenvoudige startpagina geharmoniseerd; werkafspraken voor concept-PRs verduidelijkt (D90).
 - Schermtest: lopende stilstand vergelijken met de database in plaats van vaste PS7; rangorde en percentage op de dashboardtegel controleren.
 - CI: gebundelde faseacceptatie, selectieve Node 22 op concept-PRs en beide suites op acceptatieverzoek (D90).

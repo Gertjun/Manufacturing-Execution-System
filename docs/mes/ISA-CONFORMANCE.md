@@ -17,3 +17,5 @@ D89 A12/G07. Status ontwerp, niet geverifieerd. Volledige toepasselijke normteks
 | Automatische batchbesturing | Buiten MES, niveau 2 | A02,A11 | 11 interface | Scopekeuze |
 
 Bronnen: zie BLUEPRINT. Vierogen, MOC, offline en specifieke portalen zijn eigen ontwerpkeuzes, niet automatisch normvereisten. Bij afwijking rationale en acceptatie vastleggen.
+
+Fase 1 / PR #6: afzonderlijke autorisatiebeslismodule voor rollen, scope en kwalificaties (P01–P05, M08); unit-tests toegevoegd, nog niet uitgevoerd of aangesloten op productie-API/DB. Geen conformiteitsbewijs.
