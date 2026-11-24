@@ -131,6 +131,21 @@ describe("inloggen en rollen", () => {
     assert.equal((await verzoek("POST", "/batches", t, { batchnummer: "B-2026-0998" })).status, 403);
     assert.equal((await verzoek("PATCH", "/beheer/velden/S1.1", t, { naam: "x" })).status, 403);
   });
+  test("D101: fabriekbrede overzichten vereisen actuele globale MES-leesrechten", async () => {
+    const system = await login("mes.system");
+    const security = await login("mes.security.a");
+    const reader = await login("mes.analyst");
+    const name = "mes.scope.overview";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))", [name]);
+    await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT g.id,'analyst_management',p.id FROM fabriek.gebruiker g CROSS JOIN fabriek.product p WHERE g.gebruikersnaam=$1 AND p.code='PRD-A'", [name]);
+    const scoped = await login(name);
+    for (const path of ["/planning/producten", "/werkvoorraad", "/analyse/samenvatting"]) {
+      for (const token of [system, security, scoped]) {
+        assert.equal((await verzoek("GET", path, token)).status, 403, path);
+      }
+      assert.equal((await verzoek("GET", path, reader)).status, 200, path);
+    }
+  });
   test("configuratie: 18 processtappen en 3 keuringsstappen, PS16 is de lot-stap", async () => {
     const t = await login("analist1");
     const r = await verzoek("GET", "/config/stappen", t);
