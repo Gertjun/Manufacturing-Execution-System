@@ -3,7 +3,7 @@
 import { bevestig, h, laden, melding, toon, vastHouden, vraag, type VraagVeld } from "../../../gedeeld/ui";
 import { leesGetal, toonGetal } from "../../../gedeeld/markering";
 import type { Stap, Veld } from "../../../gedeeld/types";
-import { haal, qs, sessie, stuur } from "../basis";
+import { haal, qs, sessie, stuur, heeftRecht } from "../basis";
 import { datum, fout, kop, tabel, afgekapt } from "../kwaliteit/schermen";
 import { downloadXlsx, leesNlGetal, leesXlsxBladen, vandaag, xlsxBladen, type Cel } from "../excel";
 
@@ -435,149 +435,76 @@ const GRENS_WAT: Record<GrensUitkomst["actie"], string> = { nieuw: "Nieuw", wijz
 const GRENS_VOLGORDE: Record<GrensUitkomst["actie"], number> = { fout: 0, weghalen: 1, nieuw: 2, wijzigen: 3, gelijk: 4 };
 
 // ---------- Medewerkers: namen, ploegen en accounts (#87, D77) ----------
-interface Account { gebruikersnaam: string; rol: string; actief: boolean; naam?: string | null; gedeeld?: boolean; tijdelijk?: boolean; ploeg?: string | null }
-interface Operator { id: string; naam: string; actief: boolean; account?: string | null; rol?: string | null; ploeg?: string | null }
-/** Eén regel per persoon: een naam bij de invoer, een eigen account, of allebei. */
-interface Persoon { naam: string | null; operator: Operator | null; account: Account | null; ploeg: string | null; actief: boolean }
-const MET_NAAM = ["operator", "ploegleider", "kwaliteit"];
+interface Account { gebruikersnaam: string; rol: string; actief: boolean; gedeeld?: boolean; tijdelijk?: boolean }
+interface Operator { id: string; naam: string; actief: boolean; account?: string | null; ploeg?: string | null }
 
-export async function medewerkers() {
+export async function accounts() {
   const actueel = vastHouden();
-  toon(kop("Medewerkers"), laden());
-  let lijst: Account[], namen: Operator[], ploegcodes: string[];
+  toon(kop("Accounts"), laden());
+  let lijst: Account[];
+  try { lijst = await haal<Account[]>("/beheer/gebruikers"); } catch (e) { return fout(e); }
+  if (!actueel()) return;
+  const magWijzigen = heeftRecht("account.manage");
+  const wachtwoord: VraagVeld = { naam: "wachtwoord", label: "Tijdelijk wachtwoord", type: "password",
+    controle: w => w.length < 8 ? "Minstens 8 tekens" : null };
+  const toevoegen = async () => {
+    const r = await vraag("Persoonlijk account aanmaken", [
+      { naam: "gebruikersnaam", label: "Gebruikersnaam", controle: n => /^[a-z0-9._-]{3,40}$/.test(n) ? null : "3 tot 40 kleine letters, cijfers, punten, underscores of streepjes" },
+      wachtwoord,
+    ], "Aanmaken", "Het account krijgt geen MES-grants of personeelskoppeling. Geef het tijdelijke wachtwoord persoonlijk door.");
+    if (r && actueel()) await wijzig(() => stuur("POST", "/beheer/gebruikers", { gebruikersnaam: r.gebruikersnaam, wachtwoord: r.wachtwoord }), "Account aangemaakt zonder bevoegdheden", accounts);
+  };
+  const aanUit = async (a: Account) => {
+    if (!(await bevestig(a.actief ? "Account uitzetten?" : "Account activeren?", "Dit wijzigt uitsluitend het account. Historische gegevens blijven behouden.", a.actief ? "Uitzetten" : "Activeren", a.actief))) return;
+    if (actueel()) await wijzig(() => stuur("PATCH", "/beheer/gebruikers/"+encodeURIComponent(a.gebruikersnaam), { actief: !a.actief }), "Accountstatus gewijzigd", accounts);
+  };
+  toon(kop("Accounts", "Technisch accountbeheer. MES-grants, personeelskoppeling en gecontroleerd herstel zijn afzonderlijke processen.",
+      magWijzigen ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Account aanmaken") : undefined),
+    tabel(["Gebruikersnaam", "Historisch accounttype", "Actief", "Wachtwoordstatus", ""], lijst.map(a => [
+      a.gebruikersnaam, a.gedeeld ? "Historisch gedeeld (login geblokkeerd)" : rolNaam(a.rol), jaNee(a.actief),
+      a.tijdelijk ? "Tijdelijk" : "Ingesteld",
+      magWijzigen && a.gebruikersnaam !== sessie.naam && !a.gedeeld
+        ? h("button", { class: "knop knop-klein", onclick: () => aanUit(a) }, a.actief ? "Uitzetten" : "Activeren") : "",
+    ])));
+}
+
+export async function personeel() {
+  const actueel = vastHouden();
+  toon(kop("Personeel"), laden());
+  let lijst: Operator[];
+  let ploegen: { code: string; actief: boolean }[] = [];
+  const magWijzigen = heeftRecht("personnel.manage");
   try {
-    const [a, o, r] = await Promise.all([haal<Account[]>("/beheer/gebruikers"), haal<Operator[]>("/beheer/operators"),
-      haal<{ ploegen: { code: string; actief: boolean }[] }>("/overdracht/rooster?dagen=1")]);
-    [lijst, namen, ploegcodes] = [a, o, r.ploegen.filter((p) => p.actief).map((p) => p.code)];
+    lijst = await haal<Operator[]>("/beheer/operators");
+    if (magWijzigen && heeftRecht("handover.read")) {
+      const r = await haal<{ ploegen: { code: string; actief: boolean }[] }>("/overdracht/rooster?dagen=1");
+      ploegen = r.ploegen.filter(p => p.actief);
+    }
   } catch (e) { return fout(e); }
   if (!actueel()) return;
-  const opnieuw = () => medewerkers();
-  const zelf = sessie.naam;
-
-  // Personen: elke naam (met of zonder account), en accounts met een invoerrol die nog geen naam hebben.
-  const personen: Persoon[] = namen.map((o) => {
-    const account = lijst.find((a) => a.gebruikersnaam === o.account) ?? null;
-    return { naam: o.naam, operator: o, account, ploeg: o.ploeg ?? null, actief: account ? account.actief : o.actief };
-  });
-  for (const a of lijst) {
-    if (!a.gedeeld && MET_NAAM.includes(a.rol) && !namen.some((o) => o.account === a.gebruikersnaam)) {
-      personen.push({ naam: null, operator: null, account: a, ploeg: a.ploeg ?? null, actief: a.actief });
-    }
-  }
-  personen.sort((x, y) => Number(y.actief) - Number(x.actief) || (x.naam ?? x.account!.gebruikersnaam).localeCompare(y.naam ?? y.account!.gebruikersnaam, "nl"));
-  const vanKwaliteit = personen.filter((p) => p.account?.rol === "kwaliteit");
-  const vanVloer = personen.filter((p) => p.account?.rol !== "kwaliteit");
-  const overige = lijst.filter((a) => a.gedeeld || !MET_NAAM.includes(a.rol));
-
-  const ploegOpties: [string, string][] = [["", "Geen ploeg"], ...ploegcodes.map((c): [string, string] => [c, `Ploeg ${c}`])];
-  const wachtwoord: VraagVeld = { naam: "wachtwoord", label: "Wachtwoord", type: "password", hint: "Minstens 8 tekens", controle: (w) => (w.length < 8 ? "Minstens 8 tekens" : null) };
-  const gebruikersnaamVeld: VraagVeld = { naam: "gebruikersnaam", label: "Gebruikersnaam", hint: "Kleine letters, cijfers, punt of streepje",
-    controle: (n) => (/^[a-z0-9._-]{3,40}$/.test(n) ? null : "Alleen kleine letters, cijfers, punt of streepje; 3 tot 40 tekens") };
-  const uitlegWachtwoord = "Het wachtwoord is tijdelijk: bij de eerste inlog kiest de medewerker een eigen wachtwoord (niet bij een wandscherm). Geef het persoonlijk door; het wordt alleen versleuteld bewaard.";
-
-  const toevoegen = async () => {
-    const r = await vraag("Medewerker toevoegen", [
-      { naam: "naam", label: "Naam bij de invoer", optioneel: true, hint: "Bijvoorbeeld Jan de Vries. Staat bij alles wat deze persoon invoert. Leeg = zelfde als de gebruikersnaam." },
-      { naam: "rol", label: "Rol", opties: ROLLEN, waarde: "operator" },
-      { naam: "ploeg", label: "Ploeg", opties: ploegOpties, waarde: "", optioneel: true, hint: "Alleen voor operator, ploegleider en Kwaliteit." },
-      gebruikersnaamVeld,
-      wachtwoord,
-    ], "Medewerker toevoegen", `Iedereen logt in met een eigen account (D53). ${uitlegWachtwoord}`);
-    if (!r) return;
-    const metNaam = MET_NAAM.includes(r.rol);
-    const body = { gebruikersnaam: r.gebruikersnaam, rol: r.rol, wachtwoord: r.wachtwoord,
-      ...(metNaam && r.naam ? { naam: r.naam } : {}), ...(metNaam && r.ploeg ? { ploeg: r.ploeg } : {}) };
-    await wijzig(() => stuur("POST", "/beheer/gebruikers", body), `${r.naam || r.gebruikersnaam} toegevoegd`, opnieuw);
+  const opties: [string,string][] = [["","Geen ploeg"], ...ploegen.map(p => [p.code,p.code] as [string,string])];
+  const bewerken = async (o?: Operator) => {
+    const velden: VraagVeld[] = [{ naam: "naam", label: "Naam", waarde: o?.naam ?? "" }];
+    if (ploegen.length) velden.push({ naam: "ploeg", label: "Ploeg", opties, waarde: o?.ploeg ?? "", optioneel: true });
+    const r = await vraag(o ? "Personeelsgegevens wijzigen" : "Persoon toevoegen", velden, "Opslaan",
+      "Dit beheert uitsluitend de personeelsidentiteit, niet het account of de MES-grants.");
+    if (!r || !actueel()) return;
+    const body = { naam: r.naam, ...(ploegen.length ? { ploeg: r.ploeg || null } : {}) };
+    await wijzig(() => o ? stuur("PATCH", "/beheer/operators/"+o.id, body) : stuur("POST", "/beheer/operators", body), "Personeelsgegevens opgeslagen", personeel);
   };
-  const naamZonderAccount = async () => {
-    const r = await vraag("Naam zonder account", [{ naam: "naam", label: "Naam" }, { naam: "ploeg", label: "Ploeg", opties: ploegOpties, waarde: "", optioneel: true }], "Toevoegen",
-      "Alleen nodig zolang het oude gedeelde account nog in gebruik is: wie daarmee inlogt, kiest een naam uit deze lijst. Geef iemand liever meteen een eigen account.");
-    if (r) await wijzig(() => stuur("POST", "/beheer/operators", { naam: r.naam, ...(r.ploeg ? { ploeg: r.ploeg } : {}) }), `${r.naam} toegevoegd`, opnieuw);
+  const aanUit = async (o: Operator) => {
+    if (!(await bevestig(o.actief ? "Personeelsidentiteit uitzetten?" : "Personeelsidentiteit activeren?",
+      "Dit wijzigt niet de accountstatus of historische registraties.", o.actief ? "Uitzetten" : "Activeren", o.actief))) return;
+    if (actueel()) await wijzig(() => stuur("PATCH", "/beheer/operators/"+o.id, { actief: !o.actief }), "Personeelsstatus gewijzigd", personeel);
   };
-
-  const wijzigPersoon = async (p: Persoon) => {
-    const velden: VraagVeld[] = [
-      ...(p.operator ? [{ naam: "naam", label: "Naam bij de invoer", waarde: p.operator.naam, hint: "Eerdere invoer toont daarna ook de nieuwe naam." }] : []),
-      { naam: "ploeg", label: "Ploeg", opties: ploegOpties, waarde: p.ploeg ?? "", optioneel: true },
-    ];
-    const r = await vraag(`${p.naam ?? p.account!.gebruikersnaam} wijzigen`, velden, "Opslaan");
-    if (!r) return;
-    const ploeg = r.ploeg || null;
-    await wijzig(() => p.operator
-      ? stuur("PATCH", `/beheer/operators/${p.operator.id}`, { ...(r.naam && r.naam !== p.operator.naam ? { naam: r.naam } : {}), ploeg })
-      : stuur("PATCH", `/beheer/gebruikers/${p.account!.gebruikersnaam}`, { ploeg }), "Opgeslagen", opnieuw);
-  };
-  const accountGeven = async (o: Operator) => {
-    const r = await vraag(`Account voor ${o.naam}`, [
-      gebruikersnaamVeld, { naam: "rol", label: "Rol", opties: ROLLEN.filter(([k]) => MET_NAAM.includes(k)), waarde: "operator" }, wachtwoord,
-    ], "Account aanmaken", `De invoer van ${o.naam} blijft op dezelfde naam staan. ${uitlegWachtwoord}`);
-    if (r) await wijzig(() => stuur("POST", "/beheer/gebruikers", { gebruikersnaam: r.gebruikersnaam, rol: r.rol, wachtwoord: r.wachtwoord, bestaandeNaam: o.id }),
-      `Account ${r.gebruikersnaam} aangemaakt`, opnieuw);
-  };
-  const nieuwWachtwoord = async (a: Account) => {
-    const r = await vraag(`Nieuw wachtwoord voor ${a.gebruikersnaam}`, [wachtwoord], "Opslaan");
-    if (r) await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { wachtwoord: r.wachtwoord }), a.rol === "scherm" ? "Wachtwoord ingesteld" : "Tijdelijk wachtwoord ingesteld", opnieuw);
-  };
-  const andereRol = async (a: Account) => {
-    const r = await vraag(`Rol van ${a.gebruikersnaam}`, [{ naam: "rol", label: "Rol", opties: ROLLEN, waarde: a.rol }], "Opslaan");
-    if (r) await wijzig(() => stuur("PATCH", `/beheer/gebruikers/${a.gebruikersnaam}`, { rol: r.rol }), "Rol opgeslagen", opnieuw);
-  };
-  /** Aan of uit: het account (inloggen) en de naam (namenlijst) samen. */
-  const aanUit = async (p: Persoon) => {
-    const naam = p.naam ?? p.account!.gebruikersnaam;
-    if (p.actief && !(await bevestig(`${naam} uitzetten?`, p.account ? "Inloggen kan daarna niet meer. Alles wat is ingevoerd blijft bewaard." : "De naam staat daarna niet meer in de namenlijst. Alles wat is ingevoerd blijft bewaard.", "Uitzetten", true))) return;
-    await wijzig(async () => {
-      if (p.account) await stuur("PATCH", `/beheer/gebruikers/${p.account.gebruikersnaam}`, { actief: !p.actief });
-      if (p.operator) await stuur("PATCH", `/beheer/operators/${p.operator.id}`, { actief: !p.actief });
-    }, p.actief ? `${naam} uitgezet` : `${naam} weer actief`, opnieuw);
-  };
-
-  const accountCel = (a: Account | null) => a
-    ? h("span", {}, a.gebruikersnaam, a.gebruikersnaam === zelf ? h("span", { class: "noot" }, " (jij)") : "",
-        a.rol === "ploegleider" ? h("span", { class: "noot" }, " · ploegleider") : "",
-        a.tijdelijk ? h("span", { class: "noot" }, " · tijdelijk wachtwoord") : "")
-    : h("span", { class: "sub" }, "Geen account");
-  const persoonRijen = (lijstP: Persoon[]) => lijstP.map((p) => [
-    h("strong", { class: p.actief ? "" : "inactief" }, p.naam ?? h("span", { class: "sub" }, `Bij eerste inlog: ${p.account!.gebruikersnaam}`), p.actief ? "" : " (uit)"),
-    p.ploeg ?? h("span", { class: "sub" }, "Geen"),
-    accountCel(p.account),
-    h("div", { class: "knoppen-klein" },
-      h("button", { class: "knop knop-klein", onclick: () => wijzigPersoon(p) }, "Wijzigen"),
-      p.account
-        ? [h("button", { class: "knop knop-klein", onclick: () => nieuwWachtwoord(p.account!) }, "Wachtwoord"),
-           h("button", { class: "knop knop-klein", disabled: p.account.gebruikersnaam === zelf, onclick: () => andereRol(p.account!) }, "Rol")]
-        : h("button", { class: "knop knop-klein", onclick: () => accountGeven(p.operator!) }, "Account geven"),
-      h("button", { class: "knop knop-klein knop-stil", disabled: p.account?.gebruikersnaam === zelf, onclick: () => aanUit(p) }, p.actief ? "Uitzetten" : "Weer aanzetten")),
-  ]);
-  const blok = (titel: string, sub: string, inhoud: Node, ...knoppen: Node[]) =>
-    h("section", { class: "blok" }, h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, titel), h("p", { class: "sub" }, sub)),
-      knoppen.length ? h("div", { class: "knoppen-klein" }, ...knoppen) : null), inhoud);
-
-  toon(
-    kop("Medewerkers", "Iedereen met een naam bij de invoer, een ploeg en een eigen account.",
-      h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Medewerker toevoegen")),
-    lijst.some((a) => a.gedeeld && a.actief)
-      ? h("p", { class: "proef-melding" }, h("strong", {}, "Gedeeld account nog actief. "),
-          "Wie hiermee inlogt kiest zelf een naam; dat is fraudegevoelig (D53). Geef iedereen een eigen account en zet het gedeelde account uit zodra de invoerschermen niets meer te versturen hebben.")
-      : null,
-    blok("Operators en ploegleiders", "Wie op de vloer invoert. De naam staat bij alles wat iemand invoert; de ploeg volgt het rooster (Diensten en ploegen).",
-      vanVloer.length ? tabel(["Naam", "Ploeg", "Account", ""], persoonRijen(vanVloer)) : h("p", { class: "leeg" }, "Nog niemand."),
-      h("button", { class: "knop knop-klein", onclick: naamZonderAccount }, "Naam zonder account")),
-    blok("Kwaliteit", "Kwaliteitsmedewerkers: keuren en meten, ook op de lab-pc.",
-      vanKwaliteit.length ? tabel(["Naam", "Ploeg", "Account", ""], persoonRijen(vanKwaliteit)) : h("p", { class: "leeg" }, "Nog niemand van Kwaliteit. Voeg iemand toe met de rol Kwaliteit.")),
-    blok("Overige accounts", "Accounts zonder naam bij de invoer: kantoor, beheer en de wandschermen.",
-      tabel(["Gebruikersnaam", "Rol", "Actief", ""], overige.map((a) => [
-        h("strong", { class: a.actief ? "" : "inactief" }, a.gebruikersnaam, a.gebruikersnaam === zelf ? h("span", { class: "noot" }, " (jij)") : "",
-          a.tijdelijk ? h("span", { class: "noot" }, " · tijdelijk wachtwoord") : ""),
-        a.gedeeld ? h("span", { class: "plan-waarschuwing" }, h("span", { "aria-hidden": "true" }, "⚠ "), "Gedeeld: kiest een naam") : rolNaam(a.rol),
-        jaNee(a.actief),
-        h("div", { class: "knoppen-klein" },
-          h("button", { class: "knop knop-klein", onclick: () => nieuwWachtwoord(a) }, "Wachtwoord"),
-          h("button", { class: "knop knop-klein", disabled: a.gebruikersnaam === zelf, onclick: () => andereRol(a) }, "Rol"),
-          h("button", { class: "knop knop-klein knop-stil", disabled: a.gebruikersnaam === zelf, onclick: () => aanUit({ naam: a.gebruikersnaam, operator: null, account: a, ploeg: null, actief: a.actief }) },
-            a.actief ? "Uitzetten" : "Weer aanzetten")),
-      ]))),
-  );
+  toon(kop("Personeel", "Personeelsidentiteiten en ploegindeling. Accountkoppeling en autorisatie volgen afzonderlijke gecontroleerde procedures.",
+      magWijzigen ? h("button", { class: "knop knop-hoofd", onclick: () => bewerken() }, "Persoon toevoegen") : undefined),
+    tabel(["Naam", "Ploeg", "Gekoppeld account", "Actief", ""], lijst.map(o => [
+      o.naam, o.ploeg ?? "Geen", o.account ?? "Niet gekoppeld", jaNee(o.actief),
+      magWijzigen ? h("div", { class: "knoppen-klein" },
+        h("button", { class: "knop knop-klein", onclick: () => bewerken(o) }, "Wijzigen"),
+        h("button", { class: "knop knop-klein knop-stil", onclick: () => aanUit(o) }, o.actief ? "Uitzetten" : "Activeren")) : "",
+    ])));
 }
 
 // ---------- Grondstoffen ----------
