@@ -147,26 +147,46 @@ def main():
     channel_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
     channel_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
     channel_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-channel','pending',wachtwoord_hash('demo-test')) RETURNING id")
-    channel_submit = "SELECT * FROM authorization_channel_submit(%s,%s,'operator',NULL,NULL,NULL,now(),NULL,'Testkanaal',%s)"
+    channel_submit = "SELECT * FROM authorization_channel_submit(%s,'operator',NULL,NULL,NULL,now(),NULL,'Testkanaal',%s)"
     con.execute("SET ROLE mes_app")
     try:
-        faalt("Gewone app mag securitykanaal niet aanroepen",channel_submit,(channel_a,channel_target,'demo'),"permission denied")
+        faalt("Gewone app mag securitykanaal niet aanroepen",channel_submit,(channel_target,'demo'),"permission denied")
+        faalt("Gewone app mag bindingen niet lezen","SELECT * FROM authorization_channel_identity",bevat="permission denied")
     finally:
         con.execute("RESET ROLE")
     con.execute("SET ROLE mes_security_channel")
     try:
+        faalt("Groepsrol zonder persoonlijke login is onvoldoende",channel_submit,(channel_target,'demo'),"Geen gebonden")
         faalt("Securitykanaal mag geen directe grants schrijven","INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(channel_target,),"permission denied")
-        faalt("Securitykanaal mag onbevestigde aanvraag niet uitvoeren","SELECT authorization_submit(%s,%s,'operator',NULL,NULL,NULL,now(),NULL,'Test')",(channel_a,channel_target),"permission denied")
-        check("Onjuiste herbevestiging weigert aanvraag",one(channel_submit,(channel_a,channel_target,'onjuist'))[0]=="denied")
-        status, channel_request = one(channel_submit,(channel_a,channel_target,'demo'))
-        check("Bevestigde aanvraag via apart kanaal",status=="submitted")
-        channel_decide = "SELECT * FROM authorization_channel_decide(%s,%s,true,'Testbesluit',%s)"
-        faalt("Geen eigen aanvraag goedkeuren",channel_decide,(channel_a,channel_request,'demo'),"Onafhankelijke")
-        status, channel_grant = one(channel_decide,(channel_b,channel_request,'demo'))
-        check("Onafhankelijk besluit via apart kanaal",status=="decided" and channel_grant is not None)
-        check("Bevestigde intrekking via apart kanaal",val("SELECT authorization_channel_revoke(%s,%s,'Testintrekking','demo')",(channel_b,channel_grant))=="revoked")
+        faalt("Securitykanaal mag geen actor opgeven","SELECT * FROM authorization_channel_submit(%s,%s,'operator',NULL,NULL,NULL,now(),NULL,'Test','demo')",(channel_a,channel_target),"permission denied")
     finally:
         con.execute("RESET ROLE")
+    # Uitsluitend fictieve rollen; SET SESSION AUTHORIZATION simuleert de oorspronkelijke login.
+    # De eigenaar is in deze tijdelijke testdatabase superuser.
+    import uuid
+    suffix = uuid.uuid4().hex[:12]
+    role_a, role_b = "mes_test_sec_a_"+suffix, "mes_test_sec_b_"+suffix
+    try:
+        for role, actor in [(role_a,channel_a),(role_b,channel_b)]:
+            con.execute(f"CREATE ROLE {role} LOGIN IN ROLE mes_security_channel")
+            con.execute("INSERT INTO authorization_channel_identity(database_role_oid,database_role_name,user_id,reason) SELECT oid,rolname,%s,'Fictieve test' FROM pg_roles WHERE rolname=%s",(actor,role))
+        con.execute(f"SET SESSION AUTHORIZATION {role_a}")
+        check("Onjuiste herbevestiging weigert aanvraag",one(channel_submit,(channel_target,'onjuist'))[0]=="denied")
+        status, channel_request = one(channel_submit,(channel_target,'demo'))
+        check("Bevestigde aanvraag via gebonden kanaal",status=="submitted")
+        channel_decide = "SELECT * FROM authorization_channel_decide(%s,true,'Testbesluit',%s)"
+        faalt("Geen eigen aanvraag goedkeuren",channel_decide,(channel_request,'demo'),"Onafhankelijke")
+        con.execute("RESET SESSION AUTHORIZATION")
+        con.execute(f"SET SESSION AUTHORIZATION {role_b}")
+        check("Exacte aanvraag leesbaar",val("SELECT count(*) FROM authorization_channel_requests() WHERE request_id=%s AND requested_by=%s",(channel_request,channel_a))==1)
+        status, channel_grant = one(channel_decide,(channel_request,'demo'))
+        check("Onafhankelijk besluit via gebonden kanaal",status=="decided" and channel_grant is not None)
+        check("Bevestigde intrekking via gebonden kanaal",val("SELECT authorization_channel_revoke(%s,'Testintrekking','demo')",(channel_grant,))=="revoked")
+        check("Ingetrokken grant blijft leesbaar",val("SELECT count(*) FROM authorization_channel_grants() WHERE grant_id=%s AND revoked_at IS NOT NULL",(channel_grant,))==1)
+    finally:
+        con.execute("RESET SESSION AUTHORIZATION")
+        con.execute(f"DROP ROLE IF EXISTS {role_a}")
+        con.execute(f"DROP ROLE IF EXISTS {role_b}")
     personnel_manager = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.manager'")
     personnel_system = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'")
     check("Manufacturing Manager heeft personeelsbeheer", val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_manager,)))
