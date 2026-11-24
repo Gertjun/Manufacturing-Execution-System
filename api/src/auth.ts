@@ -64,8 +64,8 @@ function kop(req: FastifyRequest, naam: string): string | undefined {
 
 /**
  * Operator die de invoer deed. De offline wachtrij stuurt de operator mee die
- * op het moment van invoer was gekozen (kop x-batchgui-operator); anders geldt
- * de operator uit het token (D43). Alleen voor invoerrollen.
+ * op het moment van invoer vastlag. De kop mag uitsluitend overeenkomen met
+ * de persoonlijke operator uit het token (D94).
  */
 export function operatorVan(req: FastifyRequest): string | undefined {
   const k = kop(req, "x-batchgui-operator");
@@ -95,8 +95,7 @@ export function invoerTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) =>
 
 /**
  * Voor invoer: het token moet een pc bevatten, en er moet een operator bekend zijn.
- * Staat de invoer op een andere naam dan die van het account (de wachtrij na een persoonswissel),
- * dan beslist de database of dat mag (mag_invoeren_namens, D53).
+ * De database controleert altijd de actuele persoonlijke koppeling, accountstatus en pc (D94).
  */
 export async function invoerContext(db: Db, req: FastifyRequest): Promise<{ pcId: string; operatorId: string }> {
   const { pcId } = req.user;

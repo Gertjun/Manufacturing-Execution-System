@@ -181,7 +181,9 @@ export async function wachtrijScherm() {
       { class: "rij" },
       h("div", {}, h("div", { class: "rij-hoofd" }, a.omschrijving), h("div", { class: "rij-info" }, tijd(a.aangemaakt), a.operatornaam ? ` · ${a.operatornaam}` : ""),
         a.fout ? h("div", { class: "label-buiten_grens", style: "font-weight:700" }, a.fout) : null),
-      a.status === "fout"
+      a.status === "beoordeling" || !a.userId || a.fout?.startsWith("Persoonlijke herkomst")
+        ? h("span", { class: "label label-wacht" }, "Beoordeling nodig")
+        : a.status === "fout"
         ? h("button", {
             class: "knop knop-klein",
             onclick: async () => {
@@ -191,16 +193,20 @@ export async function wachtrijScherm() {
           }, "Verwijderen")
         : h("span", { class: "label label-wacht" }, "Wacht"),
     );
-  const fouten = lijst.filter((a) => a.status === "fout");
+  const beoordeling = lijst.filter((a) => a.status === "beoordeling" || (a.status === "fout" && (!a.userId || a.fout?.startsWith("Persoonlijke herkomst"))));
+  const fouten = lijst.filter((a) => a.status === "fout" && !beoordeling.includes(a));
   const wacht = lijst.filter((a) => a.status === "wacht");
   toon(
     h("div", { class: "kop" }, h("h1", {}, "Verzenden"),
       h("button", { class: "knop", onclick: async () => { await verwerk(); void wachtrijScherm(); } }, "Nu versturen")),
     h("p", { class: "sub" }, "Invoer wordt eerst op deze pc bewaard en daarna automatisch naar de server gestuurd."),
+    beoordeling.length ? h("h2", {}, "Gecontroleerde beoordeling nodig") : null,
+    beoordeling.length ? h("p", {}, "Niet opnieuw invoeren of verwijderen. Laat de oorspronkelijke gegevens door een bevoegde medewerker beoordelen.") : null,
+    beoordeling.length ? h("ul", { class: "lijst" }, beoordeling.map(rij)) : null,
     fouten.length ? h("h2", {}, "Geweigerd door de server") : null,
     fouten.length ? h("p", {}, "Deze invoer is niet opgeslagen. Lees de melding, voer het zo nodig opnieuw in en verwijder de regel daarna.") : null,
     fouten.length ? h("ul", { class: "lijst" }, fouten.map(rij)) : null,
     h("h2", {}, "Wacht op verzending"),
-    wacht.length ? h("ul", { class: "lijst" }, wacht.map(rij)) : h("p", { class: "leeg" }, "Alles is verstuurd."),
+    wacht.length ? h("ul", { class: "lijst" }, wacht.map(rij)) : h("p", { class: "leeg" }, beoordeling.length || fouten.length ? "Geen acties klaar voor verzending." : "Alles is verstuurd."),
   );
 }

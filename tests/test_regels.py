@@ -463,7 +463,7 @@ def main():
     op_c = val("SELECT id FROM operator WHERE naam = 'Operator C'")
     pc1 = val("SELECT id FROM pc WHERE naam = 'PC-01'")
     pc2 = val("SELECT id FROM pc WHERE naam = 'PC-02'")
-    check("Gedeeld account heeft geen eigen naam (kiest er een)", val("SELECT operator_van_account(%s)", (gedeeld,)) is None)
+    check("Gedeeld account heeft geen eigen naam", val("SELECT operator_van_account(%s)", (gedeeld,)) is None)
     check("Eigen account geeft zijn gekoppelde naam", val("SELECT operator_van_account(%s)", (acc_a,)) == op_a)
     pl_op = val("SELECT operator_van_account(%s)", (pl,))
     check("Ploegleider zonder naam krijgt er een, met de gebruikersnaam",
@@ -474,13 +474,13 @@ def main():
     check("Eigen naam: mag", val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_a, pc1)))
     check("Naam van een ander zonder inlog op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
     con.execute("SELECT * FROM inloggen('operator.b', 'demo', 'PC-01')")
-    check("Wachtrij na persoonswissel: B logde op deze pc in, A verstuurt: mag", val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
+    check("Eerdere login B geeft A geen bevoegdheid", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
     check("Maar niet vanaf een andere pc", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc2)))
-    check("Gedeeld account mag elke naam (zoals voorheen)", val("SELECT mag_invoeren_namens(%s, %s, %s)", (gedeeld, op_c, pc2)))
-    check("Naam zonder account, geen gedeeld account op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
+    check("Gedeeld account mag geen naam gebruiken", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (gedeeld, op_c, pc2)))
+    check("Andere operator op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
     con.execute("SELECT * FROM inloggen('operator', 'demo', 'PC-02')")
-    check("Naam zonder account, gedeeld account logde op deze pc in (oude wachtrij): mag",
-          val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
+    check("Gedeelde eerdere login verleent geen bevoegdheid",
+          not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
     con.execute("UPDATE gebruiker SET actief = false WHERE id = %s", (acc_b,))
     check("Uitgezet account heeft geen naam meer", val("SELECT operator_van_account(%s)", (acc_b,)) is None)
     con.execute("UPDATE gebruiker SET actief = true WHERE id = %s", (acc_b,))

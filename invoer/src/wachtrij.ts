@@ -14,7 +14,7 @@ export interface Actie {
   body?: unknown;
   /** Registratie waar deze actie bij hoort (voor de lokale kopie). */
   registratieId?: string;
-  status: "wacht" | "fout";
+  status: "wacht" | "fout" | "beoordeling";
   fout?: string;
   /** Moment van invoer op dit apparaat; gaat mee naar de server (D43). */
   aangemaakt: string;
@@ -49,7 +49,7 @@ function meld(wijziging: Partial<Status>) {
 
 async function tel() {
   const acties = await opslag.alle<Actie>("wachtrij");
-  meld({ wacht: acties.filter((a) => a.status === "wacht").length, fout: acties.filter((a) => a.status === "fout").length });
+  meld({ wacht: acties.filter((a) => a.status === "wacht").length, fout: acties.filter((a) => a.status !== "wacht").length });
 }
 
 export async function acties(): Promise<Actie[]> {
@@ -70,6 +70,8 @@ export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "oper
 }
 
 export async function verwijder(volgnr: number) {
+  const actie = await opslag.haal<Actie>("wachtrij", volgnr);
+  if (!actie || actie.status !== "fout" || !actie.userId || actie.userId !== sessie.inhoud()?.sub || actie.operatorId !== sessie.inhoud()?.operatorId || actie.fout?.startsWith("Persoonlijke herkomst")) return;
   await opslag.weg("wachtrij", volgnr);
   await tel();
 }
@@ -117,12 +119,14 @@ export async function verwerk(): Promise<void> {
       if (!volgende) break;
       // Onzekere herkomst of andere persoon: niets versturen of heretiketteren.
       if (!volgende.userId || volgende.userId !== identiteit.sub || volgende.operatorId !== identiteit.operatorId) {
-        await opslag.zet("wachtrij", { ...volgende, status: "fout", fout: "Persoonlijke herkomst niet bevestigd; bewaard voor gecontroleerde beoordeling" });
+        await opslag.zet("wachtrij", { ...volgende, status: "beoordeling", fout: "Persoonlijke herkomst niet bevestigd; bewaard voor gecontroleerde beoordeling" });
         await tel();
         continue;
       }
       try {
-        const antwoord = await stuur("POST", volgende.pad, volgende.body, koppen(volgende));
+        const token = sessie.token;
+        if (!token || sessie.inhoud()?.sub !== identiteit.sub) break;
+        const antwoord = await stuur("POST", volgende.pad, volgende.body, { ...koppen(volgende), authorization: `Bearer ${token}` });
         meld({ verbonden: true });
         await bewaarAntwoord(antwoord, volgende.volgnr!);
         await opslag.weg("wachtrij", volgende.volgnr!);

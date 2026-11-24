@@ -5,7 +5,7 @@ import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { Type, type TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
-import { operatorVan, registreerAuth } from "./auth.js";
+import { registreerAuth } from "./auth.js";
 import type { Db } from "./db.js";
 import { foutAfhandeling } from "./fouten.js";
 import authRoutes from "./routes/auth.js";
@@ -88,7 +88,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     try {
       if (!req.user) await req.jwtVerify();
       ({ pcId, sub } = req.user);
-      operatorId = operatorVan(req);
+      operatorId = req.user.operatorId; // log de geauthenticeerde identiteit, niet de geweigerde operatorkop
     } catch { return; }
     if (!pcId) return;
     const body = (req.body ?? {}) as Record<string, unknown>;

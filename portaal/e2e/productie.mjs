@@ -173,23 +173,32 @@ try {
   await shot("07b-overdracht-vandaag");
 
   console.log("\nStilstand");
+  const antwoordStilstand = page.waitForResponse(r => new URL(r.url()).pathname === "/analyse/stilstand" && r.ok());
   await page.goto(`${BASIS}/portaal/#/productie/stilstand`);
+  const analyseStilstand = await (await antwoordStilstand).json();
   await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
-  const openStilstand = await q("SELECT s.code AS stap FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE x.eind_op IS NULL ORDER BY s.code");
+  const openStilstand = analyseStilstand.lijst.filter(x => !x.eind_op).map(x => x.stap).sort();
   const nuStil = await page.locator("section.stil-blok tbody tr").evaluateAll(rs => rs.map(r => r.cells[0].innerText.trim().split(/\s+/)[0]).sort());
-  check("Nu stil: lopende stilstanden komen overeen met de database", openStilstand.length > 0 && JSON.stringify(nuStil) === JSON.stringify(openStilstand.map(r => r.stap)), JSON.stringify({ nuStil, openStilstand }));
-  // De gegenereerde stilstanden variëren met de datum. Controleer de rangorde,
-  // niet een vaste stapcode. Bij gelijke afgeronde percentages zijn beide kandidaten geldig.
+  check("Nu stil: lopende stilstanden komen overeen met de analyse", openStilstand.length > 0 && JSON.stringify(nuStil) === JSON.stringify(openStilstand), JSON.stringify({ nuStil, openStilstand }));
   const rijen = await page.locator("section", { has: page.getByRole("heading", { name: "Stilstand per stap", exact: true }) }).locator("tbody tr").evaluateAll(rows => rows.map(r => ({
-    stap: r.cells[0].innerText.trim().split(/\s+/)[0],
-    percentage: r.cells[6].innerText.trim()
+    stap: r.cells[0].innerText.trim().split(/\s+/)[0], percentage: r.cells[6].innerText.trim()
   })));
-  const percentages = rijen.filter(r => /^\d+(?:[,.]\d+)?\s*%$/.test(r.percentage)).map(r => ({ ...r, waarde: Number(r.percentage.replace("%", "").replace(",", ".").trim()) }));
-  const minimum = Math.min(...percentages.map(r => r.waarde));
+  const geldig = analyseStilstand.per_stap.filter(x => x.beschikbaarheid !== null);
+  const minimum = Math.min(...geldig.map(x => x.beschikbaarheid));
   const tegel = page.locator(".tegel", { hasText: "laagste beschikbaarheid" });
-  const stapLaagste = (await tegel.locator(".tegel-getal").innerText()).trim();
-  const kandidaten = percentages.filter(r => r.waarde === minimum);
-  check("Laagste beschikbaarheid correspondeert met de tabel", percentages.length > 1 && minimum <= 100 && kandidaten.some(r => r.stap === stapLaagste) && (await tegel.locator(".tegel-tekst").innerText()).split(":").at(-1).trim() === kandidaten[0].percentage, JSON.stringify({ stapLaagste, minimum, kandidaten }));
+  const kandidaten = geldig.filter(x => x.beschikbaarheid === minimum);
+  const verwachtPercentage = x => Math.round(x * 1000) / 10;
+  check("Tabel toont alle beschikbare percentages", geldig.length > 1 && geldig.every(x => {
+    const rij = rijen.find(r => r.stap === x.stap);
+    return rij && Number(rij.percentage.replace("%", "").replace(",", ".").trim()) === verwachtPercentage(x.beschikbaarheid);
+  }));
+  if (minimum < 1) {
+    const stapLaagste = (await tegel.locator(".tegel-getal").innerText()).trim();
+    const tekst = (await tegel.locator(".tegel-tekst").innerText()).split(":").at(-1).trim();
+    check("Laagste beschikbaarheid op onafgeronde waarden", kandidaten.some(x => x.stap === stapLaagste) && Number(tekst.replace("%", "").replace(",", ".").trim()) === verwachtPercentage(minimum));
+  } else {
+    check("Geen laagste-beschikbaarheidstegel bij volledige beschikbaarheid", await tegel.count() === 0);
+  }
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   const laatste = page.locator("section", { hasText: "Laatste 50 keer stilstand" });
   const koppen = await laatste.locator("thead th").allInnerTexts();
