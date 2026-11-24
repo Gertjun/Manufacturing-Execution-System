@@ -47,3 +47,21 @@ D96: negatieve regressie voor verwijderde /keuringen/verwacht; behoud de positie
 0049: regressies voor batch/lotleesrecht, scope van elk lotlid, idempotentie van oorspronkelijke operator, gescheiden blokkade/kwaliteitsbesluit/herbewerkingsopdracht. Test ook gemengde of onbekende productcontext, oude DB-rolchecks, en kritische herbevestiging vóór acceptatie. Nog niet uitgevoerd.
 
 D99: scopepoort vóór verdere legacy-integratie en vóór faseacceptatie. Toets de goedgekeurde matrix in DECISIONS.md; uitgestelde functies zijn geen fase-1-acceptatie-eis, maar geen onbeschermde tijdelijke interfaces of regressies in behouden bedrijfsregels. PGlite-demo niet verplicht; gecontroleerde uitfasering na afhankelijkhedenreview (#136). PostgreSQL en Windows-laptoppakket blijven leidend. Fictieve fixtures mogen conform D97 worden vervangen. Geen testresultaat geclaimd.
+
+## Tussentijdse audit D99 — startbaseline 400880ccc8cc213f3052753463aa22ff9873ff6e
+
+Vergelijking main 31c86973bf13848cba44fc38785084953fe65e39: 26 commits; inventarisatie van gewijzigde bestanden uitgevoerd, inhoudelijke audit nog in uitvoering. A = direct corrigeren, B = uitfaseren, C = tijdelijk afschermen, D = behouden. Geen volledige acceptatie-CI tot eindaudit en testreview gereed zijn.
+
+| Bevinding | Klasse | Status |
+|---|---|---|
+| Werkstationbinding registreert fictieve succesvolle login en kan rate-limit beïnvloeden | A | API-insert verwijderd; directe app/PUBLIC-schrijfprivileges ingetrokken; nog testen |
+| ingelogd controleert accountstatus niet opnieuw | A | Actieve persoonlijke account-, rol- en tijdelijke-wachtwoordstatus gecontroleerd; nog testen |
+| Legacy-rolveld en directe accountwijzigingen kunnen functiescheiding omzeilen | A | Open |
+| Kritische kwaliteitsbesluiten zonder persoonlijke herbevestiging | A | Open |
+| Ongeplande batchcreatie / opdrachtloze herbewerking | C/A | D98/D99: geen definitieve MES-rechten; afscherming nog beoordelen |
+| Direct wijzigbare procesdefinitie en vaste lotgrootte | C | Vervanging fase 2/5; geen verdere investering |
+| Stilstand per processtap | C | Vervanging fase 3 |
+| PGlite-demo en uitgebreide wandschermen | B | Afhankelijkhedenreview open |
+| Rollen, scope, kwalificaties en persoonlijke identiteit | D | Fundament behouden; handhaving en tests open |
+
+Gerichte regressies vereist: /auth/pc voegt geen inlogsucces toe; beide app-rollen mogen geen inlogpoging invoegen; ingetrokken/inactieve en gewijzigde accounts krijgen geen toegang via ingelogd; tijdelijk wachtwoord wijzigen blijft mogelijk. Nog niet uitgevoerd.

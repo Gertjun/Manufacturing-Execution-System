@@ -57,6 +57,11 @@ export async function ingelogd(req: FastifyRequest) {
     throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
   }
   if (req.user.gedeeld) throw new ApiFout(401, "Log in met een persoonlijk account");
+  const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean }>(req.server.db,
+    "SELECT rol, actief, gedeeld, wachtwoord_wijzigen FROM gebruiker WHERE id = $1", [req.user.sub]);
+  if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.wachtwoord_wijzigen !== !!req.user.ww) {
+    throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
+  }
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -102,7 +102,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   // Van de startpagina naar het invoerscherm (D54): hetzelfde account, nu met de pc erbij.
-  // Telt als inlog op die pc, zodat de wachtrij van de pc na een persoonswissel nog mag (D53).
+  // Werkstationbinding is geen wachtwoordauthenticatie (D94); geen geslaagde inlogpoging registreren.
   app.post(
     "/pc",
     {
@@ -118,7 +118,6 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const [rij] = await lees<{ id: string }>(app.db, "SELECT id FROM pc WHERE naam = $1 AND actief", [req.body.pc]);
       if (!rij) throw new ApiFout(400, `Onbekende pc ${req.body.pc}`);
       const [ac] = await inTransactie(app.db, req.user.naam, async (tx) => {
-        await tx.query("INSERT INTO inlogpoging (gebruikersnaam, pc, uitkomst) VALUES ($1, $2, 'gelukt')", [req.user.naam, req.body.pc]);
         const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [req.user.sub]);
         return (await tx.query<{ actief: boolean; gedeeld: boolean; operator_id: string | null; operatornaam: string | null }>(
           `SELECT g.actief, g.gedeeld, o.id AS operator_id, o.naam AS operatornaam

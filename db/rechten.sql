@@ -119,3 +119,18 @@ BEGIN
     REVOKE SELECT (wachtwoord_hash) ON fabriek.gebruiker FROM PUBLIC;
   END IF;
 END $$;
+
+-- D94/D99: alleen de afgeschermde authenticatiefunctie mag inlogpogingen
+-- toevoegen. Werkstationbinding mag een blokkade niet kunnen opheffen.
+DO $$
+DECLARE login text;
+BEGIN
+  IF to_regprocedure('fabriek.demo_account_names(text[])') IS NOT NULL THEN
+    REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.inlogpoging FROM PUBLIC;
+    FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+        EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.inlogpoging FROM %I',login);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
