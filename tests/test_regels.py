@@ -476,7 +476,13 @@ def main():
     faalt("Herbewerking zonder reden",
           "SELECT start_herbewerking(%s, 'PS17', '', %s, %s)", (lot, pc, op), "check")
     faalt("Herbewerking naar een batchstap", "SELECT start_herbewerking(%s, 'PS10', 'x', %s, %s)", (lot, pc, op), "lot-stap")
+    faalt("Opdrachtloze herbewerking geweigerd","SELECT start_herbewerking(%s, 'PS17', 'te nat na verpakken', %s, %s)",(lot,pc,op),"Vooraf geregistreerde")
+    check("Geweigerde herbewerking laat lot gereed",val("SELECT status FROM lot WHERE id=%s",(lot,))=="gereed")
+    rework_approver = val("SELECT id FROM gebruiker WHERE gebruikersnaam='kwaliteit1'")
+    first_order = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id=%s),'PS17','te nat na verpakken',%s)",(lot,rework_approver))
+    faalt("Afwijkende reden bij opdracht geweigerd","SELECT start_herbewerking(%s,'PS17','andere reden',%s,%s)",(lot,pc,op),"Vooraf geregistreerde")
     h17 = val("SELECT start_herbewerking(%s, 'PS17', 'te nat na verpakken', %s, %s)", (lot, pc, op))
+    check("Vooraf bestaande opdracht gekoppeld",val("SELECT stapregistratie_id FROM herbewerking WHERE id=%s",(first_order,))==h17)
     check("Herbewerking zet het lot terug in productie", val("SELECT status FROM lot WHERE id=%s", (lot,)) == "in_productie")
     check("Herbewerking PS17 is poging 2", val("SELECT poging FROM stapregistratie WHERE id=%s", (h17,)) == 2)
     faalt("PS18 voordat herbewerkte PS17 is afgerond", "SELECT start_stap('PS18', NULL, %s, %s, %s)", (lot, pc, op), "PS17 moet eerst afgerond")
@@ -940,8 +946,8 @@ def main():
           and val("SELECT lotnummer FROM lot WHERE id = %s", (lot,)) in voorraad("PS17"))
     rl = val("SELECT start_herbewerking(%s, 'PS17', 'opnieuw drogen', %s, %s)", (lot, pc, op))
     check("Start via de oude functie koppelt aan de opdracht", val("SELECT stapregistratie_id FROM herbewerking WHERE id = %s", (hl,)) == rl)
-    check("Herbewerkingen zonder opdracht (van vóór #61) staan er ook in, zonder aanmaker",
-          val("SELECT count(*) FROM herbewerking_stand WHERE lot_id = %s AND door IS NULL", (lot,)) >= 1)
+    check("Geen nieuwe opdrachtloze herbewerking",
+          val("SELECT count(*) FROM herbewerking_stand WHERE lot_id = %s AND door IS NULL", (lot,)) == 0)
 
     print("\nKeuring door Kwaliteit (#64)")
     con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code IN ('S18.3', 'S5.2')")

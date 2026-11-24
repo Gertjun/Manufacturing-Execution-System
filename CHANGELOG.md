@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: bestaande herbewerkingsopdracht verplicht; kwaliteitsblokkade blijft onafhankelijk (0063).
 - MES: persoonlijke bevestiging voor tijdelijke kwaliteitsbesluiten en afscherming directe besluitwrites (0062).
 - MES: gecontroleerde registratie, intrekking en vervanging van securitybindingen (0061).
 - MES: persoonlijke database-identiteitsbinding en afgeschermde autorisatieleesfuncties (0060).
