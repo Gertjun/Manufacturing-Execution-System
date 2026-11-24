@@ -1,6 +1,8 @@
 // Past de historische fictieve testdump aan op de verplichte lotgroottekolommen uit migratie 0037.
 // De dump is bewust ouder dan de actuele schema.sql; alle bestaande demo-lots zijn met vier batches gemaakt.
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 export function pasTestdataAan(sql) {
   const marker = "-- Data for Name: lot;";
@@ -22,7 +24,7 @@ export function pasTestdataAan(sql) {
   return sql.slice(0, start) + blok + sql.slice(end);
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const pad = process.argv[2];
   if (!pad) throw new Error("Gebruik: node prepare-testdata.mjs <testdata.sql>");
   const origineel = readFileSync(pad, "utf8");
