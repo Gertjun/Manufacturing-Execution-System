@@ -2,7 +2,7 @@
 
 Enige centrale takenlijst; besluiten in DECISIONS.md, gerealiseerd in CHANGELOG.md, actuele werking in README.md. D89: 69 ontwerpbesluiten, nieuwe start vanaf main; PR #1 niet mergen.
 
-Bijgewerkt: 24 november 2026 · huidige versie 0.62.1
+Bijgewerkt: 25 november 2026 · huidige versie 0.62.1
 
 ## Afhankelijkheden (geen kalenderplanning)
 
@@ -35,6 +35,8 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 - #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; inventariseer en faseer demo-specifieke afhankelijkheden, tests en workflows gecontroleerd uit. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
 
 ### Afsluiting tussentijdse audit (D100)
+
+D24-runtimecorrectie geïmplementeerd; gerichte PostgreSQL- en Linux-pakketvalidatie open. Windows, volledige historische schema-upgrade, effectieve ACL-audit en D101-restcontrole blijven open.
  
 Werk in deze volgorde; dit is de afbakening van #106–#108 en #136, geen nieuwe zelfstandige takenlijst:
 
