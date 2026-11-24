@@ -85,6 +85,11 @@ def main():
     check("Functiescheiding bij gecombineerde rollen", not val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
     con.execute("SET ROLE mes_app")
     try:
+        faalt("Applicatie kan geen oude rol bij accountcreatie toekennen", "INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_wijzigen) VALUES ('test-legacy-role','beheerder',true)", bevat="gecontroleerde roltoekenning")
+        faalt("Applicatie kan geen oude rol wijzigen", "UPDATE gebruiker SET rol='beheerder' WHERE id=%s", (auth_user,), "Oude rol")
+        faalt("Applicatie kan account niet gedeeld maken", "UPDATE gebruiker SET gedeeld=true WHERE id=%s", (auth_user,), "Oude rol")
+        pending = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-pending','pending',wachtwoord_hash('demo-test'),true) RETURNING id")
+        check("Nieuw account heeft geen beheerrecht", not val("SELECT authorization_permits(%s,'account.manage',NULL,NULL,NULL)", (pending,)))
         faalt("Applicatie kan geen directe grant toevoegen", "INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_operator')", (auth_user,), "permission denied")
         faalt("Applicatie kan geen kwalificaties wijzigen", "UPDATE personnel_qualification SET revoked_at=now()", bevat="permission denied")
     finally:

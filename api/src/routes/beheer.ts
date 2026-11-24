@@ -1,4 +1,4 @@
-import { requiresPermission } from "../modules/authorization/access.js";
+import { requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 
@@ -485,7 +485,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["beheer"],
         body: Type.Object({
           gebruikersnaam: Type.String({ pattern: "^[a-z0-9._-]{3,40}$", description: "Kleine letters, cijfers, punt, streepje; 3 tot 40 tekens" }),
-          rol: Rol,
+          rol: Type.Optional(Type.Union([Rol, Type.Literal("pending")])),
           wachtwoord: Wachtwoord,
           naam: Type.Optional(Type.String({ minLength: 1, maxLength: 60, description: "Operator en ploegleider: nieuwe naam bij de invoer (leeg = de gebruikersnaam)" })),
           bestaandeNaam: Type.Optional(Type.String({ format: "uuid", description: "Operator en ploegleider: koppel aan een bestaande naam zonder account, zodat de geschiedenis doorloopt" })),
@@ -496,24 +496,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const { gebruikersnaam, rol, wachtwoord, naam, bestaandeNaam, ploeg } = req.body;
-      // Kwaliteit heeft ook een naam bij de invoer (D58); een eigen naam kiezen kan sinds 0.54.0 ook voor Kwaliteit (#87).
-      const invoer = rol === "operator" || rol === "ploegleider" || rol === "kwaliteit";
+      if ((rol !== undefined && rol !== "pending") || naam !== undefined || bestaandeNaam !== undefined || ploeg !== undefined)
+        throw new ApiFout(422, "Maak eerst een persoonlijk account zonder rol of personeelsindeling");
       const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "account.manage");
         const { rows: [g] } = await tx.query<{ id: string }>(
-          // Een wachtwoord van de beheerder is tijdelijk (#76, D61); niet voor een wandscherm (daar typt niemand).
-          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ($1, $2, wachtwoord_hash($3), $2 <> 'scherm') RETURNING id",
-          [gebruikersnaam, rol, wachtwoord]);
-        if (invoer && bestaandeNaam) {
-          const k = await tx.query("UPDATE operator SET gebruiker_id = $1, actief = true WHERE id = $2 AND gebruiker_id IS NULL", [g.id, bestaandeNaam]);
-          if (!k.rowCount) throw new ApiFout(422, "Deze naam bestaat niet of hoort al bij een ander account");
-        } else if (invoer && naam) {
-          await tx.query("INSERT INTO operator (naam, gebruiker_id) VALUES ($1, $2)", [naam.trim(), g.id]);
-        }
-        if (ploeg) {
-          if (!invoer) throw new ApiFout(422, "Een ploeg hoort alleen bij operator, ploegleider of kwaliteit");
-          const { rows: [o] } = await tx.query<{ id: string }>("SELECT operator_van_account($1) AS id", [g.id]);
-          await zetPloeg(tx, o.id, ploeg);
-        }
+          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ($1, 'pending', wachtwoord_hash($2), true) RETURNING id",
+          [gebruikersnaam, wachtwoord]);
         return tx.query(`${ACCOUNT_SQL} WHERE g.id = $1`, [g.id]);
       });
       return reply.status(201).send(r.rows[0]);
@@ -534,26 +523,18 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const { rol, actief, wachtwoord, ploeg } = req.body;
-      if (req.params.gebruikersnaam === req.user.naam && (actief === false || (rol && rol !== "beheerder"))) {
-        throw new ApiFout(422, "Je kunt je eigen beheerdersaccount niet uitzetten of een andere rol geven");
-      }
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query(
+      if (rol !== undefined || ploeg !== undefined)
+        throw new ApiFout(422, "Rollen en personeelsindeling horen niet bij technisch accountbeheer");
+      if (req.params.gebruikersnaam === req.user.naam && actief === false)
+        throw new ApiFout(422, "Je kunt je eigen account niet uitzetten");
+      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "account.manage");
+        return tx.query(
           wachtwoord === undefined
-            ? `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief)
-                WHERE gebruikersnaam = $1 RETURNING id, gebruikersnaam`
-            : `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
-                wachtwoord_hash = wachtwoord_hash($4), wachtwoord_wijzigen = coalesce($2, rol) <> 'scherm'
-                WHERE gebruikersnaam = $1 RETURNING id, gebruikersnaam`,
-          wachtwoord === undefined ? [req.params.gebruikersnaam, rol ?? null, actief ?? null] : [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord]).then(async (u) => {
-          // De ploeg hoort bij de naam bij de invoer; die wordt zo nodig aangemaakt, zoals bij de eerste inlog (D53).
-          if (u.rows[0] && ploeg !== undefined) {
-            const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [u.rows[0].id]);
-            if (!o.id) throw new ApiFout(422, "Een ploeg hoort alleen bij een actief account van een operator, ploegleider of kwaliteit");
-            await zetPloeg(tx, o.id, ploeg);
-          }
-          return u;
-        }));
+            ? "UPDATE gebruiker SET actief = coalesce($2, actief) WHERE gebruikersnaam = $1 RETURNING id"
+            : "UPDATE gebruiker SET actief = coalesce($2, actief), wachtwoord_hash = wachtwoord_hash($3), wachtwoord_wijzigen = true WHERE gebruikersnaam = $1 RETURNING id",
+          wachtwoord === undefined ? [req.params.gebruikersnaam, actief ?? null] : [req.params.gebruikersnaam, actief ?? null, wachtwoord]);
+      });
       if (!r.rows[0]) throw niet("Account");
       return (await lees(app.db, `${ACCOUNT_SQL} WHERE g.gebruikersnaam = $1`, [req.params.gebruikersnaam]))[0] as never;
     },

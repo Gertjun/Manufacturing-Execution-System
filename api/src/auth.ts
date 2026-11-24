@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { ApiFout } from "./fouten.js";
 import { inTransactie, lees, type Db, type Tx } from "./db.js";
 
-export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm" | "productiemanager";
+export type Rol = "pending" | "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm" | "productiemanager";
 
 /** Inhoud van het token. Een token werkt in de browser én in een latere desktop-app. */
 export interface Sessie {

@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: nieuwe accounts zonder oude rol en afscherming directe legacy-rolwijziging (0052); accountbeheerinterface nog om te schakelen.
 - MES: technisch beheer en securitybeheer gescheiden in autorisatiebeslissing en roltoekenning (0051); regressies toegevoegd, uitvoering nog open.
 - MES: SQL-functiebegrenzingen in conceptmigratie 0050 en installatieschema gecorrigeerd; databaseacceptatie nog open.
 - MES: begrensde wachtwoordwijziging en blokkade gedeelde accounts op databaseniveau (0050).

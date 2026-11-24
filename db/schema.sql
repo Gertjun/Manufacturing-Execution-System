@@ -3712,8 +3712,37 @@ BEGIN
     RETURN v_grant;
 END $$;
 
+-- Migratie 0052: geen oude roltoekenning via de gewone applicatie (D99).
+SET search_path = fabriek, public;
+
+ALTER TABLE gebruiker DROP CONSTRAINT gebruiker_rol_check;
+ALTER TABLE gebruiker ADD CONSTRAINT gebruiker_rol_check
+    CHECK (rol IN ('pending','operator','ploegleider','kwaliteit','beheerder','analist','planner','scherm','productiemanager'));
+
+CREATE FUNCTION authorization_guard_legacy_role() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+               AND pg_has_role(current_user,oid,'MEMBER')) THEN
+        IF TG_OP = 'INSERT' THEN
+            IF NEW.rol <> 'pending' OR NEW.gedeeld OR NOT NEW.wachtwoord_wijzigen THEN
+                RAISE EXCEPTION 'Nieuw account vereist gecontroleerde roltoekenning';
+            END IF;
+        ELSE
+            IF NEW.rol IS DISTINCT FROM OLD.rol OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+               OR NEW.id IS DISTINCT FROM OLD.id THEN
+                RAISE EXCEPTION 'Oude rol of identiteit mag niet rechtstreeks wijzigen';
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER authorization_guard_legacy_role BEFORE INSERT OR UPDATE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION authorization_guard_legacy_role();
+REVOKE EXECUTE ON FUNCTION authorization_guard_legacy_role() FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -3733,5 +3762,6 @@ ALTER FUNCTION demo_account_names(text[]) SET search_path = pg_catalog,fabriek,p
 ALTER FUNCTION authorization_revoke_confirmed(uuid,uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 ALTER FUNCTION authorization_audit_immutable() SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION change_password_confirmed(uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_guard_legacy_role() SET search_path = pg_catalog,fabriek,pg_temp;
 
 COMMIT;
