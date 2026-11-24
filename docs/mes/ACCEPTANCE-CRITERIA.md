@@ -21,3 +21,5 @@ Migratietests: schone installatie en upgrade vanaf main, schema/diagram consiste
 Fase 1, PR #6 (deelimplementatie): `api/test/authorization.test.ts` bevat scenario's voor gescheiden grants, ontbrekende scope, geldigheid, intrekking, kwalificaties, conflicterende beheerdomeinen en persoonlijke identiteit. Uitvoering en API/DB-integratie nog open.
 
 D92: oude accountimport moet 404 opleveren; geen accountsjabloon in Medewerkers. Handmatig account aanmaken, tijdelijk wachtwoord en eigen wachtwoord wijzigen blijven regressietests.
+
+Migratie 0038: negatieve DB-scenario's voor eigen aanvraag, onbevoegde aanvrager, eigen besluit, doelaccount als beoordelaar, dubbele beslissing en beperkte app-rechten; positieve onafhankelijke beslissing en afwijzing. Nog niet uitgevoerd. Identiteitsherbevestiging, intrekking, gecontroleerd bootstrapkanaal en API/UI-integratie blijven open.

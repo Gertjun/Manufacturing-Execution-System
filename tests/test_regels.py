@@ -71,6 +71,37 @@ def main():
     finally:
         con.execute("RESET ROLE")
 
+    print("\nMES vierogencontrole (eigenaar-only)")
+    sec_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='beheerder1'")
+    sec_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='planner1'")
+    target = val("SELECT id FROM gebruiker WHERE gebruikersnaam='operator.a'")
+    con.execute("INSERT INTO authorization_role VALUES ('test_security','security')")
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_security','authorization.request'), ('test_security','authorization.approve')")
+    con.execute("INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_security'),(%s,'test_security')", (sec_a,sec_b))
+    submit = "SELECT authorization_submit(%s,%s,'test_operator','A',NULL,NULL,now(),NULL,'Testaanvraag')"
+    decide = "SELECT authorization_decide(%s,%s,true,'Testbesluit')"
+    faalt("Geen eigen bevoegdheid aanvragen", submit, (sec_a,sec_a), "Geen bevoegdheid")
+    faalt("Onbevoegde aanvrager", submit, (target,sec_a), "Geen bevoegdheid")
+    req = val(submit, (sec_a,target))
+    faalt("Aanvrager mag niet zelf goedkeuren", decide, (sec_a,req), "Onafhankelijke")
+    faalt("Doelaccount mag niet goedkeuren", decide, (target,req), "Onafhankelijke")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag geen aanvraagfunctie uitvoeren", submit, (sec_a,target), "permission denied")
+        faalt("App mag geen besluitfunctie uitvoeren", decide, (sec_b,req), "permission denied")
+        faalt("App mag aanvraaginhoud niet wijzigen", "UPDATE authorization_request SET reason='gewijzigd'", bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    grant = val(decide, (sec_b,req))
+    check("Onafhankelijk besluit verleent exacte aangevraagde rol en scope",
+          val("SELECT count(*) FROM authorization_grant WHERE id=%s AND user_id=%s AND role_code='test_operator' AND area_code='A'", (grant,target)) == 1)
+    check("Aanvraag en besluit zijn gekoppeld", val("SELECT grant_id FROM authorization_decision WHERE request_id=%s", (req,)) == grant)
+    faalt("Geen tweede besluit", decide, (sec_b,req), "al beoordeeld")
+    conflict = val(submit, (sec_a,sec_b))
+    faalt("Functiescheiding: doelaccount kan niet goedkeuren", decide, (sec_b,conflict), "Onafhankelijke")
+    denied = val(submit, (sec_a,target))
+    check("Afwijzing maakt geen grant", val("SELECT authorization_decide(%s,%s,false,'Afgewezen')", (sec_b,denied)) is None)
+
     pc = val("SELECT id FROM pc WHERE naam = 'PC-01'")
     op = val("SELECT id FROM operator WHERE naam = 'Operator A'")
     pl = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")

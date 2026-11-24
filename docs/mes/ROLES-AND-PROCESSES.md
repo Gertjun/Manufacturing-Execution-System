@@ -23,3 +23,5 @@ Normale keten: MBR opstellen → MOC/impactanalyse → onafhankelijk beoordelen 
 Technische deelimplementatie PR #6: `api/src/modules/authorization/policy.ts` beoordeelt een activiteit op basis van één geldige grant met passend recht én alle opgegeven scopedimensies; kwalificaties worden afzonderlijk getoetst. Technische/security-rollen en displayrollen worden niet gecombineerd met inhoudelijke rollen. De module is nog niet verbonden met de bestaande routes; opslag, vertrouwde doelcontext en volledige handhaving volgen binnen fase 1.
 
 D92: gebruikersaccounts worden niet via Excel geïmporteerd; andere Excel-functies blijven per domein beschikbaar.
+
+Fase 1: migratie 0038 legt exacte roltoekenningsaanvragen en afzonderlijke besluiten vast. Onafhankelijke beoordelaar, geen zelftoekenning, geen tweede besluit, geldigheid en functiescheiding worden in de eigenaar-only procedure gecontroleerd. Dit is nog geen operationeel beheerkanaal: de identiteit wordt nog niet persoonlijk herbevestigd en de procedures zijn niet beschikbaar voor mes_app. Geen automatische security-grants.
