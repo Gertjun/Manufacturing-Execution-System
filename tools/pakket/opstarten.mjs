@@ -4,10 +4,10 @@
 //   node opstarten.mjs --opnieuw        database leegmaken en verse testdata laden, daarna starten
 //   node opstarten.mjs --leeg           lege fabriek: alleen configuratie (stappen, velden, accounts), daarna starten
 //   node opstarten.mjs --herstel        een back-up terugzetten (je kiest uit een lijst), daarna starten
-//   node opstarten.mjs --beheerder      noodsleutel: een beheerder een nieuw wachtwoord geven of een nieuwe aanmaken
+//   node opstarten.mjs --beheerder      gecontroleerde bootstrap of alleen-lezen hersteldiagnose
 //   node opstarten.mjs --geen-browser   browser niet automatisch openen
 //
-// Met de map postgres\ in dit pakket draait PostgreSQL ingebouwd: niets installeren, geen wachtwoord.
+// Met de map postgres\ in dit pakket draait PostgreSQL ingebouwd: niets installeren; afzonderlijke databasewachtwoorden.
 // Zonder die map (of met een eigen database in instellingen.json) gebruikt het een geïnstalleerde PostgreSQL.
 
 import { createRequire } from "node:module";
@@ -148,6 +148,20 @@ async function leesInstellingen() {
 
 inst = await leesInstellingen();
 const ingebouwd = !!inst.db.ingebouwd;
+// Oude instellingen bevatten de beheerlogin in db. Behoud die voor onderhoud,
+// maar geef de API een afzonderlijke verbinding.
+if (!inst.beheerDb) {
+  inst.beheerDb = { ...inst.db };
+  inst.db = { ...inst.db, user: "mes_app", password: ingebouwd ? randomBytes(32).toString("hex") : "" };
+}
+inst.beheerDb = { ...inst.db, ...inst.beheerDb };
+if (!ingebouwd && !inst.db.password) {
+  // Bewaar de gekozen onderhoudsverbinding; IT richt de beperkte login in.
+  if (!existsSync(INSTELLINGEN)) writeFileSync(INSTELLINGEN, JSON.stringify(inst, null, 2), { mode: 0o600 });
+  stop("Configureer db met de beperkte MES-login en beheerDb met de afzonderlijke onderhoudslogin in instellingen.json.");
+}
+if (!["mes_app", "batchgui_app"].includes(inst.db.user) || inst.db.user === inst.beheerDb.user)
+  stop("Afzonderlijke beperkte MES-databasegebruiker vereist (D24).");
 if (ingebouwd && !heeftIngebouwd) stop("instellingen.json verwacht de ingebouwde database, maar de map postgres ontbreekt in dit pakket.");
 
 // ---------- 3. Ingebouwde database starten (met back-up vooraf) ----------
@@ -199,7 +213,7 @@ async function herstel() {
 
 // ---------- 4. Verbinden ----------
 async function verbind(database) {
-  const c = new pg.Client({ ...inst.db, database });
+  const c = new pg.Client({ ...inst.beheerDb, database });
   try {
     await c.connect();
   } catch (e) {
@@ -216,9 +230,9 @@ async function verbind(database) {
   const { rows } = await c.query("SHOW server_version_num");
   if (Number(rows[0].server_version_num) < 140000) stop("PostgreSQL 14 of nieuwer is nodig.");
   const su = await c.query("SELECT rolsuper FROM pg_roles WHERE rolname = current_user");
-  if (!su.rows[0]?.rolsuper) stop(`Gebruiker ${inst.db.user} is geen superuser. Gebruik de gebruiker postgres.`);
+  if (!su.rows[0]?.rolsuper) stop(`Gebruiker ${inst.beheerDb.user} is geen superuser. Gebruik de gebruiker postgres.`);
   await c.end();
-  if (!existsSync(INSTELLINGEN)) writeFileSync(INSTELLINGEN, JSON.stringify(inst, null, 2));
+  writeFileSync(INSTELLINGEN, JSON.stringify(inst, null, 2), { mode: 0o600 });
 }
 
 // ---------- 5. Database vullen of bijwerken ----------
@@ -300,6 +314,16 @@ if (opnieuw || !(await bestaatDatabase())) await bouwDatabase(!args.has("--leeg"
   const r = spawnSync(process.execPath, [join(MAP, "tools", "migreer.mjs"), "--instellingen", INSTELLINGEN], { encoding: "utf8" });
   if (r.status !== 0) stop(`Database bijwerken mislukt:\n${r.stdout}${r.stderr}`);
   for (const x of r.stdout.split(/\r?\n/)) if (/^Migratie|uitgevoerd/.test(x)) console.log(x);
+}
+
+// Het migratieprogramma heeft mes_app en de expliciete grants ingericht.
+// Alleen bij de eigen ingebouwde PoC-database beheren we het runtimewachtwoord.
+if (ingebouwd) {
+  const c = await verbind(inst.db.database);
+  try {
+    await c.query("SET password_encryption = 'scram-sha-256'");
+    await c.query("ALTER ROLE " + pg.escapeIdentifier(inst.db.user) + " PASSWORD " + pg.escapeLiteral(inst.db.password));
+  } finally { await c.end(); }
 }
 
 // Inlogpogingen (sinds 0.22.2) en geweigerde invoer (sinds 0.47.0) ouder dan 90 dagen opruimen.
