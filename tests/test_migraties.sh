@@ -1,6 +1,6 @@
 #!/bin/sh
 # Controleert dat db/schema.sql precies hetzelfde oplevert als migratie 0001 + alle latere migraties.
-# Gebruik: tests/test_migraties.sh   (PGHOST, PGPORT, PGUSER zoals voor psql; maakt twee tijdelijke databases)
+# Gebruik: tests/test_migraties.sh   (PGHOST, PGPORT, PGUSER zoals voor psql; maakt drie tijdelijke databases)
 set -e
 cd "$(dirname "$0")/.."
 A=batchgui_test_schema; B=batchgui_test_migraties; C=batchgui_test_migratie_afwijking
@@ -11,8 +11,8 @@ for f in db/migraties/*.sql; do
   if [ "$(basename "$f")" = "0037_lotgrootte_per_product.sql" ]; then
     psql -q -c "CREATE DATABASE $C TEMPLATE $B"
     psql -q -v ON_ERROR_STOP=1 -d $C <<'SQL'
-INSERT INTO fabriek.product (code, naam) VALUES ('MIG-AFWIJKING', 'Migratietest afwijking') RETURNING id AS fixture_product_id \\gset
-INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9997') RETURNING id AS fixture_lot \\gset
+INSERT INTO fabriek.product (code, naam) VALUES ('MIG-AFWIJKING', 'Migratietest afwijking') RETURNING id AS fixture_product_id \gset
+INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9997') RETURNING id AS fixture_lot \gset
 INSERT INTO fabriek.batch (batchnummer, status, lot_id, product_id)
 SELECT 'B-2026-' || lpad((9980 + g)::text, 4, '0'), 'in_lot', :'fixture_lot', :'fixture_product_id'
 FROM generate_series(1, 3) g;
@@ -31,8 +31,8 @@ SQL
   # Vóór 0037: één bestaand lot met exact vier batches.
   if [ "$(basename "$f")" = "0036_routeversies.sql" ]; then
     psql -q -v ON_ERROR_STOP=1 -d $B <<'SQL'
-INSERT INTO fabriek.product (code, naam) VALUES ('MIG-TEST', 'Migratietest') RETURNING id AS fixture_product_id \\gset
-INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9999') RETURNING id AS fixture_lot_4 \\gset
+INSERT INTO fabriek.product (code, naam) VALUES ('MIG-TEST', 'Migratietest') RETURNING id AS fixture_product_id \gset
+INSERT INTO fabriek.lot (lotnummer) VALUES ('L-2026-9999') RETURNING id AS fixture_lot_4 \gset
 INSERT INTO fabriek.batch (batchnummer, status, lot_id, product_id)
 SELECT 'B-2026-' || lpad((9993 + g)::text, 4, '0'), 'in_lot', :'fixture_lot_4', :'fixture_product_id'
 FROM generate_series(1, 4) g;
