@@ -18,8 +18,8 @@ DECLARE
 BEGIN
     SET LOCAL search_path = fabriek, public;
     FOR v_nr IN 1..6 LOOP
-        INSERT INTO batch (batchnummer, aangemaakt_door)
-        VALUES ('B-2026-' || lpad(v_nr::text, 4, '0'), v_op) RETURNING id INTO v_b;
+        INSERT INTO batch (batchnummer, aangemaakt_door, product_id)
+        VALUES ('B-2026-' || lpad(v_nr::text, 4, '0'), v_op, (SELECT id FROM product WHERE code = 'PRD-A')) RETURNING id INTO v_b;
         v_tot := CASE WHEN v_nr <= 4 THEN 15 WHEN v_nr = 5 THEN 7 ELSE 0 END;
         FOR k IN 1..v_tot LOOP
             v_reg := start_stap('PS' || k, v_b, NULL, v_pc, v_op);
