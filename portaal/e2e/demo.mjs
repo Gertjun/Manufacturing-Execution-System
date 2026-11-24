@@ -8,12 +8,17 @@ const b = await chromium.launch({ executablePath: "/usr/bin/google-chrome" });
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } }) // zonder timezoneId: de demodatabase is gebouwd in de tijdzone van de machine;
 const fouten = [];
 p.on("pageerror", (e) => fouten.push(String(e)));
+p.on("console", (m) => console.log(`[browser ${m.type()}] ${m.text()}`));
+p.on("requestfailed", (r) => console.log(`[request failed] ${r.url()}: ${r.failure()?.errorText ?? "onbekend"}`));
+p.on("response", (r) => { if (r.status() >= 400) console.log(`[HTTP ${r.status()}] ${r.url()}`); });
 let ok = 0, mis = 0;
 const check = (c, t) => { c ? ok++ : mis++; console.log(c ? "  OK " : "  FOUT", t); };
 
 const t0 = Date.now();
 await p.goto(URL_);
-await p.waitForFunction(() => document.getElementById("laden").style.display === "none", null, { timeout: 120000 });
+await p.waitForFunction(() => document.getElementById("laden").style.display === "none" || document.getElementById("laden-tekst").textContent?.startsWith("De demo kan niet starten"), null, { timeout: 120000 });
+const laadscherm = await p.locator("#laden").evaluate((d) => ({ zichtbaar: getComputedStyle(d).display !== "none", tekst: d.querySelector("#laden-tekst")?.textContent }));
+if (laadscherm.zichtbaar) throw new Error(`Browserdemo bleef hangen bij opstarten: ${laadscherm.tekst}`);
 check(true, `opgestart in ${Date.now() - t0} ms`);
 check(await p.locator("#uitleg").evaluate((d) => d.open), "uitleg verschijnt de eerste keer");
 await p.getByRole("button", { name: "Sluiten" }).click();
