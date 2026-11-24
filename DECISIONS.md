@@ -496,3 +496,8 @@ Door Geert goedgekeurd in zes ontwerprondes. De 69 identifiers hieronder zijn st
 - **G06** — Pilotdatum opnieuw bepalen na inzicht in implementatievoortgang.
 - **G07** — Doorlopende conformiteitsmatrix met ontwerp-, implementatie- en testbewijs.
 - **G08** — Alle goedgekeurde ontwerpen en besluiten vastleggen in GitHub, daarna implementeren.
+
+
+### D90 – Gebundelde faseacceptatie MES (24 nov 2026)
+
+Aanvulling op D88 en G03, goedgekeurd door Geert. In beginsel één PR per ontwikkelfase, logische commits, uitzonderingen bij grote of risicovolle wijzigingen. Concept-PRs geen automatische softwaretests bij pushes; label `compatibiliteit-test` start Node 22, label `acceptatie-test` start beide suites. Labels opnieuw aanbrengen voor nieuwe runs. Normale niet-concept-PRs behouden automatische Node 22. Volledige acceptatie vóór merge, bewijs exact huidige head/base en tree; geen testverzwakking. Main behoudt volledige terugvalcontrole als bewijs ontbreekt. Fase 1 bundelt resterend #106–#108 en herstel van datumafhankelijke schermtest. Geen PS-code verwijderen zonder procesinventarisatie.

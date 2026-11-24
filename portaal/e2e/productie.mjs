@@ -176,9 +176,18 @@ try {
   await page.goto(`${BASIS}/portaal/#/productie/stilstand`);
   await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
   check("Nu stil: de lopende storing in PS7", (await page.locator("section", { hasText: "Nu stil" }).locator("tbody tr", { hasText: "PS7" }).count()) === 1);
-  const rijPs7 = await page.locator("section", { hasText: "Stilstand per stap" }).locator("tbody tr", { hasText: "PS7 " }).innerText();
-  const laagste = await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText();
-  check("PS7 heeft de laagste beschikbaarheid", laagste.includes("PS7"), `verwacht PS7; tegel: ${laagste}; rij PS7: ${rijPs7}`);
+  // De gegenereerde stilstanden variëren met de datum. Controleer de rangorde,
+  // niet een vaste stapcode. Bij gelijke afgeronde percentages zijn beide kandidaten geldig.
+  const rijen = await page.locator("section", { has: page.getByRole("heading", { name: "Stilstand per stap", exact: true }) }).locator("tbody tr").evaluateAll(rows => rows.map(r => ({
+    stap: r.cells[0].innerText.trim().split(/\s+/)[0],
+    percentage: r.cells[6].innerText.trim()
+  })));
+  const percentages = rijen.filter(r => /^\d+(?:[,.]\d+)?\s*%$/.test(r.percentage)).map(r => ({ ...r, waarde: Number(r.percentage.replace("%", "").replace(",", ".").trim()) }));
+  const minimum = Math.min(...percentages.map(r => r.waarde));
+  const tegel = page.locator(".tegel", { hasText: "laagste beschikbaarheid" });
+  const stapLaagste = (await tegel.locator(".tegel-getal").innerText()).trim();
+  const kandidaten = percentages.filter(r => r.waarde === minimum);
+  check("Laagste beschikbaarheid correspondeert met de tabel", percentages.length > 1 && minimum < 100 && kandidaten.some(r => r.stap === stapLaagste), JSON.stringify({ stapLaagste, minimum, kandidaten }));
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   const laatste = page.locator("section", { hasText: "Laatste 50 keer stilstand" });
   const koppen = await laatste.locator("thead th").allInnerTexts();

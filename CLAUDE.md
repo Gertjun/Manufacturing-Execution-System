@@ -95,3 +95,6 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 Lees vóór wijzigingen docs/mes/BLUEPRINT.md en de gekoppelde ontwerpen; toets aan de 69 besluiten en ISA-matrix. Main is uitgangspunt, PR #1 uitsluitend referentie. Nieuwe domeinen Engels, bestaande Nederlandse namen behouden. Werk per beheersbare PR; testverwachtingen vooraf vastleggen, kritische databaseconstraints, historische gegevens niet gokken. Actualiseer normmapping en bewijs per fase. Geen release of merge zonder afgesproken toestemming. ROADMAP is enige takenlijst.
 
 De acht expliciete MES-ontwerpbestanden in docs/mes vallen eveneens onder D87; geen wildcard voor uitvoerbare bestanden. Bij wijziging ROADMAP/CHANGELOG blijft de gerichte documentatiecontrole vereist.
+
+## D90 – Faseacceptatie
+Werk in één concept-PR per fase met logische commits. Draai relevante lokale tests; vraag Node 22 selectief via `compatibiliteit-test` aan. Bij gereedheid `acceptatie-test` (beide suites op exacte head/base), labels bij herhaling eerst verwijderen. Conceptstatus is geen acceptatiebewijs. Oude instructie automatische Node 22 bij elke PR-update geldt alleen voor niet-concept-PRs. Geen merge zonder actuele volledige acceptatie. Behoud tests op bedrijfsregels; vervang alleen onterecht vaste fixtureverwachtingen.

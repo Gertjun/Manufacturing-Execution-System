@@ -41,7 +41,7 @@ on:
       - 'docs/mes/ROLES-AND-PROCESSES.md'
       - 'docs/mes/TERMINOLOGY.md'
       - 'tools/pakket/README.md'
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
 
 permissions:
   contents: read
@@ -49,7 +49,7 @@ permissions:
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
-  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && 'acceptatie' || 'ontwikkeling' }}
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || 'ontwikkeling' }}
   cancel-in-progress: true
 
 jobs:
@@ -74,7 +74,7 @@ jobs:
   compatibility:
     name: Node.js 22-compatibiliteit
     needs: verificatie
-    if: always() && github.event.action != 'labeled' && (github.event_name != 'push' || needs.verificatie.outputs.hergebruik != 'true')
+    if: always() && ((github.event_name == 'push' && needs.verificatie.outputs.hergebruik != 'true') || (github.event_name == 'pull_request' && ((github.event.action == 'labeled' && (github.event.label.name == 'compatibiliteit-test' || github.event.label.name == 'acceptatie-test')) || (github.event.action != 'labeled' && !github.event.pull_request.draft))))
     runs-on: ubuntu-latest
     steps:
       - name: Repository ophalen
