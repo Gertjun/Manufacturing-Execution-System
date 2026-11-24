@@ -534,16 +534,16 @@ Geert bevestigt dat er nog geen pilot is geweest en historische PoC-gegevens uit
 
 Geert akkoord met het voorstel: D89 A09/A06/P06/R04/R11 is leidend. Zelfstandig aanmaken van ongeplande batches door operators vervalt bij de omschakeling naar productieorders en dispatching (#117–#120). Batchidentificatie wordt door het systeem uitgegeven vanuit een geautoriseerde werkopdracht; een operator start alleen vrijgegeven werk binnen scope en kwalificaties. Een spoedopdracht vereist eveneens expliciete autorisatie en vrijgave, geen omzeiling. Dit vervangt het betreffende deel van D29/D68. De oude route is uitsluitend tijdelijke PoC-functionaliteit, niet een definitief MES-recht; geen verdere investering daarin. Omschakelen in fase 4/5; geen functionele verwijdering in deze documentatiecommit.
 
-### Review oude besluiten – 24 november 2026 (voorstellen, niet zelfstandig goedgekeurd)
+### Review oude besluiten – 24 november 2026 (goedgekeurd onder D99)
 
-D89 en de daaropvolgende goedgekeurde besluiten hebben voorrang op strijdige legacy-besluiten. D98 is goedgekeurd. Onderstaande classificatie is een reviewregister, geen nieuw zelfstandig besluit. De originele teksten blijven historisch intact. Vervang legacy-gedrag op de betreffende fasepoort; geen nieuwe implementatie die een bekend conflict permanent maakt. Volledige normteksten ontbreken, dus geen formele conformiteitsclaim.
+D89 en de daaropvolgende goedgekeurde besluiten hebben voorrang op strijdige legacy-besluiten. D98 is goedgekeurd. Onderstaande classificatie is het onder D99 goedgekeurde reviewregister. De originele teksten blijven historisch intact. Vervang legacy-gedrag op de betreffende fasepoort; geen nieuwe implementatie die een bekend conflict permanent maakt. Volledige normteksten ontbreken, dus geen formele conformiteitsclaim.
 
 | Categorie | Besluiten | Behandeling |
 |---|---|---|
 | Behouden, voor zover niet strijdig met D89 | D1, D3, D8, D9, D12, D13, D21, D22, D23, D26, D27, D35, D39, D40, D44, D45, D47, D48, D50, D63, D64, D67, D70, D76, D79, D81, D83, D84 | Technische, UX-, privacy- of organisatorische uitgangspunten; scope en bewijs blijven vereist. |
 | Geheel of gedeeltelijk vervangen | D6, D15, D16, D17, D19, D20, D24, D36, D41, D42, D49, D51, D53, D54, D61, D78 | Lees samen met D48/D89–D98; oude delen niet opnieuw implementeren. |
 | Herziening / expliciete overgang | D2, D4, D5, D7, D10, D11, D18, D25, D28, D29, D31, D32, D33, D34, D37, D43, D46, D52, D55, D56, D57, D58, D60, D62, D68, D69, D71, D73, D74, D75, D77, D80, D82 | Zie matrix hieronder. |
-| Uitsteladvies | D14, D30, D38, D59, D65, D66, D72 | Voorstel aan Geert; niets verwijderen zonder akkoord. |
+| Uitsteladvies | D14, D30, D38, D59, D65, D66, D72 | Uitstel goedgekeurd onder D99; gecontroleerde omschakeling per fase. |
 | Actuele besluiten | D87, D88, D89, D90, D91, D92, D93, D94, D95, D96, D97, D98 | Leidende projectbaseline. |
 
 | Legacy | Nieuw uitgangspunt / advies | Fase |
@@ -569,3 +569,14 @@ D89 en de daaropvolgende goedgekeurde besluiten hebben voorrang op strijdige leg
 | D39,D59,D62,D66,D82,D83 | Voorstel nieuwe generieke exports/UI-optimalisaties niet uitbreiden; volledige rolhulp, pilotfeedback en pilotrapportage pas bij stabiele schermen. | 9–10 |
 
 Bronnen voor de architectuurreview: [ISA-88](https://www.isa.org/standards-and-publications/isa-standards/isa-88-standards), [ISA-95](https://www.isa.org/standards-and-publications/isa-standards/isa-95-standard), [OPC UA ISA-95 Job Order](https://reference.opcfoundation.org/specs/OPC-10031-4/4.1), [Job Response](https://reference.opcfoundation.org/specs/OPC-10031-4/4.3). Werkvrijgave, vierogen, offline beleid en precieze rollen zijn projectkeuzes op basis van D89, niet als letterlijke normclausules gepresenteerd.
+
+### D99 – Herziening legacy-besluiten en uitstel van niet-kernfunctionaliteit (24 nov 2026)
+
+Geert heeft alle adviezen uit bovenstaande review doorgenomen en goedgekeurd. De matrix is daarmee bindend voor de verdere MES-ontwikkeling. ISA-88/95 zijn leidende architectuurkaders; D89 en actuele MES-besluiten gaan vóór strijdige PoC-keuzes. Behoud de oorspronkelijke besluiten als historische uitleg, niet als opdracht om achterhaalde functies opnieuw te bouwen.
+
+- Voer de goedgekeurde herzieningen uit in de aangegeven fasen; fase 1 levert het gezaghebbende autorisatiefundament en geen definitieve uitvoering van toekomstige procesmodellen. Tijdelijke legacy-routes mogen geen ongecontroleerde omweg rond dat fundament worden.
+- De zelfstandige PGlite-browserdemo (D14) is geen verplichte deliverable of acceptatieomgeving meer. Windows-laptoppakket en echte PostgreSQL blijven leidend. Stop verdere compatibiliteitsinvesteringen; inventariseer afhankelijkheden voordat de demo en specifiek daarvoor bestaande tests/workflows gecontroleerd worden uitgefaseerd.
+- Uitgebreide wandschermen en #92 naar fase 9; alleen beperkte read-only display-identiteit en autorisatie in fase 1. Volledige rolhulp, pilotfeedback en pilotrapportage naar fase 9. Storingsnotities herbeoordelen binnen fase 3; geen extra onderhoudssysteem.
+- Geavanceerde SPC, Cpk, trends en aanvullende analyses naar fase 10. Geen generieke verplichting tot Excel-export van iedere tabel; behoud noodzakelijke export en bestaande herbruikbare UI-componenten. Geen verdere cosmetische/filteroptimalisatie vóór stabiele functionele kern.
+- D97 blijft gelden: uitsluitend fictieve fixtures mogen opnieuw worden opgebouwd. Geen productiedata op onbekende/echte databases wissen. Herontwerp en uitstel zijn geen toestemming om bedrijfsregeltests te verzwakken of kritische functies onbeschermd beschikbaar te laten.
+- Acceptatie per fase toetst de actuele goedgekeurde scope; documenteer de uitgestelde onderdelen, de afgeschermde tijdelijke interfaces, en de resterende overgang. Geen claim van formele ISA-conformiteit zonder toepasselijke normteksten en toetsbewijs.

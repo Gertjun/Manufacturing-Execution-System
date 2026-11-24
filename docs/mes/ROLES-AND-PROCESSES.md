@@ -47,3 +47,5 @@ Migratie 0039: kritische security-identiteiten worden beschermd tegen directe ac
 0049: batch-, lot- en herbewerkingsroutes gebruiken actuele MES-bevoegdheden. Lotleesrecht vereist dekking van alle leden en lotregistraties; lotvorming toetst elk lid. Blokkade gescheiden van kwaliteitsbesluit; herbewerkingsopdracht gescheiden van uitvoering. Bestaande vaste vier-batchesregel en oude databasecontroles blijven tot respectieve omschakeling; herbevestiging en job-order-model nog open.
 
 D98: zelfstandige ongeplande batchcreatie door operators vervalt bij fase 4/5. Operator start vrijgegeven werk, identiteit wordt vanuit de opdracht uitgegeven; oude execution.batch.create is tijdelijk en geen definitief MES-recht. Geen verdere investering in die legacy-route.
+
+D99: de volledige legacy-review is goedgekeurd. Beveilig behouden/tijdelijke interfaces, investeer niet in oude procesmodellen die bij fase 2–8 vervangen worden; autorisatiefundament blijft leidend. Basis display-identiteit blijft fase 1, uitgebreide schermconfiguratie fase 9. Zie DECISIONS.md en ROADMAP.md.

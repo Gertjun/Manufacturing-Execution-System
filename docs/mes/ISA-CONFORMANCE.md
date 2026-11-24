@@ -21,3 +21,5 @@ Bronnen: zie BLUEPRINT. Vierogen, MOC, offline en specifieke portalen zijn eigen
 Fase 1 / PR #6: afzonderlijke autorisatiebeslismodule voor rollen, scope en kwalificaties (P01–P05, M08); unit-tests toegevoegd, nog niet uitgevoerd of aangesloten op productie-API/DB. Geen conformiteitsbewijs.
 
 D98: productie vanuit vrijgegeven Job Orders, batchidentiteit uit geautoriseerd werk (A09/P06/R04). Architectuurreview van legacy-besluiten in DECISIONS.md. Openbare ISA/OPC-modellen ondersteunen de scheiding van werkopdracht en werkelijke uitvoering; specifieke vrijgave- en rolregels zijn projectkeuzes. Nog geen implementatie- of acceptatiebewijs voor D98.
+
+D99: Geert heeft de volledige legacy-besluitenreview goedgekeurd; overgang per fase en uitstel van niet-kernfunctionaliteit zijn nu bindend. Architectuurmapping blijft ontwerpbewijs, geen formele normconformiteit. Implementatie en testbewijs per fase nog vereist.

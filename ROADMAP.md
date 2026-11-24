@@ -25,14 +25,14 @@ gantt
     Intelligence en integraties :g, after f, 1d
 ```
 
-De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fase 0: ontwerpbesluiten vastgelegd in D89 en docs/mes; acceptatie van documentatie nog vereist. Fasen 1–8 vormen de betrouwbare kern voor pilot 1.0.0. Minimale materiaalidentiteit, middelenvereisten en blokkades worden vóór afhankelijke functies ingevoerd; geen onbewezen productieomschakeling. Praktijkvoorbereiding parallel mogelijk.
+De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fase 0: ontwerpbesluiten vastgelegd in D89 en docs/mes; acceptatie van documentatie nog vereist. Fasen 1–8 vormen de betrouwbare kern voor pilot 1.0.0. Minimale materiaalidentiteit, middelenvereisten en blokkades worden vóór afhankelijke functies ingevoerd; geen onbewezen productieomschakeling. Praktijkvoorbereiding parallel mogelijk. D99: de goedgekeurde legacy-review bepaalt de overgang per fase. Geen verdere investering in achterhaalde procesmodellen of uitgestelde uitbreidingen; alleen noodzakelijke beveiliging van tijdelijke interfaces.
 
 ## Fase 1 — Projectfundament en autorisaties
 
 - #106 **Naam MES, terminologie, modulaire structuur** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #107 **Meerdere rollen, permissions, scope, scheiding beheer** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #108 **Kritische rechten, herbevestiging, audittrail en kwalificaties** — Zie ontwerpdocumenten en acceptatiecriteria.
-- #92 **Wandscherm instellen in Beheer** (klein) — Per wandschermaccount in Beheer kiezen wat het toont (hal, stappen of Kwaliteit); de tv toont na het inloggen wat daar staat en hoeft er niemand meer heen (D74).
+- #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; inventariseer en faseer demo-specifieke afhankelijkheden, tests en workflows gecontroleerd uit. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
 
 ## Fase 2 — Master Data & Recipe Management
 
@@ -47,7 +47,7 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 
 - #114 **Enterprise/site/area/cell/unit, equipment classes en fysieke assets** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #115 **Geschiktheid, capaciteit, status, werkstations en stilstand** — Zie ontwerpdocumenten en acceptatiecriteria.
-- #116 **Maintenance-portaal en middelenvereisten** — Zie ontwerpdocumenten en acceptatiecriteria.
+- #116 **Maintenance-portaal en middelenvereisten** — Zie ontwerpdocumenten en acceptatiecriteria. D99: storingsnotities herbeoordelen binnen de middelen- en stilstandscope.
 
 ## Fase 4 — Planning & Dispatching
 
@@ -83,6 +83,9 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 
 ## Fase 9 — Fabrieksimplementatie en pilot
 
+- #92 **Wandscherm instellen in Beheer** (klein) — Per wandschermaccount in Beheer kiezen wat het toont (hal, stappen of Kwaliteit); de tv toont na het inloggen wat daar staat en hoeft er niemand meer heen (D74; uitgesteld volgens D99).
+- #134 **Herinrichting rolhulp, pilotfeedback en pilotrapportage** — D99: actualiseren na stabiele kernschermen; uitgebreide wandschermen herbeoordelen op betrouwbare middelen- en statusgegevens.
+
 - #128 **Echte MBR's, middelen, rollen, kwalificaties en organisatorische acceptatie** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #129 **Management-portaal basisrapportage; pilotpoort, schaduwpilot en terugvalprocedure** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #11 **Proof of concept laten zien** (klein, *Geert*) — Laptoppakket van de nieuwste versie draaien en laten zien; bevindingen worden nieuwe punten op deze roadmap.
@@ -94,6 +97,8 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0 in één hal: de eerste twee weken met de papieren registratie ernaast, dan alleen het systeem.
 
 ## Fase 10 — Manufacturing Intelligence
+
+- #135 **Herbeoordeling geavanceerde SPC, Cpk en trends** — D99: pas na betrouwbare data, recept-/specificatieversies en KPI-definities; generieke grafiekcomponenten behouden.
 
 - #88 **Voorspelling toekomstige keuringen** (nice-to-have, D96) — Opnieuw beoordelen na de basis-MES en pilot; alleen bij aantoonbare behoefte en betrouwbare planning/doorlooptijden, met scopecontrole. Actuele openstaande metingen, besluiten en beschikbare keuringsstappen blijven basisfunctionaliteit.
 
@@ -128,6 +133,6 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 
 ## Werkafspraken
 
-- Volgende vrije nummer (nu #134) wordt toegekend aan nieuwe taken.
-- Nieuwe taken met het volgende vrije nummer (nu #134); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
+- Volgende vrije nummer (nu #137) wordt toegekend aan nieuwe taken.
+- Nieuwe taken met het volgende vrije nummer (nu #137); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
 - Faseacceptatie volgens docs/mes/ACCEPTANCE-CRITERIA.md en D88; eigenaar merget. Geen automatische release.

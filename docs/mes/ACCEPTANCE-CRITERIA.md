@@ -5,7 +5,7 @@ D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht te
 | Poort | Minimaal bewijs |
 |---|---|
 | 0 | 69 besluiten, documentatie en roadmap compleet; normmatrix ontwerpstatus |
-| 1 | Meerdere rollen, scope/kwalificaties, negatieve API/DB autorisatietests, geen zelftoekenning, regressie bestaande functies |
+| 1 | Meerdere rollen, scope/kwalificaties, negatieve API/DB autorisatietests, geen zelftoekenning, regressie behouden kernfuncties en beveiliging tijdelijke legacy-interfaces (D99) |
 | 2 | Concept wijzigbaar, vrijgegeven MBR onveranderlijk, goedkeuring vervalt bij wijziging, versieverschil en geldigheid, historische koppeling onbekend indien geen bewijs |
 | 3 | Middelen en fysieke assets onderscheiden; geschiktheid/status/kwalificatie, historische toewijzing |
 | 4 | Order, job, planning en dispatch-voorwaarden; geen uitvoering zonder vrijgave |
@@ -45,3 +45,5 @@ D96: negatieve regressie voor verwijderde /keuringen/verwacht; behoud de positie
 0048: regressies voor operationele functiescheiding, geweigerde scoped globale acties, idempotentie uitsluitend voor oorspronkelijke identiteit, ongeldige operatorheader en gelijktijdig beëindigen stilstand zonder overschrijven. Nog niet uitgevoerd.
 
 0049: regressies voor batch/lotleesrecht, scope van elk lotlid, idempotentie van oorspronkelijke operator, gescheiden blokkade/kwaliteitsbesluit/herbewerkingsopdracht. Test ook gemengde of onbekende productcontext, oude DB-rolchecks, en kritische herbevestiging vóór acceptatie. Nog niet uitgevoerd.
+
+D99: scopepoort vóór verdere legacy-integratie en vóór faseacceptatie. Toets de goedgekeurde matrix in DECISIONS.md; uitgestelde functies zijn geen fase-1-acceptatie-eis, maar geen onbeschermde tijdelijke interfaces of regressies in behouden bedrijfsregels. PGlite-demo niet verplicht; gecontroleerde uitfasering na afhankelijkhedenreview (#136). PostgreSQL en Windows-laptoppakket blijven leidend. Fictieve fixtures mogen conform D97 worden vervangen. Geen testresultaat geclaimd.
