@@ -45,6 +45,7 @@ export function permits(subject: Subject, activity: Activity, now: number): bool
   // Technisch/security beheer niet combineren met inhoudelijke of display-rollen.
   const administrative = grants.some(g => g.domain === "technical" || g.domain === "security");
   if (administrative && grants.some(g => g.domain !== "technical" && g.domain !== "security")) return false;
+  if (grants.some(g => g.domain === "technical") && grants.some(g => g.domain === "security")) return false;
   if (grants.some(g => g.domain === "display") && grants.some(g => g.domain !== "display")) return false;
   if (!grants.some(g => g.domain === activity.domain && g.permissions.includes(activity.permission) &&
       within(g.scope, activity.target))) return false;

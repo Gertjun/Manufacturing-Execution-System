@@ -41,3 +41,15 @@ test("meerdere verenigbare rollen behouden afzonderlijke rechten", () => {
   assert.equal(permits(multi, activity, now), true);
   assert.equal(permits(multi, { ...activity, domain: "quality", permission: "quality.inspect" }, now), true);
 });
+
+test("technische en security-identiteiten zijn gescheiden", () => {
+  const technical: Grant = { ...grant, role: "system_administrator", domain: "technical", permissions: ["account.manage"], scope: {} };
+  const security: Grant = { ...grant, role: "security_administrator", domain: "security", permissions: ["authorization.approve"], scope: {} };
+  const account: Activity = { ...activity, domain: "technical", permission: "account.manage", target: {}, requiredQualifications: [] };
+  const approval: Activity = { ...account, domain: "security", permission: "authorization.approve" };
+  assert.equal(permits({ ...subject, grants: [technical] }, account, now), true);
+  assert.equal(permits({ ...subject, grants: [security] }, approval, now), true);
+  assert.equal(permits({ ...subject, grants: [technical, security] }, account, now), false);
+  assert.equal(permits({ ...subject, grants: [technical, security] }, approval, now), false);
+  assert.equal(permits({ ...subject, grants: [technical, { ...security, revoked: true }] }, account, now), true);
+});

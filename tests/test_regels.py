@@ -58,6 +58,12 @@ def main():
     sec_demo = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
     check("Security heeft expliciet aanvraagrecht", val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
     check("Security heeft geen onbekend productierecht", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (sec_demo,)))
+    # Simuleer een inconsistent gemigreerd account: beide beheerdomeinen weigeren.
+    conflicting = val("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'system_administrator') RETURNING id", (sec_demo,))
+    check("Gemengd beheer weigert securityrecht", not val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
+    check("Gemengd beheer weigert technisch recht", not val("SELECT authorization_permits(%s,'account.manage',NULL,NULL,NULL)", (sec_demo,)))
+    con.execute("DELETE FROM authorization_grant WHERE id=%s", (conflicting,))
+    check("Afzonderlijk securityrecht blijft beschikbaar", val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
 
     print("\\nMES autorisaties (uitbreidingsmodel)")
     con.execute((ROOT / "db/rechten.sql").read_text())
