@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: behoud beveiligde functiezoekpaden bij nieuwe installatie en migratie; oude authenticatie-ingangen beperkt (0075).
 - MES: gecontroleerde processtart, afronding en herbewerkingsstart (0074).
 - MES: gecontroleerde tijdelijke batchcreatie en batchplanning conform D98 (0073).
 - MES: bescherm batch- en lotstatusovergangen (0072, gedeeltelijk).
