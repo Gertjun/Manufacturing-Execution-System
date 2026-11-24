@@ -15,6 +15,40 @@ pgDraait() { postgres/bin/pg_ctl status -D data/pgdata >/dev/null 2>&1; }
 start
 grep -q "Eerste keer" /tmp/laptoptest.log || fout "eerste start herkent geen nieuwe installatie"
 grep -q '"ingebouwd": true' instellingen.json || fout "instellingen zonder ingebouwde database"
+# Werkelijke TCP-authenticatie met beide rollen, zonder geheime waarden te loggen.
+node --input-type=commonjs <<'JS' || fout "SCRAM/runtime-rollen"
+const fs = require("node:fs");
+const { Client } = require("./server/node_modules/pg");
+const assert = require("node:assert/strict");
+const i = JSON.parse(fs.readFileSync("instellingen.json", "utf8"));
+(async () => {
+  assert.equal(i.db.user, "mes_app");
+  assert.equal(i.beheerDb.user, "postgres");
+  assert.ok(i.db.password && i.beheerDb.password && i.db.password !== i.beheerDb.password);
+  for (const config of [i.db, i.beheerDb]) {
+    const c = new Client(config);
+    await c.connect();
+    try {
+      const {rows:[row]} = await c.query("SELECT current_user AS naam, rolsuper FROM pg_roles WHERE rolname=current_user");
+      assert.equal(row.naam, config.user);
+      assert.equal(row.rolsuper, config.user === "postgres");
+    } finally { await c.end(); }
+    const verkeerd = new Client({...config, password:"opzettelijk-verkeerd-testwachtwoord"});
+    try { await assert.rejects(verkeerd.connect(), {code:"28P01"}); }
+    finally { await verkeerd.end(); }
+  }
+  const beheer = new Client(i.beheerDb);
+  await beheer.connect();
+  try {
+    const {rows} = await beheer.query("SELECT auth_method,error FROM pg_hba_file_rules WHERE type IS NOT NULL");
+    assert.ok(rows.length >= 2);
+    assert.ok(rows.every(r => r.auth_method === "scram-sha-256" && !r.error));
+    const {rows:[r]} = await beheer.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename='mes_app' AND datname=current_database()");
+    assert.ok(r.n > 0, "API heeft een echte mes_app-verbinding");
+  } finally { await beheer.end(); }
+})().catch(e => { console.error(e.message); process.exitCode=1; });
+JS
+
 TOK=$(curl -s -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"beheerder1","wachtwoord":"demo"}' | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).token))')
 curl -s localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"postgres":"18' || fout "geen PostgreSQL 18"
 stopApp
@@ -37,19 +71,22 @@ stopApp
 wacht() { for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && return 0; sleep 1; done; fout "applicatie start niet"; }
 login() { curl -s -o /dev/null -w "%{http_code}" -X POST localhost:3000/auth/login -H 'content-type: application/json' -d "{\"gebruikersnaam\":\"$1\",\"wachtwoord\":\"$2\"}"; }
 
-# Lege fabriek: geen testaccounts, eerste beheerder wordt gevraagd
-printf 'geert\nwachtwoord123\nwachtwoord123\n' | node opstarten.mjs --geen-browser --leeg > /tmp/laptoptest.log 2>&1 &
+# Lege fabriek: drie afzonderlijke fictieve beheeridentiteiten.
+printf 'Testreferentie\nmes.test.system\nwachtwoord123\nwachtwoord123\nmes.test.security.a\nsecurity123a\nsecurity123a\nmes.test.security.b\nsecurity123b\nsecurity123b\n' | node opstarten.mjs --geen-browser --leeg > /tmp/laptoptest.log 2>&1 &
 wacht
-grep -q "Er is nog geen beheerder" /tmp/laptoptest.log || fout "geen vraag om de eerste beheerder"
-[ "$(login geert wachtwoord123)" = "200" ] || fout "eerste beheerder kan niet inloggen"
+grep -q "MES-bootstrap voltooid" /tmp/laptoptest.log || fout "geen gecontroleerde bootstrap"
+[ "$(login mes.test.system wachtwoord123)" = "200" ] || fout "system administrator kan niet inloggen"
+[ "$(login mes.test.security.a security123a)" = "200" ] || fout "security A kan niet inloggen"
+[ "$(login mes.test.security.b security123b)" = "200" ] || fout "security B kan niet inloggen"
 [ "$(login beheerder1 demo)" = "401" ] || fout "testaccount bestaat nog in de lege fabriek"
 stopApp
 
-# Noodsleutel: nieuw wachtwoord voor de beheerder
-printf '1\nnieuwwachtwoord\nnieuwwachtwoord\n' | node opstarten.mjs --geen-browser --beheerder > /tmp/laptoptest.log 2>&1 &
+# Oude noodsleutel is uitsluitend diagnose; credentials blijven gelijk.
+printf 'mes.test.system\n' | node opstarten.mjs --geen-browser --beheerder > /tmp/laptoptest.log 2>&1 &
 wacht
-[ "$(login geert nieuwwachtwoord)" = "200" ] || fout "noodsleutel: nieuw wachtwoord werkt niet"
-[ "$(login geert wachtwoord123)" = "401" ] || fout "noodsleutel: oud wachtwoord werkt nog"
+grep -q "Oude noodsleutel uitgeschakeld" /tmp/laptoptest.log || fout "oude noodsleutel niet geblokkeerd"
+[ "$(login mes.test.system wachtwoord123)" = "200" ] || fout "diagnose heeft bestaand wachtwoord gewijzigd"
+[ "$(login mes.test.system nieuwwachtwoord)" = "401" ] || fout "diagnose heeft een nieuw wachtwoord ingesteld"
 stopApp
 pgDraait && fout "database draait nog aan het eind"
-echo "Laptoppakket: alle controles geslaagd (eerste start, stoppen, back-up, harde stop, terugzetten, lege fabriek met eerste beheerder, noodsleutel)."
+echo "Laptoppakket: controles geslaagd (SCRAM, runtime, eerste start, stoppen, back-up, harde stop, terugzetten, bootstrap, hersteldiagnose)."
