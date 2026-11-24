@@ -1,6 +1,7 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { INVOER, ingelogd, vereist, type Rol, type Sessie } from "../auth.js";
+import { ingelogd, type Rol, type Sessie } from "../auth.js";
+import { personalSession } from "../modules/authorization/access.js";
 import { ApiFout } from "../fouten.js";
 import { inTransactie, lees } from "../db.js";
 
@@ -70,7 +71,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const token = gebruiker.rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie);
       return {
         token, rol: gebruiker.rol,
-        naamKiezen: gedeeld && INVOER.includes(gebruiker.rol),
+        naamKiezen: false,
         operator: ac?.operator_id ? { id: ac.operator_id, naam: ac.operatornaam as string } : null,
         ...(uitkomst.ww ? { wachtwoordWijzigen: true } : {}),
       };
@@ -101,7 +102,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const [o] = operatorId ? await lees<{ naam: string }>(app.db, "SELECT naam FROM operator WHERE id = $1", [operatorId]) : [];
       return {
         token: rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie), rol,
-        naamKiezen: !!gedeeld && !operatorId && INVOER.includes(rol),
+        naamKiezen: false,
         operator: operatorId && o ? { id: operatorId, naam: o.naam } : null,
       };
     },
@@ -112,7 +113,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/pc",
     {
-      preHandler: vereist(...INVOER, "kwaliteit"),   // Kwaliteit: de lab-pc (sinds 0.37.0, #64)
+      preHandler: personalSession,
       schema: {
         tags: ["inloggen"],
         description: "Geeft een token met de pc erbij, voor het invoerscherm. Voor wie al op de startpagina is ingelogd.",
@@ -130,13 +131,21 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
              FROM gebruiker g LEFT JOIN operator o ON o.id = $2 WHERE g.id = $1`, [req.user.sub, o?.id ?? null])).rows;
       });
       if (!ac?.actief || ac.gedeeld) throw new ApiFout(401, "Dit account staat uit");
+      if (!ac.operator_id) throw new ApiFout(403, "Actieve persoonlijke personeelskoppeling vereist");
+      // Werkstationbinding verleent zelf geen productiebevoegdheid.
+      const [recht] = await lees<{ allowed: boolean }>(app.db, `SELECT EXISTS (
+        SELECT 1 FROM (SELECT NULL::uuid AS id UNION ALL SELECT id FROM product WHERE actief) p
+        CROSS JOIN (VALUES ('execution.start'),('execution.record'),('execution.complete'),('execution.correct'),('inspection.start'),('inspection.record'),('inspection.decide')) a(permission)
+        WHERE authorization_permits($1,a.permission,NULL,p.id,NULL)
+      ) AS allowed`, [req.user.sub]);
+      if (!recht?.allowed) throw new ApiFout(403, "Geen actuele MES-uitvoeringsbevoegdheid");
       const { sub, naam, rol } = req.user;
       const sessie: Sessie = { sub, naam, rol, sessionVersion: req.user.sessionVersion, pcId: rij.id,
         ...(req.user.sessionProof ? { sessionProof: req.user.sessionProof } : {}),
         ...(ac.operator_id ? { operatorId: ac.operator_id } : {}), ...(ac.gedeeld ? { gedeeld: true } : {}) };
       return {
         token: app.jwt.sign(sessie), rol,
-        naamKiezen: ac.gedeeld,
+        naamKiezen: false,
         operator: ac.operator_id ? { id: ac.operator_id, naam: ac.operatornaam as string } : null,
       };
     },
