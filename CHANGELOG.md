@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: planning en productengineering gescheiden (0047); operationele rechten voor stilstand en ploegoverdracht (0048).
 - MES: voorspelling toekomstige keuringen uit basisfunctionaliteit verwijderd (D96); #88 terug op roadmap fase 10.
 - MES: productgebonden registratie- en keuringsleesrechten en aparte bevoegdheid voor kwaliteitsbesluit (0046).
 - MES: concrete beheertoegang op basis van actuele databasegrants; technische en engineeringtaken gescheiden (0044).

@@ -1,11 +1,10 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, IEDEREEN, vereist, type Rol, operatorVan } from "../auth.js";
+import { operatorVan } from "../auth.js";
+import { requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { inTransactie, lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 
-/** Een overdracht schrijven mogen de mensen op de vloer en de ploegleider. */
-const SCHRIJVEN: Rol[] = ["operator", "ploegleider", "beheerder"];
 const Dag = Type.String({ format: "date" });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 
@@ -131,7 +130,7 @@ async function halVan(db: Db, pcId?: string) {
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/ploegen",
-    { preHandler: vereist(...IEDEREEN), schema: { tags: ["overdracht"], response: { 200: Type.Array(Ploeg) } } },
+    { preHandler: requiresPermission("handover.read"), schema: { tags: ["overdracht"], response: { 200: Type.Array(Ploeg) } } },
     async () =>
       (await lees(app.db, "SELECT code, naam, to_char(begint, 'HH24:MI') AS begint, to_char(eindigt, 'HH24:MI') AS eindigt, actief FROM ploeg ORDER BY begint")) as never,
   );
@@ -139,7 +138,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresPermission("handover.read"),
       schema: {
         tags: ["overdracht"],
         description:
@@ -176,7 +175,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/dag",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresPermission("handover.read"),
       schema: {
         tags: ["overdracht"],
         description: "Alle ploegen van een dag, met hun samenvatting (voor het portaal).",
@@ -201,7 +200,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/plan",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresPermission("handover.read"),
       schema: {
         tags: ["overdracht"],
         description:
@@ -227,7 +226,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/",
     {
-      preHandler: vereist(...SCHRIJVEN),
+      preHandler: requiresPermission("handover.record"),
       schema: {
         tags: ["overdracht"],
         description: "Overdracht schrijven voor de ploeg van 'moment' (standaard nu). Met een eigen id is opnieuw versturen veilig (offline wachtrij).",
@@ -251,12 +250,17 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             WHERE n.id = $1`, [id]))[0];
       if (req.body.id) {
         const al = await lees1(req.body.id);
-        if (al) return reply.status(200).send(al as never);
+        if (al) {
+          const [original] = await lees<{ gebruiker_id: string }>(app.db, "SELECT gebruiker_id FROM overdracht WHERE id=$1", [req.body.id]);
+          if (original?.gebruiker_id !== req.user.sub) throw new ApiFout(409,"Dit id hoort bij een andere overdracht");
+          return reply.status(200).send(al as never);
+        }
       }
       // Een tijdstip uit de toekomst (verkeerde klok) telt als nu.
       const moment = req.body.moment && Date.parse(req.body.moment) < Date.now() ? req.body.moment : new Date().toISOString();
       const hal = await halVan(app.db, req.user.pcId);
       const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+        await requireTransactionPermission(tx,req.user.sub,"handover.record");
         const { rows } = await tx.query("SELECT ploeg_id, dag FROM ploeg_van($1)", [moment]);
         if (!rows[0]) throw new ApiFout(422, "Er is geen ploeg ingesteld voor dit tijdstip");
         const r = await tx.query(
@@ -274,7 +278,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/ploegen/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("shift.manage"),
       schema: {
         tags: ["overdracht", "beheer"],
         params: Type.Object({ code: Type.String() }),
@@ -312,7 +316,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/rooster",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresPermission("handover.read"),
       schema: {
         tags: ["overdracht"],
         description: "Het roosterpatroon (dienstcodes, - = vrij), de ploegen met de startdag van hun cyclus, en per dag en dienst welke ploegen werken.",
@@ -356,7 +360,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/rooster",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("shift.manage"),
       schema: {
         tags: ["overdracht", "beheer"],
         description: "Het roosterpatroon wijzigen: een rij dienstcodes, - voor een vrije dag.",
@@ -375,7 +379,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/rooster/ploegen",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("shift.manage"),
       schema: {
         tags: ["overdracht", "beheer"],
         body: Type.Object({
@@ -397,7 +401,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/rooster/ploegen/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("shift.manage"),
       schema: {
         tags: ["overdracht", "beheer"],
         params: Type.Object({ code: Type.String() }),

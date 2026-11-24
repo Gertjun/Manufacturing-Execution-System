@@ -72,8 +72,8 @@ function kop(req: FastifyRequest, naam: string): string | undefined {
  * de persoonlijke operator uit het token (D94).
  */
 export function operatorVan(req: FastifyRequest): string | undefined {
-  const k = kop(req, "x-batchgui-operator");
-  if (k && (!UUID.test(k) || k.toLowerCase() !== req.user.operatorId)) throw new ApiFout(403, "De operator van deze invoer komt niet overeen met je persoonlijke account");
+  const k = req.headers["x-batchgui-operator"];
+  if (k !== undefined && (typeof k !== "string" || !UUID.test(k) || k.toLowerCase() !== req.user.operatorId)) throw new ApiFout(403, "De operator van deze invoer komt niet overeen met je persoonlijke account");
   return req.user.operatorId;
 }
 

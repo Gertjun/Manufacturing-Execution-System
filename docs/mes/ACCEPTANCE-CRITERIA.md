@@ -41,3 +41,5 @@ Verplichte reviewpoort voor iedere MES-fase (afspraak 24 november 2026): na func
 D96: negatieve regressie voor verwijderde /keuringen/verwacht; behoud de positieve regressies voor openstaande keuringen en het starten van een beschikbare keuringsstap. UI- en workflowreview blijft vereist vóór faseacceptatie.
 
 0047: regressies voor scheiding planning en engineering, geweigerde legacy-only/technische/security-accounts, verlopen/ingetrokken grants, en geen globale wijzigingen met beperkte scope. D97 staat vervanging van fictieve fixtures toe zonder bedrijfsregeltests te verliezen. Nog geen uitvoeringsbewijs.
+
+0048: regressies voor operationele functiescheiding, geweigerde scoped globale acties, idempotentie uitsluitend voor oorspronkelijke identiteit, ongeldige operatorheader en gelijktijdig beëindigen stilstand zonder overschrijven. Nog niet uitgevoerd.
