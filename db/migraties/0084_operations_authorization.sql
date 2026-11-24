@@ -46,7 +46,7 @@ CREATE TRIGGER overdracht_0_mes_permission BEFORE INSERT ON overdracht
 CREATE TRIGGER stapplanning_0_mes_permission BEFORE INSERT OR DELETE ON stapplanning
  FOR EACH ROW EXECUTE FUNCTION operations_write_guard('planning.manage');
 
--- Alleen de bestaande gecontroleerde opslaanfuctie mag voorstelleden wijzigen.
+-- Alleen de bestaande gecontroleerde opslagfunctie mag voorstelleden wijzigen.
 -- Geen nieuw lotmodel: de bestaande PoC-regels blijven voorlopig gelden.
 CREATE FUNCTION planning_save_legacy_proposal(p_id uuid,p_batches uuid[],p_note text)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
@@ -61,6 +61,7 @@ BEGIN
  IF p_id IS NOT NULL THEN
    PERFORM 1 FROM lot_voorstel WHERE id=p_id FOR UPDATE;
  END IF;
+ PERFORM 1 FROM batch WHERE id=ANY(p_batches) ORDER BY id FOR UPDATE;
  RETURN bewaar_lot_voorstel(p_id,p_batches,p_note,actor);
 END $$;
 
@@ -79,3 +80,25 @@ BEGIN
  RETURN target;
 END $$;
 REVOKE ALL ON FUNCTION planning_save_legacy_proposal(uuid,uuid[],text),planning_cancel_legacy_proposal(int) FROM PUBLIC;
+
+-- Lotvorming gebruikt dezelfde transactievergrendeling als voorstelbeheer.
+CREATE OR REPLACE FUNCTION execution_create_lot(p_number text,p_batches uuid[],p_pc uuid,p_operator uuid,
+ p_lot_id uuid,p_registration_id uuid,p_reason text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_batch batch%ROWTYPE; v_count int:=0;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ PERFORM pg_advisory_xact_lock(84001);
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ FOR v_batch IN SELECT * FROM batch WHERE id=ANY(p_batches) ORDER BY id FOR UPDATE LOOP
+   v_count:=v_count+1;
+   IF NOT authorization_permits(v_actor,'execution.lot.create',NULL,v_batch.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele lotsamenstellingsbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ END LOOP;
+ IF v_count=0 OR v_count<>cardinality(p_batches) THEN RAISE EXCEPTION 'Ongeldige batchleden'; END IF;
+ RETURN maak_lot(p_number,p_batches,p_pc,p_operator,p_lot_id,p_registration_id,p_reason);
+END $$;
