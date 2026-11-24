@@ -56,7 +56,25 @@ export async function acties(): Promise<Actie[]> {
   return opslag.alle<Actie>("wachtrij");
 }
 
+// Alleen de expliciet behouden, reguliere offline acties. Geen besluiten,
+// correcties, feedback of wachtwoorden via de wachtrij.
+function toegestaanOffline(pad: string): boolean {
+  return ["/registraties","/batches","/lots","/stilstand","/overdracht"].includes(pad)
+    || /^\/registraties\/[0-9a-f-]{36}\/(waarden|grondstoffen|afronden)$/i.test(pad)
+    || /^\/stilstand\/[0-9a-f-]{36}\/einde$/i.test(pad);
+}
+function bevatGeheim(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  return Object.entries(body).some(([k,v]) => /wachtwoord|password|passphrase|authorization|token|sessionproof/i.test(k) || bevatGeheim(v));
+}
+function zonderGeheim(body: unknown): unknown {
+  if (Array.isArray(body)) return body.map(zonderGeheim);
+  if (!body || typeof body !== "object") return body;
+  return Object.fromEntries(Object.entries(body).filter(([k]) => !/wachtwoord|password|passphrase|authorization|token|sessionproof/i.test(k)).map(([k,v]) => [k,zonderGeheim(v)]));
+}
+
 export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam" | "userId">) {
+  if (!toegestaanOffline(actie.pad) || bevatGeheim(actie.body)) throw new Error("Deze handeling mag niet in de offline wachtrij");
   await opslag.zet("wachtrij", {
     ...actie,
     status: "wacht",
@@ -113,6 +131,13 @@ export async function verwerk(): Promise<void> {
   try {
     for (;;) {
       const alle = await opslag.alle<Actie>("wachtrij");
+      // Ook oude acties zonder persoonlijke bevestiging nooit automatisch versturen.
+      for (const a of alle) {
+        if (bevatGeheim(a.body) || (!toegestaanOffline(a.pad) && a.status !== "beoordeling")) {
+          await opslag.zet("wachtrij", { ...a, body: zonderGeheim(a.body), status: "beoordeling", fout: "Niet toegestane offline handeling; oorspronkelijke niet-geheime gegevens bewaard voor gecontroleerde beoordeling" });
+          a.status = "beoordeling";
+        }
+      }
       const identiteit = sessie.inhoud();
       if (!sessie.geldig() || !identiteit || identiteit.gedeeld) { meld({ inloggenNodig: true }); break; }
       const volgende = alle.find((a) => a.status === "wacht");
