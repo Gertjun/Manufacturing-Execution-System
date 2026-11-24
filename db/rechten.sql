@@ -74,7 +74,7 @@ END $$;
 DO $$
 DECLARE t text; login text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['authorization_role', 'authorization_permission', 'authorization_role_permission', 'authorization_grant', 'qualification', 'personnel_qualification', 'activity_qualification', 'authorization_legacy_snapshot', 'authorization_request', 'authorization_decision'] LOOP
+  FOREACH t IN ARRAY ARRAY['authorization_role', 'authorization_permission', 'authorization_role_permission', 'authorization_grant', 'qualification', 'personnel_qualification', 'activity_qualification', 'authorization_legacy_snapshot', 'authorization_request', 'authorization_decision', 'authorization_revocation'] LOOP
     IF to_regclass('fabriek.' || t) IS NOT NULL THEN
       EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.%I FROM PUBLIC', t);
       FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
@@ -92,7 +92,7 @@ DO $$
 DECLARE login text; f record;
 BEGIN
   FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity') LOOP
+           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable') LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f.sig);
     FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN

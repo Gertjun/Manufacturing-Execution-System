@@ -120,6 +120,22 @@ def main():
     check("Persoonlijke herbevestiging beslist exacte aanvraag",
           val("SELECT status FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,confirm_req)) == "decided")
     check("Bevestigd besluit bewaard", val("SELECT count(*) FROM authorization_decision WHERE request_id=%s AND decided_by=%s", (confirm_req,sec_b)) == 1)
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_security','authorization.revoke')")
+    revoke = "SELECT authorization_revoke_confirmed(%s,%s,'Testintrekking',%s)"
+    faalt("Onbevoegde intrekking geweigerd", revoke, (target,grant,"demo"), "Geen bevoegdheid")
+    check("Verkeerd wachtwoord trekt geen grant in", val(revoke,(sec_b,grant,"onjuist")) == "denied")
+    check("Grant nog geldig na mislukte herbevestiging", val("SELECT revoked_at FROM authorization_grant WHERE id=%s",(grant,)) is None)
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag intrekking niet rechtstreeks uitvoeren", revoke,(sec_b,grant,"demo"),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    check("Bevestigde intrekking slaagt", val(revoke,(sec_b,grant,"demo")) == "revoked")
+    check("Intrekking behoudt grant en auditspoor", val("SELECT count(*) FROM authorization_revocation r JOIN authorization_grant g ON g.id=r.grant_id AND g.revoked_at=r.revoked_at WHERE r.grant_id=%s AND r.revoked_by=%s",(grant,sec_b)) == 1)
+    faalt("Dubbele intrekking geweigerd",revoke,(sec_b,grant,"demo"),"al ingetrokken")
+    faalt("Besluit kan niet worden gewijzigd","UPDATE authorization_decision SET reason='gewijzigd' WHERE request_id=%s",(req,),"onveranderlijk")
+    faalt("Aanvraag kan niet worden verwijderd","DELETE FROM authorization_request WHERE id=%s",(req,),"onveranderlijk")
+    faalt("Intrekking kan niet worden gewijzigd","UPDATE authorization_revocation SET reason='gewijzigd' WHERE grant_id=%s",(grant,),"onveranderlijk")
     # Ruim testgrants niet op: trek ze in zodat bestaande regressies niet door
     # fictieve security-rechten worden beïnvloed en het testspoor bewaard blijft.
     con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE role_code='test_security'")

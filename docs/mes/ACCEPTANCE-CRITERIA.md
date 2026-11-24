@@ -27,3 +27,5 @@ Migratie 0038: negatieve DB-scenario's voor eigen aanvraag, onbevoegde aanvrager
 0039: regressies voor bescherming van security-account tegen reset/rolwijziging/hernoemen, geweigerde app-aanroep, verkeerde herbevestiging zonder besluit, juiste herbevestiging met gekoppeld besluit. Nog niet uitgevoerd.
 
 Verplichte reviewpoort voor iedere MES-fase (afspraak 24 november 2026): na functionele implementatie en vóór volledige acceptatie-CI alle bestaande workflowtests, fixtures, schemaqueries, verwachtingen en triggers inventariseren en toetsen aan de goedgekeurde ontwerpbesluiten. Verwijder uitsluitend achterhaalde verwachtingen, behoud relevante dekking en voeg positieve/negatieve tests toe. Leg reviewresultaat en resterende risico's vast vóór het starten van de acceptatierun.
+
+0041: regressies voor onbevoegde intrekking, verkeerde herbevestiging, succesvolle intrekking, dubbele intrekking, behoud grant/audit en onveranderlijke aanvragen/besluiten/intrekkingen. Nog niet uitgevoerd.
