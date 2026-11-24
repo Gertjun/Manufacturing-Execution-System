@@ -1,6 +1,6 @@
 -- Migratie 0080: auditidentiteit uit gevalideerde persoonlijke sessie, nooit een vrije naam.
 SET search_path = fabriek, public;
-CREATE OR REPLACE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $
+CREATE OR REPLACE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE
     v_oud   jsonb;
     v_nieuw jsonb;

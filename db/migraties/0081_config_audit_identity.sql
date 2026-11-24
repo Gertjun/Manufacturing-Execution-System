@@ -7,7 +7,7 @@ ALTER TABLE config_log ADD CONSTRAINT config_log_actor_origin_check CHECK (
  (actor_origin = 'personal' AND actor_user_id IS NOT NULL)
  OR (actor_origin IN ('historical','unverified') AND actor_user_id IS NULL)
 );
-CREATE OR REPLACE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $
+CREATE OR REPLACE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE
     v_oud   jsonb;
     v_nieuw jsonb;
