@@ -379,3 +379,20 @@ BEGIN
    END LOOP;
  END IF;
 END $$;
+
+-- Vanaf 0077: verwijder de tijdelijke algemene tabelschrijfrechten en
+-- herstel alleen expliciet benodigde legacy-writes. Kolomgrants voor
+-- gebruiker/operator blijven afzonderlijk begrensd zoals hierboven.
+DO $$
+DECLARE login text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=77) THEN
+   REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON ALL TABLES IN SCHEMA fabriek FROM PUBLIC,mes_app;
+   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='batchgui_app') THEN
+     REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON ALL TABLES IN SCHEMA fabriek FROM batchgui_app;
+   END IF;
+   GRANT INSERT ON fabriek.veld, fabriek.veld_product, fabriek.grondstof, fabriek.stap_grondstof, fabriek.pc, fabriek.pc_stap, fabriek.product, fabriek.stapplanning, fabriek.capaciteit_afwijking, fabriek.capaciteit_stap, fabriek.lot_voorstel, fabriek.lot_voorstel_batch, fabriek.waarde, fabriek.grondstof_gebruik, fabriek.invoerconflict, fabriek.specificatie, fabriek.specificatie_regel, fabriek.stilstand, fabriek.stilstand_oorzaak, fabriek.melding_gelezen, fabriek.overdracht, fabriek.rooster, fabriek.rooster_ploeg, fabriek.certificaat, fabriek.instelling, fabriek.terugmelding, fabriek.geweigerde_invoer, fabriek.product_stap, fabriek.config_log, fabriek.melding TO mes_app;
+   GRANT UPDATE ON fabriek.veld, fabriek.veld_product, fabriek.processtap, fabriek.grondstof, fabriek.stap_grondstof, fabriek.pc, fabriek.product, fabriek.batch, fabriek.capaciteit_afwijking, fabriek.capaciteit_stap, fabriek.lot_voorstel, fabriek.specificatie, fabriek.specificatie_regel, fabriek.stilstand, fabriek.stilstand_oorzaak, fabriek.ploeg, fabriek.rooster, fabriek.rooster_ploeg, fabriek.instelling, fabriek.terugmelding TO mes_app;
+   GRANT DELETE ON fabriek.pc_stap, fabriek.stapplanning, fabriek.lot_voorstel_batch, fabriek.product_stap, fabriek.veld_product, fabriek.capaciteit_stap, fabriek.specificatie, fabriek.specificatie_regel TO mes_app;
+ END IF;
+END $$;

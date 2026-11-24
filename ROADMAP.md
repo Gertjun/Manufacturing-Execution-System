@@ -172,3 +172,5 @@ Fase 1 (0074): directe stapregistratie-writes ingetrokken; gecontroleerde start/
 Fase 1 (0075): functiezoekpaden en oude authenticatie-ingangen aangescherpt; volledige rechtenaudit en acceptatie open.
 
 Fase 1 (0076): expliciete functieallowlist; transitieve runtimevalidatie, tabelrechten en overige legacy-writes open.
+
+Fase 1 (0077): tabelschrijfallowlist; audit-/melding-insert, kolomgrants, leesrechten en resterende legacy-autorisatie nog afschermen.
