@@ -517,3 +517,7 @@ Geert akkoord: uitsluitend persoonlijke operatoraccounts; geen naamkeuze na inlo
 ### D94 – Geen bevoegdheid namens een ander door eerdere pc-login (24 nov 2026)
 
 Geert akkoord mits passend bij ISA-georiënteerde architectuur. De zevendagenregel voor persoonsverwisseling vervalt; dit is geen claim van formele ISA-conformiteit. Persoonlijke sessie en oorspronkelijke operator moeten overeenkomen. Lokale oude/onverifieerbare acties worden niet gewist of automatisch heretiketteerd. De tijdelijke implementatie zet deze apart voor beoordeling; vooraf begrensde offline autorisatie en gecontroleerde afhandeling volgen nog. De maximale ouderdom van offline registraties is een afzonderlijke ontwerpkeuze.
+
+### D95 – Nieuwe MES-accounts voor de proof of concept (24 nov 2026)
+
+Geert staat toe dat oude accounts niet worden overgenomen als een nieuwe inrichting eenvoudiger is. Gekozen aanpak: nieuwe fictieve persoonlijke MES-identiteiten, minimaal twee afzonderlijke security-identiteiten, expliciete grants en later concrete kwalificaties. Oude testaccounts blijven tijdelijk regressiefixtures totdat de legacy-rolcontroles zijn omgeschakeld; geen permanente dubbele gezaghebbende autorisatie. Geen automatische conversie van bestaande rechten. Historische gebruiker- en operator-ID's en productiegegevens behouden; inactiveren pas via gecontroleerde omschakeling, geen destructieve migratie. Demo-bootstrap uitsluitend op fictieve testdata door database-eigenaar. Definitieve rollenmatrix met organisatie valideren.

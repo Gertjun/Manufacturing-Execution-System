@@ -46,6 +46,15 @@ def main():
             return
         check(naam, False, "geen foutmelding")
 
+    print("\nMES rollenregister en demo-bootstrap (D95)")
+    check("Dertien MES-rollen gedefinieerd", val("SELECT count(*) FROM authorization_role") == 13)
+    check("Twee persoonlijke security-identiteiten", val("SELECT count(DISTINCT g.user_id) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE g.role_code='security_administrator' AND u.actief AND NOT u.gedeeld AND NOT u.wachtwoord_wijzigen") == 2)
+    check("Security-identiteit heeft geen legacy beheerdersrol", val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam IN ('mes.security.a','mes.security.b') AND rol='beheerder'") == 0)
+    check("Supervisor met twee afzonderlijke grants", val("SELECT count(*) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE u.gebruikersnaam='mes.supervisor'") == 2)
+    sec_demo = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
+    check("Security heeft expliciet aanvraagrecht", val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
+    check("Security heeft geen onbekend productierecht", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (sec_demo,)))
+
     print("\\nMES autorisaties (uitbreidingsmodel)")
     con.execute((ROOT / "db/rechten.sql").read_text())
     auth_user = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")

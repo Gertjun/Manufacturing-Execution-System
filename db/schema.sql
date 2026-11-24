@@ -3442,8 +3442,33 @@ BEGIN
 END $;
 ALTER FUNCTION operator_van_account(uuid) SET search_path = fabriek, public;
 
+-- Migratie 0043: MES-rollenregister (D89 P01–P05).
+-- Alleen definities, geen automatische grants aan bestaande gebruikers.
+SET search_path = fabriek, public;
+INSERT INTO authorization_role(code,domain) VALUES
+ ('operator','operations'),
+ ('shift_supervisor','operations'),
+ ('manufacturing_manager','operations'),
+ ('production_planner','operations'),
+ ('process_engineer','engineering'),
+ ('engineering_approver','engineering'),
+ ('quality_technician','quality'),
+ ('quality_approver','quality'),
+ ('maintenance_technician','maintenance'),
+ ('system_administrator','technical'),
+ ('security_administrator','security'),
+ ('analyst_management','analysis'),
+ ('display_integration','display');
+
+-- Eerste concrete rechten voor het security-domein. De operationele matrix
+-- wordt per activiteit geïmplementeerd; geen impliciete rechten uit rolnamen.
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('security_administrator','authorization.request'),
+ ('security_administrator','authorization.approve'),
+ ('security_administrator','authorization.revoke');
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
