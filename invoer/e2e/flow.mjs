@@ -197,7 +197,7 @@ try {
   await page.getByLabel("Lotnummer").fill("L-2026-0001");
   await shot("07-lot-samenstellen");
   await page.getByRole("button", { name: "Lot samenstellen" }).click();
-  await page.getByRole("dialog").getByRole("heading", { name: "Afwijken van lotvoorstel 1?" }).waitFor();
+  await page.getByRole("dialog").getByRole("heading", { name: "Afwijking bij lotvorming" }).waitFor();
   check("Afwijken van het voorstel vraagt een reden", true);
   await page.getByRole("dialog").getByLabel("Reden").fill("B-2026-0005 nog niet klaar");
   await page.getByRole("dialog").getByRole("button", { name: "Verder" }).click();
