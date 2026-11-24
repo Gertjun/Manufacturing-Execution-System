@@ -144,7 +144,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
             return id;
           }
         }
-        const { rows } = await tx.query("SELECT start_stap($1, $2, $3, $4, $5, $6) AS id", [
+        const { rows } = await tx.query("SELECT execution_step_start($1, $2, $3, $4, $5, $6) AS id", [
           stapcode,
           batchId,
           lotId,
@@ -268,7 +268,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
         await registrationPermission(tx, req.user.sub, req.params.id, "execution.complete");
-        await tx.query("SELECT rond_stap_af($1, $2, $3)", [req.params.id, operatorId, pcId]);
+        await tx.query("SELECT execution_step_complete($1, $2, $3)", [req.params.id, operatorId, pcId]);
       });
       return (await registratieDetail(app.db, req.params.id)) as never;
     },

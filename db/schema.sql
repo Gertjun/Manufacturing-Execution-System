@@ -5060,8 +5060,92 @@ CREATE TRIGGER batch_01_metadata BEFORE UPDATE ON batch
 REVOKE ALL ON FUNCTION execution_create_legacy_batch(uuid,text,uuid),execution_plan_legacy_batches(int,date,uuid,text),
  execution_batch_metadata_guard(),plan_batches(int,date,uuid,text,uuid) FROM PUBLIC;
 
+-- Migratie 0074: gecontroleerde processtart en afronding.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION execution_step_permission(p_actor uuid,p_batch uuid,p_lot uuid,p_permission text,p_completion boolean)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_batch batch%ROWTYPE; v_status text; v_count int:=0;
+BEGIN
+ IF (p_batch IS NULL)=(p_lot IS NULL) THEN RAISE EXCEPTION 'Kies batch of lot'; END IF;
+ IF p_batch IS NOT NULL THEN
+   SELECT * INTO v_batch FROM batch WHERE id=p_batch FOR UPDATE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch'; END IF;
+   IF v_batch.status NOT IN ('gepland','in_productie') OR (p_completion AND v_batch.status<>'in_productie') THEN
+     RAISE EXCEPTION 'Batchstatus blokkeert proceshandeling';
+   END IF;
+   IF NOT authorization_permits(p_actor,p_permission,NULL,v_batch.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele procesbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ ELSE
+   SELECT status INTO v_status FROM lot WHERE id=p_lot FOR UPDATE;
+   IF NOT FOUND OR v_status='geblokkeerd' OR (p_completion AND v_status<>'in_productie') THEN
+     RAISE EXCEPTION 'Lotstatus blokkeert proceshandeling';
+   END IF;
+   FOR v_batch IN SELECT * FROM batch WHERE lot_id=p_lot ORDER BY id FOR SHARE LOOP
+     v_count:=v_count+1;
+     IF v_batch.status<>'in_lot' OR NOT authorization_permits(p_actor,p_permission,NULL,v_batch.product_id,NULL) THEN
+       RAISE EXCEPTION 'Batchlid blokkeert proceshandeling of scope' USING ERRCODE='42501';
+     END IF;
+   END LOOP;
+   IF v_count=0 THEN RAISE EXCEPTION 'Lot zonder batchleden'; END IF;
+ END IF;
+END $$;
+
+CREATE FUNCTION execution_step_start(p_code text,p_batch uuid,p_lot uuid,p_pc uuid,p_operator uuid,p_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_stap processtap%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_stap FROM processtap WHERE code=p_code AND actief;
+ IF NOT FOUND OR v_stap.is_lot_stap THEN RAISE EXCEPTION 'Onbekende stap of afzonderlijke lotsamenstelling vereist'; END IF;
+ PERFORM execution_step_permission(v_actor,p_batch,p_lot,
+    CASE WHEN v_stap.soort='keuring' THEN 'inspection.start' ELSE 'execution.start' END,false);
+ RETURN start_stap(p_code,p_batch,p_lot,p_pc,p_operator,p_id);
+END $$;
+
+CREATE FUNCTION execution_step_complete(p_registration uuid,p_operator uuid,p_pc uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_reg FROM stapregistratie WHERE id=p_registration FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende registratie'; END IF;
+ PERFORM execution_step_permission(v_actor,v_reg.batch_id,v_reg.lot_id,'execution.complete',true);
+ IF EXISTS (SELECT 1 FROM invoerconflict WHERE stapregistratie_id=p_registration AND status='open') THEN
+   RAISE EXCEPTION 'Open invoerconflict blokkeert afronding';
+ END IF;
+ PERFORM rond_stap_af(p_registration,p_operator,p_pc);
+END $$;
+
+CREATE FUNCTION execution_step_rework(p_lot uuid,p_code text,p_reason text,p_pc uuid,p_operator uuid,p_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ PERFORM execution_step_permission(v_actor,NULL,p_lot,'execution.rework',false);
+ RETURN start_herbewerking(p_lot,p_code,p_reason,p_pc,p_operator,p_id);
+END $$;
+
+REVOKE ALL ON FUNCTION execution_step_permission(uuid,uuid,uuid,text,boolean),
+ execution_step_start(text,uuid,uuid,uuid,uuid,uuid),execution_step_complete(uuid,uuid,uuid),
+ execution_step_rework(uuid,text,text,uuid,uuid,uuid),start_stap(text,uuid,uuid,uuid,uuid,uuid),
+ rond_stap_af(uuid,uuid,uuid),start_herbewerking(uuid,text,text,uuid,uuid,uuid) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -5120,4 +5204,8 @@ ALTER FUNCTION rework_cancel_confirmed(uuid,bigint,uuid,text,text) SET search_pa
 ALTER FUNCTION rework_history_guard() SET search_path=pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION start_geplande_batch() SET search_path=pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION werk_lotstatus_bij() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_permission(uuid,uuid,uuid,text,boolean) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_start(text,uuid,uuid,uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_complete(uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_rework(uuid,text,text,uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
 COMMIT;

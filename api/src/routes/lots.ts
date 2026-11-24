@@ -163,7 +163,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         if (!rows[0]) throw niet("Lot");
         const { rows: members } = await tx.query<{product_id:string|null}>("SELECT product_id FROM batch WHERE lot_id=$1", [rows[0].id]);
         for (const member of members.length ? members : [{product_id:null}]) await requireTransactionPermission(tx,req.user.sub,"execution.rework",{product:member.product_id ?? undefined});
-        const r = await tx.query("SELECT start_herbewerking($1, $2, $3, $4, $5, $6) AS id", [
+        const r = await tx.query("SELECT execution_step_rework($1, $2, $3, $4, $5, $6) AS id", [
           rows[0].id,
           req.body.stapcode,
           req.body.reden,
