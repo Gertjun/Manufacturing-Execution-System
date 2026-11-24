@@ -65,3 +65,5 @@ Vergelijking main 31c86973bf13848cba44fc38785084953fe65e39: 26 commits; inventar
 | Rollen, scope, kwalificaties en persoonlijke identiteit | D | Fundament behouden; handhaving en tests open |
 
 Gerichte regressies vereist: /auth/pc voegt geen inlogsucces toe; beide app-rollen mogen geen inlogpoging invoegen; ingetrokken/inactieve en gewijzigde accounts krijgen geen toegang via ingelogd; tijdelijk wachtwoord wijzigen blijft mogelijk. Nog niet uitgevoerd.
+
+0050 tussentijdse audit: gedeelde accounts geweigerd in de database; bekende accountpogingen geserialiseerd; wachtwoordwijziging gebruikt dezelfde begrensde login, negatieve poging wordt gecommit vóór HTTP-fout. Oude controle/wijzigfunctie eigenaar-only. Gerichte DB-regressies toegevoegd, API PC-test aangepast; nog niet uitgevoerd. Security-accounttrigger en gecontroleerd accountherstel afzonderlijk beoordelen.

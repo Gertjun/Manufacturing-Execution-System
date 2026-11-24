@@ -88,8 +88,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("SELECT wijzig_eigen_wachtwoord($1, $2, $3)", [req.user.sub, req.body.huidig, req.body.nieuw]));
+      const status = await inTransactie(app.db, req.user.naam, async (tx) =>
+        (await tx.query<{status:string}>("SELECT change_password_confirmed($1,$2,$3) AS status",[req.user.sub,req.body.huidig,req.body.nieuw])).rows[0]?.status);
+      if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen; probeer het later opnieuw");
+      if (status !== "changed") throw new ApiFout(422,"Het huidige wachtwoord klopt niet");
       const { sub, naam, rol, pcId, operatorId, gedeeld } = req.user;
       const sessie: Sessie = { sub, naam, rol, ...(pcId ? { pcId } : {}), ...(operatorId ? { operatorId } : {}), ...(gedeeld ? { gedeeld } : {}) };
       const [o] = operatorId ? await lees<{ naam: string }>(app.db, "SELECT naam FROM operator WHERE id = $1", [operatorId]) : [];

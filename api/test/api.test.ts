@@ -101,7 +101,7 @@ describe("inloggen en rollen", () => {
   });
   test("gedeeld account kan niet inloggen", async () => {
     const r = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "operator", wachtwoord: "demo", pc: "PC-01" });
-    assert.equal(r.status, 403);
+    assert.equal(r.status, 401);
   });
   test("analist mag geen invoer doen", async () => {
     const t = await login("analist1");
@@ -1649,12 +1649,13 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     const zonderPc = await login("operator.a");
     const geen = await verzoek("POST", "/batches", zonderPc, { batchnummer: "B-2026-8030" });
     assert.equal(geen.status, 400, "zonder pc geen invoer");
+    const [voorPc] = (await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'operator.a' AND pc = 'PC-10' AND uitkomst = 'gelukt'")).rows;
     const r = await verzoek("POST", "/auth/pc", zonderPc, { pc: "PC-10" });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.operator.naam, "Operator A");
     assert.equal((await verzoek("POST", "/batches", r.body.token, { batchnummer: "B-2026-8030" })).status, 201);
     const [p] = (await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'operator.a' AND pc = 'PC-10' AND uitkomst = 'gelukt'")).rows;
-    assert.ok(p.n >= 1, "telt als inlog op PC-10");
+    assert.equal(p.n, voorPc.n, "werkstationbinding is geen wachtwoordlogin");
     assert.equal((await verzoek("POST", "/auth/pc", zonderPc, { pc: "PC-99" })).status, 400);
     // Kwaliteit mag ook (de lab-pc, #64), met een eigen naam voor de metingen; een planner niet.
     const kwPc = await verzoek("POST", "/auth/pc", await login("kwaliteit1"), { pc: "PC-10" });

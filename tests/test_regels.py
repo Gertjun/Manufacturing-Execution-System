@@ -938,6 +938,13 @@ def main():
     check("Lot nageleverd: 4 batches, met de tijden van het papier",
           lr[0] == begin and lr[1] == begin and lr[2] == eind and lr[3] == "afgerond" and lr[4] == 4, str(lr))
 
+    print("\nBegrensde wachtwoordcontrole (D99)")
+    check("Gedeeld account kan niet authenticeren", one("SELECT * FROM inloggen('operator','demo',NULL)") is None)
+    auth_test = val("INSERT INTO gebruiker (gebruikersnaam,rol,wachtwoord_hash) VALUES ('mes.auth.test','planner',wachtwoord_hash('test-wachtwoord')) RETURNING id")
+    for _ in range(5):
+        check("Onjuiste herbevestiging geweigerd", val("SELECT change_password_confirmed(%s,'fout','nieuw-wachtwoord')",(auth_test,)) == "denied")
+    check("Mislukte herbevestiging blijft geregistreerd", val("SELECT count(*) FROM inlogpoging WHERE gebruikersnaam='mes.auth.test' AND uitkomst='mislukt'") == 5)
+    check("Ook juiste wachtwoordwijziging tijdelijk geblokkeerd", val("SELECT change_password_confirmed(%s,'test-wachtwoord','nieuw-wachtwoord')",(auth_test,)) == "locked")
     print("\nEigen wachtwoord na een tijdelijk wachtwoord (#76)")
     tg = val("INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ('tijdelijk.t', 'planner', wachtwoord_hash('tijdelijk-1'), true) RETURNING id")
     faalt("Huidig wachtwoord moet kloppen", "SELECT wijzig_eigen_wachtwoord(%s, 'fout', 'nieuw-wachtwoord')", (tg,), "klopt niet")

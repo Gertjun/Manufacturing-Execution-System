@@ -134,3 +134,20 @@ BEGIN
     END LOOP;
   END IF;
 END $$;
+
+-- Alleen de begrensde authenticatie-interface is beschikbaar voor applicatielogins.
+DO $$
+DECLARE login text; f record;
+BEGIN
+  IF to_regprocedure('fabriek.change_password_confirmed(uuid,text,text)') IS NOT NULL THEN
+    FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='fabriek' AND p.proname IN ('controleer_login','wijzig_eigen_wachtwoord') LOOP
+      EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC',f.sig);
+      FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+          EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM %I',f.sig,login);
+        END IF;
+      END LOOP;
+    END LOOP;
+  END IF;
+END $$;
