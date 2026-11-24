@@ -141,4 +141,4 @@ Fase 1 (0058): personeelsrechten en koppeling afgeschermd; gecontroleerde identi
 
 Fase 1 (0059): beperkt securitykanaal gebouwd; persoonlijke loginbinding, leesinterface, bediening en acceptatie nog open.
 
-Fase 1 (0060): persoonlijke securitybinding en leesfuncties gebouwd; provisioning, intrekking/herbinding, transport, bediening en acceptatie nog open.
+Fase 1 (0060–0061): persoonlijke securitybinding, leesfuncties en eigenaar-only registratie/intrekking/vervanging gebouwd; IT-provisioning, restore, transport, bediening en acceptatie nog open.

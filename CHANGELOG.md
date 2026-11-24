@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: gecontroleerde registratie, intrekking en vervanging van securitybindingen (0061).
 - MES: persoonlijke database-identiteitsbinding en afgeschermde autorisatieleesfuncties (0060).
 - MES: afzonderlijk beperkt autorisatiekanaal voor persoonlijk bevestigde aanvraag, besluit en intrekking (0059).
 - MES: scheid personeelsbeheer van technisch accountbeheer en stop automatische personeelscreatie bij login (0058).

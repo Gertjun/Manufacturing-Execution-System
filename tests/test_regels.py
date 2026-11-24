@@ -165,11 +165,11 @@ def main():
     # De eigenaar is in deze tijdelijke testdatabase superuser.
     import uuid
     suffix = uuid.uuid4().hex[:12]
-    role_a, role_b = "mes_test_sec_a_"+suffix, "mes_test_sec_b_"+suffix
+    role_a, role_b, role_c = "mes_test_sec_a_"+suffix, "mes_test_sec_b_"+suffix, "mes_test_sec_c_"+suffix
     try:
         for role, actor in [(role_a,channel_a),(role_b,channel_b)]:
             con.execute(f"CREATE ROLE {role} LOGIN IN ROLE mes_security_channel")
-            con.execute("INSERT INTO authorization_channel_identity(database_role_oid,database_role_name,user_id,reason) SELECT oid,rolname,%s,'Fictieve test' FROM pg_roles WHERE rolname=%s",(actor,role))
+            val("SELECT authorization_channel_bind(%s::name,%s,'Fictieve test')",(role,actor))
         con.execute(f"SET SESSION AUTHORIZATION {role_a}")
         check("Onjuiste herbevestiging weigert aanvraag",one(channel_submit,(channel_target,'onjuist'))[0]=="denied")
         status, channel_request = one(channel_submit,(channel_target,'demo'))
@@ -183,10 +183,24 @@ def main():
         check("Onafhankelijk besluit via gebonden kanaal",status=="decided" and channel_grant is not None)
         check("Bevestigde intrekking via gebonden kanaal",val("SELECT authorization_channel_revoke(%s,'Testintrekking','demo')",(channel_grant,))=="revoked")
         check("Ingetrokken grant blijft leesbaar",val("SELECT count(*) FROM authorization_channel_grants() WHERE grant_id=%s AND revoked_at IS NOT NULL",(channel_grant,))==1)
+        faalt("Kanaal mag eigen binding niet intrekken","SELECT authorization_channel_unbind(%s::name,'Test')",(role_b,),"permission denied")
+        con.execute("RESET SESSION AUTHORIZATION")
+        con.execute(f"CREATE ROLE {role_c} LOGIN IN ROLE mes_security_channel")
+        faalt("Geen tweede actieve binding","SELECT authorization_channel_bind(%s::name,%s,'Fictieve test')",(role_c,channel_a),"actieve binding")
+        val("SELECT authorization_channel_unbind(%s::name,'Fictieve intrekking')",(role_a,))
+        con.execute(f"SET SESSION AUTHORIZATION {role_a}")
+        faalt("Ingetrokken login kan niet meer lezen","SELECT * FROM authorization_channel_requests()",bevat="Geen gebonden")
+        con.execute("RESET SESSION AUTHORIZATION")
+        val("SELECT authorization_channel_bind(%s::name,%s,'Fictieve vervanging')",(role_c,channel_a))
+        con.execute(f"SET SESSION AUTHORIZATION {role_c}")
+        check("Vervangende login kan lezen",val("SELECT count(*) FROM authorization_channel_requests() WHERE request_id=%s",(channel_request,))==1)
+        con.execute("RESET SESSION AUTHORIZATION")
+        check("Historische binding en intrekking blijven bewaard",val("SELECT count(*) FROM authorization_channel_identity i JOIN authorization_channel_identity_revocation v USING(database_role_oid) WHERE i.user_id=%s",(channel_a,))==1)
     finally:
         con.execute("RESET SESSION AUTHORIZATION")
         con.execute(f"DROP ROLE IF EXISTS {role_a}")
         con.execute(f"DROP ROLE IF EXISTS {role_b}")
+        con.execute(f"DROP ROLE IF EXISTS {role_c}")
     personnel_manager = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.manager'")
     personnel_system = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'")
     check("Manufacturing Manager heeft personeelsbeheer", val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_manager,)))

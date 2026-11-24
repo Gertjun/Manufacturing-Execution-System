@@ -74,7 +74,7 @@ END $$;
 DO $$
 DECLARE t text; login text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['authorization_role', 'authorization_permission', 'authorization_role_permission', 'authorization_grant', 'qualification', 'personnel_qualification', 'activity_qualification', 'authorization_legacy_snapshot', 'authorization_request', 'authorization_decision', 'authorization_revocation', 'authorization_bootstrap','authorization_recovery','authorization_channel_identity'] LOOP
+  FOREACH t IN ARRAY ARRAY['authorization_role', 'authorization_permission', 'authorization_role_permission', 'authorization_grant', 'qualification', 'personnel_qualification', 'activity_qualification', 'authorization_legacy_snapshot', 'authorization_request', 'authorization_decision', 'authorization_revocation', 'authorization_bootstrap','authorization_recovery','authorization_channel_identity','authorization_channel_identity_revocation'] LOOP
     IF to_regclass('fabriek.' || t) IS NOT NULL THEN
       EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.%I FROM PUBLIC', t);
       FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
@@ -92,7 +92,7 @@ DO $$
 DECLARE login text; f record;
 BEGIN
   FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable','authorization_guard_legacy_role','authorization_bootstrap_empty','authorization_recover_confirmed','authorization_session_version','authorization_recovery_readiness','authorization_personnel_identity_guard','authorization_channel_submit','authorization_channel_decide','authorization_channel_revoke','authorization_channel_actor','authorization_channel_requests','authorization_channel_grants') LOOP
+           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable','authorization_guard_legacy_role','authorization_bootstrap_empty','authorization_recover_confirmed','authorization_session_version','authorization_recovery_readiness','authorization_personnel_identity_guard','authorization_channel_submit','authorization_channel_decide','authorization_channel_revoke','authorization_channel_actor','authorization_channel_requests','authorization_channel_grants','authorization_channel_role_safe','authorization_channel_bind','authorization_channel_unbind') LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f.sig);
     FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
@@ -195,6 +195,19 @@ BEGIN
    FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app','mes_security_channel'] LOOP
      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
        EXECUTE format('REVOKE ALL ON fabriek.authorization_channel_identity FROM %I',login);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
+
+DO $$
+DECLARE login text;
+BEGIN
+ IF to_regclass('fabriek.authorization_channel_identity_revocation') IS NOT NULL THEN
+   REVOKE ALL ON fabriek.authorization_channel_identity_revocation FROM PUBLIC;
+   FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app','mes_security_channel'] LOOP
+     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       EXECUTE format('REVOKE ALL ON fabriek.authorization_channel_identity_revocation FROM %I',login);
      END IF;
    END LOOP;
  END IF;
