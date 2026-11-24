@@ -7,13 +7,26 @@ mkdirSync(SHOTS, { recursive: true });
 const b = await chromium.launch({ executablePath: "/usr/bin/google-chrome" });
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } }) // zonder timezoneId: de demodatabase is gebouwd in de tijdzone van de machine;
 const fouten = [];
-p.on("pageerror", (e) => fouten.push(String(e)));
+p.on("pageerror", (e) => { fouten.push(String(e)); console.log("  PAGINAFOUT", e.stack ?? e.message); });
+p.on("console", (m) => { if (m.type() === "error") console.log("  BROWSERFOUT", m.text()); });
+const wachtOpDemo = async (timeout) => {
+  try {
+    await p.waitForFunction(() => document.getElementById("laden")?.style.display === "none" || document.getElementById("laden-tekst")?.textContent?.startsWith("De demo kan niet starten"), null, { timeout });
+    if (await p.locator("#laden").isVisible()) throw new Error("Demo meldt een opstartfout");
+  } catch (e) {
+    const fase = await p.locator("#laden-tekst").textContent({ timeout: 1000 }).catch(() => "onbekend");
+    console.error("  AFGEBROKEN demo-opstart", fase, e.stack ?? e);
+    await p.screenshot({ path: `${SHOTS}/opstart-fout.png` }).catch(() => {});
+    await b.close();
+    throw e;
+  }
+};
 let ok = 0, mis = 0;
 const check = (c, t) => { c ? ok++ : mis++; console.log(c ? "  OK " : "  FOUT", t); };
 
 const t0 = Date.now();
 await p.goto(URL_);
-await p.waitForFunction(() => document.getElementById("laden").style.display === "none", null, { timeout: 120000 });
+await wachtOpDemo(120000);
 check(true, `opgestart in ${Date.now() - t0} ms`);
 check(await p.locator("#uitleg").evaluate((d) => d.open), "uitleg verschijnt de eerste keer");
 await p.getByRole("button", { name: "Sluiten" }).click();
@@ -116,7 +129,7 @@ check(true, "Portaal Planning opent voor planner1");
 
 // herladen: gegevens bewaard
 await p.reload();
-await p.waitForFunction(() => document.getElementById("laden").style.display === "none", null, { timeout: 60000 });
+await wachtOpDemo(60000);
 check(!(await p.locator("#uitleg").evaluate((d) => d.open)), "na herladen geen uitleg meer");
 const r = await p.evaluate(async () => (await window.demoApi({ methode: "GET", url: "/gezondheid", headers: {} })).body);
 check(/"demo":true/.test(r), "server in de browser antwoordt na herladen (uit browseropslag)");
