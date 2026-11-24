@@ -658,7 +658,7 @@ export async function producten(code?: string) {
       ? tabel(["Code", "Naam", "Lotnorm", "Route", ""], p.map((x) => [
           h("strong", { class: x.actief ? "" : "inactief" }, x.code),
           h("span", { class: x.actief ? "" : "inactief" }, x.naam, x.actief ? "" : " (uit)"),
-          h(`${x.batches_per_lot} batches`), h("span", { class: "product-route", title: x.route ? x.route.join(" → ") : undefined }, routeSamenvatting(x.route, alle)),
+          h("span", {}, `${x.batches_per_lot} batches`), h("span", { class: "product-route", title: x.route ? x.route.join(" → ") : undefined }, routeSamenvatting(x.route, alle)),
           h("div", { class: "knoppen-klein" },
             x.actief ? h("a", { class: "knop knop-klein", href: `#/planning/producten/${encodeURIComponent(x.code)}` }, magPlannen() ? "Route wijzigen" : "Route bekijken") : null,
             magPlannen() && x.actief ? h("button", { class: "knop knop-klein", onclick: () => lotnorm(x) }, "Lotgrootte") : null,
