@@ -52,8 +52,21 @@ async function tel() {
   meld({ wacht: acties.filter((a) => a.status === "wacht").length, fout: acties.filter((a) => a.status !== "wacht").length });
 }
 
+// UI krijgt uitsluitend de eigen, aantoonbaar persoonlijk herleidbare acties.
+export function eigenActie(a: Actie): boolean {
+  const i = sessie.inhoud();
+  return !!i && sessie.geldig() && !!i.operatorId && !!a.userId &&
+    a.userId === i.sub && a.operatorId === i.operatorId;
+}
 export async function acties(): Promise<Actie[]> {
-  return opslag.alle<Actie>("wachtrij");
+  const token = sessie.token;
+  const alle = await opslag.alle<Actie>("wachtrij");
+  return token === sessie.token ? alle.filter(eigenActie) : [];
+}
+// Andere/onbekende herkomst: uitsluitend een aantal, geen inhoud of namen.
+export async function afgeschermdeActies(): Promise<number> {
+  const alle = await opslag.alle<Actie>("wachtrij");
+  return alle.filter(a => !eigenActie(a)).length;
 }
 
 // Alleen de expliciet behouden, reguliere offline acties. Geen besluiten,
@@ -74,6 +87,7 @@ function zonderGeheim(body: unknown): unknown {
 }
 
 export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam" | "userId">) {
+  if (!sessie.geldig() || !sessie.inhoud()?.operatorId) throw new Error("Persoonlijke sessie vereist voor offline invoer");
   if (!toegestaanOffline(actie.pad) || bevatGeheim(actie.body)) throw new Error("Deze handeling mag niet in de offline wachtrij");
   await opslag.zet("wachtrij", {
     ...actie,
