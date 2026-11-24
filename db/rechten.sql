@@ -520,3 +520,18 @@ BEGIN
    GRANT EXECUTE ON FUNCTION fabriek.planning_save_legacy_proposal(uuid,uuid[],text), fabriek.planning_cancel_legacy_proposal(int) TO mes_app;
  END IF;
 END $$;
+
+-- 0085: uitsluitend eigenaarprocedure; geen directe app/security-toegang.
+DO $$
+DECLARE login text; grantee text;
+BEGIN
+ IF to_regclass('fabriek.authorization_personnel_link') IS NOT NULL THEN
+   FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app','mes_security_channel'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       grantee := CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE ALL ON fabriek.authorization_personnel_link FROM %s',grantee);
+       EXECUTE format('REVOKE ALL ON FUNCTION fabriek.authorization_link_personnel_confirmed(uuid,uuid,uuid,uuid,text,text,text) FROM %s',grantee);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;

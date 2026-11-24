@@ -358,6 +358,31 @@ def main():
         faalt("App mag gekoppelde persoon niet aanmaken", "INSERT INTO operator(naam,gebruiker_id) VALUES ('test-koppeling',%s)",(unlinked,),"permission denied")
     finally:
         con.execute("RESET ROLE")
+    # 0085: eerste personeelskoppeling, onafhankelijke herbevestiging en audit.
+    link_person = val("INSERT INTO operator(naam) VALUES ('Test persoonlijke koppeling 0085') RETURNING id")
+    link_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-link-target','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    link_manager = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-link-manager','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    link_security = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-link-security','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'manufacturing_manager'),(%s,'security_administrator')",(link_manager,link_security))
+    link_sql = "SELECT authorization_link_personnel_confirmed(%s,%s,%s,%s,'Fictieve identiteitscontrole',%s,%s)"
+    link_args = (link_person,link_target,link_manager,link_security,'demo-test','demo-test')
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App kan gecontroleerde koppeling niet aanroepen",link_sql,link_args,"permission denied")
+        faalt("App kan geen koppelbewijs fabriceren","INSERT INTO authorization_personnel_link DEFAULT VALUES",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    faalt("Personeelskoppeling vereist onafhankelijkheid",link_sql,(link_person,link_target,link_manager,link_manager,'demo-test','demo-test'),"Onafhankelijke")
+    faalt("Securitybeheerder vervangt personeelsbeheerder niet",link_sql,(link_person,link_target,link_security,link_manager,'demo-test','demo-test'),"Onafhankelijke bevoegde")
+    check("Verkeerde herbevestiging weigert koppeling",val(link_sql,(*link_args[:5],'onjuist'))=="denied")
+    check("Geweigerde koppeling laat identiteit en audit intact",val("SELECT gebruiker_id FROM operator WHERE id=%s",(link_person,)) is None and val("SELECT count(*) FROM authorization_personnel_link WHERE personnel_id=%s",(link_person,))==0)
+    check("Onafhankelijk bevestigde eerste koppeling slaagt",val(link_sql,link_args)=="linked")
+    check("Loginprojectie gebruikt gekoppelde personeels-ID",val("SELECT operator_van_account(%s)",(link_target,))==link_person)
+    check("Audit bewaart beide persoonlijke verantwoordelijken",val("SELECT count(*) FROM authorization_personnel_link WHERE personnel_id=%s AND user_id=%s AND requested_by=%s AND approved_by=%s",link_args[:4])==1)
+    check("Koppeling verleent geen MES-grants",val("SELECT count(*) FROM authorization_grant WHERE user_id=%s",(link_target,))==0)
+    faalt("Bestaande koppeling niet overschrijven",link_sql,link_args,"Uitsluitend eerste")
+    faalt("Koppelbewijs onveranderlijk","UPDATE authorization_personnel_link SET reason='gewijzigd' WHERE personnel_id=%s",(link_person,),"onveranderlijk")
+
     recovery_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-recovery','pending',wachtwoord_hash('demo-test')) RETURNING id")
     recovery_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
     recovery_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")

@@ -5482,7 +5482,66 @@ BEGIN
 END $$;
 
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization');
+-- Migratie 0085: uitsluitend eerste, onafhankelijk bevestigde personeelskoppeling.
+SET search_path = fabriek, public;
+
+CREATE TABLE authorization_personnel_link (
+    personnel_id uuid PRIMARY KEY REFERENCES operator(id),
+    user_id uuid NOT NULL UNIQUE REFERENCES gebruiker(id),
+    requested_by uuid NOT NULL REFERENCES gebruiker(id),
+    approved_by uuid NOT NULL REFERENCES gebruiker(id),
+    reason text NOT NULL CHECK (btrim(reason)<>''),
+    linked_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (user_id<>requested_by AND user_id<>approved_by AND requested_by<>approved_by)
+);
+CREATE TRIGGER authorization_personnel_link_immutable BEFORE UPDATE OR DELETE ON authorization_personnel_link
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON authorization_personnel_link FROM PUBLIC;
+
+-- Eigenaar faciliteert de handeling; twee actuele MES-permissions en twee
+-- persoonlijke wachtwoordbevestigingen zijn vereist. Geen grants of historische
+-- registraties wijzigen. De organisatie verifieert dat beide IDs dezelfde persoon betreffen.
+CREATE FUNCTION authorization_link_personnel_confirmed(p_personnel uuid,p_user uuid,p_requester uuid,p_approver uuid,
+    p_reason text,p_requester_password text,p_approver_password text)
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE v_a text; v_b text; v_login record;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.operator'::regclass)) THEN
+        RAISE EXCEPTION 'Personeelskoppeling vereist database-eigenaar';
+    END IF;
+    IF p_personnel IS NULL OR p_user IS NULL OR p_requester IS NULL OR p_approver IS NULL
+       OR p_user=p_requester OR p_user=p_approver OR p_requester=p_approver
+       OR btrim(coalesce(p_reason,''))='' THEN
+        RAISE EXCEPTION 'Onafhankelijke identiteiten en reden vereist';
+    END IF;
+    PERFORM id FROM gebruiker WHERE id IN (p_user,p_requester,p_approver) ORDER BY id FOR UPDATE;
+    PERFORM id FROM operator WHERE id=p_personnel FOR UPDATE;
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=p_user AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen)
+       OR NOT EXISTS (SELECT 1 FROM operator WHERE id=p_personnel AND actief AND gebruiker_id IS NULL)
+       OR EXISTS (SELECT 1 FROM operator WHERE gebruiker_id=p_user)
+       OR EXISTS (SELECT 1 FROM authorization_personnel_link WHERE personnel_id=p_personnel OR user_id=p_user) THEN
+        RAISE EXCEPTION 'Uitsluitend eerste koppeling van actieve persoonlijke identiteiten toegestaan';
+    END IF;
+    IF NOT authorization_permits(p_requester,'personnel.manage',NULL,NULL,NULL)
+       OR NOT authorization_permits(p_approver,'authorization.approve',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Onafhankelijke bevoegde personeelsbeheerder en securitybeoordelaar vereist';
+    END IF;
+    SELECT gebruikersnaam INTO v_a FROM gebruiker WHERE id=p_requester;
+    SELECT gebruikersnaam INTO v_b FROM gebruiker WHERE id=p_approver;
+    SELECT * INTO v_login FROM inloggen(v_a,p_requester_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_requester THEN RETURN 'denied'; END IF;
+    SELECT * INTO v_login FROM inloggen(v_b,p_approver_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_approver THEN RETURN 'denied'; END IF;
+    UPDATE operator SET gebruiker_id=p_user WHERE id=p_personnel;
+    INSERT INTO authorization_personnel_link(personnel_id,user_id,requested_by,approved_by,reason)
+      VALUES(p_personnel,p_user,p_requester,p_approver,p_reason);
+    RETURN 'linked';
+END $;
+REVOKE ALL ON FUNCTION authorization_link_personnel_confirmed(uuid,uuid,uuid,uuid,text,text,text) FROM PUBLIC;
+
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
