@@ -2,7 +2,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { invoerContext, invoerTransactie } from "../auth.js";
 import { personalSession, requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
-import { inTransactie, lees } from "../db.js";
+import { lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { Batch, BatchNummer, Besluit, PaspoortRegel, RegistratieKort, REGISTRATIE_SQL } from "./schemas.js";
 
@@ -41,8 +41,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           return reply.status(200).send(batch as never);
         }
       }
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("INSERT INTO batch (id, batchnummer, bron, aangemaakt_door) VALUES (coalesce($1, gen_random_uuid()), $2, 'operator', $3)", [
+      await invoerTransactie(app.db, req, (tx) =>
+        tx.query("SELECT execution_create_legacy_batch($1,$2,$3)", [
           id ?? null,
           batchnummer,
           operatorId,

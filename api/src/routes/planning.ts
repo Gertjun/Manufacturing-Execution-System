@@ -408,13 +408,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const nummers = await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("SELECT plan_batches($1, $2, $3, $4, $5) AS nr", [
+      const nummers = await invoerTransactie(app.db, req, async (tx) => {
+        const { rows } = await tx.query("SELECT execution_plan_legacy_batches($1, $2, $3, $4) AS nr", [
           req.body.aantal,
           req.body.dag,
           req.body.productId ?? null,
           req.body.opmerking ?? null,
-          req.user.sub,
         ]);
         return rows.map((r) => r.nr as string);
       });
@@ -442,7 +441,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, geplande_dag::text AS dag, bron FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         const b = rows[0];
         if (!b) throw niet("Batch");
@@ -475,7 +474,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, geplande_dag, volgorde, status FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         const b = rows[0];
         if (!b) throw niet("Batch");

@@ -4993,8 +4993,75 @@ REVOKE ALL ON FUNCTION execution_object_status_guard(),start_geplande_batch(),we
  execution_batch_hold(uuid,text),execution_cancel_planned_batch(text,text),execution_create_lot(text,uuid[],uuid,uuid,uuid,uuid,text),
  maak_lot(text,uuid[],uuid,uuid,uuid,uuid,text) FROM PUBLIC;
 
+-- Migratie 0073: gecontroleerde tijdelijke batchcreatie (D98).
+SET search_path = fabriek, public;
+
+-- Tijdelijke PoC-route zonder productieopdracht of productspecificatie.
+-- Geen extra planningsfunctionaliteit; vervalt bij de Job Order-integratie.
+CREATE FUNCTION execution_create_legacy_batch(p_id uuid,p_number text,p_operator uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_id uuid; v_existing batch%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT authorization_permits(v_actor,'execution.batch.create',NULL,NULL,NULL)
+ OR NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief) THEN
+   RAISE EXCEPTION 'Geen bevoegdheid voor tijdelijke batchcreatie' USING ERRCODE='42501';
+ END IF;
+ PERFORM pg_advisory_xact_lock(hashtext('fabriek.batchnummer'));
+ IF p_id IS NOT NULL THEN
+   SELECT * INTO v_existing FROM batch WHERE id=p_id FOR UPDATE;
+   IF FOUND THEN
+     IF v_existing.batchnummer IS DISTINCT FROM p_number OR v_existing.bron<>'operator'
+        OR v_existing.aangemaakt_door IS DISTINCT FROM p_operator THEN
+        RAISE EXCEPTION 'Dit id hoort bij een andere batch';
+     END IF;
+     RETURN v_existing.id;
+   END IF;
+ END IF;
+ INSERT INTO batch(id,batchnummer,bron,aangemaakt_door)
+ VALUES(coalesce(p_id,gen_random_uuid()),p_number,'operator',p_operator) RETURNING id INTO v_id;
+ RETURN v_id;
+END $$;
+
+CREATE FUNCTION execution_plan_legacy_batches(p_count int,p_day date,p_product uuid,p_note text)
+RETURNS SETOF text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT authorization_permits(v_actor,'planning.manage',NULL,p_product,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT * FROM plan_batches(p_count,p_day,p_product,p_note,v_actor);
+END $$;
+
+-- Beperk directe wijziging van de herkomst en van planningscontext.
+CREATE FUNCTION execution_batch_metadata_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF (NEW.id,NEW.batchnummer,NEW.bron,NEW.aangemaakt_op,NEW.aangemaakt_door,NEW.gepland_door)
+ IS DISTINCT FROM (OLD.id,OLD.batchnummer,OLD.bron,OLD.aangemaakt_op,OLD.aangemaakt_door,OLD.gepland_door) THEN
+   RAISE EXCEPTION 'Oorspronkelijke batchherkomst mag niet wijzigen' USING ERRCODE='42501';
+ END IF;
+ IF (NEW.geplande_dag,NEW.volgorde,NEW.product_id,NEW.opmerking)
+ IS DISTINCT FROM (OLD.geplande_dag,OLD.volgorde,OLD.product_id,OLD.opmerking) THEN
+   v_actor:=execution_transaction_actor();
+   IF NOT authorization_permits(v_actor,'planning.manage',NULL,OLD.product_id,NULL)
+      OR NOT authorization_permits(v_actor,'planning.manage',NULL,NEW.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele planningsbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER batch_01_metadata BEFORE UPDATE ON batch
+ FOR EACH ROW EXECUTE FUNCTION execution_batch_metadata_guard();
+
+REVOKE ALL ON FUNCTION execution_create_legacy_batch(uuid,text,uuid),execution_plan_legacy_batches(int,date,uuid,text),
+ execution_batch_metadata_guard(),plan_batches(int,date,uuid,text,uuid) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
