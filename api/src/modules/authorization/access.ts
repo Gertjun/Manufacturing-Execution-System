@@ -52,3 +52,26 @@ export async function requiresGlobalExecutionRead(req: FastifyRequest) {
     "SELECT authorization_read_execution($1,NULL::uuid) AS allowed", [req.user.sub]);
   if (!r?.allowed) throw new ApiFout(403, "Globale MES-uitvoeringsleesbevoegdheid vereist");
 }
+
+
+/** UI-projectie, geen machtiging: globale en productgebonden rechten blijven
+ * afzonderlijk. Iedere operatie controleert opnieuw de concrete doelcontext.
+ * Geen area/equipment-context verzinnen voor tijdelijke PoC-schermen. */
+export async function permissionProjection(req: FastifyRequest) {
+  const rows = await lees<{ code: string; domain: string; product: string | null }>(req.server.db,
+    `SELECT p.code,p.domain,t.product
+       FROM authorization_permission p
+       CROSS JOIN (SELECT NULL::uuid AS id,NULL::text AS product
+                   UNION ALL SELECT id,code FROM product WHERE actief) t
+      WHERE authorization_permits($1,p.code,NULL,t.id,NULL)
+      ORDER BY p.code,t.product NULLS FIRST`, [req.user.sub]);
+  const global = rows.filter(r => r.product === null &&
+    (req.user.rol === "scherm" ? r.domain === "display" : r.domain !== "display")).map(r => r.code);
+  const globalSet = new Set(global);
+  const products = req.user.rol === "scherm" ? [] : rows.filter(r =>
+    r.product !== null && r.domain !== "display" && !globalSet.has(r.code))
+    .map(r => ({ permission: r.code, product: r.product! }));
+  const [person] = req.user.rol === "scherm" ? [] : await lees<{ id: string | null }>(req.server.db,
+    "SELECT operator_van_account($1) AS id", [req.user.sub]);
+  return { global, products, personal: req.user.rol !== "scherm", linkedPerson: !!person?.id };
+}
