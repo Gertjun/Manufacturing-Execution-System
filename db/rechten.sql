@@ -101,3 +101,21 @@ BEGIN
     END LOOP;
   END LOOP;
 END $$;
+
+-- Geen directe toegang tot wachtwoordhashes. Tabelbrede SELECT moet eerst weg;
+-- PostgreSQL combineert tabel- en kolomgrants. Geldt ook voor oude login.
+DO $$
+DECLARE login text;
+BEGIN
+  IF to_regprocedure('fabriek.demo_account_names(text[])') IS NOT NULL THEN
+    FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+        EXECUTE format('REVOKE SELECT ON fabriek.gebruiker FROM %I', login);
+        EXECUTE format('REVOKE SELECT (wachtwoord_hash) ON fabriek.gebruiker FROM %I', login);
+        EXECUTE format('GRANT SELECT (id,gebruikersnaam,rol,actief,gedeeld,wachtwoord_wijzigen) ON fabriek.gebruiker TO %I', login);
+      END IF;
+    END LOOP;
+    REVOKE SELECT ON fabriek.gebruiker FROM PUBLIC;
+    REVOKE SELECT (wachtwoord_hash) ON fabriek.gebruiker FROM PUBLIC;
+  END IF;
+END $$;

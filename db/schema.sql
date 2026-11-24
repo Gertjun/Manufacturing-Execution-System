@@ -3332,8 +3332,35 @@ BEGIN
 END $;
 REVOKE EXECUTE ON FUNCTION authorization_decide_confirmed(uuid,uuid,boolean,text,text) FROM PUBLIC;
 
+-- Migratie 0040: afscherming wachtwoordhashes en gecontroleerde accountwijziging.
+SET search_path = fabriek, public;
+
+-- Alleen bestaande loginfuncties mogen hashes intern lezen.
+ALTER FUNCTION inloggen(text,text,text) SECURITY DEFINER;
+ALTER FUNCTION inloggen(text,text,text) SET search_path = pg_catalog,fabriek,public;
+ALTER FUNCTION wijzig_eigen_wachtwoord(uuid,text,text) SECURITY DEFINER;
+ALTER FUNCTION wijzig_eigen_wachtwoord(uuid,text,text) SET search_path = pg_catalog,fabriek,public;
+-- Eigen wachtwoord wijzigen blijft mogelijk met het huidige wachtwoord; de
+-- eigenaar-only triggerbescherming van 0039 blijft gelden voor directe resets.
+REVOKE EXECUTE ON FUNCTION inloggen(text,text,text), wijzig_eigen_wachtwoord(uuid,text,text) FROM PUBLIC;
+
+-- Alleen de demo-indicatie, nooit de hash. Beperkt tot expliciete demoaccounts.
+CREATE FUNCTION demo_account_names(p_names text[]) RETURNS TABLE(gebruikersnaam text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public AS $
+    SELECT g.gebruikersnaam FROM fabriek.gebruiker g
+      WHERE g.actief AND NOT g.gedeeld AND lower(g.gebruikersnaam)=ANY(p_names)
+        AND lower(g.gebruikersnaam) IN ('operator.a','operator.b','operator.c','operator.d','ploegleider1','kwaliteit1','planner1','beheerder1','analist1','scherm1')
+        AND g.wachtwoord_hash=public.crypt('demo',g.wachtwoord_hash)
+      ORDER BY g.gebruikersnaam
+$;
+REVOKE EXECUTE ON FUNCTION demo_account_names(text[]) FROM PUBLIC;
+
+-- Vervang de oude updatequery (die de hash moest lezen) door twee varianten
+-- in de API: zonder wachtwoordwijziging en met een expliciete nieuwe hash.
+-- Rechten worden bij iedere migratie opnieuw afgedwongen in rechten.sql.
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.

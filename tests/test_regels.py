@@ -105,6 +105,7 @@ def main():
     # D89: technische app-login mag security-identiteiten niet overnemen.
     con.execute("SET ROLE mes_app")
     try:
+        faalt("Applicatie kan geen wachtwoordhash lezen", "SELECT wachtwoord_hash FROM gebruiker", bevat="permission denied")
         faalt("Security-wachtwoordreset geblokkeerd", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (sec_a,), "Kritisch account")
         faalt("Security-rolwijziging geblokkeerd", "UPDATE gebruiker SET rol='analist' WHERE id=%s", (sec_a,), "Kritisch account")
         faalt("Security-account hernoemen geblokkeerd", "UPDATE gebruiker SET gebruikersnaam='andere-naam' WHERE id=%s", (sec_a,), "Kritisch account")

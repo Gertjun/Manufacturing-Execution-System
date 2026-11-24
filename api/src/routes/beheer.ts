@@ -538,11 +538,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const r = await inTransactie(app.db, req.user.naam, (tx) =>
         tx.query(
-          `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
-                  wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END,
-                  wachtwoord_wijzigen = CASE WHEN $4::text IS NULL THEN wachtwoord_wijzigen ELSE coalesce($2, rol) <> 'scherm' END
-            WHERE gebruikersnaam = $1 RETURNING id, gebruikersnaam`,
-          [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord ?? null]).then(async (u) => {
+          wachtwoord === undefined
+            ? `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief)
+                WHERE gebruikersnaam = $1 RETURNING id, gebruikersnaam`
+            : `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
+                wachtwoord_hash = wachtwoord_hash($4), wachtwoord_wijzigen = coalesce($2, rol) <> 'scherm'
+                WHERE gebruikersnaam = $1 RETURNING id, gebruikersnaam`,
+          wachtwoord === undefined ? [req.params.gebruikersnaam, rol ?? null, actief ?? null] : [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord]).then(async (u) => {
           // De ploeg hoort bij de naam bij de invoer; die wordt zo nodig aangemaakt, zoals bij de eerste inlog (D53).
           if (u.rows[0] && ploeg !== undefined) {
             const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [u.rows[0].id]);
@@ -861,8 +863,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       // Testaccounts met wachtwoord "demo" horen niet in een echte installatie (D28).
       const demo = await lees<{ gebruikersnaam: string }>(
         app.db,
-        `SELECT gebruikersnaam FROM gebruiker WHERE actief AND lower(gebruikersnaam) = ANY($1)
-            AND wachtwoord_hash = public.crypt('demo', wachtwoord_hash) ORDER BY gebruikersnaam`,
+        "SELECT gebruikersnaam FROM demo_account_names($1)",
         [TESTACCOUNTS.map(([n]) => n)],
       );
       if (pogingen && pogingen.n >= 20)
