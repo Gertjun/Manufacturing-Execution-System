@@ -2,11 +2,13 @@
 import { ApiFout, GeenVerbinding, stuur } from "../api";
 import { stappen } from "../registraties";
 import { sessie } from "../sessie";
+import { heeftProductRecht, rechtenOnline } from "../rechten";
 import type { Registratie } from "../types";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 import { acties, verwerk, verwijder, type Actie } from "../wachtrij";
 
 interface BatchDetail {
+  product?: string | null;
   batchnummer: string;
   status: string;
   lotnummer: string | null;
@@ -14,6 +16,7 @@ interface BatchDetail {
   besluiten: { besluit: string; reden: string; besloten_door: string; besloten_op: string }[];
 }
 interface LotDetail {
+  product?: string | null;
   lotnummer: string;
   status: string;
   batches: string[];
@@ -107,7 +110,7 @@ function toonLot(lot: LotDetail, lotStappen: Awaited<ReturnType<typeof stappen>>
   const gedaan = new Set(lot.registraties.map((r) => r.stapcode));
   const terugNaar = lotStappen.filter((s) => gedaan.has(s.code));
   const open = lot.registraties.some((r) => r.status === "open");
-  const kanInvoeren = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const kanInvoeren = heeftProductRecht(lot.product,"execution.start");
 
   toon(
     h("div", { class: "kop" }, h("div", {}, h("p", { class: "sub" }, "Lot"), h("h1", { class: "getal" }, lot.lotnummer),
@@ -132,13 +135,14 @@ const besluitTekst: Record<string, string> = {
 
 function toonBatch(b: BatchDetail) {
   // In beoordeling zetten: ploegleider of Kwaliteit. Keurresultaat OK/NOK: alleen Kwaliteit.
-  const magBeoordeling = sessie.rol === "ploegleider" || sessie.rol === "kwaliteit";
-  const magKeuren = sessie.rol === "kwaliteit";
+  const magBeoordeling = rechtenOnline() && heeftProductRecht(b.product,"execution.hold","inspection.hold");
+  const magKeuren = rechtenOnline() && heeftProductRecht(b.product,"inspection.batch.decide");
   const besluit = async (soort: string, titel: string, knop: string) => {
-    const r = await vraag(titel, [{ naam: "reden", label: "Reden" }], knop);
-    if (!r) return;
+    const token = sessie.token;
+    const r = await vraag(titel, [{ naam: "reden", label: "Reden" }, ...(soort === "in_beoordeling" ? [] : [{ naam: "wachtwoord", label: "Bevestig met je eigen wachtwoord", type: "password" as const }])], knop);
+    if (!r || token !== sessie.token) return;
     try {
-      await stuur("POST", `/batches/${b.batchnummer}/besluiten`, { besluit: soort, reden: r.reden });
+      await stuur("POST", `/batches/${b.batchnummer}/besluiten`, { besluit: soort, reden: r.reden, ...(soort === "in_beoordeling" ? {} : { wachtwoord: r.wachtwoord }) });
       melding("Besluit vastgelegd", "ok");
       void zoekScherm(b.batchnummer);
     } catch (e) {
