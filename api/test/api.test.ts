@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { bouwApp, startpagina, type App } from "../src/app.js";
-import { maakPool, type Db } from "../src/db.js";
+import { maakPool, controleerRuntimeRechten, type Db } from "../src/db.js";
 
 const DB_URL = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
 // De applicatie zelf draait als mes_app (beperkte rechten, zie db/rechten.sql) als deze is gezet.
@@ -100,6 +100,34 @@ after(async () => {
   if (app) await app.close();
   if (db && db !== beheerDb) await db.end();
   if (beheerDb) await beheerDb.end();
+});
+
+describe("D24 effectieve runtime-rechten", () => {
+  test("database-eigenaar wordt geweigerd", async () => {
+    await assert.rejects(controleerRuntimeRechten(beheerDb), /beperkte MES-databasegebruiker/);
+  });
+  test("beperkte applicatielogin wordt geaccepteerd", async () => {
+    assert.notEqual(APP_DB_URL, DB_URL, "TEST_APP_DATABASE_URL moet een afzonderlijke login zijn");
+    await controleerRuntimeRechten(db);
+  });
+  test("indirecte verhoogde rechten worden geweigerd", async () => {
+    await beheerDb.query("GRANT pg_read_all_data TO mes_app");
+    try {
+      await assert.rejects(controleerRuntimeRechten(db), /beperkte MES-databasegebruiker/);
+    } finally {
+      await beheerDb.query("REVOKE pg_read_all_data FROM mes_app");
+    }
+    await controleerRuntimeRechten(db);
+  });
+  test("CREATE-recht in publiek schema wordt geweigerd", async () => {
+    await beheerDb.query("GRANT CREATE ON SCHEMA public TO mes_app");
+    try {
+      await assert.rejects(controleerRuntimeRechten(db), /beperkte MES-databasegebruiker/);
+    } finally {
+      await beheerDb.query("REVOKE CREATE ON SCHEMA public FROM mes_app");
+    }
+    await controleerRuntimeRechten(db);
+  });
 });
 
 describe("inloggen en rollen", () => {
