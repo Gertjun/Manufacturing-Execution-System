@@ -5,6 +5,11 @@
 
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
+## 0.62.1 — 24 november 2026
+- Browserdemo: datumvelden van dezelfde tabel worden tegelijk verschoven bij het opstarten. Capaciteitsperiodes blijven daardoor geldig; de bestaande databaseregels zijn ongewijzigd.
+- Gerichte regressietests voor datumverschuiving in beide richtingen, inclusief perioden met een duur van nul of 366 dagen.
+- CI: gefaseerde Node 22/26-controles, documentatie-uitzondering en betere schermtestdiagnostiek (D87).
+
 ## 0.62.0 — 23 november 2026 · #100
 - **Plaatje van de database** in [`docs/DATABASE.md`](docs/DATABASE.md) (#100): een overzicht van alle 43 tabellen en hun verbanden (GitHub tekent het als diagram), een lijst met per tabel de uitleg en waar hij naar verwijst, en per tabel de kolommen.
   - Automatisch gemaakt uit `db/schema.sql` met `tools/schema_plaatje.py`, dus altijd gelijk aan de echte database.
