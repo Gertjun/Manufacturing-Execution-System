@@ -1,6 +1,6 @@
 // Gecontroleerde MES-bootstrap of alleen-lezen hersteldiagnose.
 // Bootstrap uitsluitend bij een lege identiteitsadministratie.
-// De oude noodsleutel is geblokkeerd; reguliere herstelbediening volgt afzonderlijk.
+// De oude noodsleutel is geblokkeerd; --herstel-account vereist persoonlijke bevestiging.
 //
 //   node tools/beheerder.mjs [--instellingen <pad>]
 //
@@ -128,15 +128,65 @@ export async function beheerderMenu(c, io) {
   console.log("Er is niets gewijzigd.");
 }
 
+// Alleen via een expliciete interactieve eigenaarssessie. De DB controleert
+// bevoegdheden en onafhankelijkheid opnieuw, onder lock, bij uitvoering.
+export async function herstelAccount(c, io) {
+  const zoek = async (label) => {
+    const name = (await io.vraag(label)).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld", [name]);
+    if (!r) throw new Error("Geen actief persoonlijk account.");
+    return { id: r.id, name };
+  };
+  const target = await zoek("Doelaccount: ");
+  const { rows: [status] } = await c.query("SELECT * FROM fabriek.authorization_recovery_readiness($1)", [target.id]);
+  if (Number(status.independent_pairs) === 0) throw new Error("Geen onafhankelijk bevoegd paar; volg het noodherstelprotocol.");
+  const requester = await zoek("Persoonlijke aanvrager: ");
+  const approver = await zoek("Onafhankelijke beoordelaar: ");
+  if (new Set([target.id, requester.id, approver.id]).size !== 3)
+    throw new Error("Drie verschillende persoonlijke identiteiten vereist.");
+  const reason = await io.vraag("Reden en goedkeuringsreferentie: ");
+  if (!reason.trim()) throw new Error("Reden vereist.");
+  console.log("Herstel van " + target.name + " door " + requester.name + " en " + approver.name + ".");
+  if (await io.vraag("Typ HERSTEL om deze concrete handeling te bevestigen: ") !== "HERSTEL") {
+    console.log("Afgebroken; er is niets gewijzigd.");
+    return false;
+  }
+  const a = await io.wachtwoord("Aanvrager, bevestig persoonlijk uw MES-wachtwoord: ");
+  const b = await io.wachtwoord("Beoordelaar, bevestig persoonlijk uw MES-wachtwoord: ");
+  console.log("Doelaccounthouder: kies persoonlijk een tijdelijk wachtwoord.");
+  const temporary = await kiesWachtwoord(io);
+  // Autocommit is bewust: mislukte bevestigingen moeten in de loginhistorie blijven.
+  // Geen queryparameters of DB-foutdetails met mogelijke credentials tonen.
+  let result;
+  try {
+    ({ rows: [result] } = await c.query(
+      "SELECT fabriek.authorization_recover_confirmed($1,$2,$3,$4,$5,$6,$7) AS status",
+      [target.id, requester.id, approver.id, reason, a, b, temporary]));
+  } catch {
+    throw new Error("Herstel geweigerd of technische fout; controleer de status voordat u opnieuw probeert.");
+  }
+  if (result?.status !== "recovered") {
+    console.log("Herstel niet uitgevoerd; persoonlijke bevestiging geweigerd of tijdelijk geblokkeerd.");
+    return false;
+  }
+  console.log("Gecontroleerd herstel voltooid. De accounthouder moet het tijdelijke wachtwoord wijzigen.");
+  return true;
+}
+
 // Los gestart: node tools/beheerder.mjs
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { argumenten, leesInstellingen, stop, verbind } = await import("./lib.mjs");
   const { opties } = argumenten();
+  if (opties['herstel-account'] && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Accountherstel vereist een persoonlijk interactief terminalvenster.');
   const inst = leesInstellingen(opties);
   const c = await verbind(inst.beheerDb);
   const io = maakInvoer();
   try {
-    await beheerderMenu(c, io);
+    if (opties['herstel-account']) {
+      if (!await herstelAccount(c, io)) process.exitCode = 1;
+    } else await beheerderMenu(c, io);
   } catch (e) {
     stop(e.message);
   } finally {
