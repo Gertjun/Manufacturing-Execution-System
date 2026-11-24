@@ -181,8 +181,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const [c] = await lees(app.db,
-        `SELECT c.nummer, g.gebruikersnaam AS door, c.uitgegeven_op, c.inhoud FROM certificaat c JOIN gebruiker g ON g.id = c.uitgegeven_door WHERE c.nummer = $1`,
-        [req.params.nummer]);
+        `SELECT c.nummer, g.gebruikersnaam AS door, c.uitgegeven_op, c.inhoud FROM certificaat c JOIN gebruiker g ON g.id = c.uitgegeven_door WHERE c.nummer = $1 AND authorization_read_lot($2,c.lot_id)`,
+        [req.params.nummer,req.user.sub]);
       if (!c) throw niet("Certificaat");
       return c as never;
     },
