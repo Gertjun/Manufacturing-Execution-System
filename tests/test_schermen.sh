@@ -49,7 +49,15 @@ draai portaal planning.mjs
 draai portaal sjabloon.mjs
 
 # Browserdemo (PGlite in de browser, zonder server).
-(cd demo && ./bouw.sh >/dev/null 2>&1)
+# Bouwuitvoer bewaren en bij fouten tonen; anders blijft de oorzaak van een mislukte
+# browserdemo-build verborgen achter set -e en lijkt het alsof de schermtests falen.
+if (cd demo && ./bouw.sh) > /tmp/schermtest-demo-build.log 2>&1; then
+  tail -5 /tmp/schermtest-demo-build.log
+else
+  echo "Browserdemo bouwen mislukt:"
+  cat /tmp/schermtest-demo-build.log
+  exit 1
+fi
 python3 -m http.server 4173 --directory demo/dist >/dev/null 2>&1 &
 SERVER=$!
 sleep 1
