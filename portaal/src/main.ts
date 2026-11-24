@@ -178,10 +178,10 @@ async function beperktDisplay() {
   const hash = location.hash, token = sessie.token;
   const actueel = () => location.hash === hash && sessie.token === token;
   try {
-    const rows = await haal<{ stapcode?: string; stapnaam?: string; oorzaak?: string; start_op?: string }[]>("/stilstand");
+    const rows = await haal<{ stap: string; stapnaam: string; oorzaaknaam: string; begin_op: string; minuten: number }[]>("/stilstand");
     if (!actueel()) return;
     toon(h("h1", {}, "Actieve stilstand"),
-      rows.length ? h("ul", {}, rows.map(r => h("li", {}, [r.stapcode, r.stapnaam, r.oorzaak].filter(Boolean).join(" · "))))
+      rows.length ? h("ul", {}, rows.map(r => h("li", {}, [r.stap, r.stapnaam, r.oorzaaknaam, Math.round(r.minuten) + " min"].join(" · "))))
         : h("p", {}, "Geen actieve stilstand."),
       h("button", { class: "knop", onclick: () => void route() }, "Vernieuwen"));
   } catch (e) {
