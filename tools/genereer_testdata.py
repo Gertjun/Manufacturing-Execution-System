@@ -379,11 +379,11 @@ for (bid,) in con.execute("SELECT id FROM batch WHERE status = 'in_productie' OR
 
 # Enkele correcties door ploegleiders (tikfouten en verkeerd afgelezen waarden).
 kandidaten = con.execute("""SELECT w.id, w.setting, w.gemeten, w.ingevoerd_op, v.naam FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id
-                             WHERE w.markering <> 'ok' AND v.naam IN ('Temperatuur', 'Gewicht') ORDER BY w.ingevoerd_op""").fetchall()
+                             WHERE w.markering <> 'ok' AND v.gemeten_door='productie' AND v.naam IN ('Temperatuur', 'Gewicht') ORDER BY w.ingevoerd_op""").fetchall()
 for wid, setting, gemeten, op, naam in rnd.sample(kandidaten, min(6, len(kandidaten))):
     nieuw = round(float(setting) + rnd.uniform(-1.5, 1.5), 1) if naam == "Temperatuur" else round(rnd.gauss(410, 5), 1)
     reden = rnd.choice(["tikfout", "verkeerd afgelezen"] + (["weegschaal niet op nul gezet"] if naam == "Gewicht" else ["sensor afgelezen in plaats van display"]))
-    door = rnd.choice(["ploegleider1", "ploegleider2"])
+    door = "mes.supervisor"
     nid = con.execute("""INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)
                           SELECT stapregistratie_id, veld_id, setting, %s, id, %s, %s FROM waarde WHERE id = %s RETURNING id""",
                        (nieuw, reden, gebruiker[door], wid)).fetchone()[0]

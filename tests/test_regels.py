@@ -497,6 +497,9 @@ def main():
     pl = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
     op_account = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator'")
     kw = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'kwaliteit1'")
+    mes_corrector = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.supervisor'")
+    mes_quality_decider = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.quality.approver'")
+
     bh = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'beheerder1'")
     veld = {code: vid for code, vid in con.execute("SELECT code, id FROM veld")}
     soort = {code: s for code, s in con.execute("SELECT code, soort FROM veld")}
@@ -581,9 +584,13 @@ def main():
     faalt("Grondstofregel wijzigen kan niet", "UPDATE grondstof_gebruik SET partij = 'X' WHERE id = %s", (gid,), "niet gewijzigd")
     faalt("Correctie van een grondstof door kwaliteit kan niet",
           "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
-          (reg, gs["GS-A"], gid, kw), "ploegleider")
+          (reg, gs["GS-A"], gid, kw), "MES-correctiebevoegdheid")
+    faalt("D101 oude ploegleider zonder MES-grant corrigeert geen grondstof",
+          "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
+          (reg, gs["GS-A"], gid, pl), "MES-correctiebevoegdheid")
+    con.execute("UPDATE gebruiker SET rol='pending' WHERE id=%s", (mes_corrector,))
     con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
-                (reg, gs["GS-A"], gid, pl))
+                (reg, gs["GS-A"], gid, mes_corrector))
     check("Correctie door ploegleider: actuele partij is P-3",
           val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s", (reg,)) == "P-3")
     faalt("PS1 herhalen zonder herbewerking", "SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op), "al doorlopen")
@@ -712,12 +719,15 @@ def main():
     faalt("Stapregistratie verwijderen kan niet", "DELETE FROM stapregistratie WHERE id=%s", (h18,), "niet verwijderd")
     faalt("Operator-account mag niet corrigeren",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'tikfout',%s)",
-          (h18, veld["S18.2"], w_oud, op_account), "ploegleider")
+          (h18, veld["S18.2"], w_oud, op_account), "MES-correctiebevoegdheid")
+    faalt("D101 oude beheerder zonder inhoudelijke MES-grant corrigeert niet",
+          "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'tikfout',%s)",
+          (h18, veld["S18.2"], w_oud, bh), "MES-correctiebevoegdheid")
     faalt("Correctie zonder reden",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'',%s)",
-          (h18, veld["S18.2"], w_oud, pl), "check")
+          (h18, veld["S18.2"], w_oud, mes_corrector), "check")
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'tikfout',%s)",
-                (h18, veld["S18.2"], w_oud, pl))
+                (h18, veld["S18.2"], w_oud, mes_corrector))
     check("Actuele waarde is de correctie", val("SELECT gemeten FROM waarde_actueel WHERE stapregistratie_id=%s AND veld_id=%s", (h18, veld["S18.2"])) == 1650)
     check("Origineel blijft opvraagbaar", val("SELECT gemeten FROM waarde WHERE id=%s", (w_oud,)) == 1640)
 
@@ -1043,7 +1053,7 @@ def main():
     reg5a = val("SELECT id FROM stapregistratie WHERE batch_id = %s AND processtap_id = %s", (ga, sid["PS5"]))
     con.execute("""INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)
                    SELECT stapregistratie_id, veld_id, 80, 84, id, 'tikfout', %s FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s""",
-                (pl, reg5a, veld["S5.1"]))
+                (mes_corrector, reg5a, veld["S5.1"]))
     check("PRD-A: 4 graden verschil is binnen de tolerantie van het veld (5)",
           val("SELECT markering FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (reg5a, veld["S5.1"])) == "ok")
     faalt("Tolerantie per product bij een gewicht", "INSERT INTO veld_product (veld_id, product_id, tolerantie) VALUES (%s, %s, 1)",
@@ -1429,25 +1439,25 @@ def main():
           val("SELECT gemeten::float FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 81)
     check("Melding voor ploegleider en beheerder, met beide waarden",
           one("SELECT voor_rollen, tekst LIKE '%%81 en 83%%' FROM melding WHERE bron_id = %s", (cid,)) == (["ploegleider", "beheerder"], True))
-    faalt("Een operator lost geen conflict op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, op_account), "Alleen een ploegleider")
-    faalt("Kwaliteit lost een conflict in een veld van Productie niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, kw), "Alleen een ploegleider")
+    faalt("Een operator lost geen conflict op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, op_account), "MES-conflictbeslisbevoegdheid")
+    faalt("Kwaliteit lost een conflict in een veld van Productie niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, kw), "MES-conflictbeslisbevoegdheid")
     faalt("Een conflict wijzig je niet zomaar", "UPDATE invoerconflict SET gemeten = 1 WHERE id = %s", (cid,), "niet gewijzigd")
-    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s, 'weegschaal B is geijkt')", (cid, pl))
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s, 'weegschaal B is geijkt')", (cid, mes_corrector))
     w = one("SELECT gemeten::float, vervangt_waarde_id IS NOT NULL, correctie_reden FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"]))
     check("Kiezen voor de tweede: correctie met reden, origineel bewaard",
           w[0] == 83 and w[1] and "Operator B" in w[2] and "geijkt" in w[2]
           and val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 2)
-    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, pl))
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, mes_corrector))
     check("Hetzelfde besluit opnieuw versturen verandert niets",
           val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 2)
-    faalt("Een opgelost conflict kies je niet opnieuw", "SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (cid, bh), "al opgelost door ploegleider1")
+    faalt("Een opgelost conflict kies je niet opnieuw", "SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (cid, bh), "al opgelost door mes.supervisor")
     con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'LEV-1',%s)", (rc, gs["GS-A"], op))
     check("Zelfde partij (andere hoofdletters) is geen conflict",
           val("SELECT leg_grondstofconflict_vast(%s, %s, ' lev-1', NULL, %s, %s)", (rc, gs["GS-A"], op_b, pc)) == "zelfde")
     check("Andere partij is een conflict",
           val("SELECT leg_grondstofconflict_vast(%s, %s, 'LEV-2', NULL, %s, %s)", (rc, gs["GS-A"], op_b, pc)) == "conflict")
     gcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND grondstof_id IS NOT NULL", (rc,))
-    con.execute("SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (gcid, pl))
+    con.execute("SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (gcid, mes_corrector))
     check("Kiezen voor de eerste: partij blijft, conflict gesloten",
           val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s AND grondstof_id = %s", (rc, gs["GS-A"])) == "LEV-1"
           and val("SELECT status FROM invoerconflict WHERE id = %s", (gcid,)) == "bestaand")
@@ -1458,14 +1468,16 @@ def main():
     kcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"]))
     check("Conflict in een veld van Kwaliteit: melding voor Kwaliteit",
           val("SELECT voor_rollen FROM melding WHERE bron_id = %s", (kcid,)) == ["kwaliteit", "beheerder"])
-    faalt("Een ploegleider lost een conflict van Kwaliteit niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, pl), "Alleen Kwaliteit")
-    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, kw))
+    faalt("Een ploegleider lost een conflict van Kwaliteit niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, mes_corrector), "MES-conflictbeslisbevoegdheid")
+    faalt("D101 oude kwaliteitsrol zonder grant beslist niet",
+          "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, kw), "MES-conflictbeslisbevoegdheid")
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, mes_quality_decider))
     check("Kwaliteit kiest de tweede meting",
           val("SELECT gemeten::float FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"])) == 415)
     faalt("Kwaliteit corrigeert verder niet zelf",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) "
           "SELECT stapregistratie_id, veld_id, 1, id, 'x', %s FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s",
-          (kw, rc, veld["S1.2"]), "ploegleider")
+          (mes_quality_decider, rc, veld["S1.2"]), "gecontroleerde conflictafhandeling")
     con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE code = 'S1.2'")
 
     print("\nPloegen en rooster (#86)")
