@@ -1,5 +1,7 @@
 # Batch input GUI
 
+> **MES-transitie (ontwerp):** de huidige software blijft versie 0.62.1. Goedgekeurde architectuur in [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), besluiten D89 en geïntegreerde [ROADMAP.md](ROADMAP.md). PR #1 wordt niet gemerged; de nieuwe implementatie vertrekt vanaf main. Geen MES-functionaliteit uit dit ontwerp is hiermee al gerealiseerd.
+
 Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. Batches doorlopen 18 processtappen; in stap 16 worden 4 batches samengevoegd tot 1 lot. Alles werkt lokaal en offline. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
 ## Waar vind je wat
