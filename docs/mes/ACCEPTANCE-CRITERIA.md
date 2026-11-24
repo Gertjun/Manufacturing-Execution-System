@@ -222,3 +222,6 @@ D101 vervolg: inventariseer oude accounts, rollen, API/DB/UI/tools/fixtures en v
 0087/D101: oude beheerder-beschikbaarheidsvoorwaarde verwijderd; onveranderlijke gebruikersnaam en bestaande kritieke MES-identiteits-/sessieguards blijven gelden. Regressie: expliciete System Administrator met legacyveld pending, nul actieve legacy-beheerders, historisch account blijft aanwezig. Nog niet uitgevoerd; operationele legacycontroles, fixtures en overige auditpunten blijven open. Geen gegevensmigratie of automatische grants.
 
 D101 (0091): onderliggende batch- en keuringsbesluiten en herbewerkingsopdrachten omgezet naar MES-permissions; bevestigde wrappers blijven leidend. Uitgestelde specificatie- en certificaatwrites blijven afgeschermd. Gebundelde validatie en overige rechtenaudit open.
+
+
+D100/D101 (0092): run 45509817373 op b017950: schone installatie, 12 securitytests, 10 autorisatietests, 116 API-tests en Linux-laptoppakket geslaagd; schema-equivalentie faalde door search_path maak_herbewerking, databaseregels door drie resterende positieve/procesregressies met oude kwaliteitsidentiteit. Begrensde search_path hersteld via 0092, fixtures omgezet naar expliciet bevoegde MES-identiteit. Negatieve legacy-regressies behouden; hertest open.

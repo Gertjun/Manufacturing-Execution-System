@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- D100/D101 (0092): run 45509817373 op b017950: schone installatie, 12 securitytests, 10 autorisatietests, 116 API-tests en Linux-laptoppakket geslaagd; schema-equivalentie faalde door search_path maak_herbewerking, databaseregels door drie resterende positieve/procesregressies met oude kwaliteitsidentiteit. Begrensde search_path hersteld via 0092, fixtures omgezet naar expliciet bevoegde MES-identiteit. Negatieve legacy-regressies behouden; hertest open.
 - D101 (0091): batchblokkade, kwaliteitsbesluiten en aanmaak/intrekking herbewerkingsopdrachten op actuele MES-permissions en productscope; fixtures en regressies aangepast. Bevestigde applicatiepaden blijven verplicht; validatie open.
 - D101 (0090): papieren nalevering ook in onderliggende eigenaarfunctie op actuele MES-permissions per batchproduct; oorspronkelijke papieren operator blijft onderscheiden van de transcribent. Negatieve legacy-regressies toegevoegd; validatie open.
 - D101 (0089): meetwaarde- en grondstofcorrecties en conflictbesluiten vereisen actuele MES-permissions met productscope; kwaliteitscorrecties alleen via gecontroleerd conflictpad. Fictieve correctie-identiteit en regressies aangepast; validatie open.

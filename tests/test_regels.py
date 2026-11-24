@@ -1138,7 +1138,7 @@ def main():
     check("Nieuwe herbewerking: te plannen", stand() == "te_plannen", stand())
     check("Melding voor vloer, planner, Kwaliteit en productiemanager",
           val("SELECT voor_rollen FROM melding WHERE bron_id = %s", (h,)) == ["ploegleider", "planner", "kwaliteit", "productiemanager"])
-    faalt("Tweede open herbewerking voor dezelfde batch", "SELECT maak_herbewerking('B-2026-0801', 'PS4', 'x', %s)", (kw,), "al een herbewerking")
+    faalt("Tweede open herbewerking voor dezelfde batch", "SELECT maak_herbewerking('B-2026-0801', 'PS4', 'x', %s)", (mes_quality_decider,), "al een herbewerking")
     check("Batch staat in de werkvoorraad van PS3", "B-2026-0801" in voorraad("PS3"))
     check("... en niet meer in die van PS7", "B-2026-0801" not in voorraad("PS7"))
     faalt("Een andere stap starten kan niet", "SELECT start_stap('PS7', %s, NULL, %s, %s)", (hb, pc, op), "eerst terug naar stap PS3")
@@ -1169,14 +1169,14 @@ def main():
         doe(hb2, f"PS{k}")
     con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','druk te laag',%s)", (hb2, pm))
     faalt("Batch in beoordeling: productiemanager kan blokkade niet omzeilen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'x', %s)", (pm,), "Kwaliteitsblokkade")
-    faalt("Ook Kwaliteit kan blokkade niet via herbewerking opheffen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,), "Kwaliteitsblokkade")
+    faalt("Ook Kwaliteit kan blokkade niet via herbewerking opheffen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (mes_quality_decider,), "Kwaliteitsblokkade")
     check("Blokkade en besluit blijven behouden",
           val("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op DESC LIMIT 1", (hb2,)) == "in_beoordeling"
           and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_beoordeling")
     check("Geen opdracht ontstaan tijdens blokkade", val("SELECT count(*) FROM herbewerking WHERE batch_id=%s",(hb2,)) == 0)
     # Afzonderlijk eigenaar-fixturebesluit; de bevestigde API-route wordt elders getest.
     con.execute("INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'vrijgegeven','afzonderlijk kwaliteitsbesluit',%s)",(hb2,mes_quality_decider))
-    h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,))
+    h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (mes_quality_decider,))
     faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, mes_quality_decider), "reden")
     con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, mes_quality_decider))
     check("Ingetrokken: batch gaat gewoon verder met PS4", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h2,)) == "ingetrokken" and "B-2026-0802" in voorraad("PS4"))
