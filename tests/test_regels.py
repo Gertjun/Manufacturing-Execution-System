@@ -136,7 +136,7 @@ def main():
                 check(f"D100 {login}: geen effectief sequence-{recht}",
                       val("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                              WHERE n.nspname='fabriek' AND c.relkind='S'
-                               AND has_sequence_privilege(%s,c.oid,%s)""",(login,recht))==0)
+                               AND CASE WHEN c.relkind='S' THEN has_sequence_privilege(%s,c.oid,%s) ELSE false END""",(login,recht))==0)
     con.execute("SET ROLE mes_app")
     try:
         faalt("D100 auditsequence niet rechtstreeks te verhogen",
