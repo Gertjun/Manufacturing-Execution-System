@@ -509,3 +509,7 @@ Op verzoek van Geert wordt `mes_app` de standaardnaam voor nieuwe installaties, 
 ### D92 – Geen Excel-import van gebruikersaccounts (24 nov 2026)
 
 Op verzoek van Geert vervalt de accountimport uit D61/#76, inclusief het accountsjabloon en de API-route. Persoonlijk accountbeheer en gecontroleerde bevoegdheidstoekenning volgen D89 P01–P05 en P11. Tijdelijke wachtwoorden en bestaande accounts/historie blijven behouden. Andere Excel-imports blijven bestaan; hun inhoudelijke wijzigingsworkflow volgt de betreffende MES-fase.
+
+### D93 – Gedeeld operatoraccount vervalt (24 nov 2026)
+
+Geert akkoord: uitsluitend persoonlijke operatoraccounts; geen naamkeuze na inloggen. Historische operatoridentiteiten behouden. Oude offline registraties gecontroleerd afhandelen, niet wissen. Testaccounts en regressies aanpassen; geen omschakeling naar productie vóór acceptatie.

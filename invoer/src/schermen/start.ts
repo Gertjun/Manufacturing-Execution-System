@@ -1,8 +1,8 @@
-// Pc koppelen, inloggen en naam kiezen.
-import { ApiFout, GeenVerbinding, haal, stuur } from "../api";
+// Pc koppelen en persoonlijk inloggen.
+import { GeenVerbinding, haal, stuur } from "../api";
 import { vergeetConfig } from "../registraties";
 import { sessie } from "../sessie";
-import { h, laden, melding, toon, vastHouden } from "../ui";
+import { h, laden, toon, vastHouden } from "../ui";
 import { inloggenGelukt } from "../wachtrij";
 import { wachtwoordFormulier } from "../../../gedeeld/wachtwoord";
 
@@ -69,7 +69,7 @@ export function loginScherm() {
           sessie.operatornaam = r.operator?.naam ?? null;
           vergeetConfig();
           inloggenGelukt();
-          location.hash = r.naamKiezen ? "#/naam" : "#/stappen";
+          location.hash = "#/stappen";
         } catch (e) {
           fout.textContent =
             e instanceof GeenVerbinding ? "Geen verbinding met de server. Inloggen kan alleen met verbinding." : (e as Error).message;
@@ -112,44 +112,3 @@ function eigenWachtwoord<T>(tijdelijkToken: string, tijdelijk: string): Promise<
   });
 }
 
-export async function naamScherm() {
-  const actueel = vastHouden();
-  toon(h("h1", {}, "Wie ben je?"), laden());
-  let namen: { id: string; naam: string }[];
-  try {
-    namen = (await haal<{ id: string; naam: string }[]>("/auth/operators")).data;
-    if (!actueel()) return;
-  } catch {
-    toon(h("h1", {}, "Wie ben je?"), h("p", {}, "De namenlijst kon niet worden geladen. Probeer het opnieuw."));
-    return;
-  }
-  toon(
-    h("h1", {}, "Wie ben je?"),
-    h("p", { class: "sub" }, "Je naam komt bij alles wat je invoert."),
-    h("p", { class: "label-wacht" }, "Je bent ingelogd met het gedeelde account. Vraag de beheerder om een eigen account; dan hoef je hier niet meer te kiezen."),
-    h(
-      "div",
-      { class: "raster" },
-      namen.map((n) =>
-        h(
-          "button",
-          {
-            class: "keuze",
-            onclick: async () => {
-              try {
-                const r = await stuur<{ token: string }>("POST", "/auth/operator", { operatorId: n.id });
-                sessie.token = r.token;
-                sessie.operatornaam = n.naam;
-                location.hash = "#/stappen";
-              } catch (e) {
-                if (e instanceof ApiFout && e.status === 401) location.hash = "#/login";
-                else melding(e instanceof GeenVerbinding ? "Naam wisselen kan alleen met verbinding" : (e as Error).message, "fout");
-              }
-            },
-          },
-          n.naam,
-        ),
-      ),
-    ),
-  );
-}

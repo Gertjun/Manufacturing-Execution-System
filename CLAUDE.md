@@ -102,3 +102,5 @@ Werk in één concept-PR per fase met logische commits. Draai relevante lokale t
 ## MES-migratie: bestaande functionaliteit kritisch beoordelen
 
 Werkafspraak met Geert (24 november 2026): D89 en de MES-ontwerpdocumenten zijn leidend. Bestaande functies zijn geen automatisch te behouden scope. Beoordeel per functie of behoud, vereenvoudiging, vervanging of verwijdering beter past. Meld twijfel en gemotiveerde verwijderingsvoorstellen (inclusief impact op gebruikers, gegevens en tests) vóór omvangrijke compatibiliteitsinvesteringen; verwijder bestaande functies alleen na akkoord van Geert. Gewone implementatiewerkzaamheden binnen het verleende mandaat gaan zelfstandig door. Historische productiegegevens en identiteiten blijven beschermd. D92 (accountimport) is het eerste voorbeeld.
+
+Werktempo: voer binnen het bestaande mandaat meerdere opeenvolgende implementatie- en teststappen zelfstandig uit. Stop niet na alleen inventarisatie of voorbereiding. Vraag uitsluitend input bij echte blokkades, inhoudelijke keuzes, functieverwijdering, risico op gegevensverlies of faseacceptatie; geen merge/release/versieverhoging zonder akkoord.

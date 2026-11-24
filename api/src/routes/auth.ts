@@ -1,13 +1,13 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, ingelogd, vereist, type Rol, type Sessie } from "../auth.js";
+import { INVOER, ingelogd, vereist, type Rol, type Sessie } from "../auth.js";
 import { ApiFout } from "../fouten.js";
 import { inTransactie, lees } from "../db.js";
 
 const TokenAntwoord = Type.Object({
   token: Type.String(),
   rol: Type.String(),
-  naamKiezen: Type.Boolean({ description: "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)" }),
+  naamKiezen: Type.Boolean({ description: "Compatibiliteitsveld; altijd false" }),
   operator: Type.Optional(Type.Union([Type.Null(), Type.Object({ id: Type.String(), naam: Type.String() })], {
     description: "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
   })),
@@ -60,7 +60,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
              FROM gebruiker g LEFT JOIN operator o ON o.id = $2
             WHERE g.id = $1`, [gebruiker.id, o?.id ?? null])).rows;
       });
-      const gedeeld = !!ac?.gedeeld;
+      if (!ac || ac.gedeeld) throw new ApiFout(403, "Log in met een persoonlijk account");
+      const gedeeld = false;
       const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, pcId,
         ...(ac?.operator_id ? { operatorId: ac.operator_id } : {}), ...(gedeeld ? { gedeeld } : {}), ...(ac?.ww ? { ww: true } : {}) };
       // Een wandscherm blijft dagen aan staan: langer geldig token (het mag alleen het wandscherm lezen).
@@ -123,7 +124,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           `SELECT g.actief, g.gedeeld, o.id AS operator_id, o.naam AS operatornaam
              FROM gebruiker g LEFT JOIN operator o ON o.id = $2 WHERE g.id = $1`, [req.user.sub, o?.id ?? null])).rows;
       });
-      if (!ac?.actief) throw new ApiFout(401, "Dit account staat uit");
+      if (!ac?.actief || ac.gedeeld) throw new ApiFout(401, "Dit account staat uit");
       const { sub, naam, rol } = req.user;
       const sessie: Sessie = { sub, naam, rol, pcId: rij.id,
         ...(ac.operator_id ? { operatorId: ac.operator_id } : {}), ...(ac.gedeeld ? { gedeeld: true } : {}) };
@@ -135,44 +136,6 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
-  // Namenlijst om uit te kiezen na het inloggen met het gedeelde account. Namen met een eigen account
-  // staan er niet in: die personen loggen zelf in (D53).
-  app.get(
-    "/operators",
-    {
-      preHandler: vereist(...IEDEREEN),
-      schema: {
-        tags: ["inloggen"],
-        response: { 200: Type.Array(Type.Object({ id: Type.String(), naam: Type.String() })) },
-      },
-    },
-    async () => (await lees(app.db, "SELECT id, naam FROM operator WHERE actief AND gebruiker_id IS NULL ORDER BY naam")) as never,
-  );
-
-  // Naam kiezen: geeft een nieuw token met de gekozen operator.
-  app.post(
-    "/operator",
-    {
-      preHandler: vereist("operator", "ploegleider"),
-      schema: {
-        tags: ["inloggen"],
-        body: Type.Object({ operatorId: Type.String({ format: "uuid" }) }),
-        response: { 200: TokenAntwoord },
-      },
-    },
-    async (req) => {
-      if (!req.user.gedeeld) {
-        throw new ApiFout(403, "Je logt in met je eigen account; je naam ligt al vast. Een andere naam kiezen kan niet.");
-      }
-      const [rij] = await lees<{ naam: string; gebruiker_id: string | null }>(app.db,
-        "SELECT naam, gebruiker_id FROM operator WHERE id = $1 AND actief", [req.body.operatorId]);
-      if (!rij) throw new ApiFout(400, "Onbekende naam");
-      if (rij.gebruiker_id) throw new ApiFout(403, `${rij.naam} heeft een eigen account. Log in met je eigen naam en wachtwoord.`);
-      const { sub, naam, rol, pcId } = req.user;
-      const sessie: Sessie = { sub, naam, rol, pcId, operatorId: req.body.operatorId, gedeeld: true };
-      return { token: app.jwt.sign(sessie), rol, naamKiezen: false, operator: { id: req.body.operatorId, naam: rij.naam } };
-    },
-  );
 };
 
 export default routes;

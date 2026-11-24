@@ -4,7 +4,7 @@ import { bevestig, h, melding, nieuweRoute } from "./ui";
 import { acties, inloggenGelukt, opStatus, startWachtrij, voegToe, type Status } from "./wachtrij";
 import { stuur } from "./api";
 import { vergeetConfig } from "./registraties";
-import { loginScherm, naamScherm, pcScherm } from "./schermen/start";
+import { loginScherm, pcScherm } from "./schermen/start";
 import { stapScherm, stappenScherm } from "./schermen/werk";
 import { registratieScherm } from "./schermen/registratie";
 import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
@@ -38,12 +38,8 @@ function tekenBalk() {
   }
 
   const actief = (r: string) => (route === r || (r === "stappen" && route === "stap") ? "page" : undefined);
-  const gedeeld = !!sessie.inhoud()?.gedeeld;
-  // Gedeeld account (D6): naam is te wisselen. Eigen account (D53): de naam ligt vast; wisselen = afmelden.
   const naam = () => ingelogd && sessie.operatornaam
-    ? gedeeld
-      ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
-      : h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
+    ? h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
     : null;
   const meldingenLink = (klasse?: string) => heeftMeldingen()
     ? h("a", { href: "#/meldingen", class: klasse, "aria-current": actief("meldingen") },
@@ -82,7 +78,6 @@ function tekenBalk() {
   ] : null, [
     h("a", { href: "#/hulp" }, "Hulp"),
     h("button", { type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
-    gedeeld ? h("a", { href: "#/naam" }, "Andere naam kiezen") : null,
     sessie.rol === "ploegleider" ? h("a", { href: "../portaal/index.html#/" }, "Portalen") : null,
     h("button", { type: "button", onclick: () => void afmelden() }, "Afmelden"),
   ]);
@@ -152,7 +147,7 @@ async function vanStartpagina(): Promise<boolean> {
     sessie.operatornaam = r.operator?.naam ?? null;
     vergeetConfig();
     inloggenGelukt();
-    location.hash = r.naamKiezen ? "#/naam" : "#/stappen";
+    location.hash = "#/stappen";
     return true;
   } catch {
     return false;
@@ -177,11 +172,8 @@ async function route() {
     return loginScherm();
   }
   const rol = sessie.rol;
-  if (scherm === "naam") return sessie.inhoud()?.gedeeld ? naamScherm() : void (location.hash = "#/stappen");
-  if ((rol === "operator" || rol === "ploegleider") && !sessie.heeftNaam()) {
-    // Eigen account zonder naam in het token (bijvoorbeeld een token van vóór 0.27): opnieuw inloggen.
-    if (!sessie.inhoud()?.gedeeld) { sessie.afmelden(); return void (location.hash = "#/login"); }
-    return void (location.hash = "#/naam");
+  if (sessie.inhoud()?.gedeeld || ((rol === "operator" || rol === "ploegleider") && !sessie.heeftNaam())) {
+    sessie.afmelden(); return void (location.hash = "#/login");
   }
 
   switch (scherm) {

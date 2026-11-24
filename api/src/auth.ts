@@ -35,6 +35,7 @@ export function vereist(...rollen: Rol[]) {
     } catch {
       throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
     }
+    if (req.user.gedeeld) throw new ApiFout(401, "Log in met een persoonlijk account");
     if (req.user.ww) {
       throw new ApiFout(403, "Kies eerst een eigen wachtwoord; je wachtwoord is tijdelijk");
     }
@@ -51,6 +52,7 @@ export async function ingelogd(req: FastifyRequest) {
   } catch {
     throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
   }
+  if (req.user.gedeeld) throw new ApiFout(401, "Log in met een persoonlijk account");
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
