@@ -1025,7 +1025,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       const id = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const ids = await batchIds(tx, req.body.batchnummers);
-        const { rows } = await tx.query("SELECT bewaar_lot_voorstel(NULL, $1, $2, $3) AS id", [ids, req.body.opmerking ?? null, req.user.sub]);
+        const { rows } = await tx.query("SELECT planning_save_legacy_proposal(NULL, $1, $2) AS id", [ids, req.body.opmerking ?? null]);
         return rows[0].id as string;
       });
       const [v] = await lees(app.db, `${VOORSTEL_SQL} WHERE v.id = $1`, [id]);
@@ -1041,10 +1041,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       await persoonlijkeTransactie(app.db, req, async (tx) => {
-        const { rows } = await tx.query("SELECT id FROM lot_voorstel WHERE nummer = $1 FOR UPDATE", [req.params.nummer]);
+        const { rows } = await tx.query("SELECT id FROM lot_voorstel WHERE nummer = $1", [req.params.nummer]);
         if (!rows[0]) throw niet("Lotvoorstel");
         const ids = await batchIds(tx, req.body.batchnummers);
-        await tx.query("SELECT bewaar_lot_voorstel($1, $2, $3, $4)", [rows[0].id, ids, req.body.opmerking ?? null, req.user.sub]);
+        await tx.query("SELECT planning_save_legacy_proposal($1, $2, $3)", [rows[0].id, ids, req.body.opmerking ?? null]);
       });
       const [v] = await lees(app.db, `${VOORSTEL_SQL} WHERE v.nummer = $1`, [req.params.nummer]);
       return v as never;
@@ -1060,11 +1060,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
-          "UPDATE lot_voorstel SET status = 'vervallen', afgesloten_op = now() WHERE nummer = $1 AND status = 'open' RETURNING id",
+          "SELECT planning_cancel_legacy_proposal($1) AS id",
           [req.params.nummer],
         );
-        if (!rows[0]) throw new ApiFout(422, "Alleen een open voorstel kan vervallen");
-        await tx.query("DELETE FROM stapplanning WHERE voorstel_id = $1", [rows[0].id]);
+        if (!rows[0]?.id) throw new ApiFout(422, "Alleen een open voorstel kan vervallen");
       });
       return reply.status(204).send(null);
     },
