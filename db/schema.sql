@@ -3821,13 +3821,13 @@ SET search_path = fabriek, public;
 
 CREATE TABLE authorization_bootstrap (
     singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
-    system_user uuid NOT NULL REFERENCES gebruiker(id),
+    system_user_id uuid NOT NULL REFERENCES gebruiker(id),
     security_user_a uuid NOT NULL REFERENCES gebruiker(id),
     security_user_b uuid NOT NULL REFERENCES gebruiker(id),
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     database_actor text NOT NULL,
     reason text NOT NULL CHECK (btrim(reason) <> ''),
-    CHECK (system_user <> security_user_a AND system_user <> security_user_b AND security_user_a <> security_user_b)
+    CHECK (system_user_id <> security_user_a AND system_user_id <> security_user_b AND security_user_a <> security_user_b)
 );
 
 CREATE FUNCTION authorization_bootstrap_empty(p_system text,p_system_password text,
@@ -3859,7 +3859,7 @@ BEGIN
       VALUES(p_b,'pending',wachtwoord_hash(p_b_password)) RETURNING id INTO v_b;
     INSERT INTO authorization_grant(user_id,role_code) VALUES
       (v_system,'system_administrator'),(v_a,'security_administrator'),(v_b,'security_administrator');
-    INSERT INTO authorization_bootstrap(system_user,security_user_a,security_user_b,database_actor,reason)
+    INSERT INTO authorization_bootstrap(system_user_id,security_user_a,security_user_b,database_actor,reason)
       VALUES(v_system,v_a,v_b,current_user,p_reason);
 END $$;
 CREATE TRIGGER authorization_bootstrap_immutable BEFORE UPDATE OR DELETE ON authorization_bootstrap
