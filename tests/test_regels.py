@@ -47,6 +47,27 @@ def main():
         check(naam, False, "geen foutmelding")
 
     con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD100 effectieve SECURITY DEFINER-eigenschappen")
+    check("D100 alle definerfuncties hebben vertrouwd zoekpad",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='fabriek' AND p.prosecdef AND NOT EXISTS
+                 (SELECT 1 FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c
+                  WHERE replace(c,' ','') IN ('search_path=pg_catalog,fabriek,pg_temp',
+                                              'search_path=pg_catalog,fabriek,public,pg_temp'))""")==0)
+    check("D100 alle definerfuncties eigendom van schema-eigenaar",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='fabriek' AND p.prosecdef AND p.proowner<>n.nspowner""")==0)
+    check("D100 geen PUBLIC-uitvoering van definerfuncties",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+                 WHERE n.nspname='fabriek' AND p.prosecdef AND a.grantee=0 AND a.privilege_type='EXECUTE'""")==0)
+    con.execute("ALTER FUNCTION fabriek.execution_session_actor(text) SET search_path=pg_temp,fabriek")
+    try:
+        faalt("D100 rechteninstallatie weigert onveilig definerzoekpad",
+              (ROOT / "db/rechten.sql").read_text(),bevat="Onveilige SECURITY DEFINER-interface")
+    finally:
+        con.execute("ALTER FUNCTION fabriek.execution_session_actor(text) SET search_path=pg_catalog,fabriek,pg_temp")
+    con.execute((ROOT / "db/rechten.sql").read_text())
     print("\nD100 historische functie- en schemarechten")
     con.execute("GRANT EXECUTE ON FUNCTION fabriek.maak_herbewerking(text,text,text,uuid,uuid) TO PUBLIC")
     con.execute("GRANT EXECUTE ON FUNCTION fabriek.authorization_channel_requests() TO mes_app WITH GRANT OPTION")

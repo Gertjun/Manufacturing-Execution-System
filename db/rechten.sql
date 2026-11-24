@@ -607,3 +607,25 @@ BEGIN
    TO mes_security_channel;
  END IF;
 END $$;
+
+-- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
+-- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
+DO $$
+DECLARE v_bad text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=92) THEN
+   SELECT string_agg(p.oid::regprocedure::text,', ' ORDER BY p.oid)
+     INTO v_bad
+     FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='fabriek' AND p.prosecdef
+       AND (p.proowner<>n.nspowner
+         OR NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c
+              WHERE replace(c,' ','') IN ('search_path=pg_catalog,fabriek,pg_temp',
+                                          'search_path=pg_catalog,fabriek,public,pg_temp'))
+         OR EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+                    WHERE a.grantee=0 AND a.privilege_type='EXECUTE'));
+   IF v_bad IS NOT NULL THEN
+     RAISE EXCEPTION 'Onveilige SECURITY DEFINER-interface: %',v_bad;
+   END IF;
+ END IF;
+END $$;
