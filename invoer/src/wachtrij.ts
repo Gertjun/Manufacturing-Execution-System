@@ -5,6 +5,7 @@ import { ApiFout, GeenVerbinding, stuur } from "./api";
 import { opslag } from "./opslag";
 import { sessie } from "./sessie";
 import type { Registratie } from "./types";
+import { bewaarEigenRegistratie } from "./registratieopslag";
 
 export interface Actie {
   volgnr?: number;
@@ -115,11 +116,11 @@ export async function heeftWachtende(registratieId: string, behalve?: number): P
 }
 
 /** Bewaar wat de server teruggaf, tenzij er nog lokale wijzigingen onderweg zijn. */
-async function bewaarAntwoord(antwoord: unknown, volgnr: number) {
+async function bewaarAntwoord(antwoord: unknown, volgnr: number, identiteit: string) {
   const a = antwoord as { id?: string; stapcode?: string; registratie?: Registratie } | null;
   const reg = a?.registratie ?? (a?.id && a?.stapcode ? (a as Registratie) : null);
   if (reg && !(await heeftWachtende(reg.id, volgnr))) {
-    await opslag.zet("registraties", { ...reg, lokaal: false });
+    await bewaarEigenRegistratie({ ...reg, lokaal: false }, identiteit);
   }
 }
 
@@ -167,7 +168,7 @@ export async function verwerk(): Promise<void> {
         if (!token || sessie.inhoud()?.sub !== identiteit.sub) break;
         const antwoord = await stuur("POST", volgende.pad, volgende.body, { ...koppen(volgende), authorization: `Bearer ${token}` });
         meld({ verbonden: true });
-        await bewaarAntwoord(antwoord, volgende.volgnr!);
+        await bewaarAntwoord(antwoord, volgende.volgnr!, identiteit.sub + ":" + identiteit.operatorId);
         await opslag.weg("wachtrij", volgende.volgnr!);
       } catch (e) {
         if (e instanceof GeenVerbinding) {
