@@ -199,8 +199,12 @@ async function verschuifNaarNu(pg: PGlite) {
     SELECT c.table_name, c.column_name FROM information_schema.columns c
     JOIN information_schema.tables t USING (table_schema, table_name)
     WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'date'`);
-  for (const k of datums) {
-    await pg.query(`UPDATE "${k.table_name}" SET "${k.column_name}" = "${k.column_name}" + $1::int WHERE "${k.column_name}" IS NOT NULL`, [rows[0].dagen]);
+  // Per tabel alle datumkolommen in één UPDATE, zodat periodeconstraints
+  // (zoals capaciteit_afwijking.van/tot) niet tussentijds worden geschonden.
+  const datumsPerTabel = new Map<string, string[]>();
+  for (const k of datums) datumsPerTabel.set(k.table_name, [...(datumsPerTabel.get(k.table_name) ?? []), k.column_name]);
+  for (const [tabel, kols] of datumsPerTabel) {
+    await pg.query(`UPDATE "${tabel}" SET ${kols.map((c) => `"${c}" = "${c}" + $1::int`).join(", ")} WHERE ${kols.map((c) => `"${c}" IS NOT NULL`).join(" OR ")}`, [rows[0].dagen]);
   }
   await pg.exec("COMMIT");
 }
