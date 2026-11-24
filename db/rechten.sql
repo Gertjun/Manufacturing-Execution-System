@@ -92,7 +92,7 @@ DO $$
 DECLARE login text; f record;
 BEGIN
   FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable','authorization_guard_legacy_role','authorization_bootstrap_empty','authorization_recover_confirmed','authorization_session_version','authorization_recovery_readiness','authorization_personnel_identity_guard','authorization_channel_submit','authorization_channel_decide','authorization_channel_revoke','authorization_channel_actor','authorization_channel_requests','authorization_channel_grants','authorization_channel_role_safe','authorization_channel_bind','authorization_channel_unbind','quality_legacy_decision_guard','beslis_keuring','quality_rework_hold_guard','maak_herbewerking','trek_herbewerking_in','koppel_herbewerking','rework_history_guard','rework_order_permission','execution_session_cleanup','login_with_session','change_password_session','execution_registration_identity_guard','execution_measurement_identity_guard') LOOP
+           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity','authorization_revoke_confirmed','authorization_audit_immutable','authorization_guard_legacy_role','authorization_bootstrap_empty','authorization_recover_confirmed','authorization_session_version','authorization_recovery_readiness','authorization_personnel_identity_guard','authorization_channel_submit','authorization_channel_decide','authorization_channel_revoke','authorization_channel_actor','authorization_channel_requests','authorization_channel_grants','authorization_channel_role_safe','authorization_channel_bind','authorization_channel_unbind','quality_legacy_decision_guard','beslis_keuring','quality_rework_hold_guard','maak_herbewerking','trek_herbewerking_in','koppel_herbewerking','rework_history_guard','rework_order_permission','execution_session_cleanup','login_with_session','change_password_session','execution_registration_identity_guard','execution_measurement_identity_guard','execution_conflict_insert_guard','los_invoerconflict_op') LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f.sig);
     FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
@@ -246,6 +246,18 @@ BEGIN
    FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app','mes_security_channel'] LOOP
      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
        EXECUTE format('REVOKE ALL ON fabriek.execution_session FROM %I',login);
+     END IF;
+   END LOOP;
+ END IF;
+END $$;
+
+DO $$
+DECLARE login text;
+BEGIN
+ IF to_regprocedure('fabriek.execution_resolve_conflict(uuid,text,text)') IS NOT NULL THEN
+   FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app','PUBLIC'] LOOP
+     IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
+       EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON fabriek.invoerconflict FROM %s',CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END);
      END IF;
    END LOOP;
  END IF;

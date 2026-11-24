@@ -1,7 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { vereist } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
+import { vereist, invoerTransactie } from "../auth.js";
+import { personalSession } from "../modules/authorization/access.js";
+import { lees } from "../db.js";
 import { niet } from "../fouten.js";
 import { CONFLICT_SQL, registratieDetail } from "./registraties.js";
 import { Conflict, RegistratieDetail } from "./schemas.js";
@@ -42,7 +43,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/oplossen",
     {
-      preHandler: vereist("ploegleider", "kwaliteit", "beheerder"),
+      preHandler: personalSession,
       schema: {
         tags: ["conflicten"],
         description:
@@ -51,7 +52,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
         body: Type.Object({
           keuze: Type.Union([Type.Literal("bestaand"), Type.Literal("nieuw")]),
-          reden: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
+          reden: Type.String({ minLength: 1, maxLength: 500 }),
         }),
         response: { 200: RegistratieDetail },
       },
@@ -59,8 +60,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [c] = await lees<{ stapregistratie_id: string }>(app.db, "SELECT stapregistratie_id FROM invoerconflict WHERE id = $1", [req.params.id]);
       if (!c) throw niet("Conflict");
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("SELECT los_invoerconflict_op($1, $2, $3, $4)", [req.params.id, req.body.keuze, req.user.sub, req.body.reden ?? null]));
+      await invoerTransactie(app.db, req, (tx) =>
+        tx.query("SELECT execution_resolve_conflict($1, $2, $3)", [req.params.id, req.body.keuze, req.body.reden]));
       return (await registratieDetail(app.db, c.stapregistratie_id)) as never;
     },
   );
