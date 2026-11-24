@@ -2,14 +2,12 @@ import { VERSIE } from "../../gedeeld/versie";
 import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
-import { vraagIetsMelden } from "../../gedeeld/melden";
-import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor } from "./basis";
+import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor, vernieuwRechten, rechten, magDisplay, magEtiketten, magNalevering } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
-import * as pilot from "./pilot";
-import { stopWandscherm, wandscherm } from "./wandscherm";
+import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
 import { volgStappenlijsten } from "./stappenkeuze";
 import { volgNummers } from "../../gedeeld/nummers";
@@ -63,12 +61,11 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
             }))
           : null)),
     h("div", { class: "menu-voet" },
-      h("div", {}, sessie.naam, h("span", { class: "sub" }, ` (${sessie.rol})`)),
+      h("div", {}, sessie.naam),
       h("button", { class: "knop-link", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden"),
       h("a", { href: "#/" }, "Startpagina"),
       h("a", { href: "#/hulp" }, "Hulp"),
       h("a", { href: "#/wachtwoord" }, "Wachtwoord wijzigen"),
-      h("button", { class: "knop-link", type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
       h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
   );
 }
@@ -114,20 +111,6 @@ function loginScherm() {
   }).catch(() => {});
 }
 
-// ---------- Iets melden (#78, D62) ----------
-async function ietsMelden() {
-  const [, portaal, onderdeel] = location.hash.split("/");
-  const plek = [portaal, onderdeel].filter(Boolean).join(", ") || "startpagina";
-  const tekst = await vraagIetsMelden(plek);
-  if (!tekst) return;
-  try {
-    await stuur("POST", "/terugmeldingen", { id: crypto.randomUUID(), tekst, scherm: `portaal: ${plek}` });
-    melding("Bedankt, je melding is verstuurd", "ok");
-  } catch (e) {
-    melding((e as Error).message, "fout");
-  }
-}
-
 // ---------- Eigen wachtwoord (#76, D61) ----------
 /** Met tijdelijk: direct na een inlog met een tijdelijk wachtwoord. Zonder: zelf wijzigen vanuit het menu. */
 function wachtwoordScherm(tijdelijk?: { token: string; wachtwoord: string }) {
@@ -155,7 +138,10 @@ function wachtwoordScherm(tijdelijk?: { token: string; wachtwoord: string }) {
 function startScherm() {
   const tegels = tegelsVoor(sessie.rol);
   // Maar één bestemming (bijvoorbeeld een operator: alleen het invoerscherm): meteen daarheen.
-  if (tegels.length === 1) return void location.assign(tegels[0].href);
+  if (tegels.length === 1 && tegels[0].id === "invoer") {
+    try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ }
+    return void location.assign(tegels[0].href);
+  }
   toon(
     h("div", { class: "kop" }, h("div", {}, h("h1", {}, `Welkom, ${sessie.naam}`), h("p", { class: "sub" }, "Kies waar je wilt werken."))),
     tegels.length
@@ -165,7 +151,7 @@ function startScherm() {
             // Kwaliteit neemt de inlog alleen mee als ze zelf voor het invoerscherm kiest (lab-pc, D58); zie invoer/src/sessie.ts.
             onclick: t.id === "invoer" ? () => { try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ } } : undefined,
           }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
-      : h("p", { class: "leeg" }, "Voor jouw rol is (nog) geen portaal beschikbaar. Vraag de beheerder om een andere rol."),
+      : h("p", { class: "leeg" }, "Er is geen portaal beschikbaar met je actuele MES-bevoegdheden. Neem contact op met de bevoegde autorisatiebeheerder."),
     h("p", { class: "sub", style: "margin-top:24px" }, h("a", { href: "#/hulp" }, "Hulp voor jouw rol"), ", ook om af te drukken."),
   );
 }
@@ -186,6 +172,23 @@ function volgtScherm(naam: string) {
     h("p", { class: "leeg" }, "Tot die tijd: het lotpaspoort en de analyses staan in het portaal Kwaliteit; invoer en correcties in het invoerscherm."));
 }
 
+
+// D99: alleen actief stilstanddisplay; geen oude productie-/kwaliteitswandschermen.
+async function beperktDisplay() {
+  const hash = location.hash, token = sessie.token;
+  const actueel = () => location.hash === hash && sessie.token === token;
+  try {
+    const rows = await haal<{ stapcode?: string; stapnaam?: string; oorzaak?: string; start_op?: string }[]>("/stilstand");
+    if (!actueel()) return;
+    toon(h("h1", {}, "Actieve stilstand"),
+      rows.length ? h("ul", {}, rows.map(r => h("li", {}, [r.stapcode, r.stapnaam, r.oorzaak].filter(Boolean).join(" · "))))
+        : h("p", {}, "Geen actieve stilstand."),
+      h("button", { class: "knop", onclick: () => void route() }, "Vernieuwen"));
+  } catch (e) {
+    if (actueel()) toon(h("p", { class: "foutmelding" }, (e as Error).message));
+  }
+}
+
 // ---------- Navigatie ----------
 async function route() {
   nieuweRoute();
@@ -196,13 +199,33 @@ async function route() {
     await tekenMenu("", "");
     return loginScherm();
   }
-  // Wandscherm: volledig scherm, zonder menu. Een schermaccount ziet alleen dit.
-  if (portaal === "wandscherm" || sessie.rol === "scherm") {
-    if (portaal !== "wandscherm") return void (location.hash = "#/wandscherm");
-    return wandscherm(onderdeel ? decodeURIComponent(onderdeel) : undefined, arg ? decodeURIComponent(arg) : undefined);
-  }
   stopWandscherm();
-  if (portaal === "etiketten") {
+  stopMeldingen();
+  const routeHash = location.hash;
+  const routeToken = sessie.token;
+  const actueel = () => location.hash === routeHash && sessie.token === routeToken;
+  document.getElementById("menu")!.replaceChildren(h("div", { class: "merk" }, "MES"));
+  toon(h("p", { class: "sub" }, "Bevoegdheden ophalen…"));
+  try {
+    if (!(await vernieuwRechten()) || !actueel()) return;
+  } catch (e) {
+    if (!actueel()) return;
+    await tekenMenu("", "");
+    toon(h("p", { class: "foutmelding", role: "alert" }, (e as Error).message),
+      h("button", { class: "knop", onclick: () => void route() }, "Opnieuw proberen"));
+    return;
+  }
+  if (!rechten()?.personal) {
+    if (!magDisplay()) {
+      await tekenMenu("", "");
+      return toon(h("p", { class: "leeg" }, "Geen actuele displaybevoegdheid."));
+    }
+    if (portaal !== "wandscherm" || onderdeel) return void (location.hash = "#/wandscherm");
+    await tekenMenu("", "");
+    return beperktDisplay();
+  }
+  if (portaal === "wandscherm") return void (location.hash = "#/");
+  if (portaal === "etiketten" && magEtiketten()) {
     await tekenMenu("", "");
     return etikettenScherm(onderdeel, arg);
   }
@@ -211,7 +234,7 @@ async function route() {
     return meldingenScherm(onderdeel === "alle");
   }
   // Nainvoeren na papier en lege formulieren (#75, D60): ploegleider en beheerder.
-  if (portaal === "nainvoeren" && (sessie.rol === "ploegleider" || sessie.rol === "beheerder")) {
+  if (portaal === "nainvoeren" && magNalevering()) {
     await tekenMenu("", "");
     return onderdeel === "formulier" ? formulieren(arg) : nalevering();
   }
@@ -230,11 +253,14 @@ async function route() {
   const toegestaan = portalenVoor(sessie.rol);
   if (!toegestaan.length) return void (location.hash = "#/");
   const p = toegestaan.find((x) => x.id === portaal);
-  // Eerste portaal dat bij de rol hoort (ploegleider: Productie, kwaliteit: Kwaliteit).
-  const standaard = sessie.rol === "ploegleider" || sessie.rol === "productiemanager" ? "productie" : sessie.rol === "beheerder" ? "beheer" : sessie.rol === "planner" ? "planning" : toegestaan.find((x) => x.klaar)?.id ?? toegestaan[0].id;
-  if (!p) return void (location.hash = toegestaan.some((x) => x.id === standaard) ? `#/${standaard}` : "#/");
+  if (!p) return void (location.hash = "#/");
   if (!p.klaar) { await tekenMenu(p.id, ""); return volgtScherm(p.naam); }
-  const deel = onderdeel || "overzicht";
+  const zichtbaar = zichtbareOnderdelen(p);
+  const deel = onderdeel || zichtbaar[0]?.pad || "";
+  const alias = p.id === "productie" && ["stap","batch","lot"].includes(deel) ? "overzicht"
+    : p.id === "kwaliteit" && deel === "certificaat" ? "lotpaspoort"
+    : p.id === "kwaliteit" && deel === "batch" ? "beoordelen" : deel;
+  if (!zichtbaar.some(o => o.pad === alias)) return void (location.hash = "#/"+p.id);
   const a = arg ? decodeURIComponent(arg) : undefined;
   if (p.id === "productie") {
     await tekenMenu(p.id, ["stap", "batch", "lot"].includes(deel) ? "overzicht" : deel);
@@ -246,14 +272,13 @@ async function route() {
       case "correcties": return productie.correcties();
       case "overdracht": return productie.overdracht(a);
       case "stilstand": return productie.stilstand();
-      case "pilot": return sessie.rol === "productiemanager" || sessie.rol === "beheerder" ? pilot.pilotoverzicht() : void (location.hash = "#/productie");
       case "batch": return a ? kwaliteit.batch(a) : productie.werkvoorraad();
       case "lot": return a ? kwaliteit.lotpaspoort(a) : productie.werkvoorraad();
       default: return void (location.hash = "#/productie");
     }
   }
   if (p.id === "planning") {
-    const stuk = onderdeel || "week";
+    const stuk = deel;
     await tekenMenu(p.id, stuk);
     const [, , , a1, a2] = location.hash.split("/").map(decodeURIComponent);
     switch (stuk) {
@@ -268,20 +293,18 @@ async function route() {
     }
   }
   if (p.id === "beheer") {
-    const stuk = onderdeel || "stappen";
+    const stuk = deel;
     await tekenMenu(p.id, stuk);
     switch (stuk) {
       case "stappen": return beheer.stappen(a);
       // Accounts en Operators zijn samen Medewerkers (#87); oude bladwijzers komen daar uit.
-      case "medewerkers": case "accounts": case "operators": return beheer.medewerkers();
+      case "accounts": return beheer.accounts();
+      case "operators": return beheer.personeel();
       case "grondstoffen": return beheer.grondstoffen();
       case "ploegen": return beheer.ploegen();
       case "oorzaken": return beheer.oorzaken();
-      case "bedrijf": return beheer.bedrijf();
       case "pcs": return beheer.pcs();
       case "logboek": return beheer.logboek();
-      case "opmerkingen": return beheer.opmerkingen();
-      case "pilot": return pilot.pilotoverzicht();
       case "server": return beheer.server();
       default: return void (location.hash = "#/beheer");
     }
