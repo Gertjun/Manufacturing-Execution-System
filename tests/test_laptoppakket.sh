@@ -49,8 +49,8 @@ const i = JSON.parse(fs.readFileSync("instellingen.json", "utf8"));
 })().catch(e => { console.error(e.message); process.exitCode=1; });
 JS
 
-TOK=$(curl -s -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"beheerder1","wachtwoord":"demo"}' | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).token))')
-curl -s localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"postgres":"18' || fout "geen PostgreSQL 18"
+TOK=$(curl -fsS -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"mes.laptop.system","wachtwoord":"demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const t=JSON.parse(s).token;if(!t)process.exit(1);console.log(t)})') || fout "technische MES-testlogin mislukt"
+curl -fsS localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"postgres":"18' || fout "serverinformatie niet beschikbaar voor technische MES-testidentiteit of verkeerde PostgreSQL-versie"
 stopApp
 pgDraait && fout "database draait nog na Ctrl+C"
 
@@ -109,8 +109,8 @@ rm -rf data/backups
 start
 grep -q "Back-up maken" /tmp/laptoptest.log || fout "geen back-up bij tweede start"
 [ "$(ls data/backups | wc -l)" = "1" ] || fout "back-upmap klopt niet"
-TOK=$(curl -s -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"beheerder1","wachtwoord":"demo"}' | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).token))')
-curl -s localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"waarschuwingen":\[\]' || fout "waarschuwingen na back-up"
+TOK=$(curl -fsS -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"mes.laptop.system","wachtwoord":"demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const t=JSON.parse(s).token;if(!t)process.exit(1);console.log(t)})') || fout "technische MES-testlogin mislukt"
+curl -fsS localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"waarschuwingen":\[\]' || fout "waarschuwingen na back-up"
 pkill -9 -f "node opstarten.mjs"; sleep 1
 start
 grep -q "draait nog van de vorige keer" /tmp/laptoptest.log || fout "database van harde stop niet hergebruikt"
