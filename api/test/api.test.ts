@@ -71,6 +71,24 @@ before(async () => {
   await beheerDb.query(readFileSync(new URL("../../db/schema.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/seed_config.sql", import.meta.url), "utf8"));
   await beheerDb.query(readFileSync(new URL("../../db/seed_accounts_demo.sql", import.meta.url), "utf8"));
+  // Alleen fictieve API-regressieaccounts: expliciete actuele MES-grants,
+  // geen productie-upgrade of automatische mapping van oude rollen.
+  // Technisch beheer krijgt geen engineering- of securityrecht.
+  await beheerDb.query(`
+    INSERT INTO fabriek.authorization_grant(user_id,role_code)
+    SELECT g.id,v.role_code FROM (VALUES
+      ('operator.a','operator'),('operator.b','operator'),
+      ('operator.c','operator'),('operator.d','operator'),
+      ('ploegleider1','shift_supervisor'),('ploegleider2','shift_supervisor'),
+      ('kwaliteit1','quality_approver'),
+      ('beheerder1','system_administrator'),('analist1','analyst_management'),
+      ('planner1','production_planner'),('productiemanager1','manufacturing_manager'),
+      ('scherm1','display_integration')
+    ) v(naam,role_code)
+    JOIN fabriek.gebruiker g ON g.gebruikersnaam=v.naam
+    WHERE NOT g.gedeeld
+  `);
+
   await beheerDb.query(readFileSync(new URL("../../db/rechten.sql", import.meta.url), "utf8"));
   // De meeste tests zijn van vóór de keuring (#64): daar meet de operator alles. De keuring heeft een eigen test.
   await beheerDb.query("UPDATE fabriek.veld SET gemeten_door = 'productie' WHERE processtap_id IN (SELECT id FROM fabriek.processtap WHERE soort = 'proces')");

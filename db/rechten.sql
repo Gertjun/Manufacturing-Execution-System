@@ -393,6 +393,11 @@ BEGIN
    END IF;
    GRANT INSERT ON fabriek.veld, fabriek.veld_product, fabriek.grondstof, fabriek.stap_grondstof, fabriek.pc, fabriek.pc_stap, fabriek.product, fabriek.stapplanning, fabriek.capaciteit_afwijking, fabriek.capaciteit_stap, fabriek.lot_voorstel, fabriek.lot_voorstel_batch, fabriek.waarde, fabriek.grondstof_gebruik, fabriek.invoerconflict, fabriek.specificatie, fabriek.specificatie_regel, fabriek.stilstand, fabriek.stilstand_oorzaak, fabriek.melding_gelezen, fabriek.overdracht, fabriek.rooster, fabriek.rooster_ploeg, fabriek.certificaat, fabriek.instelling, fabriek.terugmelding, fabriek.geweigerde_invoer, fabriek.product_stap, fabriek.config_log, fabriek.melding TO mes_app;
    GRANT UPDATE ON fabriek.veld, fabriek.veld_product, fabriek.processtap, fabriek.grondstof, fabriek.stap_grondstof, fabriek.pc, fabriek.product, fabriek.batch, fabriek.capaciteit_afwijking, fabriek.capaciteit_stap, fabriek.lot_voorstel, fabriek.specificatie, fabriek.specificatie_regel, fabriek.stilstand, fabriek.stilstand_oorzaak, fabriek.ploeg, fabriek.rooster, fabriek.rooster_ploeg, fabriek.instelling, fabriek.terugmelding TO mes_app;
+   -- REVOKE op tabelniveau trekt ook kolomrechten in. Herstel uitsluitend
+   -- de eerder begrensde account- en personeelsinterface, niet tabelbrede writes.
+   GRANT INSERT (gebruikersnaam,rol,actief,gedeeld,wachtwoord_hash,wachtwoord_wijzigen),
+         UPDATE (gebruikersnaam,rol,actief,gedeeld,wachtwoord_hash,wachtwoord_wijzigen) ON fabriek.gebruiker TO mes_app;
+   GRANT INSERT (naam,actief,ploeg_id), UPDATE (naam,actief,ploeg_id) ON fabriek.operator TO mes_app;
    GRANT DELETE ON fabriek.pc_stap, fabriek.stapplanning, fabriek.lot_voorstel_batch, fabriek.product_stap, fabriek.veld_product, fabriek.capaciteit_stap, fabriek.specificatie, fabriek.specificatie_regel TO mes_app;
  END IF;
 END $$;
