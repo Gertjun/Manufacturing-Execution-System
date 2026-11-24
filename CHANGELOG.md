@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: SQL-functiebegrenzingen in conceptmigratie 0050 en installatieschema gecorrigeerd; databaseacceptatie nog open.
 - MES: begrensde wachtwoordwijziging en blokkade gedeelde accounts op databaseniveau (0050).
 - MES: eerste correcties tussentijdse D99-audit; actuele persoonlijke sessiecontrole en werkstationbinding gescheiden van wachtwoordauthenticatie.
 - MES: batch-, lot- en herbewerkingsbevoegdheden met productscope (0049).

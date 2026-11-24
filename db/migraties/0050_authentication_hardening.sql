@@ -1,7 +1,7 @@
 -- Migratie 0050: één begrensde wachtwoordcontrole (D94/D99).
 SET search_path = fabriek, public;
 CREATE OR REPLACE FUNCTION inloggen(p_naam text, p_wachtwoord text, p_pc text DEFAULT NULL)
-RETURNS TABLE (id uuid, rol text, gebruikersnaam text, wacht_seconden int) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $
+RETURNS TABLE (id uuid, rol text, gebruikersnaam text, wacht_seconden int) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
 DECLARE
     v_mislukt   int;
     v_laatste   timestamptz;

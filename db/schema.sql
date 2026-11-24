@@ -3141,7 +3141,7 @@ CREATE INDEX personnel_qualification_user ON personnel_qualification(user_id);
 -- Alleen vertrouwde servercontext; NULL is geen match voor een begrensde scope.
 -- Dezelfde grant moet de permission en alle scopevoorwaarden bevatten.
 CREATE FUNCTION authorization_permits(p_user uuid, p_permission text, p_area text, p_product uuid, p_equipment text)
-RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek, public AS $
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek, public AS $$
     WITH grants AS (
       SELECT g.*, r.domain FROM authorization_grant g JOIN authorization_role r ON r.code = g.role_code
        WHERE g.user_id = p_user AND g.valid_from <= now()
@@ -3164,17 +3164,17 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek, public AS $
            AND NOT EXISTS (SELECT 1 FROM personnel_qualification q WHERE q.user_id = p_user
              AND q.qualification_code = aq.qualification_code AND q.valid_from <= now()
              AND (q.valid_until IS NULL OR now() < q.valid_until) AND q.revoked_at IS NULL))
-$;
+$$;
 
 -- D93/D94: geen gedeelde login en geen overdracht van invoerrechten via eerdere login.
 SET search_path = fabriek, public;
 CREATE OR REPLACE FUNCTION mag_invoeren_namens(p_gebruiker uuid, p_operator uuid, p_pc uuid) RETURNS boolean
-LANGUAGE sql STABLE SET search_path = fabriek, public AS $
+LANGUAGE sql STABLE SET search_path = fabriek, public AS $$
     SELECT EXISTS (SELECT 1 FROM operator o JOIN gebruiker g ON g.id = o.gebruiker_id
       JOIN pc ON pc.id = p_pc AND pc.actief
       WHERE o.id = p_operator AND o.actief AND g.id = p_gebruiker
         AND g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen)
-$;
+$$;
 
 -- Migratie 0038: onafhankelijke beoordeling van roltoekenning (D89 P01-P05).
 -- Uitbreidingsfase: uitsluitend database-eigenaar; geen toegang voor de applicatie.
@@ -3216,7 +3216,7 @@ VALUES ('authorization.request','security'), ('authorization.approve','security'
 CREATE FUNCTION authorization_submit(p_actor uuid, p_user uuid, p_role text,
     p_area text, p_product uuid, p_equipment text, p_from timestamptz,
     p_until timestamptz, p_reason text) RETURNS uuid
-LANGUAGE plpgsql SET search_path = fabriek, public AS $
+LANGUAGE plpgsql SET search_path = fabriek, public AS $$
 DECLARE v_id uuid;
 BEGIN
     IF p_actor IS NULL OR p_user IS NULL OR p_actor = p_user OR
@@ -3233,10 +3233,10 @@ BEGIN
     VALUES (p_actor,p_user,p_role,p_area,p_product,p_equipment,p_from,p_until,p_reason)
     RETURNING id INTO v_id;
     RETURN v_id;
-END $;
+END $$;
 
 CREATE FUNCTION authorization_decide(p_actor uuid, p_request uuid, p_approved boolean, p_reason text)
-RETURNS uuid LANGUAGE plpgsql SET search_path = fabriek, public AS $
+RETURNS uuid LANGUAGE plpgsql SET search_path = fabriek, public AS $$
 DECLARE v authorization_request%ROWTYPE; v_grant uuid; v_domain text;
 BEGIN
     -- Serialiseer besluiten voor hetzelfde doelaccount, ook uit verschillende aanvragen.
@@ -3275,7 +3275,7 @@ BEGIN
     INSERT INTO authorization_decision (request_id,decided_by,approved,reason,grant_id)
     VALUES (v.id,p_actor,p_approved,p_reason,v_grant);
     RETURN v_grant;
-END $;
+END $$;
 
 REVOKE ALL ON authorization_request, authorization_decision FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION authorization_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text),
@@ -3287,7 +3287,7 @@ SET search_path = fabriek, public;
 -- Ook toekomstige en verlopen, niet-ingetrokken security-grants beschermen:
 -- herstel van een kritisch account vereist een afzonderlijk gecontroleerd kanaal.
 CREATE FUNCTION authorization_protect_identity() RETURNS trigger
-LANGUAGE plpgsql SET search_path = fabriek, public AS $
+LANGUAGE plpgsql SET search_path = fabriek, public AS $$
 BEGIN
     IF (EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
                     AND pg_has_role(current_user, oid, 'MEMBER')))
@@ -3303,7 +3303,7 @@ BEGIN
         RAISE EXCEPTION 'Kritisch account vereist gecontroleerd identiteitsbeheer';
     END IF;
     RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER authorization_protect_identity BEFORE UPDATE ON gebruiker
     FOR EACH ROW EXECUTE FUNCTION authorization_protect_identity();
 
@@ -3313,7 +3313,7 @@ CREATE TRIGGER authorization_protect_identity BEFORE UPDATE ON gebruiker
 CREATE FUNCTION authorization_decide_confirmed(p_actor uuid, p_request uuid,
     p_approved boolean, p_reason text, p_password text)
 RETURNS TABLE (status text, grant_id uuid)
-LANGUAGE plpgsql SET search_path = fabriek, public AS $
+LANGUAGE plpgsql SET search_path = fabriek, public AS $$
 DECLARE v_name text; v_login record; v_grant uuid;
 BEGIN
     SELECT gebruikersnaam INTO v_name FROM gebruiker
@@ -3329,7 +3329,7 @@ BEGIN
     END IF;
     v_grant := authorization_decide(p_actor,p_request,p_approved,p_reason);
     RETURN QUERY SELECT 'decided'::text, v_grant;
-END $;
+END $$;
 REVOKE EXECUTE ON FUNCTION authorization_decide_confirmed(uuid,uuid,boolean,text,text) FROM PUBLIC;
 
 -- Migratie 0040: afscherming wachtwoordhashes en gecontroleerde accountwijziging.
@@ -3346,13 +3346,13 @@ REVOKE EXECUTE ON FUNCTION inloggen(text,text,text), wijzig_eigen_wachtwoord(uui
 
 -- Alleen de demo-indicatie, nooit de hash. Beperkt tot expliciete demoaccounts.
 CREATE FUNCTION demo_account_names(p_names text[]) RETURNS TABLE(gebruikersnaam text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public AS $
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public AS $$
     SELECT g.gebruikersnaam FROM fabriek.gebruiker g
       WHERE g.actief AND NOT g.gedeeld AND lower(g.gebruikersnaam)=ANY(p_names)
         AND lower(g.gebruikersnaam) IN ('operator.a','operator.b','operator.c','operator.d','ploegleider1','kwaliteit1','planner1','beheerder1','analist1','scherm1')
         AND g.wachtwoord_hash=public.crypt('demo',g.wachtwoord_hash)
       ORDER BY g.gebruikersnaam
-$;
+$$;
 REVOKE EXECUTE ON FUNCTION demo_account_names(text[]) FROM PUBLIC;
 
 -- Vervang de oude updatequery (die de hash moest lezen) door twee varianten
@@ -3376,7 +3376,7 @@ CREATE TABLE authorization_revocation (
 -- via dit kanaal; bevoegde collega bevestigt de exacte grant en reden.
 -- Eigenaar-only tot het beveiligde beheerkanaal en de tests gereed zijn.
 CREATE FUNCTION authorization_revoke_confirmed(p_actor uuid,p_grant uuid,p_reason text,p_password text)
-RETURNS text LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $
+RETURNS text LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
 DECLARE v_name text; v_login record; v_target uuid; v_revoked timestamptz; v_now timestamptz;
 BEGIN
     IF p_actor IS NULL OR NOT authorization_permits(p_actor,'authorization.revoke',NULL,NULL,NULL) THEN
@@ -3401,14 +3401,14 @@ BEGIN
     INSERT INTO authorization_revocation(grant_id,revoked_by,reason,revoked_at)
     VALUES(p_grant,p_actor,p_reason,v_now);
     RETURN 'revoked';
-END $;
+END $$;
 
 -- Onveranderlijke besluitregistraties; ook onderhoud kan ze niet per ongeluk wijzigen.
 CREATE FUNCTION authorization_audit_immutable() RETURNS trigger
-LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 BEGIN
     RAISE EXCEPTION 'Autorisatiebesluiten zijn onveranderlijk';
-END $;
+END $$;
 CREATE TRIGGER authorization_request_immutable BEFORE UPDATE OR DELETE ON authorization_request
     FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
 CREATE TRIGGER authorization_decision_immutable BEFORE UPDATE OR DELETE ON authorization_decision
@@ -3420,7 +3420,7 @@ REVOKE EXECUTE ON FUNCTION authorization_revoke_confirmed(uuid,uuid,text,text),a
 
 -- Migratie 0042: operatoridentiteit zonder wachtwoordhash.
 SET search_path = fabriek, public;
-CREATE OR REPLACE FUNCTION operator_van_account(p_gebruiker uuid) RETURNS uuid LANGUAGE plpgsql VOLATILE AS $
+CREATE OR REPLACE FUNCTION operator_van_account(p_gebruiker uuid) RETURNS uuid LANGUAGE plpgsql VOLATILE AS $$
 DECLARE
     v_g     record;
     v_id    uuid;
@@ -3439,7 +3439,7 @@ BEGIN
     END LOOP;
     INSERT INTO operator (naam, gebruiker_id) VALUES (v_naam, p_gebruiker) RETURNING id INTO v_id;
     RETURN v_id;
-END $;
+END $$;
 ALTER FUNCTION operator_van_account(uuid) SET search_path = fabriek, public;
 
 -- Migratie 0043: MES-rollenregister (D89 P01–P05).
@@ -3518,12 +3518,12 @@ INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
 
 -- Eén concrete doelcontext, zonder de scopes van verschillende grants te combineren.
 CREATE FUNCTION authorization_read_execution(p_user uuid,p_product uuid)
-RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $$
  SELECT authorization_permits(p_user,'execution.read',NULL,p_product,NULL)
      OR authorization_permits(p_user,'inspection.read',NULL,p_product,NULL)
      OR authorization_permits(p_user,'engineering.execution.read',NULL,p_product,NULL)
      OR authorization_permits(p_user,'analysis.execution.read',NULL,p_product,NULL)
-$;
+$$;
 
 -- Migratie 0047: planning en productdefinities gescheiden.
 SET search_path = fabriek, public;
@@ -3575,7 +3575,7 @@ INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
 -- Een volledig lot mag alleen zichtbaar zijn wanneer alle leden binnen de
 -- leesbevoegdheid vallen. Lege lots vereisen onbegrensde leesbevoegdheid.
 CREATE FUNCTION authorization_read_lot(p_user uuid,p_lot uuid)
-RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $$
  SELECT EXISTS (SELECT 1 FROM lot WHERE id=p_lot)
  AND CASE WHEN EXISTS (SELECT 1 FROM batch WHERE lot_id=p_lot)
  THEN NOT EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=p_lot
@@ -3583,12 +3583,12 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $
  ELSE authorization_read_execution(p_user,NULL) END
  AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.lot_id=p_lot
                   AND NOT authorization_read_execution(p_user,r.product_id))
-$;
+$$;
 
 -- Migratie 0050: één begrensde wachtwoordcontrole (D94/D99).
 SET search_path = fabriek, public;
 CREATE OR REPLACE FUNCTION inloggen(p_naam text, p_wachtwoord text, p_pc text DEFAULT NULL)
-RETURNS TABLE (id uuid, rol text, gebruikersnaam text, wacht_seconden int) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $
+RETURNS TABLE (id uuid, rol text, gebruikersnaam text, wacht_seconden int) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
 DECLARE
     v_mislukt   int;
     v_laatste   timestamptz;
@@ -3616,11 +3616,11 @@ BEGIN
     END IF;
     INSERT INTO inlogpoging (gebruikersnaam, pc, uitkomst) VALUES (v_gebruiker.gebruikersnaam, left(p_pc, 100), 'gelukt');
     RETURN QUERY SELECT v_gebruiker.id, v_gebruiker.rol, v_gebruiker.gebruikersnaam, NULL::int;
-END $;
+END $$;
 
 -- Foutieve authenticatie retourneert status zodat de audit bij commit behouden blijft.
 CREATE FUNCTION change_password_confirmed(p_user uuid,p_current text,p_new text)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
 DECLARE v_name text; v_login record;
 BEGIN
     IF length(coalesce(p_new,'')) < 8 OR p_new = p_current THEN
@@ -3634,7 +3634,7 @@ BEGIN
     IF v_login.id IS DISTINCT FROM p_user THEN RETURN 'denied'; END IF;
     UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash(p_new),wachtwoord_wijzigen=false WHERE id=p_user;
     RETURN 'changed';
-END $;
+END $$;
 REVOKE EXECUTE ON FUNCTION change_password_confirmed(uuid,text,text),inloggen(text,text,text),wijzig_eigen_wachtwoord(uuid,text,text),controleer_login(text,text) FROM PUBLIC;
 -- De oude controle en wachtwoordfunctie blijven alleen voor eigenaar/migratietests.
 
@@ -3650,7 +3650,7 @@ BEGIN
     FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'fabriek' LOOP
         EXECUTE format('ALTER FUNCTION %s SET search_path = fabriek, public', f.sig);
     END LOOP;
-END $;
+END $$;
 
 -- Afgeschermde functies houden pg_temp expliciet achter de vertrouwde schema's.
 ALTER FUNCTION inloggen(text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
