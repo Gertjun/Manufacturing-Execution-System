@@ -46,6 +46,31 @@ def main():
             return
         check(naam, False, "geen foutmelding")
 
+    print("\\nMES autorisaties (uitbreidingsmodel)")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    auth_user = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
+    check("Geen automatische MES-bevoegdheid", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO authorization_role VALUES ('test_operator','operations'), ('test_technical','technical')")
+    con.execute("INSERT INTO authorization_permission VALUES ('execution.record','operations')")
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_operator','execution.record')")
+    con.execute("INSERT INTO authorization_grant (user_id,role_code,area_code) VALUES (%s,'test_operator','A')", (auth_user,))
+    check("Recht binnen scope", val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    check("Recht buiten scope geweigerd", not val("SELECT authorization_permits(%s,'execution.record','B',NULL,NULL)", (auth_user,)))
+    check("Ontbrekende scope geweigerd", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO qualification VALUES ('test_training','Fictieve training')")
+    con.execute("INSERT INTO activity_qualification VALUES ('execution.record','test_training')")
+    check("Ontbrekende kwalificatie geweigerd", not val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO personnel_qualification (user_id,qualification_code) VALUES (%s,'test_training')", (auth_user,))
+    check("Geldige kwalificatie", val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_technical')", (auth_user,))
+    check("Functiescheiding bij gecombineerde rollen", not val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Applicatie kan geen directe grant toevoegen", "INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_operator')", (auth_user,), "permission denied")
+        faalt("Applicatie kan geen kwalificaties wijzigen", "UPDATE personnel_qualification SET revoked_at=now()", bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+
     pc = val("SELECT id FROM pc WHERE naam = 'PC-01'")
     op = val("SELECT id FROM operator WHERE naam = 'Operator A'")
     pl = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")

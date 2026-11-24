@@ -69,3 +69,19 @@ BEGIN
     GRANT mes_app TO batchgui_app;
   END IF;
 END $$;
+
+-- Autorisaties en kwalificaties: geen directe wijzigingen door de applicatie.
+DO $$
+DECLARE t text; login text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['authorization_role', 'authorization_permission', 'authorization_role_permission', 'authorization_grant', 'qualification', 'personnel_qualification', 'activity_qualification', 'authorization_legacy_snapshot'] LOOP
+    IF to_regclass('fabriek.' || t) IS NOT NULL THEN
+      EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.%I FROM PUBLIC', t);
+      FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = login) THEN
+          EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON fabriek.%I FROM %I', t, login);
+        END IF;
+      END LOOP;
+    END IF;
+  END LOOP;
+END $$;

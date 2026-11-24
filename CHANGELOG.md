@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES #107–#108 (deel): migratie 0036 voegt rollen, rechten, scopes, kwalificaties en een legacy-rolmomentopname toe; databasebeslissing en directe schrijfbeperkingen. Oude autorisatie nog actief; integratie en tests volgen.
 - MES #106: standaard beperkte databasegebruiker `mes_app` in rechten, CI en serverinstellingen; bestaande login tijdelijk compatibel (D91).
 - MES #107–#108 (deel): afzonderlijke autorisatiebeslismodule met negatieve unit-tests; nog niet aangesloten op API of database.
 - MES: API-titel en eenvoudige startpagina geharmoniseerd; werkafspraken voor concept-PRs verduidelijkt (D90).

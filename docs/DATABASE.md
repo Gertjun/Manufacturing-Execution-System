@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 43 tabellen en 94 verbanden.
+Schema `fabriek`: 51 tabellen en 104 verbanden.
 
 ## Overzicht
 
@@ -13,6 +13,12 @@ Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijz
 
 ```mermaid
 erDiagram
+    activity_qualification
+    authorization_grant
+    authorization_legacy_snapshot
+    authorization_permission
+    authorization_role
+    authorization_role_permission
     batch
     batch_besluit
     capaciteit_afwijking
@@ -38,10 +44,12 @@ erDiagram
     overdracht
     pc
     pc_stap
+    personnel_qualification
     ploeg
     processtap
     product
     product_stap
+    qualification
     rooster
     rooster_ploeg
     schema_versie
@@ -56,26 +64,30 @@ erDiagram
     veld
     veld_product
     waarde
+    authorization_permission ||--o{ activity_qualification : "permission_code"
+    authorization_permission ||--o{ authorization_role_permission : "permission_code"
+    authorization_role ||--o{ authorization_grant : "role_code"
+    authorization_role ||--o{ authorization_role_permission : "role_code"
     batch ||--o{ batch_besluit : "batch_id"
     batch |o--o{ herbewerking : "batch_id"
     batch ||--o{ lot_voorstel_batch : "batch_id"
     batch |o--o{ stapplanning : "batch_id"
     batch |o--o{ stapregistratie : "batch_id"
     gebruiker |o--o| operator : "gebruiker_id"
+    grondstof_gebruik |o--o| grondstof_gebruik : "vervangt_id"
+    grondstof_gebruik |o--o{ invoerconflict : "bestaand_gebruik_id"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
     grondstof ||--o{ stap_grondstof : "grondstof_id"
-    grondstof_gebruik |o--o| grondstof_gebruik : "vervangt_id"
-    grondstof_gebruik |o--o{ invoerconflict : "bestaand_gebruik_id"
     herbewerking |o--o{ keuring : "herbewerking_id"
+    lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
+    lot_voorstel |o--o{ stapplanning : "voorstel_id"
     lot |o--o{ batch : "lot_id"
     lot ||--o{ certificaat : "lot_id"
     lot |o--o{ herbewerking : "lot_id"
     lot |o--o{ lot_voorstel : "lot_id"
     lot |o--o{ stapplanning : "lot_id"
     lot |o--o{ stapregistratie : "lot_id"
-    lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
-    lot_voorstel |o--o{ stapplanning : "voorstel_id"
     melding ||--o{ melding_gelezen : "melding_id"
     ploeg ||--o{ overdracht : "ploeg_id"
     processtap |o--o{ capaciteit_afwijking : "processtap_id"
@@ -89,6 +101,7 @@ erDiagram
     processtap ||--o{ stapregistratie : "processtap_id"
     processtap ||--o{ stilstand : "processtap_id"
     processtap ||--o{ veld : "processtap_id"
+    product |o--o{ authorization_grant : "product_id"
     product |o--o{ batch : "product_id"
     product |o--o{ capaciteit_afwijking : "product_id"
     product ||--o{ capaciteit_stap : "product_id"
@@ -96,6 +109,8 @@ erDiagram
     product ||--o{ specificatie : "product_id"
     product |o--o{ stapregistratie : "product_id"
     product ||--o{ veld_product : "product_id"
+    qualification ||--o{ activity_qualification : "qualification_code"
+    qualification ||--o{ personnel_qualification : "qualification_code"
     rooster_ploeg |o--o{ operator : "ploeg_id"
     specificatie ||--o{ specificatie_regel : "specificatie_id"
     specificatie |o--o{ waarde : "specificatie_id"
@@ -117,53 +132,111 @@ erDiagram
 
 | Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |
 | --- | ---: | --- | --- |
-| [`batch`](#batch) | 14 | `gebruiker`, `lot`, `operator`, `product` |  |
+| [`activity_qualification`](#activity_qualification) | 2 | `authorization_permission`, `qualification` | Verplichte kwalificatie voor een concrete activiteit. |
+| [`authorization_grant`](#authorization_grant) | 9 | `authorization_role`, `gebruiker`, `product` | Persoonlijke roltoekenning met geldigheid en begrensde scope. |
+| [`authorization_legacy_snapshot`](#authorization_legacy_snapshot) | 3 | `gebruiker` | Momentopname van de oude rol bij migratie, zonder extra rechten. |
+| [`authorization_permission`](#authorization_permission) | 2 |  | Concrete bevoegdheden binnen een domein. |
+| [`authorization_role_permission`](#authorization_role_permission) | 2 | `authorization_permission`, `authorization_role` | Koppeling tussen rollen en concrete bevoegdheden. |
+| [`authorization_role`](#authorization_role) | 2 |  | MES-rollen met gescheiden verantwoordelijkheidsdomeinen. |
 | [`batch_besluit`](#batch_besluit) | 6 | `batch`, `gebruiker` | Besluiten over een batch: in_beoordeling – ploegleider of kwaliteit; de batch kan dan niet verder vrijgegeven – keurresultaat OK, alleen kwaliteit; door… |
+| [`batch`](#batch) | 14 | `gebruiker`, `lot`, `operator`, `product` |  |
 | [`capaciteit_afwijking`](#capaciteit_afwijking) | 8 | `processtap`, `product` | Afwijkende capaciteit (sinds 0.48.0, D69): in een periode kan een stap en/of product minder aan. |
 | [`capaciteit_stap`](#capaciteit_stap) | 5 | `processtap`, `product` | Capaciteit per stap en product (sinds migratie 0020, D55): hoeveel items een stap per dag aankan. |
 | [`certificaat`](#certificaat) | 6 | `gebruiker`, `lot` |  |
 | [`config_log`](#config_log) | 8 |  | Wijzigingslogboek voor configuratie. |
 | [`gebruiker`](#gebruiker) | 7 |  | Persoonlijke accounts (ploegleider, beheerder, analist, planner) en het ene gedeelde operator-account. |
 | [`geweigerde_invoer`](#geweigerde_invoer) | 10 | `gebruiker`, `operator`, `pc` | Geweigerde invoer van een pc (#77, D66): de server legt vast wat hij weigerde, zodat het pilotoverzicht kan laten zien wat er misging. |
-| [`grondstof`](#grondstof) | 5 |  | Grondstoffen per batch (sinds migratie 0005, versie 0.11.0) Grondstoffen (configuratie, door de beheerder beheerd). |
 | [`grondstof_gebruik`](#grondstof_gebruik) | 11 | `gebruiker`, `grondstof`, `operator`, `stapregistratie` | Gebruik: per registratie en grondstof één oorspronkelijke regel; correcties vervangen hem (zoals bij waarden). |
+| [`grondstof`](#grondstof) | 5 |  | Grondstoffen per batch (sinds migratie 0005, versie 0.11.0) Grondstoffen (configuratie, door de beheerder beheerd). |
 | [`herbewerking`](#herbewerking) | 12 | `batch`, `gebruiker`, `lot`, `processtap`, `stapregistratie` | Herbewerkingen (sinds migratie 0021, #61): Kwaliteit of de productiemanager besluit dat een batch of lot terug moet naar een eerdere stap. |
 | [`inlogpoging`](#inlogpoging) | 5 |  |  |
 | [`instelling`](#instelling) | 3 |  | Certificaat per lot (sinds migratie 0010, versie 0.17.0) |
 | [`invoerconflict`](#invoerconflict) | 19 | `gebruiker`, `grondstof`, `grondstof_gebruik`, `operator`, `pc`, `stapregistratie`, `veld`, `waarde` | Conflicten bij gelijktijdige invoer (sinds 0032, #85, D75): vullen twee mensen hetzelfde veld of dezelfde grondstof van een stap in, dan blijft de eerste… |
 | [`keuring`](#keuring) | 8 | `gebruiker`, `herbewerking`, `stapregistratie` | Keuring door Kwaliteit (sinds migratie 0022, #64): een stap met velden die Kwaliteit meet. |
-| [`lot`](#lot) | 4 |  |  |
-| [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
-| [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
+| [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
+| [`lot`](#lot) | 4 |  |  |
 | [`melding_gelezen`](#melding_gelezen) | 3 | `gebruiker`, `melding` |  |
+| [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
 | [`onderhoud_log`](#onderhoud_log) | 9 |  |  |
 | [`operator`](#operator) | 5 | `gebruiker`, `rooster_ploeg` | Namenlijst waaruit operators na het inloggen kiezen. |
 | [`overdracht`](#overdracht) | 10 | `gebruiker`, `operator`, `pc`, `ploeg` |  |
-| [`pc`](#pc) | 4 |  |  |
 | [`pc_stap`](#pc_stap) | 2 | `pc`, `processtap` | Optioneel: welke stappen in de keuzelijst van een pc staan. |
+| [`pc`](#pc) | 4 |  |  |
+| [`personnel_qualification`](#personnel_qualification) | 6 | `gebruiker`, `qualification` | Persoonlijke kwalificatie met geldigheid en intrekking. |
 | [`ploeg`](#ploeg) | 6 |  | Ploegoverdracht (sinds migratie 0006, versie 0.12.0) |
 | [`processtap`](#processtap) | 8 |  |  |
-| [`product`](#product) | 5 |  | Producten (configuratie, door de planner beheerd; sinds migratie 0003) |
 | [`product_stap`](#product_stap) | 3 | `processtap`, `product` | Route per product (sinds migratie 0018, D55): welke stappen een product doorloopt, in welke volgorde. |
-| [`rooster`](#rooster) | 3 |  | Ploegen en rooster (sinds 0033, #86, D76). |
+| [`product`](#product) | 5 |  | Producten (configuratie, door de planner beheerd; sinds migratie 0003) |
+| [`qualification`](#qualification) | 2 |  | Definitie van een personeelskwalificatie. |
 | [`rooster_ploeg`](#rooster_ploeg) | 6 |  |  |
+| [`rooster`](#rooster) | 3 |  | Ploegen en rooster (sinds 0033, #86, D76). |
 | [`schema_versie`](#schema_versie) | 3 |  |  |
-| [`specificatie`](#specificatie) | 10 | `gebruiker`, `processtap`, `product` | Specificatie per product en keuringsstap (sinds 0.51.0, #80, D73): waar het product in een tussenkeuring (TK) of de eindkeuring (EK) aan moet voldoen, met… |
 | [`specificatie_regel`](#specificatie_regel) | 5 | `specificatie`, `veld` | Per veld van de keuringsstap het minimum en/of maximum. |
+| [`specificatie`](#specificatie) | 10 | `gebruiker`, `processtap`, `product` | Specificatie per product en keuringsstap (sinds 0.51.0, #80, D73): waar het product in een tussenkeuring (TK) of de eindkeuring (EK) aan moet voldoen, met… |
 | [`stap_grondstof`](#stap_grondstof) | 5 | `grondstof`, `processtap` | In welke stap welke grondstof wordt ingevoerd, en of dat verplicht is. |
 | [`stapplanning`](#stapplanning) | 10 | `batch`, `gebruiker`, `lot`, `lot_voorstel`, `processtap` |  |
 | [`stapregistratie`](#stapregistratie) | 20 | `batch`, `gebruiker`, `lot`, `operator`, `pc`, `processtap`, `product` |  |
-| [`stilstand`](#stilstand) | 11 | `gebruiker`, `operator`, `pc`, `processtap`, `stilstand_oorzaak` |  |
 | [`stilstand_oorzaak`](#stilstand_oorzaak) | 5 |  | Storingen en stilstand (sinds migratie 0008, versie 0.14.0) |
+| [`stilstand`](#stilstand) | 11 | `gebruiker`, `operator`, `pc`, `processtap`, `stilstand_oorzaak` |  |
 | [`terugmelding`](#terugmelding) | 12 | `gebruiker`, `operator`, `pc` | "Iets melden" (sinds migratie 0026, #78, D62): gebruikers typen kort wat misgaat of beter kan. |
-| [`veld`](#veld) | 16 | `processtap` |  |
 | [`veld_product`](#veld_product) | 6 | `product`, `veld` | Grenzen en tolerantie per product (sinds migratie 0019, D55). |
+| [`veld`](#veld) | 16 | `processtap` |  |
 | [`waarde`](#waarde) | 17 | `gebruiker`, `operator`, `specificatie`, `stapregistratie`, `veld` |  |
 
 ## Kolommen per tabel
 
 PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is de kolom altijd ingevuld.
+
+### activity_qualification
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `permission_code` | text | PK FK | `authorization_permission` |
+| `qualification_code` | text | PK FK | `qualification` |
+
+### authorization_grant
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `user_id` | uuid | FK | `gebruiker` |
+| `role_code` | text | FK | `authorization_role` |
+| `area_code` | text | leeg |  |
+| `product_id` | uuid | FK leeg | `product` |
+| `equipment_code` | text | leeg |  |
+| `valid_from` | timestamptz |  |  |
+| `valid_until` | timestamptz | leeg |  |
+| `revoked_at` | timestamptz | leeg |  |
+
+### authorization_legacy_snapshot
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `user_id` | uuid | PK FK | `gebruiker` |
+| `legacy_role` | text |  |  |
+| `captured_at` | timestamptz |  |  |
+
+### authorization_permission
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `code` | text | PK |  |
+| `domain` | text |  |  |
+
+### authorization_role
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `code` | text | PK |  |
+| `domain` | text |  |  |
+
+### authorization_role_permission
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `role_code` | text | PK FK | `authorization_role` |
+| `permission_code` | text | PK FK | `authorization_permission` |
 
 ### batch
 
@@ -475,6 +548,17 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `pc_id` | uuid | PK FK | `pc` |
 | `processtap_id` | uuid | PK FK | `processtap` |
 
+### personnel_qualification
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `user_id` | uuid | FK | `gebruiker` |
+| `qualification_code` | text | FK | `qualification` |
+| `valid_from` | timestamptz |  |  |
+| `valid_until` | timestamptz | leeg |  |
+| `revoked_at` | timestamptz | leeg |  |
+
 ### ploeg
 
 | Kolom | Type | | Verwijst naar |
@@ -516,6 +600,13 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `product_id` | uuid | PK FK | `product` |
 | `processtap_id` | uuid | PK FK | `processtap` |
 | `plek` | int |  |  |
+
+### qualification
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `code` | text | PK |  |
+| `description` | text |  |  |
 
 ### rooster
 
