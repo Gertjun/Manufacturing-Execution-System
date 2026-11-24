@@ -2,12 +2,14 @@
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { pasTestdataAan } from "../tools/pakket/prepare-testdata.mjs";
 const sql = (p) => readFileSync(new URL(p, import.meta.url), "utf8").split(/\r?\n/).filter((r) => !r.startsWith("\\")).join("\n");
 const t0 = Date.now();
 const db = await PGlite.create({ extensions: { pgcrypto } });
 await db.exec(sql("../db/schema.sql"));
 console.log("schema", Date.now() - t0, "ms");
-await db.exec("BEGIN; SET LOCAL session_replication_role = replica;\n" + sql("../tools/pakket/testdata.sql") + "\nCOMMIT;");
+const testdata = pasTestdataAan(sql("../tools/pakket/testdata.sql"));
+await db.exec("BEGIN; SET LOCAL session_replication_role = replica;\n" + testdata + "\nCOMMIT;");
 console.log("data", Date.now() - t0, "ms");
 // Fictief onderhoud, zodat Beheer → Server eruitziet als op een echte server (tijden vlak voor de laatste invoer).
 await db.exec(`
