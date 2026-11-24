@@ -157,7 +157,15 @@ def main():
         con.execute("RESET ROLE")
     check("Verkeerde herbevestiging weigert herstel", val(recover,(recovery_target,recovery_a,recovery_b,'demo','onjuist')) == "denied")
     check("Geen herstelrecord bij geweigerde herbevestiging", val("SELECT count(*) FROM authorization_recovery WHERE user_id=%s",(recovery_target,)) == 0)
+    before_recovery = val("SELECT session_version FROM gebruiker WHERE id=%s",(recovery_target,))
     check("Onafhankelijk herbevestigd herstel slaagt", val(recover,(recovery_target,recovery_a,recovery_b,'demo','demo')) == "recovered")
+    check("Herstel trekt sessiegeneratie in", val("SELECT session_version FROM gebruiker WHERE id=%s",(recovery_target,)) == before_recovery+1)
+    check("Oude generatie kan wachtwoord niet wijzigen", val("SELECT status FROM change_password_session(%s,%s,'tijdelijk-herstel','persoonlijk-test')",(recovery_target,before_recovery)) == "stale")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Applicatie mag generatie niet terugzetten", "UPDATE gebruiker SET session_version=1 WHERE id=%s",(recovery_target,),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
     check("Herstel vereist persoonlijk wachtwoord kiezen", val("SELECT wachtwoord_wijzigen FROM gebruiker WHERE id=%s",(recovery_target,)))
     check("Herstelrecord koppelt exacte identiteit en beoordelaars", val("SELECT count(*) FROM authorization_recovery WHERE user_id=%s AND requested_by=%s AND approved_by=%s",(recovery_target,recovery_a,recovery_b)) == 1)
     faalt("Herstelrecord onveranderlijk", "UPDATE authorization_recovery SET reason='gewijzigd' WHERE user_id=%s",(recovery_target,),"onveranderlijk")

@@ -3923,8 +3923,59 @@ END $$;
 REVOKE ALL ON authorization_recovery FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION authorization_recover_confirmed(uuid,uuid,uuid,text,text,text,text) FROM PUBLIC;
 
+-- Migratie 0056: sessiegeneratie bij identiteitswijzigingen.
+SET search_path = fabriek, public;
+ALTER TABLE gebruiker ADD COLUMN session_version bigint NOT NULL DEFAULT 1 CHECK (session_version > 0);
+CREATE FUNCTION authorization_session_version() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF TG_OP='INSERT' THEN
+        NEW.session_version := 1;
+    ELSIF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash
+       OR NEW.wachtwoord_wijzigen IS DISTINCT FROM OLD.wachtwoord_wijzigen
+       OR NEW.actief IS DISTINCT FROM OLD.actief OR NEW.rol IS DISTINCT FROM OLD.rol
+       OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+       OR NEW.gebruikersnaam IS DISTINCT FROM OLD.gebruikersnaam THEN
+        NEW.session_version := OLD.session_version + 1;
+    ELSE
+        NEW.session_version := OLD.session_version;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER authorization_session_version BEFORE INSERT OR UPDATE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION authorization_session_version();
+REVOKE EXECUTE ON FUNCTION authorization_session_version() FROM PUBLIC;
+
+-- Neem de generatie onder dezelfde accountlock als de wachtwoordcontrole op.
+CREATE FUNCTION login_with_session(p_name text,p_password text,p_pc text)
+RETURNS TABLE(id uuid,rol text,gebruikersnaam text,wacht_seconden int,session_version bigint,ww boolean)
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v record;
+BEGIN
+    SELECT * INTO v FROM inloggen(p_name,p_password,p_pc);
+    IF v.id IS NULL THEN
+        RETURN QUERY SELECT NULL::uuid,NULL::text,NULL::text,v.wacht_seconden,NULL::bigint,NULL::boolean;
+    ELSE
+        RETURN QUERY SELECT v.id,v.rol,v.gebruikersnaam,v.wacht_seconden,g.session_version,g.wachtwoord_wijzigen
+            FROM gebruiker g WHERE g.id=v.id;
+    END IF;
+END $$;
+
+-- De oude token-generatie moet ook binnen de wijzigingstransactie kloppen.
+CREATE FUNCTION change_password_session(p_user uuid,p_version bigint,p_current text,p_new text)
+RETURNS TABLE(status text,session_version bigint)
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_status text;
+BEGIN
+    PERFORM 1 FROM gebruiker g WHERE g.id=p_user AND g.session_version=p_version FOR UPDATE;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'stale'::text,NULL::bigint; RETURN; END IF;
+    v_status := change_password_confirmed(p_user,p_current,p_new);
+    RETURN QUERY SELECT v_status,g.session_version FROM gebruiker g WHERE g.id=p_user;
+END $$;
+REVOKE EXECUTE ON FUNCTION login_with_session(text,text,text),change_password_session(uuid,bigint,text,text) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -3948,5 +3999,9 @@ ALTER FUNCTION authorization_guard_legacy_role() SET search_path = pg_catalog,fa
 ALTER FUNCTION authorization_protect_identity() SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION authorization_bootstrap_empty(text,text,text,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 ALTER FUNCTION authorization_recover_confirmed(uuid,uuid,uuid,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+
+ALTER FUNCTION authorization_session_version() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION login_with_session(text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION change_password_session(uuid,bigint,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 
 COMMIT;

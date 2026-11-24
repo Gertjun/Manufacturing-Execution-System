@@ -9,6 +9,7 @@ export interface Sessie {
   sub: string;          // gebruiker.id
   naam: string;         // gebruikersnaam
   rol: Rol;
+  sessionVersion: number;
   pcId?: string;        // pc waarop is ingelogd
   operatorId?: string;  // eigen naam van het account (D53), of bij een gedeeld account de gekozen naam
   gedeeld?: boolean;    // het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
@@ -39,9 +40,9 @@ export function vereist(...rollen: Rol[]) {
     if (req.user.ww) {
       throw new ApiFout(403, "Kies eerst een eigen wachtwoord; je wachtwoord is tijdelijk");
     }
-    const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean }>(req.server.db,
-      "SELECT rol, actief, gedeeld, wachtwoord_wijzigen FROM gebruiker WHERE id = $1", [req.user.sub]);
-    if (!account?.actief || account.gedeeld || account.rol !== req.user.rol) throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
+    const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean; session_version: number }>(req.server.db,
+      "SELECT rol, actief, gedeeld, wachtwoord_wijzigen, session_version FROM gebruiker WHERE id = $1", [req.user.sub]);
+    if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.session_version !== req.user.sessionVersion) throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
     if (account.wachtwoord_wijzigen) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
     if (!rollen.includes(account.rol)) {
       throw new ApiFout(403, `Rol ${req.user.rol} mag dit niet`);
@@ -57,9 +58,9 @@ export async function ingelogd(req: FastifyRequest) {
     throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
   }
   if (req.user.gedeeld) throw new ApiFout(401, "Log in met een persoonlijk account");
-  const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean }>(req.server.db,
-    "SELECT rol, actief, gedeeld, wachtwoord_wijzigen FROM gebruiker WHERE id = $1", [req.user.sub]);
-  if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.wachtwoord_wijzigen !== !!req.user.ww) {
+  const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean; session_version: number }>(req.server.db,
+    "SELECT rol, actief, gedeeld, wachtwoord_wijzigen, session_version FROM gebruiker WHERE id = $1", [req.user.sub]);
+  if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.session_version !== req.user.sessionVersion || account.wachtwoord_wijzigen !== !!req.user.ww) {
     throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
   }
 }

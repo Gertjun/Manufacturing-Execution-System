@@ -1916,3 +1916,15 @@ describe("Pilotoverzicht (#77, D66)", () => {
     assert.equal((await verzoek("GET", "/pilot?van=2026-02-01&tot=2026-01-01", pm)).status, 400);
   });
 });
+
+ test("sessiegeneratie: oude tokens herleven niet na wijziging of deactivatie", async () => {
+  await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('session.test','operator',fabriek.wachtwoord_hash('demo'))");
+  const old = await login("session.test");
+  const changed = await verzoek("POST","/auth/wachtwoord",old,{huidig:"demo",nieuw:"session-new-password"});
+  assert.equal(changed.status,200);
+  assert.equal((await verzoek("POST","/auth/pc",old,{pc:"PC-01"})).status,401);
+  assert.equal((await verzoek("POST","/auth/pc",changed.body.token,{pc:"PC-01"})).status,200);
+  await beheerDb.query("UPDATE fabriek.gebruiker SET actief=false WHERE gebruikersnaam='session.test'");
+  await beheerDb.query("UPDATE fabriek.gebruiker SET actief=true WHERE gebruikersnaam='session.test'");
+  assert.equal((await verzoek("POST","/auth/pc",changed.body.token,{pc:"PC-01"})).status,401);
+});

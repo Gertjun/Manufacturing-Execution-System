@@ -36,8 +36,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { gebruikersnaam, wachtwoord, pc } = req.body;
       // inloggen() legt elke poging vast en laat na 5 mislukte pogingen binnen 15 minuten 1 minuut wachten (D45).
       const [uitkomst] = await inTransactie(app.db, "inloggen", async (tx) =>
-        (await tx.query<{ id: string | null; rol: Rol | null; gebruikersnaam: string | null; wacht_seconden: number | null }>(
-          "SELECT * FROM inloggen($1, $2, $3)", [gebruikersnaam, wachtwoord, pc ?? null])).rows);
+        (await tx.query<{ id: string | null; rol: Rol | null; gebruikersnaam: string | null; wacht_seconden: number | null; session_version: number; ww: boolean }>(
+          "SELECT * FROM login_with_session($1, $2, $3)", [gebruikersnaam, wachtwoord, pc ?? null])).rows);
       if (uitkomst?.wacht_seconden) {
         throw new ApiFout(429, `Te vaak een verkeerd wachtwoord. Wacht ${uitkomst.wacht_seconden} seconden en probeer het opnieuw.`);
       }
@@ -62,15 +62,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       });
       if (!ac || ac.gedeeld) throw new ApiFout(403, "Log in met een persoonlijk account");
       const gedeeld = false;
-      const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, pcId,
-        ...(ac?.operator_id ? { operatorId: ac.operator_id } : {}), ...(gedeeld ? { gedeeld } : {}), ...(ac?.ww ? { ww: true } : {}) };
+      const sessie: Sessie = { sub: gebruiker.id, naam: gebruiker.naam, rol: gebruiker.rol, sessionVersion: uitkomst.session_version, pcId,
+        ...(ac?.operator_id ? { operatorId: ac.operator_id } : {}), ...(gedeeld ? { gedeeld } : {}), ...(uitkomst.ww ? { ww: true } : {}) };
       // Een wandscherm blijft dagen aan staan: langer geldig token (het mag alleen het wandscherm lezen).
       const token = gebruiker.rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie);
       return {
         token, rol: gebruiker.rol,
         naamKiezen: gedeeld && INVOER.includes(gebruiker.rol),
         operator: ac?.operator_id ? { id: ac.operator_id, naam: ac.operatornaam as string } : null,
-        ...(ac?.ww ? { wachtwoordWijzigen: true } : {}),
+        ...(uitkomst.ww ? { wachtwoordWijzigen: true } : {}),
       };
     },
   );
@@ -88,12 +88,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const status = await inTransactie(app.db, req.user.naam, async (tx) =>
-        (await tx.query<{status:string}>("SELECT change_password_confirmed($1,$2,$3) AS status",[req.user.sub,req.body.huidig,req.body.nieuw])).rows[0]?.status);
+      const result = await inTransactie(app.db, req.user.naam, async (tx) =>
+        (await tx.query<{status:string;session_version:number}>("SELECT * FROM change_password_session($1,$2,$3,$4)",[req.user.sub,req.user.sessionVersion,req.body.huidig,req.body.nieuw])).rows[0]);
+      const status = result?.status;
+      if (status === "stale") throw new ApiFout(401,"Account gewijzigd; log opnieuw in");
       if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen; probeer het later opnieuw");
       if (status !== "changed") throw new ApiFout(422,"Het huidige wachtwoord klopt niet");
       const { sub, naam, rol, pcId, operatorId, gedeeld } = req.user;
-      const sessie: Sessie = { sub, naam, rol, ...(pcId ? { pcId } : {}), ...(operatorId ? { operatorId } : {}), ...(gedeeld ? { gedeeld } : {}) };
+      const sessie: Sessie = { sub, naam, rol, sessionVersion: result.session_version, ...(pcId ? { pcId } : {}), ...(operatorId ? { operatorId } : {}), ...(gedeeld ? { gedeeld } : {}) };
       const [o] = operatorId ? await lees<{ naam: string }>(app.db, "SELECT naam FROM operator WHERE id = $1", [operatorId]) : [];
       return {
         token: rol === "scherm" ? app.jwt.sign(sessie, { expiresIn: "30d" }) : app.jwt.sign(sessie), rol,
@@ -127,7 +129,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       });
       if (!ac?.actief || ac.gedeeld) throw new ApiFout(401, "Dit account staat uit");
       const { sub, naam, rol } = req.user;
-      const sessie: Sessie = { sub, naam, rol, pcId: rij.id,
+      const sessie: Sessie = { sub, naam, rol, sessionVersion: req.user.sessionVersion, pcId: rij.id,
         ...(ac.operator_id ? { operatorId: ac.operator_id } : {}), ...(ac.gedeeld ? { gedeeld: true } : {}) };
       return {
         token: app.jwt.sign(sessie), rol,

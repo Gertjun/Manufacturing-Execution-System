@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: accountgebonden sessiegeneratie en intrekking oude tokens bij identiteitswijziging (0056).
 - MES: eigenaar-only onafhankelijk accountherstel met persoonlijke herbevestiging en auditrecord (0055); sessie-intrekking en aansluiting nog open.
 - MES: gecontroleerde lege-databasebootstrap met drie beheeridentiteiten; oude noodsleutel uitgeschakeld (0054), herstel nog open.
 - MES: bescherming tegen gewone wachtwoordresets voor bevoegde en legacy-identiteiten; geen roltoekenning bij tijdelijk wachtwoord (0053).
