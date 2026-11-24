@@ -102,6 +102,27 @@ def main():
     denied = val(submit, (sec_a,target))
     check("Afwijzing maakt geen grant", val("SELECT authorization_decide(%s,%s,false,'Afgewezen')", (sec_b,denied)) is None)
 
+    # D89: technische app-login mag security-identiteiten niet overnemen.
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Security-wachtwoordreset geblokkeerd", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (sec_a,), "Kritisch account")
+        faalt("Security-rolwijziging geblokkeerd", "UPDATE gebruiker SET rol='analist' WHERE id=%s", (sec_a,), "Kritisch account")
+        faalt("Security-account hernoemen geblokkeerd", "UPDATE gebruiker SET gebruikersnaam='andere-naam' WHERE id=%s", (sec_a,), "Kritisch account")
+        faalt("App mag bevestigde besluitfunctie niet uitvoeren", "SELECT * FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,req), "permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    confirm_req = val(submit, (sec_a,target))
+    check("Onjuist wachtwoord verleent geen bevoegdheid",
+          val("SELECT status FROM authorization_decide_confirmed(%s,%s,true,'Test','onjuist')", (sec_b,confirm_req)) == "denied")
+    check("Mislukte herbevestiging heeft geen besluit",
+          val("SELECT count(*) FROM authorization_decision WHERE request_id=%s", (confirm_req,)) == 0)
+    check("Persoonlijke herbevestiging beslist exacte aanvraag",
+          val("SELECT status FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,confirm_req)) == "decided")
+    check("Bevestigd besluit bewaard", val("SELECT count(*) FROM authorization_decision WHERE request_id=%s AND decided_by=%s", (confirm_req,sec_b)) == 1)
+    # Ruim testgrants niet op: trek ze in zodat bestaande regressies niet door
+    # fictieve security-rechten worden beïnvloed en het testspoor bewaard blijft.
+    con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE role_code='test_security'")
+
     pc = val("SELECT id FROM pc WHERE naam = 'PC-01'")
     op = val("SELECT id FROM operator WHERE naam = 'Operator A'")
     pl = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")

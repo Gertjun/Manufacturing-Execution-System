@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: bescherming security-accounts tegen directe app-wijzigingen en eigenaar-only besluitgebonden wachtwoordherbevestiging (0039); gecontroleerd herstel en API-integratie nog open.
 - MES: eigenaar-only aanvraag- en vierogenbesluit voor roltoekenning (0038); persoonlijke herbevestiging en aansluiting nog open.
 - D94: onzekere offline herkomst heeft eigen beoordelingsstatus en geen verwijderknop; persoonlijke sessie vastgezet bij verzending. Database-regressies en stilstandtest aangepast, geweigerde invoer blijft gelogd onder geauthenticeerde identiteit.
 - MES D94: eerdere pc-login geeft geen invoerrecht namens een ander; lokale acties met onzekere herkomst worden bewaard voor beoordeling. Persoonlijke testaccounts C en D toegevoegd. Offline acceptatie nog open.

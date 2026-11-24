@@ -92,7 +92,7 @@ DO $$
 DECLARE login text; f record;
 BEGIN
   FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide') LOOP
+           WHERE n.nspname='fabriek' AND p.proname IN ('authorization_submit','authorization_decide','authorization_decide_confirmed','authorization_protect_identity') LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f.sig);
     FOREACH login IN ARRAY ARRAY['mes_app','batchgui_app'] LOOP
       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN

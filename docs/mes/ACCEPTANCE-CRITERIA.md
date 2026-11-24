@@ -23,3 +23,5 @@ Fase 1, PR #6 (deelimplementatie): `api/test/authorization.test.ts` bevat scenar
 D92: oude accountimport moet 404 opleveren; geen accountsjabloon in Medewerkers. Handmatig account aanmaken, tijdelijk wachtwoord en eigen wachtwoord wijzigen blijven regressietests.
 
 Migratie 0038: negatieve DB-scenario's voor eigen aanvraag, onbevoegde aanvrager, eigen besluit, doelaccount als beoordelaar, dubbele beslissing en beperkte app-rechten; positieve onafhankelijke beslissing en afwijzing. Nog niet uitgevoerd. Identiteitsherbevestiging, intrekking, gecontroleerd bootstrapkanaal en API/UI-integratie blijven open.
+
+0039: regressies voor bescherming van security-account tegen reset/rolwijziging/hernoemen, geweigerde app-aanroep, verkeerde herbevestiging zonder besluit, juiste herbevestiging met gekoppeld besluit. Nog niet uitgevoerd.
