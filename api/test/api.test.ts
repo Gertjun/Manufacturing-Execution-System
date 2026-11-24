@@ -139,11 +139,35 @@ describe("inloggen en rollen", () => {
     await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))", [name]);
     await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT g.id,'analyst_management',p.id FROM fabriek.gebruiker g CROSS JOIN fabriek.product p WHERE g.gebruikersnaam=$1 AND p.code='PRD-A'", [name]);
     const scoped = await login(name);
-    for (const path of ["/planning/producten", "/werkvoorraad", "/analyse/samenvatting"]) {
+    for (const path of ["/planning/producten", "/werkvoorraad", "/analyse/samenvatting", "/config/stappen"]) {
       for (const token of [system, security, scoped]) {
         assert.equal((await verzoek("GET", path, token)).status, 403, path);
       }
       assert.equal((await verzoek("GET", path, reader)).status, 200, path);
+    }
+  });
+  test("D101: inactieve configuratie vereist engineeringbeheer", async () => {
+    const op = await login("mes.operator");
+    const engineer = await login("mes.engineer");
+    assert.equal((await verzoek("GET", "/config/stappen?ookInactief=true", op)).status,403);
+    const r = await verzoek("GET", "/config/stappen?ookInactief=true", engineer);
+    assert.equal(r.status,200,JSON.stringify(r.body));
+  });
+  test("D101: werkstationbinding volgt grants en persoonlijke koppeling, niet legacyrol", async () => {
+    const name = "mes.pc.scope";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[name]);
+    await beheerDb.query("INSERT INTO fabriek.operator(naam,gebruiker_id) SELECT gebruikersnaam,id FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[name]);
+    const token = await login(name);
+    assert.equal((await verzoek("POST","/auth/pc",token,{pc:"PC-01"})).status,403);
+    const {rows:[grant]} = await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT g.id,'operator',p.id FROM fabriek.gebruiker g CROSS JOIN fabriek.product p WHERE g.gebruikersnaam=$1 AND p.code='PRD-A' RETURNING id",[name]);
+    const bound = await verzoek("POST","/auth/pc",token,{pc:"PC-01"});
+    assert.equal(bound.status,200,JSON.stringify(bound.body));
+    assert.equal(bound.body.operator.naam,name);
+    assert.equal(bound.body.naamKiezen,false);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("POST","/auth/pc",token,{pc:"PC-01"})).status,403);
+    for (const account of ["mes.system","mes.security.a","mes.display"]) {
+      assert.equal((await verzoek("POST","/auth/pc",await login(account),{pc:"PC-01"})).status,403);
     }
   });
   test("configuratie: 18 processtappen en 3 keuringsstappen, PS16 is de lot-stap", async () => {
@@ -1912,6 +1936,8 @@ describe("Pilotoverzicht (#77, D66)", () => {
 
  test("sessiegeneratie: oude tokens herleven niet na wijziging of deactivatie", async () => {
   await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('session.test','operator',fabriek.wachtwoord_hash('demo'))");
+  await beheerDb.query("INSERT INTO fabriek.operator(naam,gebruiker_id) SELECT 'session.test',id FROM fabriek.gebruiker WHERE gebruikersnaam='session.test'");
+  await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code) SELECT id,'operator' FROM fabriek.gebruiker WHERE gebruikersnaam='session.test'");
   const old = await login("session.test");
   const changed = await verzoek("POST","/auth/wachtwoord",old,{huidig:"demo",nieuw:"session-new-password"});
   assert.equal(changed.status,200);
