@@ -1,7 +1,7 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { ingelogd, type Rol, type Sessie } from "../auth.js";
-import { personalSession } from "../modules/authorization/access.js";
+import { personalSession, permissionProjection } from "../modules/authorization/access.js";
 import { ApiFout } from "../fouten.js";
 import { inTransactie, lees } from "../db.js";
 
@@ -18,6 +18,25 @@ const TokenAntwoord = Type.Object({
 });
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
+  // Uitsluitend eigen actuele rechten; nooit een doelaccount uit clientinput.
+  app.get("/permissions", {
+    preHandler: ingelogd,
+    schema: {
+      tags: ["inloggen"],
+      description: "Actuele UI-projectie; geen vervanging van autorisatie per handeling.",
+      response: { 200: Type.Object({
+        global: Type.Array(Type.String()),
+        products: Type.Array(Type.Object({ permission: Type.String(), product: Type.String() })),
+        personal: Type.Boolean(),
+        linkedPerson: Type.Boolean(),
+      }) },
+    },
+  }, async (req, reply) => {
+    if (req.user.ww) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
+    reply.header("cache-control", "no-store");
+    return permissionProjection(req);
+  });
+
   // Inloggen. Een pc onthoudt zijn eigen naam (bv. PC-07) en stuurt die mee.
   app.post(
     "/login",
