@@ -32,14 +32,14 @@ def main():
     con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE processtap_id IN (SELECT id FROM processtap WHERE soort = 'proces')")
 
     def one(sql, p=()):
-        return con.execute(sql, p).fetchone()
+        return (con.execute(sql, p) if p else con.execute(sql)).fetchone()
 
     def val(sql, p=()):
         return one(sql, p)[0]
 
     def faalt(naam, sql, p=(), bevat=""):
         try:
-            con.execute(sql, p)
+            con.execute(sql, p) if p else con.execute(sql)
         except psycopg.Error as e:
             msg = str(e).splitlines()[0]
             check(naam, bevat.lower() in msg.lower(), msg)

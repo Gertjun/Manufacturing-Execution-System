@@ -49,7 +49,7 @@ REVOKE ALL ON FUNCTION quality_decision_confirmed(uuid,bigint,text,uuid,text,tex
 CREATE FUNCTION quality_legacy_decision_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 BEGIN
- IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+ IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
             AND pg_has_role(current_user,oid,'MEMBER')) THEN
    IF TG_TABLE_NAME='batch_besluit' THEN
      IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Besluitregistratie is onveranderlijk'; END IF;

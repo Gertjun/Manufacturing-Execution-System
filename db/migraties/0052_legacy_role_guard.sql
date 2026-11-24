@@ -8,7 +8,7 @@ ALTER TABLE gebruiker ADD CONSTRAINT gebruiker_rol_check
 CREATE FUNCTION authorization_guard_legacy_role() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+    IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
                AND pg_has_role(current_user,oid,'MEMBER')) THEN
         IF TG_OP = 'INSERT' THEN
             IF NEW.rol <> 'pending' OR NEW.gedeeld OR NOT NEW.wachtwoord_wijzigen THEN

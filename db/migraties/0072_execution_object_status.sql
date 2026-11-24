@@ -6,7 +6,7 @@ SET search_path = fabriek, public;
 CREATE FUNCTION execution_object_status_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 BEGIN
- IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
  IF TG_TABLE_NAME='batch' THEN
    IF (NEW.status,NEW.lot_id,NEW.gestart_op,NEW.vervallen_reden)
       IS DISTINCT FROM (OLD.status,OLD.lot_id,OLD.gestart_op,OLD.vervallen_reden) THEN

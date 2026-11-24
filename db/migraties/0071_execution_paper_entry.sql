@@ -62,7 +62,7 @@ END $$;
 CREATE FUNCTION execution_paper_metadata_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 BEGIN
- IF pg_has_role(current_user,'mes_app','MEMBER') THEN
+ IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND pg_has_role(current_user,'mes_app','MEMBER') THEN
    IF TG_OP='INSERT' THEN
      IF NEW.nageleverd_door IS NOT NULL OR NEW.nageleverd_reden IS NOT NULL OR NEW.nageleverd_op IS NOT NULL THEN
        RAISE EXCEPTION 'Papieren herkomst uitsluitend via gecontroleerde nalevering' USING ERRCODE='42501';

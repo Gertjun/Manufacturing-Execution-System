@@ -44,7 +44,7 @@ CREATE FUNCTION execution_batch_metadata_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid;
 BEGIN
- IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
  IF (NEW.id,NEW.batchnummer,NEW.bron,NEW.aangemaakt_op,NEW.aangemaakt_door,NEW.gepland_door)
  IS DISTINCT FROM (OLD.id,OLD.batchnummer,OLD.bron,OLD.aangemaakt_op,OLD.aangemaakt_door,OLD.gepland_door) THEN
    RAISE EXCEPTION 'Oorspronkelijke batchherkomst mag niet wijzigen' USING ERRCODE='42501';

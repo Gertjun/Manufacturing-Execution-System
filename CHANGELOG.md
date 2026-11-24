@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- D100: effectieve tabeleigenaar correct onderscheiden van gewone app-rol; herstel testhelper en API-teardown.
 - D100: afsluitdelimiter van auditfunctie 0080 in basisschema hersteld.
 - D100: PostgreSQL 18-installatiefout in niet-uitgebrachte bootstrapmigratie 0054 gecorrigeerd (gereserveerde kolomnaam).
 - CI: gerichte PostgreSQL-baseline op verzoek voor concept-PR (D100), zonder volledige acceptatiesuite.

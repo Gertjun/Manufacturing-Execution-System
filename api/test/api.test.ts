@@ -79,9 +79,9 @@ before(async () => {
 });
 
 after(async () => {
-  await app.close();
-  if (db !== beheerDb) await db.end();
-  await beheerDb.end();
+  if (app) await app.close();
+  if (db && db !== beheerDb) await db.end();
+  if (beheerDb) await beheerDb.end();
 });
 
 describe("inloggen en rollen", () => {

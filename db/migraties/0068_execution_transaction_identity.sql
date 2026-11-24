@@ -33,7 +33,7 @@ CREATE FUNCTION execution_registration_identity_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid; v_operator uuid;
 BEGIN
-    IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+    IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
     v_actor:=execution_transaction_actor();
     IF TG_OP='INSERT' THEN
         v_operator:=NEW.operator_id;

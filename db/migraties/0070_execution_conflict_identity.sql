@@ -5,7 +5,7 @@ CREATE FUNCTION execution_conflict_insert_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE; v_permission text;
 BEGIN
- IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
  v_actor:=execution_transaction_actor();
  IF NEW.status<>'open' OR NEW.opgelost_door IS NOT NULL OR NEW.opgelost_op IS NOT NULL OR NEW.reden IS NOT NULL
  OR NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.ingevoerd_door AND gebruiker_id=v_actor AND actief) THEN

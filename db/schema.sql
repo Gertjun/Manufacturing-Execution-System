@@ -3722,7 +3722,7 @@ ALTER TABLE gebruiker ADD CONSTRAINT gebruiker_rol_check
 CREATE FUNCTION authorization_guard_legacy_role() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+    IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
                AND pg_has_role(current_user,oid,'MEMBER')) THEN
         IF TG_OP = 'INSERT' THEN
             IF NEW.rol <> 'pending' OR NEW.gedeeld OR NOT NEW.wachtwoord_wijzigen THEN
@@ -4015,7 +4015,7 @@ $$;
 CREATE FUNCTION authorization_personnel_identity_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+    IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
                AND pg_has_role(current_user,oid,'MEMBER')) THEN
         IF TG_OP='INSERT' THEN
             IF NEW.gebruiker_id IS NOT NULL THEN
@@ -4315,7 +4315,7 @@ REVOKE ALL ON FUNCTION quality_decision_confirmed(uuid,bigint,text,uuid,text,tex
 CREATE FUNCTION quality_legacy_decision_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 BEGIN
- IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+ IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
             AND pg_has_role(current_user,oid,'MEMBER')) THEN
    IF TG_TABLE_NAME='batch_besluit' THEN
      IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Besluitregistratie is onveranderlijk'; END IF;
@@ -4672,7 +4672,7 @@ CREATE FUNCTION execution_registration_identity_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid; v_operator uuid;
 BEGIN
-    IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+    IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
     v_actor:=execution_transaction_actor();
     IF TG_OP='INSERT' THEN
         v_operator:=NEW.operator_id;
@@ -4703,7 +4703,7 @@ CREATE FUNCTION execution_measurement_identity_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE; v_permission text; v_quality boolean; v_correction boolean;
 BEGIN
-    IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+    IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
     v_actor:=execution_transaction_actor();
     SELECT * INTO v_reg FROM stapregistratie WHERE id=NEW.stapregistratie_id;
     IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stapregistratie'; END IF;
@@ -4752,7 +4752,7 @@ CREATE FUNCTION execution_conflict_insert_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE; v_permission text;
 BEGIN
- IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
  v_actor:=execution_transaction_actor();
  IF NEW.status<>'open' OR NEW.opgelost_door IS NOT NULL OR NEW.opgelost_op IS NOT NULL OR NEW.reden IS NOT NULL
  OR NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.ingevoerd_door AND gebruiker_id=v_actor AND actief) THEN
@@ -4885,7 +4885,7 @@ END $$;
 CREATE FUNCTION execution_paper_metadata_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 BEGIN
- IF pg_has_role(current_user,'mes_app','MEMBER') THEN
+ IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND pg_has_role(current_user,'mes_app','MEMBER') THEN
    IF TG_OP='INSERT' THEN
      IF NEW.nageleverd_door IS NOT NULL OR NEW.nageleverd_reden IS NOT NULL OR NEW.nageleverd_op IS NOT NULL THEN
        RAISE EXCEPTION 'Papieren herkomst uitsluitend via gecontroleerde nalevering' USING ERRCODE='42501';
@@ -4910,7 +4910,7 @@ SET search_path = fabriek, public;
 CREATE FUNCTION execution_object_status_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 BEGIN
- IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
  IF TG_TABLE_NAME='batch' THEN
    IF (NEW.status,NEW.lot_id,NEW.gestart_op,NEW.vervallen_reden)
       IS DISTINCT FROM (OLD.status,OLD.lot_id,OLD.gestart_op,OLD.vervallen_reden) THEN
@@ -5039,7 +5039,7 @@ CREATE FUNCTION execution_batch_metadata_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid;
 BEGIN
- IF NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
  IF (NEW.id,NEW.batchnummer,NEW.bron,NEW.aangemaakt_op,NEW.aangemaakt_door,NEW.gepland_door)
  IS DISTINCT FROM (OLD.id,OLD.batchnummer,OLD.bron,OLD.aangemaakt_op,OLD.aangemaakt_door,OLD.gepland_door) THEN
    RAISE EXCEPTION 'Oorspronkelijke batchherkomst mag niet wijzigen' USING ERRCODE='42501';
