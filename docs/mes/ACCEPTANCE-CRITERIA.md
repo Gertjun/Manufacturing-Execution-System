@@ -208,3 +208,12 @@ Open blokkade: tools/pakket/opstarten.mjs initialiseert de ingebouwde database m
 
 
 D24/D100: runtime-startcontrole, gescheiden laptopverbindingen, SCRAM en offline authenticatie-upgrade geïmplementeerd; gerichte regressies toegevoegd. Linux-pakkettest toegevoegd aan database-baseline. Nog geen nieuw testbewijs; de upgradeproef simuleert oude authenticatie op schema 0086 en vergelijkt batch-ID's, niet alle historische velden. Windows en representatieve oude schema-upgrade blijven open. Beveiligde back-ups met afwijkende credentials vereisen passende instellingen. Geen auditafsluiting.
+
+
+### D24/D100 — runtime- en pakketbewijs
+
+Run [45506512763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45506512763), job 138843004154, head `ca7ba00f92d314b2a40c265d06176468e796a1c6`, base `31c86973bf13848cba44fc38785084953fe65e39`: schone PostgreSQL 18-installatie, migratie-equivalentie, databaseregels, securitytools, API-typecheck en autorisatiemodule geslaagd; API 116/116 (inclusief vier effectieve runtimeprivilegetests). Pakketstap faalde bij serverinformatie met legacy testaccount, na geslaagde eerste start en SCRAM/runtimecontroles. Correcties beperken zich tot fictieve laptopidentiteit, pakkettest en gerichte CI-job.
+
+Run [45507583594](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45507583594), job 138846672697, head `16860b9c868452a92f580ead43b2743682ea04a9`, zelfde base: head/basecontrole en volledige gerichte Linux-pakkettest geslaagd. Log bevestigt SCRAM, beperkte runtime, eerste start, stoppen, back-up, harde stop, terugzetten, bootstrap en hersteldiagnose. Ook de in het script voorafgaande legacy-authenticatie-upgrade/herstel en batch-ID-bewijs zijn gepasseerd. Andere jobs overgeslagen. Bewijs betreft twee verschillende heads; geen integrale acceptatie van de huidige tree. Windows, volledige historische schema-upgrade, alle historische velden, effectieve/transitieve ACL-restaudit en D101 blijven open. Geen formele auditafsluiting of release.
+
+D101 vervolg: inventariseer oude accounts, rollen, API/DB/UI/tools/fixtures en verwijder overbodige legacy-autorisatie pas na vervanging en regressiebewijs. Fictieve accounts mogen worden uitgefaseerd; historische persoonlijke identiteiten, verwijzingen en auditgegevens behouden. Geen automatische legacy-grants.
