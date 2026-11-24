@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- CI: gerichte PostgreSQL-baseline op verzoek voor concept-PR (D100), zonder volledige acceptatiesuite.
 - MES: stabiele auditactor-ID en expliciete herkomststatus (0081); SQL-delimiter van niet-uitgebrachte 0080 gecorrigeerd.
 - MES: configuratieaudit gebruikt gevalideerde persoonlijke sessie; onbewezen herkomst expliciet gemarkeerd (0080).
 - MES: directe configuratie-auditwrites geblokkeerd; afgeschermde trigger (0079).

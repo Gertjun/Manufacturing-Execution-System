@@ -146,3 +146,5 @@ Correctie 0063 vóór release: foutief enkel dollarteken in SQL-functiedefinitie
 | Installatie en regressie | Schone PostgreSQL-installatie, upgrade vanaf main, schema-equivalentie, fictieve fixtures, Windows-pakket, actuele API-/schermtests en diagram. |
 
 De bestaande herstel-/bootstraprecords blijven afzonderlijke bewijzen; geen nieuwe generieke systeemidentiteit bouwen tenzij een concrete fase-1-blokker dat vereist. Migratie 0082 is niet automatisch de volgende stap. Eerst gerichte baseline; alle eerder geschreven regressies zonder uitvoeringsbewijs blijven onbewezen. Volledige faseacceptatie volgt pas na implementatie en review. Geen formele ISA-conformiteitsclaim.
+
+D100: gerichte diagnostische CI via label `database-baseline`: roadmap, schone PostgreSQL 18-installatie, schema/migraties, DB-regels, Node 22 typecheck en API-tests. Onafhankelijke stappen blijven waar mogelijk lopen na fouten. Geen acceptatiebewijs voor volledige fase; Windows/pakket, diagram, werkelijke upgrade met representatieve data en integrale tests blijven open.

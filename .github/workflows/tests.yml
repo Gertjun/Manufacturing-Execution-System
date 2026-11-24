@@ -227,3 +227,87 @@ jobs:
             cat "$log"
             echo '::endgroup::'
           done
+
+  database-baseline:
+    name: Gerichte PostgreSQL-baseline (D100)
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'database-baseline'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: batchgui
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Head en base controleren
+        id: basis
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
+          git rev-parse 'HEAD^{tree}'
+      - name: PostgreSQL-client en Python voorbereiden
+        id: tools
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          mkdir -p "$RUNNER_TEMP/pg18"
+          cat > "$RUNNER_TEMP/pg18/pg_dump" <<'SH'
+          #!/bin/sh
+          exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "$@"
+          SH
+          chmod +x "$RUNNER_TEMP/pg18/pg_dump"
+          echo "$RUNNER_TEMP/pg18" >> "$GITHUB_PATH"
+          echo "PG_CONTAINER=${{ job.services.postgres.id }}" >> "$GITHUB_ENV"
+      - name: Roadmap controleren
+        if: always() && steps.basis.outcome == 'success'
+        run: tests/test_roadmap.sh
+      - name: Schone installatie met foutregels
+        id: schema
+        if: always() && steps.tools.outcome == 'success'
+        run: |
+          psql -v ON_ERROR_STOP=1 -d batchgui -f db/schema.sql > /tmp/mes-schema.log 2>&1 || { tail -60 /tmp/mes-schema.log; exit 1; }
+      - name: Schema en migraties vergelijken
+        if: always() && steps.tools.outcome == 'success'
+        run: tests/test_migraties.sh
+      - name: Databaseregels en beperkte rechten
+        if: always() && steps.schema.outcome == 'success'
+        run: python3 tests/test_regels.py "host=localhost port=5432 user=postgres dbname=batchgui"
+      - name: Node.js 22 instellen
+        id: node
+        if: always() && steps.basis.outcome == 'success'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: API afhankelijkheden
+        id: npm
+        if: always() && steps.node.outcome == 'success'
+        working-directory: api
+        run: npm ci --no-audit --no-fund
+      - name: API typecheck en autorisatiemodule
+        if: always() && steps.npm.outcome == 'success'
+        working-directory: api
+        run: |
+          npm run typecheck
+          npx --no-install tsx --test test/authorization.test.ts
+      - name: API-regressies met beperkte rechten
+        if: always() && steps.npm.outcome == 'success' && steps.schema.outcome == 'success'
+        working-directory: api
+        env:
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
+        run: npm test
