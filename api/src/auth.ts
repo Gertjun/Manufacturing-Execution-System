@@ -10,6 +10,7 @@ export interface Sessie {
   naam: string;         // gebruikersnaam
   rol: Rol;
   sessionVersion: number;
+  sessionProof?: string; // vertrouwelijk bearer-bewijs; nooit loggen
   pcId?: string;        // pc waarop is ingelogd
   operatorId?: string;  // eigen naam van het account (D53), of bij een gedeeld account de gekozen naam
   gedeeld?: boolean;    // het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
@@ -28,6 +29,16 @@ export const LEIDING: Rol[] = ["ploegleider", "beheerder"];
 export const BEHEER: Rol[] = ["beheerder"];
 export const IEDEREEN: Rol[] = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "productiemanager"];
 
+/** Persoonlijk bewijs uit de ondertekende sessie, nooit uit een losse clientheader. */
+async function controleerSessiebewijs(req: FastifyRequest): Promise<void> {
+  if (req.user.ww || req.user.rol === "scherm") return;
+  const proof = req.user.sessionProof;
+  if (!proof) throw new ApiFout(401, "Log opnieuw in voor een persoonlijke sessie");
+  const [r] = await lees<{ actor: string | null }>(req.server.db,
+    "SELECT execution_session_actor($1) AS actor", [proof]);
+  if (r?.actor !== req.user.sub) throw new ApiFout(401, "Persoonlijke sessie verlopen; log opnieuw in");
+}
+
 /** preHandler: geldig token en een van de rollen. */
 export function vereist(...rollen: Rol[]) {
   return async (req: FastifyRequest) => {
@@ -44,6 +55,7 @@ export function vereist(...rollen: Rol[]) {
       "SELECT rol, actief, gedeeld, wachtwoord_wijzigen, session_version FROM gebruiker WHERE id = $1", [req.user.sub]);
     if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.session_version !== req.user.sessionVersion) throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
     if (account.wachtwoord_wijzigen) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
+    await controleerSessiebewijs(req);
     if (!rollen.includes(account.rol)) {
       throw new ApiFout(403, `Rol ${req.user.rol} mag dit niet`);
     }
@@ -63,6 +75,7 @@ export async function ingelogd(req: FastifyRequest) {
   if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.session_version !== req.user.sessionVersion || account.wachtwoord_wijzigen !== !!req.user.ww) {
     throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
   }
+  await controleerSessiebewijs(req);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
