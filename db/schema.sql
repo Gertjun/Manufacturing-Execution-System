@@ -3974,8 +3974,29 @@ BEGIN
 END $$;
 REVOKE EXECUTE ON FUNCTION login_with_session(text,text,text),change_password_session(uuid,bigint,text,text) FROM PUBLIC;
 
+-- Migratie 0057: diagnose voor noodherstel, geen automatische bevoegdheidstoekenning.
+SET search_path = fabriek, public;
+
+-- Een bevoegd account is niet noodzakelijk beschikbaar: dit is uitsluitend
+-- een technische bovengrens, geen bewijs van aanwezigheid of wachtwoordbezit.
+CREATE FUNCTION authorization_recovery_readiness(p_target uuid)
+RETURNS TABLE(eligible_requesters bigint,eligible_approvers bigint,independent_pairs bigint)
+LANGUAGE sql STABLE SET search_path = pg_catalog,fabriek,pg_temp AS $$
+    WITH candidates AS (
+      SELECT id,
+        authorization_permits(id,'authorization.request',NULL,NULL,NULL) AS can_request,
+        authorization_permits(id,'authorization.approve',NULL,NULL,NULL) AS can_approve
+      FROM gebruiker WHERE id <> p_target AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen
+    )
+    SELECT (SELECT count(*) FROM candidates WHERE can_request),
+           (SELECT count(*) FROM candidates WHERE can_approve),
+           (SELECT count(*) FROM candidates a CROSS JOIN candidates b
+              WHERE a.id<>b.id AND a.can_request AND b.can_approve)
+$$;
+REVOKE EXECUTE ON FUNCTION authorization_recovery_readiness(uuid) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -4003,5 +4024,6 @@ ALTER FUNCTION authorization_recover_confirmed(uuid,uuid,uuid,text,text,text,tex
 ALTER FUNCTION authorization_session_version() SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION login_with_session(text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
 ALTER FUNCTION change_password_session(uuid,bigint,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_recovery_readiness(uuid) SET search_path = pg_catalog,fabriek,pg_temp;
 
 COMMIT;

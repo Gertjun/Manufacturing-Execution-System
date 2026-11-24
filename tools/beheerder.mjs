@@ -111,7 +111,22 @@ export async function eersteBeheerder(c, io) {
 
 export async function beheerderMenu(c, io) {
   if (await eersteBeheerder(c, io)) return;
-  console.log("Oude noodsleutel uitgeschakeld. Gecontroleerd accountherstel is vereist; er is niets gewijzigd.");
+  console.log("Oude noodsleutel uitgeschakeld. Alleen herstel-diagnose; geen accounts worden gewijzigd.");
+  const name = (await io.vraag("Gebruikersnaam voor herstel-diagnose (Enter = stoppen): ")).toLowerCase();
+  if (!name) return;
+  const { rows: [target] } = await c.query("SELECT id,actief,gedeeld FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1",[name]);
+  if (!target || !target.actief || target.gedeeld) {
+    console.log("Geen actief persoonlijk doelaccount; afzonderlijke beoordeling vereist.");
+    return;
+  }
+  const { rows: [status] } = await c.query("SELECT * FROM fabriek.authorization_recovery_readiness($1)",[target.id]);
+  console.log("Technisch bevoegde onafhankelijke paren: " + status.independent_pairs);
+  if (Number(status.independent_pairs) === 0) {
+    console.log("Regulier herstel niet mogelijk. Escaleer naar organisatieverantwoordelijke en IT volgens het noodherstelprotocol.");
+  } else {
+    console.log("Regulier herstel kan mogelijk zijn. Controleer daadwerkelijke beschikbaarheid en persoonlijke identiteit.");
+  }
+  console.log("Er is niets gewijzigd.");
 }
 
 // Los gestart: node tools/beheerder.mjs

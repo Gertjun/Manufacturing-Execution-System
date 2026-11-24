@@ -147,6 +147,13 @@ def main():
     recovery_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-recovery','pending',wachtwoord_hash('demo-test')) RETURNING id")
     recovery_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
     recovery_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
+    check("Hersteldiagnose telt onafhankelijke paren", val("SELECT independent_pairs FROM authorization_recovery_readiness(%s)",(recovery_target,)) >= 2)
+    check("Doelaccount uitgesloten bij hersteldiagnose", val("SELECT independent_pairs FROM authorization_recovery_readiness(%s)",(recovery_a,)) < val("SELECT independent_pairs FROM authorization_recovery_readiness(%s)",(recovery_target,)))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Gewone app mag hersteldiagnose niet uitvoeren", "SELECT * FROM authorization_recovery_readiness(%s)",(recovery_target,),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
     recover = "SELECT authorization_recover_confirmed(%s,%s,%s,'Fictief herstel',%s,%s,'tijdelijk-herstel')"
     faalt("Herstel vereist twee verschillende beoordelaars", recover, (recovery_target,recovery_a,recovery_a,'demo','demo'), "Onafhankelijke")
     faalt("Herstel vereist onafhankelijke doelidentiteit", recover, (recovery_a,recovery_a,recovery_b,'demo','demo'), "Onafhankelijke")
