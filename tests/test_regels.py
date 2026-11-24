@@ -69,6 +69,8 @@ def main():
         faalt("Direct conflictbesluit geweigerd","UPDATE invoerconflict SET status='bestaand' WHERE false",bevat="permission denied")
         faalt("Oude conflictfunctie eigenaar-only","SELECT los_invoerconflict_op(NULL,'nieuw',NULL,'test')",bevat="permission denied")
         faalt("Conflictbesluit zonder sessiebewijs geweigerd","SELECT execution_resolve_conflict(NULL,'nieuw','test')",bevat="Geldig persoonlijk")
+        faalt("Oude papieren naleverfunctie eigenaar-only","SELECT lever_stap_na(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Papieren nalevering zonder bewijs geweigerd","SELECT execution_paper_entry(NULL,NULL,NULL,NULL,NULL,NULL,NULL,'test',NULL,NULL)",bevat="Geldig persoonlijk")
         faalt("Oude loginwrapper eigenaar-only","SELECT login_with_session(NULL,NULL,NULL)",bevat="permission denied")
         faalt("Oude wachtwoordwrapper eigenaar-only","SELECT change_password_session(NULL,1,NULL,NULL)",bevat="permission denied")
     finally:

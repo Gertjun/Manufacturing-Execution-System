@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: gecontroleerde papieren productienalevering met gescheiden identiteiten (0071).
 - MES: persoonlijke conflictinvoer en gecontroleerde conflictbesluiten (0070).
 - MES: persoonlijke identiteit en bevoegdheden bij meet- en grondstofinvoer (0069).
 - MES: persoonlijke identiteitsbinding in invoertransacties en eerste registratieguard (0068).
