@@ -47,6 +47,14 @@ def main():
         check(naam, False, "geen foutmelding")
 
     print("\nMES rollenregister en demo-bootstrap (D95)")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Oude kwaliteitsfunctie niet direct toegankelijk","SELECT beslis_keuring(NULL::uuid,'vrijgegeven',NULL,NULL::uuid,NULL)",bevat="permission denied")
+        faalt("Directe keuringupdate geweigerd","UPDATE keuring SET status='vrijgegeven' WHERE false",bevat="permission denied")
+        faalt("Directe besluitupdate geweigerd","UPDATE batch_besluit SET reden='test' WHERE false",bevat="permission denied")
+        check("Onbekende actor kan geen kwaliteitsbesluit nemen",val("SELECT quality_decision_confirmed(NULL,1,'batch',NULL,'vrijgegeven','test',NULL,'demo')")=="denied")
+    finally:
+        con.execute("RESET ROLE")
     demo_operator = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.operator'")
     check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
     check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))

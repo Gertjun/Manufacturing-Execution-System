@@ -4264,8 +4264,79 @@ END $$;
 REVOKE ALL ON FUNCTION authorization_channel_role_safe(oid),authorization_channel_bind(name,uuid,text),
  authorization_channel_unbind(name,text) FROM PUBLIC;
 
+-- Migratie 0062: persoonlijke bevestiging van tijdelijke legacy-kwaliteitsbesluiten.
+SET search_path = fabriek, public;
+
+-- De oude uitvoeringsfuncties blijven uitsluitend voor de eigenaar en de
+-- bevestigde ingang beschikbaar. Een reguliere keuring is geen MES Quality Release.
+CREATE FUNCTION quality_decision_confirmed(p_actor uuid,p_session bigint,p_kind text,
+ p_target uuid,p_decision text,p_reason text,p_step text,p_password text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_product uuid; v_lot uuid;
+BEGIN
+ SELECT gebruikersnaam INTO v_name FROM gebruiker
+ WHERE id=p_actor AND session_version=p_session AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'denied'; END IF;
+ IF p_decision IS NULL OR p_decision NOT IN ('vrijgegeven','afgekeurd') THEN
+   RAISE EXCEPTION 'Alleen vrijgave of afkeuring; herbewerking vereist een afzonderlijke opdracht';
+ END IF;
+ IF p_kind='inspection' THEN
+   SELECT r.product_id,r.lot_id INTO v_product,v_lot FROM keuring k
+   JOIN stapregistratie r ON r.id=k.stapregistratie_id WHERE k.id=p_target FOR UPDATE OF k,r;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Keuring bestaat niet'; END IF;
+   IF NOT authorization_permits(p_actor,'inspection.decide',NULL,v_product,NULL)
+     OR (v_lot IS NOT NULL AND EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=v_lot
+         AND NOT authorization_permits(p_actor,'inspection.decide',NULL,b.product_id,NULL))) THEN
+     RETURN 'denied';
+   END IF;
+ ELSIF p_kind='batch' THEN
+   SELECT product_id INTO v_product FROM batch WHERE id=p_target FOR UPDATE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Batch bestaat niet'; END IF;
+   IF NOT authorization_permits(p_actor,'inspection.batch.decide',NULL,v_product,NULL) THEN RETURN 'denied'; END IF;
+ ELSE RAISE EXCEPTION 'Onbekend besluitobject';
+ END IF;
+ SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+ IF v_login.id IS DISTINCT FROM p_actor THEN RETURN 'denied'; END IF;
+ IF p_kind='inspection' THEN
+   IF EXISTS (SELECT 1 FROM keuring WHERE id=p_target AND status<>'open') THEN
+     RAISE EXCEPTION 'Over deze stap is al beslist';
+   END IF;
+   PERFORM beslis_keuring(p_target,p_decision,p_reason,p_actor,NULL);
+ ELSE
+   INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door)
+   VALUES(p_target,p_decision,p_reason,p_actor);
+ END IF;
+ RETURN 'decided';
+END $$;
+REVOKE ALL ON FUNCTION quality_decision_confirmed(uuid,bigint,text,uuid,text,text,text,text) FROM PUBLIC;
+
+-- Bescherm besluiten ook wanneer een oude route rechtstreeks een tabel benadert.
+CREATE FUNCTION quality_legacy_decision_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+            AND pg_has_role(current_user,oid,'MEMBER')) THEN
+   IF TG_TABLE_NAME='batch_besluit' THEN
+     IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Besluitregistratie is onveranderlijk'; END IF;
+     IF NEW.besluit <> 'in_beoordeling' THEN RAISE EXCEPTION 'Persoonlijke kwaliteitsbevestiging vereist'; END IF;
+   ELSE
+     IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Persoonlijke kwaliteitsbevestiging vereist'; END IF;
+     IF NEW.status <> 'open' OR NEW.besloten_door IS NOT NULL OR NEW.besloten_op IS NOT NULL THEN
+       RAISE EXCEPTION 'Persoonlijke kwaliteitsbevestiging vereist';
+     END IF;
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER quality_guard_batch BEFORE INSERT OR UPDATE ON batch_besluit
+ FOR EACH ROW EXECUTE FUNCTION quality_legacy_decision_guard();
+CREATE TRIGGER quality_guard_inspection BEFORE INSERT OR UPDATE ON keuring
+ FOR EACH ROW EXECUTE FUNCTION quality_legacy_decision_guard();
+REVOKE ALL ON FUNCTION quality_legacy_decision_guard(),beslis_keuring(uuid,text,text,uuid,text) FROM PUBLIC;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -4310,5 +4381,8 @@ ALTER FUNCTION authorization_channel_grants() SET search_path = pg_catalog,fabri
 ALTER FUNCTION authorization_channel_role_safe(oid) SET search_path = pg_catalog,pg_temp;
 ALTER FUNCTION authorization_channel_bind(name,uuid,text) SET search_path = pg_catalog,fabriek,pg_temp;
 ALTER FUNCTION authorization_channel_unbind(name,text) SET search_path = pg_catalog,fabriek,pg_temp;
+
+ALTER FUNCTION quality_decision_confirmed(uuid,bigint,text,uuid,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION quality_legacy_decision_guard() SET search_path = pg_catalog,fabriek,pg_temp;
 
 COMMIT;

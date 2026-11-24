@@ -58,13 +58,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["keuringen"],
         description:
-          "Kwaliteit beslist: vrijgegeven (alle verplichte metingen van Kwaliteit zijn er), herbewerken (met reden, terug naar stapcode of deze stap) " +
-          "of afgekeurd (met reden). Hetzelfde besluit opnieuw versturen (offline wachtrij) geeft gewoon de stand terug.",
+          "Persoonlijk bevestigd proceskeuringsbesluit; geen offline herhaling of definitieve MES-vrijgave.",
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
         body: Type.Object({
           besluit: Type.Union([Type.Literal("vrijgegeven"), Type.Literal("herbewerken"), Type.Literal("afgekeurd")]),
           reden: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
-          stapcode: Type.Optional(Type.String({ description: "Bij herbewerken: terug naar deze stap (standaard de stap van de keuring)" })),
+          stapcode: Type.Optional(Type.String()),
+          wachtwoord: Type.String({ minLength: 1, maxLength: 200 }),
         }),
         response: { 200: RegistratieDetail },
       },
@@ -73,12 +73,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const [k] = await lees<{ stapregistratie_id: string }>(app.db, "SELECT stapregistratie_id FROM keuring WHERE id = $1", [req.params.id]);
       if (!k) throw niet("Keuring");
       try {
-        await inTransactie(app.db, req.user.naam, async (tx) => {
+        const status = await inTransactie(app.db, req.user.naam, async (tx) => {
           const { rows: [target] } = await tx.query<{product_id: string | null}>("SELECT r.product_id FROM keuring k JOIN stapregistratie r ON r.id=k.stapregistratie_id WHERE k.id=$1", [req.params.id]);
           if (!target) throw niet("Keuring");
           await requireTransactionPermission(tx, req.user.sub, "inspection.decide", { product: target.product_id ?? undefined });
-          await tx.query("SELECT beslis_keuring($1, $2, $3, $4, $5)", [req.params.id, req.body.besluit, req.body.reden ?? null, req.user.sub, req.body.stapcode ?? null]);
+          const { rows: [result] } = await tx.query<{status:string}>("SELECT quality_decision_confirmed($1,$2,'inspection',$3,$4,$5,$6,$7) AS status",[req.user.sub,req.user.sessionVersion,req.params.id,req.body.besluit,req.body.reden ?? null,req.body.stapcode ?? null,req.body.wachtwoord]);
+          return result?.status;
         });
+        if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen");
+        if (status !== "decided") throw new ApiFout(403,"Persoonlijke bevestiging geweigerd");
       } catch (e) {
         // Twee mensen van Kwaliteit op dezelfde keuring (#85): het eerste besluit telt; zeg wie dat nam.
         if (!String((e as Error).message).includes("al beslist")) throw e;

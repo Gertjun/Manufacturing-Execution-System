@@ -183,26 +183,35 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         body: Type.Object({
           besluit: Type.Union([Type.Literal("in_beoordeling"), Type.Literal("vrijgegeven"), Type.Literal("afgekeurd")]),
           reden: Type.String({ minLength: 1 }),
+          wachtwoord: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
         }),
         response: { 201: Batch },
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      const status = await inTransactie(app.db, req.user.naam, async (tx) => {
         const { rows } = await tx.query<{id:string;product_id:string|null}>("SELECT id,product_id FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         if (!rows[0]) throw niet("Batch");
         const target = {product: rows[0].product_id ?? undefined};
         if (req.body.besluit === "in_beoordeling") {
           const { rows: [permission] } = await tx.query<{allowed:boolean}>("SELECT authorization_permits($1,'execution.hold',NULL,$2,NULL) OR authorization_permits($1,'inspection.hold',NULL,$2,NULL) AS allowed", [req.user.sub,rows[0].product_id]);
           if (!permission?.allowed) throw new ApiFout(403,"Geen bevoegdheid voor blokkade");
-        } else await requireTransactionPermission(tx, req.user.sub,"inspection.batch.decide",target);
+        } else {
+          await requireTransactionPermission(tx, req.user.sub,"inspection.batch.decide",target);
+          if (!req.body.wachtwoord) throw new ApiFout(422,"Persoonlijke bevestiging vereist");
+          const { rows: [result] } = await tx.query<{status:string}>("SELECT quality_decision_confirmed($1,$2,'batch',$3,$4,$5,NULL,$6) AS status",[req.user.sub,req.user.sessionVersion,rows[0].id,req.body.besluit,req.body.reden,req.body.wachtwoord]);
+          return result?.status;
+        }
         await tx.query("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES ($1, $2, $3, $4)", [
           rows[0].id,
           req.body.besluit,
           req.body.reden,
           req.user.sub,
         ]);
+        return "decided";
       });
+      if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen");
+      if (status !== "decided") throw new ApiFout(403,"Persoonlijke bevestiging geweigerd");
       const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1 AND authorization_read_execution($2,b.product_id)`, [req.params.batchnummer,req.user.sub]);
       return reply.status(201).send(batch as never);
     },
