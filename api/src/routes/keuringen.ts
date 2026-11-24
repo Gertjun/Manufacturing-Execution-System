@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist } from "../auth.js";
+import { personalSession, requireTransactionPermission } from "../modules/authorization/access.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
@@ -11,7 +11,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["keuringen"],
         description: "Stappen die op Kwaliteit wachten (status open), oudste eerst; met stap alleen die stap.",
@@ -44,8 +44,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            FROM keuring k JOIN stapregistratie r ON r.id = k.stapregistratie_id JOIN processtap s ON s.id = r.processtap_id
            LEFT JOIN batch b ON b.id = r.batch_id LEFT JOIN lot l ON l.id = r.lot_id LEFT JOIN product p ON p.id = r.product_id
           WHERE k.status = 'open' AND ($1::text IS NULL OR s.code = $1)
+            AND authorization_read_execution($2,r.product_id)
           ORDER BY sinds`,
-        [req.query.stap ?? null],
+        [req.query.stap ?? null,req.user.sub],
       ) as never,
   );
 
@@ -56,7 +57,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/verwacht",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["keuringen"],
         description:
@@ -142,17 +143,18 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 (SELECT min(sp.dag)::text FROM stapplanning sp WHERE sp.processtap_id = d.stap_id
                     AND ((d.niveau = 'batch' AND sp.batch_id = d.id) OR (d.niveau = 'lot' AND sp.lot_id = d.id))) AS gepland
            FROM doel d LEFT JOIN product p ON p.id = d.product_id
-          WHERE d.verwacht_op <= now() + make_interval(hours => $1::int)
-             OR (d.soort = 'keuring' AND d.stappen_ertussen = 0 AND NOT d.nu_bezig AND d.nu_in IS NOT NULL)
+          WHERE authorization_read_execution($2,d.product_id)
+            AND (d.verwacht_op <= now() + make_interval(hours => $1::int)
+             OR (d.soort = 'keuring' AND d.stappen_ertussen = 0 AND NOT d.nu_bezig AND d.nu_in IS NOT NULL))
           ORDER BY 10 DESC, 11, d.nummer`,
-        [req.query.uren ?? 48],
+        [req.query.uren ?? 48,req.user.sub],
       )) as never,
   );
 
   app.post(
     "/:id/besluit",
     {
-      preHandler: vereist("kwaliteit"),
+      preHandler: personalSession,
       schema: {
         tags: ["keuringen"],
         description:
@@ -171,8 +173,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const [k] = await lees<{ stapregistratie_id: string }>(app.db, "SELECT stapregistratie_id FROM keuring WHERE id = $1", [req.params.id]);
       if (!k) throw niet("Keuring");
       try {
-        await inTransactie(app.db, req.user.naam, (tx) =>
-          tx.query("SELECT beslis_keuring($1, $2, $3, $4, $5)", [req.params.id, req.body.besluit, req.body.reden ?? null, req.user.sub, req.body.stapcode ?? null]));
+        await inTransactie(app.db, req.user.naam, async (tx) => {
+          const { rows: [target] } = await tx.query<{product_id: string | null}>("SELECT r.product_id FROM keuring k JOIN stapregistratie r ON r.id=k.stapregistratie_id WHERE k.id=$1", [req.params.id]);
+          if (!target) throw niet("Keuring");
+          await requireTransactionPermission(tx, req.user.sub, "inspection.decide", { product: target.product_id ?? undefined });
+          await tx.query("SELECT beslis_keuring($1, $2, $3, $4, $5)", [req.params.id, req.body.besluit, req.body.reden ?? null, req.user.sub, req.body.stapcode ?? null]);
+        });
       } catch (e) {
         // Twee mensen van Kwaliteit op dezelfde keuring (#85): het eerste besluit telt; zeg wie dat nam.
         if (!String((e as Error).message).includes("al beslist")) throw e;

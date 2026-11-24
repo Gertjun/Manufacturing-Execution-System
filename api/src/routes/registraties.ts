@@ -1,7 +1,7 @@
 import { personalSession, requireTransactionPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, invoerContext, invoerTransactie, vereist } from "../auth.js";
+import { invoerContext, invoerTransactie } from "../auth.js";
 import { inTransactie, lees, type Db, type Tx } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode, NulGetal } from "./schemas.js";
@@ -161,7 +161,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["registraties"],
         querystring: Type.Object({
@@ -173,10 +173,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const params: unknown[] = [req.query.status ?? null, req.query.stapcode ?? null, req.query.limiet ?? 100];
+      const params: unknown[] = [req.query.status ?? null, req.query.stapcode ?? null, req.query.limiet ?? 100, req.user.sub];
       return lees(
         app.db,
         `${REGISTRATIE_SQL} WHERE ($1::text IS NULL OR r.status = $1) AND ($2::text IS NULL OR s.code = $2)
+          AND authorization_read_execution($4,r.product_id)
           ORDER BY r.gestart_op DESC LIMIT $3`,
         params,
       ) as never;
@@ -185,8 +186,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.get(
     "/:id",
-    { preHandler: vereist(...IEDEREEN), schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
-    async (req) => (await registratieDetail(app.db, req.params.id)) as never,
+    { preHandler: personalSession, schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
+    async (req) => {
+      const [row] = await lees<{ allowed: boolean }>(app.db, "SELECT authorization_read_execution($1,product_id) AS allowed FROM stapregistratie WHERE id=$2", [req.user.sub,req.params.id]);
+      if (!row) throw niet("Registratie");
+      if (!row.allowed) throw new ApiFout(403,"Geen geldige MES-leesbevoegdheid");
+      return (await registratieDetail(app.db, req.params.id)) as never;
+    },
   );
 
   // Waarden invullen. Meerdere tegelijk; elke waarde mag een eigen id meekrijgen.
