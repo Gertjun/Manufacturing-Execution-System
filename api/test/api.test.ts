@@ -343,11 +343,12 @@ describe("productie van batch tot lot", () => {
 
     // Herbewerking naar PS17; daarna PS17 en PS18 opnieuw.
     const zonder = await verzoek("POST", "/lots/L-2026-0001/herbewerking", op, { stapcode: "PS17", reden: "te nat na verpakken" });
-    assert.notEqual(zonder.status, 201, "Geen herbewerking zonder vooraf geregistreerde opdracht");
+    assert.equal(zonder.status, 422, JSON.stringify(zonder.body));
+    assert.match(zonder.body.fout, /Vooraf geregistreerde herbewerkingsopdracht vereist/);
     const opdracht = await verzoek("POST", "/herbewerkingen", await login("kwaliteit1"), { nummer: "L-2026-0001", stapcode: "PS17", reden: "te nat na verpakken", wachtwoord: "demo" });
     assert.equal(opdracht.status, 201, JSON.stringify(opdracht.body));
     const herb = await verzoek("POST", "/lots/L-2026-0001/herbewerking", op, { stapcode: "PS17", reden: "te nat na verpakken" });
-    assert.equal(herb.status, 201);
+    assert.equal(herb.status, 201, JSON.stringify(herb.body));
     assert.equal(herb.body.poging, 2);
     const vroeg = await verzoek("POST", "/registraties", op, { stapcode: "PS18", lotnummer: "L-2026-0001" });
     assert.equal(vroeg.status, 422);
@@ -1176,13 +1177,20 @@ describe("Grondstoffen", () => {
     assert.equal(g.body.grondstoffen[0].gebruik.partij, "LEV-A-9001");
     // Zelfde id opnieuw versturen (offline wachtrij) geeft geen tweede regel.
     assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ id, code: "GS-A", partij: "LEV-A-9001" }] })).status, 200);
-    // Een andere partij voor dezelfde grondstof: conflict, de eerste blijft staan (#85). Afronden kan gewoon.
+    // Een andere partij voor dezelfde grondstof: conflict, de eerste blijft staan (#85). Afronden wacht op een gemotiveerd besluit.
     const ander = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen`, op, { grondstoffen: [{ code: "GS-A", partij: "ander" }] });
     assert.equal(ander.status, 200, JSON.stringify(ander.body));
     assert.deepEqual(ander.body.conflicten.map((x: any) => [x.soort, x.code, x.bestaand, x.nieuw]), [["grondstof", "GS-A", "LEV-A-9001, 125,5", "ander"]]);
     assert.equal(ander.body.grondstoffen[0].gebruik.partij, "LEV-A-9001");
-    assert.equal((await verzoek("POST", `/registraties/${start.body.id}/afronden`, op)).status, 200);
-    await verzoek("POST", `/conflicten/${ander.body.conflicten[0].id}/oplossen`, pl, { keuze: "bestaand" });
+    const geblokkeerd = await verzoek("POST", `/registraties/${start.body.id}/afronden`, op);
+    assert.equal(geblokkeerd.status, 422, JSON.stringify(geblokkeerd.body));
+    assert.match(geblokkeerd.body.fout, /Open invoerconflict blokkeert afronding/);
+    const besluit = await verzoek("POST", `/conflicten/${ander.body.conflicten[0].id}/oplossen`, pl, { keuze: "bestaand", reden: "Partijnummer gecontroleerd tegen bronregistratie" });
+    assert.equal(besluit.status, 200, JSON.stringify(besluit.body));
+    assert.equal(besluit.body.conflicten.length, 0);
+    assert.equal(besluit.body.grondstoffen[0].gebruik.partij, "LEV-A-9001");
+    const afgerond = await verzoek("POST", `/registraties/${start.body.id}/afronden`, op);
+    assert.equal(afgerond.status, 200, JSON.stringify(afgerond.body));
     assert.equal((await verzoek("POST", `/registraties/${start.body.id}/grondstoffen/GS-A/correctie`, op, { partij: "LEV-A-9002", reden: "tikfout" })).status, 403);
     const c = await verzoek("POST", `/registraties/${start.body.id}/grondstoffen/GS-A/correctie`, pl, { partij: "LEV-A-9002", reden: "tikfout" });
     assert.equal(c.status, 201, JSON.stringify(c.body));

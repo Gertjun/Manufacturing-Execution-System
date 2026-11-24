@@ -159,7 +159,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       const id = await invoerTransactie(app.db, req, async (tx) => {
-        const { rows } = await tx.query("SELECT id FROM lot WHERE lotnummer = $1 FOR UPDATE", [req.params.lotnummer]);
+        // De gecontroleerde databasefunctie vergrendelt het lot en toetst alle leden opnieuw.
+        // De app-rol heeft bewust geen UPDATE-recht op lot.
+        const { rows } = await tx.query("SELECT id FROM lot WHERE lotnummer = $1", [req.params.lotnummer]);
         if (!rows[0]) throw niet("Lot");
         const { rows: members } = await tx.query<{product_id:string|null}>("SELECT product_id FROM batch WHERE lot_id=$1", [rows[0].id]);
         for (const member of members.length ? members : [{product_id:null}]) await requireTransactionPermission(tx,req.user.sub,"execution.rework",{product:member.product_id ?? undefined});
