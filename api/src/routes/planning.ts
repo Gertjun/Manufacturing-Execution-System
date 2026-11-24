@@ -1,8 +1,8 @@
 import { persoonlijkeTransactie } from "../auth.js";
-import { requiresPermission } from "../modules/authorization/access.js";
+import { requiresPermission, requiresGlobalExecutionRead } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist, invoerTransactie, type Rol } from "../auth.js";
+import { invoerTransactie } from "../auth.js";
 import { lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, StapCode, NulGeheel, NulGetal } from "./schemas.js";
@@ -221,7 +221,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/producten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         querystring: Type.Object({ ookInactief: Type.Optional(Type.Boolean()) }),
@@ -311,7 +311,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/week",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Batches per dag: geplande batches op hun geplande dag, niet-geplande op de dag dat ze startten. Plus achterstand: geplande batches van eerdere dagen die nog niet gestart zijn.",
@@ -559,7 +559,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/stappen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Per actieve stap de items die op deze dag gepland zijn, met hun stand.",
@@ -585,7 +585,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/route",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description:
@@ -662,7 +662,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/vandaag",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Voor het invoerscherm: wat er vandaag in deze stap gepland is, in volgorde.",
@@ -677,7 +677,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/kandidaten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Wat je in deze stap kunt plannen. 'klaar' = staat nu in de werkvoorraad van de stap. 'vorige' = hoe de vorige stap ervoor staat als je het op 'dag' plant (standaard vandaag).",
@@ -785,7 +785,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/capaciteit",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description:
@@ -936,7 +936,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/etiketten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Gegevens voor etiketten van batches of lots (in de gevraagde volgorde). Onbekende nummers worden overgeslagen.",
@@ -970,7 +970,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/lotvoorstellen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         querystring: Type.Object({ alle: Type.Optional(Type.Boolean({ description: "ook gebruikte, afgeweken en vervallen (laatste 50)" })) }),
@@ -989,7 +989,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/lotkandidaten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Batches die je in een lotvoorstel kunt zetten: nog geen lot, niet afgekeurd of vervallen. 'voorstel' = staat al in dit open voorstel.",
