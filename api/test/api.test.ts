@@ -208,6 +208,8 @@ describe("productie van batch tot lot", () => {
     const k = await verzoek("GET", "/nalevering/keuzes", pl);
     assert.equal(k.status, 200);
     assert.equal((await verzoek("GET", "/nalevering/keuzes", op)).status, 403);
+    assert.equal((await verzoek("GET", "/nalevering/keuzes", await login("mes.system"))).status, 403);
+    assert.equal((await verzoek("GET", "/nalevering/keuzes", await login("mes.supervisor"))).status, 200);
     const pc = k.body.pcs.find((p: any) => p.naam === "PC-04").id;
     const wie = k.body.operators.find((o: any) => o.naam === "Operator D").id;
     const uur = 3600_000;
@@ -252,6 +254,11 @@ describe("productie van batch tot lot", () => {
     // Opnieuw versturen uit de wachtrij: geen tweede conflict.
     assert.equal((await verzoek("POST", `/registraties/${id}/waarden`, op, invoer)).body.conflicten.length, 1);
     assert.equal((await verzoek("GET", "/conflicten", op)).status, 403);
+    assert.equal((await verzoek("GET", "/conflicten", await login("mes.system"))).status, 403);
+    assert.equal((await verzoek("GET", "/conflicten", await login("mes.quality"))).status, 403);
+    const qualityConflicts = await verzoek("GET", "/conflicten", await login("mes.quality.approver"));
+    assert.equal(qualityConflicts.status, 200);
+    assert.ok(!qualityConflicts.body.some((x: any) => x.registratie_id === id), "kwaliteitsbeslisrecht geeft geen productiecorrectierecht");
     const open = await verzoek("GET", "/conflicten", pl);
     assert.equal(open.status, 200);
     const c = open.body.find((x: any) => x.registratie_id === id);
