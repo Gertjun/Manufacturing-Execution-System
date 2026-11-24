@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist } from "../auth.js";
+import { requiresGlobalExecutionRead } from "../modules/authorization/access.js";
 import { lees } from "../db.js";
 import { niet } from "../fouten.js";
 import { Markering, StapCode, NulGetal, NulGeheel } from "./schemas.js";
@@ -59,7 +59,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/samenvatting",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Kerncijfers over een periode, plus afwijkingen per week (of per dag of maand, met per) en de velden met de meeste afwijkingen.",
@@ -130,7 +130,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/te-beoordelen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Batches die in beoordeling staan en wachten op het keurresultaat van Kwaliteit.",
@@ -168,7 +168,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/afwijkingen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Actuele waarden buiten tolerantie of grens, nieuwste eerst.",
@@ -225,7 +225,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/trend",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description:
@@ -297,7 +297,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/herbewerkingen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         querystring: Type.Object(Filter),
@@ -323,7 +323,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/afkeur",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Afgekeurde batches (keurresultaat NOK) met reden en verloop.",
@@ -365,7 +365,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/doorlooptijden",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description:
@@ -474,7 +474,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/productie",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Per week (of per dag of maand, met per): batches gestart, batches klaar met de batchstappen, lots gereed en batches afgekeurd.",
@@ -526,7 +526,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/correcties",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Alle correcties van waarden: oude en nieuwe waarde, reden en wie corrigeerde. Nieuwste eerst.",
@@ -596,7 +596,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/grondstoffen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Terugzoeken: op partijnummer (deel van het nummer mag) welke batches en lots die partij bevatten; of met lotnummer of batchnummer welke grondstofpartijen erin zitten.",
@@ -636,7 +636,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/partijen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Alle grondstofpartijen met het aantal batches en de periode waarin ze zijn gebruikt (nieuwste eerst).",
@@ -662,7 +662,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/stilstand",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description:
@@ -771,7 +771,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/regelkaarten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description:
@@ -820,7 +820,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/regelkaart",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["analyse"],
         description: "Regelkaart van één veld: punten, middenlijn, regelgrenzen (3 sigma), bewegend bereik en signalen.",
