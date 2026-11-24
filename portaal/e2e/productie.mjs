@@ -175,7 +175,9 @@ try {
   console.log("\nStilstand");
   await page.goto(`${BASIS}/portaal/#/productie/stilstand`);
   await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
-  check("Nu stil: de lopende storing in PS7", (await page.locator("section", { hasText: "Nu stil" }).locator("tbody tr", { hasText: "PS7" }).count()) === 1);
+  const openStilstand = await q("SELECT s.code AS stap FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE x.eind_op IS NULL ORDER BY s.code");
+  const nuStil = await page.locator("section.stil-blok tbody tr").evaluateAll(rs => rs.map(r => r.cells[0].innerText.trim().split(/\s+/)[0]).sort());
+  check("Nu stil: lopende stilstanden komen overeen met de database", openStilstand.length > 0 && JSON.stringify(nuStil) === JSON.stringify(openStilstand.map(r => r.stap)), JSON.stringify({ nuStil, openStilstand }));
   // De gegenereerde stilstanden variëren met de datum. Controleer de rangorde,
   // niet een vaste stapcode. Bij gelijke afgeronde percentages zijn beide kandidaten geldig.
   const rijen = await page.locator("section", { has: page.getByRole("heading", { name: "Stilstand per stap", exact: true }) }).locator("tbody tr").evaluateAll(rows => rows.map(r => ({
@@ -187,7 +189,7 @@ try {
   const tegel = page.locator(".tegel", { hasText: "laagste beschikbaarheid" });
   const stapLaagste = (await tegel.locator(".tegel-getal").innerText()).trim();
   const kandidaten = percentages.filter(r => r.waarde === minimum);
-  check("Laagste beschikbaarheid correspondeert met de tabel", percentages.length > 1 && minimum < 100 && kandidaten.some(r => r.stap === stapLaagste), JSON.stringify({ stapLaagste, minimum, kandidaten }));
+  check("Laagste beschikbaarheid correspondeert met de tabel", percentages.length > 1 && minimum <= 100 && kandidaten.some(r => r.stap === stapLaagste) && (await tegel.locator(".tegel-tekst").innerText()).split(":").at(-1).trim() === kandidaten[0].percentage, JSON.stringify({ stapLaagste, minimum, kandidaten }));
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   const laatste = page.locator("section", { hasText: "Laatste 50 keer stilstand" });
   const koppen = await laatste.locator("thead th").allInnerTexts();

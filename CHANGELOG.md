@@ -6,6 +6,8 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: API-titel en eenvoudige startpagina geharmoniseerd; werkafspraken voor concept-PRs verduidelijkt (D90).
+- Schermtest: lopende stilstand vergelijken met de database in plaats van vaste PS7; rangorde en percentage op de dashboardtegel controleren.
 - CI: gebundelde faseacceptatie, selectieve Node 22 op concept-PRs en beide suites op acceptatieverzoek (D90).
 - Schermtest beschikbaarheid: vergelijk laagste stap met actuele tabel in plaats van vaste PS7; overige stilstandcontroles blijven behouden.
 - MES: zichtbare applicatienaam, Production Execution en Manufacturing Operations; bestaande routes, opslag en rechten blijven gelijk. Eerste deel van #106, modulestructuur nog open. Repository heet Manufacturing-Execution-System.
