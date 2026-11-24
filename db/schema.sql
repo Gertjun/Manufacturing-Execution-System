@@ -350,18 +350,52 @@ ALTER TABLE lot
 CREATE VIEW route_historie_rapport AS
 SELECT 'batch'::text AS object_type, b.id AS object_id, b.batchnummer AS object_nummer,
        b.product_id, b.gestart_op AS moment, b.route_versie_id,
-       (SELECT v.id FROM product_route_versie v WHERE v.product_id = b.product_id ORDER BY v.versie DESC LIMIT 1) AS kandidaat_route_versie_id,
+       kandidaat.id AS kandidaat_route_versie_id,
        b.route_historie_status AS status,
        CASE WHEN b.product_id IS NULL THEN 'Batch heeft geen product; route kan niet worden bepaald.'
-            ELSE 'Historische route niet automatisch gekoppeld; beoordeel de configuratiehistorie.' END AS reden
-  FROM batch b WHERE b.route_historie_status = 'historisch_onbekend'
+            WHEN kandidaat.id IS NULL THEN 'De huidige productroute wijkt af van de vastgestelde momentopnamen; beoordeel de configuratiehistorie.'
+            ELSE 'Historische route niet automatisch gekoppeld; de overeenkomende huidige route is alleen een kandidaat.' END AS reden
+  FROM batch b
+  LEFT JOIN LATERAL (
+      SELECT v.id
+        FROM product_route_versie v
+       WHERE v.product_id = b.product_id AND v.status = 'vastgesteld'
+         AND (SELECT count(*) FROM route(b.product_id)) =
+             (SELECT count(*) FROM product_route_versie_stap vs WHERE vs.route_versie_id = v.id)
+         AND NOT EXISTS (
+             SELECT 1 FROM route(r)
+              LEFT JOIN product_route_versie_stap vs
+                ON vs.route_versie_id = v.id AND vs.processtap_id = r.processtap_id AND vs.plek = r.plek
+             WHERE vs.processtap_id IS NULL
+         )
+       ORDER BY v.versie DESC LIMIT 1
+  ) kandidaat ON true
+ WHERE b.route_historie_status = 'historisch_onbekend'
 UNION ALL
-SELECT 'lot'::text, l.id, l.lotnummer, (SELECT b.product_id FROM batch b WHERE b.lot_id = l.id ORDER BY b.product_id LIMIT 1),
+SELECT 'lot'::text, l.id, l.lotnummer,
+       lot_product(l.id),
        l.aangemaakt_op, l.route_versie_id,
-       (SELECT v.id FROM product_route_versie v WHERE v.product_id = (SELECT b.product_id FROM batch b WHERE b.lot_id = l.id ORDER BY b.product_id LIMIT 1) ORDER BY v.versie DESC LIMIT 1),
-       l.route_historie_status, 'Historische lotroute niet automatisch gekoppeld; beoordeel de configuratiehistorie.'
-  FROM lot l WHERE l.route_historie_status = 'historisch_onbekend';
-
+       kandidaat.id,
+       l.route_historie_status,
+       CASE WHEN lot_product(l.id) IS NULL THEN 'Lot heeft geen productgekoppelde batches; route kan niet worden bepaald.'
+            WHEN kandidaat.id IS NULL THEN 'De huidige productroute wijkt af van de vastgestelde momentopnamen; beoordeel de configuratiehistorie.'
+            ELSE 'Historische lotroute niet automatisch gekoppeld; de overeenkomende huidige route is alleen een kandidaat.' END
+  FROM lot l
+  LEFT JOIN LATERAL (
+      SELECT v.id
+        FROM product_route_versie v
+       WHERE v.product_id = lot_product(l.id) AND v.status = 'vastgesteld'
+         AND (SELECT count(*) FROM route(lot_product(l.id))) =
+             (SELECT count(*) FROM product_route_versie_stap vs WHERE vs.route_versie_id = v.id)
+         AND NOT EXISTS (
+             SELECT 1 FROM route(r)
+              LEFT JOIN product_route_versie_stap vs
+                ON vs.route_versie_id = v.id AND vs.processtap_id = r.processtap_id AND vs.plek = r.plek
+             WHERE vs.processtap_id IS NULL
+         )
+       ORDER BY v.versie DESC LIMIT 1
+  ) kandidaat ON true
+ WHERE l.route_historie_status = 'historisch_onbekend';
 
 -- Besluiten over een batch:
 --   in_beoordeling – ploegleider of kwaliteit; de batch kan dan niet verder
