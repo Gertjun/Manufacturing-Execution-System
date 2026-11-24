@@ -1422,42 +1422,28 @@ describe("Etiketten", () => {
 });
 
 describe("Keuringsstappen en specificaties (#80, D73)", () => {
-  test("keuringsstappen in de configuratie; specificatie: concept, vaststellen, eerdere versies", async () => {
+  test("keuringsstappen en historische specificaties lezen; legacy-writes geblokkeerd (D101)", async () => {
     const kw = await login("kwaliteit1");
     const stappen = (await verzoek("GET", "/config/stappen", kw)).body;
     assert.deepEqual(stappen.filter((s: any) => s.soort === "keuring").map((s: any) => s.code), ["TK1", "TK2", "EK"]);
     const lees = async () => (await verzoek("GET", "/specificaties?product=PRD-C", kw)).body;
-    let sp = await lees();
+    const sp = await lees();
     assert.deepEqual(sp.stappen.map((s: any) => [s.stap, s.geldig?.versie, s.concept]), [["TK1", 1, null], ["TK2", 1, null], ["EK", 1, null]]);
     assert.deepEqual(sp.stappen[2].geldig.regels.map((r: any) => r.veld), ["EK.1", "EK.2", "EK.3"]);
     assert.deepEqual((await verzoek("GET", "/specificaties?product=PRD-A", kw)).body.stappen, [], "PRD-A heeft geen keuringsstappen");
     assert.equal((await verzoek("GET", "/specificaties?product=PRD-X", kw)).status, 404);
     assert.equal((await verzoek("POST", "/specificaties", await login("operator.a"), { product: "PRD-C", stap: "EK" })).status, 403);
-    const c = await verzoek("POST", "/specificaties", kw, { product: "PRD-C", stap: "EK" });
-    assert.equal(c.status, 201, JSON.stringify(c.body));
-    assert.equal(c.body.versie, 2);
-    assert.equal(c.body.regels.length, 3, "concept begint met de regels van de geldige versie");
-    assert.equal((await verzoek("PUT", `/specificaties/${c.body.id}`, kw, { regels: [{ veld: "PS3.1", grens_min: 1, grens_max: 2 }] })).status, 400);
-    assert.equal((await verzoek("PUT", `/specificaties/${c.body.id}`, kw, { regels: [{ veld: "EK.1", grens_min: 5, grens_max: 2 }] })).status, 400);
-    const w = await verzoek("PUT", `/specificaties/${c.body.id}`, kw, {
-      opmerking: "Klant vraagt droger product",
-      regels: [{ veld: "EK.1", grens_min: null, grens_max: 3.5 }, { veld: "EK.2", grens_min: 200, grens_max: 300 }, { veld: "EK.3", grens_min: null, grens_max: null }],
-    });
-    assert.equal(w.status, 200, JSON.stringify(w.body));
-    assert.deepEqual(w.body.regels.map((r: any) => [r.veld, r.grens_max]), [["EK.1", 3.5], ["EK.2", 300]], "zonder minimum en maximum gaat een veld eruit");
-    assert.equal((await lees()).stappen[2].geldig.versie, 1, "een concept geldt nog niet");
-    const v = await verzoek("POST", `/specificaties/${c.body.id}/vaststellen`, kw);
-    assert.equal(v.status, 200, JSON.stringify(v.body));
-    assert.equal(v.body.status, "vastgesteld");
-    assert.equal(v.body.vastgesteld_door, "kwaliteit1");
-    sp = await lees();
-    assert.equal(sp.stappen[2].geldig.versie, 2);
-    assert.deepEqual(sp.stappen[2].eerder.map((x: any) => [x.versie, x.status]), [[1, "vervallen"]]);
-    assert.equal((await verzoek("PUT", `/specificaties/${c.body.id}`, kw, { regels: [] })).status, 409);
-    assert.equal((await verzoek("POST", `/specificaties/${c.body.id}/weggooien`, kw)).status, 422, "een vastgestelde versie blijft bewaard");
-    const c3 = await verzoek("POST", "/specificaties", kw, { product: "PRD-C", stap: "EK" });
-    assert.equal((await verzoek("POST", `/specificaties/${c3.body.id}/weggooien`, kw)).status, 204);
-    assert.equal((await lees()).stappen[2].concept, null);
+    const qa = await login("mes.quality.approver");
+    const system = await login("mes.system");
+    assert.equal((await verzoek("GET", "/specificaties?product=PRD-C", system)).status, 403);
+    const { rows: [existing] } = await beheerDb.query("SELECT x.id FROM fabriek.specificatie x JOIN fabriek.product p ON p.id=x.product_id JOIN fabriek.processtap s ON s.id=x.processtap_id WHERE p.code='PRD-C' AND s.code='EK' AND x.status='vastgesteld'");
+    for (const token of [qa, system]) {
+      assert.equal((await verzoek("POST", "/specificaties", token, { product: "PRD-C", stap: "EK" })).status, 403);
+      assert.equal((await verzoek("PUT", `/specificaties/${existing.id}`, token, { regels: [] })).status, 403);
+      assert.equal((await verzoek("POST", `/specificaties/${existing.id}/vaststellen`, token)).status, 403);
+      assert.equal((await verzoek("POST", `/specificaties/${existing.id}/weggooien`, token)).status, 403);
+    }
+    assert.deepEqual(await lees(), sp, "geblokkeerde writes laten specificaties intact");
   });
 });
 
@@ -1563,7 +1549,7 @@ describe("Capaciteit", () => {
 });
 
 describe("Certificaat per lot", () => {
-  test("concept, uitgeven door Kwaliteit, herdruk gelijk, niet voor een lot dat niet gereed is", async () => {
+  test("concept raadplegen, nieuwe uitgifte geblokkeerd (D101)", async () => {
     const kw = await login("kwaliteit1");
     const c = await verzoek("GET", "/certificaten/lots/L-2026-0001", kw);
     assert.equal(c.status, 200, JSON.stringify(c.body));
@@ -1572,31 +1558,24 @@ describe("Certificaat per lot", () => {
     assert.equal(k.kenmerken[0].resultaten.length, 4, "batchkenmerk: één resultaat per batch");
     assert.equal(k.bedrijf.naam, "Voorbeeldfabriek B.V. (fictief)");
     assert.equal(c.body.uitgegeven.length, 0);
-    // Lot L-2026-0001 is in de API-tests niet door PS17/PS18 gegaan: niet gereed.
-    if (k.status !== "gereed") {
-      const n = await verzoek("POST", "/certificaten/lots/L-2026-0001", kw);
-      assert.equal(n.status, 422);
+    const qa = await login("mes.quality.approver");
+    const system = await login("mes.system");
+    for (const token of [kw, qa, system]) {
+      assert.equal((await verzoek("POST", "/certificaten/lots/L-2026-0001", token)).status, 403);
     }
-    // Een lot dat gereed is: zoek er een in de database of maak het af.
-    const { rows } = await beheerDb.query("SELECT lotnummer FROM fabriek.lot WHERE status = 'gereed' ORDER BY lotnummer LIMIT 1");
-    if (!rows[0]) return;
-    const nr = rows[0].lotnummer;
-    assert.equal((await verzoek("POST", `/certificaten/lots/${nr}`, await login("planner1"))).status, 403);
-    const u = await verzoek("POST", `/certificaten/lots/${nr}`, kw);
-    if (u.status === 422) return; // afwijking in de testdata: dan geen certificaat
-    assert.equal(u.status, 201, JSON.stringify(u.body));
-    const herdruk = await verzoek("GET", `/certificaten/${u.body.nummer}`, kw);
-    assert.deepEqual(herdruk.body.inhoud, u.body.inhoud);
-    assert.equal((await verzoek("GET", `/certificaten/lots/${nr}`, kw)).body.uitgegeven[0].nummer, u.body.nummer);
+    assert.equal((await verzoek("GET", "/certificaten/lots/L-2026-0001", system)).status, 403);
+    assert.equal((await verzoek("GET", "/certificaten/lots/L-2026-0001", qa)).body.uitgegeven.length, 0);
   });
 
-  test("beheer: bedrijfsgegevens en veld op het certificaat", async () => {
-    const bh = await login("beheerder1");
-    assert.equal((await verzoek("PUT", "/certificaten/instellingen", bh, { bedrijfsnaam: "Testfabriek (fictief)", bedrijfsadres: "Testweg 1", certificaat_verklaring: "Test." })).status, 204);
-    assert.equal((await verzoek("GET", "/certificaten/instellingen", bh)).body.bedrijfsnaam, "Testfabriek (fictief)");
+  test("certificaatinstellingen read-only, bestaande veldconfiguratie zichtbaar", async () => {
+    const kw = await login("kwaliteit1");
+    const bh = await login("mes.system");
+    assert.equal((await verzoek("GET", "/certificaten/instellingen", bh)).status, 403);
+    assert.equal((await verzoek("PUT", "/certificaten/instellingen", bh, { bedrijfsnaam: "Testfabriek (fictief)", bedrijfsadres: "Testweg 1", certificaat_verklaring: "Test." })).status, 403);
+    assert.equal((await verzoek("GET", "/certificaten/instellingen", kw)).body.bedrijfsnaam, "Voorbeeldfabriek B.V. (fictief)");
     const v = await verzoek("PATCH", "/beheer/velden/S9.2", await login("mes.engineer"), { op_certificaat: true });
     assert.equal(v.status, 200, JSON.stringify(v.body));
-    const c = await verzoek("GET", "/certificaten/lots/L-2026-0001", bh);
+    const c = await verzoek("GET", "/certificaten/lots/L-2026-0001", kw);
     assert.ok(c.body.concept.kenmerken.some((x: any) => x.veld === "S9.2"));
     await verzoek("PATCH", "/beheer/velden/S9.2", await login("mes.engineer"), { op_certificaat: false });
     assert.equal((await verzoek("PUT", "/certificaten/instellingen", await login("kwaliteit1"), { bedrijfsnaam: "x", bedrijfsadres: "", certificaat_verklaring: "" })).status, 403);
