@@ -1966,7 +1966,11 @@ describe("Pilotoverzicht (#77, D66)", () => {
     assert.equal(o.body.tot, vandaag);
     const rij = o.body.per_dag_pc.find((x: any) => x.pc === "PC-03" && x.dag === momentDag);
     assert.ok(rij, JSON.stringify(o.body.per_dag_pc.slice(0, 3)));
-    assert.ok(rij.gestart >= 1 && rij.te_laat >= 1 && rij.langst_minuten >= 59 && rij.geweigerd >= 1, JSON.stringify(rij));
+    assert.ok(rij.gestart >= 1 && rij.te_laat >= 1 && rij.langst_minuten >= 59, JSON.stringify(rij));
+    // De weigering wordt op het ontvangsttijdstip vastgelegd. Rond middernacht kan die
+    // daardoor op de volgende kalenderdag vallen dan de offline start op de pc.
+    assert.ok(o.body.per_dag_pc.some((x: any) => x.pc === "PC-03" && x.geweigerd >= 1),
+      JSON.stringify(o.body.per_dag_pc));
     assert.ok(o.body.kerncijfers.geweigerd >= 2);
     assert.ok(o.body.geweigerd.some((g: any) => g.batchnummer === "B-2026-9998" && g.pc === "PC-03" && g.naam === "Operator C"));
     assert.ok(Array.isArray(o.body.per_veld));
