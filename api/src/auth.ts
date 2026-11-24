@@ -8,7 +8,7 @@ export type Rol = "pending" | "operator" | "ploegleider" | "kwaliteit" | "beheer
 export interface Sessie {
   sub: string;          // gebruiker.id
   naam: string;         // gebruikersnaam
-  rol: Rol;
+  rol: Rol;            // legacy identiteitstype/compatibiliteit, geen autorisatiebron (D101)
   sessionVersion: number;
   sessionProof?: string; // vertrouwelijk bearer-bewijs; nooit loggen
   pcId?: string;        // pc waarop is ingelogd
@@ -24,11 +24,6 @@ declare module "@fastify/jwt" {
   }
 }
 
-export const INVOER: Rol[] = ["operator", "ploegleider"];
-export const LEIDING: Rol[] = ["ploegleider", "beheerder"];
-export const BEHEER: Rol[] = ["beheerder"];
-export const IEDEREEN: Rol[] = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "productiemanager"];
-
 /** Persoonlijk bewijs uit de ondertekende sessie, nooit uit een losse clientheader. */
 async function controleerSessiebewijs(req: FastifyRequest): Promise<void> {
   if (req.user.ww || req.user.rol === "scherm") return;
@@ -37,29 +32,6 @@ async function controleerSessiebewijs(req: FastifyRequest): Promise<void> {
   const [r] = await lees<{ actor: string | null }>(req.server.db,
     "SELECT execution_session_actor($1) AS actor", [proof]);
   if (r?.actor !== req.user.sub) throw new ApiFout(401, "Persoonlijke sessie verlopen; log opnieuw in");
-}
-
-/** preHandler: geldig token en een van de rollen. */
-export function vereist(...rollen: Rol[]) {
-  return async (req: FastifyRequest) => {
-    try {
-      await req.jwtVerify();
-    } catch {
-      throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
-    }
-    if (req.user.gedeeld) throw new ApiFout(401, "Log in met een persoonlijk account");
-    if (req.user.ww) {
-      throw new ApiFout(403, "Kies eerst een eigen wachtwoord; je wachtwoord is tijdelijk");
-    }
-    const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean; session_version: number }>(req.server.db,
-      "SELECT rol, actief, gedeeld, wachtwoord_wijzigen, session_version FROM gebruiker WHERE id = $1", [req.user.sub]);
-    if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.session_version !== req.user.sessionVersion) throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
-    if (account.wachtwoord_wijzigen) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
-    await controleerSessiebewijs(req);
-    if (!rollen.includes(account.rol)) {
-      throw new ApiFout(403, `Rol ${req.user.rol} mag dit niet`);
-    }
-  };
 }
 
 /** preHandler: alleen een geldig token, ook met een tijdelijk wachtwoord (voor het wijzigen ervan). */
