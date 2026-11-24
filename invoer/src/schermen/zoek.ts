@@ -5,7 +5,7 @@ import { sessie } from "../sessie";
 import { heeftProductRecht, rechtenOnline } from "../rechten";
 import type { Registratie } from "../types";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
-import { acties, verwerk, verwijder, type Actie } from "../wachtrij";
+import { acties, afgeschermdeActies, verwerk, verwijder, type Actie } from "../wachtrij";
 
 interface BatchDetail {
   product?: string | null;
@@ -177,8 +177,9 @@ function toonBatch(b: BatchDetail) {
 
 export async function wachtrijScherm() {
   const actueel = vastHouden();
-  const lijst = await acties();
-  if (!actueel()) return;
+  const token = sessie.token;
+  const [lijst, afgeschermd] = await Promise.all([acties(), afgeschermdeActies()]);
+  if (!actueel() || token !== sessie.token) return;
   const rij = (a: Actie) =>
     h(
       "li",
@@ -204,6 +205,7 @@ export async function wachtrijScherm() {
     h("div", { class: "kop" }, h("h1", {}, "Verzenden"),
       h("button", { class: "knop", onclick: async () => { await verwerk(); void wachtrijScherm(); } }, "Nu versturen")),
     h("p", { class: "sub" }, "Invoer wordt eerst op deze pc bewaard en daarna automatisch naar de server gestuurd."),
+    afgeschermd ? h("p", { class: "waarschuwing" }, `${afgeschermd} afgeschermde acties met andere of onbekende herkomst. De inhoud is niet zichtbaar. Laat ze gecontroleerd beoordelen.`) : null,
     beoordeling.length ? h("h2", {}, "Gecontroleerde beoordeling nodig") : null,
     beoordeling.length ? h("p", {}, "Niet opnieuw invoeren of verwijderen. Laat de oorspronkelijke gegevens door een bevoegde medewerker beoordelen.") : null,
     beoordeling.length ? h("ul", { class: "lijst" }, beoordeling.map(rij)) : null,
@@ -211,6 +213,6 @@ export async function wachtrijScherm() {
     fouten.length ? h("p", {}, "Deze invoer is niet opgeslagen. Lees de melding, voer het zo nodig opnieuw in en verwijder de regel daarna.") : null,
     fouten.length ? h("ul", { class: "lijst" }, fouten.map(rij)) : null,
     h("h2", {}, "Wacht op verzending"),
-    wacht.length ? h("ul", { class: "lijst" }, wacht.map(rij)) : h("p", { class: "leeg" }, beoordeling.length || fouten.length ? "Geen acties klaar voor verzending." : "Alles is verstuurd."),
+    wacht.length ? h("ul", { class: "lijst" }, wacht.map(rij)) : h("p", { class: "leeg" }, beoordeling.length || fouten.length || afgeschermd ? "Geen eigen acties klaar voor verzending." : "Alles is verstuurd."),
   );
 }
