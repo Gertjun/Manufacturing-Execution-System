@@ -1,21 +1,21 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { LEIDING, vereist, invoerTransactie } from "../auth.js";
-import { personalSession } from "../modules/authorization/access.js";
+import { invoerTransactie } from "../auth.js";
+import { personalSession, requiresPermission } from "../modules/authorization/access.js";
 import { lees } from "../db.js";
 import { ApiFout } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
 import { BatchNummer, RegistratieDetail, StapCode } from "./schemas.js";
 
 /**
- * Nainvoeren na papier (#75, D60): lag de invoer stil, dan voert een ploegleider of beheerder de stap
+ * Nainvoeren na papier (#75, D60): lag de invoer stil, dan voert een bevoegd persoonlijk account de stap
  * later in met de tijden van het papier (tot 7 dagen terug). De regels staan in lever_stap_na.
  */
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/keuzes",
     {
-      preHandler: vereist(...LEIDING),
+      preHandler: requiresPermission("execution.correct"),
       schema: {
         tags: ["nalevering"],
         description: "Actieve pc's en namen om te kiezen bij het nainvoeren.",
