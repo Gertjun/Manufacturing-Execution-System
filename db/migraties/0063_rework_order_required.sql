@@ -37,7 +37,7 @@ CREATE TRIGGER quality_rework_hold BEFORE INSERT ON herbewerking
 REVOKE ALL ON FUNCTION quality_rework_hold_guard() FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION maak_herbewerking(p_nummer text, p_stapcode text, p_reden text, p_door uuid, p_id uuid DEFAULT NULL)
-RETURNS uuid LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $
+RETURNS uuid LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
 DECLARE
     v_rol    text;
     v_batch  batch%ROWTYPE;
