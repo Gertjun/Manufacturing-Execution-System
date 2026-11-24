@@ -175,17 +175,51 @@ export async function herstelAccount(c, io) {
   return true;
 }
 
+// IT registreert uitsluitend een vooraf ingerichte, afzonderlijk goedgekeurde login.
+// Geen CREATE ROLE, wachtwoordreset, roltoekenning of automatische herbinding.
+export async function securityBinding(c, io, intrekken) {
+  const role = (await io.vraag("Persoonlijke PostgreSQL-rolnaam: ")).trim();
+  if (!/^[a-zA-Z0-9_.-]{1,63}$/.test(role)) throw new Error("Ongeldige rolnaam.");
+  let target;
+  if (!intrekken) {
+    const name = (await io.vraag("Persoonlijk MES-doelaccount: ")).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen", [name]);
+    if (!r) throw new Error("Geen geschikt persoonlijk MES-account.");
+    target = r.id;
+    console.log("Voorgenomen binding: " + role + " -> " + name + " (" + target + ").");
+    console.log("IT moet afzonderlijk de effectieve objectprivileges, persoonlijke authenticatie en TLS hebben gecontroleerd.");
+  } else {
+    console.log("Voorgenomen intrekking van binding voor " + role + ". Historie blijft behouden.");
+  }
+  const reason = (await io.vraag("Reden en goedkeuringsreferentie: ")).trim();
+  if (!reason) throw new Error("Reden vereist.");
+  if (await io.vraag("Typ BEVESTIG om deze handeling uit te voeren: ") !== "BEVESTIG") return false;
+  const sql = intrekken
+    ? "SELECT fabriek.authorization_channel_unbind($1::name,$2::text) AS oid"
+    : "SELECT fabriek.authorization_channel_bind($1::name,$2::uuid,$3::text) AS oid";
+  const { rows: [result] } = await c.query(sql, intrekken ? [role, reason] : [role, target, reason]);
+  if (result?.oid == null) throw new Error("Geen bevestigd bindingsresultaat.");
+  console.log(intrekken ? "Binding ingetrokken. IT moet de database-login afzonderlijk buiten gebruik stellen." : "Binding geregistreerd. Geen MES-grants gewijzigd.");
+  return true;
+}
+
 // Los gestart: node tools/beheerder.mjs
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { argumenten, leesInstellingen, stop, verbind } = await import("./lib.mjs");
   const { opties } = argumenten();
-  if (opties['herstel-account'] && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Accountherstel vereist een persoonlijk interactief terminalvenster.');
+  const acties = ['herstel-account', 'security-binden', 'security-intrekken'].filter(a => opties[a]);
+  if (acties.length > 1) stop('Kies precies één beheerdershandeling.');
+  if (acties.length && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Deze beheerdershandeling vereist een persoonlijk interactief terminalvenster.');
   const inst = leesInstellingen(opties);
   const c = await verbind(inst.beheerDb);
   const io = maakInvoer();
   try {
     if (opties['herstel-account']) {
       if (!await herstelAccount(c, io)) process.exitCode = 1;
+    } else if (opties['security-binden'] || opties['security-intrekken']) {
+      if (!await securityBinding(c, io, !!opties['security-intrekken'])) process.exitCode = 1;
     } else await beheerderMenu(c, io);
   } catch (e) {
     stop(e.message);
