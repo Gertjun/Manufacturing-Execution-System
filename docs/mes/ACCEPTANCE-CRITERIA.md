@@ -33,3 +33,5 @@ Verplichte reviewpoort voor iedere MES-fase (afspraak 24 november 2026): na func
 0042: controleer persoonlijke login met beperkte kolomrechten, en dat een bestaande sessie na wijziging of deactivering van de oude accountrol geen toegang meer krijgt. De nieuwe MES-grants zijn nog niet de gezaghebbende bron voor bestaande routes.
 
 0044: test expliciet dat een oude beheerder zonder grant geen account- of parameterbeheer mag uitvoeren; system administrator mag accounts maar geen procesparameters wijzigen; process engineer mag parameters maar geen accounts beheren; security administrator mag geen technisch of engineeringbeheer uitvoeren; ingetrokken, verlopen en scoped grants geven geen globale beheertoegang. Oude API/UI-testfixtures bij de integrale review aanpassen.
+
+0045: test registratie-start, waarden, grondstoffen, afronden en correcties met actuele productscope; keuringsvelden vereisen afzonderlijke inspection-permission; hergebruik UUID voor andere batch/lot geweigerd. Legacy DB-rolchecks, area/equipmentcontext en overige routes nog te integreren. Integrale tests nog niet uitgevoerd.

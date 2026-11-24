@@ -47,6 +47,10 @@ def main():
         check(naam, False, "geen foutmelding")
 
     print("\nMES rollenregister en demo-bootstrap (D95)")
+    demo_operator = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.operator'")
+    check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
+    check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))
+
     check("Dertien MES-rollen gedefinieerd", val("SELECT count(*) FROM authorization_role") == 13)
     check("Twee persoonlijke security-identiteiten", val("SELECT count(DISTINCT g.user_id) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE g.role_code='security_administrator' AND u.actief AND NOT u.gedeeld AND NOT u.wachtwoord_wijzigen") == 2)
     check("Security-identiteit heeft geen legacy beheerdersrol", val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam IN ('mes.security.a','mes.security.b') AND rol='beheerder'") == 0)
@@ -60,7 +64,7 @@ def main():
     auth_user = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
     check("Geen automatische MES-bevoegdheid", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (auth_user,)))
     con.execute("INSERT INTO authorization_role VALUES ('test_operator','operations'), ('test_technical','technical')")
-    con.execute("INSERT INTO authorization_permission VALUES ('execution.record','operations')")
+    con.execute("INSERT INTO authorization_permission VALUES ('execution.record','operations') ON CONFLICT DO NOTHING")
     con.execute("INSERT INTO authorization_role_permission VALUES ('test_operator','execution.record')")
     con.execute("INSERT INTO authorization_grant (user_id,role_code,area_code) VALUES (%s,'test_operator','A')", (auth_user,))
     check("Recht binnen scope", val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))

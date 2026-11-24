@@ -1,7 +1,8 @@
+import { personalSession, requireTransactionPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, LEIDING, invoerContext, invoerTransactie, vereist } from "../auth.js";
-import { inTransactie, lees, type Db } from "../db.js";
+import { IEDEREEN, invoerContext, invoerTransactie, vereist } from "../auth.js";
+import { inTransactie, lees, type Db, type Tx } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, LotNummer, RegistratieDetail, RegistratieKort, REGISTRATIE_SQL, StapCode, NulGetal } from "./schemas.js";
 
@@ -81,13 +82,20 @@ export const CONFLICT_SQL = `
     LEFT JOIN operator ou ON ou.id = u.ingevoerd_door
     LEFT JOIN gebruiker gu ON gu.id = u.gecorrigeerd_door`;
 
+async function registrationPermission(tx: Tx, userId: string, id: string, permission: string) {
+  const { rows: [target] } = await tx.query<{ product_id: string | null }>(
+    "SELECT product_id FROM stapregistratie WHERE id=$1", [id]);
+  if (!target) throw niet("Registratie");
+  await requireTransactionPermission(tx, userId, permission, { product: target.product_id ?? undefined });
+}
+
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   // Een stap starten voor een batch (PS1-PS15) of een lot (PS17-PS18).
   // Met een eigen id (UUID van het apparaat) is opnieuw versturen veilig.
   app.post(
     "/",
     {
-      preHandler: vereist(...INVOER, "kwaliteit"),
+      preHandler: personalSession,
       schema: {
         tags: ["registraties"],
         description:
@@ -106,23 +114,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       const { id, stapcode, batchnummer, lotnummer } = req.body;
       if (!batchnummer === !lotnummer) throw new ApiFout(400, "Geef een batchnummer óf een lotnummer");
-      if (req.user.rol === "kwaliteit") {
-        const [st] = await lees<{ soort: string }>(app.db, "SELECT soort FROM processtap WHERE code = $1", [stapcode]);
-        if (st?.soort !== "keuring") throw new ApiFout(403, "Kwaliteit start alleen keuringen");
-      }
-
-      if (id) {
-        const [bestaand] = await lees<{ code: string }>(
-          app.db,
-          "SELECT s.code FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id WHERE r.id = $1",
-          [id],
-        );
-        if (bestaand) {
-          if (bestaand.code !== stapcode) throw new ApiFout(409, "Dit id hoort bij een andere stap");
-          return reply.status(200).send((await registratieDetail(app.db, id)) as never);
-        }
-      }
-
+      let opnieuw = false;
       const nieuwId = await invoerTransactie(app.db, req, async (tx) => {
         let batchId: string | null = null;
         let lotId: string | null = null;
@@ -135,6 +127,23 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           if (!rows[0]) throw niet("Lot");
           lotId = rows[0].id;
         }
+        const { rows: [st] } = await tx.query<{ soort: string }>("SELECT soort FROM processtap WHERE code=$1", [stapcode]);
+        if (!st) throw niet("Processtap");
+        const { rows: [target] } = await tx.query<{ product_id: string | null }>(
+          batchId ? "SELECT product_id FROM batch WHERE id=$1" :
+            "SELECT CASE WHEN count(*)=count(product_id) AND count(DISTINCT product_id)=1 THEN (array_agg(product_id))[1] ELSE NULL END AS product_id FROM batch WHERE lot_id=$1",
+          [batchId ?? lotId]);
+        const permission = st.soort === "keuring" ? "inspection.start" : "execution.start";
+        await requireTransactionPermission(tx, req.user.sub, permission, { product: target?.product_id ?? undefined });
+        if (id) {
+          const { rows: [existing] } = await tx.query("SELECT r.batch_id,r.lot_id,s.code FROM stapregistratie r JOIN processtap s ON s.id=r.processtap_id WHERE r.id=$1", [id]);
+          if (existing) {
+            if (existing.code !== stapcode || existing.batch_id !== batchId || existing.lot_id !== lotId) throw new ApiFout(409,"Dit id hoort bij een andere registratie");
+            await registrationPermission(tx, req.user.sub, id, permission);
+            opnieuw = true;
+            return id;
+          }
+        }
         const { rows } = await tx.query("SELECT start_stap($1, $2, $3, $4, $5, $6) AS id", [
           stapcode,
           batchId,
@@ -145,7 +154,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         ]);
         return rows[0].id as string;
       });
-      return reply.status(201).send((await registratieDetail(app.db, nieuwId)) as never);
+      return reply.status(opnieuw ? 200 : 201).send((await registratieDetail(app.db, nieuwId)) as never);
     },
   );
 
@@ -185,7 +194,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     "/:id/waarden",
     {
       // Kwaliteit vult de velden in die Kwaliteit meet (sinds 0.37.0, #64); de database bewaakt welke dat zijn.
-      preHandler: vereist(...INVOER, "kwaliteit"),
+      preHandler: personalSession,
       schema: {
         tags: ["registraties"],
         params: Id,
@@ -207,6 +216,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
         for (const w of req.body.waarden) {
+          const { rows: [field] } = await tx.query<{ gemeten_door: string }>("SELECT v.gemeten_door FROM veld v JOIN stapregistratie r ON r.processtap_id=v.processtap_id WHERE r.id=$1 AND v.code=$2", [req.params.id,w.veldcode]);
+          if (!field) throw niet("Veld");
+          await registrationPermission(tx, req.user.sub, req.params.id, field.gemeten_door === "kwaliteit" ? "inspection.record" : "execution.record");
           if (w.id) {
             const { rows } = await tx.query(
               "SELECT stapregistratie_id FROM waarde WHERE id = $1 UNION ALL SELECT stapregistratie_id FROM invoerconflict WHERE invoer_id = $1", [w.id]);
@@ -244,11 +256,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.post(
     "/:id/afronden",
-    { preHandler: vereist(...INVOER), schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
+    { preHandler: personalSession, schema: { tags: ["registraties"], params: Id, response: { 200: RegistratieDetail } } },
     async (req) => {
       // Wie afrondt, kan een ander zijn dan wie startte (ploegwissel, #55).
       const { pcId, operatorId } = await invoerContext(app.db, req);
-      await invoerTransactie(app.db, req, (tx) => tx.query("SELECT rond_stap_af($1, $2, $3)", [req.params.id, operatorId, pcId]));
+      await invoerTransactie(app.db, req, async (tx) => {
+        await registrationPermission(tx, req.user.sub, req.params.id, "execution.complete");
+        await tx.query("SELECT rond_stap_af($1, $2, $3)", [req.params.id, operatorId, pcId]);
+      });
       return (await registratieDetail(app.db, req.params.id)) as never;
     },
   );
@@ -257,7 +272,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/grondstoffen",
     {
-      preHandler: vereist(...INVOER),
+      preHandler: personalSession,
       schema: {
         tags: ["registraties"],
         params: Id,
@@ -278,6 +293,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       await invoerTransactie(app.db, req, async (tx) => {
+        await registrationPermission(tx, req.user.sub, req.params.id, "execution.record");
         for (const g of req.body.grondstoffen) {
           if (g.id) {
             const { rows } = await tx.query(
@@ -311,7 +327,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/grondstoffen/:code/correctie",
     {
-      preHandler: vereist(...LEIDING),
+      preHandler: personalSession,
       schema: {
         tags: ["registraties"],
         params: Type.Object({ id: Type.String({ format: "uuid" }), code: Type.String() }),
@@ -326,6 +342,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       await inTransactie(app.db, req.user.naam, async (tx) => {
+        await registrationPermission(tx, req.user.sub, req.params.id, "execution.correct");
         const { rows } = await tx.query(
           `SELECT u.id, u.grondstof_id, u.hoeveelheid FROM grondstof_gebruik_actueel u JOIN grondstof g ON g.id = u.grondstof_id
             WHERE u.stapregistratie_id = $1 AND g.code = $2`,
@@ -348,7 +365,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/waarden/:veldcode/correctie",
     {
-      preHandler: vereist(...LEIDING),
+      preHandler: personalSession,
       schema: {
         tags: ["registraties"],
         params: Type.Object({ id: Type.String({ format: "uuid" }), veldcode: Type.String() }),
@@ -363,6 +380,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       await inTransactie(app.db, req.user.naam, async (tx) => {
+        await registrationPermission(tx, req.user.sub, req.params.id, "execution.correct");
         const { rows } = await tx.query(
           `SELECT w.id, w.veld_id, w.setting FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id
             WHERE w.stapregistratie_id = $1 AND v.code = $2`,
