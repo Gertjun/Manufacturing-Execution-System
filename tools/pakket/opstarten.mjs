@@ -165,26 +165,63 @@ if (!["mes_app", "batchgui_app"].includes(inst.db.user) || inst.db.user === inst
 if (ingebouwd && !heeftIngebouwd) stop("instellingen.json verwacht de ingebouwde database, maar de map postgres ontbreekt in dit pakket.");
 
 // ---------- 3. Ingebouwde database starten (met back-up vooraf) ----------
+// D24: nieuwe clusters gebruiken SCRAM. Een oude trust-configuratie wordt
+// uitsluitend offline geconverteerd, vóór een netwerklistener wordt geopend.
+const HBA = join(PGDATA, "pg_hba.conf");
+const veiligeHba = "# MES laptop: uitsluitend lokale SCRAM-authenticatie\nlocal all all scram-sha-256\nhost all all 127.0.0.1/32 scram-sha-256\nhost all all ::1/128 scram-sha-256\n";
+function bewaarInstellingen() {
+  const tijdelijk = INSTELLINGEN + ".nieuw";
+  writeFileSync(tijdelijk, JSON.stringify(inst, null, 2), { mode: 0o600, flag: "wx" });
+  renameSync(tijdelijk, INSTELLINGEN);
+}
+function beveiligCluster() {
+  if (readFileSync(HBA, "utf8") === veiligeHba) return;
+  if (draaitPostgres()) stop("Stop PostgreSQL vóór het beveiligen van de oude authenticatieconfiguratie.");
+  // Single-user modus heeft geen netwerklistener en vereist toegang tot de
+  // lokale databasemap. Alleen voor het eigen ingebouwde cluster.
+  const sql = "SET password_encryption = 'scram-sha-256';\nALTER ROLE postgres PASSWORD " + pg.escapeLiteral(inst.beheerDb.password) + ";\n";
+  const resultaat = spawnSync(join(PG_BIN, "postgres" + EXE), ["--single", "-D", PGDATA, "postgres"], {
+    input: sql, encoding: "utf8", windowsHide: true, timeout: 120_000,
+  });
+  if (resultaat.status !== 0 || /(?:ERROR|FATAL|PANIC):/i.test((resultaat.stdout ?? "") + (resultaat.stderr ?? "")))
+    stop("Offline beveiliging van de database mislukt. Er wordt geen netwerklistener gestart; bewaar de gegevens en instellingen.");
+  writeFileSync(HBA, veiligeHba);
+}
 let backupVoorLog = null;
 if (ingebouwd) {
   mkdirSync(DATA, { recursive: true });
-  if (draaitPostgres() && args.has("--herstel")) {
-    pgTool("pg_ctl", ["stop", "-D", PGDATA, "-m", "fast", "-w"], true);
+  if (inst.beheerDb.user !== "postgres" || inst.db.user !== "mes_app" ||
+      inst.db.host !== "localhost" || inst.beheerDb.host !== "localhost" ||
+      inst.db.port !== inst.beheerDb.port || inst.db.database !== inst.beheerDb.database)
+    stop("Ongeldige verbindingen voor de ingebouwde database; gebruik de eigen lokale postgres- en mes_app-accounts.");
+  if (!inst.beheerDb.password) inst.beheerDb.password = randomBytes(32).toString("hex");
+  if (!inst.db.password) inst.db.password = randomBytes(32).toString("hex");
+  // Wachtwoorden moeten duurzaam bewaard zijn vóór initdb of offline omzetting.
+  bewaarInstellingen();
+  if (draaitPostgres() && (args.has("--herstel") || readFileSync(HBA, "utf8") !== veiligeHba)) {
+    if (pgTool("pg_ctl", ["stop", "-D", PGDATA, "-m", "fast", "-w"], true).status !== 0 || draaitPostgres()) stop("Database kon niet veilig worden gestopt.");
   }
   if (draaitPostgres()) {
     console.log("De database draait nog van de vorige keer; die wordt gebruikt.");
   } else if (!existsSync(join(PGDATA, "PG_VERSION"))) {
     console.log("Eerste keer: database aanmaken …");
     // Kleine WAL-bestanden (1 MB) houden de database en de back-ups klein.
-    const r = pgTool("initdb", ["-D", PGDATA, "-U", "postgres", "-A", "trust", "-E", "UTF8", "--no-locale", "--wal-segsize=1"]);
+    const wachtwoordbestand = join(DATA, ".initdb-" + randomBytes(12).toString("hex"));
+    let r;
+    try {
+      writeFileSync(wachtwoordbestand, inst.beheerDb.password + "\n", { mode: 0o600, flag: "wx" });
+      r = pgTool("initdb", ["-D", PGDATA, "-U", "postgres", "-A", "scram-sha-256", "--pwfile", wachtwoordbestand, "-E", "UTF8", "--no-locale", "--wal-segsize=1"], true);
+    } finally { rmSync(wachtwoordbestand, { force: true }); }
     if (r.status !== 0) stop("De database kon niet worden aangemaakt (zie de melding hierboven).");
     // Alleen bereikbaar op deze laptop zelf.
     appendFileSync(join(PGDATA, "postgresql.conf"), "\n# Batch input GUI\nlisten_addresses = 'localhost'\nmax_connections = 30\nmin_wal_size = 4MB\nmax_wal_size = 32MB\n");
+    writeFileSync(HBA, veiligeHba);
     startPostgres(inst.db.port);
   } else {
     if (args.has("--herstel")) await herstel();
     console.log("Back-up maken …");
     backupVoorLog = maakBackup();
+    beveiligCluster();
     startPostgres(inst.db.port);
   }
 }
@@ -217,7 +254,7 @@ async function verbind(database) {
   try {
     await c.connect();
   } catch (e) {
-    if (e.code === "28P01") stop("Het wachtwoord voor PostgreSQL klopt niet. Pas het aan in instellingen.json of verwijder dat bestand en start opnieuw.");
+    if (e.code === "28P01") stop("Het wachtwoord voor PostgreSQL klopt niet. Controleer de bij deze database horende instellingen.json; verwijder dit bestand niet.");
     if (e.code === "ECONNREFUSED" || e.code === "ENOTFOUND")
       stop(ingebouwd ? "De ingebouwde database reageert niet. Sluit alle vensters van de applicatie en start opnieuw." : `PostgreSQL is niet bereikbaar op ${inst.db.host}:${inst.db.port}. Is PostgreSQL geïnstalleerd en gestart?`);
     stop(`Verbinden met de database lukt niet: ${e.message}`);
@@ -232,7 +269,7 @@ async function verbind(database) {
   const su = await c.query("SELECT rolsuper FROM pg_roles WHERE rolname = current_user");
   if (!su.rows[0]?.rolsuper) stop(`Gebruiker ${inst.beheerDb.user} is geen superuser. Gebruik de gebruiker postgres.`);
   await c.end();
-  writeFileSync(INSTELLINGEN, JSON.stringify(inst, null, 2), { mode: 0o600 });
+  if (!ingebouwd) bewaarInstellingen();
 }
 
 // ---------- 5. Database vullen of bijwerken ----------
