@@ -133,3 +133,16 @@ Correctie 0063 vóór release: foutief enkel dollarteken in SQL-functiedefinitie
 0080 (klasse A, gedeeltelijk): configuratietrigger bepaalt naam via actuele persoonlijke sessie, negeert vrije GUC-naam; zonder geldig bewijs expliciet niet persoonlijk bewezen. Beheer, Planning, Stilstand en Overdracht gebruiken persoonlijke transacties voor bestaande writes. Geen wijziging historische auditregels. Bestaande eigenaar-test voor vrije naam vervangen door negatieve herkomsttest; positieve API-auditverwachtingen behouden. Nog open: stabiele actor-ID, bevestigde wachtwoordwijziging, bootstrap/herstel, onderscheid betrouwbare systeemidentiteit, overige routes en papieren nalevering (eigen loginsert), afdwingen bewijs op alle configuratiewrites. Niet uitgevoerd; geen volledige auditidentiteit geclaimd.
 
 0081 (klasse A, gedeeltelijk): nullable stabiele actor-ID met FK, herkomststatus historical/personal/unverified, historische records niet aan personen gekoppeld. Trigger schrijft ID en naam uitsluitend bij gevalideerd bewijs. Niet-uitgebrachte 0080 SQL-delimiter hersteld. Nieuwe regressies niet uitgevoerd. Bestaande directe eigenaar-inserts (papieren nalevering) krijgen standaard unverified; bevestigde credential- en herstelpaden en systeemidentiteit blijven afzonderlijk open. Databaseplaatje moet opnieuw worden gegenereerd met PostgreSQL; volledige schema-/upgradetest open.
+
+## Afsluitende auditpoort D100 — baseline e2a595d62b733e065a7576454dee94cfe445fe21
+
+| Blokkercluster | Vereist bewijs vóór fase 1 acceptatie |
+|---|---|
+| Persoonlijke identiteit en accountbeheer | Actieve persoonlijke login, tijdelijk wachtwoord, intrekking, veilige personeelskoppeling, beperkt displayaccount; geen oude rol als alternatieve machtiging. |
+| Rollen, scope en kwalificaties | Meerdere verenigbare rollen; geweigerde zelftoekenning, ontbrekende scope/kwalificatie en conflicterende beheerrollen; onafhankelijke aanvraag/goedkeuring/intrekking met operationeel bruikbare bediening. |
+| Kritische audit en herstel | Gebonden herbevestiging, stabiele actor bij beschermde persoonlijke handelingen; onbewezen historie expliciet; directe auditmanipulatie en omwegen geweigerd. Noodherstel zonder goedgekeurde procedure blijft geblokkeerd. |
+| Effectieve database-interface | Beide app-logins en PUBLIC, indirecte grants, kolom-/sequentierechten, vertrouwde search_path en toegestane definer-paden toetsen. Geen bypass van behouden beveiliging. |
+| Tijdelijke domeinpaden | Alleen noodzakelijke afscherming van configuratie, planning, uitvoering en kwaliteit; definitieve MBR/job/CR/EBR/quality modellen volgen fasen 2–8. Geen fictieve scopecontext. |
+| Installatie en regressie | Schone PostgreSQL-installatie, upgrade vanaf main, schema-equivalentie, fictieve fixtures, Windows-pakket, actuele API-/schermtests en diagram. |
+
+De bestaande herstel-/bootstraprecords blijven afzonderlijke bewijzen; geen nieuwe generieke systeemidentiteit bouwen tenzij een concrete fase-1-blokker dat vereist. Migratie 0082 is niet automatisch de volgende stap. Eerst gerichte baseline; alle eerder geschreven regressies zonder uitvoeringsbewijs blijven onbewezen. Volledige faseacceptatie volgt pas na implementatie en review. Geen formele ISA-conformiteitsclaim.

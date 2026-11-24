@@ -25,7 +25,9 @@ for kop in re.findall(r"^## (?:\d+\.\d+\.\d+|Unreleased)(?: .*)?$", changelog, r
 
 # 2. Geen gebouwd punt meer als open punt in een fase of bij "Te besluiten".
 for n in sorted(int(x) for x in re.findall(r"^- #(\d+) \*\*", roadmap, re.M)):
-    if n in gebouwd:
+    # D96: #88 is expliciet heropend na verwijdering van de voorspelling.
+    # Alleen deze vastgelegde uitzondering; andere gebouwde punten blijven fouten.
+    if n in gebouwd and not (n == 88 and re.search(r"^- #88 \*\*Voorspelling toekomstige keuringen\*\*.*D96", roadmap, re.M)):
         fouten.append(f"#{n} is gebouwd (changelog) maar staat nog als open punt")
 
 # 3. Tijdlijn: één dubbele punt per taak, geen gebouwd nummer in een open balk.

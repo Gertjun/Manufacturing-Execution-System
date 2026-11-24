@@ -34,6 +34,15 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 - #108 **Kritische rechten, herbevestiging, audittrail en kwalificaties** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; inventariseer en faseer demo-specifieke afhankelijkheden, tests en workflows gecontroleerd uit. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
 
+### Afsluiting tussentijdse audit (D100)
+ 
+Werk in deze volgorde; dit is de afbakening van #106–#108 en #136, geen nieuwe zelfstandige takenlijst:
+ 
+1. Gerichte baseline: schone installatie, migraties vanaf main, beperkte DB-rechten, autorisatie-unit-tests en relevante API-regressies. Eerst uitvoeringsbewijs en oorzaken van fouten vaststellen; geen nieuwe reeks speculative hardening-migraties.
+2. Bundel alleen resterende blokkers: persoonlijk account-/sessiebeheer, rollen/permissions/scope/kwalificaties, onafhankelijke toekenning/intrekking, gecontroleerde personeelskoppeling, kritische herbevestiging en audit, effectieve DB-privileges en veilige tijdelijke interfaces. Zie acceptatiecriteria voor de bewijsgrens.
+3. Rond #106–#108 en #136 functioneel af; geen uitbreiding van legacy procesmodellen. Indien tijdelijk pad niet veilig kan blijven: blokkeren en expliciet vastleggen, met beoordeling van gevolgen voor behouden kernfuncties.
+4. Eindcontrole D99/ISA-mapping, integrale testreview, databaseplaatje genereren, volledige acceptatie op actuele head/base en beoordeling door Geert. Geen release of merge zonder toestemming.
+ 
 ## Fase 2 — Master Data & Recipe Management
 
 - #109 **Materiaaldefinities en MBR-identiteiten; meerdere recepten per product** — Zie ontwerpdocumenten en acceptatiecriteria.
