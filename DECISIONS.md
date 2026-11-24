@@ -422,3 +422,77 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 ### D88 – Releases op aanvraag en hergebruik van testbewijs (24 nov 2026)
 - **Besluit:** bundel applicatiewijzigingen onder Unreleased; verhoog de versie pas bij releasevoorbereiding. Een merge is geen release. Vervangt de versieverhoging per wijziging uit D17 en automatische publicatie uit D19/D49. De volledige PR-acceptatie is vereist; PR-head bevat de actuele base en beide jobs testen expliciet die head. Op main alleen opnieuw testen als geen geslaagde Node 22 én Node 26 voor exact dezelfde git-tree aantoonbaar zijn. Vervangt het automatisch dubbel testen uit D87. Release uitsluitend na expliciet verzoek, met exact de huidige geaccepteerde versie en één Windows-pakket. Oude tags blijven intact; geen automatische inhaalreleases.
 - **Waarom:** Actions-minuten besparen zonder testdekking of traceerbaarheid te verliezen.
+
+### D89 – MES architectuurbaseline (24 nov 2026)
+
+Door Geert goedgekeurd in zes ontwerprondes. De 69 identifiers hieronder zijn stabiele ontwerpbesluiten, geen roadmappunten. Ontwerpdetails: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md) en de daar gekoppelde documenten. G02 betekent dat PR #1 niet wordt gemerged; de branch blijft historische referentie. De nooit gemergede migraties 0036/0037 zijn geen onderdeel van main; nummers en schema bij implementatie opnieuw controleren. D87/D88 blijven geldig.
+
+- **A01** — ISA-88 en ISA-95 leidende architectuurkaders.
+- **A02** — MES primair niveau 3.
+- **A03** — Acht ISA-95-activiteiten herkenbaar.
+- **A04** — Procesdefinities en fysieke installaties scheiden.
+- **A05** — MBR omvat Master Recipe met registratie- en kwaliteitseisen.
+- **A06** — Iedere nieuwe batch eigen Control Recipe.
+- **A07** — Vrijgegeven productiedefinities historisch onveranderlijk.
+- **A08** — Fabrieksstructuur hiërarchisch.
+- **A09** — Planning en werkvrijgave gescheiden.
+- **A10** — Batch- en lotdossiers gebaseerd op ISA-88-recordmodel.
+- **A11** — Volledig ERP-, magazijn-, onderhouds- en procesbesturingsbeheer buiten primaire scope.
+- **A12** — Toetsbare ISA-88/ISA-95-conformiteitsmatrix.
+- **T01** — MES.
+- **T02** — Master Batch Record (MBR).
+- **T03** — Control Recipe.
+- **T04** — Electronic Batch Record.
+- **T05** — PS1–PS18 behouden en later classificeren.
+- **T06** — Batch en lot afzonderlijk behouden.
+- **T07** — Process Engineering.
+- **T08** — Bestaand Nederlands behouden, nieuwe domeinen Engels.
+- **T09** — Vijf afzonderlijke categorieën voorwaarden modelleren.
+- **T10** — Manufacturing Operations.
+- **R01** — Meerdere MBR's mogelijk per product.
+- **R02** — Vierogenprincipe, beoordeling afhankelijk van wijzigingstype.
+- **R03** — Geplande ingangsdatum en expliciete vrijgave.
+- **R04** — Bij werkvrijgave, definitief vastleggen bij batchstart.
+- **R05** — Alleen gecontroleerd wijzigen, met revisie en autorisatie.
+- **R06** — Hiërarchisch en uitbreidbaar naar parallelle en conditionele stappen.
+- **R07** — Verschillende MBR-versies toestaan, behalve bij expliciete incompatibiliteit.
+- **R08** — Afwijkende lotgrootte: reden verplicht, aanvullende goedkeuring volgens MBR-regels.
+- **R09** — Afzonderlijk EBR per batch én per lot.
+- **R10** — Correcties na vrijgave: historische aanvulling en indien relevant nieuwe beoordeling.
+- **R11** — Offline starten alleen vooraf vrijgegeven werkopdrachten binnen geldigheidsvoorwaarden.
+- **R12** — Definitieve kwaliteitsvrijgave altijd expliciet door bevoegde medewerker.
+- **M01** — Eén centrale modulaire PostgreSQL-database.
+- **M02** — Relationeel datamodel met onveranderlijke versies.
+- **M03** — Producten en grondstoffen behouden en koppelen aan generiek materiaalmodel.
+- **M04** — Routes omzetten naar MBR-concepten, daarna formeel vrijgeven.
+- **M05** — Historische onbekende configuratie expliciet onbekend laten.
+- **M06** — Relationeel EBR met onveranderlijke dossierstanden.
+- **M07** — Equipment en Physical Asset afzonderlijk modelleren.
+- **M08** — Kwalificaties afzonderlijk naast systeemrollen.
+- **M09** — Generiek partij- en transformatiemodel.
+- **M10** — Gefaseerd uitbreiden, migreren, valideren en opruimen.
+- **M11** — Oude tabellen en API's pas verwijderen nadat vervanging en compatibiliteit bewezen zijn.
+- **M12** — Kritische bedrijfsregels ook afdwingen in PostgreSQL.
+- **P01** — Meerdere rollen per persoonlijk account.
+- **P02** — Rollen, concrete rechten, scope en kwalificaties combineren.
+- **P03** — Technisch en inhoudelijk beheer strikt scheiden.
+- **P04** — Onafhankelijke goedkeuring en geen ongecontroleerde zelftoekenning.
+- **P05** — Geldigheidsperiode en verplichte kwalificaties per activiteit.
+- **P06** — Expliciete werkvrijgave vóór productie-uitvoering.
+- **P07** — Aansluiten op ISA-88-statusmodel binnen MES-scope.
+- **P08** — Gecontroleerde wijzigingsworkflow voor MBR's.
+- **P09** — Meerdere onafhankelijke blokkadetypen.
+- **P10** — Herbewerking als afzonderlijke traceerbare werkopdracht.
+- **P11** — Identiteit opnieuw bevestigen en besluitinhoud vastleggen.
+- **P12** — Offline bevoegdheden tijdgebonden en beperkt tot vooraf toegestane uitvoering.
+- **P13** — Maintenance-portaal voor middelenstatus en technische beschikbaarheid.
+- **P14** — Afzonderlijk Management-portaal met overkoepelende KPI's.
+- **P15** — Production Execution.
+- **G01** — Gefaseerde implementatie volgens de MES-roadmap.
+- **G02** — PR #1 verlaten en opnieuw beginnen vanaf main.
+- **G03** — Afzonderlijke beheersbare PR's per werkpakket.
+- **G04** — Roadmap integreren met behoud van oorspronkelijke nummers en wensen.
+- **G05** — Versie 1.0.0 met betrouwbare MES-kernfunctionaliteit.
+- **G06** — Pilotdatum opnieuw bepalen na inzicht in implementatievoortgang.
+- **G07** — Doorlopende conformiteitsmatrix met ontwerp-, implementatie- en testbewijs.
+- **G08** — Alle goedgekeurde ontwerpen en besluiten vastleggen in GitHub, daarna implementeren.

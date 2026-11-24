@@ -1,0 +1,19 @@
+# ISA-conformiteitsmatrix
+
+D89 A12/G07. Status ontwerp, niet geverifieerd. Volledige toepasselijke normteksten en exacte edities/clausules nog te verkrijgen; geen formele claim. Per rij implementatie-PR, test-ID, resultaat en afwijking invullen bij faseacceptatie.
+
+| Normmodel | Scope | Besluiten | Fase | Status / bewijs |
+|---|---|---|---|---|
+| ISA-95 Part 1/2 hiërarchie en resources | Binnen | A02,A04,A08,M07,M08 | 1–3 | Ontwerp; geen bewijs |
+| ISA-95 Part 3 acht activiteiten | Binnen productie | A03,P06 | 2–10 | Ontwerp; geen bewijs |
+| ISA-95 quality operations | Productiegebonden | R12,P09 | 7 | Ontwerp; geen bewijs |
+| ISA-95 inventory operations | Verbruik/genealogie | M09 | 8 | Ontwerp; geen bewijs |
+| ISA-95 maintenance operations | Beschikbaarheid/stilstand | P13 | 3 | Ontwerp; geen bewijs |
+| ISA-95 Part 4/5/6 gegevensuitwisseling | Later | A11,G07 | 11 | Ontwerp; geen bewijs |
+| ISA-88 Part 1 fysieke/procedurele/procesmodellen | Binnen MES | A04,R06,P07 | 2–5 | Ontwerp; geen bewijs |
+| ISA-88 Part 1/2 Master/Control Recipe | Binnen | A05,A06,R01–R05 | 2–5 | Ontwerp; geen bewijs |
+| ISA-88 Part 3 General/Site Recipes | Voorbereid, buiten eerste scope | A02 | Later | Scopekeuze |
+| ISA-88 Part 4 Batch Production Records | Binnen | A10,R09,R10,M06 | 6–7 | Ontwerp; geen bewijs |
+| Automatische batchbesturing | Buiten MES, niveau 2 | A02,A11 | 11 interface | Scopekeuze |
+
+Bronnen: zie BLUEPRINT. Vierogen, MOC, offline en specifieke portalen zijn eigen ontwerpkeuzes, niet automatisch normvereisten. Bij afwijking rationale en acceptatie vastleggen.
