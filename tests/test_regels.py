@@ -566,7 +566,8 @@ def main():
     con.execute("UPDATE product SET batches_per_lot = 4, batchgewicht_kg = 410 WHERE id = %s", (prd["PRD-C"],))
     check("Elk fictief product heeft een vastgestelde routeversie",
           val("SELECT count(*) FROM product_route_versie WHERE status = 'vastgesteld'") == len(prd))
-    historie_batch = one("SELECT route_versie_id, kandidaat_route_versie_id, status FROM route_historie_rapport WHERE object_type = 'batch' AND object_id = %s", (b[0],))
+    historie_batch_id = batch_met("B-2026-0719", prd["PRD-A"])
+    historie_batch = one("SELECT route_versie_id, kandidaat_route_versie_id, status FROM route_historie_rapport WHERE object_type = 'batch' AND object_id = %s", (historie_batch_id,))
     check("Overeenkomende huidige route is alleen kandidaat en wordt niet automatisch toegewezen",
           historie_batch[0] is None and historie_batch[1] is not None and historie_batch[2] == "historisch_onbekend",
           historie_batch)
