@@ -1,8 +1,8 @@
 import { persoonlijkeTransactie } from "../auth.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { operatorVan } from "../auth.js";
-import { requiresPermission, personalSession, requireTransactionPermission } from "../modules/authorization/access.js";
+import { ingelogd, operatorVan } from "../auth.js";
+import { requiresPermission, personalSession, requirePermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { StapCode } from "./schemas.js";
@@ -54,7 +54,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: personalSession,
+      preHandler: async (req) => {
+        await ingelogd(req);
+        if (req.user.ww) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
+        if (req.user.rol === "scherm") await requirePermission(app.db, req.user.sub, "display.downtime.read");
+      },
       schema: { tags: ["stilstand"], description: "Stilstand die nu loopt, per stap.", response: { 200: Type.Array(Stilstand) } },
     },
     async (req) => (await lees(app.db, `${STILSTAND_SQL} WHERE x.eind_op IS NULL AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'display.downtime.read',NULL,NULL,NULL)) ORDER BY s.volgorde`, [req.user.sub])) as never,

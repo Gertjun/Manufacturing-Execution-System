@@ -39,4 +39,5 @@ export async function requireTransactionPermission(tx: Tx, userId: string, permi
 export async function personalSession(req: FastifyRequest) {
   await ingelogd(req);
   if (req.user.ww) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
+  if (req.user.rol === "scherm") throw new ApiFout(403, "Persoonlijke sessie vereist");
 }
