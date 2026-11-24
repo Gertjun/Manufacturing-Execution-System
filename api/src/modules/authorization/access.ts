@@ -41,3 +41,14 @@ export async function personalSession(req: FastifyRequest) {
   if (req.user.ww) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
   if (req.user.rol === "scherm") throw new ApiFout(403, "Persoonlijke sessie vereist");
 }
+
+/** Tijdelijke fabriekbrede PoC-overzichten: uitsluitend onbegrensd leesrecht.
+ * Geen productscope afleiden uit een zoekfilter of oude accountrol.
+ * authorization_read_execution combineert de bestaande domeinleesrechten.
+ */
+export async function requiresGlobalExecutionRead(req: FastifyRequest) {
+  await personalSession(req);
+  const [r] = await lees<{ allowed: boolean }>(req.server.db,
+    "SELECT authorization_read_execution($1,NULL::uuid) AS allowed", [req.user.sub]);
+  if (!r?.allowed) throw new ApiFout(403, "Globale MES-uitvoeringsleesbevoegdheid vereist");
+}
