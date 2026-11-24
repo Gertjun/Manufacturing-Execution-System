@@ -29,3 +29,5 @@ Migratie 0038: negatieve DB-scenario's voor eigen aanvraag, onbevoegde aanvrager
 Verplichte reviewpoort voor iedere MES-fase (afspraak 24 november 2026): na functionele implementatie en vóór volledige acceptatie-CI alle bestaande workflowtests, fixtures, schemaqueries, verwachtingen en triggers inventariseren en toetsen aan de goedgekeurde ontwerpbesluiten. Verwijder uitsluitend achterhaalde verwachtingen, behoud relevante dekking en voeg positieve/negatieve tests toe. Leg reviewresultaat en resterende risico's vast vóór het starten van de acceptatierun.
 
 0041: regressies voor onbevoegde intrekking, verkeerde herbevestiging, succesvolle intrekking, dubbele intrekking, behoud grant/audit en onveranderlijke aanvragen/besluiten/intrekkingen. Nog niet uitgevoerd.
+
+0042: controleer persoonlijke login met beperkte kolomrechten, en dat een bestaande sessie na wijziging of deactivering van de oude accountrol geen toegang meer krijgt. De nieuwe MES-grants zijn nog niet de gezaghebbende bron voor bestaande routes.

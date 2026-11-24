@@ -149,7 +149,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     let ja = false;
     try {
       const { rows } = await db.query<{ n: number }>(
-        "SELECT count(*)::int AS n FROM fabriek.gebruiker WHERE actief AND lower(gebruikersnaam) = ANY($1)", [TESTACCOUNTS.map(([n]) => n)]);
+        "SELECT count(*)::int AS n FROM fabriek.demo_account_names($1)", [TESTACCOUNTS.map(([n]) => n)]);
       ja = (rows[0]?.n ?? 0) >= 3;
     } catch { ja = false; }
     testCache = { op: Date.now(), ja };

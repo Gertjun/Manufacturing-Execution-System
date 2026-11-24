@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: operatoridentiteit leest geen wachtwoordhash meer; bestaande API-rolcontroles toetsen actuele accountstatus (0042).
 - MES: gecontroleerde intrekking met auditspoor en onveranderlijke autorisatiebesluiten (0041); eigenaar-only, acceptatie nog open.
 - MES: afscherming wachtwoordhashes (0040) en verplichte integrale testreview vóór faseacceptatie.
 - MES: bescherming security-accounts tegen directe app-wijzigingen en eigenaar-only besluitgebonden wachtwoordherbevestiging (0039); gecontroleerd herstel en API-integratie nog open.
