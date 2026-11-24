@@ -55,7 +55,7 @@ export async function securityActie(c, io, actie, toon = console.log) {
   // Autocommit: geweigerde wachtwoordpogingen moeten bewaard blijven.
   const { rows: [result] } = await c.query(sql, [...params, password]);
   toon(JSON.stringify(result));
-  return ["submitted", "approved", "rejected", "revoked"].includes(result?.status);
+  return ["submitted", "decided", "revoked"].includes(result?.status);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -78,8 +78,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       c = new pg.Client({ host: inst.db.host, port: inst.db.port, database: inst.db.database,
         user, password, ssl: { rejectUnauthorized: true }, connectionTimeoutMillis: 10000 });
       await c.connect();
-      // Verifieer de actuele persoonlijke binding vóór de bediening.
-      await c.query("SELECT * FROM fabriek.authorization_channel_requests() LIMIT 0");
+      // Elke aangeroepen kanaalfunctie controleert zelf de actuele persoonlijke binding.
+      // Geen LIMIT 0-probe: die kan uitvoering van de beveiligingsfunctie overslaan.
       if (!await securityActie(c, io, los[0])) process.exitCode = 1;
     } catch {
       console.error("Securityhandeling geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
