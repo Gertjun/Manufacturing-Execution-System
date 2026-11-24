@@ -47,6 +47,36 @@ def main():
         check(naam, False, "geen foutmelding")
 
     con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD100 historische functie- en schemarechten")
+    con.execute("GRANT EXECUTE ON FUNCTION fabriek.maak_herbewerking(text,text,text,uuid,uuid) TO PUBLIC")
+    con.execute("GRANT EXECUTE ON FUNCTION fabriek.authorization_channel_requests() TO mes_app WITH GRANT OPTION")
+    con.execute("GRANT EXECUTE ON FUNCTION fabriek.execution_session_login(text,text,text) TO mes_security_channel")
+    con.execute("GRANT CREATE ON SCHEMA fabriek TO PUBLIC")
+    con.execute("GRANT USAGE,CREATE ON SCHEMA fabriek TO mes_app WITH GRANT OPTION")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    for login in ("mes_app","batchgui_app","mes_security_channel"):
+        if val("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(login,)):
+            check(f"D100 {login}: geen CREATE in fabriek",
+                  not val("SELECT has_schema_privilege(%s,'fabriek','CREATE')",(login,)))
+            check(f"D100 {login}: geen USAGE-delegatie",
+                  not val("SELECT has_schema_privilege(%s,'fabriek','USAGE WITH GRANT OPTION')",(login,)))
+            check(f"D100 {login}: geen functie-delegatie",
+                  val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                         WHERE n.nspname='fabriek' AND has_function_privilege(%s,p.oid,'EXECUTE WITH GRANT OPTION')""",(login,))==0)
+            check(f"D100 {login}: oude herbewerkingsfunctie niet uitvoerbaar",
+                  not val("SELECT has_function_privilege(%s,'fabriek.maak_herbewerking(text,text,text,uuid,uuid)','EXECUTE')",(login,)))
+    check("D100 gewone runtime kan securitykanaal niet uitvoeren",
+          not val("SELECT has_function_privilege('mes_app','fabriek.authorization_channel_requests()','EXECUTE')"))
+    check("D100 securitykanaal kan runtime-login niet uitvoeren",
+          not val("SELECT has_function_privilege('mes_security_channel','fabriek.execution_session_login(text,text,text)','EXECUTE')"))
+    check("D100 exact vijf uitvoerbare securitykanaalfuncties",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='fabriek' AND has_function_privilege('mes_security_channel',p.oid,'EXECUTE')""")==5)
+    check("D100 persoonlijk gebonden security-aanvragen blijven toegankelijk",
+          val("SELECT has_function_privilege('mes_security_channel','fabriek.authorization_channel_requests()','EXECUTE')"))
+    check("D100 runtime-login blijft toegankelijk",
+          val("SELECT has_function_privilege('mes_app','fabriek.execution_session_login(text,text,text)','EXECUTE')"))
     print("\nD100 historische tabel- en kolomgrants")
     con.execute("GRANT UPDATE(gemeten), REFERENCES(id) ON waarde TO mes_app WITH GRANT OPTION")
     con.execute("GRANT SELECT(proof_hash) ON execution_session TO PUBLIC")

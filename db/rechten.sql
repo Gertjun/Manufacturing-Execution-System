@@ -22,6 +22,8 @@ BEGIN
    FOREACH login IN ARRAY ARRAY['PUBLIC','mes_app','batchgui_app','mes_security_channel'] LOOP
      IF login='PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=login) THEN
        grantee:=CASE WHEN login='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(login) END;
+       EXECUTE format('REVOKE ALL PRIVILEGES ON SCHEMA fabriek FROM %s CASCADE',grantee);
+       EXECUTE format('REVOKE ALL PRIVILEGES ON ALL ROUTINES IN SCHEMA fabriek FROM %s CASCADE',grantee);
        EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA fabriek FROM %s CASCADE',grantee);
        FOR c IN SELECT cl.relname,a.attname FROM pg_attribute a
          JOIN pg_class cl ON cl.oid=a.attrelid JOIN pg_namespace n ON n.oid=cl.relnamespace
@@ -164,9 +166,8 @@ END $$;
 
 -- Tijdelijke compatibiliteit voor bestaande installaties: dezelfde beperkte rechten,
 -- zonder wachtwoorden te wijzigen of een oude login automatisch uit te schakelen.
--- De oude login krijgt de rechten van mes_app via lidmaatschap; directe oude grants
--- blijven tijdens de overgang bestaan en moeten bij nieuwe beschermde tabellen
--- eveneens expliciet worden ingetrokken.
+-- De oude login krijgt de rechten van mes_app via lidmaatschap; vanaf 0092
+-- worden historische directe objectgrants vooraf ingetrokken.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'batchgui_app') THEN
@@ -588,5 +589,21 @@ BEGIN
        EXECUTE format('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA fabriek FROM %s CASCADE',grantee);
      END IF;
    END LOOP;
+ END IF;
+END $$;
+
+-- D100: herbouw uitsluitend het bestaande persoonlijk gebonden securitykanaal.
+-- Geen algemene functie-uitvoering of delegatie; oude overloads blijven eigenaar-only.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=92) THEN
+   GRANT USAGE ON SCHEMA fabriek TO mes_security_channel;
+   GRANT EXECUTE ON FUNCTION
+     fabriek.authorization_channel_submit(uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+     fabriek.authorization_channel_decide(uuid,boolean,text,text),
+     fabriek.authorization_channel_revoke(uuid,text,text),
+     fabriek.authorization_channel_requests(),
+     fabriek.authorization_channel_grants()
+   TO mes_security_channel;
  END IF;
 END $$;
