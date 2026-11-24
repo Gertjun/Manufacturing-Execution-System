@@ -144,6 +144,23 @@ def main():
         faalt("App mag bevestigde besluitfunctie niet uitvoeren", "SELECT * FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,req), "permission denied")
     finally:
         con.execute("RESET ROLE")
+    recovery_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-recovery','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    recovery_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
+    recovery_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
+    recover = "SELECT authorization_recover_confirmed(%s,%s,%s,'Fictief herstel',%s,%s,'tijdelijk-herstel')"
+    faalt("Herstel vereist twee verschillende beoordelaars", recover, (recovery_target,recovery_a,recovery_a,'demo','demo'), "Onafhankelijke")
+    faalt("Herstel vereist onafhankelijke doelidentiteit", recover, (recovery_a,recovery_a,recovery_b,'demo','demo'), "Onafhankelijke")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag herstel niet uitvoeren", recover, (recovery_target,recovery_a,recovery_b,'demo','demo'), "permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    check("Verkeerde herbevestiging weigert herstel", val(recover,(recovery_target,recovery_a,recovery_b,'demo','onjuist')) == "denied")
+    check("Geen herstelrecord bij geweigerde herbevestiging", val("SELECT count(*) FROM authorization_recovery WHERE user_id=%s",(recovery_target,)) == 0)
+    check("Onafhankelijk herbevestigd herstel slaagt", val(recover,(recovery_target,recovery_a,recovery_b,'demo','demo')) == "recovered")
+    check("Herstel vereist persoonlijk wachtwoord kiezen", val("SELECT wachtwoord_wijzigen FROM gebruiker WHERE id=%s",(recovery_target,)))
+    check("Herstelrecord koppelt exacte identiteit en beoordelaars", val("SELECT count(*) FROM authorization_recovery WHERE user_id=%s AND requested_by=%s AND approved_by=%s",(recovery_target,recovery_a,recovery_b)) == 1)
+    faalt("Herstelrecord onveranderlijk", "UPDATE authorization_recovery SET reason='gewijzigd' WHERE user_id=%s",(recovery_target,),"onveranderlijk")
     # Ook een nog niet geldige grant beschermt de identiteit.
     future_user = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-future','pending',wachtwoord_hash('demo-test')) RETURNING id")
     con.execute("INSERT INTO authorization_grant(user_id,role_code,valid_from) VALUES (%s,'operator',now()+interval '1 day')", (future_user,))

@@ -30,7 +30,7 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 ## Fase 1 — Projectfundament en autorisaties
 
 - #106 **Naam MES, terminologie, modulaire structuur** — Zie ontwerpdocumenten en acceptatiecriteria.
-- #107 **Meerdere rollen, permissions, scope, scheiding beheer** — Zie ontwerpdocumenten en acceptatiecriteria; scheiding technische/security-grants (0051) geïmplementeerd, testbewijs en accountbeheer nog open; 0052 blokkeert oude roltoekenning, overgang naar persoonlijke MES-grants en UI nog open; 0053 beschermt identiteiten tegen gewone resets, gecontroleerd herstel nog open; 0054 begrenst bootstrap en schakelt oude noodsleutel uit.
+- #107 **Meerdere rollen, permissions, scope, scheiding beheer** — Zie ontwerpdocumenten en acceptatiecriteria; scheiding technische/security-grants (0051) geïmplementeerd, testbewijs en accountbeheer nog open; 0052 blokkeert oude roltoekenning, overgang naar persoonlijke MES-grants en UI nog open; 0053 beschermt identiteiten tegen gewone resets, gecontroleerd herstel nog open; 0054 begrenst bootstrap en schakelt oude noodsleutel uit; 0055 herstelprocedure eigenaar-only, sessie-intrekking en noodherstel nog open.
 - #108 **Kritische rechten, herbevestiging, audittrail en kwalificaties** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; inventariseer en faseer demo-specifieke afhankelijkheden, tests en workflows gecontroleerd uit. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
 
