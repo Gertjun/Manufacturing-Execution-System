@@ -1,9 +1,9 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { vereist, invoerTransactie } from "../auth.js";
+import { invoerTransactie } from "../auth.js";
 import { personalSession } from "../modules/authorization/access.js";
 import { lees } from "../db.js";
-import { niet } from "../fouten.js";
+import { ApiFout, niet } from "../fouten.js";
 import { CONFLICT_SQL, registratieDetail } from "./registraties.js";
 import { Conflict, RegistratieDetail } from "./schemas.js";
 
@@ -12,7 +12,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist("ploegleider", "kwaliteit", "beheerder"),
+      preHandler: personalSession,
       schema: {
         tags: ["conflicten"],
         description: "Open conflicten, oudste eerst, met de stap en de batch of het lot erbij.",
@@ -28,16 +28,29 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         },
       },
     },
-    async () =>
-      (await lees(
+    async (req) => {
+      // Productgebonden grants gelden uitsluitend voor het eigen product.
+      const [gate] = await lees<{ allowed: boolean }>(app.db, `SELECT EXISTS (
+        SELECT 1 FROM authorization_grant g
+        CROSS JOIN (VALUES ('execution.correct'), ('inspection.decide')) p(permission)
+        WHERE g.user_id=$1 AND authorization_permits($1,p.permission,NULL,g.product_id,NULL)
+      ) AS allowed`, [req.user.sub]);
+      if (!gate?.allowed) throw new ApiFout(403, "Geen geldige MES-bevoegdheid voor conflictbeoordeling");
+      return (await lees(
         app.db,
         `SELECT x.*, r.id AS registratie_id, s.code AS stap, coalesce(b.batchnummer, l.lotnummer) AS nummer
            FROM (${CONFLICT_SQL} WHERE c.status = 'open') x
            JOIN invoerconflict c ON c.id = x.id
            JOIN stapregistratie r ON r.id = c.stapregistratie_id JOIN processtap s ON s.id = r.processtap_id
            LEFT JOIN batch b ON b.id = r.batch_id LEFT JOIN lot l ON l.id = r.lot_id
-          ORDER BY c.ontvangen_op`,
-      )) as never,
+          CROSS JOIN LATERAL (SELECT CASE WHEN EXISTS (SELECT 1 FROM veld v WHERE v.id=c.veld_id AND v.gemeten_door='kwaliteit')
+            THEN 'inspection.decide' ELSE 'execution.correct' END AS permission) p
+          WHERE authorization_permits($1,p.permission,NULL,r.product_id,NULL)
+            AND (r.lot_id IS NULL OR NOT EXISTS (SELECT 1 FROM batch lb WHERE lb.lot_id=r.lot_id
+              AND NOT authorization_permits($1,p.permission,NULL,lb.product_id,NULL)))
+          ORDER BY c.ontvangen_op`, [req.user.sub],
+      )) as never;
+    },
   );
 
   app.post(
@@ -48,7 +61,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ["conflicten"],
         description:
           "Kies welke invoer blijft: bestaand (wat er staat) of nieuw (de tweede invoer, als correctie met reden; het origineel blijft bewaard). " +
-          "Een veld van Kwaliteit: Kwaliteit of de beheerder; anders een ploegleider of de beheerder. Dezelfde keuze opnieuw versturen geeft de stand terug.",
+          "Een kwaliteitsveld vereist inspection.decide; andere conflicten execution.correct. Dezelfde keuze opnieuw versturen geeft de stand terug.",
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
         body: Type.Object({
           keuze: Type.Union([Type.Literal("bestaand"), Type.Literal("nieuw")]),
