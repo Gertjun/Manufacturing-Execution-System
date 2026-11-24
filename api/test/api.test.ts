@@ -146,6 +146,30 @@ describe("inloggen en rollen", () => {
       assert.equal((await verzoek("GET", path, reader)).status, 200, path);
     }
   });
+  test("D101: permissionprojectie is persoonlijk, actueel en scopebewust", async () => {
+    assert.equal((await verzoek("GET","/auth/permissions")).status,401);
+    const system = await verzoek("GET","/auth/permissions",await login("mes.system"));
+    assert.equal(system.status,200,JSON.stringify(system.body));
+    assert.ok(system.body.global.includes("account.manage"));
+    assert.ok(!system.body.global.includes("process.parameter.manage"));
+    assert.equal(system.body.personal,true);
+    const display = await verzoek("GET","/auth/permissions",await login("mes.display"));
+    assert.equal(display.status,200);
+    assert.equal(display.body.personal,false);
+    assert.equal(display.body.linkedPerson,false);
+    assert.ok(display.body.global.includes("display.downtime.read"));
+    assert.ok(!display.body.global.includes("execution.read"));
+    const token = await login("mes.scope.overview");
+    const scoped = await verzoek("GET","/auth/permissions",token);
+    assert.equal(scoped.status,200,JSON.stringify(scoped.body));
+    assert.ok(!scoped.body.global.includes("analysis.execution.read"));
+    assert.deepEqual(scoped.body.products.filter((p: any)=>p.permission==="analysis.execution.read"),[{permission:"analysis.execution.read",product:"PRD-A"}]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam='mes.scope.overview')");
+    const revoked = await verzoek("GET","/auth/permissions",token);
+    assert.equal(revoked.status,200);
+    assert.deepEqual(revoked.body.products,[]);
+    assert.deepEqual(revoked.body.global,[]);
+  });
   test("D101: inactieve configuratie vereist engineeringbeheer", async () => {
     const op = await login("mes.operator");
     const engineer = await login("mes.engineer");
