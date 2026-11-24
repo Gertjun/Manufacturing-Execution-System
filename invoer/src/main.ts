@@ -53,7 +53,7 @@ function tekenBalk() {
   // Breed scherm (pc, tablet, liggende telefoon): alles in de balk bovenaan. Telefoon staand (D64): bovenaan
   // alleen pc, naam en verbinding; de navigatie staat onderaan binnen duimbereik, de rest onder "Meer".
   const delen: (Node | null)[] = [
-    h("div", { class: "balk-naam" }, h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Batch-invoer"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
+    h("div", { class: "balk-naam" }, h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Production Execution"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
     ingelogd
       ? h("nav", { class: "balk-nav alleen-breed", "aria-label": "Hoofdmenu" },
           h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),

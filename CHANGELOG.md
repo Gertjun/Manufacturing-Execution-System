@@ -6,6 +6,8 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: zichtbare applicatienaam, Production Execution en Manufacturing Operations; bestaande routes, opslag en rechten blijven gelijk. Eerste deel van #106, modulestructuur nog open. Repository heet Manufacturing-Execution-System.
+- CI: acht expliciete MES-ontwerpdocumenten vallen onder de documentatie-uitzondering; gemengde wijzigingen blijven softwarewijzigingen.
 - CI: hergebruik van exact geteste inhoud en releases uitsluitend op aanvraag (D88).
 
 ## 0.62.1 — 24 november 2026

@@ -5,7 +5,7 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
 ## Aan het begin van een sessie
 1. Lees het blok **Stand** in **`README.md`** (heden), **`ROADMAP.md`** (wat er nog moet), **`DECISIONS.md`** (eerdere besluiten), de **valkuilen** onderaan dit bestand en alleen de bovenste paar versies van **`CHANGELOG.md`**. Lees niet de volledige chatgeschiedenis.
 2. Lees daarna alleen de code die je nodig hebt (de rest van `README.md` beschrijft de opbouw).
-3. Koppel de GitHub-repository `Gertjun/batch-input-gui` met schrijfrechten en haal de laatste versie op (`git fetch origin main`). Kijk of de laatste testrun op GitHub groen is.
+3. Koppel de GitHub-repository `Gertjun/Manufacturing-Execution-System` met schrijfrechten en haal de laatste versie op (`git fetch origin main`). Kijk of de laatste testrun op GitHub groen is.
 
 ## Tijdens het werk
 - **Taal en uitleg:** Nederlands, kort en zonder vakjargon. Alle teksten in de schermen zijn ook Nederlands.
@@ -93,3 +93,5 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 
 ## MES-architectuur (D89)
 Lees vóór wijzigingen docs/mes/BLUEPRINT.md en de gekoppelde ontwerpen; toets aan de 69 besluiten en ISA-matrix. Main is uitgangspunt, PR #1 uitsluitend referentie. Nieuwe domeinen Engels, bestaande Nederlandse namen behouden. Werk per beheersbare PR; testverwachtingen vooraf vastleggen, kritische databaseconstraints, historische gegevens niet gokken. Actualiseer normmapping en bewijs per fase. Geen release of merge zonder afgesproken toestemming. ROADMAP is enige takenlijst.
+
+De acht expliciete MES-ontwerpbestanden in docs/mes vallen eveneens onder D87; geen wildcard voor uitvoerbare bestanden. Bij wijziging ROADMAP/CHANGELOG blijft de gerichte documentatiecontrole vereist.

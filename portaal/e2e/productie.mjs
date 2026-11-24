@@ -202,7 +202,7 @@ try {
   await page.locator(".startpagina").waitFor();
   const tegels = await page.locator(".starttegel strong").allInnerTexts();
   check("Ploegleider: invoerscherm, portalen en wandscherm als tegels",
-    tegels[0] === "Invoerscherm" && tegels.includes("Productieanalyse") && tegels.includes("Wandscherm") && !tegels.includes("Beheer"), tegels.join(", "));
+    tegels[0] === "Production Execution" && tegels.includes("Manufacturing Operations") && tegels.includes("Wandscherm") && !tegels.includes("Beheer"), tegels.join(", "));
   await shot("09-startpagina");
   await page.locator(".starttegel-invoer").click();
   await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();

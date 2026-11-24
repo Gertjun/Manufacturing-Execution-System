@@ -1,6 +1,6 @@
 {
-  "name": "Batch-invoer",
-  "short_name": "Invoer",
+  "name": "MES — Production Execution",
+  "short_name": "MES Invoer",
   "start_url": "/invoer/",
   "scope": "/invoer/",
   "display": "standalone",

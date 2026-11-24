@@ -94,7 +94,7 @@ export const PORTALEN: Portaal[] = [
   },
   {
     id: "productie",
-    naam: "Productieanalyse",
+    naam: "Manufacturing Operations",
     rollen: ["ploegleider", "beheerder", "analist", "productiemanager"],
     klaar: true,
     onderdelen: [
@@ -158,9 +158,9 @@ export function tegelsVoor(rol: Rol | null): Tegel[] {
   };
   return [
     ...(rol === "operator" || rol === "ploegleider"
-      ? [{ id: "invoer", naam: "Invoerscherm", uitleg: "Voor de vloer: stappen invoeren, lot samenstellen, stilstand en ploegoverdracht. Werkt ook offline.", href: "../invoer/index.html" }]
+      ? [{ id: "invoer", naam: "Production Execution", uitleg: "Voor de vloer: stappen invoeren, lot samenstellen, stilstand en ploegoverdracht. Werkt ook offline.", href: "../invoer/index.html" }]
       : rol === "kwaliteit"
-        ? [{ id: "invoer", naam: "Invoerscherm", uitleg: "Op de lab-pc: de metingen van Kwaliteit invoeren en vrijgeven, herbewerken of afkeuren. Werkt ook offline.", href: "../invoer/index.html" }]
+        ? [{ id: "invoer", naam: "Production Execution", uitleg: "Op de lab-pc: de metingen van Kwaliteit invoeren en vrijgeven, herbewerken of afkeuren. Werkt ook offline.", href: "../invoer/index.html" }]
         : []),
     ...portalenVoor(rol).map((p) => ({ id: p.id, naam: p.naam, uitleg: UITLEG[p.id] ?? "", href: `#/${p.id}` })),
     ...(rol === "ploegleider" || rol === "beheerder"

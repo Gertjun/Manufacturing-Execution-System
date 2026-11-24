@@ -26,7 +26,7 @@ import type { Rol } from "../../gedeeld/types";
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   const menu = document.getElementById("menu")!;
   if (!sessie.geldig()) {
-    menu.replaceChildren(h("div", { class: "merk" }, "Portalen"));
+    menu.replaceChildren(h("div", { class: "merk" }, "MES"));
     return;
   }
   const portalen = portalenVoor(sessie.rol);
@@ -45,7 +45,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   }, "Menu", h("span", { class: "menu-knop-waar" }, [huidig?.naam, onderdeel?.naam].filter(Boolean).join(" · ") || (actiefPortaal === "meldingen" ? "Meldingen" : "")));
   // Meldingen staan buiten het inklapbare deel: de teller blijft ook op een smal scherm zichtbaar.
   menu.replaceChildren(
-    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, "Portalen"), knop),
+    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, "MES"), knop),
     ...(heeftMeldingen()
       ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
       : []),

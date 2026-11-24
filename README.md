@@ -1,4 +1,4 @@
-# Batch input GUI
+# MES
 
 > **MES-transitie (ontwerp):** de huidige software blijft versie 0.62.1. Goedgekeurde architectuur in [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), besluiten D89 en geïntegreerde [ROADMAP.md](ROADMAP.md). PR #1 wordt niet gemerged; de nieuwe implementatie vertrekt vanaf main. Geen MES-functionaliteit uit dit ontwerp is hiermee al gerealiseerd.
 
@@ -32,7 +32,7 @@ Bijgewerkt: 24 november 2026 · versie **0.62.1**. Dit blok wordt aan het eind v
 - **Gegevens:** alles fictief (D1).
 
 **Links**
-- Code: https://github.com/Gertjun/batch-input-gui (privé)
+- Code: https://github.com/Gertjun/Manufacturing-Execution-System (privé)
 - Browserdemo (blijft actueel): https://claude.ai/artifact/AvBGewCSnACg6h6CeUKZQN
 - Invulblad praktijktests (blijft actueel, de uitkomsten van #33): https://claude.ai/artifact/WQn3YnEVcuy5W5ieXenwRg
 - Projectdocument in het Claude-project: `claude/architectuur-en-besluiten.md` (korte instap met links)
@@ -47,13 +47,13 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 | Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (eigen startscherm Keuringen met wat nu te doen is en wat eraan komt, D78; metingen en keuring, D58; keuringsstappen TK en EK, D73); werkt offline |
 | Portaal Kwaliteit | `/portaal/` | Kwaliteit |
 | Startpagina | `/` (stuurt door naar `/portaal/`) | Iedereen, na het inloggen |
-| Portaal Productieanalyse | `/portaal/` | Ploegleiders, productieleiding |
+| Portaal Manufacturing Operations | `/portaal/` | Ploegleiders, productieleiding |
 | Portaal Planning | `/portaal/` | Planners (ploegleiders kijken mee) |
 | Portaal Beheer | `/portaal/` | Beheerder |
 | Wandscherm | `/portaal/#/wandscherm` | Tv in de hal |
 | API-documentatie | `/docs` | Ontwikkelaars, latere koppelingen |
 
-**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat, herbewerking; meet en keurt in het invoerscherm op de lab-pc, D58), productiemanager (portalen Productieanalyse, Kwaliteit en Planning; in beoordeling zetten en herbewerking, D57), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
+**Rollen:** iedereen heeft een eigen account (D53); operator, ploegleider (ook corrigeren en in beoordeling zetten), kwaliteit (keurresultaat, certificaat, herbewerking; meet en keurt in het invoerscherm op de lab-pc, D58), productiemanager (portalen Manufacturing Operations, Kwaliteit en Planning; in beoordeling zetten en herbewerking, D57), planner, beheerder, analist (alleen lezen), scherm (alleen het wandscherm).
 
 **Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
 
@@ -71,7 +71,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 - **Zonder verbinding** gaat de invoer door: alles wordt op de pc bewaard en daarna op volgorde verstuurd, met het moment van invoer en de naam van wie het invoerde (D43). De statusbalk toont hoeveel acties wachten; afmelden met wachtende acties vraagt eerst om bevestiging. Correcties, besluiten, zoeken en inloggen vragen wel verbinding.
 
 ### Portaal Kwaliteit
-Bij de analyses en in het lotpaspoort staat in de filterbalk een gele productkeuze: alle producten of één product, onthouden op deze computer (D55, D82). Hetzelfde geldt voor doorlooptijden, productie per week en correcties in Productieanalyse.
+Bij de analyses en in het lotpaspoort staat in de filterbalk een gele productkeuze: alle producten of één product, onthouden op deze computer (D55, D82). Hetzelfde geldt voor doorlooptijden, productie per week en correcties in Manufacturing Operations.
 
 | Onderdeel | Wat je ziet |
 | --- | --- |
@@ -86,7 +86,7 @@ Bij de analyses en in het lotpaspoort staat in de filterbalk een gele productkeu
 | Specificaties | Per product en keuringsstap (TK, EK) waar het product aan moet voldoen, met versies: concept, vaststellen, eerdere versies. Metingen in een keuring houden hun versie; die staat ook op het certificaat (D73) |
 | Herbewerkingen en afkeur | Lopende herbewerkingen met hun stand (nog te plannen, gepland, bezig), afgeronde en ingetrokken, en afgekeurde batches; een herbewerking aanmaken kan bij de batch, in het lotpaspoort of bij Te beoordelen (D57) |
 
-### Portaal Productieanalyse
+### Portaal Manufacturing Operations
 | Onderdeel | Wat je ziet |
 | --- | --- |
 | Werkvoorraad | Per stap wat bezig is en klaarstaat, met de langste wachttijd |
@@ -116,7 +116,7 @@ Bij de analyses en in het lotpaspoort staat in de filterbalk een gele productkeu
 | Grondstoffen, diensten en ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer; het rooster van ploegen A–E per divisie, met per dag en dienst wie werkt (D76) |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |
 | Opmerkingen | Wat gebruikers via "Iets melden" doorgaven; afhandelen met een notitie (D62) |
-| Pilotoverzicht | Hoe de invoer in de pilot loopt: per dag, per pc, per veld, geweigerde invoer; startdatum en grens voor "te laat" (D66). De productiemanager ziet het bij Productieanalyse |
+| Pilotoverzicht | Hoe de invoer in de pilot loopt: per dag, per pc, per veld, geweigerde invoer; startdatum en grens voor "te laat" (D66). De productiemanager ziet het bij Manufacturing Operations |
 | Logboek | Elke wijziging: wie, wanneer, oud en nieuw (wachtwoorden nooit) |
 | Server | Versie, schemaversie, laatste back-up en hersteltest, waarschuwingen |
 
