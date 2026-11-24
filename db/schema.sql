@@ -5223,7 +5223,7 @@ BEGIN
             v_label);
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
     RETURN NEW;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION log_config() FROM PUBLIC;
 
 -- Migratie 0081: stabiele identiteit en expliciete bewijsstatus, geen historische reconstructie.
