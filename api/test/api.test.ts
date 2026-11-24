@@ -119,6 +119,17 @@ describe("D24 effectieve runtime-rechten", () => {
     }
     await controleerRuntimeRechten(db);
   });
+  test("CREATE-recht op database wordt geweigerd", async () => {
+    const { rows } = await beheerDb.query("SELECT quote_ident(current_database()) AS naam");
+    const naam = rows[0].naam;
+    await beheerDb.query(`GRANT CREATE ON DATABASE ${naam} TO mes_app`);
+    try {
+      await assert.rejects(controleerRuntimeRechten(db), /beperkte MES-databasegebruiker/);
+    } finally {
+      await beheerDb.query(`REVOKE CREATE ON DATABASE ${naam} FROM mes_app`);
+    }
+    await controleerRuntimeRechten(db);
+  });
   test("CREATE-recht in publiek schema wordt geweigerd", async () => {
     await beheerDb.query("GRANT CREATE ON SCHEMA public TO mes_app");
     try {

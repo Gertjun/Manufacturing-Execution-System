@@ -56,7 +56,8 @@ export async function controleerRuntimeRechten(db: Db): Promise<void> {
       )
       AND NOT EXISTS (
         SELECT 1 FROM pg_database d WHERE d.datname = current_database()
-          AND pg_has_role(session_user, d.datdba, 'MEMBER')
+          AND (pg_has_role(session_user, d.datdba, 'MEMBER')
+               OR has_database_privilege(session_user, d.oid, 'CREATE'))
       )
       AND NOT EXISTS (
         SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('fabriek','public')
