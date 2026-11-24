@@ -56,6 +56,16 @@ def main():
     finally:
         con.execute("RESET ROLE")
     demo_operator = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.operator'")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Directe opdrachtinvoer geweigerd","INSERT INTO herbewerking(reden) VALUES ('test')",bevat="permission denied")
+        faalt("Directe opdrachtwijziging geweigerd","UPDATE herbewerking SET reden='test' WHERE false",bevat="permission denied")
+        faalt("Onbevestigde oude opdrachtfunctie geweigerd","SELECT maak_herbewerking('test','PS1','test',NULL::uuid)",bevat="permission denied")
+        faalt("Onbevestigde oude intrekking geweigerd","SELECT trek_herbewerking_in(NULL::uuid,'test',NULL::uuid)",bevat="permission denied")
+        check("Operator zonder opdrachtbevoegdheid geweigerd",one("SELECT * FROM rework_order_confirmed(%s,1,'test','PS1','test',NULL,'demo')",(demo_operator,))[0]=="denied")
+    finally:
+        con.execute("RESET ROLE")
     check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
     check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))
 

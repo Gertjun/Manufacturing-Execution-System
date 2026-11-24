@@ -6,6 +6,7 @@
 Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
 ## Unreleased
+- MES: bevestigde herbewerkingsopdrachten en beschermde opdrachtgeschiedenis (0064).
 - Herstel SQL-functiedelimiter in nog niet uitgegeven migratie 0063 en basisschema.
 - MES: bestaande herbewerkingsopdracht verplicht; kwaliteitsblokkade blijft onafhankelijk (0063).
 - MES: persoonlijke bevestiging voor tijdelijke kwaliteitsbesluiten en afscherming directe besluitwrites (0062).
