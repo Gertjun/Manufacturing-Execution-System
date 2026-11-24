@@ -46,6 +46,17 @@ def main():
             return
         check(naam, False, "geen foutmelding")
 
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nDatabase-uitgegeven sessiebewijs")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Sessieregister niet leesbaar","SELECT proof_hash FROM execution_session",bevat="permission denied")
+        faalt("Sessieregister niet schrijfbaar","UPDATE execution_session SET expires_at=now() WHERE false",bevat="permission denied")
+        faalt("Sessieregister niet direct op te ruimen","SELECT execution_session_cleanup()",bevat="permission denied")
+        check("Onbekend sessiebewijs geweigerd",val("SELECT execution_session_actor(%s)",("0"*64,)) is None)
+        check("Leeg sessiebewijs geweigerd",val("SELECT execution_session_actor(NULL)") is None)
+    finally:
+        con.execute("RESET ROLE")
     print("\nMES rollenregister en demo-bootstrap (D95)")
     con.execute("SET ROLE mes_app")
     try:
