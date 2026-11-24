@@ -414,7 +414,6 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Bij blijven:** `tests/test_schema_plaatje.sh` maakt het plaatje opnieuw en vergelijkt; hoort bij elke databasewijziging (CLAUDE.md) en draait op GitHub.
 - **Gekozen boven:** een plaatje (png/svg) met een los programma (extra afhankelijkheid, en een plaatje laat zich slecht vergelijken in een test), of het plaatje bij de release laten maken (dan staat het niet in de repository en is het niet te zien zonder download).
 
-
 ### D85 – Routeversies en historische herleidbaarheid (23 nov 2026, 0.63.0)
 - **Besluit (Geert):** een productroute wordt versieerbaar en een batch/lot moet later expliciet vastleggen welke routeversie het heeft gevolgd. Een lot mag batches met verschillende batchrouteversies bevatten; het lot krijgt een eigen routeversie van het product. Een lot blijft één product bevatten (D55).
 - **Routeversie:** bevat de volledige geordende route, inclusief een momentopname van stapcode, naam, niveau en de lotstap. Na vaststelling zijn de route en de stappen onveranderlijk. Een versie mag alleen als geheel vervallen worden verklaard; historische verwijzingen blijven geldig.
@@ -428,3 +427,12 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Voorstellen:** een wijziging van de productinstelling maakt open lotvoorstellen voor dat product ongeldig; ze worden vervallen en moeten opnieuw worden opgebouwd. Bestaande lots blijven ongewijzigd.
 - **Historie:** bij migratie worden bestaande lots alleen als vier-batchslot vastgelegd als de database bevestigt dat ze vier batches bevatten. Afwijkende historische data stopt de migratie voor beoordeling; er wordt niets geraden.
 - **Overgang:** batches van oudere clients zonder productkoppeling blijven tijdelijk lotvormbaar met norm vier. Een lot mag niet productgekoppelde en productloze batches mengen. Zodra productselectie bij batchaanmaak is uitgerold, kan deze uitzondering vervallen.
+
+### D87 – Gefaseerde CI en documentatie-uitzondering (24 nov 2026)
+- **Besluit:** software-, test- en CI-wijzigingen via een PR; korte Node 22-controle automatisch, volledige Node 26-acceptatie op aanvraag op de actuele PR-head en base, merge door Geert, beide suites op main vóór een release. Vervangt de directe main-werkwijze uit D16 en het betreffende deel van D20. Zuivere documentatie uit de expliciete workflowlijst mag met toestemming rechtstreeks naar main, zonder softwaretests of nieuwe versie (uitzondering op D17). ROADMAP/CHANGELOG en het gegenereerde databasediagram houden hun gerichte controles. Geen release of laptoppakket door een documentatie-only wijziging.
+- **Waarom:** testdekking behouden en verspilling van Actions-minuten voorkomen. GitHub Free biedt geen afdwingbare ruleset voor deze privérepository; controle vóór merge blijft een werkafspraak.
+- **Uitvoering:** zie CLAUDE.md en `.github/workflows/tests.yml`.
+
+### D88 – Releases op aanvraag en hergebruik van testbewijs (24 nov 2026)
+- **Besluit:** bundel applicatiewijzigingen onder Unreleased; verhoog de versie pas bij releasevoorbereiding. Een merge is geen release. Vervangt de versieverhoging per wijziging uit D17 en automatische publicatie uit D19/D49. De volledige PR-acceptatie is vereist; PR-head bevat de actuele base en beide jobs testen expliciet die head. Op main alleen opnieuw testen als geen geslaagde Node 22 én Node 26 voor exact dezelfde git-tree aantoonbaar zijn. Vervangt het automatisch dubbel testen uit D87. Release uitsluitend na expliciet verzoek, met exact de huidige geaccepteerde versie en één Windows-pakket. Oude tags blijven intact; geen automatische inhaalreleases.
+- **Waarom:** Actions-minuten besparen zonder testdekking of traceerbaarheid te verliezen.

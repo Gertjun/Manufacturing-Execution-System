@@ -3,6 +3,7 @@
 // in plaats van het netwerk. Alleen voor een demo met fictieve gegevens.
 
 import { PGlite } from "@electric-sql/pglite";
+import { verschuifDatumkolommen } from "./verschuif-datums.mjs";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { foutAfhandeling } from "../../api/src/fouten";
 import authRoutes from "../../api/src/routes/auth";
@@ -86,7 +87,7 @@ export async function startDatabase(melding: (t: string) => void): Promise<{ pg:
       bewaard = false;
     }
     melding("Tijdstippen naar vandaag verschuiven …");
-    await verschuifNaarNu(pg);
+    await fase("tijdstippen verschuiven", () => verschuifNaarNu(pg));
   }
   await pg.exec("SET TIME ZONE 'Europe/Amsterdam'");
   return { pg, bewaard };
@@ -194,18 +195,8 @@ async function verschuifNaarNu(pg: PGlite) {
   for (const [tabel, kols] of perTabel) {
     await pg.query(`UPDATE "${tabel}" SET ${kols.map((c) => `"${c}" = "${c}" + $1::interval`).join(", ")}`, [rows[0].v]);
   }
-  // Planningsdagen (datums) schuiven evenveel kalenderdagen mee.
-  const { rows: datums } = await pg.query<{ table_name: string; column_name: string }>(`
-    SELECT c.table_name, c.column_name FROM information_schema.columns c
-    JOIN information_schema.tables t USING (table_schema, table_name)
-    WHERE c.table_schema = 'fabriek' AND t.table_type = 'BASE TABLE' AND c.data_type = 'date'`);
-  // Per tabel alle datumkolommen in één UPDATE, zodat periodeconstraints
-  // (zoals capaciteit_afwijking.van/tot) niet tussentijds worden geschonden.
-  const datumsPerTabel = new Map<string, string[]>();
-  for (const k of datums) datumsPerTabel.set(k.table_name, [...(datumsPerTabel.get(k.table_name) ?? []), k.column_name]);
-  for (const [tabel, kols] of datumsPerTabel) {
-    await pg.query(`UPDATE "${tabel}" SET ${kols.map((c) => `"${c}" = "${c}" + $1::int`).join(", ")} WHERE ${kols.map((c) => `"${c}" IS NOT NULL`).join(" OR ")}`, [rows[0].dagen]);
-  }
+  // Planningsdagen (datums) schuiven samen per tabel, met behoud van periodecontroles.
+  await verschuifDatumkolommen(pg, rows[0].dagen);
   await pg.exec("COMMIT");
 }
 

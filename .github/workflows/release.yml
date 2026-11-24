@@ -1,18 +1,16 @@
 name: Release
-
-# Maakt voor elke versie uit CHANGELOG.md die nog geen tag heeft een tag v<versie> en een
-# GitHub Release, op de laatste commit waarin VERSIE die versie had. Bestaande tags en
-# releases worden nooit gewijzigd (D19). Draait pas nadat de tests op main zijn geslaagd.
-
+# Uitsluitend op uitdrukkelijk verzoek; geen historische backfill.
 on:
-  workflow_run:
-    workflows: [Tests]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      versie:
+        description: "Exacte versie uit VERSIE (bijv. 0.63.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release
@@ -20,37 +18,43 @@ concurrency:
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Repository ophalen (volledige geschiedenis)
+      - name: Repository ophalen
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
-          # Eigen sleutel (secret RELEASE_TOKEN, rechten Contents en Workflows): de ingebouwde
-          # sleutel mag geen tag zetten op een versie waarin de workflowbestanden anders zijn (#40).
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
+      - name: Releasevoorwaarden controleren
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GEVRAAGD: ${{ inputs.versie }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          git fetch origin main --tags
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          test "$(cat VERSIE)" = "$GEVRAAGD"
+          [[ "$GEVRAAGD" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          ! git show-ref --verify --quiet "refs/tags/v$GEVRAAGD" || { echo "Tag bestaat al"; exit 1; }
+          node tools/release.mjs controle "$GEVRAAGD"
+          test "$(node tools/verifieer_acceptatie.mjs "$GITHUB_SHA")" = true
       - name: Node.js instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
-      - name: Tags en releases maken voor nieuwe versies
+      - name: Laptoppakket bouwen
+        run: |
+          for m in api invoer portaal; do (cd "$m" && npm ci --no-audit --no-fund); done
+          tools/maak_laptoppakket.sh "$RUNNER_TEMP/batch-gui-laptop" windows
+      - name: Geaccepteerde versie publiceren
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          VERSIE: ${{ inputs.versie }}
         run: |
-          git fetch --tags --force
-          node tools/release.mjs ontbrekend > /tmp/nieuw.txt
-          if [ ! -s /tmp/nieuw.txt ]; then echo "Geen nieuwe versies."; exit 0; fi
-          mislukt=""
-          while read -r versie commit; do
-            echo "Versie $versie op $commit"
-            node tools/release.mjs notities "$versie" > "/tmp/notities-$versie.md"
-            if ! git rev-parse -q --verify "refs/tags/v$versie" >/dev/null; then
-              git tag "v$versie" "$commit" && git push origin "refs/tags/v$versie" \
-                || { mislukt="$mislukt $versie"; git tag -d "v$versie" 2>/dev/null; continue; }
-            fi
-            gh release create "v$versie" --verify-tag --title "Versie $versie" --notes-file "/tmp/notities-$versie.md" \
-              || mislukt="$mislukt $versie"
-          done < /tmp/nieuw.txt
-          if [ -n "$mislukt" ]; then echo "::error::Niet gelukt voor:$mislukt"; exit 1; fi
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          node tools/release.mjs notities "$VERSIE" > /tmp/release-notities.md
+          git tag "v$VERSIE" "$GITHUB_SHA"
+          git push origin "refs/tags/v$VERSIE"
+          gh release create "v$VERSIE" --verify-tag --title "Versie $VERSIE" --notes-file /tmp/release-notities.md "$RUNNER_TEMP/batch-gui-laptop-$VERSIE-windows.zip"

@@ -7,8 +7,20 @@ mkdirSync(SHOTS, { recursive: true });
 const b = await chromium.launch({ executablePath: "/usr/bin/google-chrome" });
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } }) // zonder timezoneId: de demodatabase is gebouwd in de tijdzone van de machine;
 const fouten = [];
-p.on("pageerror", (e) => fouten.push(String(e)));
-p.on("console", (m) => console.log(`[browser ${m.type()}] ${m.text()}`));
+p.on("pageerror", (e) => { fouten.push(String(e)); console.log("  PAGINAFOUT", e.stack ?? e.message); });
+p.on("console", (m) => { if (m.type() === "error") console.log("  BROWSERFOUT", m.text()); });
+const wachtOpDemo = async (timeout) => {
+  try {
+    await p.waitForFunction(() => document.getElementById("laden")?.style.display === "none" || document.getElementById("laden-tekst")?.textContent?.startsWith("De demo kan niet starten"), null, { timeout });
+    if (await p.locator("#laden").isVisible()) throw new Error("Demo meldt een opstartfout");
+  } catch (e) {
+    const fase = await p.locator("#laden-tekst").textContent({ timeout: 1000 }).catch(() => "onbekend");
+    console.error("  AFGEBROKEN demo-opstart", fase, e.stack ?? e);
+    await p.screenshot({ path: `${SHOTS}/opstart-fout.png` }).catch(() => {});
+    await b.close();
+    throw e;
+  }
+};
 p.on("requestfailed", (r) => console.log(`[request failed] ${r.url()}: ${r.failure()?.errorText ?? "onbekend"}`));
 p.on("response", (r) => { if (r.status() >= 400) console.log(`[HTTP ${r.status()}] ${r.url()}`); });
 let ok = 0, mis = 0;
@@ -16,9 +28,7 @@ const check = (c, t) => { c ? ok++ : mis++; console.log(c ? "  OK " : "  FOUT", 
 
 const t0 = Date.now();
 await p.goto(URL_);
-await p.waitForFunction(() => document.getElementById("laden").style.display === "none" || document.getElementById("laden-tekst").textContent?.startsWith("De demo kan niet starten"), null, { timeout: 120000 });
-const laadscherm = await p.locator("#laden").evaluate((d) => ({ zichtbaar: getComputedStyle(d).display !== "none", tekst: d.querySelector("#laden-tekst")?.textContent }));
-if (laadscherm.zichtbaar) throw new Error(`Browserdemo bleef hangen bij opstarten: ${laadscherm.tekst}`);
+await wachtOpDemo(120000);
 check(true, `opgestart in ${Date.now() - t0} ms`);
 check(await p.locator("#uitleg").evaluate((d) => d.open), "uitleg verschijnt de eerste keer");
 await p.getByRole("button", { name: "Sluiten" }).click();
@@ -75,14 +85,14 @@ const reg = await p.evaluate(async () => {
 });
 const txt = JSON.stringify(reg);
 check(/afgerond/.test(txt) && /buiten_tolerantie/.test(txt), "nieuwe batch in PS1 afgerond, 86,5 als buiten tolerantie gemarkeerd");
-// Databaseregel: lot met maar 1 batch kan niet
+// API-regel: productloze en productgekoppelde batches mogen niet worden gemengd.
 const regel = await p.evaluate(async () => {
   const api = window.demoApi;
   const l = JSON.parse((await api({ methode: "POST", url: "/auth/login", headers: {}, body: JSON.stringify({ gebruikersnaam: "ploegleider1", wachtwoord: "demo", pc: "PC-16" }) })).body);
   const t2 = l.token; // eigen account: de naam ligt vast (D53)
   return api({ methode: "POST", url: "/lots", headers: { authorization: "Bearer " + t2 }, body: JSON.stringify({ lotnummer: "L-2026-9999", batchnummers: ["B-2026-9001", "B-2026-0540", "B-2026-0541", "B-2026-0542"], id: crypto.randomUUID(), registratieId: crypto.randomUUID() }) });
 });
-check(regel.status === 400, `de API weigert een lot met batches van verschillende producten (${regel.status}: ${regel.body.slice(0, 120)})`);
+check(regel.status === 400 && /batches van hetzelfde product/.test(regel.body), `de API weigert een lot met verschillende producten (${regel.status}: ${regel.body.slice(0, 120)})`);
 await port.getByRole("link", { name: "Overzicht" }).click();
 await p.waitForTimeout(1500);
 await p.screenshot({ path: `${SHOTS}/03-naast-elkaar.png` });
@@ -121,7 +131,7 @@ check(true, "Portaal Planning opent voor planner1");
 
 // herladen: gegevens bewaard
 await p.reload();
-await p.waitForFunction(() => document.getElementById("laden").style.display === "none", null, { timeout: 60000 });
+await wachtOpDemo(60000);
 check(!(await p.locator("#uitleg").evaluate((d) => d.open)), "na herladen geen uitleg meer");
 const r = await p.evaluate(async () => (await window.demoApi({ methode: "GET", url: "/gezondheid", headers: {} })).body);
 check(/"demo":true/.test(r), "server in de browser antwoordt na herladen (uit browseropslag)");

@@ -1,22 +1,26 @@
 # Changelog – wat is er per versie veranderd
 
-## 0.64.0 — 23 november 2026 · #105
-- **Lotgrootte per product in de database.** Elk product krijgt een instelbare norm (standaard vier, instelbaar van 1 tot 50). Een lot bewaart norm, werkelijk aantal en een verplichte reden bij afwijking. Open lotvoorstellen vervallen wanneer de productinstelling wijzigt. De capaciteitsberekening gebruikt voortaan de ingestelde lotgrootte.
-- Bestaande lots worden alleen gemigreerd als de database bevestigt dat ze precies vier batches bevatten; bij ieder afwijkend aantal stopt migratie 0037 voor beoordeling. Er wordt geen historische lotgrootte of afwijkingsreden gegokt.
-- De API lotvorming valideert de productnorm en vereist een reden bij afwijking. Productloze batches van oudere clients blijven tijdelijk lotvormbaar met norm vier; gemengde productloze/productgekoppelde lots zijn verboden. Productkeuze bij batchaanmaak en de schermen zijn nog niet omgeschakeld; de volledige routeketen blijft open.
-
 > **Dit bestand:** per versie wat er nieuw of anders is, in gewone taal. Het is de enige geschiedenis van het project.
 > **Niet hier:** waarom iets zo is gekozen → [`DECISIONS.md`](DECISIONS.md); wat er nog komt → [`ROADMAP.md`](ROADMAP.md).
 
-Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D17). Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
+Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet uitgegeven wijzigingen staan onder Unreleased. Achter de datum staan de nummers van de roadmappunten die in die versie zijn gebouwd. Alle gegevens zijn fictief.
 
-## 0.63.0 — 23 november 2026 · #103
+## Unreleased · #103 #105
 - **Routeversies als databasefundament** (#103, D85).
   - Een vastgestelde routeversie bewaart de volgorde en een momentopname van stapcode, naam en niveau.
   - Vastgestelde routeversies en hun stappen zijn onveranderlijk; een versie kan alleen als geheel vervallen worden verklaard.
   - Bestaande producten krijgen een momentopname van hun huidige effectieve route.
   - Bestaande batches en lots worden bewust niet automatisch aan die momentopname gekoppeld. Het nieuwe overzicht `route_historie_rapport` toont welke historische route nog onbekend is en welke huidige versie alleen als kandidaat beschikbaar is.
   - Dit is de eerste databasefase: bestaande productie- en invoerlogica is nog niet omgeschakeld naar routeversies.
+- **Lotgrootte per product in de database.** Elk product krijgt een instelbare norm (standaard vier, instelbaar van 1 tot 50). Een lot bewaart norm, werkelijk aantal en een verplichte reden bij afwijking. Open lotvoorstellen vervallen wanneer de productinstelling wijzigt. De capaciteitsberekening gebruikt voortaan de ingestelde lotgrootte.
+- Bestaande lots worden alleen gemigreerd als de database bevestigt dat ze precies vier batches bevatten; bij ieder afwijkend aantal stopt migratie 0037 voor beoordeling. Er wordt geen historische lotgrootte of afwijkingsreden gegokt.
+- De API lotvorming valideert de productnorm en vereist een reden bij afwijking. Productloze batches van oudere clients blijven tijdelijk lotvormbaar met norm vier; gemengde productloze/productgekoppelde lots zijn verboden. Productkeuze bij batchaanmaak en de schermen zijn nog niet omgeschakeld; de volledige routeketen blijft open.
+- CI: hergebruik van exact geteste inhoud en releases uitsluitend op aanvraag (D88).
+
+## 0.62.1 — 24 november 2026
+- Browserdemo: datumvelden van dezelfde tabel worden tegelijk verschoven bij het opstarten. Capaciteitsperiodes blijven daardoor geldig; de bestaande databaseregels zijn ongewijzigd.
+- Gerichte regressietests voor datumverschuiving in beide richtingen, inclusief perioden met een duur van nul of 366 dagen.
+- CI: gefaseerde Node 22/26-controles, documentatie-uitzondering en betere schermtestdiagnostiek (D87).
 
 ## 0.62.0 — 23 november 2026 · #100
 - **Plaatje van de database** in [`docs/DATABASE.md`](docs/DATABASE.md) (#100): een overzicht van alle 43 tabellen en hun verbanden (GitHub tekent het als diagram), een lijst met per tabel de uitleg en waar hij naar verwijst, en per tabel de kolommen.
