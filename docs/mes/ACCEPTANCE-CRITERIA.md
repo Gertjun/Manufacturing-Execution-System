@@ -19,3 +19,5 @@ D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht te
 Migratietests: schone installatie en upgrade vanaf main, schema/diagram consistent, historische data en ID's behouden, DB-rechten beperkte app-account, transacties en herstel. Kritische negatieve tests: operator MBR wijzigen, auteur alleen goedkeuren, systeembeheer product vrijgeven, ongeschikt middel, ontbrekende kwalificatie, verlopen offline bevoegdheid, opheffen technische hold laat quality hold intact. Werkelijke testbewijslinks pas invullen na uitvoering.
 
 Fase 1, PR #6 (deelimplementatie): `api/test/authorization.test.ts` bevat scenario's voor gescheiden grants, ontbrekende scope, geldigheid, intrekking, kwalificaties, conflicterende beheerdomeinen en persoonlijke identiteit. Uitvoering en API/DB-integratie nog open.
+
+D92: oude accountimport moet 404 opleveren; geen accountsjabloon in Medewerkers. Handmatig account aanmaken, tijdelijk wachtwoord en eigen wachtwoord wijzigen blijven regressietests.

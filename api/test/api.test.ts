@@ -612,7 +612,7 @@ describe("Portaal Beheer", () => {
 });
 
 describe("Medewerkers in een ploeg (#87)", () => {
-  test("ploeg bij een nieuw account, bij een bestaand account, bij een naam en via het sjabloon", async () => {
+  test("ploeg bij een nieuw account, bij een bestaand account en bij een naam", async () => {
     const bh = await login("beheerder1");
     const n = await verzoek("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.z", rol: "operator", wachtwoord: "geheim-123", naam: "Operator Z", ploeg: "d2" });
     assert.equal(n.status, 201, JSON.stringify(n.body));
@@ -632,38 +632,15 @@ describe("Medewerkers in een ploeg (#87)", () => {
     assert.equal(p.body.ploeg, "E2");
     const z = ops.body.find((o: any) => o.naam === "Operator Z");
     assert.deepEqual([z.account, z.rol, z.ploeg], ["operator.z", "operator", "D2"]);
-    const imp = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels: [
-      { regel: 2, gebruikersnaam: "operator.z", rol: "operator", ploeg: "b1" },
-      { regel: 3, gebruikersnaam: "operator.y", rol: "operator", naam: "Operator Y", wachtwoord: "geheim-123", ploeg: "C2" },
-    ] });
-    assert.equal(imp.status, 200, JSON.stringify(imp.body));
-    assert.equal(imp.body.uitgevoerd, true, JSON.stringify(imp.body));
-    assert.match(imp.body.regels[0].wijzigingen.join(), /ploeg: D2 → B1/);
-    const fout = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: false, regels: [{ regel: 2, gebruikersnaam: "planner1", rol: "planner", ploeg: "A1" }] });
-    assert.match(fout.body.regels[0].fout, /ploeg hoort alleen/);
+    assert.equal((await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels: [] })).status, 404);
   });
 });
 
 describe("accounts met een tijdelijk wachtwoord (#76)", () => {
-  test("import: proefronde, alles-of-niets, daarna eerst een eigen wachtwoord", async () => {
+  test("persoonlijk account: daarna eerst een eigen wachtwoord", async () => {
     const bh = await login("beheerder1");
-    const regels = [
-      { regel: 2, gebruikersnaam: "Import.A", rol: "operator", naam: "Import A", wachtwoord: "tijdelijk-a", actief: true },
-      { regel: 3, gebruikersnaam: "import.b", rol: "planner", naam: null, wachtwoord: "kort", actief: true },
-    ];
-    const fout = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels });
-    assert.equal(fout.status, 200);
-    assert.equal(fout.body.uitgevoerd, false);
-    assert.equal(fout.body.fouten, 1);
-    assert.match(fout.body.regels[1].fout, /minstens 8 tekens/);
-    assert.equal((await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.gebruiker WHERE gebruikersnaam = 'import.a'")).rows[0].n, 0, "niets opgeslagen");
-    const eigen = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: false, regels: [{ regel: 2, gebruikersnaam: "beheerder1", rol: "beheerder", actief: false }] });
-    assert.match(eigen.body.regels[0].fout, /eigen beheerdersaccount/);
-    regels[1].wachtwoord = "tijdelijk-b";
-    const proef = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: false, regels });
-    assert.deepEqual([proef.body.nieuw, proef.body.uitgevoerd], [2, false]);
-    const goed = await verzoek("POST", "/beheer/gebruikers/import", bh, { uitvoeren: true, regels });
-    assert.deepEqual([goed.body.nieuw, goed.body.uitgevoerd], [2, true], JSON.stringify(goed.body));
+    const nieuw = await verzoek("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "import.a", rol: "operator", naam: "Import A", wachtwoord: "tijdelijk-a" });
+    assert.equal(nieuw.status, 201, JSON.stringify(nieuw.body));
 
     const r = await verzoek("POST", "/auth/login", undefined, { gebruikersnaam: "import.a", wachtwoord: "tijdelijk-a" });
     assert.equal(r.status, 200);

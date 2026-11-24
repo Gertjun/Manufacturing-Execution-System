@@ -505,3 +505,7 @@ Aanvulling op D88 en G03, goedgekeurd door Geert. In beginsel één PR per ontwi
 ### D91 – Naam beperkte databasegebruiker (24 nov 2026)
 
 Op verzoek van Geert wordt `mes_app` de standaardnaam voor nieuwe installaties, tests en serverconfiguratie. D24 blijft inhoudelijk geldig. Bestaande `batchgui_app`-logins blijven tijdelijk compatibel via lidmaatschap van `mes_app`, zonder automatische wachtwoordwijziging of uitschakeling. IT schakelt gecontroleerd om en verwijdert oude toegang pas na verificatie van afhankelijkheden in het cluster. Nieuwe beschermde autorisatietabellen moeten ook tegen directe grants van de oude login worden beschermd. Database- en schemanaam blijven voorlopig gelijk.
+
+### D92 – Geen Excel-import van gebruikersaccounts (24 nov 2026)
+
+Op verzoek van Geert vervalt de accountimport uit D61/#76, inclusief het accountsjabloon en de API-route. Persoonlijk accountbeheer en gecontroleerde bevoegdheidstoekenning volgen D89 P01–P05 en P11. Tijdelijke wachtwoorden en bestaande accounts/historie blijven behouden. Andere Excel-imports blijven bestaan; hun inhoudelijke wijzigingsworkflow volgt de betreffende MES-fase.

@@ -22,7 +22,7 @@ De automatische tests draaien bij elke versie op GitHub (zie README, "Testen"). 
 | L5 | Lege fabriek | `LEGE FABRIEK.bat`, een eerste beheerder aanmaken, inloggen. | Geen batches en geen testaccounts; de beheerder kan accounts en velden aanmaken. |
 | L6 | Beheerder vergeten | `BEHEERDER HERSTELLEN.bat`, nieuw wachtwoord geven, inloggen. | Inloggen lukt; Beheer → Logboek toont het herstel. |
 | L7 | Offline op de laptop | Invoerscherm open als `operator.a`. Applicatie stoppen (Ctrl+C). Een stap afronden met waarden. Applicatie weer starten. | Tijdens het stoppen gaat de invoer door en toont de balk het aantal wachtende acties; na het starten zijn ze verstuurd, met de tijd van invoer (niet van versturen). |
-| L8 | Accounts voor de pilot | Bij Beheer → Accounts het sjabloon downloaden, een paar fictieve accounts toevoegen (met tijdelijk wachtwoord), inlezen en opslaan. Met een van die accounts inloggen op het invoerscherm. | Duidelijke controle vóór het opslaan; bij de eerste inlog eerst een eigen wachtwoord, daarna gewoon verder. |
+| L8 | Accounts voor de pilot | Bij Beheer → Medewerkers een fictief persoonlijk account toevoegen met tijdelijk wachtwoord. Met dat account inloggen op het invoerscherm. | Geen Excel-import van accounts; bij de eerste inlog eerst een eigen wachtwoord, daarna gewoon verder. |
 
 ## A – Apparaten
 

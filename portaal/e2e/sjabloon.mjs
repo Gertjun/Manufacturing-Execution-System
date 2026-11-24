@@ -140,52 +140,13 @@ g.append(["S3.1", "PRD-A", 20, 120, "4", "absoluut"])`);
   check("Wijzigingen in het logboek", log.n >= 2, String(log.n));
   await shot("03-opgeslagen");
 
-  console.log("\nAccounts via het sjabloon (#76)");
+  console.log("\\nPersoonlijke accounts");
   await page.getByRole("link", { name: "Medewerkers" }).click();
   await page.getByRole("heading", { name: "Medewerkers", level: 1 }).waitFor();
-  const [dla] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Sjabloon downloaden" }).click()]);
-  const apad = `${SHOTS}/${dla.suggestedFilename()}`;
-  await dla.saveAs(apad);
-  const ax = leesXlsx(apad);
-  check("Accounts: kolommen en geen wachtwoorden in het bestand",
-    ax.rijen[0].join("|") === "Gebruikersnaam|Rol|Naam bij de invoer|Ploeg|Tijdelijk wachtwoord|Actief" && ax.rijen.slice(1).every((r) => !r[4]), ax.rijen[0].join("|"));
-  const afout = `${SHOTS}/accounts-fout.xlsx`;
-  bewerk(apad, afout, `
-ws.append(["nieuw.x", "Operator", "Nieuwe X", None, "kort", "ja"])
-ws.append(["nieuw.y", "Bakker", None, None, "tijdelijk-123", "ja"])`);
-  await page.locator("#accounts-bestand").setInputFiles(afout);
-  await page.getByRole("heading", { name: "Accounts inlezen" }).waitFor();
-  await page.getByText("Er wordt niets opgeslagen zolang er een regel met een fout is").waitFor();
-  const tekstFout = await page.locator("tbody").innerText();
-  check("Fouten: te kort wachtwoord en onbekende rol", tekstFout.includes("minstens 8 tekens") && tekstFout.includes('Onbekende rol "Bakker"'), tekstFout);
-  await page.getByRole("button", { name: "Annuleren" }).click();
-  await page.getByRole("heading", { name: "Medewerkers", exact: true }).waitFor();
-  const agoed = `${SHOTS}/accounts-goed.xlsx`;
-  bewerk(apad, agoed, `
-for r in ws.iter_rows(min_row=2):
-    if r[0].value == "analist1": r[5].value = "nee"
-ws.append(["nieuw.x", "Operator", "Operator E", "a2", "tijdelijk-123", "ja"])
-ws.append(["nieuw.y", "kwaliteit", None, None, 12345678, None])
-ws.append(["tv.hal2", "Wandscherm", None, None, "scherm-hal2", "ja"])`);
-  await page.locator("#accounts-bestand").setInputFiles(agoed);
-  await page.getByRole("button", { name: "4 wijzigingen opslaan" }).waitFor();
-  const controle = await page.locator("tbody").innerText();
-  check("Controle: drie nieuw (één gekoppeld aan een bestaande naam), één uitgezet",
-    controle.includes("gekoppeld aan de bestaande naam Operator E") && controle.includes("ploeg A2") && controle.includes("uit"), controle);
-  await shot("04-accounts-controle");
-  await page.getByRole("button", { name: "4 wijzigingen opslaan" }).click();
-  await page.getByText("3 accounts aangemaakt, 1 gewijzigd").waitFor();
-  const acc = await q(`SELECT g.gebruikersnaam, g.rol, g.actief, g.wachtwoord_wijzigen AS ww, o.naam
-                         FROM fabriek.gebruiker g LEFT JOIN fabriek.operator o ON o.gebruiker_id = g.id
-                        WHERE g.gebruikersnaam IN ('nieuw.x', 'nieuw.y', 'tv.hal2', 'analist1') ORDER BY 1`);
-  check("Opgeslagen: tijdelijk wachtwoord (niet bij een wandscherm), naam gekoppeld, analist uit",
-    JSON.stringify(acc) === JSON.stringify([
-      { gebruikersnaam: "analist1", rol: "analist", actief: false, ww: false, naam: null },
-      { gebruikersnaam: "nieuw.x", rol: "operator", actief: true, ww: true, naam: "Operator E" },
-      { gebruikersnaam: "nieuw.y", rol: "kwaliteit", actief: true, ww: true, naam: null },
-      { gebruikersnaam: "tv.hal2", rol: "scherm", actief: true, ww: false, naam: null },
-    ]), JSON.stringify(acc));
-  check("Lijst toont het tijdelijke wachtwoord", (await page.locator("tr", { hasText: "nieuw.x" }).innerText()).includes("tijdelijk wachtwoord"));
+  check("Geen accountsjabloon meer", await page.getByRole("button", { name: "Sjabloon downloaden" }).count() === 0 && await page.locator("#accounts-bestand").count() === 0);
+  const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const created = await fetch(`${BASIS}/beheer/gebruikers`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ gebruikersnaam: "nieuw.y", rol: "kwaliteit", wachtwoord: "12345678" }) });
+  if (created.status !== 201) throw new Error("Persoonlijk account aanmaken mislukt: " + await created.text());
 
   console.log("\nEerste inlog met een tijdelijk wachtwoord");
   await page.getByRole("button", { name: "Afmelden" }).click();

@@ -554,13 +554,8 @@ export async function medewerkers() {
       knoppen.length ? h("div", { class: "knoppen-klein" }, ...knoppen) : null), inhoud);
 
   toon(
-    kop("Medewerkers", "Iedereen met een naam bij de invoer, een ploeg en een eigen account. Veel tegelijk: via het sjabloon.",
-      h("div", { class: "knoppen-klein" },
-        h("button", { class: "knop", type: "button", onclick: () => accountsSjabloon(lijst) }, "Sjabloon downloaden"),
-        h("label", { class: "knop", for: "accounts-bestand" }, "Sjabloon inlezen"),
-        h("input", { id: "accounts-bestand", type: "file", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", class: "verborgen",
-          onchange: (e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void accountsInlezen(f); } }),
-        h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Medewerker toevoegen"))),
+    kop("Medewerkers", "Iedereen met een naam bij de invoer, een ploeg en een eigen account.",
+      h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Medewerker toevoegen")),
     lijst.some((a) => a.gedeeld && a.actief)
       ? h("p", { class: "proef-melding" }, h("strong", {}, "Gedeeld account nog actief. "),
           "Wie hiermee inlogt kiest zelf een naam; dat is fraudegevoelig (D53). Geef iedereen een eigen account en zet het gedeelde account uit zodra de invoerschermen niets meer te versturen hebben.")
@@ -582,109 +577,6 @@ export async function medewerkers() {
           h("button", { class: "knop knop-klein knop-stil", disabled: a.gebruikersnaam === zelf, onclick: () => aanUit({ naam: a.gebruikersnaam, operator: null, account: a, ploeg: null, actief: a.actief }) },
             a.actief ? "Uitzetten" : "Weer aanzetten")),
       ]))),
-  );
-}
-
-// ---------- Accounts via een Excel-sjabloon (#76, D61) ----------
-const ACCOUNT_KOPPEN = ["Gebruikersnaam", "Rol", "Naam bij de invoer", "Ploeg", "Tijdelijk wachtwoord", "Actief"];
-interface AccountRegel { regel: number; gebruikersnaam: string; rol: string; naam: string | null; ploeg: string | null; wachtwoord: string | null; actief: boolean }
-interface AccountUitkomst { regel: number; gebruikersnaam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null }
-interface AccountAntwoord { uitgevoerd: boolean; nieuw: number; gewijzigd: number; gelijk: number; fouten: number; regels: AccountUitkomst[] }
-
-function accountsSjabloon(lijst: Account[]) {
-  // Nooit wachtwoorden in het bestand: die kolom is leeg; vul hem alleen voor nieuwe accounts of een nieuw tijdelijk wachtwoord.
-  const rijen = lijst.filter((a) => !a.gedeeld).map((a) => [a.gebruikersnaam, rolNaam(a.rol), a.naam ?? "", a.ploeg ?? "", "", a.actief ? "ja" : "nee"]);
-  downloadXlsx(xlsxBladen([{ naam: "Accounts", koppen: ACCOUNT_KOPPEN, rijen }]), `Accounts ${vandaag()}.xlsx`);
-}
-
-/** Rol uit een cel: de code (operator) of de naam zoals in het scherm (Ploegleider, Analist (alleen lezen)). */
-function rolUitCel(t: string): string | null {
-  const k = t.trim().toLowerCase();
-  const r = ROLLEN.find(([code, naam]) => code === k || naam.toLowerCase() === k || naam.replace(/ \(.*\)/, "").toLowerCase() === k);
-  return r ? r[0] : null;
-}
-
-function leesAccountSjabloon(rijen: Cel[][]): { regels: AccountRegel[]; fouten: AccountUitkomst[] } {
-  const kop = (rijen[0] ?? []).map((c) => String(c ?? "").trim().toLowerCase());
-  const kolom = (naam: string) => kop.indexOf(naam.toLowerCase());
-  const ontbreekt = ["Gebruikersnaam", "Rol"].filter((k) => kolom(k) < 0);
-  if (ontbreekt.length) throw new Error(`Kolom ${ontbreekt.join(", ")} ontbreekt. Gebruik het sjabloon dat je hier downloadt.`);
-  const regels: AccountRegel[] = [], fouten: AccountUitkomst[] = [];
-  for (let i = 1; i < rijen.length; i++) {
-    const r = rijen[i] ?? [];
-    if (r.every((c) => c === null || c === "")) continue;
-    const tekst = (naam: string) => { const c = kolom(naam) >= 0 ? r[kolom(naam)] ?? null : null; return c === null ? null : String(c).trim() || null; };
-    const problemen: string[] = [];
-    const gebruikersnaam = (tekst("Gebruikersnaam") ?? "").toLowerCase();
-    const rolTekst = tekst("Rol") ?? "";
-    const rol = rolUitCel(rolTekst);
-    if (!gebruikersnaam) problemen.push("Gebruikersnaam ontbreekt");
-    if (!rol) problemen.push(rolTekst ? `Onbekende rol "${rolTekst}"` : "Rol ontbreekt");
-    const wwCel = kolom("Tijdelijk wachtwoord") >= 0 ? r[kolom("Tijdelijk wachtwoord")] : null;
-    if (wwCel !== null && wwCel !== "" && String(wwCel).length < 8) problemen.push("Het wachtwoord moet minstens 8 tekens hebben");
-    const act = (tekst("Actief") ?? "ja").toLowerCase();
-    if (!["ja", "nee", "j", "n", "x", "1", "0", "waar", "onwaar", "true", "false"].includes(act)) problemen.push(`Actief "${act}" is geen ja of nee`);
-    // Een wachtwoord dat Excel als getal opslaat (alleen cijfers), wordt gewoon tekst.
-    const ww = kolom("Tijdelijk wachtwoord") >= 0 ? r[kolom("Tijdelijk wachtwoord")] : null;
-    const regel: AccountRegel = {
-      regel: i + 1, gebruikersnaam, rol: rol ?? rolTekst, naam: tekst("Naam bij de invoer"), ploeg: tekst("Ploeg"),
-      wachtwoord: ww === null || ww === "" ? null : String(ww), actief: !["nee", "n", "0", "onwaar", "false"].includes(act),
-    };
-    if (problemen.length) fouten.push({ regel: regel.regel, gebruikersnaam, actie: "fout", wijzigingen: [], fout: problemen.join("; ") });
-    else regels.push(regel);
-  }
-  return { regels, fouten };
-}
-
-async function accountsInlezen(bestand: File) {
-  const actueel = vastHouden();
-  toon(kop("Accounts inlezen"), laden());
-  let regels: AccountRegel[], fouten: AccountUitkomst[], antwoord: AccountAntwoord | null = null;
-  try {
-    const bladen = await leesXlsxBladen(bestand);
-    const [eerste] = bladen.values();
-    ({ regels, fouten } = leesAccountSjabloon(bladen.get("Accounts") ?? eerste));
-    if (!fouten.length && regels.length) antwoord = await stuur<AccountAntwoord>("POST", "/beheer/gebruikers/import", { uitvoeren: false, regels });
-  } catch (e) { return fout(e, "Accounts inlezen"); }
-  if (!actueel()) return;
-  const uitkomsten = antwoord?.regels ?? fouten;
-  const metFout = uitkomsten.some((x) => x.actie === "fout");
-  const teOpslaan = antwoord ? antwoord.nieuw + antwoord.gewijzigd : 0;
-  const kanOpslaan = !!antwoord && !metFout && teOpslaan > 0;
-  const WAT: Record<AccountUitkomst["actie"], string> = { nieuw: "Nieuw account", wijzigen: "Wijzigen", gelijk: "Ongewijzigd", fout: "Fout" };
-  const volgorde = { fout: 0, nieuw: 1, wijzigen: 2, gelijk: 3 };
-  const opslaan = async () => {
-    try {
-      const r = await stuur<AccountAntwoord>("POST", "/beheer/gebruikers/import", { uitvoeren: true, regels });
-      if (!r.uitgevoerd) { melding(`Niet opgeslagen: ${r.fouten} ${r.fouten === 1 ? "regel" : "regels"} met een fout. Lees het bestand opnieuw in.`, "fout"); return; }
-      melding(`${r.nieuw} ${r.nieuw === 1 ? "account" : "accounts"} aangemaakt, ${r.gewijzigd} gewijzigd`, "ok");
-      void medewerkers();
-    } catch (e) { melding((e as Error).message, "fout"); }
-  };
-  toon(
-    // Het scherm staat al op #/beheer/medewerkers: terug gaat daarom met een knop, niet met een link naar hetzelfde adres.
-    h("p", { class: "terug" }, h("button", { class: "link-knop", type: "button", onclick: () => void medewerkers() }, "Terug naar medewerkers")),
-    kop("Accounts inlezen", `${bestand.name}. Dit is een controle: er is nog niets opgeslagen. Accounts die niet in het bestand staan, blijven zoals ze zijn.`),
-    h("div", { class: "tegels" },
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.nieuw ?? 0), h("span", { class: "tegel-tekst" }, "nieuwe accounts")),
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gewijzigd ?? 0), h("span", { class: "tegel-tekst" }, "accounts gewijzigd")),
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gelijk ?? 0), h("span", { class: "tegel-tekst" }, "ongewijzigd")),
-      h("div", { class: `tegel${metFout ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, uitkomsten.filter((x) => x.actie === "fout").length), h("span", { class: "tegel-tekst" }, "regels met een fout"))),
-    metFout
-      ? h("p", { class: "afgekapt" }, "Er wordt niets opgeslagen zolang er een regel met een fout is. Pas het bestand aan en lees het opnieuw in.")
-      : !teOpslaan ? h("p", { class: "leeg" }, regels.length ? "Alles in het bestand is al zo ingesteld." : "Het bestand bevat geen accounts.") : null,
-    h("p", { class: "proef-melding" }, h("strong", {}, "Wachtwoorden in het bestand. "),
-      "Een wachtwoord uit het bestand is tijdelijk: bij de eerste inlog kiest iedereen een eigen wachtwoord. Geef ze persoonlijk door en gooi het bestand daarna weg."),
-    h("div", { class: "knoppen", style: "justify-content:flex-start;margin-bottom:8px" },
-      kanOpslaan ? h("button", { class: "knop knop-hoofd", type: "button", onclick: opslaan }, `${teOpslaan} ${teOpslaan === 1 ? "wijziging" : "wijzigingen"} opslaan`) : null,
-      h("button", { class: "knop", type: "button", onclick: () => void medewerkers() }, "Annuleren")),
-    uitkomsten.length
-      ? tabel(["Regel", "Gebruikersnaam", "Wat", "Toelichting"], [...uitkomsten].sort((a, b) => volgorde[a.actie] - volgorde[b.actie] || a.regel - b.regel).map((x) => [
-          h("span", { class: "getal" }, x.regel), x.gebruikersnaam,
-          h("span", { class: `label ${x.actie === "fout" ? "label-buiten_grens" : x.actie === "gelijk" ? "" : "label-ok"}` }, WAT[x.actie]),
-          x.fout ?? x.wijzigingen.join("; "),
-        ]), "compact")
-      : null,
   );
 }
 
