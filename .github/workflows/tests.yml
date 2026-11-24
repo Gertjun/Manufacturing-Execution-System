@@ -3,8 +3,28 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DECISIONS.md'
+      - 'ROADMAP.md'
+      - 'CHANGELOG.md'
+      - 'docs/DATABASE.md'
+      - 'docs/PRAKTIJKTESTS.md'
+      - 'docs/SERVER.md'
+      - 'tools/pakket/README.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DECISIONS.md'
+      - 'ROADMAP.md'
+      - 'CHANGELOG.md'
+      - 'docs/DATABASE.md'
+      - 'docs/PRAKTIJKTESTS.md'
+      - 'docs/SERVER.md'
+      - 'tools/pakket/README.md'
     types: [opened, synchronize, reopened, labeled]
 
 permissions:

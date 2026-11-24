@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release
@@ -38,30 +39,9 @@ jobs:
         run: |
           git fetch origin main
           git merge-base --is-ancestor "$GETESTE_SHA" origin/main
-          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?head_sha=$GETESTE_SHA&event=push&status=success&branch=main" --jq '.total_count' | grep -Eq '^[1-9][0-9]*
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 22
-      - name: Tags en releases maken voor nieuwe versies
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
-        run: |
-          git fetch --tags --force
-          node tools/release.mjs ontbrekend > /tmp/nieuw.txt
-          if [ ! -s /tmp/nieuw.txt ]; then echo "Geen nieuwe versies."; exit 0; fi
-          mislukt=""
-          while read -r versie commit; do
-            echo "Versie $versie op $commit"
-            node tools/release.mjs notities "$versie" > "/tmp/notities-$versie.md"
-            if ! git rev-parse -q --verify "refs/tags/v$versie" >/dev/null; then
-              git tag "v$versie" "$commit" && git push origin "refs/tags/v$versie" \
-                || { mislukt="$mislukt $versie"; git tag -d "v$versie" 2>/dev/null; continue; }
-            fi
-            gh release create "v$versie" --verify-tag --title "Versie $versie" --notes-file "/tmp/notities-$versie.md" \
-              || mislukt="$mislukt $versie"
-          done < /tmp/nieuw.txt
-          if [ -n "$mislukt" ]; then echo "::error::Niet gelukt voor:$mislukt"; exit 1; fi
-
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?head_sha=$GETESTE_SHA&event=push&status=success&branch=main" --jq '.workflow_runs[0].id // empty')"
+          [ -n "$run_id" ] || { echo "Geen geslaagde main-testrun"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" --jq '.jobs[] | select(.name == "Volledige testsuite (Node.js 26)" and .conclusion == "success") | .id' | grep -Eq '^[0-9]+$'
           git branch -f main "$GETESTE_SHA"
       - name: Node.js instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6

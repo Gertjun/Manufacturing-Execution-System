@@ -11,7 +11,7 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
 - **Taal en uitleg:** Nederlands, kort en zonder vakjargon. Alle teksten in de schermen zijn ook Nederlands.
 - **"Hoe zou je…" of "nog niet bouwen":** eerst uitleggen en wachten op akkoord.
 - **Alleen fictieve gegevens.** Nooit echte fabrieksgegevens, wachtwoorden of tokens in code, tests, logs of commits. Testdata komt uit `tools/genereer_testdata.py`.
-- **Elke wijziging is een eigen versie** (`MAJOR.MINOR.PATCH`), zie D17:
+- **Elke applicatiewijziging is een eigen versie** (`MAJOR.MINOR.PATCH`), zie D17:
   - MAJOR als iemand iets moet doen buiten de schermen om: alle pc's tegelijk bijwerken, een database-omzetting met stilstand, opnieuw instellen. Versie 1.0.0 is de start van de pilot met echte data.
   - MINOR voor een nieuwe functie, ook als de database erbij verandert zonder dat iemand iets hoeft te doen.
   - PATCH voor een kleine verbetering of foutoplossing.
@@ -24,7 +24,9 @@ Dit zijn de afspraken uit Geerts andere projecten (Vaste Lasten, Cryptotracker, 
 - **Regels horen in de database**, niet in de schermen (D9).
 - **Databasewijziging = migratie** (D23): nieuw bestand `db/migraties/NNNN_naam.sql`, dezelfde wijziging in `db/schema.sql` plus de regel in `schema_versie`, en `tests/test_migraties.sh` moet slagen. Daarna het plaatje opnieuw maken (`python3 tools/schema_plaatje.py "host=localhost user=postgres"`, D84); `tests/test_schema_plaatje.sh` controleert het. Migraties nooit achteraf aanpassen.
 - **Beperkte databasegebruiker** (D24): de applicatie draait als `batchgui_app`. Heeft een nieuwe functie extra rechten nodig, pas dan `db/rechten.sql` aan; de API-tests draaien met die gebruiker.
+- **Uitsluitend documentatie (D87):** met toestemming van Geert mogen zuiver tekstuele wijzigingen direct naar main, zonder software-PR, versieverhoging, release of softwaretests. Alleen de expliciete lijst in `.github/workflows/tests.yml` valt onder deze uitzondering. ROADMAP/CHANGELOG: controleer `tests/test_roadmap.sh` en de versie-koppen vooraf; voeg geen nieuwe versiekop toe zonder software-PR. Voor `docs/DATABASE.md` is `tests/test_schema_plaatje.sh` verplicht. GitHub draait voor deze gekoppelde documenten alleen de relevante documentatiecontrole; gewone tekstcorrecties starten geen workflow. Bij gemengde wijzigingen of twijfel geldt de normale PR-procedure.
 - **Testen en acceptatie via PR:** werk op een branch. Draai tijdens ontwikkeling lokaal de relevante tests en laat Node 22 automatisch controleren bij iedere PR-wijziging. Bundel wijzigingen; start de volledige Node 26-suite pas wanneer de PR inhoudelijk gereed is, door het label `acceptatie-test` toe te voegen (bij herhaling eerst verwijderen). Controleer in Actions dat de acceptatierun geslaagd is voor de actuele PR-head én actuele base; een overgeslagen job is geen acceptatie. Na iedere nieuwe commit of basewijziging opnieuw accepteren. Geert voert de merge uit. Op main draaien beide suites automatisch; releases volgen uitsluitend een geslaagde main-run. GitHub Free op deze privérepo dwingt de mergevoorwaarde niet technisch af. Relevante lokale database-, API- en schermtests blijven verplicht waar de wijziging die onderdelen raakt. Geen tests uitschakelen of verwachtingen versoepelen om CI groen te maken.
+- **Foutanalyse en zuinig testen:** onderzoek eerst de grondoorzaak, lees bij herhaling de workflowhistorie en onderscheid applicatie-, testontwerp- en omgevingsfouten. Test gericht, bundel oplossingen en start pas daarna opnieuw de volledige acceptatietest. Controleer ook workflow-syntaxis en uitvoerbaarheidsmarkeringen van gewijzigde scripts. GitHub Actions-minuten zijn beperkt.
 - **Groen op GitHub is niet alles.** De automatische tests bewijzen niet dat offline werken, een echte Windows-pc of het netwerk in de fabriek werkt. Noem praktijktests die niet zijn uitgevoerd altijd expliciet.
 - **Release-tags worden nooit achteraf gewijzigd.** Tags en GitHub Releases maakt de workflow `release.yml` automatisch voor elke nieuwe versie op `main`. Die gebruikt de secret `RELEASE_TOKEN`: de ingebouwde sleutel mag geen tag zetten op een versie waarin de workflowbestanden anders zijn dan nu (#40). Mislukt een release, lees dan het logboek van de stap "Tags en releases maken".
 - Ga je in tegen een besluit uit `DECISIONS.md`? Zeg dat en vraag het eerst.
@@ -67,7 +69,7 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 3. **`DECISIONS.md`**: een nieuw `D<n>`-besluit voor elke keuze die een volgende sessie moet kennen.
 4. De rest van **`README.md`** bijwerken als de opbouw, een scherm of een test verandert.
 5. **Projectdocument** in het Claude-project (`claude/architectuur-en-besluiten.md`): alleen de samenvatting en de links bijwerken. Het Whiteboard en de rapporten op claude.ai zijn momentopnamen: niet bijwerken.
-6. Push naar de PR-branch, controleer Node 22 en vraag pas bij gereedheid acceptatie aan; Geert merget na geslaagde Node 26.
+6. Bij software/CI: push naar de PR-branch, controleer Node 22 en vraag pas bij gereedheid acceptatie aan; Geert merget na geslaagde Node 26. Bij uitsluitend toegestane documentatie: volg D87 en push alleen na toestemming rechtstreeks naar main.
 
 ## Valkuilen voor de volgende sessie
 - `tools/pakket/testdata.sql` opnieuw maken: `schema_versie`, `onderhoud_log` en `inlogpoging` niet meenemen in de dump (zie README, "Testdata").

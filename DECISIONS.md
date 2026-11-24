@@ -413,3 +413,8 @@ Besluiten die een volgende sessie moet kennen. Oude besluiten pas je niet aan; e
 - **Leesbaar houden:** het diagram toont alleen de tabellen en hun verbanden, zonder kolommen, en zonder de lijnen naar `gebruiker`, `operator` en `pc` (wie of waar: die staan in bijna elke tabel). Die staan wel in de lijsten eronder.
 - **Bij blijven:** `tests/test_schema_plaatje.sh` maakt het plaatje opnieuw en vergelijkt; hoort bij elke databasewijziging (CLAUDE.md) en draait op GitHub.
 - **Gekozen boven:** een plaatje (png/svg) met een los programma (extra afhankelijkheid, en een plaatje laat zich slecht vergelijken in een test), of het plaatje bij de release laten maken (dan staat het niet in de repository en is het niet te zien zonder download).
+
+### D87 – Gefaseerde CI en documentatie-uitzondering (24 nov 2026)
+- **Besluit:** software-, test- en CI-wijzigingen via een PR; korte Node 22-controle automatisch, volledige Node 26-acceptatie op aanvraag op de actuele PR-head en base, merge door Geert, beide suites op main vóór een release. Vervangt de directe main-werkwijze uit D16 en het betreffende deel van D20. Zuivere documentatie uit de expliciete workflowlijst mag met toestemming rechtstreeks naar main, zonder softwaretests of nieuwe versie (uitzondering op D17). ROADMAP/CHANGELOG en het gegenereerde databasediagram houden hun gerichte controles. Geen release of laptoppakket door een documentatie-only wijziging.
+- **Waarom:** testdekking behouden en verspilling van Actions-minuten voorkomen. GitHub Free biedt geen afdwingbare ruleset voor deze privérepository; controle vóór merge blijft een werkafspraak.
+- **Uitvoering:** zie CLAUDE.md en `.github/workflows/tests.yml`.
