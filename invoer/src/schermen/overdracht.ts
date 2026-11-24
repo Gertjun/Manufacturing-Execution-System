@@ -2,6 +2,7 @@
 // Schrijven werkt ook zonder verbinding (wachtrij); de server bepaalt de ploeg aan de hand van het tijdstip.
 import { haal, nieuwId } from "../api";
 import { sessie } from "../sessie";
+import { heeftRecht } from "../rechten";
 import { bevestig, h, laden, melding, tijd, toon, vastHouden } from "../ui";
 import { acties, voegToe } from "../wachtrij";
 
@@ -46,6 +47,7 @@ function notitieBlok(n: Notitie) {
 
 /** Blok bovenaan het stappenoverzicht: de overdracht van de vorige ploeg. Leeg als die er niet is. */
 export async function vorigeOverdrachtBlok(): Promise<Node | null> {
+  if (!heeftRecht("handover.read")) return null;
   let s: Samenvatting | null;
   try { s = (await haal<Samenvatting | null>("/overdracht?vorige=true")).data; } catch { return null; }
   if (!s) return null;
@@ -75,6 +77,7 @@ export async function vorigeOverdrachtBlok(): Promise<Node | null> {
 }
 
 export async function overdrachtScherm() {
+  if (!heeftRecht("handover.read")) return toon(h("h1", {}, "Geen bevoegdheid voor ploegoverdracht"));
   const actueel = vastHouden();
   toon(h("h1", {}, "Overdracht"), laden());
   let s: Samenvatting | null = null;
@@ -96,7 +99,7 @@ export async function overdrachtScherm() {
 
   const bijz = h("textarea", { id: "bijzonderheden", rows: 4, maxlength: 2000 }) as HTMLTextAreaElement;
   const aand = h("textarea", { id: "aandachtspunten", rows: 3, maxlength: 2000 }) as HTMLTextAreaElement;
-  const magSchrijven = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const magSchrijven = heeftRecht("handover.record");
 
   toon(
     h("div", { class: "kop" },
