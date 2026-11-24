@@ -54,6 +54,58 @@ curl -s localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '
 stopApp
 pgDraait && fout "database draait nog na Ctrl+C"
 
+# Simuleer de oude pakketconfiguratie op een kopie van de fictieve database:
+# authenticatie en instellingen zijn legacy; schema blijft 0086.
+# Leg vóór en na de omzetting alle batch-ID's en nummers vast.
+oudeInstellingen() {
+  node --input-type=commonjs <<'JS'
+const fs=require("node:fs");
+const i=JSON.parse(fs.readFileSync("instellingen.json","utf8"));
+i.db={...i.db,user:"postgres",password:""};
+delete i.beheerDb;
+fs.writeFileSync("instellingen.json",JSON.stringify(i,null,2),{mode:0o600});
+JS
+  printf 'local all all trust\nhost all all 127.0.0.1/32 trust\nhost all all ::1/128 trust\n' > data/pgdata/pg_hba.conf
+}
+batchBewijs() {
+  node --input-type=commonjs <<'JS'
+const fs=require("node:fs");
+const {Client}=require("./server/node_modules/pg");
+const i=JSON.parse(fs.readFileSync("instellingen.json","utf8"));
+(async()=>{
+  const c=new Client(i.beheerDb ?? i.db);
+  await c.connect();
+  try {
+    const {rows:[r]}=await c.query("SELECT count(*)::int AS n, md5(string_agg(id::text,',' ORDER BY id)) AS bewijs FROM fabriek.batch");
+    if(!r.n) throw Error("Geen historische fictieve batches");
+    console.log(JSON.stringify(r));
+  } finally {await c.end();}
+})().catch(e=>{console.error(e.message);process.exitCode=1;});
+JS
+}
+# Start uitsluitend de testdatabase in oude configuratie om het referentiebewijs
+# te meten; geen API starten met de oude verbinding.
+oudeInstellingen
+postgres/bin/pg_ctl start -D data/pgdata -l /tmp/laptop-legacy-pg.log -w -o "-p 54329" >/dev/null
+VOOR=$(batchBewijs) || fout "historisch referentiebewijs"
+postgres/bin/pg_ctl stop -D data/pgdata -m fast -w >/dev/null
+start
+NA=$(batchBewijs) || fout "historisch bewijs na omzetting"
+[ "$VOOR" = "$NA" ] || fout "batchhistorie gewijzigd bij upgrade"
+! grep -Eq '^[[:space:]]*[^#].*[[:space:]]trust([[:space:]]|$)' data/pgdata/pg_hba.conf || fout "trust na upgrade"
+stopApp
+# De automatisch gemaakte pre-upgradeback-up bevat nog trust. Herstel die
+# en controleer dat de omzetting opnieuw plaatsvindt zonder batchverlies.
+printf '1\n' | node opstarten.mjs --herstel --geen-browser > /tmp/laptoptest.log 2>&1 &
+for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && break; sleep 1; done
+curl -sf localhost:3000/gezondheid >/dev/null || fout "legacy-back-up start niet"
+[ "$(batchBewijs)" = "$VOOR" ] || fout "batchhistorie gewijzigd bij legacy-herstel"
+! grep -Eq '^[[:space:]]*[^#].*[[:space:]]trust([[:space:]]|$)' data/pgdata/pg_hba.conf || fout "trust na herstel"
+stopApp
+# Begin de bestaande back-uprotatieproef met een lege lijst van uitsluitend
+# fictieve testback-ups; de actuele database blijft behouden.
+rm -rf data/backups
+
 start
 grep -q "Back-up maken" /tmp/laptoptest.log || fout "geen back-up bij tweede start"
 [ "$(ls data/backups | wc -l)" = "1" ] || fout "back-upmap klopt niet"
@@ -66,6 +118,7 @@ stopApp
 
 printf '1\n' | node opstarten.mjs --herstel --geen-browser > /tmp/laptoptest.log 2>&1 &
 for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && break; sleep 1; done
+curl -sf localhost:3000/gezondheid >/dev/null || fout "beveiligde back-up start niet"
 grep -q "Back-up teruggezet" /tmp/laptoptest.log || fout "terugzetten"
 stopApp
 wacht() { for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && return 0; sleep 1; done; fout "applicatie start niet"; }
