@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist } from "../auth.js";
+import { requiresGlobalExecutionRead } from "../modules/authorization/access.js";
 import { lees } from "../db.js";
 import { RegistratieKort, REGISTRATIE_SQL, StapCode } from "./schemas.js";
 
@@ -9,7 +9,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["werkvoorraad"],
         response: {
@@ -45,7 +45,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/:stapcode",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["werkvoorraad"],
         params: Type.Object({ stapcode: StapCode }),
