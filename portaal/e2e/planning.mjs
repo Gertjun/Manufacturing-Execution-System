@@ -258,8 +258,12 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   console.log("\nLotvoorstellen");
   await page.getByRole("link", { name: "Lotvoorstellen" }).click();
   await page.getByRole("button", { name: "Nieuw lotvoorstel" }).click();
+  const kiesProduct = dialoog().getByRole("button", { name: "Kiezen" });
+  check("Product eerst kiezen voordat batches geselecteerd kunnen worden", await kiesProduct.isDisabled());
+  await dialoog().getByLabel(/Product A standaard/).check();
+  await kiesProduct.click();
   const kies = dialoog().getByRole("button", { name: "Kiezen" });
-  check("Kiezen pas mogelijk bij 4 batches", await kies.isDisabled());
+  check("Kiezen pas mogelijk bij vier batches", await kies.isDisabled());
   for (const n of nummers.slice(0, 4)) await dialoog().getByLabel(new RegExp(n)).check();
   await kies.click();
   await dialoog().getByRole("button", { name: "Voorstel maken" }).click();
