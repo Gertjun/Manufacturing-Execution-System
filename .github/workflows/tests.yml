@@ -3,20 +3,82 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DECISIONS.md'
+      - 'ROADMAP.md'
+      - 'CHANGELOG.md'
+      - 'docs/DATABASE.md'
+      - 'docs/PRAKTIJKTESTS.md'
+      - 'docs/SERVER.md'
+      - 'tools/pakket/README.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DECISIONS.md'
+      - 'ROADMAP.md'
+      - 'CHANGELOG.md'
+      - 'docs/DATABASE.md'
+      - 'docs/PRAKTIJKTESTS.md'
+      - 'docs/SERVER.md'
+      - 'tools/pakket/README.md'
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: read
 
+# Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
+concurrency:
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && 'acceptatie' || 'ontwikkeling' }}
+  cancel-in-progress: true
+
 jobs:
-  tests:
-    name: Databaseregels, API, beheertools en schermen (Node.js ${{ matrix.node }})
+  compatibility:
+    name: Node.js 22-compatibiliteit
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 26]
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Node.js 22 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Versienummer overal gelijk
+        run: |
+          V="$(cat VERSIE)"
+          for p in api invoer portaal demo; do
+            [ "$(node -p "require('./$p/package.json').version")" = "$V" ] || { echo "$p/package.json heeft niet versie $V"; exit 1; }
+          done
+          grep -q "\"$V\"" api/src/versie.ts && grep -q "\"$V\"" gedeeld/versie.ts
+          grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
+      - name: Roadmap controleren
+        run: tests/test_roadmap.sh
+      - name: Gerichte datumverschuivingsregressie (zonder afhankelijkheden)
+        run: node --test demo/test_verschuif_datums_unit.mjs
+      - name: API typecheck op Node.js 22
+        working-directory: api
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+      - name: Invoerscherm bouwen op Node.js 22
+        working-directory: invoer
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Portalen bouwen op Node.js 22
+        working-directory: portaal
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+  full-tests:
+    name: Volledige testsuite (Node.js 26)
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test')
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:18
@@ -30,10 +92,10 @@ jobs:
     steps:
       - name: Repository ophalen
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Node.js instellen
+      - name: Node.js 26 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 26
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
@@ -83,18 +145,26 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
       - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
-        if: matrix.node == 26
         run: tests/test_laptoppakket.sh
+      - name: Browserdemo datumverschuiving in PGlite
+        working-directory: demo
+        run: |
+          npm ci --no-audit --no-fund
+          node --test test_verschuif_datums_unit.mjs test_verschuif_datums.mjs
       - name: Schermtests in Chrome (invoerscherm, portalen, browserdemo)
-        if: matrix.node == 26
         env:
           DATABASE_URL: postgres://postgres@localhost:5432/batchgui
         run: |
           google-chrome --version
           python3 -m pip install --quiet openpyxl pillow pyzbar
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
-          (cd demo && npm ci --no-audit --no-fund)
           tests/test_schermen.sh
       - name: Logboeken van de schermtests tonen
-        if: failure() && matrix.node == 26
-        run: tail -n 40 /tmp/schermtest-*.log || true
+        if: failure()
+        run: |
+          for log in /tmp/schermtest-*.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo '::endgroup::'
+          done

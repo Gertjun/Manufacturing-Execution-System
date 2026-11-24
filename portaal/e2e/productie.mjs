@@ -27,10 +27,12 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
+let apiKlaar = false;
 for (let i = 0; i < 40; i++) {
-  try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
+  try { if ((await fetch(`${BASIS}/gezondheid`, { signal: AbortSignal.timeout(1000) })).ok) { apiKlaar = true; break; } } catch {}
   await new Promise((r) => setTimeout(r, 250));
 }
+if (!apiKlaar) { stopApi(); await db.end(); throw new Error("API niet bereikbaar op /gezondheid"); }
 
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
@@ -175,7 +177,8 @@ try {
   await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
   check("Nu stil: de lopende storing in PS7", (await page.locator("section", { hasText: "Nu stil" }).locator("tbody tr", { hasText: "PS7" }).count()) === 1);
   const rijPs7 = await page.locator("section", { hasText: "Stilstand per stap" }).locator("tbody tr", { hasText: "PS7 " }).innerText();
-  check("PS7 heeft de laagste beschikbaarheid", (await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText()).includes("PS7"), rijPs7);
+  const laagste = await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText();
+  check("PS7 heeft de laagste beschikbaarheid", laagste.includes("PS7"), `verwacht PS7; tegel: ${laagste}; rij PS7: ${rijPs7}`);
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   const laatste = page.locator("section", { hasText: "Laatste 50 keer stilstand" });
   const koppen = await laatste.locator("thead th").allInnerTexts();
@@ -264,7 +267,7 @@ try {
   check("Beheerder zet 'te laat' op 45 minuten", inst?.waarde === "45");
   await shot("10-pilotoverzicht");
 } catch (e) {
-  console.log("  AFGEBROKEN", e.message.split("\n")[0]);
+  console.log("  AFGEBROKEN", e.stack ?? e);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {

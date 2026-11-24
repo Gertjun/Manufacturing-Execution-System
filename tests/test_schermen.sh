@@ -28,7 +28,7 @@ draai() { # map, script
   if (cd "$1" && node "e2e/$2") > "/tmp/schermtest-$2.log" 2>&1; then
     tail -1 "/tmp/schermtest-$2.log"
   else
-    grep -E "FOUT|AFGEBROKEN|PAGINAFOUT" "/tmp/schermtest-$2.log" | head -20
+    cat "/tmp/schermtest-$2.log"
     FOUT=$((FOUT + 1))
   fi
 }
@@ -49,10 +49,22 @@ draai portaal planning.mjs
 draai portaal sjabloon.mjs
 
 # Browserdemo (PGlite in de browser, zonder server).
-(cd demo && ./bouw.sh >/dev/null 2>&1)
-python3 -m http.server 4173 --directory demo/dist >/dev/null 2>&1 &
+if ! (cd demo && ./bouw.sh) > /tmp/schermtest-demo-bouw.log 2>&1; then
+  cat /tmp/schermtest-demo-bouw.log
+  exit 1
+fi
+python3 -m http.server 4173 --directory demo/dist > /tmp/schermtest-demo-server.log 2>&1 &
 SERVER=$!
-sleep 1
+trap 'kill "$SERVER" 2>/dev/null || true' EXIT
+poging=0
+until curl -fsS http://localhost:4173/ >/dev/null; do
+  poging=$((poging + 1))
+  if [ "$poging" -ge 20 ]; then
+    cat /tmp/schermtest-demo-server.log
+    exit 1
+  fi
+  sleep 1
+done
 draai portaal demo.mjs
 kill $SERVER 2>/dev/null || true
 

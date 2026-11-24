@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release
@@ -20,17 +21,28 @@ concurrency:
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Repository ophalen (volledige geschiedenis)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
           # Eigen sleutel (secret RELEASE_TOKEN, rechten Contents en Workflows): de ingebouwde
           # sleutel mag geen tag zetten op een versie waarin de workflowbestanden anders zijn (#40).
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
+      - name: Alleen geteste main-commit vrijgeven
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GETESTE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GETESTE_SHA" origin/main
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?head_sha=$GETESTE_SHA&event=push&status=success&branch=main" --jq '.workflow_runs[0].id // empty')"
+          [ -n "$run_id" ] || { echo "Geen geslaagde main-testrun"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" --jq '.jobs[] | select(.name == "Volledige testsuite (Node.js 26)" and .conclusion == "success") | .id' | grep -Eq '^[0-9]+$'
+          git branch -f main "$GETESTE_SHA"
       - name: Node.js instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
