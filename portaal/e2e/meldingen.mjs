@@ -43,11 +43,7 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-"+(naam === "beheerder1" ? "beheer" : "kwaliteit")).click();
 };
 
 try {
@@ -87,8 +83,8 @@ try {
   console.log("\nRollen");
   await page.evaluate(() => localStorage.clear());
   await inloggen("beheerder1");
-  await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
-  check("Beheerder ziet ook meldingen", await page.locator(".menu-meldingen").isVisible());
+  await page.getByRole("heading", { name: "Accounts" }).waitFor();
+  check("Technisch beheer heeft geen operationele meldingen", await page.locator(".menu-meldingen").count() === 0);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});
