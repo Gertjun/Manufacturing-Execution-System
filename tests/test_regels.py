@@ -2285,6 +2285,67 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+    print("\n#111 persoonlijk beheer van receptvereisten en lotregels")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('requirements.scoped','analist',wachtwoord_hash('test-requirements'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='requirements.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        con.execute("INSERT INTO qualification(code,description) VALUES ('requirements_manage_training','Fictieve training')")
+        def version(product,code):
+            rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(product,code,actor))
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        v,compatible,other=version(pa,"REQ-MANAGE"),version(pa,"REQ-COMPARE"),version(pb,"REQ-OTHER")
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('requirements.scoped','test-requirements',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        root=val("SELECT recipe_save_element(%s,0,NULL,NULL,'procedure','ROOT','Root',1,true)",(v,))["id"]
+        p=val("SELECT recipe_save_parameter(%s,1,NULL,%s,'Q','Quality','decimal','kg','per batch',true,'kwaliteit',true,NULL)",(v,root))["id"]
+        limit=val("SELECT recipe_save_parameter_limit(%s,2,NULL,%s,'decimal','specification_limit',NULL,1,2,'fixed')",(v,p))["id"]
+        def denied(label,sql,params=(),msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT req_manage")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT req_manage")
+            con.execute("RELEASE SAVEPOINT req_manage")
+        denied("#111 vereisten lezen andere productscope","SELECT recipe_requirements_list(%s)",(other,))
+        denied("#111 lotregel andere productscope","SELECT recipe_save_lot_rule(%s,0,NULL,4,true)",(other,))
+        eq=val("SELECT recipe_save_equipment_requirement(%s,3,NULL,%s,'EQ','MIXER','Fictief',1,NULL,NULL)",(v,root))
+        per=val("SELECT recipe_save_personnel_requirement(%s,4,NULL,%s,'PERSON','requirements_manage_training',2)",(v,root))
+        ins=val("SELECT recipe_save_instruction(%s,5,NULL,%s,'I',1,'Fictieve instructie',true)",(v,root))
+        spec=val("SELECT recipe_save_specification_link(%s,6,NULL,%s,'S','Fictieve eis')",(v,limit))
+        lot=val("SELECT recipe_save_lot_rule(%s,7,NULL,6,true)",(v,))
+        comp=val("SELECT recipe_save_compatibility_rule(%s,8,NULL,%s,'Fictieve incompatibiliteit')",(v,compatible))
+        data=val("SELECT recipe_requirements_list(%s)",(v,))
+        check("#111 alle vereisten en gezamenlijke teller",data["change_no"]==9 and all(len(data[k])==1 for k in ("equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules")))
+        check("#111 kwalificatieomschrijving uit vertrouwde catalogus",data["personnel_requirements"][0]["qualification_description"]=="Fictieve training")
+        check("#111 redenplicht niet door client instelbaar",data["lot_rules"][0]["deviation_reason_required"] is True)
+        denied("#111 stale lotnorm","SELECT recipe_save_lot_rule(%s,8,%s,4,false)",(v,lot["id"]),"ondertussen gewijzigd")
+        denied("#111 ongeldige lotnorm","SELECT recipe_save_lot_rule(%s,9,%s,51,false)",(v,lot["id"]),"check")
+        denied("#111 andere productversie incompatibiliteit","SELECT recipe_save_compatibility_rule(%s,9,NULL,%s,'Fictief')",(v,other),"hetzelfde product")
+        denied("#111 onbekende kwalificatie","SELECT recipe_save_personnel_requirement(%s,9,NULL,%s,'BAD','missing_training',1)",(v,root),"Onbekende kwalificatie")
+        denied("#111 specificatiegrens met link niet verwijderen","SELECT recipe_delete_parameter_limit(%s,9,%s)",(v,limit),"foreign key")
+        denied("#111 directe lotwrite","DELETE FROM recipe_lot_rule WHERE false",msg="permission denied")
+        denied("#111 vreemd record niet verwijderen","SELECT recipe_delete_lot_rule(%s,0,%s)",(compatible,lot["id"]),"Onbekende receptinhoud")
+        check("#111 afgewezen vereistenmutaties atomair",val("SELECT recipe_requirements_list(%s)",(v,))["change_no"]==9)
+        changed=val("SELECT recipe_save_lot_rule(%s,9,%s,8,false)",(v,lot["id"]))
+        check("#111 lotregel stabiele identiteit",changed["id"]==lot["id"] and changed["change_no"]==10)
+        n=10
+        for kind,item in (("compatibility_rule",comp),("lot_rule",lot),("specification_link",spec),("instruction",ins),("personnel_requirement",per),("equipment_requirement",eq)):
+            n+=1
+            check("#111 verwijderen "+kind,val("SELECT recipe_delete_"+kind+"(%s,%s,%s)",(v,n-1,item["id"]))==n)
+        data=val("SELECT recipe_requirements_list(%s)",(v,))
+        check("#111 vereisten leeg na gecontroleerd verwijderen",data["change_no"]==16 and all(not data[k] for k in ("equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules")))
+        check("#111 persoonlijke lotregel-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_lot_rule' AND record_id=%s AND actie='DELETE' AND actor_user_id=%s AND actor_origin='personal'",(lot["id"],actor))==1)
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#111 ingetrokken bevoegdheid vereisten","SELECT recipe_requirements_list(%s)",(v,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

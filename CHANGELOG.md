@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #111 (deel): 0109 persoonlijke productgebonden lees-/schrijf-/verwijderfuncties voor middelen, personeelskwalificaties, instructies, specificaties, lotnorm en incompatibiliteit. Kwalificatieomschrijving uit vertrouwde catalogus, redenplicht niet instelbaar, gezamenlijke change_no, audit en beperkte ACL. Regressies toegevoegd, nog niet uitgevoerd.
+
 - #111/#141 (deel): 0108 persoonlijke productgebonden lees-/schrijf-/verwijderfuncties voor parameters, grenzen, formule en materiaalvereisten met gezamenlijke change_no; fail-closed receptautorisatie en fase-2-ACL-grants vóór geïnstalleerde interfacecontrole. Regressies toegevoegd, nog niet uitgevoerd; API en overige beheerfuncties volgen.
 
 - #111 (deel): 0107 versiegebonden lotnorm (1–50), verplichte afwijkingsreden, receptafhankelijk goedkeuringsvereiste en expliciete incompatibiliteit tussen MBR-revisies van hetzelfde product. Audit, beperkte ACL en regressies toegevoegd. Geen lotvorming of uitvoering; nog niet getest.

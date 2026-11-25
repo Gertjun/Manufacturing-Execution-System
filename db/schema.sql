@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -8089,5 +8089,213 @@ REVOKE ALL ON FUNCTION recipe_content_list(uuid),
  recipe_delete_formula(uuid,integer,uuid),
  recipe_save_material_requirement(uuid,integer,uuid,uuid,uuid,uuid,text,text,numeric,text,text,uuid),
  recipe_delete_material_requirement(uuid,integer,uuid) FROM PUBLIC;
+
+COMMIT;
+
+BEGIN;
+-- Migratie 0109: persoonlijk conceptbeheer van receptvereisten en lotregels (#111).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION recipe_requirements_list(p_version uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE product uuid; result jsonb;
+BEGIN
+ SELECT r.product_id INTO product FROM master_recipe_version v
+ JOIN master_recipe r ON r.id=v.master_recipe_id WHERE v.id=p_version;
+ PERFORM recipe_draft_actor(product);
+ SELECT jsonb_build_object('change_no',v.change_no,
+   'equipment_requirements',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_equipment_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+   'personnel_requirements',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_personnel_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+   'instructions',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_instruction x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+   'specification_links',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_specification_link x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+   'lot_rules',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_lot_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+   'compatibility_rules',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_compatibility_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb)
+ ) INTO result FROM master_recipe_version v WHERE v.id=p_version;
+ RETURN result;
+END $$;
+
+CREATE FUNCTION recipe_save_equipment_requirement(p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,p_equipment_class_code text,p_description text,p_required_count integer,p_minimum_capacity numeric,p_capacity_unit_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,description,required_count,minimum_capacity,capacity_unit_id)
+   VALUES(p_version,p_procedural_element_id,p_code,p_equipment_class_code,p_description,p_required_count,p_minimum_capacity,p_capacity_unit_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_equipment_requirement SET procedural_element_id=p_procedural_element_id,code=p_code,equipment_class_code=p_equipment_class_code,description=p_description,required_count=p_required_count,minimum_capacity=p_minimum_capacity,capacity_unit_id=p_capacity_unit_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_equipment_requirement(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_equipment_requirement WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN current_no+1;
+END $$;
+
+CREATE FUNCTION recipe_save_personnel_requirement(p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,p_qualification_code text,p_required_count integer) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid; q_description text;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ SELECT description INTO q_description FROM qualification WHERE code=p_qualification_code FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende kwalificatie' USING ERRCODE='23503'; END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_personnel_requirement(recipe_version_id,procedural_element_id,code,qualification_code,required_count,qualification_description)
+   VALUES(p_version,p_procedural_element_id,p_code,p_qualification_code,p_required_count,q_description) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_personnel_requirement SET procedural_element_id=p_procedural_element_id,code=p_code,qualification_code=p_qualification_code,required_count=p_required_count,qualification_description=q_description
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_personnel_requirement(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_personnel_requirement WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN current_no+1;
+END $$;
+
+CREATE FUNCTION recipe_save_instruction(p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,p_position integer,p_instruction_text text,p_confirmation_required boolean) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_instruction(recipe_version_id,procedural_element_id,code,position,instruction_text,confirmation_required)
+   VALUES(p_version,p_procedural_element_id,p_code,p_position,p_instruction_text,p_confirmation_required) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_instruction SET procedural_element_id=p_procedural_element_id,code=p_code,position=p_position,instruction_text=p_instruction_text,confirmation_required=p_confirmation_required
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_instruction(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_instruction WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN current_no+1;
+END $$;
+
+CREATE FUNCTION recipe_save_specification_link(p_version uuid,p_expected integer,p_id uuid,p_parameter_limit_id uuid,p_code text,p_description text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_specification_link(recipe_version_id,parameter_limit_id,code,description)
+   VALUES(p_version,p_parameter_limit_id,p_code,p_description) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_specification_link SET parameter_limit_id=p_parameter_limit_id,code=p_code,description=p_description
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_specification_link(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_specification_link WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN current_no+1;
+END $$;
+
+CREATE FUNCTION recipe_save_lot_rule(p_version uuid,p_expected integer,p_id uuid,p_nominal_batch_count integer,p_deviation_approval_required boolean) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required)
+   VALUES(p_version,p_nominal_batch_count,p_deviation_approval_required) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_lot_rule SET nominal_batch_count=p_nominal_batch_count,deviation_approval_required=p_deviation_approval_required
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_lot_rule(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_lot_rule WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN current_no+1;
+END $$;
+
+CREATE FUNCTION recipe_save_compatibility_rule(p_version uuid,p_expected integer,p_id uuid,p_other_recipe_version_id uuid,p_reason text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_compatibility_rule(recipe_version_id,other_recipe_version_id,reason)
+   VALUES(p_version,p_other_recipe_version_id,p_reason) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_compatibility_rule SET other_recipe_version_id=p_other_recipe_version_id,reason=p_reason
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_compatibility_rule(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_compatibility_rule WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN current_no+1;
+END $$;
+
+REVOKE ALL ON FUNCTION recipe_requirements_list(uuid),
+ recipe_save_equipment_requirement(uuid,integer,uuid,uuid,text,text,text,integer,numeric,uuid),
+ recipe_delete_equipment_requirement(uuid,integer,uuid),
+ recipe_save_personnel_requirement(uuid,integer,uuid,uuid,text,text,integer),
+ recipe_delete_personnel_requirement(uuid,integer,uuid),
+ recipe_save_instruction(uuid,integer,uuid,uuid,text,integer,text,boolean),
+ recipe_delete_instruction(uuid,integer,uuid),
+ recipe_save_specification_link(uuid,integer,uuid,uuid,text,text),
+ recipe_delete_specification_link(uuid,integer,uuid),
+ recipe_save_lot_rule(uuid,integer,uuid,integer,boolean),
+ recipe_delete_lot_rule(uuid,integer,uuid),
+ recipe_save_compatibility_rule(uuid,integer,uuid,uuid,text),
+ recipe_delete_compatibility_rule(uuid,integer,uuid) FROM PUBLIC;
 
 COMMIT;

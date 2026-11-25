@@ -692,6 +692,26 @@ BEGIN
  END IF;
 END $$;
 
+-- 0109: expliciete persoonlijke receptvereisten-/lotregelfuncties.
+DO $
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=109) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_requirements_list(uuid),
+     fabriek.recipe_save_equipment_requirement(uuid,integer,uuid,uuid,text,text,text,integer,numeric,uuid),
+     fabriek.recipe_delete_equipment_requirement(uuid,integer,uuid),
+     fabriek.recipe_save_personnel_requirement(uuid,integer,uuid,uuid,text,text,integer),
+     fabriek.recipe_delete_personnel_requirement(uuid,integer,uuid),
+     fabriek.recipe_save_instruction(uuid,integer,uuid,uuid,text,integer,text,boolean),
+     fabriek.recipe_delete_instruction(uuid,integer,uuid),
+     fabriek.recipe_save_specification_link(uuid,integer,uuid,uuid,text,text),
+     fabriek.recipe_delete_specification_link(uuid,integer,uuid),
+     fabriek.recipe_save_lot_rule(uuid,integer,uuid,integer,boolean),
+     fabriek.recipe_delete_lot_rule(uuid,integer,uuid),
+     fabriek.recipe_save_compatibility_rule(uuid,integer,uuid,uuid,text),
+     fabriek.recipe_delete_compatibility_rule(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
