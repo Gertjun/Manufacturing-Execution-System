@@ -2308,3 +2308,86 @@ describe("#111 receptinhoud-API", () => {
     assert.equal((await verzoek("GET",base,scoped)).status,403);
   });
 });
+
+describe("#111 receptvereisten-API", () => {
+  test("persoonlijke productscope, zes vereisten, lotnorm, vertrouwde kwalificatie en exacte capaciteit", async () => {
+    const engineer=await login("mes.engineer");
+    const operator=await login("mes.operator");
+    const {rows:products}=await beheerDb.query("SELECT id,code FROM fabriek.product WHERE code IN ('PRD-A','PRD-B')");
+    const pa=products.find(p=>p.code==="PRD-A").id;
+    const pb=products.find(p=>p.code==="PRD-B").id;
+    const naam="mes.requirements.scoped";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]}=await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,pa]);
+    const scoped=await login(naam);
+    const make=async (product_id:string,code:string) => {
+      const r=await verzoek("POST","/recipes/",engineer,{product_id,code,name:code,description:""});
+      assert.equal(r.status,201,JSON.stringify(r.body));
+      const list=await verzoek("GET","/recipes/?product_id="+product_id,engineer);
+      assert.equal(list.status,200,JSON.stringify(list.body));
+      return list.body.find((x:any)=>x.id===r.body.id).versions[0].id as string;
+    };
+    const v=await make(pa,"API-REQ-A");
+    const compatible=await make(pa,"API-REQ-C");
+    const other=await make(pb,"API-REQ-B");
+    const prefix="/recipes/versions/"+v;
+    const base=prefix+"/requirements";
+    const root=await verzoek("POST",prefix+"/procedure/elements",scoped,{expected_change_no:0,parent_id:null,kind:"procedure",code:"ROOT",name:"Root",position:1,required:true});
+    assert.equal(root.status,201,JSON.stringify(root.body));
+    const parameter=await verzoek("POST",prefix+"/content/parameters",scoped,{expected_change_no:1,procedural_element_id:root.body.id,code:"Q",name:"Quality",data_type:"decimal",unit:"kg",frequency:"per batch",required:true,responsible_activity:"kwaliteit",critical:true,measurement_unit_id:null});
+    assert.equal(parameter.status,201,JSON.stringify(parameter.body));
+    const limit=await verzoek("POST",prefix+"/content/parameter-limits",scoped,{expected_change_no:2,parameter_id:parameter.body.id,data_type:"decimal",category:"specification_limit",target_value:null,lower_value:"1",upper_value:"2",scaling:"fixed"});
+    assert.equal(limit.status,201,JSON.stringify(limit.body));
+    await beheerDb.query("INSERT INTO fabriek.qualification(code,description) VALUES ('api_req_training','Fictieve training')");
+    await beheerDb.query("INSERT INTO fabriek.quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) ON CONFLICT DO NOTHING");
+    const {rows:[dim]}=await beheerDb.query("SELECT id FROM fabriek.quantity_dimension WHERE length_exp=0 AND mass_exp=1 AND time_exp=0 AND current_exp=0 AND temperature_exp=0 AND amount_exp=0 AND luminous_exp=0");
+    const {rows:[kind]}=await beheerDb.query("INSERT INTO fabriek.quantity_kind(dimension_id,code,name,value_semantics) VALUES ($1,'API-REQ-MASS','Massa','ratio') RETURNING id",[dim.id]);
+    const {rows:[unit]}=await beheerDb.query("INSERT INTO fabriek.measurement_unit(quantity_kind_id,code,symbol,name) VALUES ($1,'API-REQ-KG','kg','Kilogram') RETURNING id",[kind.id]);
+    assert.equal((await verzoek("GET",base)).status,401);
+    assert.equal((await verzoek("GET",base,operator)).status,403);
+    assert.equal((await verzoek("GET","/recipes/versions/"+other+"/requirements",scoped)).status,403);
+    assert.equal((await verzoek("POST","/recipes/versions/"+other+"/requirements/lot-rules",scoped,{expected_change_no:0,nominal_batch_count:6,deviation_approval_required:true})).status,403);
+    const add=async (path:string,body:object) => {
+      const res=await verzoek("POST",base+"/"+path,scoped,body);
+      assert.equal(res.status,201,JSON.stringify(res.body));
+      return res.body;
+    };
+    const precise="9007199254740993.125";
+    const eq=await add("equipment-requirements",{expected_change_no:3,procedural_element_id:root.body.id,code:"EQ",equipment_class_code:"MIXER",description:"Fictief",required_count:1,minimum_capacity:precise,capacity_unit_id:unit.id});
+    const perBody={expected_change_no:4,procedural_element_id:root.body.id,code:"PERSON",qualification_code:"api_req_training",required_count:2};
+    assert.equal((await verzoek("POST",base+"/personnel-requirements",scoped,{...perBody,qualification_description:"vervalst"})).status,400);
+    const per=await add("personnel-requirements",perBody);
+    const ins=await add("instructions",{expected_change_no:5,procedural_element_id:root.body.id,code:"I",position:1,instruction_text:"Fictief",confirmation_required:true});
+    const spec=await add("specification-links",{expected_change_no:6,parameter_limit_id:limit.body.id,code:"S",description:"Fictieve eis"});
+    const lotBody={expected_change_no:7,nominal_batch_count:6,deviation_approval_required:true};
+    assert.equal((await verzoek("POST",base+"/lot-rules",scoped,{...lotBody,deviation_reason_required:false})).status,400);
+    const lot=await add("lot-rules",lotBody);
+    assert.equal((await verzoek("POST",base+"/compatibility-rules",scoped,{expected_change_no:8,other_recipe_version_id:other,reason:"Fictief"})).status,422);
+    const comp=await add("compatibility-rules",{expected_change_no:8,other_recipe_version_id:compatible,reason:"Fictieve incompatibiliteit"});
+    const data=await verzoek("GET",base,scoped);
+    assert.equal(data.status,200,JSON.stringify(data.body));
+    assert.equal(data.body.change_no,9);
+    for(const key of ["equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules"]) assert.equal(data.body[key].length,1);
+    assert.equal(data.body.equipment_requirements[0].minimum_capacity,precise);
+    assert.equal(data.body.personnel_requirements[0].qualification_description,"Fictieve training");
+    assert.equal(data.body.lot_rules[0].deviation_reason_required,true);
+    assert.equal((await verzoek("PATCH",base+"/lot-rules/"+lot.id,scoped,lotBody)).status,409);
+    assert.equal((await verzoek("PATCH",base+"/lot-rules/"+lot.id,scoped,{...lotBody,expected_change_no:9,nominal_batch_count:51})).status,400);
+    const changed=await verzoek("PATCH",base+"/lot-rules/"+lot.id,scoped,{...lotBody,expected_change_no:9,nominal_batch_count:8});
+    assert.equal(changed.status,200,JSON.stringify(changed.body));
+    assert.equal(changed.body.id,lot.id);
+    assert.equal(changed.body.change_no,10);
+    let n=10;
+    for(const [path,id] of [["compatibility-rules",comp.id],["lot-rules",lot.id],["specification-links",spec.id],["instructions",ins.id],["personnel-requirements",per.id],["equipment-requirements",eq.id]]) {
+      const deleted=await verzoek("DELETE",base+"/"+path+"/"+id+"?expected_change_no="+n,scoped);
+      assert.equal(deleted.status,200,JSON.stringify(deleted.body));
+      assert.equal(deleted.body.change_no,++n);
+    }
+    const final=await verzoek("GET",base,scoped);
+    assert.equal(final.status,200,JSON.stringify(final.body));
+    assert.equal(final.body.change_no,16);
+    for(const key of ["equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules"]) assert.deepEqual(final.body[key],[]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("GET",base,scoped)).status,403);
+  });
+});

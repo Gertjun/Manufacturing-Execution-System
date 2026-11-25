@@ -70,6 +70,42 @@ const contentSql = `WITH c AS (SELECT recipe_content_list($1) AS data)
  'material_requirements',COALESCE((SELECT jsonb_agg(x || jsonb_build_object('quantity',x->>'quantity') ORDER BY x->>'id')
    FROM jsonb_array_elements(data->'material_requirements') x),'[]'::jsonb)
  ) AS data FROM c`;
+
+const PositiveCount = Type.Integer({ minimum: 1, maximum: 2147483647 });
+const LotCount = Type.Integer({ minimum: 1, maximum: 50 });
+const EquipmentRequirementFields = { procedural_element_id: Id, code: Code, equipment_class_code: Code, description: Nonblank, required_count: PositiveCount, minimum_capacity: NullableDecimal, capacity_unit_id: OptId };
+const EquipmentRequirementBody = Type.Object({ expected_change_no: Expected, ...EquipmentRequirementFields }, { additionalProperties: false });
+const EquipmentRequirementRecord = Type.Object({ id: Id, recipe_version_id: Id, ...EquipmentRequirementFields });
+const PersonnelRequirementFields = { procedural_element_id: Id, code: Code, qualification_code: Code, required_count: PositiveCount };
+const PersonnelRequirementBody = Type.Object({ expected_change_no: Expected, ...PersonnelRequirementFields }, { additionalProperties: false });
+const PersonnelRequirementRecord = Type.Object({ id: Id, recipe_version_id: Id, ...PersonnelRequirementFields, qualification_description: Nonblank });
+const InstructionFields = { procedural_element_id: Id, code: Code, position: PositiveCount, instruction_text: Nonblank, confirmation_required: Type.Boolean() };
+const InstructionBody = Type.Object({ expected_change_no: Expected, ...InstructionFields }, { additionalProperties: false });
+const InstructionRecord = Type.Object({ id: Id, recipe_version_id: Id, ...InstructionFields });
+const SpecificationLinkFields = { parameter_limit_id: Id, code: Code, description: Nonblank };
+const SpecificationLinkBody = Type.Object({ expected_change_no: Expected, ...SpecificationLinkFields }, { additionalProperties: false });
+const SpecificationLinkRecord = Type.Object({ id: Id, recipe_version_id: Id, ...SpecificationLinkFields });
+const LotRuleFields = { nominal_batch_count: LotCount, deviation_approval_required: Type.Boolean() };
+const LotRuleBody = Type.Object({ expected_change_no: Expected, ...LotRuleFields }, { additionalProperties: false });
+const LotRuleRecord = Type.Object({ id: Id, recipe_version_id: Id, ...LotRuleFields, deviation_reason_required: Type.Literal(true) });
+const CompatibilityRuleFields = { other_recipe_version_id: Id, reason: Nonblank };
+const CompatibilityRuleBody = Type.Object({ expected_change_no: Expected, ...CompatibilityRuleFields }, { additionalProperties: false });
+const CompatibilityRuleRecord = Type.Object({ id: Id, recipe_version_id: Id, ...CompatibilityRuleFields });
+const Requirements = Type.Object({
+  change_no: Type.Integer({ minimum: 0 }),
+  equipment_requirements: Type.Array(EquipmentRequirementRecord),
+  personnel_requirements: Type.Array(PersonnelRequirementRecord),
+  instructions: Type.Array(InstructionRecord),
+  specification_links: Type.Array(SpecificationLinkRecord),
+  lot_rules: Type.Array(LotRuleRecord),
+  compatibility_rules: Type.Array(CompatibilityRuleRecord),
+});
+
+// Preserve exact minimum capacity before the pg driver parses JSON.
+const requirementsSql = `WITH c AS (SELECT recipe_requirements_list($1) AS data)
+ SELECT data || jsonb_build_object('equipment_requirements',
+ COALESCE((SELECT jsonb_agg(x || jsonb_build_object('minimum_capacity',x->>'minimum_capacity') ORDER BY x->>'id')
+ FROM jsonb_array_elements(data->'equipment_requirements') x),'[]'::jsonb)) AS data FROM c`;
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get("/", {
     preHandler: personalSession,
@@ -298,6 +334,186 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
   }, async req => persoonlijkeTransactie(app.db,req,async tx =>
     (await tx.query("SELECT recipe_delete_material_requirement($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.get("/versions/:id/requirements", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), response: { 200: Requirements } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query(requirementsSql,[req.params.id])).rows[0].data));
+
+  app.post("/versions/:id/requirements/equipment-requirements", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: EquipmentRequirementBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_equipment_requirement($1,$2,NULL,$3,$4,$5,$6,$7,$8,$9) AS data",
+        [req.params.id,b.expected_change_no,b.procedural_element_id,b.code,b.equipment_class_code,b.description,b.required_count,b.minimum_capacity,b.capacity_unit_id])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/equipment-requirements/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: EquipmentRequirementBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_equipment_requirement($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.procedural_element_id,b.code,b.equipment_class_code,b.description,b.required_count,b.minimum_capacity,b.capacity_unit_id])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/requirements/equipment-requirements/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_equipment_requirement($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/requirements/personnel-requirements", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: PersonnelRequirementBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_personnel_requirement($1,$2,NULL,$3,$4,$5,$6) AS data",
+        [req.params.id,b.expected_change_no,b.procedural_element_id,b.code,b.qualification_code,b.required_count])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/personnel-requirements/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: PersonnelRequirementBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_personnel_requirement($1,$2,$3,$4,$5,$6,$7) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.procedural_element_id,b.code,b.qualification_code,b.required_count])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/requirements/personnel-requirements/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_personnel_requirement($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/requirements/instructions", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: InstructionBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_instruction($1,$2,NULL,$3,$4,$5,$6,$7) AS data",
+        [req.params.id,b.expected_change_no,b.procedural_element_id,b.code,b.position,b.instruction_text,b.confirmation_required])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/instructions/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: InstructionBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_instruction($1,$2,$3,$4,$5,$6,$7,$8) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.procedural_element_id,b.code,b.position,b.instruction_text,b.confirmation_required])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/requirements/instructions/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_instruction($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/requirements/specification-links", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: SpecificationLinkBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_specification_link($1,$2,NULL,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,b.parameter_limit_id,b.code,b.description])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/specification-links/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: SpecificationLinkBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_specification_link($1,$2,$3,$4,$5,$6) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.parameter_limit_id,b.code,b.description])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/requirements/specification-links/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_specification_link($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/requirements/lot-rules", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: LotRuleBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_lot_rule($1,$2,NULL,$3,$4) AS data",
+        [req.params.id,b.expected_change_no,b.nominal_batch_count,b.deviation_approval_required])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/lot-rules/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: LotRuleBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_lot_rule($1,$2,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.nominal_batch_count,b.deviation_approval_required])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/requirements/lot-rules/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_lot_rule($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/requirements/compatibility-rules", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: CompatibilityRuleBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_compatibility_rule($1,$2,NULL,$3,$4) AS data",
+        [req.params.id,b.expected_change_no,b.other_recipe_version_id,b.reason])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/compatibility-rules/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: CompatibilityRuleBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_compatibility_rule($1,$2,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.other_recipe_version_id,b.reason])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/requirements/compatibility-rules/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_compatibility_rule($1,$2,$3) AS change_no",
       [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
 
 };
