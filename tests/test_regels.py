@@ -2133,6 +2133,60 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+    print("\n#111 middelenvereisten, instructies en specificaties")
+    con.execute("BEGIN")
+    try:
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product=val("SELECT id FROM product WHERE code='PRD-A'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'REQUIREMENTS-TEST',%s) RETURNING id",(product,actor))
+        def rv(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Requirements test',%s) RETURNING id",(rid,n,actor))
+        v1,v2=rv(1),rv(2)
+        def re(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2=re(v1),re(v2)
+        con.execute("INSERT INTO qualification(code,description) VALUES ('recipe_test_training','Fictieve recepttraining')")
+        eqsql="INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,description,required_count) VALUES (%s,%s,%s,'MIXER','Fictief mengvat',%s)"
+        con.execute(eqsql,(v1,e1,"EQ",1))
+        persql="INSERT INTO recipe_personnel_requirement(recipe_version_id,procedural_element_id,code,qualification_code,qualification_description,required_count) VALUES (%s,%s,%s,%s,%s,%s)"
+        con.execute(persql,(v1,e1,"PERSON","recipe_test_training","Fictieve recepttraining",2))
+        insql="INSERT INTO recipe_instruction(recipe_version_id,procedural_element_id,code,position,instruction_text,confirmation_required) VALUES (%s,%s,%s,%s,%s,%s)"
+        con.execute(insql,(v1,e1,"I1",1,"Controleer fictieve werkopdracht",True))
+        con.execute(insql,(v1,e1,"I2",2,"Lees fictieve toelichting",False))
+        def rp(v,e):
+            p=val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'Q','Quality','decimal','kg','per batch',true,'kwaliteit',true) RETURNING id",(v,e))
+            spec=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,lower_value,upper_value) VALUES (%s,%s,'decimal','specification_limit',1,2) RETURNING id",(v,p))
+            proc=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,lower_value,upper_value) VALUES (%s,%s,'decimal','process_limit',0,3) RETURNING id",(v,p))
+            return spec,proc
+        s1,p1=rp(v1,e1)
+        s2,p2=rp(v2,e2)
+        specsql="INSERT INTO recipe_specification_link(recipe_version_id,parameter_limit_id,code,description) VALUES (%s,%s,%s,'Fictieve kwaliteitseis')"
+        con.execute(specsql,(v1,s1,"SPEC"))
+        check("#111 equipmentvereiste vastgelegd",val("SELECT required_count FROM recipe_equipment_requirement WHERE recipe_version_id=%s",(v1,))==1)
+        check("#111 kwalificatievereiste zonder toekenning",val("SELECT count(*) FROM personnel_qualification WHERE qualification_code='recipe_test_training'")==0)
+        check("#111 instructies aparte bevestigingsplicht",val("SELECT count(*) FROM recipe_instruction WHERE recipe_version_id=%s AND confirmation_required",(v1,))==1)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT requirement_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT requirement_guard")
+            con.execute("RELEASE SAVEPOINT requirement_guard")
+        denied("#111 equipmentvereiste verkeerde versie",eqsql,(v1,e2,"BAD",1),"foreign key")
+        denied("#111 nul middelen",eqsql,(v1,e1,"BAD",0))
+        denied("#111 capaciteit zonder eenheid","UPDATE recipe_equipment_requirement SET minimum_capacity=100 WHERE recipe_version_id=%s",(v1,))
+        denied("#111 onbekende kwalificatie",persql,(v1,e1,"BAD","unknown_recipe_training","Onbekend",1),"exacte bekende")
+        denied("#111 afwijkende kwalificatieomschrijving",persql,(v1,e1,"BAD","recipe_test_training","Onjuist",1),"exacte bekende")
+        denied("#111 dubbele instructiepositie",insql,(v1,e1,"BAD",1,"Fictief",True),"duplicate")
+        denied("#111 lege instructie",insql,(v1,e1,"BAD",3,"  ",True))
+        denied("#111 andere versie specificatie",specsql,(v1,s2,"BAD"),"dezelfde receptversie")
+        denied("#111 procesgrens geen specificatie",specsql,(v1,p1,"BAD"),"specificatiegrens")
+        denied("#111 gekoppelde categorie niet wijzigen","UPDATE recipe_parameter_limit SET category='operating_tolerance' WHERE id=%s",(s1,),"specificatiegrens")
+        denied("#111 gekoppelde specificatie niet verwijderen","DELETE FROM recipe_parameter_limit WHERE id=%s",(s1,),"foreign key")
+        for tabel in ("recipe_equipment_requirement","recipe_personnel_requirement","recipe_instruction","recipe_specification_link"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

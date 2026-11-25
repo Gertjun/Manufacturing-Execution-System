@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #111 (deel): 0106 versiegebonden equipment- en kwalificatievereisten, instructies met bevestigingsplicht en links naar exacte specificatiegrenzen; audit, beperkte ACL en regressies toegevoegd. Geen fysieke toewijzing, kwalificatietoekenning of uitvoering; nog niet getest.
+
 - #141 (deel): 0105 relationele schaalregelgrafiek binnen MBR-versie, getypeerde batch-/parameter-/equipment-/constante invoer, expliciete conversieversie, uitvoerkoppeling, cycluspreventie en audit. Geen uitvoerbare formules of runtimewrites; regressies nog niet uitgevoerd.
 
 - #141 (deel): 0104 relationeel eenhedenfundament met SI-dimensies, fysische grootheden, onveranderlijke catalogus en conversieversies (rationale factor en offset), absolute versus verschilwaarde en expliciete materiaal-/parameter-/formulekoppelingen. Geen automatische mapping, runtimewrites of conversie-uitvoering; regressies nog niet uitgevoerd.

@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -7728,5 +7728,139 @@ REVOKE ALL ON recipe_scaling_rule,recipe_scaling_input,recipe_scaling_binding FR
 -- Complexe regels zijn hier uitsluitend conceptmetadata. De ontbrekende
 -- getypeerde formuledefinitie, validatie en vrijgaveblokkade moeten vóór
 -- formele fase-2-acceptatie worden ingevuld. Evaluatie pas in fase 6.
+
+COMMIT;
+
+BEGIN;
+-- Migratie 0106: receptgebonden middelen-, personeels- en registratievereisten (#111).
+SET search_path = fabriek, public;
+
+-- Voorlopig expliciete equipmentklasse-eis; definitieve resourcecatalogus
+-- en fysieke toewijzing volgen fase 4. Geen verwijzing naar een legacy-pc.
+CREATE TABLE recipe_equipment_requirement (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ recipe_version_id uuid NOT NULL REFERENCES master_recipe_version(id),
+ procedural_element_id uuid NOT NULL,
+ code text NOT NULL CHECK (code ~ '[^[:space:]]'),
+ equipment_class_code text NOT NULL CHECK (equipment_class_code ~ '[^[:space:]]'),
+ description text NOT NULL CHECK (description ~ '[^[:space:]]'),
+ required_count integer NOT NULL CHECK (required_count>0),
+ minimum_capacity numeric,
+ capacity_unit_id uuid REFERENCES measurement_unit(id),
+ FOREIGN KEY (recipe_version_id,procedural_element_id) REFERENCES recipe_procedural_element(recipe_version_id,id),
+ UNIQUE (recipe_version_id,code),
+ CHECK ((minimum_capacity IS NULL)=(capacity_unit_id IS NULL)),
+ CHECK (minimum_capacity IS NULL OR (minimum_capacity>0 AND minimum_capacity NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)))
+);
+
+-- Een kwalificatie-eis is geen toekenning van een kwalificatie of permission.
+-- Bewaar de omschrijving bij de receptversie; definitieve kwalificatiecontrole
+-- vindt plaats bij toewijzing en uitvoering.
+CREATE TABLE recipe_personnel_requirement (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ recipe_version_id uuid NOT NULL REFERENCES master_recipe_version(id),
+ procedural_element_id uuid NOT NULL,
+ code text NOT NULL CHECK (code ~ '[^[:space:]]'),
+ qualification_code text NOT NULL REFERENCES qualification(code),
+ qualification_description text NOT NULL CHECK (qualification_description ~ '[^[:space:]]'),
+ required_count integer NOT NULL CHECK (required_count>0),
+ FOREIGN KEY (recipe_version_id,procedural_element_id) REFERENCES recipe_procedural_element(recipe_version_id,id),
+ UNIQUE (recipe_version_id,code),
+ UNIQUE (recipe_version_id,procedural_element_id,qualification_code)
+);
+
+CREATE TABLE recipe_instruction (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ recipe_version_id uuid NOT NULL REFERENCES master_recipe_version(id),
+ procedural_element_id uuid NOT NULL,
+ code text NOT NULL CHECK (code ~ '[^[:space:]]'),
+ position integer NOT NULL CHECK (position>0),
+ instruction_text text NOT NULL CHECK (instruction_text ~ '[^[:space:]]'),
+ confirmation_required boolean NOT NULL,
+ FOREIGN KEY (recipe_version_id,procedural_element_id) REFERENCES recipe_procedural_element(recipe_version_id,id),
+ UNIQUE (recipe_version_id,code),
+ UNIQUE (recipe_version_id,procedural_element_id,position)
+);
+
+-- Kwaliteitseis verwijst naar de exacte versiegebonden specificatiegrens
+-- binnen het MBR, niet naar een dynamische 'laatste' PoC-specificatie.
+-- Een afzonderlijke definitieve kwaliteitscatalogus volgt waar nodig;
+-- bronmapping van oude specificaties onder #113, geen verzonnen historie.
+CREATE TABLE recipe_specification_link (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ recipe_version_id uuid NOT NULL REFERENCES master_recipe_version(id),
+ parameter_limit_id uuid NOT NULL,
+ code text NOT NULL CHECK (code ~ '[^[:space:]]'),
+ description text NOT NULL CHECK (description ~ '[^[:space:]]'),
+ FOREIGN KEY (recipe_version_id,parameter_limit_id) REFERENCES recipe_parameter_limit(recipe_version_id,id),
+ UNIQUE (recipe_version_id,code),
+ UNIQUE (recipe_version_id,parameter_limit_id)
+);
+
+CREATE FUNCTION recipe_requirement_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v uuid; expected_description text;
+BEGIN
+ v:=CASE WHEN TG_OP='DELETE' THEN OLD.recipe_version_id ELSE NEW.recipe_version_id END;
+ PERFORM 1 FROM master_recipe_version WHERE id=v FOR UPDATE;
+ IF TG_OP='UPDATE' THEN
+   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.recipe_version_id IS DISTINCT FROM OLD.recipe_version_id THEN
+     RAISE EXCEPTION 'Receptvereiste-identiteit en versie zijn onveranderlijk' USING ERRCODE='55000';
+   END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ IF TG_TABLE_NAME='recipe_personnel_requirement' THEN
+   SELECT description INTO expected_description FROM qualification WHERE code=NEW.qualification_code FOR SHARE;
+   IF NOT FOUND OR expected_description IS DISTINCT FROM NEW.qualification_description THEN
+     RAISE EXCEPTION 'Kwalificatie-eis vereist exacte bekende kwalificatieomschrijving' USING ERRCODE='23514';
+   END IF;
+ ELSIF TG_TABLE_NAME='recipe_specification_link' THEN
+   IF NOT EXISTS (
+     SELECT 1 FROM recipe_parameter_limit WHERE recipe_version_id=v AND id=NEW.parameter_limit_id AND category='specification_limit'
+   ) THEN
+     RAISE EXCEPTION 'Kwaliteitseis vereist een specificatiegrens in dezelfde receptversie' USING ERRCODE='23514';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+
+-- Een grens mag niet van categorie veranderen zolang een kwaliteitseis
+-- naar die grens verwijst. Receptversie en scope worden elders beschermd.
+CREATE FUNCTION recipe_specification_category_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ PERFORM 1 FROM master_recipe_version WHERE id=OLD.recipe_version_id FOR UPDATE;
+ IF NEW.category IS DISTINCT FROM OLD.category AND EXISTS (
+   SELECT 1 FROM recipe_specification_link WHERE recipe_version_id=OLD.recipe_version_id AND parameter_limit_id=OLD.id
+ ) THEN
+   RAISE EXCEPTION 'Gekoppelde kwaliteitseis vereist specificatiegrens' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER recipe_specification_category_guard BEFORE UPDATE ON recipe_parameter_limit
+ FOR EACH ROW EXECUTE FUNCTION recipe_specification_category_guard();
+
+CREATE TRIGGER recipe_equipment_requirement_guard BEFORE INSERT OR UPDATE OR DELETE ON recipe_equipment_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_requirement_guard();
+CREATE TRIGGER recipe_equipment_requirement_audit AFTER INSERT OR UPDATE OR DELETE ON recipe_equipment_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER recipe_personnel_requirement_guard BEFORE INSERT OR UPDATE OR DELETE ON recipe_personnel_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_requirement_guard();
+CREATE TRIGGER recipe_personnel_requirement_audit AFTER INSERT OR UPDATE OR DELETE ON recipe_personnel_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER recipe_instruction_guard BEFORE INSERT OR UPDATE OR DELETE ON recipe_instruction
+ FOR EACH ROW EXECUTE FUNCTION recipe_requirement_guard();
+CREATE TRIGGER recipe_instruction_audit AFTER INSERT OR UPDATE OR DELETE ON recipe_instruction
+ FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER recipe_specification_link_guard BEFORE INSERT OR UPDATE OR DELETE ON recipe_specification_link
+ FOR EACH ROW EXECUTE FUNCTION recipe_requirement_guard();
+CREATE TRIGGER recipe_specification_link_audit AFTER INSERT OR UPDATE OR DELETE ON recipe_specification_link
+ FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+
+REVOKE ALL ON FUNCTION recipe_requirement_guard(),recipe_specification_category_guard() FROM PUBLIC;
+REVOKE ALL ON recipe_equipment_requirement,recipe_personnel_requirement,recipe_instruction,recipe_specification_link FROM PUBLIC;
+-- Geen runtimewrites, fysieke toewijzingen, kwalificatietoekenning,
+-- kwaliteitsvrijgave of uitvoeringsregistraties. Equipmentklasse en
+-- kwalificatiebetekenis vereisen latere gecontroleerde resourcevalidatie.
 
 COMMIT;
