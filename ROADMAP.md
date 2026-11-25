@@ -35,6 +35,8 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 - #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; inventariseer en faseer demo-specifieke afhankelijkheden, tests en workflows gecontroleerd uit. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
 
 ### Afsluiting tussentijdse audit (D100)
+ 
+D100: weigering onbekende schemaversies vóór wijziging door een ouder migratiepakket geïmplementeerd; gerichte beheertoolregressie toegevoegd, testbewijs nog open.
 
 0087/D101: verplichte laatste legacy-beheerder vervalt; historische identiteiten blijven behouden, fictieve fixtures worden gecontroleerd vervangen. Gebundelde DB/API-regressies en gerichte UI/offline-regressies geslaagd; integrale restinventarisatie van zelfstandige rolchecks, installatiegrenzen en schermacceptatie nog open.
 
