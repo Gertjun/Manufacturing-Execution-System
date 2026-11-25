@@ -2447,6 +2447,55 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#141 begrensde schaalformuledefinitie")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'EXPRESSION-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'EXPR_MASS','Massa','ratio') RETURNING id",(dim,))
+        kg=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'EXPR_KG','kg','Kilogram') RETURNING id",(kind,))
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('expression.scoped','analist',wachtwoord_hash('test-expression'))")
+        user=val("SELECT id FROM gebruiker WHERE gebruikersnaam='expression.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(user,pa))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('expression.scoped','test-expression',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        r=val("SELECT recipe_save_scaling_rule(%s,0,NULL,'R','Fictief','nonlinear',%s,'Bron','Test')",(v,kg))["id"]
+        i=val("SELECT recipe_save_scaling_input(%s,1,NULL,%s,'I','constant',NULL,NULL,2,%s,NULL)",(v,r,kg))["id"]
+        from psycopg.types.json import Jsonb
+        token={"op":"input","id":str(i)}
+        valid=Jsonb([token,token,{"op":"add"}])
+        sql="SELECT recipe_save_scaling_expression(%s,%s,%s,%s)"
+        def denied(label,query,params=(),msg="schaalformule"):
+            con.execute("SAVEPOINT expression_guard")
+            faalt(label,query,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT expression_guard")
+            con.execute("RELEASE SAVEPOINT expression_guard")
+        denied("#141 script geweigerd",sql,(v,2,r,Jsonb([{"op":"eval","script":"1+1"}])),"schaalformuletoken")
+        denied("#141 ontbrekende operand",sql,(v,2,r,Jsonb([token,{"op":"add"}])),"Onvoldoende operanden")
+        denied("#141 meerdere resultaten",sql,(v,2,r,Jsonb([token,token])),"precies één resultaat")
+        denied("#141 onbekende input",sql,(v,2,r,Jsonb([{"op":"input","id":"00000000-0000-0000-0000-000000000000"}])),"dezelfde regel")
+        expression=val(sql,(v,2,r,valid))
+        data=val("SELECT recipe_scaling_list(%s)",(v,))
+        check("#141 formule en teller",data["change_no"]==3 and len(data["expressions"])==1 and data["expressions"][0]["tokens"]==[token,token,{"op":"add"}])
+        denied("#141 stale formule",sql,(v,2,r,valid),"ondertussen gewijzigd")
+        denied("#141 invoer beschermd","SELECT recipe_delete_scaling_input(%s,3,%s)",(v,i),"Verwijder eerst de schaalformule")
+        denied("#141 directe formulewrite","DELETE FROM recipe_scaling_expression WHERE false",msg="permission denied")
+        check("#141 afwijzingen behouden teller",val("SELECT recipe_scaling_list(%s)",(v,))["change_no"]==3)
+        changed=val(sql,(v,3,r,Jsonb([token])))
+        check("#141 stabiele formule-identiteit",changed["id"]==expression["id"] and changed["change_no"]==4)
+        check("#141 formule verwijderen",val("SELECT recipe_delete_scaling_expression(%s,4,%s)",(v,r))==5)
+        check("#141 invoer daarna verwijderen",val("SELECT recipe_delete_scaling_input(%s,5,%s)",(v,i))==6)
+        con.execute("RESET ROLE")
+        check("#141 persoonlijke formule-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_scaling_expression' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='DELETE'",(expression["id"],user))==1)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

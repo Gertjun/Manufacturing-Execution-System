@@ -739,6 +739,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0112: expliciete persoonlijke formuleconceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=112) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_save_scaling_expression(uuid,integer,uuid,jsonb),
+     fabriek.recipe_delete_scaling_expression(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
