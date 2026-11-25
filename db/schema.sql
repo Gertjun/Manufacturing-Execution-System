@@ -7546,7 +7546,7 @@ CREATE TABLE recipe_scaling_input (
    OR (source_kind='equipment_property' AND parameter_id IS NULL AND equipment_property IS NOT NULL AND equipment_property ~ '[^[:space:]]' AND constant_value IS NULL)
    OR (source_kind='constant' AND parameter_id IS NULL AND equipment_property IS NULL AND constant_value IS NOT NULL)
  ),
- CHECK (constant_value IS NULL OR constant_value NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric')),
+ CHECK (constant_value IS NULL OR constant_value NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
  CHECK (source_kind NOT IN ('constant','equipment_property') OR conversion_version_id IS NULL)
 );
 
