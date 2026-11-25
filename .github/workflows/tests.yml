@@ -116,6 +116,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+          node e2e/offline-rechten.mjs
       - name: Portalen bouwen op Node.js 22
         working-directory: portaal
         run: |
@@ -198,6 +199,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+          node e2e/offline-rechten.mjs
       - name: Portalen controleren en bouwen
         working-directory: portaal
         run: |
