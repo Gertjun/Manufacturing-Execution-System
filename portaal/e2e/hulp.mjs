@@ -5,6 +5,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-hulp";
 const BASIS = "http://localhost:3470";
 mkdirSync(SHOTS, { recursive: true });
@@ -17,7 +19,7 @@ const check = (naam, ok, extra = "") => {
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3470", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3470", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
