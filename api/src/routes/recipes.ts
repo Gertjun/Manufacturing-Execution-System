@@ -185,6 +185,16 @@ function confirmedReviewResult(result: { status: string }) {
   if (result.status === "denied") throw new ApiFout(403,"Wachtwoordbevestiging geweigerd");
 }
 
+
+const ReleaseValidation = Type.Object({ recipe_version_id: Id, change_no: Expected, lifecycle_status: Lifecycle,
+  content_valid: Type.Boolean(), blockers: Type.Array(Type.Object({ code: Type.String(), record_id: Id, detail: Type.String() })) });
+const ReleaseBody = Type.Object({ round_id: Id, expected_change_no: Expected,
+  effective_from: Type.Union([Type.String({ format: "date-time" }),Type.Null()]),
+  reason: Nonblank, password: ConfirmationPassword }, { additionalProperties: false });
+const WithdrawBody = Type.Object({ reason: Nonblank, password: ConfirmationPassword }, { additionalProperties: false });
+const ReleaseResult = Type.Object({ status: Type.Literal("released"), release_id: Id });
+const WithdrawResult = Type.Object({ status: Type.Literal("withdrawn"), withdrawal_id: Id });
+
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get("/", {
     preHandler: personalSession,
@@ -801,6 +811,36 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     const result=await persoonlijkeTransactie(app.db,req,async tx =>
       (await tx.query("SELECT recipe_decide_review_confirmed($1,$2,$3,$4,$5,$6) AS data",
         [req.params.roundId,b.expected_change_no,b.domain,b.decision,b.reason,b.password])).rows[0].data);
+    confirmedReviewResult(result);
+    return reply.code(201).send(result);
+  });
+
+
+  app.get("/versions/:id/release-validation", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), response: { 200: ReleaseValidation } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_release_validation($1) AS data",[req.params.id])).rows[0].data));
+
+  app.post("/versions/:id/releases", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: ReleaseBody, response: { 201: ReleaseResult } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_release_confirmed($1,$2,$3,$4::timestamptz,$5,$6) AS data",
+        [req.params.id,b.round_id,b.expected_change_no,b.effective_from,b.reason,b.password])).rows[0].data);
+    confirmedReviewResult(result);
+    return reply.code(201).send(result);
+  });
+
+  app.post("/releases/:releaseId/withdrawals", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ releaseId: Id }), body: WithdrawBody, response: { 201: WithdrawResult } },
+  }, async (req,reply) => {
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_withdraw_confirmed($1,$2,$3) AS data",
+        [req.params.releaseId,req.body.reason,req.body.password])).rows[0].data);
     confirmedReviewResult(result);
     return reply.code(201).send(result);
   });
