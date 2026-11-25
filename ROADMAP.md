@@ -74,6 +74,10 @@ D101: alle legacy-rollen verliezen binnen fase 1 hun zelfstandige autorisatiewer
  
 ## Fase 2 — Master Data & Recipe Management
 
+Startbaseline: v0.63.0, main `ea3b78bc938647140b4e228e9382761504518906`, tree `344837981b9921dd0052ce2580a8c786a783f6e5`, schema 0095. PR #6 gemerged; [main-verificatie](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45680256072) en [releaseworkflow](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45680409404) geslaagd. Alle onderstaande punten blijven open. Eén concept-PR, geen versieverhoging tot releasevoorbereiding.
+
+Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen (#109–110); procedurehiërarchie en routeafhankelijkheden (#103/110); receptinhoud (#111); MOC en vrijgave (#112); Process Engineering, Excel en migratie (#113); audit/testreview; integrale acceptatie; Windows-praktijkacceptatie en afzonderlijke toestemming voor merge/release. Per werkpakket eerst concrete cardinaliteiten, rechten, transacties en regressies toetsen aan D89/D99. Product/grondstof-ID's en historische feiten behouden; oude uitvoering blijft tijdelijk beschermd tot fase 4/5. Geen volledige resource- of executionfunctionaliteit vooruitbouwen.
+
 - #109 **Materiaaldefinities en MBR-identiteiten; meerdere recepten per product** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #110 **Onveranderlijke receptversies, procedurehiërarchie en afhankelijkheden** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #111 **Parameters, vijf voorwaarden, formule, schaalbaarheid, lotregels, instructies en specificaties** — Zie ontwerpdocumenten en acceptatiecriteria.

@@ -360,3 +360,16 @@ Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-sc
 | W8 tijdelijk wachtwoord, deactivering, diagnose zonder reset | 13/13 |
 
 W7: één tester simuleerde drie accounthouders; onderbreking met lege reden, hervatting gelukt, oorzaak niet vastgesteld. W8: oude noodsleutel geblokkeerd; diagnose alleen-lezen. Gecontroleerd herstel met onafhankelijke personen, persoonlijke database-login/TLS/provisioning/intrekking en herstelreconciliatie niet als operationeel bewezen. Fysieke apparatuur, fabrieksnetwerk, organisatorische maatregelen en echte pilot blijven open. Geen formele ISA-claim. Eerdere historische open-statusregels zijn geen actuele eindstatus. Releasevoorbereiding vereist nieuwe volledige CI, geen merge/publicatie zonder toestemming.
+
+## Fase 2 — geplande regressies (nog niet uitgevoerd)
+
+| Werkpakket | Positief en negatief bewijs |
+|---|---|
+| #109 | Identiteit en relaties behouden; meerdere MBR's per product; dubbele codes en ongeldige FK geweigerd. |
+| #110/#103 | Concept wijzigbaar; vrijgegeven versie en onderliggende inhoud onveranderlijk; procedurehiërarchie en afhankelijkheden binnen één versie, cycli geweigerd. |
+| #111 | Vijf afzonderlijke grenscategorieën; eenheden, expliciete schaalbaarheid, versiegebonden instructies, formule, lotregels en specificaties. |
+| #112 | Onafhankelijke beoordeling, wijziging invalideert relevante goedkeuring; versieverschil, geplande geldigheid en expliciete vrijgave; onbevoegde en zelfgoedkeuring geweigerd; gelijktijdige edit/release atomair. |
+| #113 | Portaal en Excel uitsluitend conceptmutaties; ongeldige import atomair geweigerd; legacy-bronnen naar concepten, geen automatische vrijgave of verzonnen historische koppeling. |
+| Overkoepelend | Persoonlijke actuele grants, productcontext uit vertrouwde records, negatieve API/DB/UI-tests (legacy-only, operator, technisch beheer, ingetrokken/verlopen of verkeerde scope); beperkte mes_app; schone installatie en upgrade 0095, behoud ID's en historie, herstel, schema-equivalentie en diagram. |
+
+Voor integrale acceptatie: audit en testreview, volledige Node 22/26 op actuele head/base, Windows-pakket en praktijktests, formele toestemming. Geen bewijs geclaimd. Exacte wijzigingstype/beoordelaarsmatrix en lotgrenzen vóór implementatie van betreffende regels aan goedgekeurde besluiten toetsen; open ontwerpkeuzes eerst voorleggen.
