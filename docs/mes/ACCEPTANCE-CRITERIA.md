@@ -278,3 +278,8 @@ D101: [Node 22-compatibiliteitsrun 45558147763](https://github.com/Gertjun/Manuf
 
 
 D100 — installatiegrens: tools/migreer.mjs weigert onbekende migratienummers vóór back-up, migratie en rechtenherinstallatie. tests/test_tools.sh simuleert een toekomstige schemaversie en tijdelijke extra tabel-ACL uitsluitend in fictieve testdatabase; controleert weigering, ongewijzigde ACL, schemaversie en waardeaantal. Nog niet uitgevoerd; geen claim van volledige upgrade- of herstelacceptatie.
+
+
+### D100 — gevalideerde installatiegrenzen
+D100: [PostgreSQL-baseline 45566354900](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45566354900), job 139041993323, head e7813d396e03f3bc64fcd691ad159b416316f7d3, base 31c86973bf13848cba44fc38785084953fe65e39: alle stappen geslaagd, inclusief 117/117 API, schema-equivalentie 0001–0093, beheertools (onbekende schema’s, back-up/herstel, opzettelijke rollback) en Linux-pakket. Documentatiecontrole 45566342443 groen. Geen integrale acceptatie; historische schema-upgrade en Windows blijven open.
+De statische D101-inventarisatie van 21 geregistreerde API-routebestanden, centrale sessie-/permissionprojectie en expliciete rolvergelijkingen in het schema leverde geen nieuwe zelfstandige legacy-rolmachtiging op. Historische functies kunnen behouden zijn met ingetrokken uitvoeringsrechten. Dit is geen integrale dynamische scherm- of databasepadreview.
