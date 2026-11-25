@@ -1849,7 +1849,10 @@ def main():
         proc_denied("#110 zelfverwijzing geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p1,p1),"voorwaarts")
         proc_denied("#110 positie maakt edge ongeldig","UPDATE recipe_procedural_element SET position=3 WHERE id=%s",(p1,),"afhankelijkheid ongeldig")
         proc_denied("#110 parent in andere versie","UPDATE recipe_procedural_element SET parent_id=%s WHERE id=%s",(root2,unit),"foreign key")
-        proc_denied("#110 verkeerde parentsoort","UPDATE recipe_procedural_element SET parent_id=%s,parent_kind='procedure' WHERE id=%s",(root,p1),"check")
+        # Isoleer de parenttypeconstraint: geen bestaande edge op deze fixture.
+        standalone = elem(v1,op,"operation","phase","P3-PARENT-TEST",3)
+        proc_denied("#110 verkeerde parentsoort","UPDATE recipe_procedural_element SET parent_id=%s,parent_kind='procedure' WHERE id=%s",(root,standalone),"check")
+        check("#110 geweigerde parentwijziging behoudt oorspronkelijke relatie",val("SELECT parent_id FROM recipe_procedural_element WHERE id=%s",(standalone,))==op)
         proc_denied("#110 dubbele root","INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT2','Dubbel',2)",(v1,),"duplicate")
         proc_denied("#110 dubbele positie","UPDATE recipe_procedural_element SET position=1 WHERE id=%s",(p2,),"afhankelijkheid ongeldig")
         proc_denied("#110 versie van element onveranderlijk","UPDATE recipe_procedural_element SET recipe_version_id=%s WHERE id=%s",(v2,p1),"onveranderlijk")

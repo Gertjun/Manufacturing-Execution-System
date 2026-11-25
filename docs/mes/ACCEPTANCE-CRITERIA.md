@@ -394,6 +394,8 @@ Gerichte fase 2.2-baseline: [run 45684478100](https://github.com/Gertjun/Manufac
 
 Procedure-API (#103/110): zes routes voor consistente procedurelijst, elementcreate/edit/delete en edgecreate/delete; actuele persoonlijke productscope, strikte input, 401/403/400/409/422, atomaire teller/inhoud/audit en ingetrokken grants. Regressies toegevoegd, nog niet uitgevoerd; statuspoort blijft werkpakket 2.5.
 
+Gerichte procedurebaseline [45686412128](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45686412128), head fddee3a39fa2680619df884b90bc3b322247b829, job 139460074976: 780/781 DB-controles; uitsluitend verkeerde parentsoort faalt doordat de edgeguard de mutatie eerder weigert. Schema/migraties, API, autorisatie, security, beheer, documentgeneratie en Linux-pakket geslaagd. Testfixture geïsoleerd op een element zonder afhankelijkheden; CHECK-verwachting behouden en expliciete behoudsassertie toegevoegd. Geen productiecode of afgezwakte testverwachting. Hertest vereist.
+
 ## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.

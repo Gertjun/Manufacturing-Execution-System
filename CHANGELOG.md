@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #103/110: gerichte baseline 45686412128 faalde uitsluitend op parenttype-testfixture (edgeguard eerder dan CHECK). Onafhankelijk element zonder edges en behoudsassertie toegevoegd; productiecode en oorspronkelijke CHECK-verwachting ongewijzigd. Hertest open.
+
 - #103/110 (deel): procedure-API voor lezen, aanmaken, wijzigen en verwijderen van elementen/afhankelijkheden met gezamenlijke change_no; API-regressies toegevoegd. Nog niet getest.
 
 - #103/110 (deel): 0101 persoonlijke procedurebewerkingen en afhankelijkheden, gezamenlijke MBR-wijzigingsteller, atomaire wijzigingen en config_log-audit inclusief conceptverwijderingen. Regressies toegevoegd, nog niet uitgevoerd.
