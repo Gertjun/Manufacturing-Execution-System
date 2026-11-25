@@ -803,6 +803,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0123: D109 persoonlijke vrijgave en intrekking.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=123) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_release_confirmed(uuid,uuid,integer,timestamptz,text,text),
+     fabriek.recipe_withdraw_confirmed(uuid,text,text) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

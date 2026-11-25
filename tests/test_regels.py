@@ -2841,17 +2841,22 @@ def main():
         check("#112 interne geldigheidsfunctie "+sig,not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
     con.execute("BEGIN")
     try:
-        con.execute("SAVEPOINT release_closed")
-        faalt("#112 formele vrijgave nog gesloten","INSERT INTO recipe_release DEFAULT VALUES",bevat="wachten op gecontroleerde besluitworkflow")
-        con.execute("ROLLBACK TO SAVEPOINT release_closed")
-        con.execute("RELEASE SAVEPOINT release_closed")
-        con.execute("SAVEPOINT withdrawal_closed")
-        faalt("#112 intrekking nog gesloten","INSERT INTO recipe_release_withdrawal DEFAULT VALUES",bevat="wachten op gecontroleerde besluitworkflow")
-        con.execute("ROLLBACK TO SAVEPOINT withdrawal_closed")
-        con.execute("RELEASE SAVEPOINT withdrawal_closed")
         check("#112 geen impliciet geldig recept",val("SELECT recipe_effective_release(gen_random_uuid(),now(),now())") is None)
     finally:
         con.execute("ROLLBACK")
+
+
+    print("\nD109 persoonlijke vrijgavebevoegdheden")
+    for role,permission in [
+        ("engineering_approver","recipe.release"),
+        ("engineering_approver","recipe.withdraw.engineering"),
+        ("quality_approver","recipe.withdraw.quality")
+    ]:
+        check("D109 "+role+" "+permission,val("SELECT EXISTS(SELECT 1 FROM authorization_role_permission WHERE role_code=%s AND permission_code=%s)",(role,permission)))
+    check("D109 geen vrijgaverecht auteur of beheer",not val("SELECT EXISTS(SELECT 1 FROM authorization_role_permission WHERE permission_code='recipe.release' AND role_code<>'engineering_approver')"))
+    for sig in ("recipe_release_confirmed(uuid,uuid,integer,timestamptz,text,text)","recipe_withdraw_confirmed(uuid,text,text)"):
+        check("D109 persoonlijke interface "+sig,val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
+    check("D109 interne actor afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_release_actor(uuid,boolean)','EXECUTE')"))
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
