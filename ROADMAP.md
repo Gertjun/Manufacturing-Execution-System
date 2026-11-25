@@ -98,6 +98,8 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 
 113.7b vervolg: operatorredirect en precieze headerformulierselector gecorrigeerd; afzonderlijke productscope, geweigerde toegang tot globale materiaalcatalogus en inhoudelijk geblokkeerde vrijgave na drie onafhankelijke goedkeuringen toegevoegd. Uitvoering nog open.
 
+113.7b: automatische bronmanifestregressie toegevoegd aan gerichte en integrale CI: 16 unieke fictieve gevallen, expliciete statussen en redenen, geen automatische vrijgave, behoud van NULL, exacte decimale tekst en historische correctiereferentie. Dit is manifestvalidatie, geen bewijs van uitgevoerde bronmigratie; DB/API-regressies toetsen afzonderlijk de operationele regels. Uitvoering nog open.
+
 ## Fase 3 — Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard
 
 D105 zoals gewijzigd door D111: start uitsluitend na expliciete technische acceptatie van fase 2; handmatige Windows-praktijkacceptatie van beide fasen volgt na fase 3. D107 breidt de scope uit; de eerdere indicatie van één tot twee ontwikkelingsdagen vervalt. Nieuwe inschatting na inventarisatie; geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.

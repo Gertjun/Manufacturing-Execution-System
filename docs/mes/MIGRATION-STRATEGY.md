@@ -42,3 +42,5 @@ Inventarisatie op basis van repositoryschema 0128, uitsluitend fictieve PoC. Gee
 6. Test schone installatie, upgrade vanaf v0.63.0, back-up/herstel en negatieve scenario's. Stop bij verschil, onbekende echte database, ongeldige mapping of ontbrekend bewijs; geen omschakeling. Bij pilot afzonderlijke goedkeuring, gecontroleerde cutover en terugvalplan zonder verlies van nieuwe feiten.
 
 Representatieve fictieve gevallen: [fixtures/phase2-source-cases.json](fixtures/phase2-source-cases.json). Dit zijn beoordelingsfixtures met verwachte uitkomsten, geen importformaat, geen operationele gegevens. Werkelijke uitvoering en bronvalidatie blijven open; specifieke importtool alleen na afzonderlijk besluit.
+
+113.7b: automatische bronmanifestregressie toegevoegd aan gerichte en integrale CI: 16 unieke fictieve gevallen, expliciete statussen en redenen, geen automatische vrijgave, behoud van NULL, exacte decimale tekst en historische correctiereferentie. Dit is manifestvalidatie, geen bewijs van uitgevoerde bronmigratie; DB/API-regressies toetsen afzonderlijk de operationele regels. Uitvoering nog open.

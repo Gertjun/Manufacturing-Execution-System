@@ -541,3 +541,5 @@ D110: bij scope- en integrale audit iedere nieuwe legacywens toetsen aan ISA-geb
 113.7b: functionele Chrome-regressie toegevoegd voor persoonlijke Engineering-toegang, conceptaanmaak/headerwijziging, bevroren revisie, historische rondes, onafhankelijke beoordeling en directe route na sessiewissel. Echte beperkte API en fictieve schone database; overige scenario's en integrale uitvoering nog open. Geen visuele harmonisatie.
 
 113.7b vervolg: operatorredirect en precieze headerformulierselector gecorrigeerd; afzonderlijke productscope, geweigerde toegang tot globale materiaalcatalogus en inhoudelijk geblokkeerde vrijgave na drie onafhankelijke goedkeuringen toegevoegd. Uitvoering nog open.
+
+113.7b: automatische bronmanifestregressie toegevoegd aan gerichte en integrale CI: 16 unieke fictieve gevallen, expliciete statussen en redenen, geen automatische vrijgave, behoud van NULL, exacte decimale tekst en historische correctiereferentie. Dit is manifestvalidatie, geen bewijs van uitgevoerde bronmigratie; DB/API-regressies toetsen afzonderlijk de operationele regels. Uitvoering nog open.
