@@ -2726,6 +2726,42 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\nD108 beoordelingsbewijs afgeschermd")
+    for sig in ("recipe_review_snapshot(uuid)","recipe_review_contributors(uuid)","recipe_prepare_review_round(uuid,integer,integer)"):
+        check("D108 interne functie afgeschermd "+sig,not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
+    for table in ("recipe_review_round","recipe_review_decision"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+            check("D108 geen directe "+privilege+" "+table,not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        rid=val("SELECT recipe_create(%s,'ROUND-TEST','Fictief','')",(pa,))
+        v=val("SELECT (x->'versions'->0->>'id')::uuid FROM jsonb_array_elements(recipe_list(%s)) x WHERE x->>'id'=%s",(pa,str(rid)))
+        req=val("SELECT recipe_create_change_request(%s,0,NULL,'Reden','Impact')",(v,))
+        con.execute("RESET ROLE")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        r=val("SELECT recipe_prepare_review_round(%s,1,NULL)",(v,))
+        check("D108 exacte ronde en auteurs",val("SELECT change_no=1 AND contributors=ARRAY[%s]::uuid[] AND required_reviews=ARRAY['engineering','production','quality'] FROM recipe_review_round WHERE id=%s",(actor,r)))
+        check("D108 ronde legt volledige MOC vast",val("SELECT snapshot->'current'->'recipe_change_request'->0->>'id' FROM recipe_review_round WHERE id=%s",(r,))==req["id"])
+        def denied(label,sql,params=(),msg=""):
+            con.execute("SAVEPOINT review_round_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT review_round_guard")
+            con.execute("RELEASE SAVEPOINT review_round_guard")
+        denied("D108 bijdrager mag niet beoordelen","INSERT INTO recipe_review_decision(round_id,domain,decision,reason,reviewer_id) VALUES (%s,'engineering','approve','Fictief',%s)",(r,actor),"Zelfgoedkeuring")
+        other=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.eng.approver'")
+        denied("D108 besluiten nog gesloten","INSERT INTO recipe_review_decision(round_id,domain,decision,reason,reviewer_id) VALUES (%s,'engineering','approve','Fictief',%s)",(r,other),"identiteitbevestiging")
+        denied("D108 ronde onveranderlijk","UPDATE recipe_review_round SET change_no=2 WHERE id=%s",(r,),"onveranderlijk")
+        denied("D108 ronde niet verwijderbaar","DELETE FROM recipe_review_round WHERE id=%s",(r,),"onveranderlijk")
+        check("D108 voorbereiding opent geen statusovergang",val("SELECT lifecycle_status FROM master_recipe_version WHERE id=%s",(v,))=="draft")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
