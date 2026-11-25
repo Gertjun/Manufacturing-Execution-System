@@ -5,6 +5,8 @@ import { ApiFout, GeenVerbinding, stuur } from "./api";
 import { opslag } from "./opslag";
 import { sessie } from "./sessie";
 import type { Registratie } from "./types";
+import { bewaarEigenRegistratie, registratieSleutel, registratieIdentiteit } from "./registratieopslag";
+import { rechten, heeftProductRecht } from "./rechten";
 
 export interface Actie {
   volgnr?: number;
@@ -14,11 +16,12 @@ export interface Actie {
   body?: unknown;
   /** Registratie waar deze actie bij hoort (voor de lokale kopie). */
   registratieId?: string;
-  status: "wacht" | "fout";
+  status: "wacht" | "fout" | "beoordeling";
   fout?: string;
   /** Moment van invoer op dit apparaat; gaat mee naar de server (D43). */
   aangemaakt: string;
   /** Operator die de actie invoerde. Acties van vóór 0.20.0 hebben dit niet. */
+  userId?: string;
   operatorId?: string;
   operatornaam?: string;
 }
@@ -48,26 +51,104 @@ function meld(wijziging: Partial<Status>) {
 
 async function tel() {
   const acties = await opslag.alle<Actie>("wachtrij");
-  meld({ wacht: acties.filter((a) => a.status === "wacht").length, fout: acties.filter((a) => a.status === "fout").length });
+  meld({ wacht: acties.filter((a) => a.status === "wacht").length, fout: acties.filter((a) => a.status !== "wacht").length });
 }
 
+// UI krijgt uitsluitend de eigen, aantoonbaar persoonlijk herleidbare acties.
+export function eigenActie(a: Actie): boolean {
+  const i = sessie.inhoud();
+  return !!i && sessie.geldig() && !!i.operatorId && !!a.userId &&
+    a.userId === i.sub && a.operatorId === i.operatorId;
+}
 export async function acties(): Promise<Actie[]> {
-  return opslag.alle<Actie>("wachtrij");
+  const token = sessie.token;
+  const alle = await opslag.alle<Actie>("wachtrij");
+  return token === sessie.token ? alle.filter(eigenActie) : [];
+}
+// Andere/onbekende herkomst: uitsluitend een aantal, geen inhoud of namen.
+export async function afgeschermdeActies(): Promise<number> {
+  const alle = await opslag.alle<Actie>("wachtrij");
+  return alle.filter(a => !eigenActie(a)).length;
 }
 
-export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam">) {
-  await opslag.zet("wachtrij", {
-    ...actie,
-    status: "wacht",
-    aangemaakt: new Date().toISOString(),
-    operatorId: sessie.inhoud()?.operatorId,
-    operatornaam: sessie.operatornaam ?? undefined,
-  });
+// Alleen de expliciet behouden, reguliere offline acties. Geen besluiten,
+// correcties, feedback of wachtwoorden via de wachtrij.
+function toegestaanOffline(pad: string): boolean {
+  return ["/registraties","/batches","/lots","/stilstand","/overdracht"].includes(pad)
+    || /^\/registraties\/[0-9a-f-]{36}\/(waarden|grondstoffen|afronden)$/i.test(pad)
+    || /^\/stilstand\/[0-9a-f-]{36}\/einde$/i.test(pad);
+}
+function bevatGeheim(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  return Object.entries(body).some(([k,v]) => /wachtwoord|password|passphrase|authorization|token|sessionproof/i.test(k) || bevatGeheim(v));
+}
+function zonderGeheim(body: unknown): unknown {
+  if (Array.isArray(body)) return body.map(zonderGeheim);
+  if (!body || typeof body !== "object") return body;
+  return Object.fromEntries(Object.entries(body).filter(([k]) => !/wachtwoord|password|passphrase|authorization|token|sessionproof/i.test(k)).map(([k,v]) => [k,zonderGeheim(v)]));
+}
+
+type NieuweActie = Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam" | "userId">;
+type Context = { registratie: Registratie; startRecht?: "execution.start" | "inspection.start" };
+
+export function controleerOfflineActie(actie: NieuweActie, context?: Context): void {
+  if (!sessie.geldig() || !sessie.inhoud()?.operatorId || !rechten()?.personal || !rechten()?.linkedPerson)
+    throw new Error("Persoonlijke sessie met MES-bevoegdheden vereist voor offline invoer");
+  if (!toegestaanOffline(actie.pad) || bevatGeheim(actie.body))
+    throw new Error("Deze handeling mag niet in de offline wachtrij");
+  const vereisten: string[] = [];
+  let product: string | null | undefined;
+  if (actie.pad === "/batches") vereisten.push("execution.batch.create");
+  else if (actie.pad === "/overdracht") vereisten.push("handover.record");
+  else if (actie.pad === "/stilstand" || actie.pad.endsWith("/einde")) vereisten.push("downtime.record");
+  else {
+    const reg = context?.registratie;
+    if (!reg || actie.registratieId !== reg.id ||
+        (actie.pad.startsWith("/registraties/") && !actie.pad.startsWith("/registraties/" + reg.id + "/")))
+      throw new Error("Registratiecontext ontbreekt");
+    product = reg.product;
+    if (actie.pad === "/lots") vereisten.push("execution.lot.create");
+    else if (actie.pad === "/registraties" && context?.startRecht) vereisten.push(context.startRecht);
+    else if (actie.pad.endsWith("/grondstoffen")) vereisten.push("execution.record");
+    else if (actie.pad.endsWith("/afronden")) vereisten.push("execution.complete");
+    else if (actie.pad.endsWith("/waarden")) {
+      const waarden = (actie.body as { waarden?: { veldcode: string }[] } | undefined)?.waarden;
+      if (!waarden?.length) throw new Error("Geen meetwaarden");
+      for (const w of waarden) {
+        const veld = reg.velden?.find(v => v.code === w.veldcode);
+        if (!veld) throw new Error("Onbekend meetveld");
+        vereisten.push(veld.gemeten_door === "kwaliteit" ? "inspection.record" : "execution.record");
+      }
+    }
+  }
+  if (!vereisten.length || !vereisten.every(code => heeftProductRecht(product, code)))
+    throw new Error("Geen MES-bevoegdheid voor deze handeling");
+}
+
+// Context is uitsluitend lokaal voor de UI-controle; nooit autorisatiebewijs voor de server.
+export async function voegActiesToe(nieuweActies: NieuweActie[], context?: Context, token = sessie.token) {
+  const identiteit = registratieIdentiteit();
+  const i = sessie.inhoud()!;
+  const controleer = () => {
+    if (token !== sessie.token || identiteit !== registratieIdentiteit()) throw new Error("Sessie gewijzigd");
+    for (const actie of nieuweActies) controleerOfflineActie(actie, context);
+  };
+  controleer();
+  await opslag.voegActiesToe(nieuweActies.map(actie => ({
+    ...actie, status: "wacht", aangemaakt: new Date().toISOString(),
+    userId: i.sub, operatorId: i.operatorId, operatornaam: sessie.operatornaam ?? undefined,
+  })), context ? { sleutel: registratieSleutel(context.registratie.id, identiteit), waarde: context.registratie } : undefined, controleer);
   await tel();
   void verwerk();
 }
 
+export async function voegToe(actie: NieuweActie, context?: Context, token = sessie.token) {
+  await voegActiesToe([actie], context, token);
+}
+
 export async function verwijder(volgnr: number) {
+  const actie = await opslag.haal<Actie>("wachtrij", volgnr);
+  if (!actie || actie.status !== "fout" || !actie.userId || actie.userId !== sessie.inhoud()?.sub || actie.operatorId !== sessie.inhoud()?.operatorId || actie.fout?.startsWith("Persoonlijke herkomst")) return;
   await opslag.weg("wachtrij", volgnr);
   await tel();
 }
@@ -79,11 +160,11 @@ export async function heeftWachtende(registratieId: string, behalve?: number): P
 }
 
 /** Bewaar wat de server teruggaf, tenzij er nog lokale wijzigingen onderweg zijn. */
-async function bewaarAntwoord(antwoord: unknown, volgnr: number) {
+async function bewaarAntwoord(antwoord: unknown, volgnr: number, identiteit: string) {
   const a = antwoord as { id?: string; stapcode?: string; registratie?: Registratie } | null;
   const reg = a?.registratie ?? (a?.id && a?.stapcode ? (a as Registratie) : null);
   if (reg && !(await heeftWachtende(reg.id, volgnr))) {
-    await opslag.zet("registraties", { ...reg, lokaal: false });
+    await bewaarEigenRegistratie({ ...reg, lokaal: false }, identiteit);
   }
 }
 
@@ -109,12 +190,29 @@ export async function verwerk(): Promise<void> {
   try {
     for (;;) {
       const alle = await opslag.alle<Actie>("wachtrij");
+      // Ook oude acties zonder persoonlijke bevestiging nooit automatisch versturen.
+      for (const a of alle) {
+        if (bevatGeheim(a.body) || (!toegestaanOffline(a.pad) && a.status !== "beoordeling")) {
+          await opslag.zet("wachtrij", { ...a, body: zonderGeheim(a.body), status: "beoordeling", fout: "Niet toegestane offline handeling; oorspronkelijke niet-geheime gegevens bewaard voor gecontroleerde beoordeling" });
+          a.status = "beoordeling";
+        }
+      }
+      const identiteit = sessie.inhoud();
+      if (!sessie.geldig() || !identiteit || identiteit.gedeeld) { meld({ inloggenNodig: true }); break; }
       const volgende = alle.find((a) => a.status === "wacht");
       if (!volgende) break;
+      // Onzekere herkomst of andere persoon: niets versturen of heretiketteren.
+      if (!volgende.userId || volgende.userId !== identiteit.sub || volgende.operatorId !== identiteit.operatorId) {
+        await opslag.zet("wachtrij", { ...volgende, status: "beoordeling", fout: "Persoonlijke herkomst niet bevestigd; bewaard voor gecontroleerde beoordeling" });
+        await tel();
+        continue;
+      }
       try {
-        const antwoord = await stuur("POST", volgende.pad, volgende.body, koppen(volgende));
+        const token = sessie.token;
+        if (!token || sessie.inhoud()?.sub !== identiteit.sub) break;
+        const antwoord = await stuur("POST", volgende.pad, volgende.body, { ...koppen(volgende), authorization: `Bearer ${token}` });
         meld({ verbonden: true });
-        await bewaarAntwoord(antwoord, volgende.volgnr!);
+        await bewaarAntwoord(antwoord, volgende.volgnr!, identiteit.sub + ":" + identiteit.operatorId);
         await opslag.weg("wachtrij", volgende.volgnr!);
       } catch (e) {
         if (e instanceof GeenVerbinding) {

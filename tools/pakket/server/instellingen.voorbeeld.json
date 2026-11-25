@@ -3,8 +3,8 @@
     "host": "localhost",
     "port": 5432,
     "database": "batchgui",
-    "user": "batchgui_app",
-    "password": "VUL-IN-wachtwoord-van-batchgui_app"
+    "user": "mes_app",
+    "password": "VUL-IN-wachtwoord-van-mes_app"
   },
   "beheerDb": {
     "user": "postgres",

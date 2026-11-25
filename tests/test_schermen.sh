@@ -1,23 +1,30 @@
 #!/bin/sh
-# Schermtests in Chrome: invoerscherm, alle portalen en de browserdemo.
-# Gebruik: DATABASE_URL=postgres://postgres@localhost:5432/batchgui tests/test_schermen.sh
+# Schermtests in Chrome: invoerscherm en alle portalen (PostgreSQL, D99).
+# Gebruik: DATABASE_URL=postgres://postgres@localhost:5432/batchgui TEST_APP_DATABASE_URL=postgres://mes_app@localhost:5432/batchgui tests/test_schermen.sh
 # LET OP: de database wordt meerdere keren leeggemaakt en opnieuw gevuld met fictieve gegevens.
-# Vooraf nodig: npm ci in api, invoer, portaal en demo; invoer en portaal gebouwd (npm run build);
+# Vooraf nodig: npm ci in api, invoer en portaal; invoer en portaal gebouwd (npm run build);
 # Google Chrome in /usr/bin/google-chrome; Python met psycopg.
 set -e
 set -f  # geen bestandsnamen uitbreiden (de verbindingstekst bevat een ?)
 cd "$(dirname "$0")/.."
 : "${DATABASE_URL:=postgres://postgres@localhost/batchgui?host=/tmp&port=5433}"
 export DATABASE_URL
+: "${TEST_APP_DATABASE_URL:?Stel TEST_APP_DATABASE_URL in op de beperkte mes_app-testverbinding}"
+export TEST_APP_DATABASE_URL
+if [ "$DATABASE_URL" = "$TEST_APP_DATABASE_URL" ]; then
+  echo "Testvoorbereiding en applicatie moeten afzonderlijke databaseverbindingen hebben." >&2
+  exit 1
+fi
 PSQL="psql -q -v ON_ERROR_STOP=1 -d $DATABASE_URL"
 FOUT=0
 
 leeg() {
   $PSQL -c "DROP SCHEMA IF EXISTS fabriek CASCADE" >/dev/null 2>&1
-  $PSQL -f db/schema.sql >/dev/null 2>&1
-  $PSQL -f db/rechten.sql >/dev/null 2>&1 || true
+  $PSQL -f db/schema.sql >/dev/null
+  $PSQL -f db/rechten.sql >/dev/null
   $PSQL -f db/seed_config.sql >/dev/null
   $PSQL -f db/seed_accounts_demo.sql >/dev/null
+  $PSQL -f tests/fixtures/scherm_grants.sql >/dev/null
 }
 testdata() {
   leeg
@@ -43,30 +50,12 @@ testdata
 for t in formaten portaal productie wandscherm grondstoffen meldingen certificaat regelkaarten excel hulp nalevering specificaties; do
   draai portaal "$t.mjs"
 done
-# Beheer en planning zetten zelf hun database klaar.
+# Beheer gebruikt de voorgaande fictieve dataset; planning en sjabloon initialiseren zelf.
 draai portaal beheer.mjs
 draai portaal planning.mjs
 draai portaal sjabloon.mjs
 
-# Browserdemo (PGlite in de browser, zonder server).
-if ! (cd demo && ./bouw.sh) > /tmp/schermtest-demo-bouw.log 2>&1; then
-  cat /tmp/schermtest-demo-bouw.log
-  exit 1
-fi
-python3 -m http.server 4173 --directory demo/dist > /tmp/schermtest-demo-server.log 2>&1 &
-SERVER=$!
-trap 'kill "$SERVER" 2>/dev/null || true' EXIT
-poging=0
-until curl -fsS http://localhost:4173/ >/dev/null; do
-  poging=$((poging + 1))
-  if [ "$poging" -ge 20 ]; then
-    cat /tmp/schermtest-demo-server.log
-    exit 1
-  fi
-  sleep 1
-done
-draai portaal demo.mjs
-kill $SERVER 2>/dev/null || true
+# De historische browserdemo valt buiten de verplichte acceptatie (D99).
 
 if [ "$FOUT" -gt 0 ]; then
   echo "Schermtests: $FOUT test(s) mislukt (zie /tmp/schermtest-*.log)."

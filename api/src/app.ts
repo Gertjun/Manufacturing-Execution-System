@@ -5,7 +5,7 @@ import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { Type, type TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
-import { operatorVan, registreerAuth } from "./auth.js";
+import { registreerAuth } from "./auth.js";
 import type { Db } from "./db.js";
 import { foutAfhandeling } from "./fouten.js";
 import authRoutes from "./routes/auth.js";
@@ -88,7 +88,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     try {
       if (!req.user) await req.jwtVerify();
       ({ pcId, sub } = req.user);
-      operatorId = operatorVan(req);
+      operatorId = req.user.operatorId; // log de geauthenticeerde identiteit, niet de geweigerde operatorkop
     } catch { return; }
     if (!pcId) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -102,7 +102,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(swagger, {
     openapi: {
       info: {
-        title: "Batch input GUI API",
+        title: "MES API",
         version: VERSIE,
         description:
           "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data.",
@@ -149,7 +149,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
     let ja = false;
     try {
       const { rows } = await db.query<{ n: number }>(
-        "SELECT count(*)::int AS n FROM fabriek.gebruiker WHERE actief AND lower(gebruikersnaam) = ANY($1)", [TESTACCOUNTS.map(([n]) => n)]);
+        "SELECT count(*)::int AS n FROM fabriek.demo_account_names($1)", [TESTACCOUNTS.map(([n]) => n)]);
       ja = (rows[0]?.n ?? 0) >= 3;
     } catch { ja = false; }
     testCache = { op: Date.now(), ja };
@@ -208,7 +208,7 @@ const CSP = [
 /** Eenvoudige startpagina met de applicaties van het platform. */
 export function startpagina(test: boolean): string {
   return `<!doctype html><html lang="nl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Batch input GUI</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>MES</title>
 <style>
 body{font:16px/1.5 system-ui,"Segoe UI",sans-serif;margin:0;background:#f3f5f7;color:#1d2733}
 main{max-width:640px;margin:8vh auto;padding:0 20px}
@@ -219,9 +219,9 @@ a.app strong{display:block;font-size:18px;color:#1f5fae}
 table{border-collapse:collapse;margin-top:8px;font-size:14px}td{padding:2px 16px 2px 0}
 small{color:#52606d}
 </style></head><body><main>
-<h1>Batch input GUI</h1><p>${test ? "Testomgeving met fictieve gegevens · " : ""}versie ${VERSIE}</p>
-<a class="app" href="/invoer/"><strong>Invoerscherm</strong>Voor operators op de vloer: stappen invoeren, lot samenstellen.</a>
-<a class="app" href="/portaal/"><strong>Portalen</strong>Kwaliteit, Productie, Planning en Beheer, en het wandscherm.</a>
+<h1>MES</h1><p>${test ? "Testomgeving met fictieve gegevens · " : ""}versie ${VERSIE}</p>
+<a class="app" href="/invoer/"><strong>Production Execution</strong>Voor operators op de vloer: stappen invoeren, lot samenstellen.</a>
+<a class="app" href="/portaal/"><strong>Portalen</strong>Kwaliteit, Manufacturing Operations, Planning en Beheer, en het wandscherm.</a>
 <a class="app" href="/docs"><strong>API-documentatie</strong>Alle functies van de server.</a>
 ${test ? `<small>Testaccounts, wachtwoord steeds <b>demo</b>:</small>
 <table>${TESTACCOUNTS.map(([n, w]) => `<tr><td>${n}</td><td>${w}</td></tr>`).join("")}</table>` : ""}

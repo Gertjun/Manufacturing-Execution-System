@@ -1,7 +1,7 @@
-// Certificaat per lot (analysecertificaat voor de klant): concept bekijken, uitgeven (Kwaliteit), afdrukken of als pdf bewaren.
-import { h, laden, melding, toon, vastHouden } from "../../../gedeeld/ui";
+// D101: concept raadplegen en historische certificaten herdrukken; geen nieuwe uitgifte.
+import { h, laden, toon, vastHouden } from "../../../gedeeld/ui";
 import { toonGetal } from "../../../gedeeld/markering";
-import { haal, sessie, stuur } from "../basis";
+import { haal } from "../basis";
 import { fout } from "./schermen";
 
 interface Kenmerk {
@@ -59,8 +59,8 @@ function document_(c: Inhoud, uit: Uitgegeven | null) {
     h("footer", { class: "cert-voet" },
       uit
         ? h("div", {}, `Uitgegeven door ${uit.door} (Kwaliteit) op ${dt(uit.uitgegeven_op)}.`)
-        : h("div", {}, "Concept: nog niet uitgegeven. Alleen Kwaliteit kan een certificaat uitgeven, als het lot gereed is en voldoet."),
-      h("div", { class: "cert-handtekening" }, "Handtekening")));
+        : h("div", {}, "Concept — niet uitgegeven, niet geldig als vrijgavecertificaat. Nieuwe uitgifte is tijdelijk geblokkeerd."),
+      uit ? h("div", { class: "cert-handtekening" }, "Handtekening") : null));
 }
 
 export async function certificaat(lotnummer: string, nummer?: string) {
@@ -78,8 +78,6 @@ export async function certificaat(lotnummer: string, nummer?: string) {
     }
   } catch (err) { return fout(err); }
   if (!actueel()) return;
-  const magUitgeven = ["kwaliteit", "beheerder"].includes(sessie.rol ?? "") && !uit;
-  const waarom = c.status !== "gereed" ? "Het lot is nog niet gereed." : !c.voldoet ? "Niet alle kenmerken zijn gemeten en binnen de specificatie, of een batch is afgekeurd." : null;
   toon(
     h("div", { class: "kop geen-print" },
       h("div", {}, h("p", { class: "terug" }, h("a", { href: `#/kwaliteit/lotpaspoort/${lotnummer}` }, `Lotpaspoort ${lotnummer}`)),
@@ -88,18 +86,8 @@ export async function certificaat(lotnummer: string, nummer?: string) {
           h("a", { href: `#/kwaliteit/certificaat/${lotnummer}/${x.nummer}` }, `nr. ${x.nummer} (${dt(x.uitgegeven_op)})`)])) : null),
       h("div", { class: "knoppen-klein" },
         uit ? h("a", { class: "knop knop-stil", href: `#/kwaliteit/certificaat/${lotnummer}` }, "Concept") : null,
-        magUitgeven ? h("button", {
-          class: "knop knop-hoofd", disabled: !!waarom, title: waarom ?? undefined,
-          onclick: async () => {
-            try {
-              const r = await stuur<Uitgegeven>("POST", `/certificaten/lots/${encodeURIComponent(lotnummer)}`);
-              melding(`Certificaat nr. ${r.nummer} uitgegeven`, "ok");
-              location.hash = `#/kwaliteit/certificaat/${lotnummer}/${r.nummer}`;
-            } catch (err) { melding((err as Error).message, "fout"); }
-          },
-        }, "Uitgeven") : null,
         h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken of pdf"))),
-    magUitgeven && waarom ? h("p", { class: "melding-inline geen-print" }, waarom) : null,
+    !uit ? h("p", { class: "melding-inline geen-print" }, "Alleen-lezen. Nieuwe certificaatuitgifte wacht op de MES-kwaliteitsvrijgave in fase 7.") : null,
     document_(c, uit),
   );
 }

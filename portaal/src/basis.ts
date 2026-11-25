@@ -63,110 +63,96 @@ export function qs(params: Record<string, string | number | null | undefined>): 
   return p.length ? `?${p.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&")}` : "";
 }
 
+// ---------- Actuele bevoegdheden (D101) ----------
+export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean }
+let projection: Permissions | null = null;
+let projectionToken: string | null = null;
+let requestGeneration = 0;
+export async function vernieuwRechten(): Promise<boolean> {
+  const token = sessie.token;
+  const generation = ++requestGeneration;
+  projection = null;
+  projectionToken = null;
+  if (!token) return false;
+  const result = await stuur<Permissions>("GET", "/auth/permissions", undefined, token);
+  if (generation !== requestGeneration || sessie.token !== token) return false;
+  projection = result;
+  projectionToken = token;
+  return true;
+}
+export function rechten(): Permissions | null {
+  return projectionToken && projectionToken === sessie.token ? projection : null;
+}
+export const heeftRecht = (...permissions: string[]) => permissions.some(p => rechten()?.global.includes(p));
+export const heeftProductRecht = (...permissions: string[]) => heeftRecht(...permissions) ||
+  !!rechten()?.products.some(p => permissions.includes(p.permission));
+const LEES = ["execution.read","inspection.read","engineering.execution.read","analysis.execution.read"];
+const UITVOER = ["execution.start","execution.record","execution.complete","execution.correct","inspection.start","inspection.record","inspection.decide"];
+export const magInvoer = () => !!rechten()?.personal && !!rechten()?.linkedPerson &&
+  heeftRecht(...LEES) && heeftProductRecht(...UITVOER);
+export const magMeldingen = () => !!rechten()?.personal && heeftRecht("analysis.execution.read","execution.correct","inspection.decide","planning.manage","operations.rework.order");
+export const magNalevering = () => !!rechten()?.personal && heeftRecht("execution.correct");
+export const magEtiketten = () => !!rechten()?.personal && heeftRecht(...LEES);
+export const magDisplay = () => rechten()?.personal === false && heeftRecht("display.downtime.read");
+
 // ---------- Portalen ----------
-/** rollen: alleen voor deze rollen in het menu (zonder: iedereen die het portaal mag zien). */
-export interface Onderdeel { pad: string; naam: string; teller?: () => Promise<number>; rollen?: Rol[] }
-/** De onderdelen van een portaal die de ingelogde rol in het menu ziet. */
-export const zichtbareOnderdelen = (p: Portaal) => p.onderdelen.filter((o) => !o.rollen || o.rollen.includes(sessie.rol as Rol));
-export interface Portaal { id: string; naam: string; rollen: Rol[]; klaar: boolean; onderdelen: Onderdeel[] }
-
+export interface Onderdeel { pad: string; naam: string; teller?: () => Promise<number>; toegestaan: () => boolean }
+export interface Portaal { id: string; naam: string; klaar: boolean; onderdelen: Onderdeel[] }
+export const zichtbareOnderdelen = (p: Portaal) => p.onderdelen.filter(o => !!rechten()?.personal && o.toegestaan());
+const lees = () => heeftRecht(...LEES);
+const kwaliteitLees = () => heeftRecht("inspection.read","analysis.execution.read");
+const planningLees = () => lees() && heeftRecht("planning.manage","engineering.product.manage","handover.read");
 export const PORTALEN: Portaal[] = [
-  {
-    id: "kwaliteit",
-    naam: "Kwaliteit",
-    rollen: ["kwaliteit", "beheerder", "analist", "ploegleider", "productiemanager"],
-    klaar: true,
-    onderdelen: [
-      { pad: "overzicht", naam: "Overzicht" },
-      // Teller: batches in beoordeling plus stappen die op een meting van Kwaliteit wachten (#64).
-      { pad: "beoordelen", naam: "Te beoordelen", teller: async () => {
-        const [a, b] = await Promise.all([haal<unknown[]>("/analyse/te-beoordelen"), haal<unknown[]>("/keuringen")]);
-        return a.length + b.length;
-      } },
-      { pad: "lotpaspoort", naam: "Lotpaspoort" },
-      { pad: "grondstoffen", naam: "Grondstoffen terugzoeken" },
-      { pad: "regelkaarten", naam: "Regelkaarten" },
-      { pad: "afwijkingen", naam: "Afwijkingen" },
-      { pad: "trend", naam: "Trend per veld" },
-      { pad: "herbewerkingen", naam: "Herbewerkingen en afkeur" },
-      { pad: "specificaties", naam: "Specificaties" },
-    ],
-  },
-  {
-    id: "productie",
-    naam: "Manufacturing Operations",
-    rollen: ["ploegleider", "beheerder", "analist", "productiemanager"],
-    klaar: true,
-    onderdelen: [
-      { pad: "overzicht", naam: "Werkvoorraad" },
-      { pad: "doorlooptijden", naam: "Doorlooptijden" },
-      { pad: "week", naam: "Productie per week" },
-      { pad: "correcties", naam: "Correcties" },
-      { pad: "overdracht", naam: "Ploegoverdracht" },
-      { pad: "stilstand", naam: "Stilstand" },
-      // De productiemanager ziet het pilotoverzicht hier; de beheerder bij Beheer (#77, D66).
-      { pad: "pilot", naam: "Pilotoverzicht", rollen: ["productiemanager"] },
-    ],
-  },
-  {
-    id: "planning",
-    naam: "Planning",
-    rollen: ["planner", "beheerder", "ploegleider", "productiemanager"],
-    klaar: true,
-    onderdelen: [
-      { pad: "week", naam: "Batches plannen" },
-      { pad: "dag", naam: "Stappen plannen" },
-      { pad: "overzicht", naam: "Dagoverzicht" },
-      { pad: "route", naam: "Batchroute" },
-      { pad: "lots", naam: "Lotvoorstellen", teller: async () => (await haal<unknown[]>("/planning/lotvoorstellen")).length },
-      { pad: "producten", naam: "Producten" },
-      { pad: "capaciteit", naam: "Capaciteit", teller: async () => (await haal<{ nog_invullen: number }>("/planning/capaciteit")).nog_invullen },
-    ],
-  },
-  {
-    id: "beheer",
-    naam: "Beheer",
-    rollen: ["beheerder"],
-    klaar: true,
-    onderdelen: [
-      { pad: "stappen", naam: "Stappen en velden" },
-      { pad: "medewerkers", naam: "Medewerkers" },
-      { pad: "grondstoffen", naam: "Grondstoffen" },
-      { pad: "ploegen", naam: "Diensten en ploegen" },
-      { pad: "oorzaken", naam: "Oorzaken van stilstand" },
-      { pad: "bedrijf", naam: "Bedrijfsgegevens" },
-      { pad: "pcs", naam: "Pc's" },
-      { pad: "opmerkingen", naam: "Opmerkingen", teller: async () => (await haal<unknown[]>("/terugmeldingen")).length },
-      { pad: "pilot", naam: "Pilotoverzicht" },
-      { pad: "logboek", naam: "Logboek" },
-      { pad: "server", naam: "Server" },
-    ],
-  },
+  { id: "kwaliteit", naam: "Kwaliteit", klaar: true, onderdelen: [
+    { pad: "overzicht", naam: "Overzicht", toegestaan: kwaliteitLees },
+    { pad: "beoordelen", naam: "Te beoordelen", toegestaan: () => heeftRecht("inspection.read"), teller: async () => {
+      const [a,b] = await Promise.all([haal<unknown[]>("/analyse/te-beoordelen"),haal<unknown[]>("/keuringen")]); return a.length+b.length;
+    } },
+    { pad: "lotpaspoort", naam: "Lotpaspoort", toegestaan: kwaliteitLees },
+    { pad: "grondstoffen", naam: "Grondstoffen terugzoeken", toegestaan: kwaliteitLees },
+    { pad: "regelkaarten", naam: "Regelkaarten", toegestaan: kwaliteitLees },
+    { pad: "afwijkingen", naam: "Afwijkingen", toegestaan: kwaliteitLees },
+    { pad: "trend", naam: "Trend per veld", toegestaan: kwaliteitLees },
+    { pad: "herbewerkingen", naam: "Herbewerkingen en afkeur", toegestaan: () => lees() && heeftRecht("inspection.read","operations.rework.order") },
+    { pad: "specificaties", naam: "Historische specificaties", toegestaan: kwaliteitLees },
+  ]},
+  { id: "productie", naam: "Manufacturing Operations", klaar: true, onderdelen: [
+    { pad: "overzicht", naam: "Werkvoorraad", toegestaan: () => heeftRecht("execution.read","analysis.execution.read") },
+    { pad: "doorlooptijden", naam: "Doorlooptijden", toegestaan: () => heeftRecht("execution.read","analysis.execution.read") },
+    { pad: "week", naam: "Productie per week", toegestaan: () => heeftRecht("execution.read","analysis.execution.read") },
+    { pad: "correcties", naam: "Correcties", toegestaan: () => heeftRecht("execution.correct","analysis.execution.read") },
+    { pad: "overdracht", naam: "Ploegoverdracht", toegestaan: () => heeftRecht("handover.read") },
+    { pad: "stilstand", naam: "Stilstand", toegestaan: () => lees() && heeftRecht("downtime.read","maintenance.downtime.read") },
+  ]},
+  { id: "planning", naam: "Planning", klaar: true, onderdelen: [
+    { pad: "week", naam: "Batches plannen", toegestaan: planningLees },
+    { pad: "dag", naam: "Stappen plannen", toegestaan: planningLees },
+    { pad: "overzicht", naam: "Dagoverzicht", toegestaan: planningLees },
+    { pad: "route", naam: "Batchroute", toegestaan: planningLees },
+    { pad: "lots", naam: "Lotvoorstellen", toegestaan: planningLees, teller: async () => (await haal<unknown[]>("/planning/lotvoorstellen")).length },
+    { pad: "producten", naam: "Producten", toegestaan: planningLees },
+    { pad: "capaciteit", naam: "Capaciteit", toegestaan: planningLees, teller: async () => (await haal<{ nog_invullen: number }>("/planning/capaciteit")).nog_invullen },
+  ]},
+  { id: "beheer", naam: "Beheer", klaar: true, onderdelen: [
+    { pad: "stappen", naam: "Stappen en velden", toegestaan: () => lees() && heeftRecht("process.parameter.manage") },
+    { pad: "accounts", naam: "Accounts", toegestaan: () => heeftRecht("account.read") },
+    { pad: "operators", naam: "Personeel", toegestaan: () => heeftRecht("personnel.read") },
+    { pad: "grondstoffen", naam: "Grondstoffen", toegestaan: () => heeftRecht("material.definition.manage") },
+    { pad: "ploegen", naam: "Diensten en ploegen", toegestaan: () => heeftRecht("shift.manage") },
+    { pad: "oorzaken", naam: "Oorzaken van stilstand", toegestaan: () => heeftRecht("downtime.reason.manage") },
+    { pad: "pcs", naam: "Pc's", toegestaan: () => heeftRecht("workstation.manage") },
+    { pad: "logboek", naam: "Logboek", toegestaan: () => heeftRecht("system.read") },
+    { pad: "server", naam: "Server", toegestaan: () => heeftRecht("system.read") },
+  ]},
 ];
-
-export const portalenVoor = (rol: Rol | null) => PORTALEN.filter((p) => rol && p.rollen.includes(rol));
-
-/** Tegels op de startpagina (D54): het invoerscherm, de portalen en het wandscherm, voor zover je rol ze mag. */
+export const portalenVoor = (_rol?: Rol | null) => PORTALEN.filter(p => zichtbareOnderdelen(p).length > 0);
 export interface Tegel { id: string; naam: string; uitleg: string; href: string }
-export function tegelsVoor(rol: Rol | null): Tegel[] {
-  if (!rol) return [];
-  const UITLEG: Record<string, string> = {
-    kwaliteit: "Beoordelen, lotpaspoort, regelkaarten, afwijkingen en trends.",
-    productie: "Voor de productieleiding: werkvoorraad, doorlooptijden, ploegoverdracht en stilstand.",
-    planning: "Batches plannen, stappen plannen, lotvoorstellen en capaciteit.",
-    beheer: "Stappen en velden, medewerkers met hun ploeg en account, pc's, keuzelijsten, logboek en server.",
-  };
+export function tegelsVoor(_rol?: Rol | null): Tegel[] {
   return [
-    ...(rol === "operator" || rol === "ploegleider"
-      ? [{ id: "invoer", naam: "Production Execution", uitleg: "Voor de vloer: stappen invoeren, lot samenstellen, stilstand en ploegoverdracht. Werkt ook offline.", href: "../invoer/index.html" }]
-      : rol === "kwaliteit"
-        ? [{ id: "invoer", naam: "Production Execution", uitleg: "Op de lab-pc: de metingen van Kwaliteit invoeren en vrijgeven, herbewerken of afkeuren. Werkt ook offline.", href: "../invoer/index.html" }]
-        : []),
-    ...portalenVoor(rol).map((p) => ({ id: p.id, naam: p.naam, uitleg: UITLEG[p.id] ?? "", href: `#/${p.id}` })),
-    ...(rol === "ploegleider" || rol === "beheerder"
-      ? [{ id: "nainvoeren", naam: "Nainvoeren (papier)", uitleg: "Stappen die op papier zijn bijgehouden later invoeren, en lege formulieren afdrukken.", href: "#/nainvoeren" }]
-      : []),
-    ...(rol === "operator" ? [] : [{ id: "wandscherm", naam: "Wandscherm", uitleg: "Voor de tv in de hal: wat er per stap te doen staat. Alleen kijken.", href: "#/wandscherm" }]),
+    ...(magInvoer() ? [{ id: "invoer", naam: "Production Execution", uitleg: "Persoonlijke productie-invoer en keuringen.", href: "../invoer/index.html" }] : []),
+    ...portalenVoor().map(p => ({ id: p.id, naam: p.naam, uitleg: "Beschikbare functies volgens je actuele MES-bevoegdheden.", href: "#/"+p.id })),
+    ...(magNalevering() ? [{ id: "nainvoeren", naam: "Nainvoeren (papier)", uitleg: "Gecontroleerde papieren nalevering.", href: "#/nainvoeren" }] : []),
+    ...(magDisplay() ? [{ id: "wandscherm", naam: "Stilstanddisplay", uitleg: "Beperkt uitleesscherm voor actieve stilstand.", href: "#/wandscherm" }] : []),
   ];
 }
 

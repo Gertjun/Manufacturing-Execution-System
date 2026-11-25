@@ -2,11 +2,13 @@
 // Verwacht: database met schema.sql + seed_config.sql + seed_accounts_demo.sql (+ eventueel seed_demo.sql),
 // en een gebouwd invoerscherm. Gebruik: node e2e/beheer.mjs (API op poort 3461).
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-beheer";
 const BASIS = "http://localhost:3461";
 mkdirSync(SHOTS, { recursive: true });
@@ -19,7 +21,7 @@ const check = (naam, ok, extra = "") => {
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3461",
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3461",
     PORTAAL_MAP: new URL("../dist", import.meta.url).pathname, INVOER_MAP: new URL("../../invoer/dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
@@ -40,20 +42,23 @@ const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
 const shot = (naam, fullPage = true) => page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage });
 const dialoog = () => page.getByRole("dialog");
+const inloggen = async naam => {
+  await page.goto(BASIS+"/portaal/#/login");
+  await page.evaluate(()=>localStorage.clear());
+  await page.reload();
+  await page.getByLabel("Gebruikersnaam").fill(naam);
+  await page.getByLabel("Wachtwoord").fill("demo");
+  await page.getByRole("button",{name:"Inloggen"}).click();
+  await page.locator(".starttegel-beheer").click();
+};
+const token = () => page.evaluate(()=>localStorage.getItem("portaal.token"));
+const verzoek = (method,pad,t,body) => fetch(BASIS+pad,{method,headers:{authorization:"Bearer "+t,...(body===undefined?{}:{"content-type":"application/json"})},...(body===undefined?{}:{body:JSON.stringify(body)})});
 
 try {
   console.log("\nStappen en velden");
-  await page.goto(`${BASIS}/portaal/#/login`);
-  await page.getByLabel("Gebruikersnaam").fill("beheerder1");
-  await page.getByLabel("Wachtwoord").fill("demo");
-  await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await inloggen("mes.engineer");
   await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
-  check("Beheerder komt in het Portaal Beheer", page.url().includes("#/beheer"));
+  check("Process Engineer komt in het configuratieportaal", page.url().includes("#/beheer"));
 
   await page.locator(".stappenlijst a", { hasText: "PS3" }).click();
   await page.getByRole("heading", { name: "PS3 Process Step 3" }).waitFor();
@@ -155,63 +160,70 @@ try {
   await page.locator("#stap-product").selectOption("");
   await page.waitForFunction(() => !document.querySelector(".filter-product.gekozen"));
 
-  console.log("\nMedewerkers (#87)");
-  await page.getByRole("link", { name: "Medewerkers" }).click();
-  await page.getByRole("heading", { name: "Medewerkers", level: 1 }).waitFor();
-  const vloer = page.locator("section", { has: page.getByRole("heading", { name: "Operators en ploegleiders" }) });
-  const kwaliteit = page.locator("section", { has: page.getByRole("heading", { name: "Kwaliteit", exact: true }) });
-  const overig = page.locator("section", { has: page.getByRole("heading", { name: "Overige accounts" }) });
-  await vloer.locator("tr", { hasText: "Operator A" }).waitFor();
-  check("Operator A: ploeg A1 en account operator.a", /A1/.test(await vloer.locator("tr", { hasText: "Operator A" }).innerText()) && /operator\.a/.test(await vloer.locator("tr", { hasText: "Operator A" }).innerText()));
-  check("Kwaliteit in een eigen blok", (await kwaliteit.locator("tr", { hasText: "kwaliteit1" }).count()) === 1 && (await vloer.locator("tr", { hasText: "kwaliteit1" }).count()) === 0);
-  check("Overige accounts: beheerder1 en planner1", (await overig.locator("tr", { hasText: "beheerder1" }).count()) === 1 && (await overig.locator("tr", { hasText: "planner1" }).count()) === 1);
-  await page.getByRole("button", { name: "Medewerker toevoegen" }).click();
-  await dialoog().getByLabel("Naam bij de invoer").fill("Kwaliteit Twee");
-  await dialoog().getByLabel("Rol").selectOption("kwaliteit");
-  await dialoog().locator("#v-ploeg").selectOption("B1");
-  await dialoog().locator("#v-gebruikersnaam").fill("Kwaliteit 2");
-  await dialoog().getByLabel("Wachtwoord").fill("geheim-123");
-  await dialoog().getByRole("button", { name: "Medewerker toevoegen" }).click();
-  check("Ongeldige gebruikersnaam wordt meteen gemeld", await dialoog().isVisible());
-  await dialoog().locator("#v-gebruikersnaam").fill("kwaliteit2");
-  await dialoog().getByRole("button", { name: "Medewerker toevoegen" }).click();
-  await kwaliteit.locator("tr", { hasText: "Kwaliteit Twee" }).waitFor();
-  check("Nieuwe medewerker van Kwaliteit met ploeg B1", (await kwaliteit.locator("tr", { hasText: "Kwaliteit Twee" }).innerText()).includes("B1"));
-  check("Eigen account kan zichzelf niet uitzetten", await overig.locator("tr", { hasText: "beheerder1" }).getByRole("button", { name: "Uitzetten" }).isDisabled());
-  await kwaliteit.locator("tr", { hasText: "Kwaliteit Twee" }).getByRole("button", { name: "Uitzetten" }).click();
-  await dialoog().getByRole("button", { name: "Uitzetten" }).click();
-  await kwaliteit.locator("tr", { hasText: "Kwaliteit Twee" }).getByRole("button", { name: "Weer aanzetten" }).waitFor();
-  const [acc] = await q("SELECT actief FROM fabriek.gebruiker WHERE gebruikersnaam = 'kwaliteit2'");
-  check("kwaliteit2 bestaat en staat uit", acc && acc.actief === false);
-  check("Waarschuwing: gedeeld account nog actief", (await page.locator(".proef-melding", { hasText: "Gedeeld account nog actief" }).count()) === 1);
-  // Een naam zonder account krijgt een eigen account: de geschiedenis blijft op dezelfde naam (D53).
-  await vloer.locator("tr", { hasText: "Operator E" }).getByRole("button", { name: "Account geven" }).click();
-  await dialoog().locator("#v-gebruikersnaam").fill("operator.e");
-  await dialoog().getByLabel("Wachtwoord").fill("geheim-123");
-  await dialoog().getByRole("button", { name: "Account aanmaken" }).click();
-  await vloer.locator("tr", { hasText: "operator.e" }).waitFor();
-  const [kop] = await q("SELECT o.naam FROM fabriek.operator o JOIN fabriek.gebruiker g ON g.id = o.gebruiker_id WHERE g.gebruikersnaam = 'operator.e'");
-  check("Operator E is gekoppeld aan operator.e", kop?.naam === "Operator E");
-  // Ploeg wijzigen.
-  await vloer.locator("tr", { hasText: "Operator E" }).getByRole("button", { name: "Wijzigen" }).click();
-  await dialoog().locator("#v-ploeg").selectOption("D2");
-  await dialoog().getByRole("button", { name: "Opslaan" }).click();
-  await page.locator("#melding", { hasText: "Opgeslagen" }).waitFor();
-  const [pe] = await q("SELECT rp.code FROM fabriek.operator o JOIN fabriek.rooster_ploeg rp ON rp.id = o.ploeg_id WHERE o.naam = 'Operator E'");
-  check("Operator E staat nu in ploeg D2", pe?.code === "D2");
-  await vloer.locator("tr", { hasText: "Operator E" }).waitFor();
-  await shot("02-medewerkers");
-
-  console.log("\nNamen zonder account en pc's");
-  await page.getByRole("button", { name: "Naam zonder account" }).click();
-  await dialoog().getByLabel("Naam", { exact: true }).fill("Operator I");
-  await dialoog().getByRole("button", { name: "Toevoegen" }).click();
-  await vloer.locator("tr", { hasText: "Operator I" }).waitFor();
-  await vloer.locator("tr", { hasText: "Operator H" }).getByRole("button", { name: "Uitzetten" }).click();
-  await dialoog().getByRole("button", { name: "Uitzetten" }).click();
-  await vloer.locator("tr", { hasText: "Operator H" }).getByRole("button", { name: "Weer aanzetten" }).waitFor();
-  check("Naam zonder account toegevoegd en een andere uitgezet", true);
-
+  console.log("\nGescheiden account- en personeelsbeheer");
+  const engineer = await token();
+  check("Engineer heeft geen account- of personeelsmenu",await page.getByRole("link",{name:"Accounts",exact:true}).count()===0 && await page.getByRole("link",{name:"Personeel",exact:true}).count()===0);
+  check("Engineer mag geen accounts lezen",(await verzoek("GET","/beheer/gebruikers",engineer)).status===403);
+  await inloggen("beheerder1");
+  await page.getByRole("heading",{name:"Accounts",exact:true}).waitFor();
+  await page.locator("tr",{hasText:"beheerder1"}).waitFor();
+  const system=await token();
+  check("System Administrator heeft geen personeels- of engineeringmenu",await page.getByRole("link",{name:"Personeel",exact:true}).count()===0 && await page.getByRole("link",{name:"Stappen en velden",exact:true}).count()===0);
+  check("Eigen account heeft geen uitzetknop",await page.locator("tr",{hasText:"beheerder1"}).getByRole("button",{name:"Uitzetten"}).count()===0);
+  check("Historisch gedeeld account is als geblokkeerd gemarkeerd",await page.locator("tr",{hasText:"Historisch gedeeld (login geblokkeerd)"}).count()>=1);
+  await page.getByRole("button",{name:"Account aanmaken"}).click();
+  await dialoog().getByLabel("Gebruikersnaam").fill("Kwaliteit 2");
+  await dialoog().getByLabel("Tijdelijk wachtwoord").fill("geheim-123");
+  await dialoog().getByRole("button",{name:"Aanmaken",exact:true}).click();
+  check("Ongeldige gebruikersnaam wordt geweigerd",await dialoog().isVisible());
+  await dialoog().getByLabel("Gebruikersnaam").fill("kwaliteit2");
+  await dialoog().getByRole("button",{name:"Aanmaken",exact:true}).click();
+  await page.locator("tr",{hasText:"kwaliteit2"}).waitFor();
+  const [account]=await q("SELECT g.id,g.rol,g.wachtwoord_wijzigen,(SELECT count(*)::int FROM fabriek.authorization_grant a WHERE a.user_id=g.id) AS grants,(SELECT count(*)::int FROM fabriek.operator o WHERE o.gebruiker_id=g.id) AS personen FROM fabriek.gebruiker g WHERE g.gebruikersnaam='kwaliteit2'");
+  check("Account pending, tijdelijk wachtwoord, geen grants of personeelskoppeling",account.rol==="pending"&&account.wachtwoord_wijzigen&&account.grants===0&&account.personen===0,JSON.stringify(account));
+  check("Legacy roltoekenning geweigerd",(await verzoek("PATCH","/beheer/gebruikers/kwaliteit2",system,{rol:"kwaliteit"})).status===422);
+  check("Technisch beheer mag geen personeel aanmaken",(await verzoek("POST","/beheer/operators",system,{naam:"Onbevoegd"})).status===403);
+  check("Technisch beheer mag geen meetveld wijzigen",(await verzoek("PATCH","/beheer/velden/S3.1",system,{tolerantie:9})).status===403);
+  await page.locator("tr",{hasText:"kwaliteit2"}).getByRole("button",{name:"Uitzetten"}).click();
+  await dialoog().getByRole("button",{name:"Uitzetten"}).click();
+  await page.locator("tr",{hasText:"kwaliteit2"}).getByRole("button",{name:"Activeren"}).waitFor();
+  check("Account uitgezet",(await q("SELECT actief FROM fabriek.gebruiker WHERE id=$1",[account.id]))[0].actief===false);
+  await shot("02-accounts");
+  await inloggen("productiemanager1");
+  await page.getByRole("link",{name:"Personeel",exact:true}).click();
+  await page.locator("tr",{hasText:"Operator A"}).waitFor();
+  const manager=await token();
+  check("Manufacturing Manager ziet bestaande persoonlijke koppeling", (await page.locator("tr",{hasText:"Operator A"}).innerText()).includes("operator.a"));
+  check("Manager heeft geen technisch accountmenu",await page.getByRole("link",{name:"Accounts",exact:true}).count()===0);
+  check("Manager mag geen account aanmaken",(await verzoek("POST","/beheer/gebruikers",manager,{gebruikersnaam:"onbevoegd.test",wachtwoord:"geheim-123"})).status===403);
+  await page.getByRole("button",{name:"Persoon toevoegen"}).click();
+  await dialoog().getByLabel("Naam", {exact:true}).fill("Operator I");
+  const roosterRes = await verzoek("GET","/overdracht/rooster?dagen=1",manager);
+  if (!roosterRes.ok) throw new Error("Ploegen ophalen als manager: "+roosterRes.status+" "+await roosterRes.text());
+  const roosterData = await roosterRes.json();
+  const verwachtPloegen = roosterData.ploegen.filter(p=>p.actief).map(p=>p.code).sort();
+  const ploegSelect = dialoog().locator("select#v-ploeg");
+  if (await ploegSelect.count() !== 1) throw new Error("Ploegkeuzelijst ontbreekt; actieve ploegen: "+JSON.stringify(verwachtPloegen)+"; dialoog: "+await dialoog().innerText());
+  const opties = await ploegSelect.locator("option").evaluateAll(els=>els.map(el=>el.value).filter(Boolean).sort());
+  check("Ploegkeuze bevat alle actieve ploegen", JSON.stringify(opties)===JSON.stringify(verwachtPloegen) && opties.includes("B1") && opties.includes("D2"),JSON.stringify(opties));
+  await ploegSelect.selectOption("B1");
+  await dialoog().getByRole("button",{name:"Opslaan"}).click();
+  await page.locator("tr",{hasText:"Operator I"}).waitFor();
+  const [persoon]=await q("SELECT id,gebruiker_id FROM fabriek.operator WHERE naam='Operator I'");
+  check("Personeelsidentiteit zonder account",persoon.gebruiker_id===null);
+  await page.locator("tr",{hasText:"Operator I"}).getByRole("button",{name:"Wijzigen"}).click();
+  await dialoog().locator("select#v-ploeg").selectOption("D2");
+  await dialoog().getByRole("button",{name:"Opslaan"}).click();
+  await page.locator("tr",{hasText:"Operator I"}).getByText("D2",{exact:true}).waitFor();
+  const [ploeg]=await q("SELECT p.code FROM fabriek.operator o JOIN fabriek.rooster_ploeg p ON p.id=o.ploeg_id WHERE o.id=$1",[persoon.id]);
+  check("Ploeg gewijzigd",ploeg.code==="D2");
+  check("Geen koppeling via personeels-API", (await verzoek("PATCH","/beheer/operators/"+persoon.id,manager,{gebruiker_id:account.id})).status===400);
+  await page.locator("tr",{hasText:"Operator I"}).getByRole("button",{name:"Uitzetten"}).click();
+  await dialoog().getByRole("button",{name:"Uitzetten"}).click();
+  await page.locator("tr",{hasText:"Operator I"}).getByRole("button",{name:"Activeren"}).waitFor();
+  check("Personeelsidentiteit uitgezet zonder accountwijziging",(await q("SELECT actief FROM fabriek.operator WHERE id=$1",[persoon.id]))[0].actief===false);
+  await shot("02-personeel");
+  await inloggen("beheerder1");
   await page.getByRole("link", { name: "Pc's" }).click();
   await page.locator("tr", { hasText: "PC-01" }).getByRole("button", { name: "Stappen kiezen" }).click();
   await dialoog().getByLabel(/PS3 Mengen/).check();
@@ -221,25 +233,9 @@ try {
   await shot("03-pcs");
   check("PC-01 bedient PS3 en PS4", true);
 
-  console.log("\nIets melden en Opmerkingen (#78)");
-  await page.getByRole("button", { name: "Iets melden" }).click();
-  await page.locator("#v-tekst").fill("Graag een zoekveld bij de accounts");
-  await page.getByRole("dialog").getByRole("button", { name: "Versturen" }).click();
-  await page.getByText("Bedankt, je melding is verstuurd").waitFor();
-  await page.getByRole("link", { name: /Opmerkingen/ }).click();
-  await page.getByRole("heading", { name: "Opmerkingen" }).waitFor();
-  const rij = page.locator("tr", { hasText: "Graag een zoekveld bij de accounts" });
-  check("Melding staat bij Opmerkingen, met de plek", (await rij.innerText()).includes("portaal: beheer, pcs"), await rij.innerText());
-  check("Teller in het menu", /Opmerkingen\s*1/.test(await page.locator("#menu").innerText()));
-  await rij.getByRole("button", { name: "Afhandelen" }).click();
-  await page.locator("#v-notitie").fill("#80");
-  await page.getByRole("dialog").getByRole("button", { name: "Afhandelen" }).click();
-  await page.getByText("Er staat niets open.").waitFor();
-  await page.locator("#opm-alle").check();
-  await page.getByText("Afgehandeld door beheerder1: #80").waitFor();
-  check("Afgehandeld met notitie, te zien bij Ook afgehandelde", true);
-  await shot("03b-opmerkingen");
-
+  console.log("\nPilotfeedback uitgesteld");
+  check("Geen pilotfeedbackknop of opmerkingenmenu",await page.getByRole("button",{name:"Iets melden"}).count()===0 && await page.getByRole("link",{name:/Opmerkingen/}).count()===0);
+  check("Feedbackinzage geweigerd",(await verzoek("GET","/terugmeldingen",await token())).status===403);
   console.log("\nLogboek");
   await page.getByRole("link", { name: "Logboek" }).click();
   await page.locator(".tabel tbody tr").first().waitFor();
@@ -267,7 +263,14 @@ try {
   await shot("06-server");
   const srv = await page.locator("main, body").first().innerText();
   check("Server: in orde na recente back-up en hersteltest", srv.includes("In orde") && srv.includes("1 min geleden"));
-  check("Server: versie en schemaversie zichtbaar", /schemaversie 2/.test(srv));
+  // Vergelijk de UI met de nieuwste aanwezige migratie én de applicatieversie.
+  const schemaVersie = Math.max(...readdirSync(new URL("../../db/migraties/", import.meta.url))
+    .map(naam => /^(\d{4})_.+\.sql$/.exec(naam)).filter(Boolean).map(m => Number(m[1])));
+  const appVersie = readFileSync(new URL("../../VERSIE", import.meta.url), "utf8").trim();
+  const schemaPatroon = new RegExp(`schemaversie ${schemaVersie}\\b`);
+  check("Server: versie en schemaversie zichtbaar",
+    Number.isFinite(schemaVersie) && schemaPatroon.test(srv) && srv.includes(appVersie),
+    `verwacht ${appVersie}, schema ${schemaVersie}`);
   check("Server: onderhoudstabel met hersteltest", srv.includes("Hersteltest") && srv.includes("543 batches"));
 
   console.log("\nDoorwerking op het invoerscherm");
@@ -276,12 +279,13 @@ try {
   await invoer.getByRole("button", { name: /^PC-01/ }).click();
   await invoer.getByLabel("Gebruikersnaam").fill("operator");
   await invoer.getByLabel("Wachtwoord").fill("demo");
-  await invoer.getByRole("button", { name: "Inloggen" }).click();
-  await invoer.getByRole("heading", { name: "Wie ben je?" }).waitFor();
-  await invoer.getByRole("button", { name: "Operator C" }).waitFor();
-  check("Operator I staat in de namenlijst, Operator H niet",
-    (await invoer.getByRole("button", { name: "Operator I" }).count()) === 1 && (await invoer.getByRole("button", { name: "Operator H" }).count()) === 0);
-  await invoer.getByRole("button", { name: "Operator I" }).click();
+  const weigering=invoer.waitForResponse(r=>new URL(r.url()).pathname==="/auth/login"&&r.request().method()==="POST");
+  await invoer.getByRole("button",{name:"Inloggen"}).click();
+  check("Historisch gedeeld account wordt geweigerd",(await weigering).status()===401);
+  await invoer.getByRole("alert").filter({hasText:"Onjuiste gebruikersnaam of wachtwoord"}).waitFor();
+  await invoer.getByLabel("Gebruikersnaam").fill("operator.a");
+  await invoer.getByLabel("Wachtwoord").fill("demo");
+  await invoer.getByRole("button",{name:"Inloggen"}).click();
   await invoer.locator(".tegel").first().waitFor();
   const tegels = await invoer.locator(".tegel").allInnerTexts();
   check("PC-01 toont alleen PS3 (Mengen) en PS4", tegels.length === 2 && tegels[0].includes("Mengen"), tegels.join(" | "));
@@ -289,6 +293,7 @@ try {
   await invoer.close();
 
   console.log("\nDiensten en ploegen (#86)");
+  await inloggen("productiemanager1");
   await page.goto(`${BASIS}/portaal/#/beheer/ploegen`);
   await page.getByRole("heading", { name: "Diensten en ploegen", level: 1 }).waitFor();
   const komend = page.locator("section", { has: page.getByRole("heading", { name: "Komende 14 dagen" }) });
@@ -311,7 +316,7 @@ try {
   const na = await komend.locator("tbody td:not(:first-child)").allInnerTexts();
   check("A2 een dag later: nu draaien er diensten met één ploeg", na.some((c) => c.split(",").length === 1), na.slice(0, 6).join(" | "));
 } catch (e) {
-  console.log("  AFGEBROKEN", e.message.split("\n")[0]);
+  console.log("  AFGEBROKEN", e.message);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {

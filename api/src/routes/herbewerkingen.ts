@@ -1,11 +1,9 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist, type Rol } from "../auth.js";
+import { personalSession } from "../modules/authorization/access.js";
 import { inTransactie, lees } from "../db.js";
-import { niet } from "../fouten.js";
+import { ApiFout, niet } from "../fouten.js";
 
-/** Herbewerkingen aanmaken en intrekken: Kwaliteit en de productiemanager (#61, D57). */
-const BESLISSEN: Rol[] = ["kwaliteit", "productiemanager"];
 const Datum = Type.String({ format: "date" });
 const Tijd = Type.String({ format: "date-time" });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
@@ -36,7 +34,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["herbewerkingen"],
         description:
@@ -54,20 +52,20 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       lees(
         app.db,
         `${SELECT_SQL}
-          WHERE ($4::text IS NULL OR h.nummer = $4)
+          WHERE authorization_read_execution($5,h.product_id) AND ($4::text IS NULL OR h.nummer = $4)
             AND ($3::text IS NULL OR p.code = $3)
             AND ($4::text IS NOT NULL OR h.stand IN ('te_plannen', 'gepland', 'bezig')
                  OR (($1::date IS NULL OR h.aangemaakt_op >= $1::date) AND ($2::date IS NULL OR h.aangemaakt_op < $2::date)))
           ORDER BY CASE h.stand WHEN 'te_plannen' THEN 1 WHEN 'gepland' THEN 2 WHEN 'bezig' THEN 3 ELSE 4 END, h.aangemaakt_op DESC
           LIMIT 1000`,
-        [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null, req.query.nummer ?? null],
+        [req.query.van ?? null, req.query.tot ?? null, req.query.product ?? null, req.query.nummer ?? null,req.user.sub],
       ) as never,
   );
 
   app.get(
     "/stappen",
     {
-      preHandler: vereist(...BESLISSEN),
+      preHandler: personalSession,
       schema: {
         tags: ["herbewerkingen"],
         description: "Naar welke stappen een batch of lot terug kan: stappen van hetzelfde niveau in de route die al doorlopen zijn.",
@@ -83,10 +81,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                     SELECT NULL, l.id, lot_product(l.id), 'lot' FROM lot l WHERE l.lotnummer = $1)
          SELECT s.code, s.naam
            FROM x CROSS JOIN LATERAL route(x.product_id) r JOIN processtap s ON s.id = r.processtap_id AND s.niveau = x.niveau
-          WHERE EXISTS (SELECT 1 FROM stapregistratie g WHERE g.processtap_id = s.id AND g.status = 'afgerond'
+          WHERE (authorization_permits($2,'inspection.rework.order',NULL,x.product_id,NULL) OR authorization_permits($2,'operations.rework.order',NULL,x.product_id,NULL)) AND EXISTS (SELECT 1 FROM stapregistratie g WHERE g.processtap_id = s.id AND g.status = 'afgerond'
                           AND (g.batch_id = x.batch_id OR g.lot_id = x.lot_id))
           ORDER BY r.plek`,
-        [req.query.nummer],
+        [req.query.nummer,req.user.sub],
       );
       const [bestaat] = await lees(app.db, "SELECT 1 FROM batch WHERE batchnummer = $1 UNION ALL SELECT 1 FROM lot WHERE lotnummer = $1", [req.query.nummer]);
       if (!bestaat) throw niet("Batch of lot");
@@ -97,7 +95,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/",
     {
-      preHandler: vereist(...BESLISSEN),
+      preHandler: personalSession,
       schema: {
         tags: ["herbewerkingen"],
         description:
@@ -107,15 +105,22 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           nummer: Type.String({ examples: ["B-2026-0123", "L-2026-0042"] }),
           stapcode: Type.String({ examples: ["PS3"] }),
           reden: Type.String({ minLength: 1, maxLength: 500 }),
+          wachtwoord: Type.String({ minLength: 1, maxLength: 200 }),
         }),
         response: { 201: Herbewerking },
       },
     },
     async (req, reply) => {
-      const id = await inTransactie(app.db, req.user.naam, async (tx) =>
-        (await tx.query("SELECT maak_herbewerking($1, $2, $3, $4, $5) AS id",
-          [req.body.nummer, req.body.stapcode, req.body.reden, req.user.sub, req.body.id ?? null])).rows[0].id as string);
-      const [h] = await lees(app.db, `${SELECT_SQL} WHERE h.id = $1`, [id]);
+      const result = await inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows: [target] } = await tx.query<{allowed:boolean}>(
+          "SELECT authorization_permits($2,'inspection.rework.order',NULL,product_id,NULL) OR (status <> 'in_beoordeling' AND authorization_permits($2,'operations.rework.order',NULL,product_id,NULL)) AS allowed FROM batch WHERE batchnummer=$1 UNION ALL SELECT authorization_permits($2,'inspection.rework.order',NULL,lot_product(id),NULL) OR authorization_permits($2,'operations.rework.order',NULL,lot_product(id),NULL) FROM lot WHERE lotnummer=$1",[req.body.nummer,req.user.sub]);
+        if (!target) throw niet("Batch of lot");
+        if (!target.allowed) throw new ApiFout(403,"Geen bevoegdheid voor herbewerking");
+        return (await tx.query<{status:string;order_id:string|null}>("SELECT * FROM rework_order_confirmed($1,$2,$3,$4,$5,$6,$7)",[req.user.sub,req.user.sessionVersion,req.body.nummer,req.body.stapcode,req.body.reden,req.body.id ?? null,req.body.wachtwoord])).rows[0];
+      });
+      if (result?.status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen");
+      if (result?.status !== "created" || !result.order_id) throw new ApiFout(403,"Persoonlijke bevestiging geweigerd");
+      const [h] = await lees(app.db, `${SELECT_SQL} WHERE h.id = $1`, [result.order_id]);
       return reply.status(201).send(h as never);
     },
   );
@@ -123,17 +128,24 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/intrekken",
     {
-      preHandler: vereist(...BESLISSEN),
+      preHandler: personalSession,
       schema: {
         tags: ["herbewerkingen"],
         description: "Een herbewerking die nog niet gestart is, intrekken.",
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-        body: Type.Object({ reden: Type.String({ minLength: 1, maxLength: 500 }) }),
+        body: Type.Object({ reden: Type.String({ minLength: 1, maxLength: 500 }), wachtwoord: Type.String({ minLength: 1, maxLength: 200 }) }),
         response: { 200: Herbewerking },
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, (tx) => tx.query("SELECT trek_herbewerking_in($1, $2, $3)", [req.params.id, req.body.reden, req.user.sub]));
+      const status = await inTransactie(app.db, req.user.naam, async (tx) => {
+        const { rows: [target] } = await tx.query<{allowed:boolean}>("SELECT authorization_permits($2,'inspection.rework.order',NULL,product_id,NULL) OR authorization_permits($2,'operations.rework.order',NULL,product_id,NULL) AS allowed FROM herbewerking_stand WHERE id=$1",[req.params.id,req.user.sub]);
+        if (!target) throw niet("Herbewerking");
+        if (!target.allowed) throw new ApiFout(403,"Geen bevoegdheid voor herbewerking");
+        return (await tx.query<{status:string}>("SELECT rework_cancel_confirmed($1,$2,$3,$4,$5) AS status",[req.user.sub,req.user.sessionVersion,req.params.id,req.body.reden,req.body.wachtwoord])).rows[0]?.status;
+      });
+      if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen");
+      if (status !== "cancelled") throw new ApiFout(403,"Persoonlijke bevestiging geweigerd");
       const [h] = await lees(app.db, `${SELECT_SQL} WHERE h.id = $1`, [req.params.id]);
       if (!h) throw niet("Herbewerking");
       return h as never;

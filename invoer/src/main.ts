@@ -1,10 +1,11 @@
 import "./stijl.css";
 import { sessie } from "./sessie";
-import { bevestig, h, melding, nieuweRoute } from "./ui";
-import { acties, inloggenGelukt, opStatus, startWachtrij, voegToe, type Status } from "./wachtrij";
+import { heeftRecht, magInvoer, vernieuwRechten } from "./rechten";
+import { bevestig, h, nieuweRoute, toon, vastHouden } from "./ui";
+import { acties, inloggenGelukt, opStatus, startWachtrij, type Status } from "./wachtrij";
 import { stuur } from "./api";
 import { vergeetConfig } from "./registraties";
-import { loginScherm, naamScherm, pcScherm } from "./schermen/start";
+import { loginScherm, pcScherm } from "./schermen/start";
 import { stapScherm, stappenScherm } from "./schermen/werk";
 import { registratieScherm } from "./schermen/registratie";
 import { wachtrijScherm, zoekScherm } from "./schermen/zoek";
@@ -12,7 +13,6 @@ import { overdrachtScherm } from "./schermen/overdracht";
 import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./schermen/meldingen";
 import { startScanner, wisScanActie } from "./scan";
 import { hulpScherm, wachtwoordWijzigen } from "./schermen/hulp";
-import { vraagIetsMelden } from "../../gedeeld/melden";
 import { volgNummers } from "../../gedeeld/nummers";
 
 // ---------- Statusbalk ----------
@@ -38,12 +38,8 @@ function tekenBalk() {
   }
 
   const actief = (r: string) => (route === r || (r === "stappen" && route === "stap") ? "page" : undefined);
-  const gedeeld = !!sessie.inhoud()?.gedeeld;
-  // Gedeeld account (D6): naam is te wisselen. Eigen account (D53): de naam ligt vast; wisselen = afmelden.
   const naam = () => ingelogd && sessie.operatornaam
-    ? gedeeld
-      ? h("button", { class: "balk-wie", onclick: () => (location.hash = "#/naam"), title: "Andere naam kiezen" }, sessie.operatornaam)
-      : h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
+    ? h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
     : null;
   const meldingenLink = (klasse?: string) => heeftMeldingen()
     ? h("a", { href: "#/meldingen", class: klasse, "aria-current": actief("meldingen") },
@@ -58,14 +54,13 @@ function tekenBalk() {
       ? h("nav", { class: "balk-nav alleen-breed", "aria-label": "Hoofdmenu" },
           h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),
           h("a", { href: "#/zoek", "aria-current": actief("zoek") }, "Zoeken"),
-          h("a", { href: "#/overdracht", "aria-current": actief("overdracht") }, "Overdracht"),
+          heeftRecht("handover.read") ? h("a", { href: "#/overdracht", "aria-current": actief("overdracht") }, "Overdracht") : null,
           h("a", { href: "#/hulp", "aria-current": actief("hulp") }, "Hulp"),
-          h("button", { class: "balk-knop", type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
           meldingenLink())
       : null,
     naam(),
     // Ploegleiders gebruiken ook de portalen: terug naar de startpagina (D54).
-    ingelogd && sessie.rol === "ploegleider"
+    ingelogd
       ? h("a", { class: "balk-wie alleen-breed", href: "../portaal/index.html#/" }, "Portalen")
       : null,
     ingelogd
@@ -77,32 +72,58 @@ function tekenBalk() {
   tekenOnderbalk(ingelogd ? [
     h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),
     h("a", { href: "#/zoek", "aria-current": actief("zoek") }, "Zoeken"),
-    h("a", { href: "#/overdracht", "aria-current": actief("overdracht") }, "Overdracht"),
+    heeftRecht("handover.read") ? h("a", { href: "#/overdracht", "aria-current": actief("overdracht") }, "Overdracht") : null,
     meldingenLink(),
   ] : null, [
     h("a", { href: "#/hulp" }, "Hulp"),
-    h("button", { type: "button", onclick: () => void ietsMelden() }, "Iets melden"),
-    gedeeld ? h("a", { href: "#/naam" }, "Andere naam kiezen") : null,
-    sessie.rol === "ploegleider" ? h("a", { href: "../portaal/index.html#/" }, "Portalen") : null,
+    h("a", { href: "../portaal/index.html#/" }, "Portalen"),
     h("button", { type: "button", onclick: () => void afmelden() }, "Afmelden"),
   ]);
 }
 
 volgNummers(document.getElementById("scherm")!);
 
-// Het paneel "Meer" sluit bij een tik ernaast.
+// Het paneel "Meer" sluit bij een tik ernaast of op een directe navigatielink.
 document.addEventListener("click", (e) => {
   const paneel = document.getElementById("meer-paneel");
-  if (paneel && !paneel.hidden && !(e.target as Element).closest("#onderbalk")) {
+  // Een directe navigatielink sluit het paneel meteen, ook wanneer de
+  // hashchange en de nieuwe schermrender nog niet zijn afgehandeld.
+  const doel = e.target instanceof Element ? e.target : null;
+  if (paneel && !paneel.hidden && (!doel?.closest("#onderbalk") || doel.closest("#onderbalk > a"))) {
     paneel.hidden = true;
     document.querySelector(".meer-knop")?.setAttribute("aria-expanded", "false");
   }
 });
 
+// Een status- of meldingenupdate mag de actieve bediening niet vervangen.
+// Houd de context uitsluitend in geheugen; zet het sessietoken nooit in de DOM.
+let onderContext: { token: string | null; pc: string | null; hash: string } | null = null;
+
 /** Navigatie onderaan op een staande telefoon (D64). Op bredere schermen verbergt de CSS hem. */
 function tekenOnderbalk(links: (Node | null)[] | null, meer: (Node | null)[]) {
   let onder = document.getElementById("onderbalk");
-  if (!links) { onder?.remove(); document.body.classList.remove("met-onderbalk"); return; }
+  if (!links) {
+    onder?.remove();
+    onderContext = null;
+    document.body.classList.remove("met-onderbalk");
+    return;
+  }
+  const context = { token: sessie.token, pc: sessie.pc, hash: location.hash };
+  const nieuw = links.filter((link): link is Node => link !== null);
+  const paneelBestaand = onder?.querySelector<HTMLElement>(".meer-paneel");
+  const knopBestaand = onder?.querySelector<HTMLButtonElement>(".meer-knop");
+  if (onder && paneelBestaand && knopBestaand && onderContext &&
+      onderContext.token === context.token && onderContext.pc === context.pc && onderContext.hash === context.hash) {
+    // Alleen de dynamische links bijwerken (bijvoorbeeld de meldingenteller).
+    // Paneel en knop blijven dezelfde DOM-nodes, inclusief openstaat en focus.
+    const oud = Array.from(onder.children).filter(el => el !== paneelBestaand && el !== knopBestaand);
+    if (oud.length !== nieuw.length || oud.some((el, i) => !el.isEqualNode(nieuw[i]))) {
+      for (const el of oud) el.remove();
+      for (const link of nieuw) onder.insertBefore(link, knopBestaand);
+    }
+    return;
+  }
+  onderContext = context;
   if (!onder) {
     onder = h("nav", { id: "onderbalk", "aria-label": "Hoofdmenu onderaan" });
     document.body.append(onder);
@@ -119,7 +140,7 @@ function tekenOnderbalk(links: (Node | null)[] | null, meer: (Node | null)[]) {
   };
   paneel.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest("a, button")) sluit(); });
   paneel.addEventListener("keydown", (e) => { if (e.key === "Escape") { sluit(); knop.focus(); } });
-  onder.replaceChildren(paneel, ...(links.filter(Boolean) as Node[]), knop);
+  onder.replaceChildren(paneel, ...nieuw, knop);
 }
 
 /** Afmelden; waarschuw als er nog acties wachten (die gaan later mee met de naam van wie ze invoerde). */
@@ -127,7 +148,7 @@ async function afmelden() {
   const n = (await acties()).filter((a) => a.status === "wacht").length;
   if (n > 0 && !(await bevestig(
     "Toch afmelden?",
-    `Er ${n === 1 ? "staat nog 1 actie" : `staan nog ${n} acties`} klaar om te versturen. Ze blijven op deze pc bewaard en worden verstuurd zodra iemand weer inlogt, met de naam van wie ze invoerde. Verwijder de gegevens van de browser niet.`,
+    `Er ${n === 1 ? "staat nog 1 actie" : `staan nog ${n} acties`} klaar om te versturen. Ze blijven op deze pc bewaard. Alleen je eigen sessie mag ze versturen; andere of oude registraties vragen gecontroleerde beoordeling. Verwijder de gegevens van de browser niet.`,
     "Afmelden",
   ))) return;
   sessie.afmelden();
@@ -152,7 +173,7 @@ async function vanStartpagina(): Promise<boolean> {
     sessie.operatornaam = r.operator?.naam ?? null;
     vergeetConfig();
     inloggenGelukt();
-    location.hash = r.naamKiezen ? "#/naam" : "#/stappen";
+    location.hash = "#/stappen";
     return true;
   } catch {
     return false;
@@ -176,12 +197,29 @@ async function route() {
     if (scherm !== "login") return void (location.hash = "#/login");
     return loginScherm();
   }
-  const rol = sessie.rol;
-  if (scherm === "naam") return sessie.inhoud()?.gedeeld ? naamScherm() : void (location.hash = "#/stappen");
-  if ((rol === "operator" || rol === "ploegleider") && !sessie.heeftNaam()) {
-    // Eigen account zonder naam in het token (bijvoorbeeld een token van vóór 0.27): opnieuw inloggen.
-    if (!sessie.inhoud()?.gedeeld) { sessie.afmelden(); return void (location.hash = "#/login"); }
-    return void (location.hash = "#/naam");
+  if (sessie.inhoud()?.gedeeld || !sessie.heeftNaam()) {
+    sessie.afmelden(); return void (location.hash = "#/login");
+  }
+  const actueel = vastHouden();
+  const token = sessie.token;
+  try {
+    await vernieuwRechten();
+  } catch (e) {
+    if (!actueel() || sessie.token !== token) return;
+    tekenBalk();
+    return toon(h("h1", {}, "Bevoegdheden niet beschikbaar"), h("p", { class: "label-buiten_grens" }, (e as Error).message),
+      h("button", { class: "knop", onclick: () => void route() }, "Opnieuw proberen"),
+      h("a", { href: "#/login" }, "Opnieuw inloggen"));
+  }
+  if (!actueel() || sessie.token !== token) return;
+  tekenBalk();
+  // Wachtrij en eigen wachtwoord blijven bereikbaar voor dezelfde sessie.
+  if (scherm !== "wachtrij" && scherm !== "wachtwoord" && !magInvoer()) {
+    return toon(h("h1", {}, "Geen actuele invoerbevoegdheid"),
+      h("p", {}, "Maak verbinding om je MES-bevoegdheden op te halen. Zonder geldige bevoegdheid kun je geen nieuwe invoer starten."),
+      h("button", { class: "knop", onclick: () => void route() }, "Opnieuw proberen"),
+      h("a", { href: "#/wachtrij" }, "Wachtrij bekijken"),
+      h("a", { href: "#/login" }, "Opnieuw inloggen"));
   }
 
   switch (scherm) {
@@ -189,26 +227,13 @@ async function route() {
     case "reg": return registratieScherm(arg);
     case "zoek": return zoekScherm(arg ? decodeURIComponent(arg) : undefined);
     case "wachtrij": return wachtrijScherm();
-    case "overdracht": return overdrachtScherm();
-    case "meldingen": return meldingenScherm();
+    case "overdracht": return heeftRecht("handover.read") ? overdrachtScherm() : void (location.hash = "#/stappen");
+    case "meldingen": return heeftMeldingen() ? meldingenScherm() : void (location.hash = "#/stappen");
     case "wachtwoord": return wachtwoordWijzigen();
     default:
       if (scherm !== "stappen") return void (location.hash = "#/stappen");
       return stappenScherm();
   }
-}
-
-/** "Iets melden" (#78, D62): via de wachtrij, dus ook zonder verbinding. */
-async function ietsMelden() {
-  const [, scherm, arg] = location.hash.split("/");
-  const stapcode = scherm === "stap" ? decodeURIComponent(arg ?? "") : scherm === "reg" ? document.body.dataset.stap ?? null : null;
-  const tekst = await vraagIetsMelden(stapcode ? `stap ${stapcode}` : scherm ? `scherm ${scherm}` : "het invoerscherm");
-  if (!tekst) return;
-  await voegToe({
-    omschrijving: "Iets gemeld", methode: "POST", pad: "/terugmeldingen",
-    body: { id: crypto.randomUUID(), tekst, stapcode: stapcode || null, scherm: `invoer: ${scherm || "start"}` },
-  });
-  melding(laatsteStatus?.verbonden ? "Bedankt, je melding is verstuurd" : "Bedankt, je melding gaat mee zodra er verbinding is", "ok");
 }
 
 window.addEventListener("hashchange", () => void route());

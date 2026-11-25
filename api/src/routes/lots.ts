@@ -1,6 +1,7 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, invoerContext, invoerTransactie, vereist } from "../auth.js";
+import { invoerContext, invoerTransactie } from "../auth.js";
+import { personalSession, requireTransactionPermission } from "../modules/authorization/access.js";
 import { inTransactie, lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
@@ -23,7 +24,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/",
     {
-      preHandler: vereist(...INVOER),
+      preHandler: personalSession,
       schema: {
         tags: ["lots"],
         body: Type.Object({
@@ -50,19 +51,24 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         ]);
         return reply.status(status).send({ lot, registratie: await registratieDetail(app.db, ps16.id) } as never);
       };
-      if (req.body.id) {
-        const [bestaand] = await lees<{ lotnummer: string }>(app.db, "SELECT lotnummer FROM lot WHERE id = $1", [req.body.id]);
-        if (bestaand) {
-          if (bestaand.lotnummer !== req.body.lotnummer) throw new ApiFout(409, "Dit id hoort bij een ander lot");
-          return antwoord(200);
-        }
-      }
+      let opnieuw = false;
       await invoerTransactie(app.db, req, async (tx) => {
-        const { rows } = await tx.query("SELECT batchnummer, id FROM batch WHERE batchnummer = ANY($1)", [req.body.batchnummers]);
+        const { rows } = await tx.query("SELECT batchnummer,id,product_id,lot_id FROM batch WHERE batchnummer = ANY($1) ORDER BY id FOR UPDATE", [req.body.batchnummers]);
         const gevonden = new Map(rows.map((r) => [r.batchnummer as string, r.id as string]));
         const ontbreekt = req.body.batchnummers.filter((n) => !gevonden.has(n));
         if (ontbreekt.length) throw niet(`Batch ${ontbreekt.join(", ")}`);
-        await tx.query("SELECT maak_lot($1, $2, $3, $4, $5, $6, $7)", [
+        if (new Set(req.body.batchnummers).size !== req.body.batchnummers.length) throw new ApiFout(422,"Dubbele batch");
+        for (const row of rows) await requireTransactionPermission(tx,req.user.sub,"execution.lot.create",{product:row.product_id ?? undefined});
+        if (req.body.id) {
+          const { rows: [existing] } = await tx.query("SELECT l.lotnummer,(SELECT count(*)::int FROM batch WHERE lot_id=l.id) AS n FROM lot l WHERE id=$1", [req.body.id]);
+          if (existing) {
+            if (existing.lotnummer !== req.body.lotnummer || existing.n !== rows.length || rows.some(row=>row.lot_id!==req.body.id)) throw new ApiFout(409,"Dit id hoort bij een ander lot");
+            const { rows: [original] } = await tx.query("SELECT operator_id FROM stapregistratie r JOIN processtap s ON s.id=r.processtap_id WHERE r.lot_id=$1 AND s.is_lot_stap ORDER BY r.poging LIMIT 1",[req.body.id]);
+            if (original?.operator_id !== operatorId) throw new ApiFout(409,"Dit lot is door een andere operator geregistreerd");
+            opnieuw=true; return;
+          }
+        }
+        await tx.query("SELECT execution_create_lot($1, $2, $3, $4, $5, $6, $7)", [
           req.body.lotnummer,
           req.body.batchnummers.map((n) => gevonden.get(n)),
           pcId,
@@ -72,7 +78,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           req.body.afwijkingReden?.trim() || null,
         ]);
       });
-      return antwoord(201);
+      return antwoord(opnieuw ? 200 : 201);
     },
   );
 
@@ -80,7 +86,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["lots"],
         querystring: Type.Object({
@@ -107,8 +113,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
              OR EXISTS (SELECT 1 FROM batch b WHERE b.lot_id = l.id AND b.batchnummer LIKE $1))
             AND ($3::text IS NULL OR EXISTS (SELECT 1 FROM batch b JOIN product pr ON pr.id = b.product_id
                                               WHERE b.lot_id = l.id AND pr.code = $3))
+            AND authorization_read_lot($4,l.id)
           ORDER BY l.aangemaakt_op DESC LIMIT $2`,
-        [zoek, req.query.limiet ?? 50, req.query.product || null],
+        [zoek, req.query.limiet ?? 50, req.query.product || null,req.user.sub],
       ) as never;
     },
   );
@@ -116,7 +123,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/:lotnummer",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["lots"],
         params: Type.Object({ lotnummer: LotNummer }),
@@ -124,7 +131,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const [lot] = await lees(app.db, `${LOT_SQL} WHERE l.lotnummer = $1 GROUP BY l.id`, [req.params.lotnummer]);
+      const [lot] = await lees(app.db, `${LOT_SQL} WHERE l.lotnummer = $1 AND authorization_read_lot($2,l.id) GROUP BY l.id`, [req.params.lotnummer,req.user.sub]);
       if (!lot) throw niet("Lot");
       const registraties = await lees(app.db, `${REGISTRATIE_SQL} WHERE l.lotnummer = $1 ORDER BY s.volgorde, r.poging`, [
         req.params.lotnummer,
@@ -137,7 +144,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:lotnummer/herbewerking",
     {
-      preHandler: vereist(...INVOER),
+      preHandler: personalSession,
       schema: {
         tags: ["lots"],
         params: Type.Object({ lotnummer: LotNummer }),
@@ -152,9 +159,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       const { pcId, operatorId } = await invoerContext(app.db, req);
       const id = await invoerTransactie(app.db, req, async (tx) => {
+        // De gecontroleerde databasefunctie vergrendelt het lot en toetst alle leden opnieuw.
+        // De app-rol heeft bewust geen UPDATE-recht op lot.
         const { rows } = await tx.query("SELECT id FROM lot WHERE lotnummer = $1", [req.params.lotnummer]);
         if (!rows[0]) throw niet("Lot");
-        const r = await tx.query("SELECT start_herbewerking($1, $2, $3, $4, $5, $6) AS id", [
+        const { rows: members } = await tx.query<{product_id:string|null}>("SELECT product_id FROM batch WHERE lot_id=$1", [rows[0].id]);
+        for (const member of members.length ? members : [{product_id:null}]) await requireTransactionPermission(tx,req.user.sub,"execution.rework",{product:member.product_id ?? undefined});
+        const r = await tx.query("SELECT execution_step_rework($1, $2, $3, $4, $5, $6) AS id", [
           rows[0].id,
           req.body.stapcode,
           req.body.reden,
@@ -175,7 +186,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/:lotnummer/meting",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["lots", "analyse"],
         description: "Eén meting uit het lotpaspoort: alle versies (de laatste geldt), en het keurresultaat van de batch of de herbewerkingen van het lot.",
@@ -215,8 +226,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
            JOIN operator o ON o.id = r.operator_id
            JOIN pc p ON p.id = r.pc_id
            LEFT JOIN product pr ON pr.id = r.product_id
-          WHERE l.lotnummer = $1 AND coalesce(b.batchnummer, l.lotnummer) = $2 AND s.code = $3 AND r.poging = $4`,
-        [req.params.lotnummer, q.nummer, q.stap, q.poging, q.veld],
+          WHERE l.lotnummer = $1 AND authorization_read_lot($6,l.id) AND coalesce(b.batchnummer, l.lotnummer) = $2 AND s.code = $3 AND r.poging = $4`,
+        [req.params.lotnummer, q.nummer, q.stap, q.poging, q.veld,req.user.sub],
       );
       if (!r) throw niet("Meting");
       const versies = await lees(
@@ -248,7 +259,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/:lotnummer/paspoort",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["lots", "analyse"],
         params: Type.Object({ lotnummer: LotNummer }),
@@ -269,8 +280,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const [lot] = await lees<{ batches: string[] }>(app.db, `${LOT_SQL} WHERE l.lotnummer = $1 GROUP BY l.id`, [
-        req.params.lotnummer,
+      const [lot] = await lees<{ batches: string[] }>(app.db, `${LOT_SQL} WHERE l.lotnummer = $1 AND authorization_read_lot($2,l.id) GROUP BY l.id`, [
+        req.params.lotnummer,req.user.sub,
       ]);
       if (!lot) throw niet("Lot");
       const regels = await lees<{ markering: string }>(

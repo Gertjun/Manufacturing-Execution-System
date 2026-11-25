@@ -1,20 +1,21 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { LEIDING, vereist } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
+import { invoerTransactie } from "../auth.js";
+import { personalSession, requiresPermission } from "../modules/authorization/access.js";
+import { lees } from "../db.js";
 import { ApiFout } from "../fouten.js";
 import { registratieDetail } from "./registraties.js";
 import { BatchNummer, RegistratieDetail, StapCode } from "./schemas.js";
 
 /**
- * Nainvoeren na papier (#75, D60): lag de invoer stil, dan voert een ploegleider of beheerder de stap
+ * Nainvoeren na papier (#75, D60): lag de invoer stil, dan voert een bevoegd persoonlijk account de stap
  * later in met de tijden van het papier (tot 7 dagen terug). De regels staan in lever_stap_na.
  */
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/keuzes",
     {
-      preHandler: vereist(...LEIDING),
+      preHandler: requiresPermission("execution.correct"),
       schema: {
         tags: ["nalevering"],
         description: "Actieve pc's en namen om te kiezen bij het nainvoeren.",
@@ -35,7 +36,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/",
     {
-      preHandler: vereist(...LEIDING),
+      preHandler: personalSession,
       schema: {
         tags: ["nalevering"],
         description:
@@ -68,10 +69,10 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const b = req.body;
       const [stap] = await lees<{ is_lot_stap: boolean }>(app.db, "SELECT is_lot_stap FROM processtap WHERE code = $1", [b.stapcode]);
       if (stap?.is_lot_stap && !b.batches) throw new ApiFout(400, "Geef de 4 batchnummers van het lot");
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
-          "SELECT lever_stap_na($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) AS id",
-          [b.stapcode, b.nummer, stap?.is_lot_stap ? b.batches : null, b.pc, b.operator, b.begin, b.eind, b.reden, req.user.sub,
+          "SELECT execution_paper_entry($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) AS id",
+          [b.stapcode, b.nummer, stap?.is_lot_stap ? b.batches : null, b.pc, b.operator, b.begin, b.eind, b.reden,
            JSON.stringify(b.waarden), JSON.stringify(b.grondstoffen)],
         );
         return rows[0].id as string;

@@ -2,13 +2,15 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { ApiFout } from "./fouten.js";
 import { inTransactie, lees, type Db, type Tx } from "./db.js";
 
-export type Rol = "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm" | "productiemanager";
+export type Rol = "pending" | "operator" | "ploegleider" | "kwaliteit" | "beheerder" | "analist" | "planner" | "scherm" | "productiemanager";
 
 /** Inhoud van het token. Een token werkt in de browser én in een latere desktop-app. */
 export interface Sessie {
   sub: string;          // gebruiker.id
   naam: string;         // gebruikersnaam
-  rol: Rol;
+  rol: Rol;            // legacy identiteitstype/compatibiliteit, geen autorisatiebron (D101)
+  sessionVersion: number;
+  sessionProof?: string; // vertrouwelijk bearer-bewijs; nooit loggen
   pcId?: string;        // pc waarop is ingelogd
   operatorId?: string;  // eigen naam van het account (D53), of bij een gedeeld account de gekozen naam
   gedeeld?: boolean;    // het oude gedeelde operatoraccount: kiest een naam (D6, vervalt met D53)
@@ -22,26 +24,14 @@ declare module "@fastify/jwt" {
   }
 }
 
-export const INVOER: Rol[] = ["operator", "ploegleider"];
-export const LEIDING: Rol[] = ["ploegleider", "beheerder"];
-export const BEHEER: Rol[] = ["beheerder"];
-export const IEDEREEN: Rol[] = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "productiemanager"];
-
-/** preHandler: geldig token en een van de rollen. */
-export function vereist(...rollen: Rol[]) {
-  return async (req: FastifyRequest) => {
-    try {
-      await req.jwtVerify();
-    } catch {
-      throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
-    }
-    if (req.user.ww) {
-      throw new ApiFout(403, "Kies eerst een eigen wachtwoord; je wachtwoord is tijdelijk");
-    }
-    if (!rollen.includes(req.user.rol)) {
-      throw new ApiFout(403, `Rol ${req.user.rol} mag dit niet`);
-    }
-  };
+/** Persoonlijk bewijs uit de ondertekende sessie, nooit uit een losse clientheader. */
+async function controleerSessiebewijs(req: FastifyRequest): Promise<void> {
+  if (req.user.ww || req.user.rol === "scherm") return;
+  const proof = req.user.sessionProof;
+  if (!proof) throw new ApiFout(401, "Log opnieuw in voor een persoonlijke sessie");
+  const [r] = await lees<{ actor: string | null }>(req.server.db,
+    "SELECT execution_session_actor($1) AS actor", [proof]);
+  if (r?.actor !== req.user.sub) throw new ApiFout(401, "Persoonlijke sessie verlopen; log opnieuw in");
 }
 
 /** preHandler: alleen een geldig token, ook met een tijdelijk wachtwoord (voor het wijzigen ervan). */
@@ -51,6 +41,13 @@ export async function ingelogd(req: FastifyRequest) {
   } catch {
     throw new ApiFout(401, "Niet ingelogd of sessie verlopen");
   }
+  if (req.user.gedeeld) throw new ApiFout(401, "Log in met een persoonlijk account");
+  const [account] = await lees<{ rol: Rol; actief: boolean; gedeeld: boolean; wachtwoord_wijzigen: boolean; session_version: number }>(req.server.db,
+    "SELECT rol, actief, gedeeld, wachtwoord_wijzigen, session_version FROM gebruiker WHERE id = $1", [req.user.sub]);
+  if (!account?.actief || account.gedeeld || account.rol !== req.user.rol || account.session_version !== req.user.sessionVersion || account.wachtwoord_wijzigen !== !!req.user.ww) {
+    throw new ApiFout(401, "Account gewijzigd; log opnieuw in");
+  }
+  await controleerSessiebewijs(req);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -62,12 +59,12 @@ function kop(req: FastifyRequest, naam: string): string | undefined {
 
 /**
  * Operator die de invoer deed. De offline wachtrij stuurt de operator mee die
- * op het moment van invoer was gekozen (kop x-batchgui-operator); anders geldt
- * de operator uit het token (D43). Alleen voor invoerrollen.
+ * op het moment van invoer vastlag. De kop mag uitsluitend overeenkomen met
+ * de persoonlijke operator uit het token (D94).
  */
 export function operatorVan(req: FastifyRequest): string | undefined {
-  const k = kop(req, "x-batchgui-operator");
-  if (k && UUID.test(k) && INVOER.includes(req.user.rol)) return k.toLowerCase();
+  const k = req.headers["x-batchgui-operator"];
+  if (k !== undefined && (typeof k !== "string" || !UUID.test(k) || k.toLowerCase() !== req.user.operatorId)) throw new ApiFout(403, "De operator van deze invoer komt niet overeen met je persoonlijke account");
   return req.user.operatorId;
 }
 
@@ -86,26 +83,39 @@ export function apparaatMoment(req: FastifyRequest): string | null {
   return new Date(m + afwijking).toISOString();
 }
 
+/** Persoonlijk gebonden transactie; apparaatmoment alleen voor productie-invoer. */
+export function persoonlijkeTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) => Promise<T>, moment?: string | null): Promise<T> {
+  if (!req.user.sessionProof || req.user.ww || req.user.rol === "scherm") {
+    return Promise.reject(new ApiFout(401, "Persoonlijke uitvoeringssessie vereist"));
+  }
+  return inTransactie(db, req.user.naam, async (tx) => {
+    const { rows: [r] } = await tx.query<{actor:string}>(
+      "SELECT fabriek.execution_bind_transaction($1,$2) AS actor",
+      [req.user.sessionProof, req.user.sub]);
+    if (r?.actor !== req.user.sub) throw new ApiFout(401, "Persoonlijke uitvoeringssessie ongeldig");
+    return fn(tx);
+  }, moment);
+}
+
 /** Transactie voor invoer, met het moment van het apparaat (D43). */
 export function invoerTransactie<T>(db: Db, req: FastifyRequest, fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return inTransactie(db, req.user.naam, fn, apparaatMoment(req));
+  return persoonlijkeTransactie(db, req, fn, apparaatMoment(req));
 }
 
 /**
  * Voor invoer: het token moet een pc bevatten, en er moet een operator bekend zijn.
- * Staat de invoer op een andere naam dan die van het account (de wachtrij na een persoonswissel),
- * dan beslist de database of dat mag (mag_invoeren_namens, D53).
+ * De database controleert altijd de actuele persoonlijke koppeling, accountstatus en pc (D94).
  */
 export async function invoerContext(db: Db, req: FastifyRequest): Promise<{ pcId: string; operatorId: string }> {
   const { pcId } = req.user;
   const operatorId = operatorVan(req);
   if (!pcId) throw new ApiFout(400, "Geen pc bekend; log in vanaf een geregistreerde pc");
-  if (!operatorId) throw new ApiFout(400, req.user.gedeeld ? "Kies eerst je naam" : "Je account heeft geen naam; log opnieuw in");
-  if (operatorId !== req.user.operatorId) {
+  if (!operatorId) throw new ApiFout(400, "Je account heeft geen naam; log opnieuw in");
+  {
     const [r] = await lees<{ mag: boolean; naam: string | null }>(db,
       "SELECT mag_invoeren_namens($1, $2, $3) AS mag, (SELECT naam FROM operator WHERE id = $2) AS naam", [req.user.sub, operatorId, pcId]);
     if (!r?.mag) {
-      throw new ApiFout(403, `Deze invoer staat op naam van ${r?.naam ?? "een onbekende naam"}, die de laatste 7 dagen niet op deze pc heeft ingelogd. Een ploegleider kan hem bekijken.`);
+      throw new ApiFout(403, `Deze invoer staat op naam van ${r?.naam ?? "een onbekende naam"}, die niet bevoegd is voor deze persoonlijke sessie. Een ploegleider kan hem bekijken.`);
     }
   }
   return { pcId, operatorId };

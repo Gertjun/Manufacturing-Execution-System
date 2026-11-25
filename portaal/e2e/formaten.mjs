@@ -6,6 +6,8 @@ import { spawn } from "node:child_process";
 import { chromium } from "playwright-core";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const BASIS = "http://localhost:3472";
 
 let fouten = 0;
@@ -25,18 +27,20 @@ const FORMATEN = [
 const ROUTES = {
   kwaliteit1: ["#/", "#/kwaliteit/overzicht", "#/kwaliteit/beoordelen", "#/kwaliteit/lotpaspoort", "#/kwaliteit/lotpaspoort/L-2026-0131",
     "#/kwaliteit/certificaat/L-2026-0131", "#/kwaliteit/batch/B-2026-0235", "#/kwaliteit/grondstoffen", "#/kwaliteit/regelkaarten",
-    "#/kwaliteit/regelkaarten/S3.2", "#/kwaliteit/afwijkingen", "#/kwaliteit/trend/S3.2", "#/kwaliteit/herbewerkingen"],
+    "#/kwaliteit/regelkaarten/S3.2", "#/kwaliteit/afwijkingen", "#/kwaliteit/trend/S3.2", "#/kwaliteit/herbewerkingen", "#/kwaliteit/specificaties/PRD-C"],
   ploegleider1: ["#/", "#/productie/overzicht", "#/productie/stap/PS3", "#/productie/doorlooptijden", "#/productie/week", "#/productie/correcties",
-    "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/kwaliteit/specificaties/PRD-C", "#/wandscherm", "#/wandscherm/kwaliteit", "#/hulp", "#/wachtwoord"],
+    "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/hulp", "#/wachtwoord"],
   planner1: ["#/planning/week", "#/planning/dag", "#/planning/overzicht", "#/planning/route", "#/planning/lots", "#/planning/producten", "#/planning/capaciteit"],
-  beheerder1: ["#/beheer/stappen", "#/beheer/medewerkers", "#/beheer/grondstoffen", "#/beheer/ploegen", "#/beheer/oorzaken",
-    "#/beheer/bedrijf", "#/beheer/pcs", "#/beheer/opmerkingen", "#/beheer/pilot", "#/beheer/logboek", "#/beheer/server"],
+  beheerder1: ["#/beheer/accounts", "#/beheer/pcs", "#/beheer/logboek", "#/beheer/server"],
+  "mes.engineer": ["#/beheer/stappen", "#/beheer/grondstoffen"],
+  productiemanager1: ["#/beheer/operators", "#/beheer/ploegen", "#/beheer/oorzaken", "#/kwaliteit/herbewerkingen"],
+  scherm1: ["#/wandscherm"],
 };
 const INVOER = ["#/stappen", "#/stap/PS3", "#/zoek", "#/zoek/B-2026-0235", "#/overdracht", "#/wachtrij", "#/hulp", "#/stap/PS16"];
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3472", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3472", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -51,7 +55,7 @@ const token = async (naam, pc) => (await (await fetch(`${BASIS}/auth/login`, {
 })).json()).token;
 
 /** Klaar met laden: geen "Laden..." meer in beeld. */
-const klaar = (page) => page.waitForFunction(() => !document.querySelector("#scherm .laden"), null, { timeout: 8000 }).catch(() => {}).then(() => page.waitForTimeout(150));
+const klaar = (page) => page.waitForFunction(() => { const el=document.querySelector("#scherm"); return el && el.children.length && !el.querySelector(".laden") && !el.textContent.includes("Bevoegdheden ophalen…"); }, null, { timeout: 15000 });
 /** Wat breder is dan het scherm, zonder wat bewust in een eigen schuifvak staat. */
 const teBreed = (page, w) => page.evaluate((w) => {
   if (document.documentElement.scrollWidth <= w + 1) return null;
@@ -76,7 +80,9 @@ try {
       await page.evaluate((t) => localStorage.setItem("portaal.token", t), tokens[naam]);
       for (const r of routes) {
         await page.goto(`${BASIS}/portaal/${r}`);
+        await page.reload();
         await klaar(page);
+        check(naam+" bereikt "+r, new URL(page.url()).hash===r && (await page.locator("#scherm .foutmelding").allInnerTexts()).every(s=>!s.trim()), page.url());
         const b = await teBreed(page, f.width);
         if (b) breed.push(`${r} ${b}`);
       }
@@ -113,6 +119,7 @@ try {
     for (const r of INVOER) {
       await page.goto(`${BASIS}/invoer/${r}`);
       await klaar(page);
+      check("Invoer bereikt "+r,new URL(page.url()).hash===r && await page.locator("#scherm .foutmelding").count()===0,page.url());
       const b = await teBreed(page, f.width);
       if (b) invoerBreed.push(`${r} ${b}`);
     }
@@ -122,11 +129,48 @@ try {
     if (f.width < 600) {
       check("Navigatie onderaan, niet bovenaan", onder && !boven);
       await page.getByRole("button", { name: "Meer" }).click();
-      check("Meer toont Hulp, Iets melden en Afmelden",
+      check("Meer toont Hulp en Afmelden",
         await page.locator(".meer-paneel").getByRole("button", { name: "Afmelden" }).isVisible()
         && await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).isVisible());
-      await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).click();
+      // D103: lok echte statuscallbacks uit zonder op toevallige polltiming te vertrouwen.
+      const hulp = page.locator(".meer-paneel").getByRole("link", { name: "Hulp" });
+      await hulp.focus();
+      const oorspronkelijk = await hulp.elementHandle();
+      if (!oorspronkelijk) throw new Error("Hulp-link ontbreekt");
+      await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+      await page.waitForFunction(() => document.querySelector(".verbinding")?.classList.contains("uit"));
+      check("Meer en focus blijven behouden na statusverversing",
+        await oorspronkelijk.evaluate(el => el.isConnected && document.activeElement === el)
+        && await page.locator(".meer-knop").getAttribute("aria-expanded") === "true"
+        && await hulp.isVisible());
+      // Herstel de status via de bestaande online-handler en de echte health-request.
+      const gezond = page.waitForResponse(r => new URL(r.url()).pathname === "/gezondheid" && r.ok());
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await gezond;
+      await page.waitForFunction(() => {
+        const el = document.querySelector(".verbinding");
+        return !!el && !el.classList.contains("uit");
+      });
+      check("Meer blijft open na herstel van verbinding",
+        await oorspronkelijk.evaluate(el => el.isConnected && document.activeElement === el)
+        && await hulp.isVisible());
+      await oorspronkelijk.dispose();
+      await hulp.click();
+      await page.waitForURL(/#\/hulp$/);
       check("Na kiezen is Meer weer dicht en staat Hulp open", await page.locator(".meer-paneel").isHidden() && /#\/hulp/.test(page.url()));
+      await page.getByRole("button", { name: "Meer" }).click();
+      await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).press("Escape");
+      check("Escape sluit Meer en herstelt focus op knop",
+        await page.locator(".meer-paneel").isHidden()
+        && await page.locator(".meer-knop").evaluate(el => document.activeElement === el));
+      await page.getByRole("button", { name: "Meer" }).click();
+      await page.locator("#onderbalk > a[href='#/stappen']").click();
+      await page.waitForURL(/#\/stappen$/);
+      // wacht op de nieuwe route, niet op de nog aanwezige inhoud van Hulp.
+      await page.waitForFunction(() => document.querySelector("#onderbalk > a[href='#/stappen']")?.getAttribute("aria-current") === "page");
+      await page.locator(".meer-paneel").waitFor({ state: "hidden" });
+      check("Navigatie sluit Meer", await page.locator(".meer-paneel").isHidden()
+        && await page.locator(".meer-knop").getAttribute("aria-expanded") === "false");
     } else {
       check("Navigatie bovenaan, geen balk onderaan", boven && !onder);
     }

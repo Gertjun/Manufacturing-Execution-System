@@ -1,12 +1,17 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { bouwApp } from "./app.js";
-import { maakPool } from "./db.js";
+import { maakPool, controleerRuntimeRechten } from "./db.js";
 
-const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5432/batchgui";
+const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_GEHEIM = process.env.JWT_GEHEIM;
 const POORT = Number(process.env.POORT ?? 3000);
 const ADRES = process.env.ADRES ?? "0.0.0.0"; // bereikbaar op het fabrieksnetwerk
+
+if (!DATABASE_URL) {
+  console.error("Zet DATABASE_URL op de beperkte MES-databaseverbinding (D24).");
+  process.exit(1);
+}
 
 if (!JWT_GEHEIM || JWT_GEHEIM.length < 32) {
   console.error("Zet JWT_GEHEIM op een willekeurige tekst van minstens 32 tekens.");
@@ -32,8 +37,17 @@ function leesHttps() {
 }
 const https = leesHttps();
 
+const db = maakPool(DATABASE_URL);
+try {
+  await controleerRuntimeRechten(db);
+} catch {
+  console.error("API-start geweigerd: controleer de databaseverbinding en beperkte runtime-rechten (D24).");
+  await db.end();
+  process.exit(1);
+}
+
 const app = await bouwApp({
-  db: maakPool(DATABASE_URL),
+  db,
   jwtGeheim: JWT_GEHEIM,
   logger: process.env.LOGNIVEAU ? { level: process.env.LOGNIVEAU } : true,
   invoerMap: INVOER_MAP,

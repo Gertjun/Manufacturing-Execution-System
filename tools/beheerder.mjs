@@ -1,11 +1,10 @@
-// Eerste beheerder aanmaken, of een beheerder een nieuw wachtwoord geven ("noodsleutel").
-// Werkt alleen op de computer met de database zelf; elke wijziging komt in het logboek.
+// Gecontroleerde MES-bootstrap of alleen-lezen hersteldiagnose.
+// Bootstrap uitsluitend bij een lege identiteitsadministratie.
+// De oude noodsleutel is geblokkeerd; --herstel-account vereist persoonlijke bevestiging.
 //
 //   node tools/beheerder.mjs [--instellingen <pad>]
 //
-// Is er nog geen actieve beheerder, dan vraagt hij meteen om de eerste. Anders kies je:
-// een bestaande beheerder een nieuw wachtwoord geven (en weer aanzetten), of een nieuwe beheerder.
-// Het laptoppakket gebruikt dezelfde functies (opstarten.mjs, BEHEERDER HERSTELLEN.bat).
+// Het laptoppakket gebruikt dezelfde functies (opstarten.mjs).
 
 import readline from "node:readline";
 import { resolve } from "node:path";
@@ -89,61 +88,292 @@ export async function aantalBeheerders(c) {
   return rows[0].n;
 }
 
-async function nieuweBeheerder(c, io, door) {
-  let naam;
-  for (;;) {
-    naam = (await io.vraag("Gebruikersnaam (kleine letters, cijfers, punt, streepje; bijv. geert): ")).toLowerCase();
-    if (!NAAM.test(naam)) { console.log("Gebruik 3 tot 40 tekens: a-z, 0-9, punt, liggend streepje of streepje."); continue; }
-    const { rowCount } = await c.query("SELECT 1 FROM fabriek.gebruiker WHERE gebruikersnaam = $1", [naam]);
-    if (rowCount) { console.log("Die gebruikersnaam bestaat al. Kies een andere, of geef die gebruiker een nieuw wachtwoord."); continue; }
-    break;
-  }
-  const w = await kiesWachtwoord(io);
-  await metLogboek(c, door, () =>
-    c.query("INSERT INTO fabriek.gebruiker (gebruikersnaam, rol, wachtwoord_hash) VALUES ($1, 'beheerder', fabriek.wachtwoord_hash($2))", [naam, w]),
-  );
-  console.log(`\nBeheerder ${naam} is aangemaakt. Log in op Portaal Beheer met deze gebruikersnaam en dit wachtwoord.\n`);
-  return naam;
-}
-
-/** Vraagt om de eerste beheerder als er nog geen actieve beheerder is. Geeft true als er één is aangemaakt. */
+// Geen automatische bootstrap op een bestaande database, ook niet als alle accounts uit staan.
 export async function eersteBeheerder(c, io) {
-  if ((await aantalBeheerders(c)) > 0) return false;
-  console.log("\nEr is nog geen beheerder. Maak nu de eerste beheerder aan; daarmee richt je in Portaal Beheer");
-  console.log("de rest in (accounts, operators, pc's, stappen en velden).\n");
-  await nieuweBeheerder(c, io, "eerste start (op de computer zelf)");
+  const { rows: [r] } = await c.query("SELECT count(*)::int AS n FROM fabriek.gebruiker");
+  if (r.n > 0) return false;
+  console.log("Lege identiteitsadministratie: gecontroleerde MES-bootstrap vereist.");
+  console.log("De drie verschillende accounthouders kiezen persoonlijk hun eigen wachtwoord.");
+  const reason = await io.vraag("Reden en referentie van de goedgekeurde inrichting: ");
+  if (!reason) throw new Error("Bootstrap afgebroken: reden vereist.");
+  const values = [];
+  for (const label of ["System Administrator", "Security Administrator A", "Security Administrator B"]) {
+    const name = (await io.vraag(label + " gebruikersnaam: ")).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam; niets gewijzigd.");
+    values.push(name, await kiesWachtwoord(io));
+  }
+  await metLogboek(c, "gecontroleerde MES-bootstrap", () =>
+    c.query("SELECT fabriek.authorization_bootstrap_empty($1,$2,$3,$4,$5,$6,$7)", [...values, reason]));
+  console.log("MES-bootstrap voltooid; drie afzonderlijke beheeridentiteiten ingericht.");
   return true;
 }
 
-/** Noodsleutel: bestaande beheerder een nieuw wachtwoord geven, of een nieuwe beheerder aanmaken. */
 export async function beheerderMenu(c, io) {
   if (await eersteBeheerder(c, io)) return;
-  const { rows } = await c.query("SELECT id, gebruikersnaam, actief FROM fabriek.gebruiker WHERE rol = 'beheerder' ORDER BY gebruikersnaam");
-  console.log("\nBeheerders:");
-  rows.forEach((r, i) => console.log(`  ${i + 1}. ${r.gebruikersnaam}${r.actief ? "" : "  (uitgezet)"}`));
-  console.log(`  ${rows.length + 1}. Nieuwe beheerder aanmaken`);
-  const keuze = Number(await io.vraag("\nKies een nummer (Enter = niets doen): "));
-  if (!keuze) { console.log("Er is niets veranderd.\n"); return; }
-  if (keuze === rows.length + 1) { await nieuweBeheerder(c, io, "noodsleutel (op de computer zelf)"); return; }
-  const g = rows[keuze - 1];
-  if (!g) { console.log("Onbekend nummer; er is niets veranderd.\n"); return; }
-  console.log(`Nieuw wachtwoord voor ${g.gebruikersnaam}:`);
-  const w = await kiesWachtwoord(io);
-  await metLogboek(c, "noodsleutel (op de computer zelf)", () =>
-    c.query("UPDATE fabriek.gebruiker SET wachtwoord_hash = fabriek.wachtwoord_hash($2), actief = true WHERE id = $1", [g.id, w]),
-  );
-  console.log(`\nHet wachtwoord van ${g.gebruikersnaam} is gewijzigd${g.actief ? "" : " en het account staat weer aan"}. Dit staat in het logboek.\n`);
+  console.log("Oude noodsleutel uitgeschakeld. Alleen herstel-diagnose; geen accounts worden gewijzigd.");
+  const name = (await io.vraag("Gebruikersnaam voor herstel-diagnose (Enter = stoppen): ")).toLowerCase();
+  if (!name) return;
+  const { rows: [target] } = await c.query("SELECT id,actief,gedeeld FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1",[name]);
+  if (!target || !target.actief || target.gedeeld) {
+    console.log("Geen actief persoonlijk doelaccount; afzonderlijke beoordeling vereist.");
+    return;
+  }
+  const { rows: [status] } = await c.query("SELECT * FROM fabriek.authorization_recovery_readiness($1)",[target.id]);
+  console.log("Technisch bevoegde onafhankelijke paren: " + status.independent_pairs);
+  if (Number(status.independent_pairs) === 0) {
+    console.log("Regulier herstel niet mogelijk. Escaleer naar organisatieverantwoordelijke en IT volgens het noodherstelprotocol.");
+  } else {
+    console.log("Regulier herstel kan mogelijk zijn. Controleer daadwerkelijke beschikbaarheid en persoonlijke identiteit.");
+  }
+  console.log("Er is niets gewijzigd.");
+}
+
+// Alleen via een expliciete interactieve eigenaarssessie. De DB controleert
+// bevoegdheden en onafhankelijkheid opnieuw, onder lock, bij uitvoering.
+export async function herstelAccount(c, io) {
+  const zoek = async (label) => {
+    const name = (await io.vraag(label)).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld", [name]);
+    if (!r) throw new Error("Geen actief persoonlijk account.");
+    return { id: r.id, name };
+  };
+  const target = await zoek("Doelaccount: ");
+  const { rows: [status] } = await c.query("SELECT * FROM fabriek.authorization_recovery_readiness($1)", [target.id]);
+  if (Number(status.independent_pairs) === 0) throw new Error("Geen onafhankelijk bevoegd paar; volg het noodherstelprotocol.");
+  const requester = await zoek("Persoonlijke aanvrager: ");
+  const approver = await zoek("Onafhankelijke beoordelaar: ");
+  if (new Set([target.id, requester.id, approver.id]).size !== 3)
+    throw new Error("Drie verschillende persoonlijke identiteiten vereist.");
+  const reason = await io.vraag("Reden en goedkeuringsreferentie: ");
+  if (!reason.trim()) throw new Error("Reden vereist.");
+  console.log("Herstel van " + target.name + " door " + requester.name + " en " + approver.name + ".");
+  if (await io.vraag("Typ HERSTEL om deze concrete handeling te bevestigen: ") !== "HERSTEL") {
+    console.log("Afgebroken; er is niets gewijzigd.");
+    return false;
+  }
+  const a = await io.wachtwoord("Aanvrager, bevestig persoonlijk uw MES-wachtwoord: ");
+  const b = await io.wachtwoord("Beoordelaar, bevestig persoonlijk uw MES-wachtwoord: ");
+  console.log("Doelaccounthouder: kies persoonlijk een tijdelijk wachtwoord.");
+  const temporary = await kiesWachtwoord(io);
+  // Autocommit is bewust: mislukte bevestigingen moeten in de loginhistorie blijven.
+  // Geen queryparameters of DB-foutdetails met mogelijke credentials tonen.
+  let result;
+  try {
+    ({ rows: [result] } = await c.query(
+      "SELECT fabriek.authorization_recover_confirmed($1,$2,$3,$4,$5,$6,$7) AS status",
+      [target.id, requester.id, approver.id, reason, a, b, temporary]));
+  } catch {
+    throw new Error("Herstel geweigerd of technische fout; controleer de status voordat u opnieuw probeert.");
+  }
+  if (result?.status !== "recovered") {
+    console.log("Herstel niet uitgevoerd; persoonlijke bevestiging geweigerd of tijdelijk geblokkeerd.");
+    return false;
+  }
+  console.log("Gecontroleerd herstel voltooid. De accounthouder moet het tijdelijke wachtwoord wijzigen.");
+  return true;
+}
+
+// IT registreert uitsluitend een vooraf ingerichte, afzonderlijk goedgekeurde login.
+// Geen CREATE ROLE, wachtwoordreset, roltoekenning of automatische herbinding.
+export async function securityBinding(c, io, intrekken) {
+  const role = (await io.vraag("Persoonlijke PostgreSQL-rolnaam: ")).trim();
+  if (!/^[a-zA-Z0-9_.-]{1,63}$/.test(role)) throw new Error("Ongeldige rolnaam.");
+  let target;
+  if (!intrekken) {
+    const name = (await io.vraag("Persoonlijk MES-doelaccount: ")).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen", [name]);
+    if (!r) throw new Error("Geen geschikt persoonlijk MES-account.");
+    target = r.id;
+    console.log("Voorgenomen binding: " + role + " -> " + name + " (" + target + ").");
+    console.log("IT moet afzonderlijk de effectieve objectprivileges, persoonlijke authenticatie en TLS hebben gecontroleerd.");
+  } else {
+    console.log("Voorgenomen intrekking van binding voor " + role + ". Historie blijft behouden.");
+  }
+  const reason = (await io.vraag("Reden en goedkeuringsreferentie: ")).trim();
+  if (!reason) throw new Error("Reden vereist.");
+  if (await io.vraag("Typ BEVESTIG om deze handeling uit te voeren: ") !== "BEVESTIG") return false;
+  const sql = intrekken
+    ? "SELECT fabriek.authorization_channel_unbind($1::name,$2::text) AS oid"
+    : "SELECT fabriek.authorization_channel_bind($1::name,$2::uuid,$3::text) AS oid";
+  const { rows: [result] } = await c.query(sql, intrekken ? [role, reason] : [role, target, reason]);
+  if (result?.oid == null) throw new Error("Geen bevestigd bindingsresultaat.");
+  console.log(intrekken ? "Binding ingetrokken. IT moet de database-login afzonderlijk buiten gebruik stellen." : "Binding geregistreerd. Geen MES-grants gewijzigd.");
+  return true;
+}
+
+// Eerste personeelskoppeling: eigenaar faciliteert; DB vereist twee bevoegde
+// persoonlijke bevestigingen. De organisatie verifieert de werkelijke identiteit.
+export async function koppelPersoneel(c, io) {
+  const id = (await io.vraag("Personeels-UUID: ")).trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+    throw new Error("Ongeldige personeels-UUID.");
+  const { rows: [person] } = await c.query(
+    "SELECT id,naam FROM fabriek.operator WHERE id=$1 AND actief AND gebruiker_id IS NULL", [id]);
+  if (!person) throw new Error("Geen actieve ongekoppelde personeelsidentiteit.");
+  const zoek = async (label) => {
+    const name = (await io.vraag(label)).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id,gebruikersnaam FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen", [name]);
+    if (!r) throw new Error("Geen geschikt persoonlijk account.");
+    return r;
+  };
+  const target = await zoek("Doelaccount: ");
+  const manager = await zoek("Personeelsbeheerder: ");
+  const security = await zoek("Onafhankelijke securitybeoordelaar: ");
+  if (new Set([target.id,manager.id,security.id]).size !== 3)
+    throw new Error("Drie verschillende persoonlijke identiteiten vereist.");
+  const reason = (await io.vraag("Reden en referentie van geverifieerde identiteitscontrole: ")).trim();
+  if (!reason) throw new Error("Reden vereist.");
+  console.log(JSON.stringify({ personeel: person, doelaccount: target, aanvrager: manager, beoordelaar: security, reason }));
+  if (await io.vraag("Typ KOPPEL als de identiteit is gecontroleerd en beide personen instemmen: ") !== "KOPPEL") return false;
+  const a = await io.wachtwoord("Personeelsbeheerder, bevestig persoonlijk uw MES-wachtwoord: ");
+  const b = await io.wachtwoord("Securitybeoordelaar, bevestig persoonlijk uw MES-wachtwoord: ");
+  let result;
+  try {
+    ({ rows: [result] } = await c.query(
+      "SELECT fabriek.authorization_link_personnel_confirmed($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::text,$7::text) AS status",
+      [person.id,target.id,manager.id,security.id,reason,a,b]));
+  } catch {
+    throw new Error("Koppeling geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
+  }
+  if (result?.status !== "linked") {
+    console.log("Koppeling niet uitgevoerd; persoonlijke bevestiging geweigerd of tijdelijk geblokkeerd.");
+    return false;
+  }
+  console.log("Personeelskoppeling geregistreerd. Geen MES-grants gewijzigd.");
+  return true;
+}
+
+// Gecontroleerde operationele kwalificaties. Alleen bestaande definities;
+// geen catalogusbeheer, grants of automatische beoordeling.
+export async function kwalificatieActie(c, io, actie, toon = console.log) {
+  const vraag = async (label) => {
+    const v = (await io.vraag(label)).trim();
+    if (!v) throw new Error("Verplicht veld ontbreekt.");
+    return v;
+  };
+  const zoek = async (label) => {
+    const name = (await vraag(label)).toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query(
+      "SELECT id,gebruikersnaam FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen", [name]);
+    if (!r) throw new Error("Geen geschikt persoonlijk account.");
+    return r;
+  };
+  const datum = async (label) => {
+    const v = await vraag(label);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/.test(v) || !Number.isFinite(Date.parse(v)))
+      throw new Error("Datum/tijd met expliciete tijdzone vereist.");
+    return v;
+  };
+  if (actie === "overzicht") {
+    const { rows } = await c.query(`SELECT q.id,u.gebruikersnaam,q.qualification_code,q.valid_from,q.valid_until,q.revoked_at,
+       i.evidence,i.requested_by,i.approved_by,r.reason,r.revoked_by
+       FROM fabriek.personnel_qualification q JOIN fabriek.gebruiker u ON u.id=q.user_id
+       LEFT JOIN fabriek.qualification_issue i ON i.qualification_id=q.id
+       LEFT JOIN fabriek.qualification_revocation r ON r.qualification_id=q.id
+       ORDER BY u.gebruikersnaam,q.qualification_code,q.valid_from DESC`);
+    toon(JSON.stringify(rows,null,2));
+    return true;
+  }
+  let sql, params, labels, verwacht;
+  if (actie === "toekennen") {
+    const target = await zoek("Doelaccount: ");
+    const code = await vraag("Bestaande kwalificatiecode: ");
+    const from = await datum("Geldig vanaf (ISO 8601 met tijdzone): ");
+    const until = await datum("Geldig tot (ISO 8601 met tijdzone): ");
+    if (Date.parse(until)<=Date.parse(from)) throw new Error("Einddatum moet na begindatum liggen.");
+    const a = await zoek("Inhoudelijke aanvrager: ");
+    const b = await zoek("Onafhankelijke inhoudelijke beoordelaar: ");
+    if (new Set([target.id,a.id,b.id]).size !== 3) throw new Error("Drie verschillende persoonlijke identiteiten vereist.");
+    const evidence = await vraag("Bewijsreferentie: ");
+    params = [target.id,code,from,until,a.id,b.id,evidence];
+    toon(JSON.stringify({actie,target,code,from,until,aanvrager:a,beoordelaar:b,evidence},null,2));
+    labels = ["Aanvrager, bevestig persoonlijk uw MES-wachtwoord: ","Beoordelaar, bevestig persoonlijk uw MES-wachtwoord: "];
+    sql = "SELECT * FROM fabriek.qualification_issue_confirmed($1::uuid,$2::text,$3::timestamptz,$4::timestamptz,$5::uuid,$6::uuid,$7::text,$8::text,$9::text)";
+    verwacht = "issued";
+  } else if (actie === "intrekken") {
+    const id = await vraag("Kwalificatie-UUID: ");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error("Ongeldige kwalificatie-UUID.");
+    const { rows:[q] } = await c.query("SELECT q.id,q.user_id,u.gebruikersnaam,q.qualification_code,q.valid_from,q.valid_until FROM fabriek.personnel_qualification q JOIN fabriek.gebruiker u ON u.id=q.user_id WHERE q.id=$1 AND q.revoked_at IS NULL",[id]);
+    if (!q) throw new Error("Geen intrekbare kwalificatie.");
+    const actor = await zoek("Onafhankelijke inhoudelijke intrekker: ");
+    if (actor.id===q.user_id) throw new Error("Onafhankelijke intrekking vereist.");
+    const reason = await vraag("Reden en referentie: ");
+    params = [id,actor.id,reason];
+    toon(JSON.stringify({actie,kwalificatie:q,intrekker:actor,reason},null,2));
+    labels = ["Intrekker, bevestig persoonlijk uw MES-wachtwoord: "];
+    sql = "SELECT fabriek.qualification_revoke_confirmed($1::uuid,$2::uuid,$3::text,$4::text) AS status";
+    verwacht = "revoked";
+  } else throw new Error("Onbekende kwalificatiehandeling.");
+  if (await io.vraag("Typ BEVESTIG om deze concrete handeling uit te voeren: ") !== "BEVESTIG") return false;
+  const passwords=[];
+  for (const label of labels) passwords.push(await io.wachtwoord(label));
+  let result;
+  try {
+    ({rows:[result]}=await c.query(sql,[...params,...passwords]));
+  } catch {
+    throw new Error("Kwalificatiehandeling geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
+  }
+  toon(JSON.stringify(result));
+  return result?.status===verwacht;
+}
+
+// Eenmalige overgang van bestaande persoonlijke identiteiten, nooit een gewone reset.
+export async function initialiseerBestaandeAdministratie(c, io) {
+  const identities = [];
+  for (const label of ["System Administrator", "Security Administrator A", "Security Administrator B"]) {
+    const name = (await io.vraag(label + " bestaande gebruikersnaam: ")).trim().toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query("SELECT id,gebruikersnaam FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen AND rol<>'scherm'", [name]);
+    if (!r) throw new Error("Geen geschikte persoonlijke identiteit.");
+    identities.push(r);
+  }
+  if (new Set(identities.map(r=>r.id)).size !== 3) throw new Error("Drie verschillende identiteiten vereist.");
+  const reason = (await io.vraag("Organisatorische goedkeuring en referentie: ")).trim();
+  if (!reason) throw new Error("Goedkeuringsreferentie vereist.");
+  console.log(JSON.stringify({system:identities[0],securityA:identities[1],securityB:identities[2],reason},null,2));
+  if (await io.vraag("Typ OVERGANG om deze eenmalige inrichting te bevestigen: ") !== "OVERGANG") return false;
+  const params = [];
+  for (const r of identities) params.push(r.id, await io.wachtwoord(r.gebruikersnaam + ", bevestig persoonlijk uw MES-wachtwoord: "));
+  let result;
+  try {
+    ({rows:[result]} = await c.query("SELECT fabriek.authorization_bootstrap_existing($1::uuid,$2::text,$3::uuid,$4::text,$5::uuid,$6::text,$7::text) AS status", [...params,reason]));
+  } catch {
+    throw new Error("Overgang geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
+  }
+  if (result?.status !== "initialized") { console.log("Overgang niet uitgevoerd; persoonlijke bevestiging geweigerd of geblokkeerd."); return false; }
+  console.log("Eenmalige MES-overgang geregistreerd. De drie personen moeten opnieuw inloggen.");
+  return true;
 }
 
 // Los gestart: node tools/beheerder.mjs
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { argumenten, leesInstellingen, stop, verbind } = await import("./lib.mjs");
   const { opties } = argumenten();
+  const acties = ['initialiseer-bestaand', 'herstel-account', 'security-binden', 'security-intrekken', 'personeel-koppelen','kwalificatie-overzicht','kwalificatie-toekennen','kwalificatie-intrekken'].filter(a => opties[a]);
+  if (acties.length > 1) stop('Kies precies één beheerdershandeling.');
+  if (acties.length && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Deze beheerdershandeling vereist een persoonlijk interactief terminalvenster.');
   const inst = leesInstellingen(opties);
   const c = await verbind(inst.beheerDb);
   const io = maakInvoer();
   try {
-    await beheerderMenu(c, io);
+    if (opties['initialiseer-bestaand']) {
+      if (!await initialiseerBestaandeAdministratie(c, io)) process.exitCode = 1;
+    } else if (opties['herstel-account']) {
+      if (!await herstelAccount(c, io)) process.exitCode = 1;
+    } else if (opties['security-binden'] || opties['security-intrekken']) {
+      if (!await securityBinding(c, io, !!opties['security-intrekken'])) process.exitCode = 1;
+    } else if (opties['personeel-koppelen']) {
+      if (!await koppelPersoneel(c, io)) process.exitCode = 1;
+    } else if (acties[0]?.startsWith('kwalificatie-')) {
+      if (!await kwalificatieActie(c, io, acties[0].slice('kwalificatie-'.length))) process.exitCode = 1;
+    } else await beheerderMenu(c, io);
   } catch (e) {
     stop(e.message);
   } finally {

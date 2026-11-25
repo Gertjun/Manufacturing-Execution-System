@@ -71,6 +71,16 @@ if (opties.status) {
   process.exit(0);
 }
 
+// Een ouder pakket mag geen migraties of ACLs op een onbekend schema toepassen.
+if (gedaan !== null) {
+  const bekend = new Set(alle.map(m => m.nummer));
+  const onbekend = [...gedaan].filter(n => !bekend.has(n));
+  if (onbekend.length) {
+    await c.end();
+    stop(`Onbekende schemaversie(s): ${onbekend.join(", ")}. Gebruik het bijbehorende applicatiepakket. Er is niets gewijzigd.`);
+  }
+}
+
 let melding;
 if (gedaan === null) {
   console.log("Lege database: volledig schema laden …");

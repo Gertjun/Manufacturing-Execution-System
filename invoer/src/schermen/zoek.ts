@@ -2,11 +2,13 @@
 import { ApiFout, GeenVerbinding, stuur } from "../api";
 import { stappen } from "../registraties";
 import { sessie } from "../sessie";
+import { heeftProductRecht, rechtenOnline } from "../rechten";
 import type { Registratie } from "../types";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
-import { acties, verwerk, verwijder, type Actie } from "../wachtrij";
+import { acties, afgeschermdeActies, verwerk, verwijder, type Actie } from "../wachtrij";
 
 interface BatchDetail {
+  product?: string | null;
   batchnummer: string;
   status: string;
   lotnummer: string | null;
@@ -14,6 +16,7 @@ interface BatchDetail {
   besluiten: { besluit: string; reden: string; besloten_door: string; besloten_op: string }[];
 }
 interface LotDetail {
+  product?: string | null;
   lotnummer: string;
   status: string;
   batches: string[];
@@ -107,7 +110,7 @@ function toonLot(lot: LotDetail, lotStappen: Awaited<ReturnType<typeof stappen>>
   const gedaan = new Set(lot.registraties.map((r) => r.stapcode));
   const terugNaar = lotStappen.filter((s) => gedaan.has(s.code));
   const open = lot.registraties.some((r) => r.status === "open");
-  const kanInvoeren = sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const kanInvoeren = heeftProductRecht(lot.product,"execution.start");
 
   toon(
     h("div", { class: "kop" }, h("div", {}, h("p", { class: "sub" }, "Lot"), h("h1", { class: "getal" }, lot.lotnummer),
@@ -132,13 +135,14 @@ const besluitTekst: Record<string, string> = {
 
 function toonBatch(b: BatchDetail) {
   // In beoordeling zetten: ploegleider of Kwaliteit. Keurresultaat OK/NOK: alleen Kwaliteit.
-  const magBeoordeling = sessie.rol === "ploegleider" || sessie.rol === "kwaliteit";
-  const magKeuren = sessie.rol === "kwaliteit";
+  const magBeoordeling = rechtenOnline() && heeftProductRecht(b.product,"execution.hold","inspection.hold");
+  const magKeuren = rechtenOnline() && heeftProductRecht(b.product,"inspection.batch.decide");
   const besluit = async (soort: string, titel: string, knop: string) => {
-    const r = await vraag(titel, [{ naam: "reden", label: "Reden" }], knop);
-    if (!r) return;
+    const token = sessie.token;
+    const r = await vraag(titel, [{ naam: "reden", label: "Reden" }, ...(soort === "in_beoordeling" ? [] : [{ naam: "wachtwoord", label: "Bevestig met je eigen wachtwoord", type: "password" as const }])], knop);
+    if (!r || token !== sessie.token) return;
     try {
-      await stuur("POST", `/batches/${b.batchnummer}/besluiten`, { besluit: soort, reden: r.reden });
+      await stuur("POST", `/batches/${b.batchnummer}/besluiten`, { besluit: soort, reden: r.reden, ...(soort === "in_beoordeling" ? {} : { wachtwoord: r.wachtwoord }) });
       melding("Besluit vastgelegd", "ok");
       void zoekScherm(b.batchnummer);
     } catch (e) {
@@ -173,15 +177,18 @@ function toonBatch(b: BatchDetail) {
 
 export async function wachtrijScherm() {
   const actueel = vastHouden();
-  const lijst = await acties();
-  if (!actueel()) return;
+  const token = sessie.token;
+  const [lijst, afgeschermd] = await Promise.all([acties(), afgeschermdeActies()]);
+  if (!actueel() || token !== sessie.token) return;
   const rij = (a: Actie) =>
     h(
       "li",
       { class: "rij" },
       h("div", {}, h("div", { class: "rij-hoofd" }, a.omschrijving), h("div", { class: "rij-info" }, tijd(a.aangemaakt), a.operatornaam ? ` · ${a.operatornaam}` : ""),
         a.fout ? h("div", { class: "label-buiten_grens", style: "font-weight:700" }, a.fout) : null),
-      a.status === "fout"
+      a.status === "beoordeling" || !a.userId || a.fout?.startsWith("Persoonlijke herkomst")
+        ? h("span", { class: "label label-wacht" }, "Beoordeling nodig")
+        : a.status === "fout"
         ? h("button", {
             class: "knop knop-klein",
             onclick: async () => {
@@ -191,16 +198,21 @@ export async function wachtrijScherm() {
           }, "Verwijderen")
         : h("span", { class: "label label-wacht" }, "Wacht"),
     );
-  const fouten = lijst.filter((a) => a.status === "fout");
+  const beoordeling = lijst.filter((a) => a.status === "beoordeling" || (a.status === "fout" && (!a.userId || a.fout?.startsWith("Persoonlijke herkomst"))));
+  const fouten = lijst.filter((a) => a.status === "fout" && !beoordeling.includes(a));
   const wacht = lijst.filter((a) => a.status === "wacht");
   toon(
     h("div", { class: "kop" }, h("h1", {}, "Verzenden"),
       h("button", { class: "knop", onclick: async () => { await verwerk(); void wachtrijScherm(); } }, "Nu versturen")),
     h("p", { class: "sub" }, "Invoer wordt eerst op deze pc bewaard en daarna automatisch naar de server gestuurd."),
+    afgeschermd ? h("p", { class: "waarschuwing" }, `${afgeschermd} afgeschermde acties met andere of onbekende herkomst. De inhoud is niet zichtbaar. Laat ze gecontroleerd beoordelen.`) : null,
+    beoordeling.length ? h("h2", {}, "Gecontroleerde beoordeling nodig") : null,
+    beoordeling.length ? h("p", {}, "Niet opnieuw invoeren of verwijderen. Laat de oorspronkelijke gegevens door een bevoegde medewerker beoordelen.") : null,
+    beoordeling.length ? h("ul", { class: "lijst" }, beoordeling.map(rij)) : null,
     fouten.length ? h("h2", {}, "Geweigerd door de server") : null,
     fouten.length ? h("p", {}, "Deze invoer is niet opgeslagen. Lees de melding, voer het zo nodig opnieuw in en verwijder de regel daarna.") : null,
     fouten.length ? h("ul", { class: "lijst" }, fouten.map(rij)) : null,
     h("h2", {}, "Wacht op verzending"),
-    wacht.length ? h("ul", { class: "lijst" }, wacht.map(rij)) : h("p", { class: "leeg" }, "Alles is verstuurd."),
+    wacht.length ? h("ul", { class: "lijst" }, wacht.map(rij)) : h("p", { class: "leeg" }, beoordeling.length || fouten.length || afgeschermd ? "Geen eigen acties klaar voor verzending." : "Alles is verstuurd."),
   );
 }

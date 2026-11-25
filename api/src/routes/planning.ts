@@ -1,12 +1,13 @@
+import { persoonlijkeTransactie } from "../auth.js";
+import { requiresPermission, requiresGlobalExecutionRead } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist, type Rol } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
+import { invoerTransactie } from "../auth.js";
+import { lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { BatchNummer, StapCode, NulGeheel, NulGetal } from "./schemas.js";
 
 /** Plannen mag de planner (en de beheerder); kijken mag iedereen. */
-export const PLANNEN: Rol[] = ["planner", "beheerder"];
 
 const Dag = Type.String({ format: "date", examples: ["2026-11-20"] });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
@@ -220,7 +221,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/producten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         querystring: Type.Object({ ookInactief: Type.Optional(Type.Boolean()) }),
@@ -234,7 +235,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/producten",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("engineering.product.manage"),
       schema: {
         tags: ["planning"],
         body: Type.Object({ code: Type.String({ pattern: "^[A-Za-z0-9._-]{1,20}$" }), naam: Type.String({ minLength: 1, maxLength: 100 }),
@@ -243,7 +244,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const p = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const p = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           "INSERT INTO product (code, naam, batchgewicht_kg) VALUES ($1, $2, $3) RETURNING id::text, code, naam, actief, batchgewicht_kg::float, NULL::text[] AS route", [
           req.body.code.trim(),
@@ -259,7 +260,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/producten/:id",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("engineering.product.manage"),
       schema: {
         tags: ["planning"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
@@ -269,7 +270,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      inTransactie(app.db, req.user.naam, async (tx) => {
+      persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `UPDATE product SET naam = coalesce($2, naam), actief = coalesce($3, actief),
                   batchgewicht_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE batchgewicht_kg END WHERE id = $1
@@ -286,7 +287,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/producten/:id/route",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("engineering.product.manage"),
       schema: {
         tags: ["planning"],
         description:
@@ -298,7 +299,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      inTransactie(app.db, req.user.naam, async (tx) => {
+      persoonlijkeTransactie(app.db, req, async (tx) => {
         await tx.query("SELECT zet_route($1, $2)", [req.params.id, req.body.stappen?.length ? req.body.stappen : null]);
         await tx.query("SET CONSTRAINTS ALL IMMEDIATE");
         const { rows } = await tx.query(`${PRODUCT_SQL} WHERE p.id = $1`, [req.params.id]);
@@ -310,7 +311,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/week",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Batches per dag: geplande batches op hun geplande dag, niet-geplande op de dag dat ze startten. Plus achterstand: geplande batches van eerdere dagen die nog niet gestart zijn.",
@@ -389,7 +390,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/batches",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Plant een aantal batches op een dag. Het systeem geeft de volgende vrije batchnummers.",
@@ -408,13 +409,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const nummers = await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("SELECT plan_batches($1, $2, $3, $4, $5) AS nr", [
+      const nummers = await invoerTransactie(app.db, req, async (tx) => {
+        const { rows } = await tx.query("SELECT execution_plan_legacy_batches($1, $2, $3, $4) AS nr", [
           req.body.aantal,
           req.body.dag,
           req.body.productId ?? null,
           req.body.opmerking ?? null,
-          req.user.sub,
         ]);
         return rows.map((r) => r.nr as string);
       });
@@ -428,7 +428,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/batches/:batchnummer",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Dag, product of opmerking van een geplande batch wijzigen. Na de start ligt alles behalve de opmerking vast.",
@@ -442,7 +442,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, geplande_dag::text AS dag, bron FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         const b = rows[0];
         if (!b) throw niet("Batch");
@@ -465,7 +465,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/batches/:batchnummer/volgorde",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Een geplande batch één plaats eerder of later op zijn dag zetten.",
@@ -475,7 +475,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await invoerTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, geplande_dag, volgorde, status FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         const b = rows[0];
         if (!b) throw niet("Batch");
@@ -497,7 +497,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/batches/:batchnummer/vervallen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Een geplande batch die nog niet gestart is laten vervallen (hij blijft bewaard).",
@@ -507,12 +507,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rowCount } = await tx.query(
-          "UPDATE batch SET status = 'vervallen', vervallen_reden = $2 WHERE batchnummer = $1 RETURNING id",
+      await invoerTransactie(app.db, req, async (tx) => {
+        const { rows: [cancelled] } = await tx.query<{id:string|null}>(
+          "SELECT execution_cancel_planned_batch($1,$2) AS id",
           [req.params.batchnummer, req.body.reden.trim()],
         );
-        if (!rowCount) throw niet("Batch");
+        if (!cancelled?.id) throw niet("Batch");
         // Uit een open lotvoorstel halen kan niet stil: het voorstel wordt dan ongeldig.
         const { rows } = await tx.query(
           `SELECT v.nummer FROM lot_voorstel v JOIN lot_voorstel_batch x ON x.voorstel_id = v.id JOIN batch b ON b.id = x.batch_id
@@ -559,7 +559,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/stappen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Per actieve stap de items die op deze dag gepland zijn, met hun stand.",
@@ -585,7 +585,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/route",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description:
@@ -662,7 +662,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/vandaag",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Voor het invoerscherm: wat er vandaag in deze stap gepland is, in volgorde.",
@@ -677,7 +677,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/kandidaten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Wat je in deze stap kunt plannen. 'klaar' = staat nu in de werkvoorraad van de stap. 'vorige' = hoe de vorige stap ervoor staat als je het op 'dag' plant (standaard vandaag).",
@@ -740,7 +740,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/stappen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description: "Zet de planning van één stap op één dag: de items in deze volgorde (vervangt wat er stond).",
@@ -755,7 +755,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, niveau, is_lot_stap FROM processtap WHERE code = $1 AND actief", [req.body.stap]);
         const stap = rows[0];
         if (!stap) throw niet("Stap");
@@ -785,7 +785,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/capaciteit",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description:
@@ -828,7 +828,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/capaciteit/afwijkingen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description:
@@ -846,7 +846,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const rij = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const rij = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const stap = req.body.stap
           ? (await tx.query("SELECT id FROM processtap WHERE code = $1 AND actief", [req.body.stap])).rows[0]?.id
           : null;
@@ -869,11 +869,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/capaciteit/afwijkingen/:id/weghalen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], params: Type.Object({ id: Type.String({ format: "uuid" }) }), response: { 204: Type.Null() } },
     },
     async (req, reply) => {
-      const n = await inTransactie(app.db, req.user.naam, async (tx) =>
+      const n = await persoonlijkeTransactie(app.db, req, async (tx) =>
         (await tx.query("UPDATE capaciteit_afwijking SET actief = false WHERE id = $1 AND actief", [req.params.id])).rowCount);
       if (!n) throw niet("Afwijking");
       return reply.status(204).send(null);
@@ -883,7 +883,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/capaciteit/stappen/:stap",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: {
         tags: ["planning"],
         description:
@@ -901,7 +901,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `SELECT s.id AS stap, p.id AS product FROM processtap s LEFT JOIN product p ON p.code = $2 WHERE s.code = $1 AND s.actief`,
           [req.params.stap, req.body.product],
@@ -936,7 +936,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/etiketten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Gegevens voor etiketten van batches of lots (in de gevraagde volgorde). Onbekende nummers worden overgeslagen.",
@@ -970,7 +970,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/lotvoorstellen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         querystring: Type.Object({ alle: Type.Optional(Type.Boolean({ description: "ook gebruikte, afgeweken en vervallen (laatste 50)" })) }),
@@ -989,7 +989,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/lotkandidaten",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["planning"],
         description: "Batches die je in een lotvoorstel kunt zetten: nog geen lot, niet afgekeurd of vervallen. 'voorstel' = staat al in dit open voorstel.",
@@ -1019,13 +1019,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/lotvoorstellen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], body: VoorstelInvoer, response: { 201: Voorstel } },
     },
     async (req, reply) => {
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const ids = await batchIds(tx, req.body.batchnummers);
-        const { rows } = await tx.query("SELECT bewaar_lot_voorstel(NULL, $1, $2, $3) AS id", [ids, req.body.opmerking ?? null, req.user.sub]);
+        const { rows } = await tx.query("SELECT planning_save_legacy_proposal(NULL, $1, $2) AS id", [ids, req.body.opmerking ?? null]);
         return rows[0].id as string;
       });
       const [v] = await lees(app.db, `${VOORSTEL_SQL} WHERE v.id = $1`, [id]);
@@ -1036,15 +1036,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/lotvoorstellen/:nummer",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], params: Type.Object({ nummer: Type.Integer() }), body: VoorstelInvoer, response: { 200: Voorstel } },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("SELECT id FROM lot_voorstel WHERE nummer = $1 FOR UPDATE", [req.params.nummer]);
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
+        const { rows } = await tx.query("SELECT id FROM lot_voorstel WHERE nummer = $1", [req.params.nummer]);
         if (!rows[0]) throw niet("Lotvoorstel");
         const ids = await batchIds(tx, req.body.batchnummers);
-        await tx.query("SELECT bewaar_lot_voorstel($1, $2, $3, $4)", [rows[0].id, ids, req.body.opmerking ?? null, req.user.sub]);
+        await tx.query("SELECT planning_save_legacy_proposal($1, $2, $3)", [rows[0].id, ids, req.body.opmerking ?? null]);
       });
       const [v] = await lees(app.db, `${VOORSTEL_SQL} WHERE v.nummer = $1`, [req.params.nummer]);
       return v as never;
@@ -1054,17 +1054,16 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/lotvoorstellen/:nummer/vervallen",
     {
-      preHandler: vereist(...PLANNEN),
+      preHandler: requiresPermission("planning.manage"),
       schema: { tags: ["planning"], params: Type.Object({ nummer: Type.Integer() }), response: { 204: Type.Null() } },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
-          "UPDATE lot_voorstel SET status = 'vervallen', afgesloten_op = now() WHERE nummer = $1 AND status = 'open' RETURNING id",
+          "SELECT planning_cancel_legacy_proposal($1) AS id",
           [req.params.nummer],
         );
-        if (!rows[0]) throw new ApiFout(422, "Alleen een open voorstel kan vervallen");
-        await tx.query("DELETE FROM stapplanning WHERE voorstel_id = $1", [rows[0].id]);
+        if (!rows[0]?.id) throw new ApiFout(422, "Alleen een open voorstel kan vervallen");
       });
       return reply.status(204).send(null);
     },

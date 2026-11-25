@@ -7,6 +7,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-planning";
 const BASIS = "http://localhost:3462";
 mkdirSync(SHOTS, { recursive: true });
@@ -20,11 +22,14 @@ const check = (naam, ok, extra = "") => {
 const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
-for (const f of ["schema.sql", "seed_config.sql", "seed_accounts_demo.sql"]) await db.query(readFileSync(new URL(`../../db/${f}`, import.meta.url), "utf8"));
+await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
+for (const f of ["schema.sql", "rechten.sql", "seed_config.sql", "seed_accounts_demo.sql"]) execFileSync("psql",["-q","-v","ON_ERROR_STOP=1","-d",DB,"-f",new URL(`../../db/${f}`,import.meta.url).pathname],{stdio:"inherit"});
+
+await db.query(readFileSync(new URL("../../tests/fixtures/scherm_grants.sql", import.meta.url), "utf8"));
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3462",
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3462",
     PORTAAL_MAP: new URL("../dist", import.meta.url).pathname, INVOER_MAP: new URL("../../invoer/dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
@@ -46,11 +51,7 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-planning").click();
 };
 
 try {
@@ -267,7 +268,28 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   check("Voorstel 1 met 4 batches", (await page.locator(".voorstel-batches li").count()) === 4);
   await shot("03-lotvoorstellen");
 
-  console.log("\nProducten");
+  console.log("\nProducten: planner leest, engineer beheert");
+  await page.getByRole("link", { name: "Producten" }).click();
+  await page.getByRole("heading", { name: "Producten", exact: true }).waitFor();
+  await page.locator("tr", { hasText: "PRD-A" }).waitFor();
+  check("Planner heeft geen productbeheerknoppen", await page.getByRole("button", { name: "Product toevoegen" }).count() === 0 && await page.getByRole("button", { name: "Naam wijzigen" }).count() === 0);
+  const plannerToken = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const [prodA] = await q("SELECT id FROM fabriek.product WHERE code = 'PRD-A'");
+  const write = (method,pad,token,body) => fetch(BASIS+pad,{method,headers:{authorization:"Bearer "+token,"content-type":"application/json"},body:JSON.stringify(body)});
+  check("Planner mag geen product toevoegen via API",(await write("POST","/planning/producten",plannerToken,{code:"PRD-D",naam:"Niet toegestaan"})).status===403);
+  check("Planner mag geen route wijzigen via API",(await write("PUT","/planning/producten/"+prodA.id+"/route",plannerToken,{stappen:null})).status===403);
+  await page.locator("tr",{hasText:"PRD-A"}).getByRole("link",{name:"Route bekijken"}).click();
+  await page.getByRole("heading",{name:"Route van PRD-A"}).waitFor();
+  await page.locator(".route-stap").first().waitFor();
+  check("Planner ziet route zonder wijzigingsknoppen",await page.getByRole("button",{name:/Route opslaan|weghalen uit de route|eerder|later/}).count()===0);
+  await page.getByRole("button",{name:"Afmelden"}).click();
+  await inloggen("mes.engineer");
+  await page.getByRole("heading",{name:/^Week van/}).waitFor();
+  await page.locator(".dagkaart").first().waitFor();
+  check("Engineer ziet planning zonder planningsknop",await page.getByRole("button",{name:"Batches plannen"}).count()===0);
+  const engineerToken = await page.evaluate(()=>localStorage.getItem("portaal.token"));
+  const [dag] = await q("SELECT current_date::text AS vandaag");
+  check("Engineer mag geen batches plannen via API",(await write("POST","/planning/batches",engineerToken,{dag:dag.vandaag,aantal:1})).status===403);
   await page.getByRole("link", { name: "Producten" }).click();
   await page.getByRole("button", { name: "Product toevoegen" }).click();
   await dialoog().getByLabel("Code").fill("PRD-D");
@@ -309,7 +331,6 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   console.log("\nPloegleider kijkt mee");
   await page.evaluate(() => localStorage.clear());
   await inloggen("ploegleider1");
-  await page.getByRole("heading", { name: "Productie" }).first().waitFor();
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
   check("Ploegleider ziet de planning zonder knoppen om te plannen",

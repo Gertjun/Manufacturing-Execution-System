@@ -66,7 +66,7 @@ export const sessie = {
   /** Geldig token, met een kwartier marge. */
   geldig(): boolean {
     const i = this.inhoud();
-    return !!i && i.exp * 1000 > Date.now() + 15 * 60 * 1000;
+    return !!i && !i.gedeeld && i.exp * 1000 > Date.now() + 15 * 60 * 1000;
   },
 
   get rol(): Rol | null {
@@ -95,9 +95,9 @@ export const sessie = {
       // De keuze geldt één keer, voor elke rol, zodat hij niet blijft liggen voor een volgende inlog.
       const gekozen = Number(lees("invoer.vanStart") ?? 0);
       schrijf("invoer.vanStart", null);
-      if (i.exp * 1000 <= Date.now() + 15 * 60 * 1000) return null;
-      if (i.rol === "operator" || i.rol === "ploegleider") return t;
-      return i.rol === "kwaliteit" && Date.now() - gekozen < 2 * 60 * 1000 ? t : null;
+      if (i.gedeeld || i.exp * 1000 <= Date.now() + 15 * 60 * 1000) return null;
+      // Alleen een expliciete keuze; de server beslist via /auth/pc.
+      return gekozen > 0 && Date.now() - gekozen >= 0 && Date.now() - gekozen < 2 * 60 * 1000 ? t : null;
     } catch {
       return null;
     }

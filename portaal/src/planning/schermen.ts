@@ -2,7 +2,7 @@
 // gebeurt, lotvoorstellen (4 batches) en producten.
 // Operators zien de planning in het invoerscherm; daar mogen ze afwijken.
 import { bevestig, h, laden, melding, toon, vastHouden, vraag } from "../../../gedeeld/ui";
-import { haal, sessie, stuur } from "../basis";
+import { haal, heeftRecht, stuur } from "../basis";
 import { fout, kop, tabel } from "../kwaliteit/schermen";
 import { etikettenLink } from "../etiketten";
 
@@ -24,7 +24,8 @@ const dagNaam = (dag: string, lang = true) =>
   new Date(`${dag}T12:00:00`).toLocaleDateString("nl-NL", lang ? { weekday: "long", day: "numeric", month: "long" } : { weekday: "short", day: "numeric", month: "short" });
 const geldigeDag = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined);
 
-const magPlannen = () => sessie.rol === "planner" || sessie.rol === "beheerder";
+const magPlannen = () => heeftRecht("planning.manage");
+const magProductBeheren = () => heeftRecht("engineering.product.manage");
 
 /** Voert een wijziging uit, meldt het resultaat en tekent het scherm opnieuw. */
 async function wijzig(actie: () => Promise<unknown>, gelukt: string, opnieuw: () => void) {
@@ -633,16 +634,16 @@ export async function producten(code?: string) {
     wijzig(() => stuur("PATCH", `/planning/producten/${x.id}`, { actief }), actief ? `${x.code} weer actief` : `${x.code} uitgezet`, producten);
   toon(
     kop("Producten", "Het product of recept dat je bij een batch plant, en de route: welke stappen het doorloopt en in welke volgorde. Een uitgezet product kun je niet meer kiezen; eerdere batches houden het.",
-      magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Product toevoegen") : null),
+      magProductBeheren() ? h("button", { class: "knop knop-hoofd", onclick: toevoegen }, "Product toevoegen") : null),
     p.length
       ? tabel(["Code", "Naam", "Route", ""], p.map((x) => [
           h("strong", { class: x.actief ? "" : "inactief" }, x.code),
           h("span", { class: x.actief ? "" : "inactief" }, x.naam, x.actief ? "" : " (uit)"),
           h("span", { class: "product-route", title: x.route ? x.route.join(" → ") : undefined }, routeSamenvatting(x.route, alle)),
           h("div", { class: "knoppen-klein" },
-            x.actief ? h("a", { class: "knop knop-klein", href: `#/planning/producten/${encodeURIComponent(x.code)}` }, magPlannen() ? "Route wijzigen" : "Route bekijken") : null,
-            magPlannen() && x.actief ? h("button", { class: "knop knop-klein", onclick: () => hernoem(x) }, "Naam wijzigen") : null,
-            magPlannen() ? h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(x, !x.actief) }, x.actief ? "Uitzetten" : "Weer aanzetten") : null)]), "compact")
+            x.actief ? h("a", { class: "knop knop-klein", href: `#/planning/producten/${encodeURIComponent(x.code)}` }, magProductBeheren() ? "Route wijzigen" : "Route bekijken") : null,
+            magProductBeheren() && x.actief ? h("button", { class: "knop knop-klein", onclick: () => hernoem(x) }, "Naam wijzigen") : null,
+            magProductBeheren() ? h("button", { class: "knop knop-klein knop-stil", onclick: () => zetActief(x, !x.actief) }, x.actief ? "Uitzetten" : "Weer aanzetten") : null)]), "compact")
       : h("p", { class: "leeg" }, "Nog geen producten. Voeg er een toe."),
   );
 }
@@ -656,7 +657,7 @@ async function routeBewerken(code: string) {
   if (!actueel()) return;
   const product = p.find((x) => x.code === code);
   if (!product) return fout(new Error(`Product ${code} bestaat niet of staat uit`));
-  const bewerken = magPlannen();
+  const bewerken = magProductBeheren();
   const lotstap = alle.find((s) => s.is_lot_stap);
   const stap = new Map(alle.map((s) => [s.code, s]));
   // De standaardroute: alle processtappen, zonder keuringsstappen (#80); die voeg je per product toe.
@@ -879,10 +880,10 @@ function capaciteitPerStap(regels: CapRegel[], nogInvullen: number, uren: number
                   ? h("p", { class: "label-nog-invullen" }, "Gewicht per batch nog invullen")
                   : p ? h("p", { class: "sub" }, `Gewicht per batch ${kgTekst(p.batchgewicht_kg!, 3)}, een lot ${kgTekst(p.batchgewicht_kg! * 4, 3)}`) : null,
                 h("p", { class: open.length ? "label-nog-invullen" : "sub" }, open.length ? `${open.length === 1 ? "1 stap" : `${open.length} stappen`} nog invullen` : "Alle stappen van de route ingevuld")),
-              magPlannen()
+              (magPlannen() || magProductBeheren())
                 ? h("div", { class: "knoppen-klein" },
-                    p ? h("button", { class: "knop", onclick: () => gewichtZetten(p) }, zonderGewicht ? "Gewicht invullen" : "Gewicht per batch") : null,
-                    open.length ? h("button", { class: "knop", onclick: () => vulIn(code, open) }, `Invullen voor ${code}`) : null)
+                    p && magProductBeheren() ? h("button", { class: "knop", onclick: () => gewichtZetten(p) }, zonderGewicht ? "Gewicht invullen" : "Gewicht per batch") : null,
+                    magPlannen() && open.length ? h("button", { class: "knop", onclick: () => vulIn(code, open) }, `Invullen voor ${code}`) : null)
                 : null),
             tabel(["Stap", "Per uur", "Per dag", "Per maand", "Batches of lots per dag", ""], rijen.map((x) => {
               const kg = x.kg_per_dag ?? null;

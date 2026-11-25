@@ -41,3 +41,39 @@ export async function inTransactie<T>(db: Db, gebruiker: string, fn: (tx: Tx) =>
 export async function lees<T extends pg.QueryResultRow>(db: Db, sql: string, params: unknown[] = []): Promise<T[]> {
   return inTransactie(db, "lezen", async (tx) => (await tx.query<T>(sql, params)).rows);
 }
+
+/** D24: controleer de werkelijke login, ook indirecte rolrechten en eigendom.
+ * Dit is een startcontrole, geen vervanging voor de afzonderlijke ACL-audit. */
+export async function controleerRuntimeRechten(db: Db): Promise<void> {
+  const { rows } = await db.query(`
+    SELECT current_user = session_user
+      AND session_user IN ('mes_app', 'batchgui_app')
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_roles r
+        WHERE pg_has_role(session_user, r.oid, 'MEMBER')
+          AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication
+               OR r.rolbypassrls OR r.rolname NOT IN ('mes_app','batchgui_app'))
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_database d WHERE d.datname = current_database()
+          AND (pg_has_role(session_user, d.datdba, 'MEMBER')
+               OR has_database_privilege(session_user, d.oid, 'CREATE'))
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('fabriek','public')
+          AND (pg_has_role(session_user, n.nspowner, 'MEMBER')
+               OR has_schema_privilege(session_user, n.oid, 'CREATE'))
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='fabriek' AND pg_has_role(session_user,c.relowner,'MEMBER')
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='fabriek' AND pg_has_role(session_user,p.proowner,'MEMBER')
+      ) AS veilig
+  `);
+  if (rows[0]?.veilig !== true) {
+    throw new Error("API vereist een beperkte MES-databasegebruiker zonder beheerrechten, extra rollidmaatschappen of eigendom.");
+  }
+}

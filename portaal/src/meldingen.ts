@@ -1,7 +1,7 @@
 // Meldingen: wat iemand in deze rol moet weten (waarde buiten de grens, beoordeling, keurresultaat, afwijkend lot).
 // De teller in het menu ververst elke minuut; een nieuwe melding verschijnt ook even onderin beeld.
 import { h, laden, melding as toast, toon, vastHouden } from "../../gedeeld/ui";
-import { haal, sessie, stuur } from "./basis";
+import { haal, sessie, stuur, magMeldingen } from "./basis";
 import { afgekapt, fout, kop } from "./kwaliteit/schermen";
 
 export interface Melding {
@@ -10,7 +10,7 @@ export interface Melding {
 }
 interface Antwoord { ongelezen: number; meldingen: Melding[] }
 
-export const heeftMeldingen = () => ["ploegleider", "kwaliteit", "planner", "beheerder", "analist", "productiemanager"].includes(sessie.rol ?? "");
+export const heeftMeldingen = magMeldingen;
 
 const ERNST: Record<Melding["ernst"], { teken: string; tekst: string }> = {
   kritiek: { teken: "!", tekst: "Belangrijk" },
@@ -33,8 +33,10 @@ export function meldingTeller(): HTMLElement {
 async function ververs() {
   clearTimeout(timer);
   if (!heeftMeldingen() || !sessie.geldig()) return;
+  const token = sessie.token;
   try {
     const r = await haal<Antwoord>("/meldingen?ongelezen=true&limiet=20");
+    if (sessie.token !== token || !heeftMeldingen()) return;
     if (teller) teller.textContent = r.ongelezen ? String(r.ongelezen) : "";
     const nieuw = r.meldingen.filter((m) => !gezien.has(m.id));
     if (!eersteKeer && nieuw.length) toast(nieuw.length === 1 ? `Nieuwe melding: ${nieuw[0].tekst}` : `${nieuw.length} nieuwe meldingen`, nieuw.some((m) => m.ernst === "kritiek") ? "fout" : "info");
@@ -70,7 +72,7 @@ export async function meldingenScherm(alle = false) {
   const tijd = (iso: string) => new Date(iso).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   toon(
     kop("Meldingen",
-      "Wat voor jouw rol belangrijk is. De database maakt ze zelf aan, bijvoorbeeld bij een waarde buiten de grens of een keurresultaat. Na 30 dagen verdwijnen ze uit deze lijst.",
+      "Meldingen op basis van je actuele MES-bevoegdheden. De database maakt ze zelf aan, bijvoorbeeld bij een waarde buiten de grens of een keurresultaat. Na 30 dagen verdwijnen ze uit deze lijst.",
       h("div", { class: "knoppen-klein" },
         h("a", { class: `knop ${alle ? "knop-stil" : ""}`, href: "#/meldingen", "aria-current": alle ? undefined : "page" }, `Ongelezen (${r.ongelezen})`),
         h("a", { class: `knop ${alle ? "" : "knop-stil"}`, href: "#/meldingen/alle", "aria-current": alle ? "page" : undefined }, "Alle"),

@@ -496,3 +496,112 @@ Door Geert goedgekeurd in zes ontwerprondes. De 69 identifiers hieronder zijn st
 - **G06** — Pilotdatum opnieuw bepalen na inzicht in implementatievoortgang.
 - **G07** — Doorlopende conformiteitsmatrix met ontwerp-, implementatie- en testbewijs.
 - **G08** — Alle goedgekeurde ontwerpen en besluiten vastleggen in GitHub, daarna implementeren.
+
+
+### D90 – Gebundelde faseacceptatie MES (24 nov 2026)
+
+Aanvulling op D88 en G03, goedgekeurd door Geert. In beginsel één PR per ontwikkelfase, logische commits, uitzonderingen bij grote of risicovolle wijzigingen. Concept-PRs geen automatische softwaretests bij pushes; label `compatibiliteit-test` start Node 22, label `acceptatie-test` start beide suites. Labels opnieuw aanbrengen voor nieuwe runs. Normale niet-concept-PRs behouden automatische Node 22. Volledige acceptatie vóór merge, bewijs exact huidige head/base en tree; geen testverzwakking. Main behoudt volledige terugvalcontrole als bewijs ontbreekt. Fase 1 bundelt resterend #106–#108 en herstel van datumafhankelijke schermtest. Geen PS-code verwijderen zonder procesinventarisatie.
+
+### D91 – Naam beperkte databasegebruiker (24 nov 2026)
+
+Op verzoek van Geert wordt `mes_app` de standaardnaam voor nieuwe installaties, tests en serverconfiguratie. D24 blijft inhoudelijk geldig. Bestaande `batchgui_app`-logins blijven tijdelijk compatibel via lidmaatschap van `mes_app`, zonder automatische wachtwoordwijziging of uitschakeling. IT schakelt gecontroleerd om en verwijdert oude toegang pas na verificatie van afhankelijkheden in het cluster. Nieuwe beschermde autorisatietabellen moeten ook tegen directe grants van de oude login worden beschermd. Database- en schemanaam blijven voorlopig gelijk.
+
+### D92 – Geen Excel-import van gebruikersaccounts (24 nov 2026)
+
+Op verzoek van Geert vervalt de accountimport uit D61/#76, inclusief het accountsjabloon en de API-route. Persoonlijk accountbeheer en gecontroleerde bevoegdheidstoekenning volgen D89 P01–P05 en P11. Tijdelijke wachtwoorden en bestaande accounts/historie blijven behouden. Andere Excel-imports blijven bestaan; hun inhoudelijke wijzigingsworkflow volgt de betreffende MES-fase.
+
+### D93 – Gedeeld operatoraccount vervalt (24 nov 2026)
+
+Geert akkoord: uitsluitend persoonlijke operatoraccounts; geen naamkeuze na inloggen. Historische operatoridentiteiten behouden. Oude offline registraties gecontroleerd afhandelen, niet wissen. Testaccounts en regressies aanpassen; geen omschakeling naar productie vóór acceptatie.
+
+### D94 – Geen bevoegdheid namens een ander door eerdere pc-login (24 nov 2026)
+
+Geert akkoord mits passend bij ISA-georiënteerde architectuur. De zevendagenregel voor persoonsverwisseling vervalt; dit is geen claim van formele ISA-conformiteit. Persoonlijke sessie en oorspronkelijke operator moeten overeenkomen. Lokale oude/onverifieerbare acties worden niet gewist of automatisch heretiketteerd. De tijdelijke implementatie zet deze apart voor beoordeling; vooraf begrensde offline autorisatie en gecontroleerde afhandeling volgen nog. De maximale ouderdom van offline registraties is een afzonderlijke ontwerpkeuze.
+
+### D95 – Nieuwe MES-accounts voor de proof of concept (24 nov 2026)
+
+Geert staat toe dat oude accounts niet worden overgenomen als een nieuwe inrichting eenvoudiger is. Gekozen aanpak: nieuwe fictieve persoonlijke MES-identiteiten, minimaal twee afzonderlijke security-identiteiten, expliciete grants en later concrete kwalificaties. Oude testaccounts blijven tijdelijk regressiefixtures totdat de legacy-rolcontroles zijn omgeschakeld; geen permanente dubbele gezaghebbende autorisatie. Geen automatische conversie van bestaande rechten. Historische gebruiker- en operator-ID's en productiegegevens behouden; inactiveren pas via gecontroleerde omschakeling, geen destructieve migratie. Demo-bootstrap uitsluitend op fictieve testdata door database-eigenaar. Definitieve rollenmatrix met organisatie valideren.
+
+### D96 – Voorspelling toekomstige keuringen uitgesteld (24 nov 2026)
+
+Geert besluit de voorspelling uit D78/#88 niet mee te nemen in de basis-MES. Verwijder de actieve voorspellingsroute en het schermblok Verwacht; behoud openstaande metingen en besluiten en toegang tot beschikbare keuringsstappen. #88 keert terug als nice-to-have in fase 10. Geen productiehistorie verwijderen. Bij eventuele herintroductie de nieuwe planning, scope en betrouwbare doorlooptijden gebruiken.
+
+### D97 – Vrijheid bij herinrichting fictieve gegevens (24 nov 2026)
+
+Geert bevestigt dat er nog geen pilot is geweest en historische PoC-gegevens uitsluitend fictief zijn. Demo- en testgegevens mogen volledig worden vervangen door representatieve MES-varianten, inclusief accounts; behoud geen complexiteit alleen voor oude fixtures. Echte of onbekende databases nooit automatisch wissen. Nieuwe migraties, back-up/herstel en tests blijven gericht op betrouwbare gegevensintegriteit. Uitstelvoorstellen voor niet-noodzakelijke functies blijven onderdeel van de werkafspraak.
+
+### D98 – Batchstart uitsluitend vanuit vrijgegeven werk (24 nov 2026)
+
+Geert akkoord met het voorstel: D89 A09/A06/P06/R04/R11 is leidend. Zelfstandig aanmaken van ongeplande batches door operators vervalt bij de omschakeling naar productieorders en dispatching (#117–#120). Batchidentificatie wordt door het systeem uitgegeven vanuit een geautoriseerde werkopdracht; een operator start alleen vrijgegeven werk binnen scope en kwalificaties. Een spoedopdracht vereist eveneens expliciete autorisatie en vrijgave, geen omzeiling. Dit vervangt het betreffende deel van D29/D68. De oude route is uitsluitend tijdelijke PoC-functionaliteit, niet een definitief MES-recht; geen verdere investering daarin. Omschakelen in fase 4/5; geen functionele verwijdering in deze documentatiecommit.
+
+### Review oude besluiten – 24 november 2026 (goedgekeurd onder D99)
+
+D89 en de daaropvolgende goedgekeurde besluiten hebben voorrang op strijdige legacy-besluiten. D98 is goedgekeurd. Onderstaande classificatie is het onder D99 goedgekeurde reviewregister. De originele teksten blijven historisch intact. Vervang legacy-gedrag op de betreffende fasepoort; geen nieuwe implementatie die een bekend conflict permanent maakt. Volledige normteksten ontbreken, dus geen formele conformiteitsclaim.
+
+| Categorie | Besluiten | Behandeling |
+|---|---|---|
+| Behouden, voor zover niet strijdig met D89 | D1, D3, D8, D9, D12, D13, D21, D22, D23, D26, D27, D35, D39, D40, D44, D45, D47, D48, D50, D63, D64, D67, D70, D76, D79, D81, D83, D84 | Technische, UX-, privacy- of organisatorische uitgangspunten; scope en bewijs blijven vereist. |
+| Geheel of gedeeltelijk vervangen | D6, D15, D16, D17, D19, D20, D24, D36, D41, D42, D49, D51, D53, D54, D61, D78 | Lees samen met D48/D89–D98; oude delen niet opnieuw implementeren. |
+| Herziening / expliciete overgang | D2, D4, D5, D7, D10, D11, D18, D25, D28, D29, D31, D32, D33, D34, D37, D43, D46, D52, D55, D56, D57, D58, D60, D62, D68, D69, D71, D73, D74, D75, D77, D80, D82 | Zie matrix hieronder. |
+| Uitsteladvies | D14, D30, D38, D59, D65, D66, D72 | Uitstel goedgekeurd onder D99; gecontroleerde omschakeling per fase. |
+| Actuele besluiten | D87, D88, D89, D90, D91, D92, D93, D94, D95, D96, D97, D98 | Leidende projectbaseline. |
+
+| Legacy | Nieuw uitgangspunt / advies | Fase |
+|---|---|---|
+| D2,D5,D55 | MBR en CR bepalen route; geen vaste vier batches, geen onmiddellijke wijziging lopende batches, geen standaardroute bij onbekend product; behoud traceerbaarheid. D89 R01–R08. | 2–5 |
+| D4,D57 | Afzonderlijke rework Job Order; geen opdrachtloze uitzondering; kwaliteitsblokkade onafhankelijk. P09/P10. | 7 |
+| D7,D58,D73 | Meting, beoordeling, vrijgave gescheiden; onafhankelijke holds; expliciete quality release; versiegebonden specificaties. P09/P11/R12. | 1,2,7 |
+| D10,D11,D28,D77 | Persoon, account, rollen en kwalificaties scheiden; technisch beheer geen inhoudelijke rechten; gecontroleerde bootstrap/recovery. P01–P05/M08. | 1–3 |
+| D18,D43,D60,D62 | Compatibiliteit alleen bij betrouwbare identiteit en vooraf vrijgegeven uitvoering; oorspronkelijke tijd/actor en ontvangst bewaren; onzekere invoer gecontroleerd beoordelen; papieraanvulling met herkomst. P11/P12/R11. | 1,5,6 |
+| D25 | Geen automatische terugval die nieuwe echte feiten wist; gecontroleerd herstel en reconciliatie. M10–M12. | 1,9 |
+| D29,D52,D68 | D98: dispatch verplicht; voorlopige planning mag waarschuwingen geven, uitvoering niet omzeilen. | 4–5 |
+| D31 | Materiaaldefinitie en partijstatus vóór verbruik; werkelijke hoeveelheden en genealogie, geen volledig WMS. M03/M09/A11. | 2,8 |
+| D32,D74,D76 | Rooster is planning, niet bewijs van werkelijke personeelsinzet; overdracht op geautoriseerde scope. P02/M08. | 3–5 |
+| D33 | Meldingen naar actuele permissions en scope, geen algemene beheerder/analist toegang. | 1 |
+| D34,D65 | Stilstand koppelen aan equipment/assets; operationele stop niet automatisch technisch herstel; KPI's valideren. P13/M07. | 3,10 |
+| D37,D56 | CoA vanuit vastgelegde quality release en specificatie/dossierstand, geen technische beheerder als uitgever. R09/R10/R12. | 7 |
+| D46,D82 | Excel en schermwijzigingen aan MBR-concept, nooit actieve vrijgegeven definitie rechtstreeks wijzigen. R02–R05. | 2 |
+| D69,D71,D80 | Capaciteit per recept en middel; werkelijke massa, geen vaste 4-batchlot-aanname, niet afronden naar minimaal 1 bij onvoldoende capaciteit. | 3–4 |
+| D75 | Conflicten bewaren; kritische conflicten blokkeren relevante vrijgave, correcties op basis van actuele versie en bevoegdheid. R10/P09/P11. | 5–7 |
+| D14 | Voorstel browserdemo/PGlite uit verplichte scope; Windows-pakket voor PoC. | Besluiten vóór verdere compatibiliteitsbouw |
+| D30,D72,D74 | Voorstel uitgebreide wandschermfuncties en #92 uitstellen tot betrouwbare kern; basis read-only schermaccount wel in fase 1. | 9 |
+| D38,D70,D79 | Voorstel geavanceerde SPC/trends en Cpk pas na betrouwbare data en definities; generieke grafiekcomponenten niet onnodig verwijderen. | 10 |
+| D39,D59,D62,D66,D82,D83 | Voorstel nieuwe generieke exports/UI-optimalisaties niet uitbreiden; volledige rolhulp, pilotfeedback en pilotrapportage pas bij stabiele schermen. | 9–10 |
+
+Bronnen voor de architectuurreview: [ISA-88](https://www.isa.org/standards-and-publications/isa-standards/isa-88-standards), [ISA-95](https://www.isa.org/standards-and-publications/isa-standards/isa-95-standard), [OPC UA ISA-95 Job Order](https://reference.opcfoundation.org/specs/OPC-10031-4/4.1), [Job Response](https://reference.opcfoundation.org/specs/OPC-10031-4/4.3). Werkvrijgave, vierogen, offline beleid en precieze rollen zijn projectkeuzes op basis van D89, niet als letterlijke normclausules gepresenteerd.
+
+### D99 – Herziening legacy-besluiten en uitstel van niet-kernfunctionaliteit (24 nov 2026)
+
+Geert heeft alle adviezen uit bovenstaande review doorgenomen en goedgekeurd. De matrix is daarmee bindend voor de verdere MES-ontwikkeling. ISA-88/95 zijn leidende architectuurkaders; D89 en actuele MES-besluiten gaan vóór strijdige PoC-keuzes. Behoud de oorspronkelijke besluiten als historische uitleg, niet als opdracht om achterhaalde functies opnieuw te bouwen.
+
+- Voer de goedgekeurde herzieningen uit in de aangegeven fasen; fase 1 levert het gezaghebbende autorisatiefundament en geen definitieve uitvoering van toekomstige procesmodellen. Tijdelijke legacy-routes mogen geen ongecontroleerde omweg rond dat fundament worden.
+- De zelfstandige PGlite-browserdemo (D14) is geen verplichte deliverable of acceptatieomgeving meer. Windows-laptoppakket en echte PostgreSQL blijven leidend. Stop verdere compatibiliteitsinvesteringen; inventariseer afhankelijkheden voordat de demo en specifiek daarvoor bestaande tests/workflows gecontroleerd worden uitgefaseerd.
+- Uitgebreide wandschermen en #92 naar fase 9; alleen beperkte read-only display-identiteit en autorisatie in fase 1. Volledige rolhulp, pilotfeedback en pilotrapportage naar fase 9. Storingsnotities herbeoordelen binnen fase 3; geen extra onderhoudssysteem.
+- Geavanceerde SPC, Cpk, trends en aanvullende analyses naar fase 10. Geen generieke verplichting tot Excel-export van iedere tabel; behoud noodzakelijke export en bestaande herbruikbare UI-componenten. Geen verdere cosmetische/filteroptimalisatie vóór stabiele functionele kern.
+- D97 blijft gelden: uitsluitend fictieve fixtures mogen opnieuw worden opgebouwd. Geen productiedata op onbekende/echte databases wissen. Herontwerp en uitstel zijn geen toestemming om bedrijfsregeltests te verzwakken of kritische functies onbeschermd beschikbaar te laten.
+- Acceptatie per fase toetst de actuele goedgekeurde scope; documenteer de uitgestelde onderdelen, de afgeschermde tijdelijke interfaces, en de resterende overgang. Geen claim van formele ISA-conformiteit zonder toepasselijke normteksten en toetsbewijs.
+
+## D100 – Begrensde afsluiting tussentijdse audit (24 nov 2026)
+
+Geert stemt in met een integrale afbakening van de resterende audit, bundeling van noodzakelijke correcties en gerichte tests vóór verdere ontwikkeling. D89/D99 blijven leidend. Stop de opeenvolgende uitbreidingen van tijdelijke legacy-modellen; eerst een gerichte baseline op de huidige ontwikkelbranch. Een fase-1-blokker betreft uitsluitend het gezaghebbende autorisatiefundament, beveiliging van behouden interfaces, gegevensintegriteit of verplichte acceptatie. Ontbrekende toekomstige procescontext niet verzinnen. Verplaats definitieve domeinfunctionaliteit naar de reeds toegewezen fasen. Bij onveilig tijdelijk pad: sluit de omweg, beoordeel de impact en registreer het resterende werk. Geen verlaging van de acceptatie-eisen. De ROADMAP blijft enige planning; ACCEPTANCE-CRITERIA bevat bewijsgrenzen. Geen nieuwe release, volledige acceptatie-CI of merge vóór de afgesproken poorten.
+
+## D101 – MES-permissions als enige gezaghebbende autorisatie (24 nov 2026)
+
+Goedgekeurd door de opdrachtgever: laat de oude beheerdersrol en alle overige legacy-rollen functioneel vervallen als zelfstandige bron van autorisatie binnen fase 1. De actuele MES-grants, permissions, scope en vereiste kwalificaties zijn leidend voor operationele en administratieve handelingen. System Administrator is geen algemene inhoudelijke beheerder. Vervang oude rolcontroles in API, database en gebruikersinterface; de UI is geen beveiligingsgrens. Historische rollen en registraties blijven intact. Tijdelijke rolvelden mogen uitsluitend voor noodzakelijke compatibiliteit of identiteitstype blijven bestaan, zonder zelfstandig functionele rechten te geven. Verwijder fysieke velden pas na afhankelijkheidsreview en veilige migratie; geen automatische omzetting van oude rollen naar nieuwe grants. Behoud gecontroleerd eigenaarsonderhoud, bootstrap en herstel als expliciet begrensde technische processen, niet als applicatierol.
+
+Binnen D100: inventariseer alle behouden interfaces, bundel noodzakelijke beveiligingscorrecties en test weigering bij ontbrekende/ingetrokken grants, verkeerde scope en functiescheiding, naast positieve regressies. Sluit onveilige uitgestelde interfaces zo nodig af in plaats van definitieve domeinfunctionaliteit vooruit te bouwen. Geen wijziging van de goedgekeurde fasering, geen verwijdering van historische feiten, geen formele ISA-conformiteitsclaim. Geen merge/release vóór afgesproken acceptatie.
+
+
+## D102 – Eenmalige gecontroleerde initialisatie bestaande administratie (25 nov 2026)
+
+Opdrachtgever akkoord met expliciete overgang voor bestaande accounts zonder MES-rechtenhistorie. Tot de pilot zijn uitsluitend fictieve gegevens gebruikt; schone bootstrap heeft de voorkeur voor de huidige PoC. Geen automatische omzetting van oude rollen. Alleen database-eigenaar, drie verschillende actieve persoonlijke accounts (één System Administrator, twee Security Administrators), drie verschillende persoonlijk bevestigde wachtwoorden, organisatorische goedkeuring met referentie. Behoud accounts, oude rollen en historische productiegegevens; verhoog sessiegeneratie van geselecteerde accounts. Exact drie grants, geen overige bevoegdheden, geen herhaling bij bestaande bootstrap/grant/aanvraaghistorie. Onveranderlijk bootstraprecord. Geen noodreset of alternatief bij verlies van bestaande MES-beheerrechten. Praktijkacceptatie blijft vereist.
+
+## D103 – Uniforme MES-demo-initialisatie en Windows-acceptatie (25 nov 2026)
+
+W1 geslaagd op Windows 0.62.1; W2 geblokkeerd: de historische fictieve dump plus één technische demo-identiteit bood niet alle MES-testaccounts. Opdrachtgever kiest uitsluitend actuele MES-demoaccounts voor nieuwe fictieve Windows-installaties en actuele gebruikersinstructies. Historische verwijzingen blijven intact, oude fictieve identiteiten worden alleen bij nieuw opbouwen van de fictieve dataset inactief. Negatieve testfixtures en migratiehistorie blijven waar nodig behouden. Geen automatische accounts, grants of deactivatie bij gewone upgrades. Migratie 0095 wijzigt uitsluitend de demo-indicatie. Heracceptatie en nieuw Windows-pakket vereist; geen merge/release vóór toestemming.
+
+## D104 – Functionele acceptatie fase 1 en releasevoorbereiding (25 nov 2026)
+
+Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
+
+De opdrachtgever accepteert de fictieve PoC-scope; geen toestemming voor merge of publicatie in dit besluit. D88/D90 blijven leidend; nieuwe releasetree moet beide suites doorstaan. W7 onderbroken redeninvoer: hervatting via START.bat gelukt, oorzaak niet gereproduceerd; geen bewijs van drie werkelijk onafhankelijke accounthouders. W8 oude noodsleutel functioneel geblokkeerd; verouderde aankondiging corrigeren. Operationele TLS, persoonlijke provisioning en intrekking, herstelreconciliatie, uitzonderingsherstel, hardware en fabrieksnetwerk vóór pilot. Uitgestelde domeinfuncties volgens D99 en ROADMAP. Geen automatische legacy-grants en geen echte gegevens.

@@ -1,8 +1,8 @@
 # MES
 
-> **MES-transitie (ontwerp):** de huidige software blijft versie 0.62.1. Goedgekeurde architectuur in [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), besluiten D89 en geïntegreerde [ROADMAP.md](ROADMAP.md). PR #1 wordt niet gemerged; de nieuwe implementatie vertrekt vanaf main. Geen MES-functionaliteit uit dit ontwerp is hiermee al gerealiseerd.
+> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 in voorbereiding. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D104 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
 
-Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. Batches doorlopen 18 processtappen; in stap 16 worden 4 batches samengevoegd tot 1 lot. Alles werkt lokaal en offline. **Alle namen, nummers en waarden in deze repository zijn fictief.**
+Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. De huidige fictieve PoC gebruikt 18 processtappen en een lot van vier batches in PS16; dit is een tijdelijk model, geen definitief MES-recept. Lokale registratie ondersteunt offline werken. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
 ## Waar vind je wat
 
@@ -19,21 +19,17 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 ## Stand
 
-Bijgewerkt: 24 november 2026 · versie **0.62.1**. Dit blok wordt aan het eind van elke sessie overschreven.
+Bijgewerkt: 25 november 2026 · versie **0.63.0** (releasevoorbereiding).
 
-- **Fase:** proof of concept op Geerts Windows-laptop (D26). Fase A en fase A2 zijn gebouwd (A2: 0.27.0 tot en met 0.37.1; D53–D58), daarna de hulp per rol en de lijst met praktijktests (0.38.0, D59). Nu fase A3, vóór de pilot (op Geerts verzoek): stap overnemen (0.39.0, #55), nainvoeren van papier (0.40.0, #75, D60), accounts via het sjabloon met tijdelijk wachtwoord (0.41.0, #76, D61) en "Iets melden" met Opmerkingen (0.42.0, #78, D62) zijn gebouwd, plus een rondgang langs alle schermen op vormgeving (0.42.1, D63) en alle schermen geschikt voor telefoon en tablet, staand en liggend (0.43.0 tot en met 0.45.1, #47, D64) een notitie bij het einde van een stilstand (0.46.0, #31, D65) en het pilotoverzicht (0.47.0, #77, D66), in Planning de schermen Batches plannen en Stappen plannen (0.47.1, 0.47.2, D68) de capaciteit per product met afwijkende dagen (0.48.0, D69) grenzen en tolerantie als rode en oranje lijnen in de grafieken (0.48.1, D70) afmelden naar de startpagina (0.48.2, #82) de capaciteit uit de route met "nog invullen" (0.49.0, #81, D71) het wandscherm Kwaliteit (0.50.0, #83, D72) en keuringsstappen met specificaties per product (0.51.0, #80, D73); daarna #32 en #66. Daarna fase A4, Geerts verbeterlijst van 23 november (#85–#100, D74): twee keer ingevuld (0.52.0, #85, D75), ploegen A–E in twee divisies met rooster (0.53.0, #86, D76) Medewerkers met ploeg en account (0.54.0, #87, D77) het startscherm voor Kwaliteit (0.55.0, #88, D78) de trend bij alle producten (0.56.0, #89, D79) capaciteit in kilogram (0.57.0, #90, D80) en het wandscherm passend met afmelden (0.58.0, #91, D81) zijn gebouwd: prioriteit 1 is klaar. Uit prioriteit 2 zijn #48, #97, #98 en #99 (0.59.0) #93, #95 en #96 (0.60.0, D82), #94 (0.61.0, D83) en #100 (0.62.0, D84) gebouwd: ook prioriteit 2 is klaar. Poort A4: Geert bekijkt het geheel. Aan zet voor Geert: de praktijktests (#33), de echte velden (#2), de keuzes #70 en #72, en de ondernemingsraad (#79); voor IT de server (#10).
-- **Schermen:** volgen de UI/UX-richtlijnen uit het Claude-project, met bewuste afwijkingen (D50; afwijking E is vervallen) en vaste woorden (D51). Elk scherm werkt van telefoon tot pc (D64). Alle kleuren, afstanden en maten staan in `gedeeld/tokens.css`.
-- **Laptop:** Geert draait 0.7.1. Het pakket van elke versie staat op GitHub bij de release, onder "Assets" (`batch-gui-laptop-<versie>-windows.zip`).
-- **Fabrieksserver:** nog niet ingericht; advies en draaiboek liggen klaar (#10).
-- **Browserdemo:** 0.62.1 corrigeert het verschuiven van capaciteitsperioden bij opstart; volledige acceptatie nog niet bevestigd. Online nog op 0.48.0 (zonder de nieuwe grafiekstijl); versie 0.48.0 gepubliceerd (23 november 2026), lokaal getest en de bestanden online gecontroleerd met controlesom; de echte link op claude.ai is na deze publicatie nog niet in een browser geopend.
-- **Releases op GitHub:** uitsluitend op aanvraag, met het laptoppakket als bijlage (D88). Niet gebruiken: de releases van 0.14.0 en 0.15.0 (de laptoppakkettest faalde). Versie 0.37.0 heeft geen release (een schermtest faalde); neem 0.37.1. Bij 0.45.0 faalde de schermtest op GitHub; die release is later alsnog gemaakt, maar neem 0.45.1.
-- **Laatste testronde (0.61.0 en 0.62.0, 23 november 2026), lokaal:** geslaagd: roadmap, plaatje van de database (0.62.0), databaseregels (324), API (97, als `batchgui_app`), migraties (tot en met 35), beheertools, opruimschema, laptoppakket (Linux-variant) en alle schermtests in Chrome (met sorteren en filteren per kolom). 0.60.0 groen op GitHub (na één keer opnieuw draaien: de invoerschermtest liep eenmalig vast). Niet getest: een echte tv in de hal en twee pc's tegelijk op één stap (praktijktests, #33).
-- **Vorige testronde (0.57.0, 23 november 2026), lokaal en op GitHub:** geslaagd: roadmap, databaseregels (324), API (97, als `batchgui_app`), migraties (tot en met 35), beheertools, opruimschema, laptoppakket (Linux-variant) en alle schermtests in Chrome (met capaciteit in kilogram in `portaal/e2e/planning.mjs`).
-- **Gegevens:** alles fictief (D1).
+- **Ontwikkeling:** fase 1 functioneel geaccepteerd; PR #6 op `feature/mes-phase-1`, releasevoorbereiding. Databaseschema 0095. Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
+- **Databaseplaatje:** 62 tabellen en 132 relaties; schema 0095 wijzigt alleen de demo-indicatiefunctie; diagramcontrole geslaagd in integrale CI.
+- **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
+- **Open:** definitieve CI op releasetree, toestemming merge/publicatie, operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd voor fase 1.
 
 **Links**
 - Code: https://github.com/Gertjun/Manufacturing-Execution-System (privé)
-- Browserdemo (blijft actueel): https://claude.ai/artifact/AvBGewCSnACg6h6CeUKZQN
+- Browserdemo (historische momentopname, niet ondersteund): https://claude.ai/artifact/AvBGewCSnACg6h6CeUKZQN
 - Invulblad praktijktests (blijft actueel, de uitkomsten van #33): https://claude.ai/artifact/WQn3YnEVcuy5W5ieXenwRg
 - Projectdocument in het Claude-project: `claude/architectuur-en-besluiten.md` (korte instap met links)
 - Momentopnamen, worden niet bijgewerkt: Whiteboard eerste projectplan https://claude.ai/artifact/Nm9L5rFHZY6Dtgk2JMncnF · advies fabrieksserver https://claude.ai/artifact/XbFZ7nQRDn18zSS5tnQhUf · datamodel v1 https://claude.ai/artifact/54cg2QSsWQ3j6hbkzYBVTA · doorlichting 19-11-2026 https://claude.ai/artifact/6FL8onRKNHTbnqJWSF6U7i · UI/UX-review 20-11-2026 https://claude.ai/artifact/EK83QWUsor3w4ofFDzBra4
@@ -44,7 +40,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 
 | Onderdeel | Adres | Voor wie |
 | --- | --- | --- |
-| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (eigen startscherm Keuringen met wat nu te doen is en wat eraan komt, D78; metingen en keuring, D58; keuringsstappen TK en EK, D73); werkt offline |
+| Invoerscherm | `/invoer/` | Operators en ploegleiders op de vloer, en Kwaliteit op de lab-pc (eigen startscherm Keuringen met openstaande metingen en besluiten en beschikbare keuringsstappen, D78/D96; metingen en keuring, D58; keuringsstappen TK en EK, D73); werkt offline |
 | Portaal Kwaliteit | `/portaal/` | Kwaliteit |
 | Startpagina | `/` (stuurt door naar `/portaal/`) | Iedereen, na het inloggen |
 | Portaal Manufacturing Operations | `/portaal/` | Ploegleiders, productieleiding |
@@ -57,7 +53,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 
 **Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
 
-**Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator.a` en `operator.b` (eigen account, D53), `operator` (het oude gedeelde account, kiest een naam), `ploegleider1`, `ploegleider2`, `kwaliteit1`, `productiemanager1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
+**Testaccounts** (uitsluitend nieuwe fictieve Windows-database; wachtwoord `demo`): zie de [pakketinstructies](tools/pakket/README.md#testaccounts) voor de veertien actuele `mes.*`-accounts. Historische identiteiten krijgen bij upgrades geen automatische grants.
 
 ### Invoerscherm
 - Per stap zie je wat bezig is, wat klaarstaat en wat gepland is voor vandaag. Het formulier komt uit de velden die per stap zijn ingesteld; tijdens het typen zie je of een waarde buiten tolerantie of grens valt.
@@ -112,7 +108,7 @@ Bij de analyses en in het lotpaspoort staat in de filterbalk een gele productkeu
 | Onderdeel | Wat je kunt doen |
 | --- | --- |
 | Stappen en velden | Namen, velden, setting, tolerantie en grenzen, op het certificaat; codes worden nooit hergebruikt. Per veld ook het aantal decimalen bij het tonen, wie meet (Productie of Kwaliteit, D58) en eigen grenzen per product (D55): bovenaan kies je een product, dan zie je de stappen van dat product en hun grenzen, met Ondergrens en Bovengrens als aparte kolommen (D82). Ook via een Excel-sjabloon: downloaden, aanpassen, inlezen met een controle vooraf (D46); het tweede blad bevat de grenzen per product |
-| Medewerkers, pc's | Medewerkers in drie blokken (operators en ploegleiders, Kwaliteit, overige accounts) met naam, ploeg en account (D77); aanmaken, wijzigen, uitzetten, ook veel accounts tegelijk via een Excel-sjabloon; een wachtwoord van de beheerder is tijdelijk (D61); per pc de stappen |
+| Medewerkers, pc's | Medewerkers in drie blokken (operators en ploegleiders, Kwaliteit, overige accounts) met naam, ploeg en account (D77); aanmaken, wijzigen, uitzetten, een wachtwoord van de beheerder is tijdelijk (D61); per pc de stappen |
 | Grondstoffen, diensten en ploegen, oorzaken van stilstand | De keuzelijsten en tijden voor de invoer; het rooster van ploegen A–E per divisie, met per dag en dienst wie werkt (D76) |
 | Bedrijfsgegevens | Naam, adres en verklaring op het certificaat |
 | Opmerkingen | Wat gebruikers via "Iets melden" doorgaven; afhandelen met een notitie (D62) |
@@ -134,7 +130,7 @@ Er blijft altijd minstens één actieve beheerder. Niets wordt verwijderd, allee
 | --- | --- | --- |
 | Laptop (proof of concept) | `tools/maak_laptoppakket.sh <map> windows` bouwt `batch-gui-laptop-<versie>-windows.zip` met Node.js, PostgreSQL en de Visual C++-runtime erin; uitpakken en `START.bat` (D27) | [`tools/pakket/README.md`](tools/pakket/README.md) |
 | Fabrieksserver | `tools/maak_serverpakket.sh` bouwt `batch-gui-server-<versie>.zip` | [`docs/SERVER.md`](docs/SERVER.md) |
-| Browserdemo | `cd demo && npm install && ./bouw.sh` bouwt `demo/dist`: het hele platform in de browser met PGlite, alleen voor demonstratie | — |
+| Historische browserdemo | Bron in `demo/`; niet ondersteund en geen bouw- of acceptatieverplichting (D99) | — |
 | Ontwikkelen | zie hieronder | — |
 
 Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of `--instellingen <pad>`):
@@ -154,7 +150,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | --- | --- |
 | `db/schema.sql` | Tabellen, regels (triggers) en acties in schema `fabriek`; gelijk aan alle migraties samen |
 | `db/migraties/` | Genummerde database-updates (D23); nooit achteraf aanpassen |
-| `db/rechten.sql` | Rechten van de applicatiegebruiker `batchgui_app` (D24) |
+| `db/rechten.sql` | Rechten van de applicatiegebruiker `mes_app` (D24/D91; bestaande login tijdelijk compatibel) |
 | `db/seed_config.sql` | Stappen, voorbeeldvelden, operators, pc's, producten, grondstoffen, diensten, ploegen met rooster, oorzaken (geen accounts) |
 | `db/seed_accounts_demo.sql` | Fictieve testaccounts |
 | `db/seed_demo.sql` | Kleine fictieve productie voor de invoertest |
@@ -163,7 +159,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | `invoer/` | Invoerscherm (PWA) |
 | `portaal/` | Portalen en wandscherm |
 | `gedeeld/` | Onderdelen die invoerscherm en portalen delen, waaronder `tokens.css` (alle kleuren, afstanden, tekstgroottes en rondingen) en `knoppen.css` (bezig-stand en klikzone) |
-| `demo/` | Browserdemo |
+| `demo/` | Historische browserdemo; buiten verplichte scope |
 | `tools/` | Pakketten bouwen, beheertools, versie zetten |
 | `tests/`, `api/test/`, `invoer/e2e/`, `portaal/e2e/` | Tests |
 
@@ -211,13 +207,13 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | --- | --- | --- |
 | Roadmap bij met de laatste versie | `tests/test_roadmap.sh` | ja |
 | Databaseregels | `python3 tests/test_regels.py "<verbinding>"` (leegt de database) | ja |
-| API | `cd api && npm test` met `TEST_DATABASE_URL` en `TEST_APP_DATABASE_URL` (voor `batchgui_app`) | ja |
+| API | `cd api && npm test` met `TEST_DATABASE_URL` en `TEST_APP_DATABASE_URL` (voor `mes_app`) | ja |
 | Schema en migraties gelijk | `tests/test_migraties.sh` | ja |
 | Plaatje van de database bij (`docs/DATABASE.md`, D84) | `tests/test_schema_plaatje.sh` | ja |
 | Beheertools | `tests/test_tools.sh` | ja |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | ja |
 | Laptoppakket | `tests/test_laptoppakket.sh` (als gewone gebruiker) | ja |
-| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (formaten: alle schermen in zes formaten van telefoon tot pc, D64; portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; nalevering op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
+| Schermtests in Chrome: invoerscherm en alle portalen (PostgreSQL) | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (formaten: alle schermen in zes formaten van telefoon tot pc, D64; portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; nalevering op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
 
 ### Versies
 Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Een release wordt uitsluitend op aanvraag gemaakt (`release.yml`), na acceptatie van de exacte inhoud, met het Windows-laptoppakket als bijlage (D88). Tussentijdse wijzigingen staan onder Unreleased. Downloaden: repository → Releases → versie → Assets. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).

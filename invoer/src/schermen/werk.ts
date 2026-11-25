@@ -1,6 +1,8 @@
 // Stappenoverzicht en het werk binnen één stap.
 import { ApiFout, GeenVerbinding, haal, nieuwId, stuur } from "../api";
 import { sessie } from "../sessie";
+import { heeftRecht, heeftProductRecht, rechten } from "../rechten";
+const enigRecht = (...codes: string[]) => heeftRecht(...codes) || !!rechten()?.products.some(p => codes.includes(p.permission));
 import { lokaleRegistraties, maakLot, nieuweBatch, startStap, stappen } from "../registraties";
 import type { Overzicht, Registratie, Stap, Werkvoorraad } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
@@ -49,54 +51,19 @@ function keuringLijst(lijst: KeuringRij[], metStap: boolean) {
         h("div", { class: "rij-info" }, [metStap ? `${k.stap} ${k.stapnaam}` : null, k.product, `afgerond ${tijd(k.sinds)}`,
           k.te_meten ? `${k.te_meten} ${k.te_meten === 1 ? "meting" : "metingen"} te doen` : "alles gemeten",
           k.afwijkingen ? `${k.afwijkingen} afwijkend` : null].filter(Boolean).join(" · "))),
-      h("span", { class: "knop knop-klein" }, sessie.rol === "kwaliteit" ? "Meten" : "Bekijken")))));
+      h("span", { class: "knop knop-klein" }, heeftProductRecht(k.product,"inspection.record") ? "Meten" : "Bekijken")))));
 }
 
-/** Komende keuring of meting van Kwaliteit (#88): wat klaarstaat en wanneer de rest waarschijnlijk komt. */
-interface Verwacht {
-  stap: string; stapnaam: string; soort: "keuring" | "meting"; niveau: "batch" | "lot"; nummer: string; product: string | null;
-  nu_in: string | null; nu_bezig: boolean; stappen_ertussen: number; klaar: boolean; verwacht_op: string; gepland: string | null;
-}
-
-const dagVan = (iso: string) => new Date(iso).toLocaleDateString("sv-SE");
-const dagNaam = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
-
-/** Eén regel in "Verwacht": wanneer, welke keuring of meting, welke batch of lot, en waar die nu is. */
-function verwachtRij(v: Verwacht) {
-  const waar = v.nu_in
-    ? `nu in ${v.nu_in}${v.nu_bezig ? " (bezig)" : ""}${v.stappen_ertussen ? `, nog ${v.stappen_ertussen} ${v.stappen_ertussen === 1 ? "stap" : "stappen"}` : ""}`
-    : "nog niet begonnen";
-  return h("li", {}, h("a", { class: "rij", href: `#/zoek/${encodeURIComponent(v.nummer)}` },
-    h("div", {},
-      h("div", { class: "rij-hoofd" }, h("span", { class: "verwacht-tijd" }, `rond ${new Date(v.verwacht_op).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`),
-        ` ${v.stap} ${v.stapnaam}`, v.soort === "meting" ? h("span", { class: "label label-kwaliteit" }, "Meting") : null),
-      h("div", { class: "rij-info" }, [v.nummer, v.product, waar, v.gepland ? `gepland ${new Date(`${v.gepland}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })}` : null]
-        .filter(Boolean).join(" · "))),
-    h("span", { class: "knop knop-klein" }, "Bekijken")));
-}
-
-/**
- * Startscherm voor Kwaliteit (#88, D78): geen aantallen per processtap, wel wat Kwaliteit vandaag moet doen
- * (wacht op een meting of besluit, klaar voor een keuring) en wat eraan komt, met een geschatte tijd.
- */
+/** Actuele werkvoorraad voor Kwaliteit; geen voorspellingen (D96). */
 async function kwaliteitScherm() {
   const actueel = vastHouden();
   toon(h("h1", {}, "Keuringen"), laden());
-  const [teKeuren, verwacht, alleStappen, overzicht] = await Promise.all([
+  const [teKeuren, alleStappen, overzicht] = await Promise.all([
     keuringen(),
-    haal<Verwacht[]>("/keuringen/verwacht?uren=48").catch(() => ({ data: [] as Verwacht[], vers: false })),
     stappen().catch(() => [] as Stap[]),
     haal<Overzicht[]>("/werkvoorraad").catch(() => ({ data: [] as Overzicht[], vers: false })),
   ]);
   if (!actueel()) return;
-  const klaar = verwacht.data.filter((v) => v.klaar);
-  const later = verwacht.data.filter((v) => !v.klaar);
-  const vandaag = dagVan(new Date().toISOString());
-  const perDag = new Map<string, Verwacht[]>();
-  for (const v of later) {
-    const d = dagVan(v.verwacht_op);
-    perDag.set(d, [...(perDag.get(d) ?? []), v]);
-  }
   const keuringTegels = alleStappen.filter((s) => s.soort === "keuring").map((s) => {
     const o = overzicht.data.find((x) => x.stapcode === s.code);
     const open = o?.open ?? 0, wachtend = o?.wachtend ?? 0;
@@ -104,25 +71,12 @@ async function kwaliteitScherm() {
       h("span", { class: "tegel-nr" }, s.code), h("span", { class: "tegel-naam" }, s.naam),
       h("span", { class: "tegel-werk" }, wachtend > 0 ? `${wachtend} klaar` : "Niets klaar"));
   });
-  const nuTeDoen = teKeuren.length + klaar.length;
   toon(
     h("div", { class: "kop" }, h("div", {}, h("h1", {}, "Keuringen"),
-      h("p", { class: "sub" }, "Wat Kwaliteit nu moet doen en wat er de komende twee dagen aankomt. De tijden zijn een schatting uit hoe lang de stappen gewoonlijk duren.")),
-      verwacht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
-    h("section", { class: "keuring-blok" }, h("h2", {}, `Nu te doen (${nuTeDoen})`),
-      nuTeDoen
-        ? [teKeuren.length ? keuringLijst(teKeuren, true) : null,
-           klaar.length ? h("ul", { class: "lijst", style: teKeuren.length ? "margin-top:var(--space-2)" : "" }, klaar.map((v) =>
-             h("li", {}, h("a", { class: "rij", href: `#/stap/${v.stap}` },
-               h("div", {},
-                 h("div", { class: "rij-hoofd" }, v.nummer, h("span", { class: "label label-keuring-open" }, `Klaar voor ${v.stap}`)),
-                 h("div", { class: "rij-info" }, [`${v.stap} ${v.stapnaam}`, v.product, `klaar sinds ${tijd(v.verwacht_op)}`].filter(Boolean).join(" · "))),
-               h("span", { class: "knop knop-klein" }, "Keuring starten"))))) : null]
-        : h("p", { class: "leeg" }, "Er wacht nu niets op Kwaliteit.")),
-    h("section", { class: "keuring-blok" }, h("h2", {}, "Verwacht"),
-      perDag.size
-        ? [...perDag].flatMap(([d, lijst]) => [h("h3", { class: "verwacht-dag" }, d === vandaag ? "Vandaag" : dagNaam(d)), h("ul", { class: "lijst" }, lijst.map(verwachtRij))])
-        : h("p", { class: "leeg" }, "De komende twee dagen komt er volgens de schatting geen keuring of meting aan.")),
+      h("p", { class: "sub" }, "Openstaande metingen en besluiten. Kies een keuringsstap voor batches of lots die klaarstaan.")),
+      overzicht.vers ? null : h("span", { class: "label label-wacht" }, "Laatst bekende stand")),
+    h("section", { class: "keuring-blok" }, h("h2", {}, `Nu te doen (${teKeuren.length})`),
+      teKeuren.length ? keuringLijst(teKeuren, true) : h("p", { class: "leeg" }, "Geen openstaande metingen of besluiten.")),
     keuringTegels.length ? h("h2", {}, "Keuringsstappen") : null,
     keuringTegels.length ? h("div", { class: "route keuring" }, keuringTegels) : null,
   );
@@ -130,7 +84,7 @@ async function kwaliteitScherm() {
 
 export async function stappenScherm() {
   // Kwaliteit heeft een eigen startscherm (#88): zonder de aantallen per processtap.
-  if (sessie.rol === "kwaliteit") return kwaliteitScherm();
+  if (!enigRecht("execution.start","execution.record","execution.complete","execution.lot.create") && enigRecht("inspection.start","inspection.record","inspection.decide")) return kwaliteitScherm();
   const actueel = vastHouden();
   toon(h("h1", {}, "Kies een stap"), laden());
   const [{ data: alle }, overzicht, l, overdracht] = await Promise.all([
@@ -163,7 +117,7 @@ export async function stappenScherm() {
   };
 
   // Keuringsstappen (#80) doet Kwaliteit, op zijn eigen startscherm (#88); op de vloer staan ze niet tussen de stappen.
-  const proces = alle.filter((s) => s.soort !== "keuring");
+  const proces = alle.filter(s => s.soort !== "keuring" || enigRecht("inspection.start","inspection.record","inspection.decide"));
   const batch = proces.filter((s) => s.niveau === "batch");
   const lot = proces.filter((s) => s.niveau === "lot");
   toon(
@@ -319,7 +273,7 @@ export async function stapScherm(code: string) {
   if (!actueel()) return;
 
   const isKeuring = s.soort === "keuring";
-  const opVloer = (sessie.rol === "operator" || sessie.rol === "ploegleider") && !isKeuring;
+  const opVloer = heeftRecht("downtime.record") && !isKeuring;
   const opnieuw = () => void stapScherm(code);
   const kop = h(
     "div",
@@ -338,9 +292,11 @@ export async function stapScherm(code: string) {
   ];
 
   // Alleen operators en ploegleiders voeren in; andere rollen kijken mee. Een keuringsstap (#80) doet alleen Kwaliteit.
-  const kanInvoeren = isKeuring ? sessie.rol === "kwaliteit" : sessie.rol === "operator" || sessie.rol === "ploegleider";
+  const startRecht = isKeuring ? "inspection.start" : "execution.start";
+  const kanStarten = (product: string | null | undefined) => heeftProductRecht(product, startRecht);
+  const lotRecht = enigRecht("execution.lot.create");
   let klaar: Node[];
-  if (s.is_lot_stap && kanInvoeren) klaar = lotSamenstellen(s, w, voorstellen);
+  if (s.is_lot_stap && lotRecht) klaar = lotSamenstellen(s, { ...w, wachtend: w.wachtend.filter(x => heeftProductRecht(x.product,"execution.lot.create")) }, voorstellen);
   else {
     const eerste = eersteBatchStap === s.code;
     klaar = [
@@ -358,7 +314,7 @@ export async function stapScherm(code: string) {
                   h("div", { class: "rij-info" }, x.herbewerking
                     ? [x.product, `Terug naar deze stap: ${x.herbewerking}`].filter(Boolean).join(" · ")
                     : [x.product, eerste ? "Nog niet gestart" : x.sinds ? `Klaar sinds ${tijd(x.sinds)}` : ""].filter(Boolean).join(" · "))),
-                !kanInvoeren ? null : h(
+                !kanStarten(x.product) || s.is_lot_stap ? null : h(
                   "button",
                   {
                     class: "knop knop-hoofd",
@@ -373,7 +329,7 @@ export async function stapScherm(code: string) {
             ),
           )
         : h("p", { class: "leeg" }, eerste ? "Er staan geen geplande batches klaar. Vraag de planner, of maak als uitzondering een ongeplande batch." : "Nog niets klaar voor deze stap."),
-      eerste && kanInvoeren
+      eerste && heeftRecht("execution.batch.create") && kanStarten(null)
         ? h("details", { class: "uitzondering" },
             h("summary", {}, "Ongeplande batch aanmaken (uitzondering)"),
             h("p", { class: "sub" }, "Alleen als een batch niet in de planning staat. De planner ziet hem als niet gepland."),
@@ -391,7 +347,7 @@ export async function stapScherm(code: string) {
     if (open) { location.hash = `#/reg/${open.id}`; return; }
     const x = w.wachtend.find((y) => y.nummer === code);
     if (!x) { melding(`${code} staat niet klaar in ${s.naam}`, "fout"); return; }
-    if (!kanInvoeren) { melding(`${code} staat klaar in ${s.naam}`, "info"); return; }
+    if (!(s.is_lot_stap ? heeftProductRecht(x.product,"execution.lot.create") : kanStarten(x.product))) { melding(`${code} staat klaar in ${s.naam}`, "info"); return; }
     if (s.is_lot_stap) {
       const vink = document.querySelector<HTMLInputElement>(`input[type=checkbox][value="${CSS.escape(code)}"]`);
       if (vink) { vink.checked = !vink.checked; vink.dispatchEvent(new Event("change")); melding(`${code} ${vink.checked ? "gekozen" : "niet meer gekozen"}`, "info"); }
@@ -475,6 +431,7 @@ function lotSamenstellen(s: Stap, w: Werkvoorraad, voorstellen: Voorstel[]): Nod
       "Samenstellen",
     );
     if (!ok) return;
+    if (!batches.every(n => w.wachtend.some(x => x.nummer === n && heeftProductRecht(x.product,"execution.lot.create")))) return melding("Geen lotvormingsbevoegdheid voor alle batches", "fout");
     try {
       const reg = await maakLot(lotnr.value, batches, reden, w.wachtend.find((y) => y.nummer === batches[0])?.product);
       location.hash = `#/reg/${reg.id}`;

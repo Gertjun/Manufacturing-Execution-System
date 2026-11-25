@@ -41,7 +41,7 @@ on:
       - 'docs/mes/ROLES-AND-PROCESSES.md'
       - 'docs/mes/TERMINOLOGY.md'
       - 'tools/pakket/README.md'
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
 
 permissions:
   contents: read
@@ -49,7 +49,7 @@ permissions:
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
-  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && 'acceptatie' || 'ontwikkeling' }}
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || 'ontwikkeling' }}
   cancel-in-progress: true
 
 jobs:
@@ -74,7 +74,7 @@ jobs:
   compatibility:
     name: Node.js 22-compatibiliteit
     needs: verificatie
-    if: always() && github.event.action != 'labeled' && (github.event_name != 'push' || needs.verificatie.outputs.hergebruik != 'true')
+    if: always() && ((github.event_name == 'push' && needs.verificatie.outputs.hergebruik != 'true') || (github.event_name == 'pull_request' && ((github.event.action == 'labeled' && (github.event.label.name == 'compatibiliteit-test' || github.event.label.name == 'acceptatie-test')) || (github.event.action != 'labeled' && !github.event.pull_request.draft))))
     runs-on: ubuntu-latest
     steps:
       - name: Repository ophalen
@@ -97,15 +97,13 @@ jobs:
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
-          for p in api invoer portaal demo; do
+          for p in api invoer portaal; do
             [ "$(node -p "require('./$p/package.json').version")" = "$V" ] || { echo "$p/package.json heeft niet versie $V"; exit 1; }
           done
           grep -q "\"$V\"" api/src/versie.ts && grep -q "\"$V\"" gedeeld/versie.ts
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap controleren
         run: tests/test_roadmap.sh
-      - name: Gerichte datumverschuivingsregressie (zonder afhankelijkheden)
-        run: node --test demo/test_verschuif_datums_unit.mjs
       - name: API typecheck op Node.js 22
         working-directory: api
         run: |
@@ -116,6 +114,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+          node e2e/offline-rechten.mjs
       - name: Portalen bouwen op Node.js 22
         working-directory: portaal
         run: |
@@ -158,16 +157,46 @@ jobs:
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
-          for p in api invoer portaal demo; do
+          for p in api invoer portaal; do
             [ "$(node -p "require('./$p/package.json').version")" = "$V" ] || { echo "$p/package.json heeft niet versie $V"; exit 1; }
           done
           grep -q "\"$V\"" api/src/versie.ts && grep -q "\"$V\"" gedeeld/versie.ts
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap bij met de laatste versie
         run: tests/test_roadmap.sh
-      - name: Databaseregels
+      - name: PostgreSQL-client en Python voorbereiden
         run: |
           python3 -m pip install --quiet "psycopg[binary]"
+          mkdir -p "$RUNNER_TEMP/pg18"
+          cat > "$RUNNER_TEMP/pg18/pg_dump" <<'SH'
+          #!/bin/bash
+          args=()
+          output=""
+          while (( $# )); do
+            if [[ "$1" == "-f" ]]; then output="$2"; shift 2
+            else args+=("$1"); shift
+            fi
+          done
+          if [[ -n "$output" ]]; then
+            exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "${args[@]}" > "$output"
+          fi
+          exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "${args[@]}"
+          SH
+          cat > "$RUNNER_TEMP/pg18/pg_restore" <<'SH'
+          #!/bin/bash
+          if [[ "$1" == "--version" ]]; then
+            exec docker exec "$PG_CONTAINER" pg_restore --version
+          fi
+          args=("$@")
+          input="${args[-1]}"
+          unset 'args[-1]'
+          exec docker exec -i -e PGUSER=postgres "$PG_CONTAINER" pg_restore "${args[@]}" < "$input"
+          SH
+          chmod +x "$RUNNER_TEMP/pg18/pg_dump" "$RUNNER_TEMP/pg18/pg_restore"
+          echo "$RUNNER_TEMP/pg18" >> "$GITHUB_PATH"
+          echo "PG_CONTAINER=${{ job.services.postgres.id }}" >> "$GITHUB_ENV"
+      - name: Databaseregels
+        run: |
           python3 tests/test_regels.py "host=localhost port=5432 user=postgres dbname=batchgui"
       - name: Schema en migraties gelijk
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
@@ -177,27 +206,31 @@ jobs:
       - name: Plaatje van de database bij (docs/DATABASE.md)
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: tests/test_schema_plaatje.sh
-      - name: API (als batchgui_app, met beperkte rechten)
+      - name: API (als mes_app, met beperkte rechten)
         working-directory: api
         env:
           TEST_DATABASE_URL: postgres://postgres@localhost:5432/batchgui
-          TEST_APP_DATABASE_URL: postgres://batchgui_app@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
         run: |
           npm ci --no-audit --no-fund
           npm run typecheck
           npm test
+      - name: Security- en beheertoolregressies
+        run: node --test tests/security-tools.test.mjs
       - name: Opruimschema back-ups
         run: node --test tests/rotatie.test.mjs
       - name: Beheertools (migreer, back-up, herstel)
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: |
           pg_dump --version
-          tests/test_tools.sh
+          sh tests/test_tools.sh
+          sh tests/test_historische_upgrade.sh
       - name: Invoerscherm controleren en bouwen
         working-directory: invoer
         run: |
           npm ci --no-audit --no-fund
           npm run build
+          node e2e/offline-rechten.mjs
       - name: Portalen controleren en bouwen
         working-directory: portaal
         run: |
@@ -205,19 +238,15 @@ jobs:
           npm run build
       - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
         run: tests/test_laptoppakket.sh
-      - name: Browserdemo datumverschuiving in PGlite
-        working-directory: demo
-        run: |
-          npm ci --no-audit --no-fund
-          node --test test_verschuif_datums_unit.mjs test_verschuif_datums.mjs
-      - name: Schermtests in Chrome (invoerscherm, portalen, browserdemo)
+      - name: Schermtests in Chrome (invoerscherm, portalen)
         env:
           DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
         run: |
           google-chrome --version
           python3 -m pip install --quiet openpyxl pillow pyzbar
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
-          tests/test_schermen.sh
+          sh tests/test_schermen.sh
       - name: Logboeken van de schermtests tonen
         if: failure()
         run: |
@@ -227,3 +256,154 @@ jobs:
             cat "$log"
             echo '::endgroup::'
           done
+
+  database-baseline:
+    name: Gerichte PostgreSQL-baseline (D100)
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'database-baseline'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: batchgui
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Head en base controleren
+        id: basis
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
+          git rev-parse 'HEAD^{tree}'
+      - name: PostgreSQL-client en Python voorbereiden
+        id: tools
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          mkdir -p "$RUNNER_TEMP/pg18"
+          cat > "$RUNNER_TEMP/pg18/pg_dump" <<'SH'
+          #!/bin/bash
+          args=()
+          output=""
+          while (( $# )); do
+            if [[ "$1" == "-f" ]]; then output="$2"; shift 2
+            else args+=("$1"); shift
+            fi
+          done
+          if [[ -n "$output" ]]; then
+            exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "${args[@]}" > "$output"
+          fi
+          exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "${args[@]}"
+          SH
+          cat > "$RUNNER_TEMP/pg18/pg_restore" <<'SH'
+          #!/bin/bash
+          if [[ "$1" == "--version" ]]; then
+            exec docker exec "$PG_CONTAINER" pg_restore --version
+          fi
+          args=("$@")
+          input="${args[-1]}"
+          unset 'args[-1]'
+          exec docker exec -i -e PGUSER=postgres "$PG_CONTAINER" pg_restore "${args[@]}" < "$input"
+          SH
+          chmod +x "$RUNNER_TEMP/pg18/pg_dump" "$RUNNER_TEMP/pg18/pg_restore"
+          echo "$RUNNER_TEMP/pg18" >> "$GITHUB_PATH"
+          echo "PG_CONTAINER=${{ job.services.postgres.id }}" >> "$GITHUB_ENV"
+      - name: Roadmap controleren
+        if: always() && steps.basis.outcome == 'success'
+        run: tests/test_roadmap.sh
+      - name: Schone installatie met foutregels
+        id: schema
+        if: always() && steps.tools.outcome == 'success'
+        run: |
+          psql -v ON_ERROR_STOP=1 -d batchgui -f db/schema.sql > /tmp/mes-schema.log 2>&1 || { tail -60 /tmp/mes-schema.log; exit 1; }
+      - name: Schema en migraties vergelijken
+        if: always() && steps.tools.outcome == 'success'
+        run: tests/test_migraties.sh
+      - name: Databaseregels en beperkte rechten
+        if: always() && steps.schema.outcome == 'success'
+        run: python3 tests/test_regels.py "host=localhost port=5432 user=postgres dbname=batchgui"
+      - name: Node.js 22 instellen
+        id: node
+        if: always() && steps.basis.outcome == 'success'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Security- en beheertoolregressies
+        if: always() && steps.node.outcome == 'success'
+        run: node --test tests/security-tools.test.mjs
+      - name: API afhankelijkheden
+        id: npm
+        if: always() && steps.node.outcome == 'success'
+        working-directory: api
+        run: npm ci --no-audit --no-fund
+      - name: Beheertools — migratie, back-up en herstel
+        if: always() && steps.npm.outcome == 'success' && steps.tools.outcome == 'success'
+        run: |
+          pg_dump --version
+          pg_restore --version
+          sh tests/test_tools.sh
+          sh tests/test_historische_upgrade.sh
+      - name: API typecheck en autorisatiemodule
+        if: always() && steps.npm.outcome == 'success'
+        working-directory: api
+        run: |
+          npm run typecheck
+          npx --no-install tsx --test test/authorization.test.ts
+      - name: API-regressies met beperkte rechten
+        if: always() && steps.npm.outcome == 'success' && steps.schema.outcome == 'success'
+        working-directory: api
+        env:
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
+        run: npm test
+
+      - name: Laptoppakket — SCRAM, upgrade en herstel (Linux)
+        if: always() && steps.npm.outcome == 'success'
+        run: |
+          npm ci --prefix invoer --no-audit --no-fund
+          npm ci --prefix portaal --no-audit --no-fund
+          tests/test_laptoppakket.sh
+
+  laptop-security:
+    name: Gerichte laptoppakketbeveiliging (D24/D100)
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'laptop-security'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Head en base controleren
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
+          git rev-parse 'HEAD^{tree}'
+      - name: Node.js 22 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Pakketafhankelijkheden
+        run: |
+          npm ci --prefix api --no-audit --no-fund
+          npm ci --prefix invoer --no-audit --no-fund
+          npm ci --prefix portaal --no-audit --no-fund
+      - name: Laptoppakket — SCRAM, upgrade en herstel (Linux)
+        run: tests/test_laptoppakket.sh

@@ -6,6 +6,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-productie";
 const BASIS = "http://localhost:3460";
 mkdirSync(SHOTS, { recursive: true });
@@ -18,7 +20,7 @@ const check = (naam, ok, extra = "") => {
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3460", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3460", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -46,11 +48,7 @@ try {
   await page.getByLabel("Gebruikersnaam").fill("ploegleider1");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-productie").click();
   await page.getByRole("heading", { name: "Productie", exact: true }).waitFor();
   await page.locator(".staptegel").first().waitFor();
   await shot("01-werkvoorraad");
@@ -173,12 +171,32 @@ try {
   await shot("07b-overdracht-vandaag");
 
   console.log("\nStilstand");
+  const antwoordStilstand = page.waitForResponse(r => new URL(r.url()).pathname === "/analyse/stilstand" && r.ok());
   await page.goto(`${BASIS}/portaal/#/productie/stilstand`);
+  const analyseStilstand = await (await antwoordStilstand).json();
   await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
-  check("Nu stil: de lopende storing in PS7", (await page.locator("section", { hasText: "Nu stil" }).locator("tbody tr", { hasText: "PS7" }).count()) === 1);
-  const rijPs7 = await page.locator("section", { hasText: "Stilstand per stap" }).locator("tbody tr", { hasText: "PS7 " }).innerText();
-  const laagste = await page.locator(".tegel", { hasText: "laagste beschikbaarheid" }).innerText();
-  check("PS7 heeft de laagste beschikbaarheid", laagste.includes("PS7"), `verwacht PS7; tegel: ${laagste}; rij PS7: ${rijPs7}`);
+  const openStilstand = analyseStilstand.lijst.filter(x => !x.eind_op).map(x => x.stap).sort();
+  const nuStil = await page.locator("section.stil-blok tbody tr").evaluateAll(rs => rs.map(r => r.cells[0].innerText.trim().split(/\s+/)[0]).sort());
+  check("Nu stil: lopende stilstanden komen overeen met de analyse", openStilstand.length > 0 && JSON.stringify(nuStil) === JSON.stringify(openStilstand), JSON.stringify({ nuStil, openStilstand }));
+  const rijen = await page.locator("section", { has: page.getByRole("heading", { name: "Stilstand per stap", exact: true }) }).locator("tbody tr").evaluateAll(rows => rows.map(r => ({
+    stap: r.cells[0].innerText.trim().split(/\s+/)[0], percentage: r.cells[6].innerText.trim()
+  })));
+  const geldig = analyseStilstand.per_stap.filter(x => x.beschikbaarheid !== null);
+  const minimum = Math.min(...geldig.map(x => x.beschikbaarheid));
+  const tegel = page.locator(".tegel", { hasText: "laagste beschikbaarheid" });
+  const kandidaten = geldig.filter(x => x.beschikbaarheid === minimum);
+  const verwachtPercentage = x => Math.round(x * 1000) / 10;
+  check("Tabel toont alle beschikbare percentages", geldig.length > 1 && geldig.every(x => {
+    const rij = rijen.find(r => r.stap === x.stap);
+    return rij && Number(rij.percentage.replace("%", "").replace(",", ".").trim()) === verwachtPercentage(x.beschikbaarheid);
+  }));
+  if (minimum < 1) {
+    const stapLaagste = (await tegel.locator(".tegel-getal").innerText()).trim();
+    const tekst = (await tegel.locator(".tegel-tekst").innerText()).split(":").at(-1).trim();
+    check("Laagste beschikbaarheid op onafgeronde waarden", kandidaten.some(x => x.stap === stapLaagste) && Number(tekst.replace("%", "").replace(",", ".").trim()) === verwachtPercentage(minimum));
+  } else {
+    check("Geen laagste-beschikbaarheidstegel bij volledige beschikbaarheid", await tegel.count() === 0);
+  }
   check("Grafiek getekend", (await page.locator("svg[aria-label='Stilstand per stap'] path").count()) > 10);
   const laatste = page.locator("section", { hasText: "Laatste 50 keer stilstand" });
   const koppen = await laatste.locator("thead th").allInnerTexts();
@@ -201,16 +219,20 @@ try {
   await page.goto(`${BASIS}/`);
   await page.locator(".startpagina").waitFor();
   const tegels = await page.locator(".starttegel strong").allInnerTexts();
-  check("Ploegleider: invoerscherm, portalen en wandscherm als tegels",
-    tegels[0] === "Production Execution" && tegels.includes("Manufacturing Operations") && tegels.includes("Wandscherm") && !tegels.includes("Beheer"), tegels.join(", "));
+  check("Ploegleider: invoer, productie en planning; geen display of technisch beheer",
+    tegels[0] === "Production Execution" && tegels.includes("Manufacturing Operations") && tegels.includes("Planning") && !tegels.includes("Beheer") && !tegels.includes("Kwaliteit") && await page.locator(".starttegel-wandscherm").count() === 0, tegels.join(", "));
   await shot("09-startpagina");
+  const [voorPc] = await q("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'ploegleider1' AND pc = 'PC-03' AND uitkomst = 'gelukt'");
   await page.locator(".starttegel-invoer").click();
   await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
+  const pcBinding = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/pc" && r.request().method() === "POST");
   await page.getByRole("button", { name: /^PC-03/ }).click();
+  const binding = await pcBinding;
+  check("Werkstationbinding geaccepteerd", binding.status() === 200);
   await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
   check("Invoerscherm zonder opnieuw in te loggen, met de eigen naam", (await page.locator(".balk-eigen-naam").innerText()) === "ploegleider1");
   const [pcInlog] = await q("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'ploegleider1' AND pc = 'PC-03' AND uitkomst = 'gelukt'");
-  check("Telt als inlog op PC-03", pcInlog.n >= 1);
+  check("Werkstationbinding telt niet als wachtwoordlogin", pcInlog.n === voorPc.n);
   await page.getByRole("link", { name: "Portalen" }).click();
   await page.locator(".startpagina").waitFor();
   await page.getByRole("button", { name: "Afmelden" }).click();
@@ -236,36 +258,25 @@ try {
   await page.locator(".balk-eigen-naam").waitFor();
   check("Via de tegel: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
 
-  console.log("\nPilotoverzicht (#77)");
-  const tokenVan = async (naam) => (await (await fetch(`${BASIS}/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ gebruikersnaam: naam, wachtwoord: "demo" }) })).json()).token;
-  await page.goto(`${BASIS}/portaal/#/login`);
-  await page.evaluate((t) => localStorage.setItem("portaal.token", t), await tokenVan("productiemanager1"));
-  await page.goto(`${BASIS}/portaal/#/productie`);
-  await page.locator("#menu").getByRole("link", { name: "Pilotoverzicht" }).click();
-  await page.getByRole("heading", { name: "Pilotoverzicht" }).waitFor();
-  await page.getByLabel("Van").fill(new Date(Date.now() - 20 * 86400e3).toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" }));
-  await page.getByLabel("Van").dispatchEvent("change");
-  const [gw] = await q("SELECT count(*)::int AS n FROM fabriek.geweigerde_invoer");
-  // Wachten tot het overzicht met de nieuwe periode er staat (een vaste wachttijd was soms te kort).
-  const gwRijen = page.locator("section", { hasText: "Geweigerde invoer" }).locator("tbody tr");
-  for (let i = 0; i < 40 && (await gwRijen.count()) !== gw.n; i++) await page.waitForTimeout(250);
-  const geweigerdRijen = await gwRijen.count();
-  check("Productiemanager: geweigerde invoer van de laatste 20 dagen, gelijk aan de database", geweigerdRijen === gw.n && gw.n > 0, `${geweigerdRijen} / ${gw.n}`);
-  const pc04 = await page.locator("section").filter({ has: page.getByRole("heading", { name: "Per pc", exact: true }) }).locator("tbody tr", { hasText: "PC-04" }).allInnerTexts();
-  const bijz = await page.locator("section").filter({ has: page.getByRole("heading", { name: "Bijzonderheden per dag en pc" }) }).locator("tbody tr").allInnerTexts();
-  check("Bijzonderheden: alleen dagen met iets bijzonders, PC-04 erbij", bijz.length > 0 && bijz.length < 40 && bijz.some((r) => r.includes("PC-04")), `${bijz.length} regels`);
-  check("PC-04 komt op een paar dagen te laat binnen (testdata)", pc04.some((r) => / u \d+ min|\d{2},?\d* min/.test(r)), pc04.slice(0, 2).join(" | "));
-  check("Productiemanager ziet geen instellingen", (await page.getByRole("button", { name: "Instellingen wijzigen" }).count()) === 0);
-  await page.evaluate((t) => localStorage.setItem("portaal.token", t), await tokenVan("beheerder1"));
-  await page.goto(`${BASIS}/portaal/#/beheer/pilot`);
-  await page.getByRole("button", { name: "Instellingen wijzigen" }).click();
-  await page.getByRole("dialog").getByLabel(/Te laat na/).fill("45");
-  await page.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
-  await page.getByText("Invoer telt als te laat na 45 minuten.").waitFor();
-  const [inst] = await q("SELECT waarde FROM fabriek.instelling WHERE sleutel = 'te_laat_minuten'");
-  check("Beheerder zet 'te laat' op 45 minuten", inst?.waarde === "45");
-  await shot("10-pilotoverzicht");
+  console.log("\nPilotrapportage uitgesteld (D99)");
+  const tokenVan = async (naam) => {
+    const r = await fetch(BASIS+"/auth/login", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gebruikersnaam:naam,wachtwoord:"demo"})});
+    if (!r.ok) throw new Error("Testlogin mislukt: "+naam+" "+r.status);
+    return (await r.json()).token;
+  };
+  const instellingen = await q("SELECT sleutel,waarde FROM fabriek.instelling ORDER BY sleutel");
+  for (const [naam,portaal] of [["productiemanager1","productie"],["beheerder1","beheer"],["planner1","planning"]]) {
+    const token = await tokenVan(naam);
+    await page.evaluate(t=>{localStorage.removeItem("invoer.token");localStorage.setItem("portaal.token",t);},token);
+    await page.goto(BASIS+"/portaal/#/"+portaal+"/pilot");
+    await page.waitForFunction(p=>location.hash==="#/"+p,portaal);
+    await page.locator("#menu .menu-groep").first().waitFor();
+    check("Geen pilotmenu voor "+naam,await page.getByRole("link",{name:"Pilotoverzicht"}).count()===0);
+    const headers={authorization:"Bearer "+token};
+    check("Pilotrapportage geweigerd voor "+naam,(await fetch(BASIS+"/pilot",{headers})).status===403);
+    check("Pilotinstellingen geweigerd voor "+naam,(await fetch(BASIS+"/pilot/instellingen",{method:"PUT",headers:{...headers,"content-type":"application/json"},body:JSON.stringify({pilot_start:null,te_laat_minuten:90})})).status===403);
+  }
+  check("Historische pilotinstellingen blijven intact",JSON.stringify(await q("SELECT sleutel,waarde FROM fabriek.instelling ORDER BY sleutel"))===JSON.stringify(instellingen));
 } catch (e) {
   console.log("  AFGEBROKEN", e.stack ?? e);
   await shot("fout").catch(() => {});

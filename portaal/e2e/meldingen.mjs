@@ -6,6 +6,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-meldingen";
 const BASIS = "http://localhost:3465";
 mkdirSync(SHOTS, { recursive: true });
@@ -21,7 +23,7 @@ const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3465", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3465", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -41,11 +43,7 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-"+(naam === "beheerder1" ? "beheer" : "kwaliteit")).click();
 };
 
 try {
@@ -66,12 +64,15 @@ try {
   check("Gelezen: teller één lager", true);
 
   console.log("\nNieuwe melding");
+  const initTeller = page.waitForResponse(r=>new URL(r.url()).pathname==="/meldingen" && r.ok());
+  await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
+  await initTeller;
+  await page.waitForFunction(x=>document.querySelector(".menu-meldingen .teller")?.textContent === (x ? String(x) : ""), n-1);
   const [b] = await q("SELECT batchnummer FROM fabriek.batch WHERE status = 'in_productie' ORDER BY batchnummer LIMIT 1");
   await q(`INSERT INTO fabriek.batch_besluit (batch_id, besluit, reden, besloten_door)
            SELECT b.id, 'in_beoordeling', 'e2e: kleur wijkt af', g.id FROM fabriek.batch b, fabriek.gebruiker g
             WHERE b.batchnummer = $1 AND g.gebruikersnaam = 'ploegleider1'`, [b.batchnummer]);
-  await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
-  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 10000 });
+  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 75000 });
   check("Nieuwe melding verschijnt onderin beeld", (await page.locator("#melding").innerText()).includes(b.batchnummer));
   await page.locator(".menu-meldingen").click();
   await page.locator(".melding-rij", { hasText: "e2e: kleur wijkt af" }).getByRole("link", { name: "Bekijken" }).click();
@@ -85,8 +86,8 @@ try {
   console.log("\nRollen");
   await page.evaluate(() => localStorage.clear());
   await inloggen("beheerder1");
-  await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
-  check("Beheerder ziet ook meldingen", await page.locator(".menu-meldingen").isVisible());
+  await page.getByRole("heading", { name: "Accounts" }).waitFor();
+  check("Technisch beheer heeft geen operationele meldingen", await page.locator(".menu-meldingen").count() === 0);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});

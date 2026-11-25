@@ -1,12 +1,12 @@
+import { persoonlijkeTransactie } from "../auth.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, IEDEREEN, vereist, type Rol, operatorVan } from "../auth.js";
-import { inTransactie, lees, type Db } from "../db.js";
+import { ingelogd, operatorVan } from "../auth.js";
+import { requiresPermission, personalSession, requirePermission, requireTransactionPermission } from "../modules/authorization/access.js";
+import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { StapCode } from "./schemas.js";
 
-/** Stilstand melden en beëindigen: wie op de vloer werkt. */
-const VLOER: Rol[] = ["operator", "ploegleider"];
 const Tijd = Type.String({ format: "date-time" });
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 
@@ -43,27 +43,31 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/oorzaken",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: { tags: ["stilstand"], querystring: Type.Object({ ookInactief: Type.Optional(Type.Boolean()) }), response: { 200: Type.Array(Oorzaak) } },
     },
     async (req) =>
-      (await lees(app.db, `SELECT code, naam, categorie, actief FROM stilstand_oorzaak ${req.query.ookInactief ? "" : "WHERE actief"}
-                            ORDER BY CASE categorie WHEN 'storing' THEN 1 WHEN 'wachten' THEN 2 WHEN 'gepland' THEN 3 ELSE 4 END, naam`)) as never,
+      (await lees(app.db, `SELECT code, naam, categorie, actief FROM stilstand_oorzaak WHERE (actief OR $2::boolean) AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL))
+                            ORDER BY CASE categorie WHEN 'storing' THEN 1 WHEN 'wachten' THEN 2 WHEN 'gepland' THEN 3 ELSE 4 END, naam`, [req.user.sub, req.query.ookInactief ?? false])) as never,
   );
 
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN, "scherm"),
+      preHandler: async (req) => {
+        await ingelogd(req);
+        if (req.user.ww) throw new ApiFout(403, "Kies eerst een eigen wachtwoord");
+        if (req.user.rol === "scherm") await requirePermission(app.db, req.user.sub, "display.downtime.read");
+      },
       schema: { tags: ["stilstand"], description: "Stilstand die nu loopt, per stap.", response: { 200: Type.Array(Stilstand) } },
     },
-    async () => (await lees(app.db, `${STILSTAND_SQL} WHERE x.eind_op IS NULL ORDER BY s.volgorde`)) as never,
+    async (req) => (await lees(app.db, `${STILSTAND_SQL} WHERE x.eind_op IS NULL AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'display.downtime.read',NULL,NULL,NULL)) ORDER BY s.volgorde`, [req.user.sub])) as never,
   );
 
   app.post(
     "/",
     {
-      preHandler: vereist(...VLOER),
+      preHandler: requiresPermission("downtime.record"),
       schema: {
         tags: ["stilstand"],
         description: "Stilstand melden voor een stap. Met een eigen id is opnieuw versturen veilig (offline wachtrij).",
@@ -80,9 +84,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       if (req.body.id) {
         const al = await eenStilstand(app.db, req.body.id);
-        if (al) return reply.status(200).send(al as never);
+        if (al) {
+          const [original] = await lees<{ gemeld_door: string; stap: string }>(app.db, "SELECT x.gemeld_door,s.code AS stap FROM stilstand x JOIN processtap s ON s.id=x.processtap_id WHERE x.id=$1", [req.body.id]);
+          if (original?.gemeld_door !== req.user.sub || original.stap !== req.body.stapcode) throw new ApiFout(409,"Dit id hoort bij een andere stilstandmelding");
+          return reply.status(200).send(al as never);
+        }
       }
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) => {
+        await requireTransactionPermission(tx,req.user.sub,"downtime.record");
         const { rows: s } = await tx.query("SELECT id FROM processtap WHERE code = $1 AND actief", [req.body.stapcode]);
         if (!s[0]) throw niet("Stap");
         const { rows: o } = await tx.query("SELECT id FROM stilstand_oorzaak WHERE code = $1 AND actief", [req.body.oorzaak]);
@@ -110,7 +119,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:id/einde",
     {
-      preHandler: vereist(...VLOER),
+      preHandler: requiresPermission("downtime.record"),
       schema: {
         tags: ["stilstand"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
@@ -123,9 +132,11 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const al = await eenStilstand(app.db, req.params.id);
       if (!al) throw niet("Stilstand");
       if ((al as { eind_op: string | null }).eind_op) return al as never; // al beëindigd (opnieuw verstuurd)
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1",
-          [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null, req.body.notitie ?? null]));
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
+        await requireTransactionPermission(tx,req.user.sub,"downtime.record");
+        return tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1 AND eind_op IS NULL",
+          [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null, req.body.notitie ?? null]);
+      });
       return (await eenStilstand(app.db, req.params.id)) as never;
     },
   );
@@ -134,7 +145,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/oorzaken",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("downtime.reason.manage"),
       schema: {
         tags: ["stilstand", "beheer"],
         body: Type.Object({
@@ -146,7 +157,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("INSERT INTO stilstand_oorzaak (code, naam, categorie) VALUES ($1, $2, $3) RETURNING code, naam, categorie, actief",
           [req.body.code.trim(), req.body.naam.trim(), req.body.categorie]));
       return reply.status(201).send(r.rows[0]);
@@ -155,7 +166,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/oorzaken/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("downtime.reason.manage"),
       schema: {
         tags: ["stilstand", "beheer"],
         params: Type.Object({ code: Type.String() }),
@@ -168,7 +179,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query(`UPDATE stilstand_oorzaak SET naam = coalesce($2, naam), categorie = coalesce($3, categorie), actief = coalesce($4, actief)
                    WHERE code = $1 RETURNING code, naam, categorie, actief`,
           [req.params.code, req.body.naam?.trim() ?? null, req.body.categorie ?? null, req.body.actief ?? null]));

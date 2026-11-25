@@ -6,6 +6,8 @@ import pg from "pg";
 import { chromium } from "playwright-core";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-nalevering";
 const BASIS = "http://localhost:3471";
 mkdirSync(SHOTS, { recursive: true });
@@ -18,7 +20,7 @@ const check = (naam, ok, extra = "") => {
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3471", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3471", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -128,6 +130,9 @@ try {
   await page.getByRole("button", { name: "Inloggen" }).click();
   await page.locator(".startpagina").waitFor();
   check("Productiemanager ziet de tegel niet", (await page.locator(".starttegel-nainvoeren").count()) === 0);
+  await page.goto(BASIS+"/portaal/#/nainvoeren");
+  await page.waitForFunction(()=>location.hash==="#/");
+  check("Rechtstreekse naleveringsroute geblokkeerd",await page.getByRole("heading",{name:"Nainvoeren van papier"}).count()===0);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await page.screenshot({ path: `${SHOTS}/fout.png` }).catch(() => {});

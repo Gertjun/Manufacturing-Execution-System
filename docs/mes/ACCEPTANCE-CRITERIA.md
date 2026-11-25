@@ -1,11 +1,11 @@
 # Acceptatiecriteria
 
-D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht testen, Node 22 automatisch, volledige Node 26 op actuele head/base bij softwareacceptatie. Geen testverzwakking; eigenaar merget. Documentatie-only volgens actuele allowlist; de acht expliciete docs/mes-bestanden vallen onder de documentatie-uitzondering. Geen versie/release voor ontwerpdocumentatie.
+D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht testen, Node 22 selectief op concept-PR via compatibiliteit-test, beide suites op actuele head/base bij acceptatie-test (D90). Geen testverzwakking; eigenaar merget. Documentatie-only volgens actuele allowlist; de acht expliciete docs/mes-bestanden vallen onder de documentatie-uitzondering. Geen versie/release voor ontwerpdocumentatie.
 
 | Poort | Minimaal bewijs |
 |---|---|
 | 0 | 69 besluiten, documentatie en roadmap compleet; normmatrix ontwerpstatus |
-| 1 | Meerdere rollen, scope/kwalificaties, negatieve API/DB autorisatietests, geen zelftoekenning, regressie bestaande functies |
+| 1 | Meerdere rollen, scope/kwalificaties, negatieve API/DB autorisatietests, geen zelftoekenning, regressie behouden kernfuncties en beveiliging tijdelijke legacy-interfaces (D99) |
 | 2 | Concept wijzigbaar, vrijgegeven MBR onveranderlijk, goedkeuring vervalt bij wijziging, versieverschil en geldigheid, historische koppeling onbekend indien geen bewijs |
 | 3 | Middelen en fysieke assets onderscheiden; geschiktheid/status/kwalificatie, historische toewijzing |
 | 4 | Order, job, planning en dispatch-voorwaarden; geen uitvoering zonder vrijgave |
@@ -17,3 +17,346 @@ D89 G01–G08 en D87/D88. Voor elke PR scenario's vooraf definiëren, gericht te
 | 10–11 | KPI-definities en bewijs, integratiecontracten, veilige uitrol |
 
 Migratietests: schone installatie en upgrade vanaf main, schema/diagram consistent, historische data en ID's behouden, DB-rechten beperkte app-account, transacties en herstel. Kritische negatieve tests: operator MBR wijzigen, auteur alleen goedkeuren, systeembeheer product vrijgeven, ongeschikt middel, ontbrekende kwalificatie, verlopen offline bevoegdheid, opheffen technische hold laat quality hold intact. Werkelijke testbewijslinks pas invullen na uitvoering.
+
+Fase 1, PR #6 (deelimplementatie): `api/test/authorization.test.ts` bevat scenario's voor gescheiden grants, ontbrekende scope, geldigheid, intrekking, kwalificaties, conflicterende beheerdomeinen en persoonlijke identiteit. Uitvoering en API/DB-integratie nog open.
+
+D92: oude accountimport moet 404 opleveren; geen accountsjabloon in Medewerkers. Handmatig account aanmaken, tijdelijk wachtwoord en eigen wachtwoord wijzigen blijven regressietests.
+
+Migratie 0038: negatieve DB-scenario's voor eigen aanvraag, onbevoegde aanvrager, eigen besluit, doelaccount als beoordelaar, dubbele beslissing en beperkte app-rechten; positieve onafhankelijke beslissing en afwijzing. Nog niet uitgevoerd. Identiteitsherbevestiging, intrekking, gecontroleerd bootstrapkanaal en API/UI-integratie blijven open.
+
+0039: regressies voor bescherming van security-account tegen reset/rolwijziging/hernoemen, geweigerde app-aanroep, verkeerde herbevestiging zonder besluit, juiste herbevestiging met gekoppeld besluit. Nog niet uitgevoerd.
+
+Verplichte reviewpoort voor iedere MES-fase (afspraak 24 november 2026): na functionele implementatie en vóór volledige acceptatie-CI alle bestaande workflowtests, fixtures, schemaqueries, verwachtingen en triggers inventariseren en toetsen aan de goedgekeurde ontwerpbesluiten. Verwijder uitsluitend achterhaalde verwachtingen, behoud relevante dekking en voeg positieve/negatieve tests toe. Leg reviewresultaat en resterende risico's vast vóór het starten van de acceptatierun.
+
+0041: regressies voor onbevoegde intrekking, verkeerde herbevestiging, succesvolle intrekking, dubbele intrekking, behoud grant/audit en onveranderlijke aanvragen/besluiten/intrekkingen. Nog niet uitgevoerd.
+
+0042: controleer persoonlijke login met beperkte kolomrechten, en dat een bestaande sessie na wijziging of deactivering van de oude accountrol geen toegang meer krijgt. De nieuwe MES-grants zijn nog niet de gezaghebbende bron voor bestaande routes.
+
+0044: test expliciet dat een oude beheerder zonder grant geen account- of parameterbeheer mag uitvoeren; system administrator mag accounts maar geen procesparameters wijzigen; process engineer mag parameters maar geen accounts beheren; security administrator mag geen technisch of engineeringbeheer uitvoeren; ingetrokken, verlopen en scoped grants geven geen globale beheertoegang. Oude API/UI-testfixtures bij de integrale review aanpassen.
+
+0045: test registratie-start, waarden, grondstoffen, afronden en correcties met actuele productscope; keuringsvelden vereisen afzonderlijke inspection-permission; hergebruik UUID voor andere batch/lot geweigerd. Legacy DB-rolchecks, area/equipmentcontext en overige routes nog te integreren. Integrale tests nog niet uitgevoerd.
+
+0046: negatieve regressies vereist voor registratie/keuring buiten productscope, technische/security-leestoegang, technician die besluit probeert te nemen en ingetrokken grant; positieve approver binnen scope. Nog niet uitgevoerd. Herbevestiging en databasehandhaving open.
+
+D96: negatieve regressie voor verwijderde /keuringen/verwacht; behoud de positieve regressies voor openstaande keuringen en het starten van een beschikbare keuringsstap. UI- en workflowreview blijft vereist vóór faseacceptatie.
+
+0047: regressies voor scheiding planning en engineering, geweigerde legacy-only/technische/security-accounts, verlopen/ingetrokken grants, en geen globale wijzigingen met beperkte scope. D97 staat vervanging van fictieve fixtures toe zonder bedrijfsregeltests te verliezen. Nog geen uitvoeringsbewijs.
+
+0048: regressies voor operationele functiescheiding, geweigerde scoped globale acties, idempotentie uitsluitend voor oorspronkelijke identiteit, ongeldige operatorheader en gelijktijdig beëindigen stilstand zonder overschrijven. Nog niet uitgevoerd.
+
+0049: regressies voor batch/lotleesrecht, scope van elk lotlid, idempotentie van oorspronkelijke operator, gescheiden blokkade/kwaliteitsbesluit/herbewerkingsopdracht. Test ook gemengde of onbekende productcontext, oude DB-rolchecks, en kritische herbevestiging vóór acceptatie. Nog niet uitgevoerd.
+
+D99: scopepoort vóór verdere legacy-integratie en vóór faseacceptatie. Toets de goedgekeurde matrix in DECISIONS.md; uitgestelde functies zijn geen fase-1-acceptatie-eis, maar geen onbeschermde tijdelijke interfaces of regressies in behouden bedrijfsregels. PGlite-demo niet verplicht; gecontroleerde uitfasering na afhankelijkhedenreview (#136). PostgreSQL en Windows-laptoppakket blijven leidend. Fictieve fixtures mogen conform D97 worden vervangen. Geen testresultaat geclaimd.
+
+## Tussentijdse audit D99 — startbaseline 400880ccc8cc213f3052753463aa22ff9873ff6e
+
+Vergelijking main 31c86973bf13848cba44fc38785084953fe65e39: 26 commits; inventarisatie van gewijzigde bestanden uitgevoerd, inhoudelijke audit nog in uitvoering. A = direct corrigeren, B = uitfaseren, C = tijdelijk afschermen, D = behouden. Geen volledige acceptatie-CI tot eindaudit en testreview gereed zijn.
+
+| Bevinding | Klasse | Status |
+|---|---|---|
+| Werkstationbinding registreert fictieve succesvolle login en kan rate-limit beïnvloeden | A | API-insert verwijderd; directe app/PUBLIC-schrijfprivileges ingetrokken; nog testen |
+| ingelogd controleert accountstatus niet opnieuw | A | Actieve persoonlijke account-, rol- en tijdelijke-wachtwoordstatus gecontroleerd; nog testen |
+| Legacy-rolveld en directe accountwijzigingen kunnen functiescheiding omzeilen | A | Open |
+| Kritische kwaliteitsbesluiten zonder persoonlijke herbevestiging | A | Open |
+| Ongeplande batchcreatie / opdrachtloze herbewerking | C/A | D98/D99: geen definitieve MES-rechten; afscherming nog beoordelen |
+| Direct wijzigbare procesdefinitie en vaste lotgrootte | C | Vervanging fase 2/5; geen verdere investering |
+| Stilstand per processtap | C | Vervanging fase 3 |
+| PGlite-demo en uitgebreide wandschermen | B | Afhankelijkhedenreview open |
+| Rollen, scope, kwalificaties en persoonlijke identiteit | D | Fundament behouden; handhaving en tests open |
+
+Gerichte regressies vereist: /auth/pc voegt geen inlogsucces toe; beide app-rollen mogen geen inlogpoging invoegen; ingetrokken/inactieve en gewijzigde accounts krijgen geen toegang via ingelogd; tijdelijk wachtwoord wijzigen blijft mogelijk. Nog niet uitgevoerd.
+
+0050 tussentijdse audit: gedeelde accounts geweigerd in de database; bekende accountpogingen geserialiseerd; wachtwoordwijziging gebruikt dezelfde begrensde login, negatieve poging wordt gecommit vóór HTTP-fout. Oude controle/wijzigfunctie eigenaar-only. Gerichte DB-regressies toegevoegd, API PC-test aangepast; nog niet uitgevoerd. Security-accounttrigger en gecontroleerd accountherstel afzonderlijk beoordelen.
+
+Tussentijdse audit (klasse A): ongeldige enkele dollarbegrenzingen in db/schema.sql en niet-uitgebrachte migratie 0050 hersteld. Correctie vóór eerste acceptatie, geen wijziging aan uitgebrachte migraties. Schone installatie, upgrade en vergelijking van schema blijven verplicht; nog niet uitgevoerd.
+
+0051 (klasse A): technische en security-grants mogen niet tegelijk actief zijn op één identiteit; bestaande conflicterende grants geven geen rechten en nieuwe overlappende toekenningen worden geweigerd door de besluitprocedure. TypeScript en SQL-regressies voor afzonderlijke en gemengde identiteiten toegevoegd. Tests nog niet uitgevoerd; directe eigenaarwrites, accountbeheer, herstel en beveiligd besliskanaal blijven afzonderlijke auditpunten.
+
+0052 (klasse A): oude roltoekenning bij aanmaken/wijzigen via beide gewone applicatielogins geblokkeerd; nieuwe accounts krijgen pending en een tijdelijk wachtwoord. Technische API weigert rol- en personeelsindeling en controleert account.manage in de schrijftransactie. Gerichte DB-regressies toegevoegd, niet uitgevoerd. Bestaande legacy-rollen blijven onveranderd; oude routes, herstel, personeelroutes, UI en gecontroleerde overgang van pending naar uitvoeringsidentiteit blijven open. Geen acceptatie van accountbeheer vóór integratie.
+
+0053 (klasse A): gewone app-login mag credentials van bestaande legacy-accounts of accounts met niet-ingetrokken grants niet resetten; ook toekomstige/verlopen grants beschermd. Reactivering van beschermde accounts en uitschakelen van technische/security-identiteiten via gewone accountupdate geweigerd. Eigen wachtwoordwijziging via bevestigde eigenaarfunctie behouden. Nieuwe toekenning weigert tijdelijk wachtwoord. DB-regressies toegevoegd, niet uitgevoerd. Gecontroleerde recovery, veilige initiële identiteitsoverdracht, eigenaarschap/privilege-audit en oude noodsleutel blijven open; geen volledige bescherming tegen een vertrouwde database-eigenaar geclaimd.
+
+0054 (klasse A): eigenaar-only bootstrap met drie afzonderlijke identiteiten, afzonderlijke wachtwoorden, reden en onveranderlijk auditrecord; uitsluitend lege identiteitsadministratie, geen automatische conversie. Oude noodsleutel op bestaande database uitgeschakeld. Negatieve DB-regressies toegevoegd; positieve lege-installatie-, gelijktijdigheids- en pakkettest nog te actualiseren/uitvoeren. Identiteit van aanwezige personen en externe goedkeuring zijn organisatorische randvoorwaarden, niet bewezen door de tool. Gecontroleerd accountherstel en noodherstel nog open; geen productieacceptatie.
+
+0055 (klasse A): eigenaar-only herstel van actief persoonlijk account met twee onafhankelijke security-identiteiten, persoonlijke herbevestiging binnen dezelfde concrete handeling, tijdelijk wachtwoord en onveranderlijk herstelrecord. Geen automatische reactivering of grants. Negatieve en positieve DB-regressies toegevoegd, niet uitgevoerd. Beveiligde persoonlijke overdracht, sessie-intrekking (oude JWT mag na wachtwoordwijziging niet herleven), CLI/API-aansluiting, noodherstel bij onvoldoende security-identiteiten en bescherming tegen eigenaarmisbruik blijven open. Herstel nog niet operationeel accepteren.
+
+0056 (klasse A): sessiegeneratie bij credential-, status- en legacy-identiteitswijzigingen; login legt generatie vast onder accountlock, wachtwoordwijziging controleert oude generatie in transactie en pc-token behoudt oude generatie. Tokens zonder generatie geweigerd. DB/API-regressies toegevoegd, niet uitgevoerd. Overige directe JWT-consumenten, reeds lopende schrijftransacties en rollback/herstel van database nog afzonderlijk auditen; geen volledige sessie-intrekkingsclaim vóór validatie.
+
+0057 (klasse A): eigenaar-only herstel-diagnose telt onafhankelijke bevoegde paren buiten het doelaccount. Geen writes, geen impliciete nieuwe grants; nul paren betekent escalatie. Aantal is alleen technische bovengrens, geen bewijs van beschikbaarheid. Noodherstelprotocol beschreven; daadwerkelijke uitzonderingsuitvoering vereist organisatorisch goedgekeurde afzonderlijke procedure. Tests toegevoegd, niet uitgevoerd. Geen claim dat noodherstel operationeel gereed is.
+
+0058 (klasse A): afzonderlijke globale personnel.read/manage voor Manufacturing Manager; technische accountlijst toont geen ploeg/persoonsnaam meer. Personeelswrites controleren permission opnieuw in transactie. Loginprojectie uitsluitend bestaande actieve koppeling; directe app-koppeling ingetrokken, fictieve demo-koppelingen expliciet geladen. Historie behouden. Gecontroleerde koppeling door bevoegde personen, kwalificatiebeheer, UI, scope en directe gedeelde DB-login voor overige personeelsvelden nog open; geen volledige functiescheiding geclaimd. Tests toegevoegd, niet uitgevoerd.
+
+0059 (klasse A): afzonderlijke NOLOGIN-groepsrol mes_security_channel met uitsluitend drie bevestigde SECURITY DEFINER-ingangen voor aanvraag, besluit, intrekking. Geen automatisch lidmaatschap; gewone app en PUBLIC uitgesloten, geen directe tabelwrites. Negatieve/positieve DB-regressies toegevoegd, niet uitgevoerd. Persoonlijke database-login aan MES-identiteit binden, beperkte leesinterface, veilige provisioning, sessie/transport en operationele UI/CLI nog open. Niet operationeel vrijgeven vóór acceptatie; groep is geen eigenaarlogin.
+
+0060 (klasse A): afzonderlijk securitykanaal gebruikt SESSION_USER plus rol-OID en naam, één MES-identiteit per persoonlijke database-login, geen vrij actorargument. Oude signatures ingetrokken voor kanaal. Afgeschermde aanvraag- en grantlezers controleren authorization.read; geen hash of tabelwrite. Negatieve/positieve regressies met fictieve afzonderlijke database-identiteiten toegevoegd, niet uitgevoerd. Provisioning en intrekking/herbinding van identiteiten, controle op indirecte rolprivileges en veilige transport/bediening nog open; geen operationele toegang toegekend. OID-binding blijft lokaal, na restore gecontroleerd opnieuw inrichten.
+
+0061 (klasse A): eigenaar-only registratie en append-only intrekking van persoonlijke securitybinding, vervanging uitsluitend met nieuwe rolnaam/OID na intrekking. Accountlock serialiseert registratie; logincontrole weigert ingetrokken bindingen en andere groepsrollen/beheeropties. Geen automatische logins/grants. Tests toegevoegd, niet uitgevoerd. Direct toegekende objectprivileges, reeds lopende transacties, IT-provisioning, restore op andere server en transport nog te valideren. Na restore kanaal buiten gebruik houden totdat bindingen gecontroleerd zijn ingetrokken en vervangen; geen automatische herbinding.
+
+0062 (klasse A): persoonlijke wachtwoordherbevestiging en sessiegeneratie in dezelfde DB-handeling als legacy-keurings-/batchbesluit; actuele productscope inclusief lotleden, herhaling geweigerd, directe besluitwrites begrensd. Oude beslisfunctie eigenaar-only. Geen opdrachtloze herbewerking via keuringsroute. Negatieve regressies toegevoegd, niet uitgevoerd. Nog open: exacte dossierstand bij beoordeling, legacy rolchecks, overige statuswrites, afgeleide automatische vrijgave/afkeuring, UI zonder offline wachtwoordopslag, overige herbewerkingsroutes. Geen definitieve MES Quality Release geclaimd.
+
+0063 (klasse A): geen automatische herbewerking achteraf; bestaande opdracht met aanmaker, exact object, stap en reden vereist; opdracht wordt onder lock geconsumeerd. Legacy maak_herbewerking weigert kwaliteitsblokkade op te heffen. Historische rijen blijven ongewijzigd. Regressies toegevoegd, niet uitgevoerd. Directe creatie/wijziging van opdrachten, overige statusovergangen, actuele scope/kwalificaties bij opdrachtvrijgave en oude tests voor herbewerking tijdens beoordeling blijven open voor audit en aanpassing; definitieve Job Order fase 7.
+
+Correctie 0063 vóór release: foutief enkel dollarteken in SQL-functiedefinitie hersteld in migratie en nieuw schema; geen uitgegeven migratie aangepast. Functionele validatie nog vereist.
+
+0064 (klasse A): bevestigde tijdelijke opdrachtcreatie/intrekking, actuele persoonlijke sessie en productscope inclusief lotleden, directe tabelwrites en oude functies voor gewone app ingetrokken; gecontroleerde stapkoppeling blijft via trigger mogelijk. Historie onveranderlijk. Negatieve tests toegevoegd, niet uitgevoerd. Open: legacy rolchecks in onderliggende functies, daadwerkelijke uitvoeringsbevoegdheid bij directe stapregistratie, UI zonder offline wachtwoordopslag, positieve regressies en integratietests; geen definitieve Job Order.
+
+0065 (klasse A): bij daadwerkelijke consumptie van legacy-herbewerkingsopdracht controle op actieve persoonlijke operatorkoppeling, actuele execution.rework inclusief kwalificaties en productscope voor alle lotleden. Geldt ook voor gewone stapstart die impliciet herbewerking wordt. Geen gebied/equipment-context verzonnen; beperkte grants zonder betrouwbare context worden geweigerd. Negatieve en positieve fixture-regressie toegevoegd, niet uitgevoerd. Resterend: authenticiteit van aanroepende actor bij gedeelde app-databaseverbinding (operator-ID alleen is geen identiteitsbewijs), overige directe registratie/statuswrites, integratietests en legacy fixtures. Geen volledige autorisatieacceptatie geclaimd.
+
+0066 (klasse A, fundament): persoonlijk database-uitgegeven 256-bit bearer-bewijs na wachtwoordauthenticatie, alleen SHA-256-hash opgeslagen, maximaal 12 uur, controle actuele sessiegeneratie en accountstatus, afgeschermd register, owner-only opruiming. Geen automatische autorisatie of identiteit op basis van een los ID. Negatieve tests toegevoegd; niet uitgevoerd. Nog open: API-uitgifte en wachtwoordwijziging/werkstationbinding, centrale transactiecontrole en verplichte bewijscontrole bij alle beschermde writes, positieve/expiry/revocation-tests, redactie van bewijs uit logging en tracing, uitsluiten sessies bij restore en beheer van verlopen rijen. Bestaande routes nog niet beschermd door 0066; geen volledige acceptatie.
+
+0067 (klasse A): login en bevestigde wachtwoordwijziging gebruiken database-uitgegeven sessiebewijs in ondertekend JWT; werkstationwisseling behoudt hetzelfde bewijs en verlengt de databasegeldigheid niet. Beide centrale API-authenticatieguards weigeren ontbrekend/ongeldig bewijs voor reguliere persoonlijke sessies. Tijdelijk wachtwoord en schermaccount blijven beperkt via bestaande guards; geen uitvoeringsbewijs. Oude login/password wrappers eigenaar-only na rechtenherstel. Nog open: alle overige directe JWT-consumenten, verplicht bewijs bij writes binnen dezelfde transactie, positieve API-regressies, logging/restore. Oude persoonlijke JWT's zonder bewijs vereisen opnieuw inloggen. Niet functioneel getest.
+
+0068 (klasse A, gedeeltelijke handhaving): invoerTransactie bindt persoonlijk bewijs binnen dezelfde transactie; GUC bevat uitsluitend bearer-bewijs, bij beschermde writes opnieuw gevalideerd. Invoker-trigger voor stapregistratie INSERT/UPDATE via mes_app controleert bewijs, operator bij start en gewijzigde afrondende operator; oorspronkelijke operator onveranderlijk. Eigenaar/definer-paden en overige tabellen (waarde, grondstof, correcties, status, etc.) zijn nog niet volledig afgedekt; legitieme interne cascades en routes buiten invoerTransactie inventariseren en testen. GUC-bewijs/logging en gedeelde rol-grens expliciet onderzoeken; geen volledige databasehandhaving geclaimd. Negatieve regressies toegevoegd, niet uitgevoerd.
+
+0069 (klasse A, gedeeltelijk): invoker-guards bij INSERT waarde en grondstof_gebruik controleren persoonlijk bewijs, oorspronkelijke invoerder of corrector, actuele concrete rechten en productscope inclusief lotleden. Reguliere correctieroutes gebruiken invoerTransactie. Kwaliteitscorrecties via gewone writes fail closed totdat gecontroleerde conflictafhandeling is ingericht; bestaande conflict- en papieren naleveringsroutes, definer-paden en overige statuswrites nog onderzoeken. Historische waarden niet gewijzigd. Negatieve tests toegevoegd, niet uitgevoerd. Positieve regressies, scope, conflict en oorspronkelijke data-integriteit nog te valideren.
+
+0070 (klasse A, gedeeltelijk): conflictinvoer gebonden aan bewezen persoonlijke actor, referentie naar oorspronkelijke invoer en concrete actuele recordbevoegdheid inclusief lotleden. Besluit via afgeschermde wrapper met verplichte motivatie, execution.correct of inspection.decide, actuele productscope, controle dat oorspronkelijke waarde nog actueel is, oude functie eigenaar-only, directe besluitwrites ingetrokken. Geen vrijgave. Legacy rolcheck in onderliggende functie, concurrentie met gewone correcties, UI verplichte reden, leesrechten en eventuele herbevestiging conform D75 nog beoordelen; papieren nalevering apart. Negatieve tests toegevoegd, niet uitgevoerd. Historie niet gewijzigd.
+
+0071 (klasse A/C): tijdelijke papieren productienalevering via afgeschermde wrapper, bewezen digitale transcribent gescheiden van op papier verklaarde oorspronkelijke operator, verplichte motivatie en actuele execution.correct/start/record/complete plus lot.create waar relevant, productscope voor alle betrokken batches, geen kwaliteitsmetingen/keuringen of herbewerking via dit pad. Oude functie eigenaar-only; gewone applicatierol kan herkomstvelden niet fabriceren. Bestaande zeven-dagenregel en huidige lotcardinaliteit behouden (productafhankelijke lotsamenstelling later); geen bewijs van historische bevoegdheid oorspronkelijke uitvoerder geclaimd. Legacy rolcheck, leesroute, positieve regressies en alle definer-paden nog te valideren. Negatieve tests toegevoegd, niet uitgevoerd. Historie niet gewijzigd.
+
+0072 (klasse A, gedeeltelijk): directe batch-/lotstatuswijzigingen door gewone app geweigerd, directe lotcreatie en batchbesluiten ingetrokken, gecontroleerde statusovergangen via registratie-triggers, sessiegebonden blokkade, planning annuleren en lotsamenstelling met productscope. Oude maak_lot eigenaar-only. Gereed is geen MES-vrijgave. Nog open: directe batchinsert, registratie-start/afrondingsbevoegdheid en manipulatie van status/keuring, alle SECURITY DEFINER-paden, positieve integratie en migratietests, oude rolchecks. Negatieve regressies toegevoegd, niet uitgevoerd; geen historie gewijzigd. Vaste lotcardinaliteit blijft tijdelijk.
+
+0073 (klasse A/C, D98): tijdelijke PoC-batchcreatie en batchplanning uitsluitend via sessiegebonden databasefuncties, actuele concrete bevoegdheden en gecontroleerde herkomst; directe INSERT ingetrokken en oude plan_batches eigenaar-only. Batchmetadata beschermt oorspronkelijke herkomst en controleert planning voor oude/nieuwe productscope. Geen definitieve Job Order, geen extra legacy-functionaliteit. Processtart/afronding en overige planningswrites nog afzonderlijk afschermen. Negatieve regressies toegevoegd, niet uitgevoerd; historie behouden.
+
+0074 (klasse A): directe stapregistratie-writes ingetrokken; oude start/afrond/rework functies eigenaar-only; sessiegebonden wrappers voor API met actuele actor, werkstation, concrete bevoegdheid, productscope inclusief lotleden en statusblokkades. Afronding gebruikt bestaande verplichte productievelden/grondstoffen en weigert open conflict. Bestaande keuringsstart (automatische technische afronding, geen kwaliteitsvrijgave) behouden. Nog open: gecontroleerde interne eigenaarspaden (lotcreatie, papieren nalevering, kwaliteitscascade), scope van keuringen en rework bij gewone start, lockvolgorde/concurrentie, idempotentie, functionele en migratietests. Negatieve tests toegevoegd, niet uitgevoerd; geen historie gewijzigd.
+
+0075 (klasse A): basisschema overschreef expliciete search_path-instellingen via algemene slotlus; nu alleen functies zonder expliciet zoekpad aanvullen. Migratie normaliseert resterende functies met ontbrekend expliciet pg_temp-einde; pg_catalog vooraan. Oude inloggen/change_password_confirmed eigenaar-only na rechtenherstel, uitsluitend sessiewrappers voor gewone app. Catalogusregressies toegevoegd. Nog open: vertrouwensgrens public-schema en CREATE-rechten, volledige functieallowlist, transitieve definer-calls, positieve login/tests en schema/migratie-equivalentie. Niet functioneel getest.
+
+0076 (klasse A): expliciete functie-interface met 62 signatures op basis van statische API-route-inventarisatie en transitieve invoker-/triggerhelpers; PUBLIC en directe oude app-grants ingetrokken bij rechteninstallatie. Voor oudere restore-schema's blijft oude rechteninstallatie tijdelijk tot migratie. Security-kanaal blijft apart. Geen volledige least-privilege claim: tabelrechten, nog onbeveiligde toegestane legacy-writes, dynamische SQL, views, indirecte grants en lokale/PGlite routes nog toetsen. Nieuwe functies krijgen standaard PostgreSQL PUBLIC totdat migratie/rechteninstallatie die intrekt; toekomstige migraties moeten dit binnen dezelfde transactie doen. Catalogusregressies toegevoegd, niet uitgevoerd. Functionele acceptatie vereist.
+
+0077 (klasse A/C, gedeeltelijk): expliciete tabelschrijfinterface voor huidige API en invoker-functies/triggers; tabelbrede INSERT/UPDATE/DELETE/TRUNCATE van PUBLIC en oude/app-rollen ingetrokken bij rechteninstallatie, alleen genoemde legacy-writes teruggegeven. Waarde/grondstof/conflict alleen INSERT; lot, keuring, batchbesluit, stapregistratie niet direct schrijfbaar; config_log/melding nog INSERT voor huidige invoker-triggers, dus auditvervalsing nog open. Bestaande gebruiker/operator-kolomgrants blijven; overige oude kolomgrants en indirecte rollen nog inventariseren. Leesrechten, sequentierechten, verdere configuratie/planningsautorisatie, audittrail, dynamische SQL en runtimevalidatie open. Geen historie gewijzigd. Negatieve tests toegevoegd, niet uitgevoerd.
+
+0078 (klasse A/C, gedeeltelijk): expliciete tijdelijke leeslijst; oude tabel- en SELECT-kolomgrants van PUBLIC en beide applicatierollen ingetrokken bij rechteninstallatie. Sessiebewijzen, securitybindingen en wachtwoordhashes uitgesloten. Overige bestaande operationele leesrechten voorlopig behouden; geen databasebrede productscope of bescherming tegen andere indirecte rollen geclaimd. Catalogusregressies toegevoegd, niet uitgevoerd. Functionele controle en nieuwe-schema/upgradevergelijking vereist.
+
+0079 (klasse A, gedeeltelijk): configuratielogboek uitsluitend via afgeschermde trigger en bestaande gecontroleerde eigenaarpaden; directe tabel- en kolomwrites en triggeruitvoering voor gewone applicatierollen/PUBLIC ingetrokken. Vaste search_path, bestaande wachtwoordredactie behouden. Negatieve catalogus- en SQL-tests toegevoegd, niet uitgevoerd. Positieve configuratie- en papieren naleveringstests verplicht. Legacy actorlabel uit GUC blijft manipuleerbaar; persoonlijk bewezen actorbinding, sequentierechten en indirecte rollen afzonderlijk toetsen. Geen volledige audittrailintegriteit geclaimd.
+
+0080 (klasse A, gedeeltelijk): configuratietrigger bepaalt naam via actuele persoonlijke sessie, negeert vrije GUC-naam; zonder geldig bewijs expliciet niet persoonlijk bewezen. Beheer, Planning, Stilstand en Overdracht gebruiken persoonlijke transacties voor bestaande writes. Geen wijziging historische auditregels. Bestaande eigenaar-test voor vrije naam vervangen door negatieve herkomsttest; positieve API-auditverwachtingen behouden. Nog open: stabiele actor-ID, bevestigde wachtwoordwijziging, bootstrap/herstel, onderscheid betrouwbare systeemidentiteit, overige routes en papieren nalevering (eigen loginsert), afdwingen bewijs op alle configuratiewrites. Niet uitgevoerd; geen volledige auditidentiteit geclaimd.
+
+0081 (klasse A, gedeeltelijk): nullable stabiele actor-ID met FK, herkomststatus historical/personal/unverified, historische records niet aan personen gekoppeld. Trigger schrijft ID en naam uitsluitend bij gevalideerd bewijs. Niet-uitgebrachte 0080 SQL-delimiter hersteld. Nieuwe regressies niet uitgevoerd. Bestaande directe eigenaar-inserts (papieren nalevering) krijgen standaard unverified; bevestigde credential- en herstelpaden en systeemidentiteit blijven afzonderlijk open. Databaseplaatje moet opnieuw worden gegenereerd met PostgreSQL; volledige schema-/upgradetest open.
+
+## Afsluitende auditpoort D100 — baseline e2a595d62b733e065a7576454dee94cfe445fe21
+
+| Blokkercluster | Vereist bewijs vóór fase 1 acceptatie |
+|---|---|
+| Persoonlijke identiteit en accountbeheer | Actieve persoonlijke login, tijdelijk wachtwoord, intrekking, veilige personeelskoppeling, beperkt displayaccount; geen oude rol als alternatieve machtiging. |
+| Rollen, scope en kwalificaties | Meerdere verenigbare rollen; geweigerde zelftoekenning, ontbrekende scope/kwalificatie en conflicterende beheerrollen; onafhankelijke aanvraag/goedkeuring/intrekking met operationeel bruikbare bediening. |
+| Kritische audit en herstel | Gebonden herbevestiging, stabiele actor bij beschermde persoonlijke handelingen; onbewezen historie expliciet; directe auditmanipulatie en omwegen geweigerd. Noodherstel zonder goedgekeurde procedure blijft geblokkeerd. |
+| Effectieve database-interface | Beide app-logins en PUBLIC, indirecte grants, kolom-/sequentierechten, vertrouwde search_path en toegestane definer-paden toetsen. Geen bypass van behouden beveiliging. |
+| Tijdelijke domeinpaden | Alleen noodzakelijke afscherming van configuratie, planning, uitvoering en kwaliteit; definitieve MBR/job/CR/EBR/quality modellen volgen fasen 2–8. Geen fictieve scopecontext. |
+| Installatie en regressie | Schone PostgreSQL-installatie, upgrade vanaf main, schema-equivalentie, fictieve fixtures, Windows-pakket, actuele API-/schermtests en diagram. |
+
+De bestaande herstel-/bootstraprecords blijven afzonderlijke bewijzen; geen nieuwe generieke systeemidentiteit bouwen tenzij een concrete fase-1-blokker dat vereist. Migratie 0082 is niet automatisch de volgende stap. Eerst gerichte baseline; alle eerder geschreven regressies zonder uitvoeringsbewijs blijven onbewezen. Volledige faseacceptatie volgt pas na implementatie en review. Geen formele ISA-conformiteitsclaim.
+
+D100: gerichte diagnostische CI via label `database-baseline`: roadmap, schone PostgreSQL 18-installatie, schema/migraties, DB-regels, Node 22 typecheck en API-tests. Onafhankelijke stappen blijven waar mogelijk lopen na fouten. Geen acceptatiebewijs voor volledige fase; Windows/pakket, diagram, werkelijke upgrade met representatieve data en integrale tests blijven open.
+
+D100 baseline run 45485679545, head b6aa696e9274fea4657452215d74af89d955b52c, base 31c86973bf13848cba44fc38785084953fe65e39: roadmap, Node 22 typecheck, 10/10 autorisatie-unit-tests geslaagd. Schone installatie faalt op gereserveerde naam system_user in 0054; schema/migratievergelijking faalt eveneens; DB-regels en API-integratie overgeslagen. Niet-uitgebrachte 0054 en basisschema gecorrigeerd naar system_user_id; geen uitgebrachte migratie gewijzigd. Hertest noodzakelijk.
+
+D100 baseline run 45486099486 (cdf5e90): PostgreSQL bootstrap-syntaxblok voorbij; schone installatie en migratievergelijking stuiten op enkelvoudige afsluitdelimiter in basisschema 0080. Roadmap, typecheck en 10/10 unit-tests groen; DB/API-regressies overgeslagen. Basisschema gecorrigeerd, hertest vereist.
+
+D100 baseline run 45486521037 (a5ca816): schone installatie en schema-equivalentie 0001–0081 groen; roadmap, typecheck en 10/10 autorisatietests groen. DB-regels stoppen op psycopg-placeholderinterpretatie van letterlijke LIKE-wildcards; API-setup faalt bij eigenaar-seed doordat PostgreSQL-superuser impliciet MEMBER van alle rollen is. Correctie: uitsluitend effectieve eigenaar van betreffende tabel uitgezonderd van app-specifieke invoker-guards (SET ROLE mes_app blijft beschermd); geen SESSION_USER-uitzondering. Onuitgebrachte migraties 0052, 0058, 0062, 0068–0073 en basisschema gelijk aangepast. Testhelper geeft zonder parameters geen lege parameterlijst door; API-teardown maskeert setupfout niet. Hertest open.
+
+D100 baseline 45487236987 (6bfea87): installatie, migratie-equivalentie, roadmap en typecheck groen; API-suite 43 geslaagd, 65 gefaald, 0 geannuleerd. DB-test stopt op ontbrekend INSERT-kolomrecht gebruiker na 0077 algemene REVOKE; eerdere kolomgrants voor gebruiker/operator worden daarbij verwijderd. Herstel uitsluitend eerdere begrensde kolomrechten, voeg catalogusregressies toe. API-fixtures krijgen uitsluitend expliciete MES-grants voor bestaande fictieve persoonlijke accounts; geen automatische migratie van echte/legacy-identiteiten, geen vermenging technisch en inhoudelijk beheer. Resterende oude rolverwachtingen afzonderlijk toetsen aan D89/D99. Hertest vereist; geen volledige acceptatie.
+
+D100 baseline 45487704894 (883daa8): 72/108 API-tests geslaagd, 36 gefaald, geen annuleringen; schone installatie, schema-equivalentie, roadmap, typecheck en 10/10 unit-tests groen. DB-test bereikt oude wachtwoordwrapper; aangepaste regressies gebruiken actuele sessiewrapper en daadwerkelijke afwijzing. API-tests behouden functionele assertions met gescheiden engineering/management/technische actoren; accountcreatie blijft pending, geen impliciete personeelskoppeling of oude roltoekenning. PersonalSession sluit schermidentiteit uit; actieve stilstand blijft uitsluitend met specifieke display-bevoegdheid beschikbaar. Productie-/kwaliteits- en overige gevolgfouten blijven open. Hertest vereist.
+
+D100 baseline 45488701579 (194b5c8): 92/108 API-tests, 16 gefaald, geen annuleringen. DB-regels bereiken herbewerkingsblokkade; oude verwachting dat herbewerking blokkade opheft vervangen door negatieve toets voor beide actoren en afzonderlijk kwaliteitsbesluit. Laatste legacy-beheerdertest isoleert twee fictieve beheerders. API-regressies sturen expliciete motivatie en wachtwoordbevestiging, lot-herbewerking vereist voorafgaande opdracht, dubbele keuring geeft conflict. SQLSTATE 42501 wordt zonder interne details 403. Overige meet-/productieproblemen en mogelijke gevolgfouten blijven open; hertest noodzakelijk.
+
+D100 baseline 45489626091 (5fb7f67): 513/513 databaseregels, 10/10 autorisatie-unit-tests, 105/108 API-tests; overige baselinechecks groen. Lot-herbewerking faalt door SELECT FOR UPDATE vanuit beperkte app-rol op lot; verwijder uitsluitend overbodige API-lock, gecontroleerde execution_step_rework vergrendelt lot en leden opnieuw en toetst actuele scope. Analyseregressie vermoedelijk gevolg. Grondstofconflicttest verwacht ten onrechte afronding met open conflict; toets expliciet 422, gemotiveerde oplossing met behoud eerste partij en daarna succesvolle afronding. Geen nieuwe grants of migraties. Hertest noodzakelijk.
+
+D100 baseline 45490295765 (ronde 8), head `da06084d9525b9c36802a9d82afd5988c5c54539`, base `31c86973bf13848cba44fc38785084953fe65e39`: [workflowbewijs](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45490295765). Joblog bevestigt exacte head/base, schone PostgreSQL-installatie, schema/migratie-equivalentie 0001–0081, roadmap, Node 22 typecheck, 513/513 DB-controles, 10/10 autorisatie-unit-tests en 108/108 API-tests (631 getelde controles; geen fouten of annuleringen in de suites). Volledige Node 26-suite en overige jobs overgeslagen. Dit is uitsluitend technische baseline, geen faseacceptatie. Eerdere vermeldingen 'niet uitgevoerd' blijven historische momentopnamen; per bevinding moet de relevante dekking nog worden vastgesteld. Operationele securitybediening, representatieve upgrade, Windows-pakket, schermen, diagram en integrale testreview blijven afzonderlijke bewijsgrenzen. Geen automatische afsluiting van audit of nieuwe migratie.
+
+### Inhoudelijke bewijsreview na ronde 8 (D100)
+
+Bewijsbron blijft run 45490295765 op da06084d/base 31c86973. De documentatiecommits zijn geen nieuwe technische baseline. Testnamen en assertions in tests/test_regels.py, API-log en relevante migraties beoordeeld; geen volledige review van alle transitieve databasepaden geclaimd.
+
+| Bevinding | Classificatie en bewijsgrens |
+|---|---|
+| Gedeelde accounts, tijdelijke wachtwoorden, sessiegeneratie, geen impliciete grants of login-personeelskoppeling | Opgelost voor geteste scenario's: API inloggen en rollen, tijdelijk wachtwoord, offline identiteit, sessiegeneratie; DB-regressies pending en directe koppeling. Overige JWT-consumenten en herstel afzonderlijk toetsen. |
+| Rollen/scope/kwalificatie en technische/security-scheiding | Positieve/negatieve unit- en DB-regressies geslaagd; geen volledige route- of privilegesclaim. |
+| Securitykanaal 0059–0061 | Gebonden aanvraag, onafhankelijk besluit, intrekking en vervangende binding getest via fictieve SET SESSION AUTHORIZATION. Operationele persoonlijke login, transport, provisioning en bediening nog onvoldoende gevalideerd; fase-1-blokker zolang geen bruikbaar gecontroleerd kanaal. |
+| Herstel 0055–0057 | Onafhankelijke herbevestiging, auditrecord en sessie-intrekking getest; beheerder.mjs geeft alleen diagnose. Reguliere herstelbediening en persoonlijke overdracht nog open; uitzonderlijk noodherstel blijft geblokkeerd. |
+| D98 tijdelijke batchcreatie | D98/D99 staan tijdelijke PoC-route tot fase 4/5 expliciet toe. 0049 kent execution.batch.create toe aan operator en shift_supervisor; API en 0073 eisen persoonlijke identiteit, actuele globale permission en actieve operatorbinding, directe insert ingetrokken. Bestaande ongeplande-batchtest is dus geen achterhaalde verwachting binnen fase 1; definitieve dispatch uitgesteld. Geen nieuwe legacy-uitbreiding. |
+| Beheertoolregressie | tests/test_tools.sh verwacht nog directe wachtwoordreset via oude noodsleutel. Achterhaald door 0053–0057; vervang bij testreview door weigering/ongewijzigde credentials en gecontroleerde herstelregressies. Niet uitgevoerd in ronde 8. |
+
+Minimale vervolgrichting: bestaande beveiligde functies operationeel bruikbaar maken zonder generieke owner-omweg, geen nieuwe domeinmodellen. Effectieve privileges, auditidentiteit en resterende routepaden nog beoordelen. Geen auditafsluiting of faseacceptatie.
+
+### D101 — tijdelijke kwaliteitsinterfaces
+
+Specificatiebeheer (fase 2) en certificaatuitgifte/instellingen (fase 7) tijdelijk gesloten voor applicatieaccounts, omdat de oude routes geen gecontroleerde MBR-vrijgave respectievelijk expliciete MES-quality-release kennen. Geen nieuwe domeinfunctionaliteit. Historische specificaties en certificaten blijven beschikbaar binnen actuele product-/lotscope; certificaatinstellingen alleen met globale inspection.read. Rechtenprocedure trekt directe writes en oude specificatiefuncties voor PUBLIC, mes_app en batchgui_app in vanaf schema 81; gecontroleerd eigenaarsonderhoud en fictieve DB-bedrijfsregeltests blijven bestaan. API-tests vervangen achterhaalde positieve verwachtingen van onbeveiligde writes door weigering en behoud van gegevens; definitieve positieve workflowacceptatie blijft in de toegewezen fasen verplicht. Niet uitgevoerd; effectieve rechten op bestaande installaties, indirecte functiepaden, UI en historische herdrukregressie nog toetsen. Instelling-tabel als gedeelde configuratie-interface afzonderlijk beveiligen in gebundelde D100-correctie. Geen claim dat D101 voltooid is.
+
+
+### D100/D101 — technische tussenbaseline na 0082–0084
+
+Run [45496837936](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45496837936), job 138809454453, head `52940672ac687c4b07cf85f92c3a24570ee037a9`, base `31c86973bf13848cba44fc38785084953fe65e39`. Joblog gecontroleerd: schone PostgreSQL 18-installatie, schema-equivalentie 0001–0084, roadmap en Node 22 API-typecheck geslaagd; 558/558 DB-controles, 10/10 autorisatie-unit-tests en 109/109 API-tests, geen fouten of annuleringen (677 getelde controles, +46 tegenover ronde 8). Volledige Node 26-suite en afzonderlijke compatibiliteitsjob overgeslagen.
+
+D101: testbewijs voor uitgevoerde scenario's van tijdelijke kwaliteits-/pilotinterfaces, historische certificaatherdruk, globale leesgrenzen, persoonlijke meldingsregistratie, configuratiewrites (17 tabellen), operationele writes en gecontroleerde lotvoorstellen. SQL-delimiters in onuitgebracht installatieschema gecorrigeerd vóór run; geen mislukte CI-run daarvoor. Lotvorming en voorstelbeheer delen transactieslot; afzonderlijk bewijs voor gelijktijdigheid nog nodig. Geen definitieve productafhankelijke lotvorming of MBR/EBR gebouwd. Uitgestelde uitgebreide wandschermen, pilot en feedback blijven fase 9; beperkte display.downtime.read behouden. Historische gegevens behouden. Globale tijdelijke permissions zijn geen volledige scope-implementatie.
+
+Classificatie: geïmplementeerd en gevalideerd binnen de geteste DB/API-scenario's; resterende dekking voor indirecte/effectieve grants op bestaande installaties, volledige functiescheiding van overzichten, centrale authenticatie en UI, persoonlijke securitybediening en herstel blijft open. Geen formele D100-afsluiting, faseacceptatie of ISA-conformiteitsclaim. Representatieve upgrade, Windows-pakket, schema-diagram, schermtests en integrale Node 26-acceptatie blijven open. Volgende technische wijziging vereist nieuw bewijs; deze documentatie verandert de geteste inhoud niet.
+
+
+0085 (D89/D100/D101): eigenaar-only eerste personeelskoppeling met onafhankelijke persoonlijke herbevestiging door globale personnel.manage en authorization.approve, exacte ID's en onveranderlijk bewijsrecord. Geen bestaande koppeling vervangen, geen grants of productieregistraties wijzigen. Organisatorische identiteitscontrole vereist (ook voor historische ongekoppelde personen); eigenaarmisbruik niet uitgesloten. DB-regressies toegevoegd; nog niet uitgevoerd. Operationele bediening, gelijktijdigheid, effectieve privileges en representatieve historische/offline regressies nog toetsen. Geen auditafsluiting.
+
+
+0086: begrensde operationele kwalificatieprocedure (D89 P02/P04/P05). Voorlopige globale permissions qualification.issue/approve/revoke bij Manufacturing Manager; twee verschillende inhoudelijk bevoegde managers bevestigen toekenning, een onafhankelijke bevoegde manager mag beperkend intrekken. Geen security/technische bevoegdheid, geen automatische kwalificaties, uitsluitend vooraf geclassificeerde operationele definities, actieve persoonlijke personeelskoppeling, eindige geldigheid en bewijsreferentie. Definitieve rollenmatrix, catalogusbeheer en andere domeinen blijven gesloten tot organisatorische validatie; geen LMS. Auditrecords append-only, eigenaar blijft vertrouwde onderhoudsgrens. Tests toegevoegd, nog niet uitgevoerd; operationele bediening en effectieve privileges nog open.
+
+
+### D100 — technische tussenbaseline 0085–0086
+
+Run [45504683232](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45504683232), job 138836707590, head `5788601a445b5758b3abb6877e8e2918d7501476`, base `31c86973bf13848cba44fc38785084953fe65e39`. Workflowstatus en actuele PR-head/base opnieuw gecontroleerd: geslaagd. Overgedragen suite-resultaten: 589/589 DB-controles, 12/12 security-/beheertooltests, 10/10 autorisatie-unit-tests, 112/112 API-regressies (723 controles), schone PostgreSQL 18-installatie, schema-equivalentie 0001–0086, API-typecheck en roadmapcontrole. Documentatieworkflow 45504666606 geslaagd. Aantallen zijn het overgedragen logbewijs; deze verificatie heeft de jobstatus opnieuw gecontroleerd. Node 22-compatibiliteitsjob en volledige Node 26-suite overgeslagen.
+
+Open blokkade: tools/pakket/opstarten.mjs initialiseert de ingebouwde database met trust en gebruikt de beheerverbinding (verplicht superuser) ook als DATABASE_URL. api/src/index.ts valt zonder DATABASE_URL terug op postgres. Dit is niet conform D24; de beperkte app-rechten uit de baseline bewijzen niet dat het pakket ze afdwingt. Scheid runtime en beheer, beveilig authenticatie van bestaande en nieuwe installaties zonder gegevensverlies en test de echte pakketstart. Oude noodsleutelverwachting in tests/test_laptoppakket.sh is achterhaald; toets diagnose en behoud van credentials in plaats van onveilige reset. Effectieve/transitieve privileges en D101-restcontrole blijven open. Geen auditafsluiting of faseacceptatie.
+
+
+D24/D100: runtime-startcontrole, gescheiden laptopverbindingen, SCRAM en offline authenticatie-upgrade geïmplementeerd; gerichte regressies toegevoegd. Linux-pakkettest toegevoegd aan database-baseline. Nog geen nieuw testbewijs; de upgradeproef simuleert oude authenticatie op schema 0086 en vergelijkt batch-ID's, niet alle historische velden. Windows en representatieve oude schema-upgrade blijven open. Beveiligde back-ups met afwijkende credentials vereisen passende instellingen. Geen auditafsluiting.
+
+
+### D24/D100 — runtime- en pakketbewijs
+
+Run [45506512763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45506512763), job 138843004154, head `ca7ba00f92d314b2a40c265d06176468e796a1c6`, base `31c86973bf13848cba44fc38785084953fe65e39`: schone PostgreSQL 18-installatie, migratie-equivalentie, databaseregels, securitytools, API-typecheck en autorisatiemodule geslaagd; API 116/116 (inclusief vier effectieve runtimeprivilegetests). Pakketstap faalde bij serverinformatie met legacy testaccount, na geslaagde eerste start en SCRAM/runtimecontroles. Correcties beperken zich tot fictieve laptopidentiteit, pakkettest en gerichte CI-job.
+
+Run [45507583594](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45507583594), job 138846672697, head `16860b9c868452a92f580ead43b2743682ea04a9`, zelfde base: head/basecontrole en volledige gerichte Linux-pakkettest geslaagd. Log bevestigt SCRAM, beperkte runtime, eerste start, stoppen, back-up, harde stop, terugzetten, bootstrap en hersteldiagnose. Ook de in het script voorafgaande legacy-authenticatie-upgrade/herstel en batch-ID-bewijs zijn gepasseerd. Andere jobs overgeslagen. Bewijs betreft twee verschillende heads; geen integrale acceptatie van de huidige tree. Windows, volledige historische schema-upgrade, alle historische velden, effectieve/transitieve ACL-restaudit en D101 blijven open. Geen formele auditafsluiting of release.
+
+D101 vervolg: inventariseer oude accounts, rollen, API/DB/UI/tools/fixtures en verwijder overbodige legacy-autorisatie pas na vervanging en regressiebewijs. Fictieve accounts mogen worden uitgefaseerd; historische persoonlijke identiteiten, verwijzingen en auditgegevens behouden. Geen automatische legacy-grants.
+
+
+0087/D101: oude beheerder-beschikbaarheidsvoorwaarde verwijderd; onveranderlijke gebruikersnaam en bestaande kritieke MES-identiteits-/sessieguards blijven gelden. Regressie: expliciete System Administrator met legacyveld pending, nul actieve legacy-beheerders, historisch account blijft aanwezig. Nog niet uitgevoerd; operationele legacycontroles, fixtures en overige auditpunten blijven open. Geen gegevensmigratie of automatische grants.
+
+D101 (0091): onderliggende batch- en keuringsbesluiten en herbewerkingsopdrachten omgezet naar MES-permissions; bevestigde wrappers blijven leidend. Uitgestelde specificatie- en certificaatwrites blijven afgeschermd. Gebundelde validatie en overige rechtenaudit open.
+
+
+D100/D101 (0092): run 45509817373 op b017950: schone installatie, 12 securitytests, 10 autorisatietests, 116 API-tests en Linux-laptoppakket geslaagd; schema-equivalentie faalde door search_path maak_herbewerking, databaseregels door drie resterende positieve/procesregressies met oude kwaliteitsidentiteit. Begrensde search_path hersteld via 0092, fixtures omgezet naar expliciet bevoegde MES-identiteit. Negatieve legacy-regressies behouden; hertest open.
+
+
+D100/D101: run 45510366427 op 0c1a15f bevestigt schema-equivalentie 0001–0092, security 12/12, autorisatie 10/10, API 116/116 en Linux-laptoppakket. Databaseregressie stopt bij papieren nalevering: eerdere fictieve test_training is verplicht voor execution.record; supervisor heeft die niet. Negatieve kwalificatietest bij nalevering toegevoegd, daarna uitsluitend fictieve supervisor voorzien van kwalificatie en alle vereiste permissions gecontroleerd. Geen productiewijziging; hertest open.
+
+
+D24/D100/D101: run 45510881306, job 138857977598, head f8054187f592cb0eee63453e39629820e15adc60, base 31c86973bf13848cba44fc38785084953fe65e39: PostgreSQL 18 schoon, schema-equivalentie 0001–0092, databaseregels 610/610, security 12/12, autorisatie 10/10, API 116/116, Linux-laptoppakket en documentatie geslaagd. Totaal 748 getelde controles. Effectieve rechtenaudit: runtime-start weigert voortaan ook CREATE op database; regressie toegevoegd, nog niet uitgevoerd. Sequence-ACL, historische grant-opties, definer-paden, UI/offline en finale acceptatie open.
+
+
+D24/D100: vanaf schema 0092 geen directe sequence-ACL voor runtime, legacy-login, securitykanaal of PUBLIC; identity-inserts en eigenaartrigger blijven leidend. Oude sequence-grants inclusief delegatie worden ingetrokken; tests simuleren historische grants, herhaalde rechteninstallatie en geweigerde nextval/setval/SELECT. Validatie open; overige ACL en definer-audit volgen.
+
+
+D100: rechteninstallatie vanaf 0092 trekt vooraf alle tabel- en afzonderlijke kolom-ACLs voor PUBLIC, mes_app, batchgui_app en mes_security_channel in (CASCADE), waarna bestaande expliciete lees-/schrijfinterface opnieuw wordt opgebouwd. Regressies simuleren oude UPDATE/REFERENCES, TRIGGER, sessiehash- en wachtwoordhashleestoegang en grant-opties; normale beperkte toegang blijft getest. Geen gegevenswijziging. Directe functie-/schema-/database-ACLs en afwijkende roltoekenningen blijven aparte auditpunten; validatie open.
+
+
+D100: vanaf 0092 ook schema- en routine-ACL reset met CASCADE voor PUBLIC en drie betrokken rollen; bestaande applicatie-allowlist en exact vijf persoonlijk gebonden securitykanaalfuncties hersteld zonder delegatie. Regressies simuleren historische PUBLIC-uitvoering, CREATE, grant-opties en kruisrechten tussen runtime/security. Buiten fabriek, persoonlijke directe grants, rolstructuur en SECURITY DEFINER-eigenaars/paden afzonderlijk beoordelen. Validatie open.
+
+
+D100: rechteninstallatie valideert alle geïnstalleerde SECURITY DEFINER-functies op schema-eigenaarschap, expliciet vertrouwd zoekpad met pg_temp laatst en geen PUBLIC EXECUTE. Afwijkingen worden geweigerd, niet automatisch van eigenaar veranderd. Regressies voor catalogus en opzettelijk onveilig zoekpad toegevoegd. Vertrouwen in public-schema/extension-eigenaren, directe persoonlijke grants en afwijkende installatie-ACLs buiten fabriek blijven afzonderlijke aandachtspunten. Gebundelde validatie open.
+
+
+D100: run 45512256648 op ab91c41: schema-equivalentie, schone installatie, security 12/12, autorisatie 10/10, API 117/117 en Linux-laptoppakket geslaagd. Databasetest stopt bij sequence-catalogusquery: PostgreSQL kan WHERE-predicaten herordenen en has_sequence_privilege op niet-sequence pg_statistic evalueren. CASE begrenst de functieaanroep tot relkind S, zonder wijziging van de getoetste rechten of productiecode. Hertest open.
+
+
+D100: gerichte PostgreSQL-baseline [45512808472](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45512808472), job 138864559805, head b06ec8b274326a40a90a54eb65b22c8e6214ca35, base 31c86973bf13848cba44fc38785084953fe65e39: alle stappen geslaagd, inclusief databaseregels, security, autorisatie, API en Linux-pakket; Node 26 overgeslagen. Geen integrale faseacceptatie.
+
+D100: rechteninstallatie vanaf 0092 weigert technische rollen met beheerattributen, ongewenste transitieve lidmaatschappen of delegatie; securitykanaal moet NOLOGIN zijn. Historische batchgui_app → mes_app blijft toegestaan. Regressies simuleren extra lidmaatschap en LOGIN; geen automatische verwijdering van afwijkende rechten. Nieuwe validatie open.
+
+
+D100/0093: persoonlijke securityrollen worden bij binding, iedere securityhandeling en rechteninstallatie getoetst op effectieve tabel-/kolom-/sequence-rechten, extra functierechten of delegatie, eigendom in fabriek en CREATE op database/fabriek/public. Regressies simuleren directe kolom-, functie- en public-CREATE-grants na binding. Afwijkingen worden geweigerd, niet automatisch ingetrokken; directe SQL-toegang bij afwijkende grants vereist IT-herstel. Andere schema's/databases en vertrouwen in public/extension-eigenaars blijven open. Validatie open.
+
+
+D100: SQL-delimiters 0093 vóór CI hersteld; persoonlijke leden via expliciete recursieve rolrelaties bepaald (geen impliciete superuserlidmaatschappen). Rechteninstallatie weigert onvertrouwd public-eigendom, CREATE-grants buiten installatie-eigenaren, afwijkend pgcrypto-eigendom/schema en onvertrouwde routine-eigenaren in public. Regressie voor PUBLIC CREATE toegevoegd. Geen automatische intrekking of eigendomsoverdracht. Validatie open; andere schema's/databases en reeds gecompromitteerde vertrouwde eigenaren vallen buiten deze controle.
+
+
+D100: run 45555577075 op dd9ede8: schoon schema en migratie-equivalentie 0001–0093, security en autorisatiemodule geslaagd; databaseregels, API en Linux-pakket geblokkeerd door enkelvoudige SQL-dollardelimiters in technische rolcontrole in rechten.sql. Delimiters hersteld; schema, migratie 0093 en rechtenbestand statisch gecontroleerd op dit patroon. Geen wijziging van beveiligingslogica of testverwachtingen. Hertest open.
+
+
+D100: run 45556043173 op 5c2f957: schema-equivalentie, security, autorisatie, API en Linux-pakket geslaagd; databaseregels stoppen bij intrekking doordat de nieuwe ACL-testlus de bestaande variabelen grant (UUID) en revoke (query) overschrijft. Lusvariabelen hernoemd naar acl_grant_sql en acl_revoke_sql, zonder wijziging van scenario's, verwachtingen of productiecode. Hertest open.
+
+
+D100: gerichte PostgreSQL-baseline [45556530186](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45556530186), job 139009809147, head 82598c571650a30d4989bdccd4d82d1bb95b76fa, base 31c86973bf13848cba44fc38785084953fe65e39: 666/666 databaseregels, 12/12 security, 10/10 autorisatie, 117/117 API (805 getelde controles), schone installatie, schema-equivalentie 0001–0093 en Linux-laptoppakket geslaagd. Technische/persoonlijke rechten en public-regressies aantoonbaar geslaagd. Geen integrale faseacceptatie; D101 UI/offline, overige installatiegrenzen, Windows, representatieve upgrade en Node 26 blijven open.
+
+
+D101: nieuwe offline acties vereisen de persoonlijke permissionprojectie van hetzelfde token, per handeling en waar nodig product en meetveld. Lokale registratie en wachtrij worden atomair in IndexedDB opgeslagen, inclusief batch aanmaken plus starten; bij weigering geen lokale wijziging. Oude wachtrijacties blijven behouden; servercontrole bij synchronisatie blijft leidend. UI-context is geen serverbewijs. Gerichte regressies en schermvalidatie nog open.
+
+
+D101: zelfstandige Chrome-regressie offline-rechten.mjs gebruikt echte IndexedDB en productiemodules via Vite, fictieve sessies en gemodelleerde serverweigering; controleert ontbrekende projectie, productscope, veldrechten, geheimen, sessiewisseling, gezamenlijke opslag, rollback en behoud bij weigering. Opgenomen in Node 22 en volledige acceptatie. Nog niet uitgevoerd.
+
+
+D101: [Node 22-compatibiliteitsrun 45558147763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45558147763), job 139015099770, head 6aaa391c1afa9e516d8d512573249feedb1a6d60, base 31c86973bf13848cba44fc38785084953fe65e39: 22/22 gerichte Chrome/IndexedDB-controles geslaagd, API-typecheck en beide applicatiebuilds groen; documentatiecontrole eveneens groen. Fictieve sessies en gesimuleerde serverweigering; geen integrale scherm-/netwerkacceptatie. Volledige Node 26-suite overgeslagen.
+
+
+D100 — installatiegrens: tools/migreer.mjs weigert onbekende migratienummers vóór back-up, migratie en rechtenherinstallatie. tests/test_tools.sh simuleert een toekomstige schemaversie en tijdelijke extra tabel-ACL uitsluitend in fictieve testdatabase; controleert weigering, ongewijzigde ACL, schemaversie en waardeaantal. Nog niet uitgevoerd; geen claim van volledige upgrade- of herstelacceptatie.
+
+
+### D100 — gevalideerde installatiegrenzen
+D100: [PostgreSQL-baseline 45566354900](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45566354900), job 139041993323, head e7813d396e03f3bc64fcd691ad159b416316f7d3, base 31c86973bf13848cba44fc38785084953fe65e39: alle stappen geslaagd, inclusief 117/117 API, schema-equivalentie 0001–0093, beheertools (onbekende schema’s, back-up/herstel, opzettelijke rollback) en Linux-pakket. Documentatiecontrole 45566342443 groen. Geen integrale acceptatie; historische schema-upgrade en Windows blijven open.
+De statische D101-inventarisatie van 21 geregistreerde API-routebestanden, centrale sessie-/permissionprojectie en expliciete rolvergelijkingen in het schema leverde geen nieuwe zelfstandige legacy-rolmachtiging op. Historische functies kunnen behouden zijn met ingetrokken uitvoeringsrechten. Dit is geen integrale dynamische scherm- of databasepadreview.
+
+
+Run [45567796663](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45567796663), job 139046752938, head 8fd03f7c8c3ff3831b1e2d0a106189d05335d564, base 31c86973bf13848cba44fc38785084953fe65e39: gehele gerichte PostgreSQL-baseline groen, historische upgrade 0035–0093 inclusief tien tabellen, legacy-snapshot, nul automatische grants, ACL en pre-upgradeback-up bevestigd in log; 117/117 API, 12/12 security, 10/10 autorisatie, beheertools en Linux-pakket geslaagd. Geen Windows- of integrale acceptatie.
+D99/#136: verplichte CI beperkt tot ondersteunde PostgreSQL-/laptopomgeving; demo-specifieke stappen en versieafhankelijkheid uitgefaseerd. Geen reguliere schermscenario's verwijderd. Historische demo niet ondersteund; verdere afhankelijkhedenreview en integrale validatie open.
+
+
+D99/#136: directe afhankelijkhedenreview van package.json (api/invoer/portaal), pakketbouw, acceptatieverificatie, test-/releaseworkflow en documentatie afgerond voor de geïnspecteerde bestanden. Geen verplichte PGlite-afhankelijkheid aangetroffen; historische demo-bron behouden. Integrale acceptatie op actuele tree blijft vereist.
+
+
+D100: serverstart toetst volledige migratie-inventaris; herstelcontrole sluit verbindingen en ruimt uitsluitend eigen uniek benoemde tijdelijke database op vóór exit, met foutmelding bij mislukte cleanup. Gerichte regressies voor onbekend schema, ontbrekende tussenmigratie, beschadigde dump, behoud historie en onderhoudslog toegevoegd. Uitvoeringsbewijs open; geen schemawijziging.
+
+
+### Eindbeoordeling fase-1-fundament (tussenstand)
+Run [45572488766](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45572488766), job 139062300483, head 6e332599aafc949b8cca94c401c4d0c21579d69c, base 31c86973bf13848cba44fc38785084953fe65e39: gehele gerichte PostgreSQL-baseline groen, inclusief startinventaris, mislukte herstelcontrole/cleanup, historische upgrade 0035–0093, 12/12 security, 10/10 autorisatie, 117/117 API en Linux-pakket; documentatie 45572480062 groen. Geen volledige acceptatie of Windows-bewijs.
+| Onderdeel | Bewijs | Resterende grens |
+|---|---|---|
+| #106 | MES API/servernaam, domeinmodule authorization, terminologie/blueprint | historische interfaces niet hernoemen alsof definitieve MBR/EBR bestaat; documentatie en schermreview |
+| #107 | 0036–0061, 0076–0093, access.ts, auth, security.mjs; DB/API en historische upgrade | praktische persoonlijke provisioning, transport, herbinding na restore; area/equipment volgt fase 3 |
+| #108 | persoonlijke bevestiging, onafhankelijke grantbesluiten, recovery, 0085/0086 personeelskoppeling/kwalificaties; security-tools en DB/API | echte bediening en uitzonderingsherstel niet geaccepteerd; definitieve domeinbesluiten later |
+| #136 | directe afhankelijkhedenreview, demo buiten verplichte CI | integrale acceptatie |
+
+Geen nieuwe functionele tekortkoming geclaimd op basis van uitsluitend deze documentatiereview. D100 nog niet formeel afgesloten; diagram en integrale testreview vereist.
+
+
+### Operationele securityreview
+D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
+Draaiboek en praktijktests F1.1–F1.6 toegevoegd. TLS, persoonlijke provisioning, transport, intrekking en reconciliatie na restore nog niet praktisch uitgevoerd. Geen formele auditafsluiting.
+
+
+D102/0094: goedgekeurde eenmalige initialisatie van bestaande persoonlijke identiteiten zonder MES-rechtenhistorie, via eigenaar en drie persoonlijke bevestigingen. Geen automatische legacy-grants; drie exact afgebakende grants, sessiegeneratie verhoogd, onveranderlijk bootstraprecord. Schone bootstrap blijft voorkeur voor fictieve pre-pilot. Gerichte DB- en toolregressies toegevoegd; uitvoeringsbewijs geslaagd in run run 499.
+
+Run [45575488676 (run 499)](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45575488676), job 139072267943, head de213112f706f7bbcbd07b4928c93e36e6d7ba02, base 31c86973bf13848cba44fc38785084953fe65e39: gerichte PostgreSQL-baseline geslaagd; schone installatie, schema-equivalentie 0001–0094, beperkte rechten, historische upgrade 0035–0094 met behoud van tien historische tabellen en zonder automatische legacy-grants, D102 eenmalige initialisatie, 14/14 security, 10/10 autorisatie, 117/117 API, back-up/herstel/rollback en Linux-laptoppakket. Documentatiecontrole 45575458558 geslaagd. Geen volledige Node 26-acceptatie of Windows-praktijkbewijs.
+
+### Afsluiting tussentijdse inhoudelijke audit D99–D102 (25 november 2026)
+De begrensde tussentijdse audit is inhoudelijk afgesloten op basis van de eerder vastgelegde interface-/rechteninventarisaties en gerichte baseline run 499 (exacte head/base hierboven). Dit is geen integrale code- of faseacceptatie. Geen nieuwe concrete functionele fase-1-blokker vastgesteld binnen de beoordeelde scope; heropen bij aantoonbare bevinding in de verplichte vervolgreviews.
+
+| Onderdeel | Functionele beoordeling | Nog vereist |
+|---|---|---|
+| #106 | MES-naam, terminologie, autorisatiemodule als fundament | Integrale scherm- en testreview |
+| #107 | Persoonlijke permissions, scope, functiescheiding, historische upgrade en D102 gericht gevalideerd | Integrale acceptatie, praktische provisioning |
+| #108 | Kritische bevestiging, grants/intrekking, audit en kwalificaties gericht gevalideerd | Praktische bediening en herstelreconciliatie |
+| #136 | Verplichte demo-afhankelijkheden uitgefaseerd volgens eerdere inventarisatie | Integrale acceptatie en Windows-pakket |
+
+Opgelost: D100-installatiegrenzen en beperkte rechten, D101 zelfstandige legacy-rolmachtiging binnen geïnventariseerde interfaces, D102 eerste gecontroleerde grants zonder historie. De eerdere offline-run blijft afzonderlijk bewijs, niet integraal op huidige head. Schone bootstrap heeft voorkeur voor fictieve pre-pilot. Geen automatische omzetting van legacy-rollen en geen noodreset van bestaande MES-rechten.
+
+Verplichte fasepoorten blijven open: databaseplaatje genereren en verifiëren; integrale review van tests, fixtures, workflows en behouden interfaces; volledige acceptatie op actuele head/base; Windows-praktijkvalidatie en beoordeling door opdrachtgever. Praktische security F1.1–F1.6 blijft afzonderlijk te beoordelen: testbare lokale handelingen nu, productie-TLS, feitelijke persoonlijke provisioning, intrekking en herstelreconciliatie in de toekomstige fabrieksomgeving vóór pilot; geen operationele acceptatieclaim. Uitgestelde area/equipment-context (fase 3), werkvrijgave (4/5), definitieve domeinbesluiten, uitgebreide schermen/feedback (9) en analyses (10) blijven volgens roadmap. Geen formele ISA-conformiteitsclaim.
+
+### Databaseplaatje gevalideerd
+D84/schema 0094: [run 45577237440](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45577237440), job 139078079937, head 36ecbb9a04f1ae6d5f70dca5d7e04db6a7490455, base 31c86973bf13848cba44fc38785084953fe65e39: databaseplaatje gegenereerd in geïsoleerde PostgreSQL 18 en tests/test_schema_plaatje.sh geslaagd (62 tabellen, 132 verbanden). SHA-256 6f9e535cdf4e7cc82113181b0316d550b41c8c60ca663265bda3a512d7ea518c gecontroleerd bij opname in commit 65c73e04d072944178868c34d4e18ca91082f0f1; tijdelijke workflow verwijderd. Geen schemawijziging of integrale acceptatie.
+
+
+### Integrale schermreview en gerichte validatie (25 november 2026)
+Run [45616999067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45616999067), job 139214856901, head 2e25ac588a081335ee16e75979e1212bb06a23df, base 31c86973bf13848cba44fc38785084953fe65e39: alle 16 verplichte Chrome/PostgreSQL-schermtestsuites geslaagd (768 getelde OK-controles, nul fouten), Node 26 API-typecheck, beide builds en offline-rechtenregressie geslaagd; documentatiecontrole 45616998994 groen. Uitsluitend fictieve gegevens; applicatie gebruikt beperkte mes_app-verbinding, eigenaar uitsluitend voor testvoorbereiding en DB-asserties. Geen volledige acceptatie of Windows-praktijkbewijs.
+
+De schermreview corrigeerde legacy-rolverwachtingen, expliciete persoonlijke fixtures, gescheiden eigenaar/app-verbindingen, sessiewisseling, rechten en uitgestelde interfaces (D99). Positieve behouden procesregels en negatieve server-/UI-controles blijven vereist. Drie concrete UI-problemen gecorrigeerd: verplichte conflictmotivatie, synchronisatie van kwaliteitsmetingen vóór persoonlijke vrijgave, raceconditie bij ploegoverdracht. Alle suites in één run groen. Tijdelijke workflow verwijderd. Volledige workflow Node 26 bevat de PG18 dump/restore-wrappers en security-tools-regressie. Laatste controle reviewpoort en integrale acceptatie op nieuwe actuele head/base blijven vereist. LibreOffice-nevencontrole Excel was overgeslagen; Chrome-exportasserties geslaagd. Geen operationele of formele ISA-acceptatie.
+
+
+### Afsluiting integrale testreview vóór acceptatie (25 november 2026)
+De reviewpoort is afgesloten voor de verplichte geautomatiseerde fase-1-scope. De actuele workflow is opnieuw gecontroleerd: concept-PR start volledige Node 26 en Node 22 alleen via acceptatie-test; checkout op event-head, base-ancestry en treebewijs; main-hergebruik uitsluitend via acceptatieverificatie. PostgreSQL 18, PG18 dump/restore, databaseregels, migratie-equivalentie, databaseplaatje, API inclusief autorisatiemodule, security-tools, rotatie, beheertools, historische upgrade, Linux-pakket, offline-regressie en alle 16 schermsuites blijven verplicht. Fictieve fixtures, actuele persoonlijke grants en beperkte app-verbindingen zijn gecontroleerd; historische gegevens en negatieve autorisatieasserties blijven beschermd. D99 browserdemo is niet verplicht. Geen nieuwe concrete blokkade voor het starten van integrale CI vastgesteld. Afzonderlijke groene runs zijn geen vervanging van volledige acceptatie op de actuele head/base. Resterend: Windows-praktijkbewijs, operationele security en organisatievoorwaarden vóór pilot, optionele LibreOffice-nevencontrole, en formele beoordeling; geen merge, release of formele ISA-claim.
+
+
+## Eindacceptatie fase 1 — D104 (25 november 2026)
+
+Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
+
+| Test | Uitkomst |
+|---|---|
+| W1 integriteit/schone installatie | 9/9 |
+| W2 veertien accounts, functiescheiding, oude demoaccounts geweigerd | 22/22 |
+| W3 online PS1 | 11 geslaagd, werkplek behouden als verwacht gedrag |
+| W4 offline PS2, herladen, synchronisatie | 12/12 |
+| W5 schema 0094 naar 0095, behoud data en accounts | 12/12 |
+| W6 back-up/herstel, PS1/PS2 behouden, PS3 teruggedraaid | 12/12 |
+| W7 lege fabriek, drie identiteiten | 15/15 na hervatting |
+| W8 tijdelijk wachtwoord, deactivering, diagnose zonder reset | 13/13 |
+
+W7: één tester simuleerde drie accounthouders; onderbreking met lege reden, hervatting gelukt, oorzaak niet vastgesteld. W8: oude noodsleutel geblokkeerd; diagnose alleen-lezen. Gecontroleerd herstel met onafhankelijke personen, persoonlijke database-login/TLS/provisioning/intrekking en herstelreconciliatie niet als operationeel bewezen. Fysieke apparatuur, fabrieksnetwerk, organisatorische maatregelen en echte pilot blijven open. Geen formele ISA-claim. Eerdere historische open-statusregels zijn geen actuele eindstatus. Releasevoorbereiding vereist nieuwe volledige CI, geen merge/publicatie zonder toestemming.

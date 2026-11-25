@@ -34,16 +34,33 @@ export async function stuur<T>(methode: string, pad: string, body?: unknown, ext
  * GET met terugval op de laatst bekende versie. `vers` geeft aan of het
  * antwoord nu van de server kwam.
  */
+let cacheToken: string | null = null;
+const persoonlijkeCache = new Map<string, unknown>();
+export function wisPersoonlijkeCache() { persoonlijkeCache.clear(); cacheToken = null; }
+
 export async function haal<T>(pad: string): Promise<{ data: T; vers: boolean }> {
+  const token = sessie.token;
+  const identiteit = sessie.inhoud();
+  // Alleen de openbare pc-lijst mag zonder persoonlijke sessie worden bewaard.
+  // Persoonlijke GET-cache uitsluitend in geheugen, gekoppeld aan exact token.
+  const openbaar = pad === "/config/pcs";
+  if (cacheToken !== token) { persoonlijkeCache.clear(); cacheToken = token; }
   try {
     const data = await stuur<T>("GET", pad);
-    opslag.zet("cache", data, pad).catch(() => {});
+    if (token !== sessie.token) throw new ApiFout(409,"Sessie gewijzigd");
+    if (openbaar) opslag.zet("cache", data, "public:v2:"+pad).catch(() => {});
+    else if (identiteit && sessie.geldig()) persoonlijkeCache.set(pad, structuredClone(data));
     return { data, vers: true };
   } catch (e) {
-    if (!(e instanceof GeenVerbinding)) throw e;
-    const bewaard = await opslag.haal<T>("cache", pad);
-    if (bewaard === undefined) throw e;
-    return { data: bewaard, vers: false };
+    if (!(e instanceof GeenVerbinding)) {
+      persoonlijkeCache.delete(pad);
+      throw e;
+    }
+    if (token !== sessie.token) throw new ApiFout(409,"Sessie gewijzigd");
+    const bewaard = openbaar ? await opslag.haal<T>("cache","public:v2:"+pad)
+      : identiteit && sessie.geldig() && cacheToken === token ? persoonlijkeCache.get(pad) as T | undefined : undefined;
+    if (bewaard === undefined || token !== sessie.token) throw e;
+    return { data: structuredClone(bewaard), vers: false };
   }
 }
 

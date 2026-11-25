@@ -1,7 +1,9 @@
+import { persoonlijkeTransactie } from "../auth.js";
+import { requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, vereist } from "../auth.js";
-import { inTransactie, lees, type Tx } from "../db.js";
+
+import { lees, type Tx } from "../db.js";
 import { TESTACCOUNTS } from "../testaccounts.js";
 import { ApiFout, leesbaar, niet } from "../fouten.js";
 import { Veld } from "./config.js";
@@ -15,7 +17,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/velden",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({
@@ -36,7 +38,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const b = req.body;
-      const code = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const code = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id, volgorde FROM processtap WHERE code = $1 FOR UPDATE", [b.stapcode]);
         if (!rows[0]) throw niet("Stap");
         const stap = rows[0];
@@ -64,7 +66,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/velden/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ code: Type.String() }),
@@ -94,7 +96,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if (kolommen.some((k) => !toegestaan.includes(k))) throw new ApiFout(400, "Onbekend veld in wijziging");
       const waarden = kolommen.map((k) => (req.body as Record<string, unknown>)[k]);
       const set = kolommen.map((k, i) => `${k} = $${i + 2}`).join(", ");
-      const n = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const n = await persoonlijkeTransactie(app.db, req, async (tx) => {
         const r = await tx.query(`UPDATE veld SET ${set} WHERE code = $1`, [req.params.code, ...waarden]);
         return r.rowCount;
       });
@@ -112,7 +114,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     "/velden/:code/producten/:product",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         description: "Eigen grenzen en tolerantie van een veld voor één product. Geldt voor metingen vanaf nu; eerdere metingen houden hun grenzen.",
@@ -125,7 +127,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) =>
-      inTransactie(app.db, req.user.naam, async (tx) => {
+      persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `INSERT INTO veld_product (veld_id, product_id, grens_min, grens_max, tolerantie, tolerantie_soort)
            SELECT v.id, p.id, $3, $4, $5, $6 FROM veld v, product p WHERE v.code = $1 AND p.code = $2
@@ -143,7 +145,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.delete(
     "/velden/:code/producten/:product",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         description: "Eigen grenzen voor een product weghalen: daarna gelden de grenzen van het veld.",
@@ -152,7 +154,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const n = await inTransactie(app.db, req.user.naam, async (tx) =>
+      const n = await persoonlijkeTransactie(app.db, req, async (tx) =>
         (await tx.query(
           `DELETE FROM veld_product vp USING veld v, product p
             WHERE vp.veld_id = v.id AND vp.product_id = p.id AND v.code = $1 AND p.code = $2`,
@@ -213,7 +215,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/velden/import",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         description:
@@ -364,7 +366,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       let rijen: ImportRij[];
       let grenzen: GrensRij[];
       try {
-        [rijen, grenzen] = await inTransactie(app.db, req.user.naam, async (tx) => {
+        [rijen, grenzen] = await persoonlijkeTransactie(app.db, req, async (tx) => {
           const uit = await verwerk(tx);
           const gr = await verwerkGrenzen(tx);
           if (!uitvoeren || uit.some((x) => x.actie === "fout") || gr.some((x) => x.actie === "fout")) throw new Terugdraaien(uit, gr);
@@ -390,7 +392,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/logboek",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("system.read"),
       schema: {
         tags: ["beheer"],
         description: "Alle wijzigingen in de configuratie, nieuwste eerst. Wachtwoorden staan er nooit in; alleen dat ze gewijzigd zijn.",
@@ -434,7 +436,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/stappen/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("process.parameter.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ code: StapCode }),
@@ -443,7 +445,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
+      const r = await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("UPDATE processtap SET naam = $2 WHERE code = $1 RETURNING code, naam", [req.params.code, req.body.naam.trim()]));
       if (!r.rows[0]) throw niet("Stap");
       return r.rows[0];
@@ -459,8 +461,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     tijdelijk: Type.Optional(Type.Boolean({ description: "Het wachtwoord is tijdelijk: de gebruiker kiest bij de volgende inlog een eigen wachtwoord (#76)" })),
     ploeg: Type.Optional(Type.Union([Type.Null(), Type.String()], { description: "Ploeg van de medewerker, zoals A1 (sinds 0.54.0, #87)" })),
   });
-  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, o.naam, g.wachtwoord_wijzigen AS tijdelijk, rp.code AS ploeg
-                         FROM gebruiker g LEFT JOIN operator o ON o.gebruiker_id = g.id LEFT JOIN rooster_ploeg rp ON rp.id = o.ploeg_id`;
+  const ACCOUNT_SQL = `SELECT g.gebruikersnaam, g.rol, g.actief, g.gedeeld, g.wachtwoord_wijzigen AS tijdelijk
+                         FROM gebruiker g`;
   const PloegCode = Type.Union([Type.Null(), Type.String({ pattern: "^[A-Za-z][1-9]$" })], { description: "Ploeg zoals A1 (letter en divisie, D76); null = geen ploeg" });
   /** Zet de ploeg van een medewerker; een onbekende ploeg is een fout. */
   async function zetPloeg(tx: Tx, operatorId: string, ploeg: string | null) {
@@ -472,19 +474,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.get(
     "/gebruikers",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Account) } } },
+    { preHandler: requiresPermission("account.read"), schema: { tags: ["beheer"], response: { 200: Type.Array(Account) } } },
     async () => (await lees(app.db, `${ACCOUNT_SQL} ORDER BY g.actief DESC, g.rol, g.gebruikersnaam`)) as never,
   );
 
   app.post(
     "/gebruikers",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("account.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({
           gebruikersnaam: Type.String({ pattern: "^[a-z0-9._-]{3,40}$", description: "Kleine letters, cijfers, punt, streepje; 3 tot 40 tekens" }),
-          rol: Rol,
+          rol: Type.Optional(Type.Union([Rol, Type.Literal("pending")])),
           wachtwoord: Wachtwoord,
           naam: Type.Optional(Type.String({ minLength: 1, maxLength: 60, description: "Operator en ploegleider: nieuwe naam bij de invoer (leeg = de gebruikersnaam)" })),
           bestaandeNaam: Type.Optional(Type.String({ format: "uuid", description: "Operator en ploegleider: koppel aan een bestaande naam zonder account, zodat de geschiedenis doorloopt" })),
@@ -495,24 +497,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const { gebruikersnaam, rol, wachtwoord, naam, bestaandeNaam, ploeg } = req.body;
-      // Kwaliteit heeft ook een naam bij de invoer (D58); een eigen naam kiezen kan sinds 0.54.0 ook voor Kwaliteit (#87).
-      const invoer = rol === "operator" || rol === "ploegleider" || rol === "kwaliteit";
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      if ((rol !== undefined && rol !== "pending") || naam !== undefined || bestaandeNaam !== undefined || ploeg !== undefined)
+        throw new ApiFout(422, "Maak eerst een persoonlijk account zonder rol of personeelsindeling");
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "account.manage");
         const { rows: [g] } = await tx.query<{ id: string }>(
-          // Een wachtwoord van de beheerder is tijdelijk (#76, D61); niet voor een wandscherm (daar typt niemand).
-          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ($1, $2, wachtwoord_hash($3), $2 <> 'scherm') RETURNING id",
-          [gebruikersnaam, rol, wachtwoord]);
-        if (invoer && bestaandeNaam) {
-          const k = await tx.query("UPDATE operator SET gebruiker_id = $1, actief = true WHERE id = $2 AND gebruiker_id IS NULL", [g.id, bestaandeNaam]);
-          if (!k.rowCount) throw new ApiFout(422, "Deze naam bestaat niet of hoort al bij een ander account");
-        } else if (invoer && naam) {
-          await tx.query("INSERT INTO operator (naam, gebruiker_id) VALUES ($1, $2)", [naam.trim(), g.id]);
-        }
-        if (ploeg) {
-          if (!invoer) throw new ApiFout(422, "Een ploeg hoort alleen bij operator, ploegleider of kwaliteit");
-          const { rows: [o] } = await tx.query<{ id: string }>("SELECT operator_van_account($1) AS id", [g.id]);
-          await zetPloeg(tx, o.id, ploeg);
-        }
+          "INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ($1, 'pending', wachtwoord_hash($2), true) RETURNING id",
+          [gebruikersnaam, wachtwoord]);
         return tx.query(`${ACCOUNT_SQL} WHERE g.id = $1`, [g.id]);
       });
       return reply.status(201).send(r.rows[0]);
@@ -522,7 +513,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/gebruikers/:gebruikersnaam",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("account.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ gebruikersnaam: Type.String() }),
@@ -533,176 +524,20 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const { rol, actief, wachtwoord, ploeg } = req.body;
-      if (req.params.gebruikersnaam === req.user.naam && (actief === false || (rol && rol !== "beheerder"))) {
-        throw new ApiFout(422, "Je kunt je eigen beheerdersaccount niet uitzetten of een andere rol geven");
-      }
-      const r = await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query(
-          `UPDATE gebruiker SET rol = coalesce($2, rol), actief = coalesce($3, actief),
-                  wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END,
-                  wachtwoord_wijzigen = CASE WHEN $4::text IS NULL THEN wachtwoord_wijzigen ELSE coalesce($2, rol) <> 'scherm' END
-            WHERE gebruikersnaam = $1 RETURNING id, gebruikersnaam`,
-          [req.params.gebruikersnaam, rol ?? null, actief ?? null, wachtwoord ?? null]).then(async (u) => {
-          // De ploeg hoort bij de naam bij de invoer; die wordt zo nodig aangemaakt, zoals bij de eerste inlog (D53).
-          if (u.rows[0] && ploeg !== undefined) {
-            const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [u.rows[0].id]);
-            if (!o.id) throw new ApiFout(422, "Een ploeg hoort alleen bij een actief account van een operator, ploegleider of kwaliteit");
-            await zetPloeg(tx, o.id, ploeg);
-          }
-          return u;
-        }));
+      if (rol !== undefined || ploeg !== undefined)
+        throw new ApiFout(422, "Rollen en personeelsindeling horen niet bij technisch accountbeheer");
+      if (req.params.gebruikersnaam === req.user.naam && actief === false)
+        throw new ApiFout(422, "Je kunt je eigen account niet uitzetten");
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "account.manage");
+        return tx.query(
+          wachtwoord === undefined
+            ? "UPDATE gebruiker SET actief = coalesce($2, actief) WHERE gebruikersnaam = $1 RETURNING id"
+            : "UPDATE gebruiker SET actief = coalesce($2, actief), wachtwoord_hash = wachtwoord_hash($3), wachtwoord_wijzigen = true WHERE gebruikersnaam = $1 RETURNING id",
+          wachtwoord === undefined ? [req.params.gebruikersnaam, actief ?? null] : [req.params.gebruikersnaam, actief ?? null, wachtwoord]);
+      });
       if (!r.rows[0]) throw niet("Account");
       return (await lees(app.db, `${ACCOUNT_SQL} WHERE g.gebruikersnaam = $1`, [req.params.gebruikersnaam]))[0] as never;
-    },
-  );
-
-  // ---------- Accounts via een Excel-sjabloon (#76, D61) ----------
-  // Zoals bij de velden: eerst een proefronde, en alleen opslaan als geen enkele regel een fout heeft.
-  // Accounts die niet in het bestand staan, blijven zoals ze zijn. Een wachtwoord uit het bestand is tijdelijk.
-  const AccountRegel = Type.Object({
-    regel: Type.Integer(),
-    gebruikersnaam: Type.String({ maxLength: 100 }),
-    rol: Type.String({ maxLength: 40 }),
-    naam: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 60 })])),
-    wachtwoord: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 200 })])),
-    actief: Type.Optional(Type.Boolean()),
-    ploeg: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 10 })], { description: "Ploeg zoals A1; leeg = niets wijzigen (sinds 0.54.0, #87)" })),
-  }, { additionalProperties: false });
-  const AccountUitkomst = Type.Object({
-    regel: Type.Integer(), gebruikersnaam: Type.String(),
-    actie: Type.Union(["nieuw", "wijzigen", "gelijk", "fout"].map((a) => Type.Literal(a))),
-    wijzigingen: Type.Array(Type.String()), fout: Type.Union([Type.Null(), Type.String()]),
-  });
-  type AccountRij = { regel: number; gebruikersnaam: string; actie: "nieuw" | "wijzigen" | "gelijk" | "fout"; wijzigingen: string[]; fout: string | null };
-  class AccountsTerug extends Error { constructor(public rijen: AccountRij[]) { super("terugdraaien"); } }
-  const ROLLEN = ["operator", "ploegleider", "kwaliteit", "beheerder", "analist", "planner", "scherm", "productiemanager"];
-  const MET_NAAM = ["operator", "ploegleider", "kwaliteit"];
-
-  app.post(
-    "/gebruikers/import",
-    {
-      preHandler: vereist(...BEHEER),
-      schema: {
-        tags: ["beheer"],
-        description:
-          "Accounts aanmaken en wijzigen vanuit het Excel-sjabloon. uitvoeren=false is een proefronde (niets wordt opgeslagen). " +
-          "Een nieuw account vraagt een wachtwoord van minstens 8 tekens; dat is tijdelijk (bij de eerste inlog kiest de gebruiker een eigen wachtwoord). " +
-          "Een wachtwoord bij een bestaand account zet een nieuw tijdelijk wachtwoord. Accounts die niet in het bestand staan, blijven zoals ze zijn.",
-        body: Type.Object({ uitvoeren: Type.Boolean(), regels: Type.Array(AccountRegel, { maxItems: 1000 }) }, { additionalProperties: false }),
-        response: {
-          200: Type.Object({
-            uitgevoerd: Type.Boolean(), nieuw: Type.Integer(), gewijzigd: Type.Integer(), gelijk: Type.Integer(), fouten: Type.Integer(),
-            regels: Type.Array(AccountUitkomst),
-          }),
-        },
-      },
-    },
-    async (req) => {
-      const { uitvoeren, regels } = req.body;
-      const verwerk = async (tx: Tx): Promise<AccountRij[]> => {
-        const uit: AccountRij[] = [];
-        const gezien = new Set<string>();
-        for (const r of regels) {
-          const gebruikersnaam = r.gebruikersnaam.trim().toLowerCase();
-          const rij: AccountRij = { regel: r.regel, gebruikersnaam, actie: "gelijk", wijzigingen: [], fout: null };
-          uit.push(rij);
-          await tx.query("SAVEPOINT acc");
-          try {
-            if (!/^[a-z0-9._-]{3,40}$/.test(gebruikersnaam)) throw new ApiFout(422, "Gebruikersnaam: 3 tot 40 tekens, alleen kleine letters, cijfers, punt en streepje");
-            if (gezien.has(gebruikersnaam)) throw new ApiFout(422, "Deze gebruikersnaam staat twee keer in het bestand");
-            gezien.add(gebruikersnaam);
-            const rol = r.rol.trim().toLowerCase();
-            if (!ROLLEN.includes(rol)) throw new ApiFout(422, `Onbekende rol "${r.rol}"`);
-            const naam = r.naam?.trim() || null;
-            const ww = r.wachtwoord ?? null;
-            if (ww !== null && ww.length < 8) throw new ApiFout(422, "Het wachtwoord moet minstens 8 tekens hebben");
-            if (naam && !MET_NAAM.includes(rol)) throw new ApiFout(422, "Een naam bij de invoer hoort alleen bij operator, ploegleider of kwaliteit");
-            const ploeg = r.ploeg?.trim().toUpperCase() || null;
-            if (ploeg && !MET_NAAM.includes(rol)) throw new ApiFout(422, "Een ploeg hoort alleen bij operator, ploegleider of kwaliteit");
-            if (ploeg && !(await tx.query("SELECT 1 FROM rooster_ploeg WHERE code = $1", [ploeg])).rowCount) {
-              throw new ApiFout(422, `Onbekende ploeg ${ploeg}; de ploegen staan bij Beheer, Diensten en ploegen`);
-            }
-            const { rows: [oud] } = await tx.query<{ id: string; rol: string; actief: boolean; gedeeld: boolean; naam: string | null; ploeg: string | null }>(
-              `SELECT g.id, g.rol, g.actief, g.gedeeld, o.naam, rp.code AS ploeg FROM gebruiker g LEFT JOIN operator o ON o.gebruiker_id = g.id
-                 LEFT JOIN rooster_ploeg rp ON rp.id = o.ploeg_id
-                WHERE lower(g.gebruikersnaam) = $1`, [gebruikersnaam]);
-            let id: string;
-            if (!oud) {
-              if (ww === null) throw new ApiFout(422, "Een nieuw account heeft een tijdelijk wachtwoord nodig");
-              const { rows: [g] } = await tx.query<{ id: string }>(
-                `INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, actief, wachtwoord_wijzigen)
-                 VALUES ($1, $2, wachtwoord_hash($3), $4, $2 <> 'scherm') RETURNING id`, [gebruikersnaam, rol, ww, r.actief ?? true]);
-              id = g.id;
-              rij.actie = "nieuw";
-              rij.wijzigingen.push(`rol ${rol}`, ...(r.actief === false ? ["uit"] : []));
-            } else {
-              id = oud.id;
-              if (gebruikersnaam === req.user.naam && ((r.actief === false) || rol !== "beheerder")) {
-                throw new ApiFout(422, "Je kunt je eigen beheerdersaccount niet uitzetten of een andere rol geven");
-              }
-              if (oud.gedeeld && naam) throw new ApiFout(422, "Het gedeelde account heeft geen eigen naam");
-              if (oud.naam && naam && oud.naam !== naam) throw new ApiFout(422, `Heeft al de naam ${oud.naam}; een naam wijzig je bij Beheer, Medewerkers`);
-              const actief = r.actief ?? oud.actief;
-              if (rol !== oud.rol) rij.wijzigingen.push(`rol: ${oud.rol} → ${rol}`);
-              if (actief !== oud.actief) rij.wijzigingen.push(actief ? "weer aan" : "uit");
-              if (ww !== null) rij.wijzigingen.push("nieuw tijdelijk wachtwoord");
-              if (rij.wijzigingen.length) {
-                await tx.query(
-                  `UPDATE gebruiker SET rol = $2, actief = $3,
-                          wachtwoord_hash = CASE WHEN $4::text IS NULL THEN wachtwoord_hash ELSE wachtwoord_hash($4) END,
-                          wachtwoord_wijzigen = CASE WHEN $4::text IS NULL THEN wachtwoord_wijzigen ELSE $2 <> 'scherm' END
-                    WHERE id = $1`, [id, rol, actief, ww]);
-                rij.actie = "wijzigen";
-              }
-            }
-            // Naam bij de invoer: een bestaande naam zonder account koppelen (de geschiedenis loopt door), anders een nieuwe.
-            if (naam && !(oud?.naam)) {
-              const { rows: [bestaand] } = await tx.query<{ id: string; gebruiker_id: string | null }>(
-                "SELECT id, gebruiker_id FROM operator WHERE lower(naam) = lower($1)", [naam]);
-              if (bestaand?.gebruiker_id) throw new ApiFout(422, `De naam ${naam} hoort al bij een ander account`);
-              if (bestaand) {
-                await tx.query("UPDATE operator SET gebruiker_id = $1, actief = true WHERE id = $2", [id, bestaand.id]);
-                rij.wijzigingen.push(`gekoppeld aan de bestaande naam ${naam}`);
-              } else {
-                await tx.query("INSERT INTO operator (naam, gebruiker_id) VALUES ($1, $2)", [naam, id]);
-                rij.wijzigingen.push(`nieuwe naam ${naam}`);
-              }
-              if (rij.actie === "gelijk") rij.actie = "wijzigen";
-            }
-            if (ploeg && ploeg !== oud?.ploeg) {
-              if (oud?.gedeeld) throw new ApiFout(422, "Het gedeelde account heeft geen ploeg");
-              const { rows: [o] } = await tx.query<{ id: string | null }>("SELECT operator_van_account($1) AS id", [id]);
-              if (!o.id) throw new ApiFout(422, "Een ploeg kan alleen bij een actief account");
-              await zetPloeg(tx, o.id, ploeg);
-              rij.wijzigingen.push(oud?.ploeg ? `ploeg: ${oud.ploeg} → ${ploeg}` : `ploeg ${ploeg}`);
-              if (rij.actie === "gelijk") rij.actie = "wijzigen";
-            }
-            await tx.query("RELEASE SAVEPOINT acc");
-          } catch (e) {
-            await tx.query("ROLLBACK TO SAVEPOINT acc");
-            rij.actie = "fout";
-            rij.wijzigingen = [];
-            rij.fout = leesbaar(e);
-          }
-        }
-        return uit;
-      };
-      let rijen: AccountRij[];
-      try {
-        rijen = await inTransactie(app.db, req.user.naam, async (tx) => {
-          const uit = await verwerk(tx);
-          if (!uitvoeren || uit.some((x) => x.actie === "fout")) throw new AccountsTerug(uit);
-          return uit;
-        });
-      } catch (e) {
-        if (!(e instanceof AccountsTerug)) throw e;
-        rijen = e.rijen;
-      }
-      const tel = (a: AccountRij["actie"]) => rijen.filter((x) => x.actie === a).length;
-      return {
-        uitgevoerd: uitvoeren && tel("fout") === 0,
-        nieuw: tel("nieuw"), gewijzigd: tel("wijzigen"), gelijk: tel("gelijk"), fouten: tel("fout"), regels: rijen,
-      } as never;
     },
   );
 
@@ -717,17 +552,18 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                           FROM operator o LEFT JOIN gebruiker g ON g.id = o.gebruiker_id LEFT JOIN rooster_ploeg rp ON rp.id = o.ploeg_id`;
   app.get(
     "/operators",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
+    { preHandler: requiresPermission("personnel.read"), schema: { tags: ["beheer"], response: { 200: Type.Array(Operator) } } },
     async () => (await lees(app.db, `${OPERATOR_SQL} ORDER BY o.actief DESC, o.naam`)) as never,
   );
   app.post(
     "/operators",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("personnel.manage"),
       schema: { tags: ["beheer"], body: Type.Object({ naam: Type.String({ minLength: 1, maxLength: 60 }), ploeg: Type.Optional(PloegCode) }, { additionalProperties: false }), response: { 201: Operator } },
     },
     async (req, reply) => {
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "personnel.manage");
         const { rows: [o] } = await tx.query<{ id: string }>("INSERT INTO operator (naam) VALUES ($1) RETURNING id", [req.body.naam.trim()]);
         if (req.body.ploeg) await zetPloeg(tx, o.id, req.body.ploeg);
         return tx.query(`${OPERATOR_SQL} WHERE o.id = $1`, [o.id]);
@@ -738,7 +574,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/operators/:id",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("personnel.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ id: Type.String({ format: "uuid" }) }),
@@ -748,7 +584,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const r = await inTransactie(app.db, req.user.naam, async (tx) => {
+      const r = await persoonlijkeTransactie(app.db, req, async (tx) => {
+        await requireTransactionPermission(tx, req.user.sub, "personnel.manage");
         const u = await tx.query("UPDATE operator SET naam = coalesce($2, naam), actief = coalesce($3, actief) WHERE id = $1 RETURNING id",
           [req.params.id, req.body.naam?.trim() ?? null, req.body.actief ?? null]);
         if (!u.rows[0]) throw niet("Operator");
@@ -775,13 +612,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       FROM grondstof g`;
   app.get(
     "/grondstoffen",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Grondstof) } } },
+    { preHandler: requiresPermission("material.definition.manage"), schema: { tags: ["beheer"], response: { 200: Type.Array(Grondstof) } } },
     async () => (await lees(app.db, `${GRONDSTOF_SQL} ORDER BY g.actief DESC, g.code`)) as never,
   );
   app.post(
     "/grondstoffen",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("material.definition.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({
@@ -793,7 +630,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const id = await inTransactie(app.db, req.user.naam, async (tx) =>
+      const id = await persoonlijkeTransactie(app.db, req, async (tx) =>
         (await tx.query("INSERT INTO grondstof (code, naam, eenheid) VALUES ($1, $2, $3) RETURNING id",
           [req.body.code.trim(), req.body.naam.trim(), req.body.eenheid?.trim() || null])).rows[0].id);
       const [g] = await lees(app.db, `${GRONDSTOF_SQL} WHERE g.id = $1`, [id]);
@@ -803,7 +640,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/grondstoffen/:code",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("material.definition.manage"),
       schema: {
         tags: ["beheer"],
         description: "Naam, eenheid of actief wijzigen, en/of de stappen waarin de grondstof wordt ingevoerd (vervangt de lijst).",
@@ -818,7 +655,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query(
           `UPDATE grondstof SET naam = coalesce($2, naam), eenheid = CASE WHEN $4 THEN $3 ELSE eenheid END, actief = coalesce($5, actief)
             WHERE code = $1 RETURNING id`,
@@ -858,15 +695,25 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   const PC_SQL = `SELECT p.naam, p.locatie, p.actief,
                          coalesce(array_agg(s.code ORDER BY s.volgorde) FILTER (WHERE s.id IS NOT NULL), '{}') AS stappen
                     FROM pc p LEFT JOIN pc_stap ps ON ps.pc_id = p.id LEFT JOIN processtap s ON s.id = ps.processtap_id`;
+  // Technisch werkplekbeheer krijgt alleen de actieve stapcodes en namen,
+  // geen meetvelden, specificaties of operationele gegevens.
+  app.get(
+    "/pc-stappen",
+    {
+      preHandler: requiresPermission("workstation.manage"),
+      schema: { tags: ["beheer"], response: { 200: Type.Array(Type.Object({ code: Type.String(), naam: Type.String() })) } },
+    },
+    async () => (await lees(app.db, "SELECT code, naam FROM processtap WHERE actief ORDER BY volgorde")) as never,
+  );
   app.get(
     "/pcs",
-    { preHandler: vereist(...BEHEER), schema: { tags: ["beheer"], response: { 200: Type.Array(Pc) } } },
+    { preHandler: requiresPermission("workstation.manage"), schema: { tags: ["beheer"], response: { 200: Type.Array(Pc) } } },
     async () => (await lees(app.db, `${PC_SQL} GROUP BY p.id ORDER BY p.naam`)) as never,
   );
   app.post(
     "/pcs",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("workstation.manage"),
       schema: {
         tags: ["beheer"],
         body: Type.Object({ naam: Type.String({ pattern: "^[A-Za-z0-9-]{2,20}$", examples: ["PC-21"] }), locatie: Type.Optional(Type.String()) }, { additionalProperties: false }),
@@ -874,7 +721,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, (tx) =>
+      await persoonlijkeTransactie(app.db, req, (tx) =>
         tx.query("INSERT INTO pc (naam, locatie) VALUES ($1, $2)", [req.body.naam.toUpperCase(), req.body.locatie ?? null]));
       const [pc] = await lees(app.db, `${PC_SQL} WHERE p.naam = $1 GROUP BY p.id`, [req.body.naam.toUpperCase()]);
       return reply.status(201).send(pc as never);
@@ -883,7 +730,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     "/pcs/:naam",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("workstation.manage"),
       schema: {
         tags: ["beheer"],
         params: Type.Object({ naam: Type.String() }),
@@ -896,7 +743,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
+      await persoonlijkeTransactie(app.db, req, async (tx) => {
         const { rows } = await tx.query("SELECT id FROM pc WHERE naam = $1", [req.params.naam]);
         if (!rows[0]) throw niet("Pc");
         const id = rows[0].id;
@@ -934,7 +781,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/server",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: requiresPermission("system.read"),
       schema: {
         tags: ["beheer"],
         description:
@@ -1011,8 +858,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       // Testaccounts met wachtwoord "demo" horen niet in een echte installatie (D28).
       const demo = await lees<{ gebruikersnaam: string }>(
         app.db,
-        `SELECT gebruikersnaam FROM gebruiker WHERE actief AND lower(gebruikersnaam) = ANY($1)
-            AND wachtwoord_hash = public.crypt('demo', wachtwoord_hash) ORDER BY gebruikersnaam`,
+        "SELECT gebruikersnaam FROM demo_account_names($1)",
         [TESTACCOUNTS.map(([n]) => n)],
       );
       if (pogingen && pogingen.n >= 20)

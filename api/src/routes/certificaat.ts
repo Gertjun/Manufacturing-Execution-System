@@ -1,11 +1,10 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { BEHEER, IEDEREEN, vereist, type Rol } from "../auth.js";
-import { inTransactie, lees, type Db } from "../db.js";
+import { personalSession } from "../modules/authorization/access.js";
+import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { LotNummer, NulGetal, NulGeheel } from "./schemas.js";
 
-const UITGEVEN: Rol[] = ["kwaliteit", "beheerder"];
 const OptTekst = Type.Union([Type.Null(), Type.String()]);
 const OptGetal = NulGetal();
 
@@ -144,7 +143,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/lots/:lotnummer",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["certificaat"],
         description: "Het certificaat zoals het nu zou worden uitgegeven (concept), en de certificaten die al zijn uitgegeven.",
@@ -153,6 +152,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
+      const [recht] = await lees<{ allowed: boolean }>(app.db, "SELECT authorization_read_lot($1,id) AS allowed FROM lot WHERE lotnummer=$2", [req.user.sub,req.params.lotnummer]);
+      if (!recht) throw niet("Lot");
+      if (!recht.allowed) throw new ApiFout(403, "Geen MES-leesbevoegdheid voor dit lot");
       const { lot_id, inhoud } = await maakInhoud(app.db, req.params.lotnummer);
       const uitgegeven = await lees(app.db,
         `SELECT c.nummer, g.gebruikersnaam AS door, c.uitgegeven_op FROM certificaat c JOIN gebruiker g ON g.id = c.uitgegeven_door
@@ -161,33 +163,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
-  app.post(
-    "/lots/:lotnummer",
-    {
-      preHandler: vereist(...UITGEVEN),
-      schema: {
-        tags: ["certificaat"],
-        description: "Certificaat uitgeven: krijgt een volgnummer en de inhoud wordt bewaard zoals hij nu is.",
-        params: Type.Object({ lotnummer: LotNummer }),
-        response: { 201: Type.Intersect([Uitgegeven, Type.Object({ inhoud: Inhoud })]) },
-      },
-    },
-    async (req, reply) => {
-      const { lot_id, inhoud } = await maakInhoud(app.db, req.params.lotnummer);
-      if (!inhoud.voldoet) throw new ApiFout(422, "Dit lot voldoet niet aan de specificatie (of een kenmerk is niet gemeten); een certificaat kan niet");
-      const nummer = await inTransactie(app.db, req.user.naam, async (tx) =>
-        (await tx.query("INSERT INTO certificaat (lot_id, inhoud, uitgegeven_door) VALUES ($1, $2, $3) RETURNING nummer",
-          [lot_id, JSON.stringify(inhoud), req.user.sub])).rows[0].nummer as number);
-      const [c] = await lees(app.db,
-        `SELECT c.nummer, g.gebruikersnaam AS door, c.uitgegeven_op, c.inhoud FROM certificaat c JOIN gebruiker g ON g.id = c.uitgegeven_door WHERE c.nummer = $1`, [nummer]);
-      return reply.status(201).send(c as never);
-    },
-  );
+  // D99/D101: uitgifte wacht op expliciete MES-quality-release (fase 7).
+  app.post("/lots/:lotnummer", { preHandler: personalSession }, async () => {
+    throw new ApiFout(403, "Certificaatuitgifte tijdelijk geblokkeerd tot MES-kwaliteitsvrijgave");
+  });
 
   app.get(
     "/:nummer",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["certificaat"],
         description: "Een uitgegeven certificaat, precies zoals het is uitgegeven (voor een herdruk).",
@@ -197,8 +181,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const [c] = await lees(app.db,
-        `SELECT c.nummer, g.gebruikersnaam AS door, c.uitgegeven_op, c.inhoud FROM certificaat c JOIN gebruiker g ON g.id = c.uitgegeven_door WHERE c.nummer = $1`,
-        [req.params.nummer]);
+        `SELECT c.nummer, g.gebruikersnaam AS door, c.uitgegeven_op, c.inhoud FROM certificaat c JOIN gebruiker g ON g.id = c.uitgegeven_door WHERE c.nummer = $1 AND authorization_read_lot($2,c.lot_id)`,
+        [req.params.nummer,req.user.sub]);
       if (!c) throw niet("Certificaat");
       return c as never;
     },
@@ -208,41 +192,19 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/instellingen",
     {
-      preHandler: vereist(...BEHEER),
+      preHandler: personalSession,
       schema: { tags: ["certificaat", "beheer"], response: { 200: Type.Object({ bedrijfsnaam: Type.String(), bedrijfsadres: Type.String(), certificaat_verklaring: Type.String() }) } },
     },
-    async () => {
+    async (req) => {
+      const [recht] = await lees<{ allowed: boolean }>(app.db, "SELECT authorization_permits($1,'inspection.read',NULL,NULL,NULL) AS allowed", [req.user.sub]);
+      if (!recht?.allowed) throw new ApiFout(403, "Geen globale MES-kwaliteitsleesbevoegdheid");
       const r = new Map((await lees<{ sleutel: string; waarde: string }>(app.db, "SELECT sleutel, waarde FROM instelling")).map((x) => [x.sleutel, x.waarde]));
       return { bedrijfsnaam: r.get("bedrijfsnaam") ?? "", bedrijfsadres: r.get("bedrijfsadres") ?? "", certificaat_verklaring: r.get("certificaat_verklaring") ?? "" };
     },
   );
-  app.put(
-    "/instellingen",
-    {
-      preHandler: vereist(...BEHEER),
-      schema: {
-        tags: ["certificaat", "beheer"],
-        body: Type.Object({
-          bedrijfsnaam: Type.String({ minLength: 1, maxLength: 120 }),
-          bedrijfsadres: Type.String({ maxLength: 300 }),
-          certificaat_verklaring: Type.String({ maxLength: 1500 }),
-        }, { additionalProperties: false }),
-        response: { 204: Type.Null() },
-      },
-    },
-    async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        for (const [k, v] of Object.entries(req.body)) {
-          await tx.query(
-            `INSERT INTO instelling (sleutel, waarde) VALUES ($1, $2)
-             ON CONFLICT (sleutel) DO UPDATE SET waarde = EXCLUDED.waarde WHERE instelling.waarde <> EXCLUDED.waarde`,
-            [k, (v as string).trim()],
-          );
-        }
-      });
-      return reply.status(204).send(null);
-    },
-  );
+  app.put("/instellingen", { preHandler: personalSession }, async () => {
+    throw new ApiFout(403, "Certificaatinstellingen tijdelijk geblokkeerd tot MES-kwaliteitsbeheer");
+  });
 };
 
 export default routes;

@@ -1,7 +1,7 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { NulGetal, NulGeheel } from "./schemas.js";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist } from "../auth.js";
+import { requiresGlobalExecutionRead, requirePermission } from "../modules/authorization/access.js";
 import { lees } from "../db.js";
 
 export const Veld = Type.Object({
@@ -64,7 +64,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/stappen",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: requiresGlobalExecutionRead,
       schema: {
         tags: ["configuratie"],
         querystring: Type.Object({
@@ -75,6 +75,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
+      if (req.query.ookInactief) await requirePermission(app.db, req.user.sub, "process.parameter.manage");
       const stappen = await lees<{ code: string } & Record<string, unknown>>(app.db, STAPPEN_SQL, [req.query.ookInactief ?? false]);
       if (!req.query.voorDezePc || !req.user.pcId) return stappen as never;
       const toegestaan = await lees<{ code: string }>(

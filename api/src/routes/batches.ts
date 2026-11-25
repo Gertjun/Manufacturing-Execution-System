@@ -1,7 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, INVOER, invoerContext, vereist } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
+import { invoerContext, invoerTransactie } from "../auth.js";
+import { personalSession, requiresPermission, requireTransactionPermission } from "../modules/authorization/access.js";
+import { lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
 import { Batch, BatchNummer, Besluit, PaspoortRegel, RegistratieKort, REGISTRATIE_SQL } from "./schemas.js";
 
@@ -19,7 +20,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/",
     {
-      preHandler: vereist(...INVOER),
+      preHandler: requiresPermission("execution.batch.create"),
       schema: {
         tags: ["batches"],
         body: Type.Object({
@@ -33,15 +34,15 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       const { operatorId } = await invoerContext(app.db, req);
       const { id, batchnummer } = req.body;
       if (id) {
-        const [bestaand] = await lees<{ batchnummer: string }>(app.db, "SELECT batchnummer FROM batch WHERE id = $1", [id]);
+        const [bestaand] = await lees<{ batchnummer: string; aangemaakt_door: string | null }>(app.db, "SELECT batchnummer,aangemaakt_door FROM batch WHERE id = $1", [id]);
         if (bestaand) {
-          if (bestaand.batchnummer !== batchnummer) throw new ApiFout(409, "Dit id hoort bij een andere batch");
+          if (bestaand.batchnummer !== batchnummer || bestaand.aangemaakt_door !== operatorId) throw new ApiFout(409, "Dit id hoort bij een andere batch");
           const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1`, [batchnummer]);
           return reply.status(200).send(batch as never);
         }
       }
-      await inTransactie(app.db, req.user.naam, (tx) =>
-        tx.query("INSERT INTO batch (id, batchnummer, bron, aangemaakt_door) VALUES (coalesce($1, gen_random_uuid()), $2, 'operator', $3)", [
+      await invoerTransactie(app.db, req, (tx) =>
+        tx.query("SELECT execution_create_legacy_batch($1,$2,$3)", [
           id ?? null,
           batchnummer,
           operatorId,
@@ -55,7 +56,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["batches"],
         querystring: Type.Object({
@@ -67,8 +68,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const voorwaarden: string[] = [];
-      const params: unknown[] = [];
+      const voorwaarden: string[] = ["authorization_read_execution($1,b.product_id)"];
+      const params: unknown[] = [req.user.sub];
       if (req.query.status) {
         params.push(req.query.status);
         voorwaarden.push(`b.status = $${params.length}`);
@@ -85,7 +86,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/:batchnummer",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["batches"],
         params: Type.Object({ batchnummer: BatchNummer }),
@@ -98,7 +99,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1`, [req.params.batchnummer]);
+      const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1 AND authorization_read_execution($2,b.product_id)`, [req.params.batchnummer,req.user.sub]);
       if (!batch) throw niet("Batch");
       const registraties = await lees(app.db, `${REGISTRATIE_SQL} WHERE b.batchnummer = $1 ORDER BY r.gestart_op, s.volgorde`, [
         req.params.batchnummer,
@@ -118,7 +119,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/:batchnummer/paspoort",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["batches", "analyse"],
         params: Type.Object({ batchnummer: BatchNummer }),
@@ -136,7 +137,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const [batch] = await lees<{ batchnummer: string; status: string; lotnummer: string | null }>(
-        app.db, `${BATCH_SQL} WHERE b.batchnummer = $1`, [req.params.batchnummer]);
+        app.db, `${BATCH_SQL} WHERE b.batchnummer = $1 AND authorization_read_execution($2,b.product_id)`, [req.params.batchnummer,req.user.sub]);
       if (!batch) throw niet("Batch");
       const regels = await lees<{ markering: string }>(
         app.db,
@@ -173,7 +174,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     "/:batchnummer/besluiten",
     {
-      preHandler: vereist("ploegleider", "kwaliteit", "productiemanager"),
+      preHandler: personalSession,
       schema: {
         tags: ["batches"],
         description:
@@ -182,22 +183,31 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         body: Type.Object({
           besluit: Type.Union([Type.Literal("in_beoordeling"), Type.Literal("vrijgegeven"), Type.Literal("afgekeurd")]),
           reden: Type.String({ minLength: 1 }),
+          wachtwoord: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
         }),
         response: { 201: Batch },
       },
     },
     async (req, reply) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("SELECT id FROM batch WHERE batchnummer = $1", [req.params.batchnummer]);
+      const status = await invoerTransactie(app.db, req, async (tx) => {
+        const { rows } = await tx.query<{id:string;product_id:string|null}>("SELECT id,product_id FROM batch WHERE batchnummer = $1 FOR UPDATE", [req.params.batchnummer]);
         if (!rows[0]) throw niet("Batch");
-        await tx.query("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES ($1, $2, $3, $4)", [
-          rows[0].id,
-          req.body.besluit,
-          req.body.reden,
-          req.user.sub,
-        ]);
+        const target = {product: rows[0].product_id ?? undefined};
+        if (req.body.besluit === "in_beoordeling") {
+          const { rows: [permission] } = await tx.query<{allowed:boolean}>("SELECT authorization_permits($1,'execution.hold',NULL,$2,NULL) OR authorization_permits($1,'inspection.hold',NULL,$2,NULL) AS allowed", [req.user.sub,rows[0].product_id]);
+          if (!permission?.allowed) throw new ApiFout(403,"Geen bevoegdheid voor blokkade");
+        } else {
+          await requireTransactionPermission(tx, req.user.sub,"inspection.batch.decide",target);
+          if (!req.body.wachtwoord) throw new ApiFout(422,"Persoonlijke bevestiging vereist");
+          const { rows: [result] } = await tx.query<{status:string}>("SELECT quality_decision_confirmed($1,$2,'batch',$3,$4,$5,NULL,$6) AS status",[req.user.sub,req.user.sessionVersion,rows[0].id,req.body.besluit,req.body.reden,req.body.wachtwoord]);
+          return result?.status;
+        }
+        await tx.query("SELECT execution_batch_hold($1,$2)", [rows[0].id, req.body.reden]);
+        return "decided";
       });
-      const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1`, [req.params.batchnummer]);
+      if (status === "locked") throw new ApiFout(429,"Te veel wachtwoordpogingen");
+      if (status !== "decided") throw new ApiFout(403,"Persoonlijke bevestiging geweigerd");
+      const [batch] = await lees(app.db, `${BATCH_SQL} WHERE b.batchnummer = $1 AND authorization_read_execution($2,b.product_id)`, [req.params.batchnummer,req.user.sub]);
       return reply.status(201).send(batch as never);
     },
   );

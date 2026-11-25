@@ -3066,8 +3066,3370 @@ END $$;
 CREATE TRIGGER invoerconflict_vast BEFORE UPDATE OR DELETE ON invoerconflict
     FOR EACH ROW EXECUTE FUNCTION invoerconflict_vast();
 
+-- Migratie 0036: uitbreidingsmodel autorisaties en kwalificaties (D89 P01–P05, M08).
+-- Nog geen omschakeling van bestaande routes en geen automatische nieuwe rechten.
+SET search_path = fabriek, public;
+
+-- MES-rollen met gescheiden verantwoordelijkheidsdomeinen.
+CREATE TABLE authorization_role (
+    code text PRIMARY KEY CHECK (btrim(code) <> ''),
+    domain text NOT NULL CHECK (domain IN ('technical','security','operations','quality','engineering','maintenance','analysis','display'))
+);
+
+-- Concrete bevoegdheden binnen een domein.
+CREATE TABLE authorization_permission (
+    code text PRIMARY KEY CHECK (btrim(code) <> ''),
+    domain text NOT NULL CHECK (domain IN ('technical','security','operations','quality','engineering','maintenance','analysis','display'))
+);
+
+-- Koppeling tussen rollen en concrete bevoegdheden.
+CREATE TABLE authorization_role_permission (
+    role_code text REFERENCES authorization_role(code),
+    permission_code text REFERENCES authorization_permission(code),
+    PRIMARY KEY (role_code, permission_code)
+);
+
+-- Persoonlijke roltoekenning met geldigheid en begrensde scope.
+CREATE TABLE authorization_grant (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES gebruiker(id),
+    role_code text NOT NULL REFERENCES authorization_role(code),
+    area_code text CHECK (btrim(area_code) <> ''),
+    product_id uuid REFERENCES product(id),
+    equipment_code text CHECK (btrim(equipment_code) <> ''),
+    valid_from timestamptz NOT NULL DEFAULT now(),
+    valid_until timestamptz CHECK (valid_until > valid_from),
+    revoked_at timestamptz
+);
+
+-- Definitie van een personeelskwalificatie.
+CREATE TABLE qualification (
+    code text PRIMARY KEY CHECK (btrim(code) <> ''),
+    description text NOT NULL CHECK (btrim(description) <> '')
+);
+
+-- Persoonlijke kwalificatie met geldigheid en intrekking.
+CREATE TABLE personnel_qualification (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES gebruiker(id),
+    qualification_code text NOT NULL REFERENCES qualification(code),
+    valid_from timestamptz NOT NULL DEFAULT now(),
+    valid_until timestamptz CHECK (valid_until > valid_from),
+    revoked_at timestamptz
+);
+
+-- Verplichte kwalificatie voor een concrete activiteit.
+CREATE TABLE activity_qualification (
+    permission_code text REFERENCES authorization_permission(code),
+    qualification_code text REFERENCES qualification(code),
+    PRIMARY KEY (permission_code, qualification_code)
+);
+
+-- Momentopname van de oude rol bij migratie, zonder extra rechten.
+CREATE TABLE authorization_legacy_snapshot (
+    user_id uuid PRIMARY KEY REFERENCES gebruiker(id),
+    legacy_role text NOT NULL,
+    captured_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO authorization_legacy_snapshot (user_id, legacy_role)
+SELECT id, rol FROM gebruiker;
+
+CREATE INDEX authorization_grant_user ON authorization_grant(user_id);
+CREATE INDEX personnel_qualification_user ON personnel_qualification(user_id);
+
+-- Alleen vertrouwde servercontext; NULL is geen match voor een begrensde scope.
+-- Dezelfde grant moet de permission en alle scopevoorwaarden bevatten.
+CREATE FUNCTION authorization_permits(p_user uuid, p_permission text, p_area text, p_product uuid, p_equipment text)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek, public AS $$
+    WITH grants AS (
+      SELECT g.*, r.domain FROM authorization_grant g JOIN authorization_role r ON r.code = g.role_code
+       WHERE g.user_id = p_user AND g.valid_from <= now()
+         AND (g.valid_until IS NULL OR now() < g.valid_until) AND g.revoked_at IS NULL
+    )
+    SELECT EXISTS (SELECT 1 FROM gebruiker WHERE id = p_user AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen)
+       AND NOT (EXISTS (SELECT 1 FROM grants WHERE domain IN ('technical','security'))
+                AND EXISTS (SELECT 1 FROM grants WHERE domain NOT IN ('technical','security')))
+       AND NOT (EXISTS (SELECT 1 FROM grants WHERE domain = 'display')
+                AND EXISTS (SELECT 1 FROM grants WHERE domain <> 'display'))
+       AND EXISTS (
+         SELECT 1 FROM grants g JOIN authorization_role_permission rp ON rp.role_code = g.role_code
+         JOIN authorization_permission p ON p.code = rp.permission_code AND p.domain = g.domain
+         WHERE p.code = p_permission
+           AND (g.area_code IS NULL OR g.area_code = p_area)
+           AND (g.product_id IS NULL OR g.product_id = p_product)
+           AND (g.equipment_code IS NULL OR g.equipment_code = p_equipment))
+       AND NOT EXISTS (
+         SELECT 1 FROM activity_qualification aq WHERE aq.permission_code = p_permission
+           AND NOT EXISTS (SELECT 1 FROM personnel_qualification q WHERE q.user_id = p_user
+             AND q.qualification_code = aq.qualification_code AND q.valid_from <= now()
+             AND (q.valid_until IS NULL OR now() < q.valid_until) AND q.revoked_at IS NULL))
+$$;
+
+-- D93/D94: geen gedeelde login en geen overdracht van invoerrechten via eerdere login.
+SET search_path = fabriek, public;
+CREATE OR REPLACE FUNCTION mag_invoeren_namens(p_gebruiker uuid, p_operator uuid, p_pc uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = fabriek, public AS $$
+    SELECT EXISTS (SELECT 1 FROM operator o JOIN gebruiker g ON g.id = o.gebruiker_id
+      JOIN pc ON pc.id = p_pc AND pc.actief
+      WHERE o.id = p_operator AND o.actief AND g.id = p_gebruiker
+        AND g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen)
+$$;
+
+-- Migratie 0038: onafhankelijke beoordeling van roltoekenning (D89 P01-P05).
+-- Uitbreidingsfase: uitsluitend database-eigenaar; geen toegang voor de applicatie.
+SET search_path = fabriek, public;
+
+-- Vastgelegde aanvraag met exacte inhoud en onafhankelijke beoordelaar.
+CREATE TABLE authorization_request (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    requested_by uuid NOT NULL REFERENCES gebruiker(id),
+    user_id uuid NOT NULL REFERENCES gebruiker(id),
+    role_code text NOT NULL REFERENCES authorization_role(code),
+    area_code text CHECK (btrim(area_code) <> ''),
+    product_id uuid REFERENCES product(id),
+    equipment_code text CHECK (btrim(equipment_code) <> ''),
+    valid_from timestamptz NOT NULL,
+    valid_until timestamptz CHECK (valid_until > valid_from),
+    reason text NOT NULL CHECK (btrim(reason) <> ''),
+    requested_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (requested_by <> user_id)
+);
+
+-- Een besluit per aanvraag; inhoud blijft in de oorspronkelijke aanvraag.
+CREATE TABLE authorization_decision (
+    request_id uuid PRIMARY KEY REFERENCES authorization_request(id),
+    decided_by uuid NOT NULL REFERENCES gebruiker(id),
+    approved boolean NOT NULL,
+    reason text NOT NULL CHECK (btrim(reason) <> ''),
+    decided_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    grant_id uuid UNIQUE REFERENCES authorization_grant(id),
+    CHECK (approved = (grant_id IS NOT NULL))
+);
+
+-- Deze technische permissies worden niet automatisch aan bestaande accounts toegekend.
+INSERT INTO authorization_permission (code, domain)
+VALUES ('authorization.request','security'), ('authorization.approve','security');
+
+-- De eigenaar moet deze functies via een gecontroleerd kanaal aanroepen.
+-- Geen SECURITY DEFINER en geen vertrouwen in een vrij opgegeven actor vanuit de app.
+CREATE FUNCTION authorization_submit(p_actor uuid, p_user uuid, p_role text,
+    p_area text, p_product uuid, p_equipment text, p_from timestamptz,
+    p_until timestamptz, p_reason text) RETURNS uuid
+LANGUAGE plpgsql SET search_path = fabriek, public AS $$
+DECLARE v_id uuid;
+BEGIN
+    IF p_actor IS NULL OR p_user IS NULL OR p_actor = p_user OR
+       NOT authorization_permits(p_actor,'authorization.request',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Geen bevoegdheid voor aanvraag';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=p_user AND actief AND NOT gedeeld) THEN
+        RAISE EXCEPTION 'Ongeldig persoonlijk doelaccount';
+    END IF;
+    IF p_until IS NOT NULL AND p_until <= clock_timestamp() THEN
+        RAISE EXCEPTION 'Geldigheid is verlopen';
+    END IF;
+    INSERT INTO authorization_request (requested_by,user_id,role_code,area_code,product_id,equipment_code,valid_from,valid_until,reason)
+    VALUES (p_actor,p_user,p_role,p_area,p_product,p_equipment,p_from,p_until,p_reason)
+    RETURNING id INTO v_id;
+    RETURN v_id;
+END $$;
+
+CREATE FUNCTION authorization_decide(p_actor uuid, p_request uuid, p_approved boolean, p_reason text)
+RETURNS uuid LANGUAGE plpgsql SET search_path = fabriek, public AS $$
+DECLARE v authorization_request%ROWTYPE; v_grant uuid; v_domain text;
+BEGIN
+    -- Serialiseer besluiten voor hetzelfde doelaccount, ook uit verschillende aanvragen.
+    SELECT * INTO v FROM authorization_request WHERE id=p_request FOR UPDATE;
+    IF NOT FOUND OR p_actor IS NULL OR p_approved IS NULL OR
+       p_actor = v.requested_by OR p_actor = v.user_id OR
+       NOT authorization_permits(p_actor,'authorization.approve',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Onafhankelijke bevoegde beoordelaar vereist';
+    END IF;
+    IF EXISTS (SELECT 1 FROM authorization_decision WHERE request_id=p_request) THEN
+        RAISE EXCEPTION 'Aanvraag is al beoordeeld';
+    END IF;
+    PERFORM 1 FROM gebruiker WHERE id=v.user_id FOR UPDATE;
+    IF p_approved THEN
+        IF NOT authorization_permits(v.requested_by,'authorization.request',NULL,NULL,NULL) THEN
+            RAISE EXCEPTION 'Aanvrager is niet meer bevoegd';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=v.user_id AND actief AND NOT gedeeld) THEN
+            RAISE EXCEPTION 'Ongeldig persoonlijk doelaccount';
+        END IF;
+        IF v.valid_until IS NOT NULL AND v.valid_until <= clock_timestamp() THEN
+            RAISE EXCEPTION 'Geldigheid is verlopen';
+        END IF;
+        SELECT domain INTO v_domain FROM authorization_role WHERE code=v.role_code;
+        IF EXISTS (
+            SELECT 1 FROM authorization_grant g JOIN authorization_role r ON r.code=g.role_code
+            WHERE g.user_id=v.user_id AND g.revoked_at IS NULL
+              AND tstzrange(g.valid_from,g.valid_until,'[)') && tstzrange(v.valid_from,v.valid_until,'[)')
+              AND ((r.domain IN ('technical','security')) <> (v_domain IN ('technical','security'))
+                OR (r.domain='display') <> (v_domain='display'))
+        ) THEN RAISE EXCEPTION 'Functiescheiding verhindert toekenning'; END IF;
+        INSERT INTO authorization_grant (user_id,role_code,area_code,product_id,equipment_code,valid_from,valid_until)
+        VALUES (v.user_id,v.role_code,v.area_code,v.product_id,v.equipment_code,v.valid_from,v.valid_until)
+        RETURNING id INTO v_grant;
+    END IF;
+    INSERT INTO authorization_decision (request_id,decided_by,approved,reason,grant_id)
+    VALUES (v.id,p_actor,p_approved,p_reason,v_grant);
+    RETURN v_grant;
+END $$;
+
+REVOKE ALL ON authorization_request, authorization_decision FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION authorization_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text),
+    authorization_decide(uuid,uuid,boolean,text) FROM PUBLIC;
+
+-- Migratie 0039: bescherming van security-identiteiten en besluitgebonden herbevestiging.
+SET search_path = fabriek, public;
+
+-- Ook toekomstige en verlopen, niet-ingetrokken security-grants beschermen:
+-- herstel van een kritisch account vereist een afzonderlijk gecontroleerd kanaal.
+CREATE FUNCTION authorization_protect_identity() RETURNS trigger
+LANGUAGE plpgsql SET search_path = fabriek, public AS $$
+BEGIN
+    IF (EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+                    AND pg_has_role(current_user, oid, 'MEMBER')))
+       AND EXISTS (
+           SELECT 1 FROM authorization_grant g JOIN authorization_role r ON r.code=g.role_code
+           WHERE g.user_id=OLD.id AND g.revoked_at IS NULL AND r.domain='security')
+       AND (NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash
+         OR NEW.wachtwoord_wijzigen IS DISTINCT FROM OLD.wachtwoord_wijzigen
+         OR NEW.rol IS DISTINCT FROM OLD.rol
+         OR NEW.gebruikersnaam IS DISTINCT FROM OLD.gebruikersnaam
+         OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+         OR NEW.actief IS DISTINCT FROM OLD.actief) THEN
+        RAISE EXCEPTION 'Kritisch account vereist gecontroleerd identiteitsbeheer';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER authorization_protect_identity BEFORE UPDATE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION authorization_protect_identity();
+
+-- Een persoonlijke herbevestiging en het specifieke besluit in dezelfde aanroep.
+-- Nog eigenaar-only. Een fout wachtwoord retourneert een status in plaats van
+-- een exception, zodat de inlogpoging bij COMMIT behouden blijft.
+CREATE FUNCTION authorization_decide_confirmed(p_actor uuid, p_request uuid,
+    p_approved boolean, p_reason text, p_password text)
+RETURNS TABLE (status text, grant_id uuid)
+LANGUAGE plpgsql SET search_path = fabriek, public AS $$
+DECLARE v_name text; v_login record; v_grant uuid;
+BEGIN
+    SELECT gebruikersnaam INTO v_name FROM gebruiker
+      WHERE id=p_actor AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen
+      FOR UPDATE;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::text, NULL::uuid; RETURN; END IF;
+    SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN
+        RETURN QUERY SELECT 'locked'::text, NULL::uuid; RETURN;
+    END IF;
+    IF v_login.id IS DISTINCT FROM p_actor THEN
+        RETURN QUERY SELECT 'denied'::text, NULL::uuid; RETURN;
+    END IF;
+    v_grant := authorization_decide(p_actor,p_request,p_approved,p_reason);
+    RETURN QUERY SELECT 'decided'::text, v_grant;
+END $$;
+REVOKE EXECUTE ON FUNCTION authorization_decide_confirmed(uuid,uuid,boolean,text,text) FROM PUBLIC;
+
+-- Migratie 0040: afscherming wachtwoordhashes en gecontroleerde accountwijziging.
+SET search_path = fabriek, public;
+
+-- Alleen bestaande loginfuncties mogen hashes intern lezen.
+ALTER FUNCTION inloggen(text,text,text) SECURITY DEFINER;
+ALTER FUNCTION inloggen(text,text,text) SET search_path = pg_catalog,fabriek,public;
+ALTER FUNCTION wijzig_eigen_wachtwoord(uuid,text,text) SECURITY DEFINER;
+ALTER FUNCTION wijzig_eigen_wachtwoord(uuid,text,text) SET search_path = pg_catalog,fabriek,public;
+-- Eigen wachtwoord wijzigen blijft mogelijk met het huidige wachtwoord; de
+-- eigenaar-only triggerbescherming van 0039 blijft gelden voor directe resets.
+REVOKE EXECUTE ON FUNCTION inloggen(text,text,text), wijzig_eigen_wachtwoord(uuid,text,text) FROM PUBLIC;
+
+-- Alleen de demo-indicatie, nooit de hash. Beperkt tot expliciete demoaccounts.
+CREATE FUNCTION demo_account_names(p_names text[]) RETURNS TABLE(gebruikersnaam text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public AS $$
+    SELECT g.gebruikersnaam FROM fabriek.gebruiker g
+      WHERE g.actief AND NOT g.gedeeld AND lower(g.gebruikersnaam)=ANY(p_names)
+        AND lower(g.gebruikersnaam) IN ('operator.a','operator.b','operator.c','operator.d','ploegleider1','kwaliteit1','planner1','beheerder1','analist1','scherm1')
+        AND g.wachtwoord_hash=public.crypt('demo',g.wachtwoord_hash)
+      ORDER BY g.gebruikersnaam
+$$;
+REVOKE EXECUTE ON FUNCTION demo_account_names(text[]) FROM PUBLIC;
+
+-- Vervang de oude updatequery (die de hash moest lezen) door twee varianten
+-- in de API: zonder wachtwoordwijziging en met een expliciete nieuwe hash.
+-- Rechten worden bij iedere migratie opnieuw afgedwongen in rechten.sql.
+
+-- Migratie 0041: gecontroleerde intrekking en auditspoor van bevoegdheden.
+SET search_path = fabriek, public;
+
+INSERT INTO authorization_permission(code,domain) VALUES ('authorization.revoke','security');
+
+-- Een intrekking bewaart de grant en de identiteit en motivatie van de beslisser.
+CREATE TABLE authorization_revocation (
+    grant_id uuid PRIMARY KEY REFERENCES authorization_grant(id),
+    revoked_by uuid NOT NULL REFERENCES gebruiker(id),
+    reason text NOT NULL CHECK (btrim(reason) <> ''),
+    revoked_at timestamptz NOT NULL
+);
+
+-- Intrekking is een beperkende maatregel, geen toekenning. Geen zelfintrekking
+-- via dit kanaal; bevoegde collega bevestigt de exacte grant en reden.
+-- Eigenaar-only tot het beveiligde beheerkanaal en de tests gereed zijn.
+CREATE FUNCTION authorization_revoke_confirmed(p_actor uuid,p_grant uuid,p_reason text,p_password text)
+RETURNS text LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_target uuid; v_revoked timestamptz; v_now timestamptz;
+BEGIN
+    IF p_actor IS NULL OR NOT authorization_permits(p_actor,'authorization.revoke',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Geen bevoegdheid voor intrekking';
+    END IF;
+    SELECT gebruikersnaam INTO v_name FROM gebruiker
+        WHERE id=p_actor AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+    IF NOT FOUND THEN RETURN 'denied'; END IF;
+    SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_actor THEN RETURN 'denied'; END IF;
+    SELECT user_id INTO v_target FROM authorization_grant WHERE id=p_grant;
+    IF NOT FOUND OR v_target=p_actor THEN RAISE EXCEPTION 'Onafhankelijke intrekking vereist'; END IF;
+    PERFORM 1 FROM gebruiker WHERE id=v_target FOR UPDATE;
+    SELECT revoked_at INTO v_revoked FROM authorization_grant WHERE id=p_grant FOR UPDATE;
+    IF v_revoked IS NOT NULL THEN RAISE EXCEPTION 'Bevoegdheid is al ingetrokken'; END IF;
+    IF NOT authorization_permits(p_actor,'authorization.revoke',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Beoordelaar is niet meer bevoegd';
+    END IF;
+    v_now := clock_timestamp();
+    UPDATE authorization_grant SET revoked_at=v_now WHERE id=p_grant;
+    INSERT INTO authorization_revocation(grant_id,revoked_by,reason,revoked_at)
+    VALUES(p_grant,p_actor,p_reason,v_now);
+    RETURN 'revoked';
+END $$;
+
+-- Onveranderlijke besluitregistraties; ook onderhoud kan ze niet per ongeluk wijzigen.
+CREATE FUNCTION authorization_audit_immutable() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    RAISE EXCEPTION 'Autorisatiebesluiten zijn onveranderlijk';
+END $$;
+CREATE TRIGGER authorization_request_immutable BEFORE UPDATE OR DELETE ON authorization_request
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+CREATE TRIGGER authorization_decision_immutable BEFORE UPDATE OR DELETE ON authorization_decision
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+CREATE TRIGGER authorization_revocation_immutable BEFORE UPDATE OR DELETE ON authorization_revocation
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON authorization_revocation FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION authorization_revoke_confirmed(uuid,uuid,text,text),authorization_audit_immutable() FROM PUBLIC;
+
+-- Migratie 0042: operatoridentiteit zonder wachtwoordhash.
+SET search_path = fabriek, public;
+CREATE OR REPLACE FUNCTION operator_van_account(p_gebruiker uuid) RETURNS uuid LANGUAGE plpgsql VOLATILE AS $$
+DECLARE
+    v_g     record;
+    v_id    uuid;
+    v_naam  text;
+    v_n     int := 1;
+BEGIN
+    SELECT gebruikersnaam, gedeeld, rol INTO v_g FROM gebruiker WHERE id = p_gebruiker AND actief;
+    IF NOT FOUND OR v_g.gedeeld OR v_g.rol NOT IN ('operator', 'ploegleider', 'kwaliteit') THEN RETURN NULL; END IF;
+    SELECT id INTO v_id FROM operator WHERE gebruiker_id = p_gebruiker;
+    IF FOUND THEN RETURN v_id; END IF;
+    -- Nog geen naam: maak er een met de gebruikersnaam (de beheerder kan hem later wijzigen).
+    v_naam := v_g.gebruikersnaam;
+    WHILE EXISTS (SELECT 1 FROM operator WHERE lower(naam) = lower(v_naam)) LOOP
+        v_n := v_n + 1;
+        v_naam := v_g.gebruikersnaam || ' (' || v_n || ')';
+    END LOOP;
+    INSERT INTO operator (naam, gebruiker_id) VALUES (v_naam, p_gebruiker) RETURNING id INTO v_id;
+    RETURN v_id;
+END $$;
+ALTER FUNCTION operator_van_account(uuid) SET search_path = fabriek, public;
+
+-- Migratie 0043: MES-rollenregister (D89 P01–P05).
+-- Alleen definities, geen automatische grants aan bestaande gebruikers.
+SET search_path = fabriek, public;
+INSERT INTO authorization_role(code,domain) VALUES
+ ('operator','operations'),
+ ('shift_supervisor','operations'),
+ ('manufacturing_manager','operations'),
+ ('production_planner','operations'),
+ ('process_engineer','engineering'),
+ ('engineering_approver','engineering'),
+ ('quality_technician','quality'),
+ ('quality_approver','quality'),
+ ('maintenance_technician','maintenance'),
+ ('system_administrator','technical'),
+ ('security_administrator','security'),
+ ('analyst_management','analysis'),
+ ('display_integration','display');
+
+-- Eerste concrete rechten voor het security-domein. De operationele matrix
+-- wordt per activiteit geïmplementeerd; geen impliciete rechten uit rolnamen.
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('security_administrator','authorization.request'),
+ ('security_administrator','authorization.approve'),
+ ('security_administrator','authorization.revoke');
+
+-- Migratie 0044: concrete beheertoegang; geen automatische grantmigratie.
+SET search_path = fabriek, public;
+
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('account.read','technical'),
+ ('account.manage','technical'),
+ ('workstation.manage','technical'),
+ ('system.read','technical'),
+ ('process.parameter.manage','engineering'),
+ ('material.definition.manage','engineering'),
+ ('authorization.read','security');
+
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('system_administrator','account.read'),
+ ('system_administrator','account.manage'),
+ ('system_administrator','workstation.manage'),
+ ('system_administrator','system.read'),
+ ('process_engineer','process.parameter.manage'),
+ ('process_engineer','material.definition.manage'),
+ ('security_administrator','authorization.read');
+
+-- Migratie 0045: productgebonden uitvoering en correcties.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('execution.start','operations'), ('execution.record','operations'),
+ ('execution.complete','operations'), ('execution.correct','operations'),
+ ('inspection.start','quality'), ('inspection.record','quality');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('operator','execution.start'), ('operator','execution.record'), ('operator','execution.complete'),
+ ('shift_supervisor','execution.start'), ('shift_supervisor','execution.record'),
+ ('shift_supervisor','execution.complete'), ('shift_supervisor','execution.correct'),
+ ('quality_technician','inspection.start'), ('quality_technician','inspection.record'),
+ ('quality_approver','inspection.start'), ('quality_approver','inspection.record');
+
+-- Migratie 0046: afzonderlijke leesrechten en kwaliteitsbesluit.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('execution.read','operations'), ('inspection.read','quality'),
+ ('inspection.decide','quality'), ('engineering.execution.read','engineering'),
+ ('analysis.execution.read','analysis');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('operator','execution.read'), ('shift_supervisor','execution.read'),
+ ('manufacturing_manager','execution.read'), ('production_planner','execution.read'),
+ ('quality_technician','inspection.read'), ('quality_approver','inspection.read'),
+ ('quality_approver','inspection.decide'),
+ ('process_engineer','engineering.execution.read'),
+ ('engineering_approver','engineering.execution.read'),
+ ('analyst_management','analysis.execution.read');
+
+-- Eén concrete doelcontext, zonder de scopes van verschillende grants te combineren.
+CREATE FUNCTION authorization_read_execution(p_user uuid,p_product uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $$
+ SELECT authorization_permits(p_user,'execution.read',NULL,p_product,NULL)
+     OR authorization_permits(p_user,'inspection.read',NULL,p_product,NULL)
+     OR authorization_permits(p_user,'engineering.execution.read',NULL,p_product,NULL)
+     OR authorization_permits(p_user,'analysis.execution.read',NULL,p_product,NULL)
+$$;
+
+-- Migratie 0047: planning en productdefinities gescheiden.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('planning.manage','operations'),
+ ('engineering.product.manage','engineering');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('production_planner','planning.manage'),
+ ('process_engineer','engineering.product.manage');
+
+-- Migratie 0048: operationele stilstand en overdracht.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('downtime.read','operations'),
+ ('downtime.record','operations'),
+ ('downtime.reason.manage','operations'),
+ ('handover.read','operations'),
+ ('handover.record','operations'),
+ ('shift.manage','operations'),
+ ('maintenance.downtime.read','maintenance'),
+ ('display.downtime.read','display');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('operator','downtime.read'), ('operator','downtime.record'),
+ ('operator','handover.read'), ('operator','handover.record'),
+ ('shift_supervisor','downtime.read'), ('shift_supervisor','downtime.record'),
+ ('shift_supervisor','handover.read'), ('shift_supervisor','handover.record'),
+ ('manufacturing_manager','downtime.read'), ('manufacturing_manager','downtime.reason.manage'),
+ ('manufacturing_manager','handover.read'), ('manufacturing_manager','shift.manage'),
+ ('production_planner','handover.read'),
+ ('maintenance_technician','maintenance.downtime.read'),
+ ('display_integration','display.downtime.read');
+
+-- Migratie 0049: batch-, lot- en herbewerkingsrechten.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('execution.batch.create','operations'), ('execution.lot.create','operations'),
+ ('execution.hold','operations'), ('inspection.hold','quality'),
+ ('inspection.batch.decide','quality'), ('execution.rework','operations'),
+ ('inspection.rework.order','quality'), ('operations.rework.order','operations');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('operator','execution.batch.create'), ('shift_supervisor','execution.batch.create'),
+ ('operator','execution.lot.create'), ('shift_supervisor','execution.lot.create'),
+ ('shift_supervisor','execution.hold'), ('manufacturing_manager','execution.hold'),
+ ('quality_technician','inspection.hold'), ('quality_approver','inspection.hold'),
+ ('quality_approver','inspection.batch.decide'),
+ ('operator','execution.rework'), ('shift_supervisor','execution.rework'),
+ ('quality_approver','inspection.rework.order'), ('manufacturing_manager','operations.rework.order');
+
+-- Een volledig lot mag alleen zichtbaar zijn wanneer alle leden binnen de
+-- leesbevoegdheid vallen. Lege lots vereisen onbegrensde leesbevoegdheid.
+CREATE FUNCTION authorization_read_lot(p_user uuid,p_lot uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek,public AS $$
+ SELECT EXISTS (SELECT 1 FROM lot WHERE id=p_lot)
+ AND CASE WHEN EXISTS (SELECT 1 FROM batch WHERE lot_id=p_lot)
+ THEN NOT EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=p_lot
+                  AND NOT authorization_read_execution(p_user,b.product_id))
+ ELSE authorization_read_execution(p_user,NULL) END
+ AND NOT EXISTS (SELECT 1 FROM stapregistratie r WHERE r.lot_id=p_lot
+                  AND NOT authorization_read_execution(p_user,r.product_id))
+$$;
+
+-- Migratie 0050: één begrensde wachtwoordcontrole (D94/D99).
+SET search_path = fabriek, public;
+CREATE OR REPLACE FUNCTION inloggen(p_naam text, p_wachtwoord text, p_pc text DEFAULT NULL)
+RETURNS TABLE (id uuid, rol text, gebruikersnaam text, wacht_seconden int) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_mislukt   int;
+    v_laatste   timestamptz;
+    v_gebruiker gebruiker%ROWTYPE;
+BEGIN
+    PERFORM 1 FROM gebruiker g WHERE lower(g.gebruikersnaam)=lower(p_naam) FOR UPDATE;
+    SELECT count(*), max(p.op) INTO v_mislukt, v_laatste
+      FROM inlogpoging p
+     WHERE lower(p.gebruikersnaam) = lower(p_naam) AND p.uitkomst = 'mislukt'
+       AND p.op > clock_timestamp() - interval '15 minutes'
+       AND p.op > coalesce((SELECT max(x.op) FROM inlogpoging x
+                             WHERE lower(x.gebruikersnaam) = lower(p_naam) AND x.uitkomst = 'gelukt'), '-infinity');
+    IF v_mislukt >= 5 AND v_laatste > clock_timestamp() - interval '1 minute' THEN
+        INSERT INTO inlogpoging (gebruikersnaam, pc, uitkomst) VALUES (left(p_naam, 100), left(p_pc, 100), 'geblokkeerd');
+        RETURN QUERY SELECT NULL::uuid, NULL::text, NULL::text,
+            greatest(1, ceil(extract(epoch FROM v_laatste + interval '1 minute' - clock_timestamp()))::int);
+        RETURN;
+    END IF;
+    SELECT g.* INTO v_gebruiker FROM gebruiker g
+     WHERE lower(g.gebruikersnaam) = lower(p_naam) AND g.actief AND NOT g.gedeeld
+       AND g.wachtwoord_hash = public.crypt(p_wachtwoord, g.wachtwoord_hash);
+    IF NOT FOUND THEN
+        INSERT INTO inlogpoging (gebruikersnaam, pc, uitkomst) VALUES (left(p_naam, 100), left(p_pc, 100), 'mislukt');
+        RETURN;
+    END IF;
+    INSERT INTO inlogpoging (gebruikersnaam, pc, uitkomst) VALUES (v_gebruiker.gebruikersnaam, left(p_pc, 100), 'gelukt');
+    RETURN QUERY SELECT v_gebruiker.id, v_gebruiker.rol, v_gebruiker.gebruikersnaam, NULL::int;
+END $$;
+
+-- Foutieve authenticatie retourneert status zodat de audit bij commit behouden blijft.
+CREATE FUNCTION change_password_confirmed(p_user uuid,p_current text,p_new text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record;
+BEGIN
+    IF length(coalesce(p_new,'')) < 8 OR p_new = p_current THEN
+      RAISE EXCEPTION 'Kies een ander wachtwoord van minstens 8 tekens';
+    END IF;
+    SELECT gebruikersnaam INTO v_name FROM gebruiker
+      WHERE id=p_user AND actief AND NOT gedeeld FOR UPDATE;
+    IF NOT FOUND THEN RETURN 'denied'; END IF;
+    SELECT * INTO v_login FROM inloggen(v_name,p_current,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_user THEN RETURN 'denied'; END IF;
+    UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash(p_new),wachtwoord_wijzigen=false WHERE id=p_user;
+    RETURN 'changed';
+END $$;
+REVOKE EXECUTE ON FUNCTION change_password_confirmed(uuid,text,text),inloggen(text,text,text),wijzig_eigen_wachtwoord(uuid,text,text),controleer_login(text,text) FROM PUBLIC;
+-- De oude controle en wachtwoordfunctie blijven alleen voor eigenaar/migratietests.
+
+-- Migratie 0051: afzonderlijke technische en security-identiteiten (D89/D99).
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION authorization_permits(p_user uuid, p_permission text, p_area text, p_product uuid, p_equipment text)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = fabriek, public AS $$
+    WITH grants AS (
+      SELECT g.*, r.domain FROM authorization_grant g JOIN authorization_role r ON r.code = g.role_code
+       WHERE g.user_id = p_user AND g.valid_from <= now()
+         AND (g.valid_until IS NULL OR now() < g.valid_until) AND g.revoked_at IS NULL
+    )
+    SELECT EXISTS (SELECT 1 FROM gebruiker WHERE id = p_user AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen)
+       AND NOT (EXISTS (SELECT 1 FROM grants WHERE domain IN ('technical','security'))
+                AND EXISTS (SELECT 1 FROM grants WHERE domain NOT IN ('technical','security')))
+       AND NOT (EXISTS (SELECT 1 FROM grants WHERE domain = 'technical')
+                AND EXISTS (SELECT 1 FROM grants WHERE domain = 'security'))
+       AND NOT (EXISTS (SELECT 1 FROM grants WHERE domain = 'display')
+                AND EXISTS (SELECT 1 FROM grants WHERE domain <> 'display'))
+       AND EXISTS (
+         SELECT 1 FROM grants g JOIN authorization_role_permission rp ON rp.role_code = g.role_code
+         JOIN authorization_permission p ON p.code = rp.permission_code AND p.domain = g.domain
+         WHERE p.code = p_permission
+           AND (g.area_code IS NULL OR g.area_code = p_area)
+           AND (g.product_id IS NULL OR g.product_id = p_product)
+           AND (g.equipment_code IS NULL OR g.equipment_code = p_equipment))
+       AND NOT EXISTS (
+         SELECT 1 FROM activity_qualification aq WHERE aq.permission_code = p_permission
+           AND NOT EXISTS (SELECT 1 FROM personnel_qualification q WHERE q.user_id = p_user
+             AND q.qualification_code = aq.qualification_code AND q.valid_from <= now()
+             AND (q.valid_until IS NULL OR now() < q.valid_until) AND q.revoked_at IS NULL))
+$$;
+
+CREATE OR REPLACE FUNCTION authorization_decide(p_actor uuid, p_request uuid, p_approved boolean, p_reason text)
+RETURNS uuid LANGUAGE plpgsql SET search_path = fabriek, public AS $$
+DECLARE v authorization_request%ROWTYPE; v_grant uuid; v_domain text;
+BEGIN
+    -- Serialiseer besluiten voor hetzelfde doelaccount, ook uit verschillende aanvragen.
+    SELECT * INTO v FROM authorization_request WHERE id=p_request FOR UPDATE;
+    IF NOT FOUND OR p_actor IS NULL OR p_approved IS NULL OR
+       p_actor = v.requested_by OR p_actor = v.user_id OR
+       NOT authorization_permits(p_actor,'authorization.approve',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Onafhankelijke bevoegde beoordelaar vereist';
+    END IF;
+    IF EXISTS (SELECT 1 FROM authorization_decision WHERE request_id=p_request) THEN
+        RAISE EXCEPTION 'Aanvraag is al beoordeeld';
+    END IF;
+    PERFORM 1 FROM gebruiker WHERE id=v.user_id FOR UPDATE;
+    IF p_approved THEN
+        IF NOT authorization_permits(v.requested_by,'authorization.request',NULL,NULL,NULL) THEN
+            RAISE EXCEPTION 'Aanvrager is niet meer bevoegd';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=v.user_id AND actief AND NOT gedeeld) THEN
+            RAISE EXCEPTION 'Ongeldig persoonlijk doelaccount';
+        END IF;
+        IF v.valid_until IS NOT NULL AND v.valid_until <= clock_timestamp() THEN
+            RAISE EXCEPTION 'Geldigheid is verlopen';
+        END IF;
+        SELECT domain INTO v_domain FROM authorization_role WHERE code=v.role_code;
+        IF EXISTS (
+            SELECT 1 FROM authorization_grant g JOIN authorization_role r ON r.code=g.role_code
+            WHERE g.user_id=v.user_id AND g.revoked_at IS NULL
+              AND tstzrange(g.valid_from,g.valid_until,'[)') && tstzrange(v.valid_from,v.valid_until,'[)')
+              AND ((r.domain IN ('technical','security')) <> (v_domain IN ('technical','security'))
+                OR (r.domain='display') <> (v_domain='display')
+                OR (r.domain IN ('technical','security') AND v_domain IN ('technical','security') AND r.domain <> v_domain))
+        ) THEN RAISE EXCEPTION 'Functiescheiding verhindert toekenning'; END IF;
+        INSERT INTO authorization_grant (user_id,role_code,area_code,product_id,equipment_code,valid_from,valid_until)
+        VALUES (v.user_id,v.role_code,v.area_code,v.product_id,v.equipment_code,v.valid_from,v.valid_until)
+        RETURNING id INTO v_grant;
+    END IF;
+    INSERT INTO authorization_decision (request_id,decided_by,approved,reason,grant_id)
+    VALUES (v.id,p_actor,p_approved,p_reason,v_grant);
+    RETURN v_grant;
+END $$;
+
+-- Migratie 0052: geen oude roltoekenning via de gewone applicatie (D99).
+SET search_path = fabriek, public;
+
+ALTER TABLE gebruiker DROP CONSTRAINT gebruiker_rol_check;
+ALTER TABLE gebruiker ADD CONSTRAINT gebruiker_rol_check
+    CHECK (rol IN ('pending','operator','ploegleider','kwaliteit','beheerder','analist','planner','scherm','productiemanager'));
+
+CREATE FUNCTION authorization_guard_legacy_role() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+               AND pg_has_role(current_user,oid,'MEMBER')) THEN
+        IF TG_OP = 'INSERT' THEN
+            IF NEW.rol <> 'pending' OR NEW.gedeeld OR NOT NEW.wachtwoord_wijzigen THEN
+                RAISE EXCEPTION 'Nieuw account vereist gecontroleerde roltoekenning';
+            END IF;
+        ELSE
+            IF NEW.rol IS DISTINCT FROM OLD.rol OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+               OR NEW.id IS DISTINCT FROM OLD.id THEN
+                RAISE EXCEPTION 'Oude rol of identiteit mag niet rechtstreeks wijzigen';
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER authorization_guard_legacy_role BEFORE INSERT OR UPDATE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION authorization_guard_legacy_role();
+REVOKE EXECUTE ON FUNCTION authorization_guard_legacy_role() FROM PUBLIC;
+
+-- Migratie 0053: bescherm alle bevoegde identiteiten tegen gewone accountresets.
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION authorization_protect_identity() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    -- Alleen de vertrouwde eigenaar (inclusief gecontroleerde SECURITY DEFINER
+    -- wachtwoordwijziging) valt buiten de blokkade. Een gewone app-login niet.
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))
+       AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+                    AND pg_has_role(current_user, oid, 'MEMBER'))
+       AND (
+         OLD.rol <> 'pending'
+         OR EXISTS (SELECT 1 FROM authorization_grant g
+                    WHERE g.user_id=OLD.id AND g.revoked_at IS NULL)
+       )
+       AND (NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash
+         OR NEW.wachtwoord_wijzigen IS DISTINCT FROM OLD.wachtwoord_wijzigen
+         OR NEW.rol IS DISTINCT FROM OLD.rol
+         OR NEW.gebruikersnaam IS DISTINCT FROM OLD.gebruikersnaam
+         OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+         OR (NEW.actief IS DISTINCT FROM OLD.actief AND
+             (NEW.actief OR EXISTS (SELECT 1 FROM authorization_grant g
+                JOIN authorization_role r ON r.code=g.role_code
+                WHERE g.user_id=OLD.id AND g.revoked_at IS NULL AND r.domain IN ('technical','security'))))) THEN
+        RAISE EXCEPTION 'Kritisch account vereist gecontroleerd identiteitsbeheer';
+    END IF;
+    RETURN NEW;
+END $$;
+
+-- Een account met een door technisch beheer gekozen tijdelijk wachtwoord
+-- mag geen nieuwe bevoegdheden krijgen voordat het persoonlijk is ingericht.
+CREATE OR REPLACE FUNCTION authorization_decide(p_actor uuid, p_request uuid, p_approved boolean, p_reason text)
+RETURNS uuid LANGUAGE plpgsql SET search_path = fabriek, public AS $$
+DECLARE v authorization_request%ROWTYPE; v_grant uuid; v_domain text;
+BEGIN
+    -- Serialiseer besluiten voor hetzelfde doelaccount, ook uit verschillende aanvragen.
+    SELECT * INTO v FROM authorization_request WHERE id=p_request FOR UPDATE;
+    IF NOT FOUND OR p_actor IS NULL OR p_approved IS NULL OR
+       p_actor = v.requested_by OR p_actor = v.user_id OR
+       NOT authorization_permits(p_actor,'authorization.approve',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Onafhankelijke bevoegde beoordelaar vereist';
+    END IF;
+    IF EXISTS (SELECT 1 FROM authorization_decision WHERE request_id=p_request) THEN
+        RAISE EXCEPTION 'Aanvraag is al beoordeeld';
+    END IF;
+    PERFORM 1 FROM gebruiker WHERE id=v.user_id FOR UPDATE;
+    IF p_approved THEN
+        IF NOT authorization_permits(v.requested_by,'authorization.request',NULL,NULL,NULL) THEN
+            RAISE EXCEPTION 'Aanvrager is niet meer bevoegd';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=v.user_id AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen) THEN
+            RAISE EXCEPTION 'Ongeldig persoonlijk doelaccount';
+        END IF;
+        IF v.valid_until IS NOT NULL AND v.valid_until <= clock_timestamp() THEN
+            RAISE EXCEPTION 'Geldigheid is verlopen';
+        END IF;
+        SELECT domain INTO v_domain FROM authorization_role WHERE code=v.role_code;
+        IF EXISTS (
+            SELECT 1 FROM authorization_grant g JOIN authorization_role r ON r.code=g.role_code
+            WHERE g.user_id=v.user_id AND g.revoked_at IS NULL
+              AND tstzrange(g.valid_from,g.valid_until,'[)') && tstzrange(v.valid_from,v.valid_until,'[)')
+              AND ((r.domain IN ('technical','security')) <> (v_domain IN ('technical','security'))
+                OR (r.domain='display') <> (v_domain='display')
+                OR (r.domain IN ('technical','security') AND v_domain IN ('technical','security') AND r.domain <> v_domain))
+        ) THEN RAISE EXCEPTION 'Functiescheiding verhindert toekenning'; END IF;
+        INSERT INTO authorization_grant (user_id,role_code,area_code,product_id,equipment_code,valid_from,valid_until)
+        VALUES (v.user_id,v.role_code,v.area_code,v.product_id,v.equipment_code,v.valid_from,v.valid_until)
+        RETURNING id INTO v_grant;
+    END IF;
+    INSERT INTO authorization_decision (request_id,decided_by,approved,reason,grant_id)
+    VALUES (v.id,p_actor,p_approved,p_reason,v_grant);
+    RETURN v_grant;
+END $$;
+
+-- Migratie 0054: expliciete bootstrap uitsluitend op een lege identiteitsadministratie.
+SET search_path = fabriek, public;
+
+CREATE TABLE authorization_bootstrap (
+    singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    system_user_id uuid NOT NULL REFERENCES gebruiker(id),
+    security_user_a uuid NOT NULL REFERENCES gebruiker(id),
+    security_user_b uuid NOT NULL REFERENCES gebruiker(id),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    database_actor text NOT NULL,
+    reason text NOT NULL CHECK (btrim(reason) <> ''),
+    CHECK (system_user_id <> security_user_a AND system_user_id <> security_user_b AND security_user_a <> security_user_b)
+);
+
+CREATE FUNCTION authorization_bootstrap_empty(p_system text,p_system_password text,
+    p_a text,p_a_password text,p_b text,p_b_password text,p_reason text)
+RETURNS void LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_system uuid; v_a uuid; v_b uuid;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.gebruiker'::regclass)) THEN
+        RAISE EXCEPTION 'Bootstrap vereist database-eigenaar';
+    END IF;
+    LOCK TABLE gebruiker IN SHARE ROW EXCLUSIVE MODE;
+    IF EXISTS (SELECT 1 FROM gebruiker) OR EXISTS (SELECT 1 FROM authorization_bootstrap) THEN
+        RAISE EXCEPTION 'Bootstrap uitsluitend op lege identiteitsadministratie';
+    END IF;
+    IF p_system IS NULL OR p_a IS NULL OR p_b IS NULL
+       OR p_system !~ '^[a-z0-9._-]{3,40}$' OR p_a !~ '^[a-z0-9._-]{3,40}$' OR p_b !~ '^[a-z0-9._-]{3,40}$'
+       OR p_system=p_a OR p_system=p_b OR p_a=p_b
+       OR length(coalesce(p_system_password,'')) < 8 OR length(coalesce(p_a_password,'')) < 8
+       OR length(coalesce(p_b_password,'')) < 8
+       OR p_system_password=p_a_password OR p_system_password=p_b_password OR p_a_password=p_b_password
+       OR btrim(coalesce(p_reason,''))='' THEN
+        RAISE EXCEPTION 'Drie afzonderlijke identiteiten, wachtwoorden en reden vereist';
+    END IF;
+    INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES(p_system,'beheerder',wachtwoord_hash(p_system_password)) RETURNING id INTO v_system;
+    INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES(p_a,'pending',wachtwoord_hash(p_a_password)) RETURNING id INTO v_a;
+    INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash)
+      VALUES(p_b,'pending',wachtwoord_hash(p_b_password)) RETURNING id INTO v_b;
+    INSERT INTO authorization_grant(user_id,role_code) VALUES
+      (v_system,'system_administrator'),(v_a,'security_administrator'),(v_b,'security_administrator');
+    INSERT INTO authorization_bootstrap(system_user_id,security_user_a,security_user_b,database_actor,reason)
+      VALUES(v_system,v_a,v_b,current_user,p_reason);
+END $$;
+CREATE TRIGGER authorization_bootstrap_immutable BEFORE UPDATE OR DELETE ON authorization_bootstrap
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON authorization_bootstrap FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION authorization_bootstrap_empty(text,text,text,text,text,text,text) FROM PUBLIC;
+
+-- Migratie 0055: eigenaar-only herstel met twee persoonlijk bevestigde security-identiteiten.
+SET search_path = fabriek, public;
+
+CREATE TABLE authorization_recovery (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES gebruiker(id),
+    requested_by uuid NOT NULL REFERENCES gebruiker(id),
+    approved_by uuid NOT NULL REFERENCES gebruiker(id),
+    reason text NOT NULL CHECK (btrim(reason) <> ''),
+    recovered_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (user_id <> requested_by AND user_id <> approved_by AND requested_by <> approved_by)
+);
+CREATE TRIGGER authorization_recovery_immutable BEFORE UPDATE OR DELETE ON authorization_recovery
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+
+-- Beide bevestigingen gelden voor dezelfde concrete herstelhandeling.
+-- Geen automatisch activeren, geen nieuwe grants, geen herstel van gedeelde accounts.
+-- De eigenaar begeleidt de persoonlijke overdracht; het wachtwoord wordt niet gelogd.
+CREATE FUNCTION authorization_recover_confirmed(p_target uuid,p_requester uuid,p_approver uuid,
+    p_reason text,p_requester_password text,p_approver_password text,p_new_password text)
+RETURNS text LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_a text; v_b text; v_login record;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.gebruiker'::regclass)) THEN
+        RAISE EXCEPTION 'Herstel vereist database-eigenaar';
+    END IF;
+    IF p_target IS NULL OR p_requester IS NULL OR p_approver IS NULL
+       OR p_target=p_requester OR p_target=p_approver OR p_requester=p_approver
+       OR btrim(coalesce(p_reason,''))='' OR length(coalesce(p_new_password,''))<8 THEN
+        RAISE EXCEPTION 'Onafhankelijke herstelidentiteiten, reden en wachtwoord vereist';
+    END IF;
+    -- Vaste vergrendelvolgorde voorkomt onderlinge blokkades bij gelijktijdig herstel.
+    PERFORM id FROM gebruiker WHERE id IN (p_target,p_requester,p_approver) ORDER BY id FOR UPDATE;
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=p_target AND actief AND NOT gedeeld)
+       OR NOT authorization_permits(p_requester,'authorization.request',NULL,NULL,NULL)
+       OR NOT authorization_permits(p_approver,'authorization.approve',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Geen bevoegdheid voor gecontroleerd herstel';
+    END IF;
+    SELECT gebruikersnaam INTO v_a FROM gebruiker WHERE id=p_requester;
+    SELECT gebruikersnaam INTO v_b FROM gebruiker WHERE id=p_approver;
+    SELECT * INTO v_login FROM inloggen(v_a,p_requester_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_requester THEN RETURN 'denied'; END IF;
+    SELECT * INTO v_login FROM inloggen(v_b,p_approver_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_approver THEN RETURN 'denied'; END IF;
+    -- Herstel blokkeert normale toegang totdat de accounthouder het wachtwoord wijzigt.
+    UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash(p_new_password),wachtwoord_wijzigen=true
+      WHERE id=p_target;
+    INSERT INTO authorization_recovery(user_id,requested_by,approved_by,reason)
+      VALUES(p_target,p_requester,p_approver,p_reason);
+    RETURN 'recovered';
+END $$;
+REVOKE ALL ON authorization_recovery FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION authorization_recover_confirmed(uuid,uuid,uuid,text,text,text,text) FROM PUBLIC;
+
+-- Migratie 0056: sessiegeneratie bij identiteitswijzigingen.
+SET search_path = fabriek, public;
+ALTER TABLE gebruiker ADD COLUMN session_version bigint NOT NULL DEFAULT 1 CHECK (session_version > 0);
+CREATE FUNCTION authorization_session_version() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF TG_OP='INSERT' THEN
+        NEW.session_version := 1;
+    ELSIF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash
+       OR NEW.wachtwoord_wijzigen IS DISTINCT FROM OLD.wachtwoord_wijzigen
+       OR NEW.actief IS DISTINCT FROM OLD.actief OR NEW.rol IS DISTINCT FROM OLD.rol
+       OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+       OR NEW.gebruikersnaam IS DISTINCT FROM OLD.gebruikersnaam THEN
+        NEW.session_version := OLD.session_version + 1;
+    ELSE
+        NEW.session_version := OLD.session_version;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER authorization_session_version BEFORE INSERT OR UPDATE ON gebruiker
+    FOR EACH ROW EXECUTE FUNCTION authorization_session_version();
+REVOKE EXECUTE ON FUNCTION authorization_session_version() FROM PUBLIC;
+
+-- Neem de generatie onder dezelfde accountlock als de wachtwoordcontrole op.
+CREATE FUNCTION login_with_session(p_name text,p_password text,p_pc text)
+RETURNS TABLE(id uuid,rol text,gebruikersnaam text,wacht_seconden int,session_version bigint,ww boolean)
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v record;
+BEGIN
+    SELECT * INTO v FROM inloggen(p_name,p_password,p_pc);
+    IF v.id IS NULL THEN
+        RETURN QUERY SELECT NULL::uuid,NULL::text,NULL::text,v.wacht_seconden,NULL::bigint,NULL::boolean;
+    ELSE
+        RETURN QUERY SELECT v.id,v.rol,v.gebruikersnaam,v.wacht_seconden,g.session_version,g.wachtwoord_wijzigen
+            FROM gebruiker g WHERE g.id=v.id;
+    END IF;
+END $$;
+
+-- De oude token-generatie moet ook binnen de wijzigingstransactie kloppen.
+CREATE FUNCTION change_password_session(p_user uuid,p_version bigint,p_current text,p_new text)
+RETURNS TABLE(status text,session_version bigint)
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_status text;
+BEGIN
+    PERFORM 1 FROM gebruiker g WHERE g.id=p_user AND g.session_version=p_version FOR UPDATE;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'stale'::text,NULL::bigint; RETURN; END IF;
+    v_status := change_password_confirmed(p_user,p_current,p_new);
+    RETURN QUERY SELECT v_status,g.session_version FROM gebruiker g WHERE g.id=p_user;
+END $$;
+REVOKE EXECUTE ON FUNCTION login_with_session(text,text,text),change_password_session(uuid,bigint,text,text) FROM PUBLIC;
+
+-- Migratie 0057: diagnose voor noodherstel, geen automatische bevoegdheidstoekenning.
+SET search_path = fabriek, public;
+
+-- Een bevoegd account is niet noodzakelijk beschikbaar: dit is uitsluitend
+-- een technische bovengrens, geen bewijs van aanwezigheid of wachtwoordbezit.
+CREATE FUNCTION authorization_recovery_readiness(p_target uuid)
+RETURNS TABLE(eligible_requesters bigint,eligible_approvers bigint,independent_pairs bigint)
+LANGUAGE sql STABLE SET search_path = pg_catalog,fabriek,pg_temp AS $$
+    WITH candidates AS (
+      SELECT id,
+        authorization_permits(id,'authorization.request',NULL,NULL,NULL) AS can_request,
+        authorization_permits(id,'authorization.approve',NULL,NULL,NULL) AS can_approve
+      FROM gebruiker WHERE id <> p_target AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen
+    )
+    SELECT (SELECT count(*) FROM candidates WHERE can_request),
+           (SELECT count(*) FROM candidates WHERE can_approve),
+           (SELECT count(*) FROM candidates a CROSS JOIN candidates b
+              WHERE a.id<>b.id AND a.can_request AND b.can_approve)
+$$;
+REVOKE EXECUTE ON FUNCTION authorization_recovery_readiness(uuid) FROM PUBLIC;
+
+-- Migratie 0058: scheid operationeel personeelsbeheer en accountbeheer.
+SET search_path = fabriek, public;
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('personnel.read','operations'), ('personnel.manage','operations');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('manufacturing_manager','personnel.read'), ('manufacturing_manager','personnel.manage');
+
+-- Alleen een bestaande actieve persoonlijke koppeling teruggeven.
+-- Inloggen creëert nooit meer een personeelsidentiteit.
+CREATE OR REPLACE FUNCTION operator_van_account(p_gebruiker uuid)
+RETURNS uuid LANGUAGE sql STABLE SET search_path = pg_catalog,fabriek,pg_temp AS $$
+    SELECT o.id FROM operator o JOIN gebruiker g ON g.id=o.gebruiker_id
+    WHERE g.id=p_gebruiker AND g.actief AND NOT g.gedeeld AND o.actief
+$$;
+
+-- Historische koppelingen blijven intact; koppelen is een aparte gecontroleerde
+-- handeling, voorlopig alleen door de vertrouwde eigenaar. Geen vrije app-write.
+CREATE FUNCTION authorization_personnel_identity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+               AND pg_has_role(current_user,oid,'MEMBER')) THEN
+        IF TG_OP='INSERT' THEN
+            IF NEW.gebruiker_id IS NOT NULL THEN
+                RAISE EXCEPTION 'Personeelskoppeling vereist gecontroleerd identiteitsbeheer';
+            END IF;
+        ELSIF NEW.gebruiker_id IS DISTINCT FROM OLD.gebruiker_id OR NEW.id IS DISTINCT FROM OLD.id THEN
+            RAISE EXCEPTION 'Personeelskoppeling vereist gecontroleerd identiteitsbeheer';
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER authorization_personnel_identity_guard BEFORE INSERT OR UPDATE ON operator
+    FOR EACH ROW EXECUTE FUNCTION authorization_personnel_identity_guard();
+REVOKE EXECUTE ON FUNCTION authorization_personnel_identity_guard() FROM PUBLIC;
+
+-- Migratie 0059: persoonlijk bevestigd autorisatiekanaal, zonder eigenaarlogin.
+SET search_path = fabriek, public;
+
+-- Afzonderlijke NOLOGIN-groepsrol. IT maakt persoonlijke database-logins
+-- uitsluitend na organisatorische goedkeuring; geen automatische leden.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mes_security_channel') THEN
+        CREATE ROLE mes_security_channel NOLOGIN;
+    END IF;
+END $$;
+
+-- Elke handeling verifieert opnieuw de persoonlijke MES-identiteit.
+-- Onjuiste wachtwoorden retourneren status zodat de poging gecommit kan worden.
+CREATE FUNCTION authorization_channel_submit(p_actor uuid,p_user uuid,p_role text,
+    p_area text,p_product uuid,p_equipment text,p_from timestamptz,p_until timestamptz,
+    p_reason text,p_password text)
+RETURNS TABLE(status text,request_id uuid)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_id uuid;
+BEGIN
+    SELECT gebruikersnaam INTO v_name FROM gebruiker
+      WHERE id=p_actor AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+    SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN QUERY SELECT 'locked'::text,NULL::uuid; RETURN; END IF;
+    IF v_login.id IS DISTINCT FROM p_actor THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+    v_id := authorization_submit(p_actor,p_user,p_role,p_area,p_product,p_equipment,p_from,p_until,p_reason);
+    RETURN QUERY SELECT 'submitted'::text,v_id;
+END $$;
+
+CREATE FUNCTION authorization_channel_decide(p_actor uuid,p_request uuid,p_approved boolean,p_reason text,p_password text)
+RETURNS TABLE(status text,grant_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+    SELECT * FROM authorization_decide_confirmed(p_actor,p_request,p_approved,p_reason,p_password)
+$$;
+CREATE FUNCTION authorization_channel_revoke(p_actor uuid,p_grant uuid,p_reason text,p_password text)
+RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+    SELECT authorization_revoke_confirmed(p_actor,p_grant,p_reason,p_password)
+$$;
+
+-- Alleen voor de aparte groepsrol; gewone applicatie en PUBLIC nooit.
+REVOKE ALL ON FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,uuid,boolean,text,text),
+ authorization_channel_revoke(uuid,uuid,text,text) FROM PUBLIC;
+GRANT USAGE ON SCHEMA fabriek TO mes_security_channel;
+GRANT EXECUTE ON FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,uuid,boolean,text,text),
+ authorization_channel_revoke(uuid,uuid,text,text) TO mes_security_channel;
+
+-- Migratie 0060: bind de persoonlijke PostgreSQL-login aan precies één MES-identiteit.
+SET search_path = fabriek, public;
+CREATE TABLE authorization_channel_identity (
+    database_role_oid oid PRIMARY KEY,
+    database_role_name name NOT NULL UNIQUE,
+    user_id uuid NOT NULL UNIQUE REFERENCES gebruiker(id),
+    registered_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    registered_by name NOT NULL DEFAULT session_user,
+    reason text NOT NULL CHECK (btrim(reason)<>'')
+);
+REVOKE ALL ON authorization_channel_identity FROM PUBLIC;
+CREATE TRIGGER authorization_channel_identity_immutable
+    BEFORE UPDATE OR DELETE ON authorization_channel_identity
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+
+-- SESSION_USER blijft de oorspronkelijke database-login, ook in SECURITY DEFINER
+-- en na SET ROLE. Een heraangemaakte rol met dezelfde naam heeft een andere OID.
+CREATE FUNCTION authorization_channel_actor(p_permission text)
+RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+    SELECT i.user_id INTO v_actor
+    FROM authorization_channel_identity i JOIN pg_roles r ON r.oid=i.database_role_oid
+    WHERE r.rolname=session_user AND r.rolname=i.database_role_name
+      AND r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+      AND NOT r.rolreplication AND NOT r.rolbypassrls
+      AND pg_has_role(r.oid,'mes_security_channel','MEMBER')
+      AND NOT EXISTS (SELECT 1 FROM pg_roles a WHERE a.rolname IN ('mes_app','batchgui_app')
+                     AND pg_has_role(r.oid,a.oid,'MEMBER'))
+      AND authorization_permits(i.user_id,p_permission,NULL,NULL,NULL);
+    IF v_actor IS NULL THEN RAISE EXCEPTION 'Geen gebonden bevoegde security-identiteit'; END IF;
+    RETURN v_actor;
+END $$;
+REVOKE ALL ON FUNCTION authorization_channel_actor(text) FROM PUBLIC;
+
+-- Geen vrije actoridentiteit meer in de publieke interface. Oude signatures
+-- blijven eigenaar-only voor compatibiliteit van migratie/diagnose, niet voor kanaalleden.
+REVOKE EXECUTE ON FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,uuid,boolean,text,text), authorization_channel_revoke(uuid,uuid,text,text)
+ FROM mes_security_channel;
+CREATE FUNCTION authorization_channel_submit(p_user uuid,p_role text,p_area text,p_product uuid,p_equipment text,
+ p_from timestamptz,p_until timestamptz,p_reason text,p_password text)
+RETURNS TABLE(status text,request_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+ SELECT * FROM authorization_channel_submit(authorization_channel_actor('authorization.request'),
+   p_user,p_role,p_area,p_product,p_equipment,p_from,p_until,p_reason,p_password)
+$$;
+CREATE FUNCTION authorization_channel_decide(p_request uuid,p_approved boolean,p_reason text,p_password text)
+RETURNS TABLE(status text,grant_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+ SELECT * FROM authorization_channel_decide(authorization_channel_actor('authorization.approve'),
+   p_request,p_approved,p_reason,p_password)
+$$;
+CREATE FUNCTION authorization_channel_revoke(p_grant uuid,p_reason text,p_password text)
+RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+ SELECT authorization_channel_revoke(authorization_channel_actor('authorization.revoke'),p_grant,p_reason,p_password)
+$$;
+
+CREATE FUNCTION authorization_channel_requests()
+RETURNS TABLE(request_id uuid,requested_by uuid,requester_name text,user_id uuid,user_name text,role_code text,
+ area_code text,product_id uuid,equipment_code text,valid_from timestamptz,valid_until timestamptz,
+ reason text,requested_at timestamptz,decided_by uuid,approved boolean,decision_reason text,decided_at timestamptz,grant_id uuid)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ PERFORM authorization_channel_actor('authorization.read');
+ RETURN QUERY SELECT q.id,q.requested_by,a.gebruikersnaam,q.user_id,u.gebruikersnaam,q.role_code,
+ q.area_code,q.product_id,q.equipment_code,q.valid_from,q.valid_until,q.reason,q.requested_at,
+ d.decided_by,d.approved,d.reason,d.decided_at,d.grant_id
+ FROM authorization_request q JOIN gebruiker a ON a.id=q.requested_by JOIN gebruiker u ON u.id=q.user_id
+ LEFT JOIN authorization_decision d ON d.request_id=q.id ORDER BY q.requested_at DESC,q.id;
+END $$;
+CREATE FUNCTION authorization_channel_grants()
+RETURNS TABLE(grant_id uuid,user_id uuid,user_name text,role_code text,area_code text,product_id uuid,equipment_code text,
+ valid_from timestamptz,valid_until timestamptz,revoked_at timestamptz,revoked_by uuid,revocation_reason text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ PERFORM authorization_channel_actor('authorization.read');
+ RETURN QUERY SELECT g.id,g.user_id,u.gebruikersnaam,g.role_code,g.area_code,g.product_id,g.equipment_code,
+ g.valid_from,g.valid_until,g.revoked_at,r.revoked_by,r.reason
+ FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id
+ LEFT JOIN authorization_revocation r ON r.grant_id=g.id ORDER BY g.valid_from DESC,g.id;
+END $$;
+REVOKE ALL ON FUNCTION authorization_channel_submit(uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,boolean,text,text),authorization_channel_revoke(uuid,text,text),
+ authorization_channel_requests(),authorization_channel_grants() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION authorization_channel_submit(uuid,text,text,uuid,text,timestamptz,timestamptz,text,text),
+ authorization_channel_decide(uuid,boolean,text,text),authorization_channel_revoke(uuid,text,text),
+ authorization_channel_requests(),authorization_channel_grants() TO mes_security_channel;
+
+-- Migratie 0061: append-only levenscyclus van persoonlijke securitybindingen.
+SET search_path = fabriek, public;
+
+-- Een oude rol-OID en naam blijven gereserveerd; een vervangende login heeft
+-- een nieuwe naam/OID. Een MES-account mag na intrekking opnieuw worden gebonden.
+ALTER TABLE authorization_channel_identity DROP CONSTRAINT authorization_channel_identity_user_id_key;
+CREATE TABLE authorization_channel_identity_revocation (
+    database_role_oid oid PRIMARY KEY REFERENCES authorization_channel_identity(database_role_oid),
+    revoked_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    revoked_by name NOT NULL DEFAULT session_user,
+    reason text NOT NULL CHECK (btrim(reason)<>'')
+);
+CREATE TRIGGER authorization_channel_identity_revocation_immutable BEFORE UPDATE OR DELETE
+    ON authorization_channel_identity_revocation FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON authorization_channel_identity_revocation FROM PUBLIC;
+
+-- Geen andere directe of indirecte groepsrollen, ook geen beheeroptie
+-- op de toegestane groep. Rechtstreeks toegekende objectprivileges en
+-- andere databases vallen buiten deze toets en vereisen IT-controle.
+CREATE FUNCTION authorization_channel_role_safe(p_role oid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $$
+ SELECT EXISTS (SELECT 1 FROM pg_roles r WHERE r.oid=p_role AND r.rolcanlogin
+    AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+    AND NOT r.rolreplication AND NOT r.rolbypassrls)
+ AND pg_has_role(p_role,'mes_security_channel','MEMBER')
+ AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.oid<>p_role AND r.rolname<>'mes_security_channel'
+                 AND pg_has_role(p_role,r.oid,'MEMBER'))
+ AND NOT EXISTS (SELECT 1 FROM pg_auth_members a WHERE a.member=p_role AND a.admin_option)
+$$;
+
+-- Eigenaar-only registratie van een reeds apart door IT ingerichte login.
+-- Geen CREATE ROLE, wachtwoordbeheer of automatische MES-grants.
+CREATE FUNCTION authorization_channel_bind(p_role name,p_user uuid,p_reason text)
+RETURNS oid LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_oid oid;
+BEGIN
+ IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.authorization_channel_identity'::regclass)) THEN
+    RAISE EXCEPTION 'Binding vereist database-eigenaar';
+ END IF;
+ IF btrim(coalesce(p_reason,''))='' THEN RAISE EXCEPTION 'Reden en goedkeuringsreferentie vereist'; END IF;
+ SELECT oid INTO v_oid FROM pg_roles WHERE rolname=p_role;
+ IF v_oid IS NULL OR NOT authorization_channel_role_safe(v_oid) THEN
+    RAISE EXCEPTION 'Ongeschikte persoonlijke database-login';
+ END IF;
+ PERFORM 1 FROM gebruiker WHERE id=p_user FOR UPDATE;
+ IF NOT FOUND OR NOT authorization_permits(p_user,'authorization.read',NULL,NULL,NULL) THEN
+    RAISE EXCEPTION 'Geen bevoegde persoonlijke security-identiteit';
+ END IF;
+ IF EXISTS (SELECT 1 FROM authorization_channel_identity i WHERE i.user_id=p_user
+     AND NOT EXISTS (SELECT 1 FROM authorization_channel_identity_revocation v WHERE v.database_role_oid=i.database_role_oid)) THEN
+    RAISE EXCEPTION 'MES-identiteit heeft al een actieve binding';
+ END IF;
+ INSERT INTO authorization_channel_identity(database_role_oid,database_role_name,user_id,reason)
+ VALUES(v_oid,p_role,p_user,p_reason);
+ RETURN v_oid;
+END $$;
+
+CREATE FUNCTION authorization_channel_unbind(p_role name,p_reason text)
+RETURNS oid LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_oid oid; v_user uuid;
+BEGIN
+ IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.authorization_channel_identity'::regclass)) THEN
+    RAISE EXCEPTION 'Intrekking vereist database-eigenaar';
+ END IF;
+ IF btrim(coalesce(p_reason,''))='' THEN RAISE EXCEPTION 'Reden vereist'; END IF;
+ SELECT database_role_oid,user_id INTO v_oid,v_user FROM authorization_channel_identity WHERE database_role_name=p_role;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende binding'; END IF;
+ PERFORM 1 FROM gebruiker WHERE id=v_user FOR UPDATE;
+ INSERT INTO authorization_channel_identity_revocation(database_role_oid,reason) VALUES(v_oid,p_reason);
+ RETURN v_oid;
+END $$;
+
+CREATE OR REPLACE FUNCTION authorization_channel_actor(p_permission text)
+RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+    SELECT i.user_id INTO v_actor
+    FROM authorization_channel_identity i JOIN pg_roles r ON r.oid=i.database_role_oid
+    WHERE r.rolname=session_user AND r.rolname=i.database_role_name
+      AND r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+      AND NOT r.rolreplication AND NOT r.rolbypassrls
+      AND pg_has_role(r.oid,'mes_security_channel','MEMBER')
+      AND NOT EXISTS (SELECT 1 FROM pg_roles a WHERE a.rolname IN ('mes_app','batchgui_app')
+                     AND pg_has_role(r.oid,a.oid,'MEMBER'))
+      AND NOT EXISTS (SELECT 1 FROM authorization_channel_identity_revocation v WHERE v.database_role_oid=i.database_role_oid)
+      AND authorization_channel_role_safe(r.oid)
+      AND authorization_permits(i.user_id,p_permission,NULL,NULL,NULL);
+    IF v_actor IS NULL THEN RAISE EXCEPTION 'Geen gebonden bevoegde security-identiteit'; END IF;
+    RETURN v_actor;
+END $$;
+
+REVOKE ALL ON FUNCTION authorization_channel_role_safe(oid),authorization_channel_bind(name,uuid,text),
+ authorization_channel_unbind(name,text) FROM PUBLIC;
+
+-- Migratie 0062: persoonlijke bevestiging van tijdelijke legacy-kwaliteitsbesluiten.
+SET search_path = fabriek, public;
+
+-- De oude uitvoeringsfuncties blijven uitsluitend voor de eigenaar en de
+-- bevestigde ingang beschikbaar. Een reguliere keuring is geen MES Quality Release.
+CREATE FUNCTION quality_decision_confirmed(p_actor uuid,p_session bigint,p_kind text,
+ p_target uuid,p_decision text,p_reason text,p_step text,p_password text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_product uuid; v_lot uuid;
+BEGIN
+ SELECT gebruikersnaam INTO v_name FROM gebruiker
+ WHERE id=p_actor AND session_version=p_session AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'denied'; END IF;
+ IF p_decision IS NULL OR p_decision NOT IN ('vrijgegeven','afgekeurd') THEN
+   RAISE EXCEPTION 'Alleen vrijgave of afkeuring; herbewerking vereist een afzonderlijke opdracht';
+ END IF;
+ IF p_kind='inspection' THEN
+   SELECT r.product_id,r.lot_id INTO v_product,v_lot FROM keuring k
+   JOIN stapregistratie r ON r.id=k.stapregistratie_id WHERE k.id=p_target FOR UPDATE OF k,r;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Keuring bestaat niet'; END IF;
+   IF NOT authorization_permits(p_actor,'inspection.decide',NULL,v_product,NULL)
+     OR (v_lot IS NOT NULL AND EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=v_lot
+         AND NOT authorization_permits(p_actor,'inspection.decide',NULL,b.product_id,NULL))) THEN
+     RETURN 'denied';
+   END IF;
+ ELSIF p_kind='batch' THEN
+   SELECT product_id INTO v_product FROM batch WHERE id=p_target FOR UPDATE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Batch bestaat niet'; END IF;
+   IF NOT authorization_permits(p_actor,'inspection.batch.decide',NULL,v_product,NULL) THEN RETURN 'denied'; END IF;
+ ELSE RAISE EXCEPTION 'Onbekend besluitobject';
+ END IF;
+ SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+ IF v_login.id IS DISTINCT FROM p_actor THEN RETURN 'denied'; END IF;
+ IF p_kind='inspection' THEN
+   IF EXISTS (SELECT 1 FROM keuring WHERE id=p_target AND status<>'open') THEN
+     RAISE EXCEPTION 'Over deze stap is al beslist';
+   END IF;
+   PERFORM beslis_keuring(p_target,p_decision,p_reason,p_actor,NULL);
+ ELSE
+   INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door)
+   VALUES(p_target,p_decision,p_reason,p_actor);
+ END IF;
+ RETURN 'decided';
+END $$;
+REVOKE ALL ON FUNCTION quality_decision_confirmed(uuid,bigint,text,uuid,text,text,text,text) FROM PUBLIC;
+
+-- Bescherm besluiten ook wanneer een oude route rechtstreeks een tabel benadert.
+CREATE FUNCTION quality_legacy_decision_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('mes_app','batchgui_app')
+            AND pg_has_role(current_user,oid,'MEMBER')) THEN
+   IF TG_TABLE_NAME='batch_besluit' THEN
+     IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Besluitregistratie is onveranderlijk'; END IF;
+     IF NEW.besluit <> 'in_beoordeling' THEN RAISE EXCEPTION 'Persoonlijke kwaliteitsbevestiging vereist'; END IF;
+   ELSE
+     IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Persoonlijke kwaliteitsbevestiging vereist'; END IF;
+     IF NEW.status <> 'open' OR NEW.besloten_door IS NOT NULL OR NEW.besloten_op IS NOT NULL THEN
+       RAISE EXCEPTION 'Persoonlijke kwaliteitsbevestiging vereist';
+     END IF;
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER quality_guard_batch BEFORE INSERT OR UPDATE ON batch_besluit
+ FOR EACH ROW EXECUTE FUNCTION quality_legacy_decision_guard();
+CREATE TRIGGER quality_guard_inspection BEFORE INSERT OR UPDATE ON keuring
+ FOR EACH ROW EXECUTE FUNCTION quality_legacy_decision_guard();
+REVOKE ALL ON FUNCTION quality_legacy_decision_guard(),beslis_keuring(uuid,text,text,uuid,text) FROM PUBLIC;
+
+-- Migratie 0063: geen uitvoering van herbewerking zonder vooraf bestaande opdracht.
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION koppel_herbewerking() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_id uuid;
+BEGIN
+    IF NOT NEW.herbewerking_start THEN RETURN NULL; END IF;
+    -- Vergrendel en consumeer uitsluitend een passende, vooraf geregistreerde opdracht.
+    SELECT h.id INTO v_id FROM herbewerking h
+      WHERE h.status='open' AND h.processtap_id=NEW.processtap_id
+        AND h.batch_id IS NOT DISTINCT FROM NEW.batch_id
+        AND h.lot_id IS NOT DISTINCT FROM NEW.lot_id
+        AND h.aangemaakt_door IS NOT NULL
+        AND btrim(h.reden)=btrim(NEW.reden)
+      FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Vooraf geregistreerde herbewerkingsopdracht vereist';
+    END IF;
+    UPDATE herbewerking SET status='gestart',stapregistratie_id=NEW.id WHERE id=v_id;
+    RETURN NULL;
+END $$;
+
+-- Een legacy-opdracht mag niet worden aangemaakt vanuit een batch in
+-- beoordeling: dat zou de onafhankelijke kwaliteitsblokkade opheffen.
+CREATE FUNCTION quality_rework_hold_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF TG_OP='INSERT' AND NEW.batch_id IS NOT NULL AND EXISTS
+    (SELECT 1 FROM batch WHERE id=NEW.batch_id AND status='in_beoordeling') THEN
+    RAISE EXCEPTION 'Kwaliteitsblokkade blijft onafhankelijk van herbewerking';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER quality_rework_hold BEFORE INSERT ON herbewerking
+ FOR EACH ROW EXECUTE FUNCTION quality_rework_hold_guard();
+REVOKE ALL ON FUNCTION quality_rework_hold_guard() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION maak_herbewerking(p_nummer text, p_stapcode text, p_reden text, p_door uuid, p_id uuid DEFAULT NULL)
+RETURNS uuid LANGUAGE plpgsql SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE
+    v_rol    text;
+    v_batch  batch%ROWTYPE;
+    v_lot    lot%ROWTYPE;
+    v_stap   processtap%ROWTYPE;
+    v_id     uuid;
+BEGIN
+    SELECT rol INTO v_rol FROM gebruiker WHERE id = p_door AND actief;
+    IF v_rol IS NULL OR v_rol NOT IN ('kwaliteit', 'productiemanager') THEN
+        RAISE EXCEPTION 'Alleen Kwaliteit of de productiemanager maakt een herbewerking aan';
+    END IF;
+    IF length(trim(coalesce(p_reden, ''))) = 0 THEN
+        RAISE EXCEPTION 'Geef de reden van de herbewerking';
+    END IF;
+    SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stap %', p_stapcode; END IF;
+
+    SELECT * INTO v_batch FROM batch WHERE batchnummer = p_nummer FOR UPDATE;
+    IF FOUND THEN
+        IF v_batch.status = 'in_lot' THEN
+            RAISE EXCEPTION 'Batch % zit al in een lot; maak de herbewerking voor het lot', p_nummer;
+        END IF;
+        IF v_batch.status NOT IN ('in_productie', 'in_beoordeling') THEN
+            RAISE EXCEPTION 'Batch % heeft status %; geen herbewerking mogelijk', p_nummer, v_batch.status;
+        END IF;
+        IF v_stap.niveau <> 'batch' OR NOT in_route(v_batch.product_id, v_stap.id) THEN
+            RAISE EXCEPTION 'Stap % is geen batchstap in de route van deze batch', p_stapcode;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM stapregistratie WHERE batch_id = v_batch.id AND processtap_id = v_stap.id AND status = 'afgerond') THEN
+            RAISE EXCEPTION 'Stap % is voor deze batch nog niet doorlopen; geen herbewerking mogelijk', p_stapcode;
+        END IF;
+        IF EXISTS (SELECT 1 FROM herbewerking WHERE batch_id = v_batch.id AND status = 'open') THEN
+            RAISE EXCEPTION 'Voor batch % staat al een herbewerking klaar die nog niet gestart is', p_nummer;
+        END IF;
+        IF v_batch.status = 'in_beoordeling' THEN
+            RAISE EXCEPTION 'Kwaliteitsblokkade blijft onafhankelijk van herbewerking';
+        END IF;
+        INSERT INTO herbewerking (id, batch_id, processtap_id, reden, aangemaakt_door)
+        VALUES (coalesce(p_id, gen_random_uuid()), v_batch.id, v_stap.id, trim(p_reden), p_door) RETURNING id INTO v_id;
+        RETURN v_id;
+    END IF;
+
+    SELECT * INTO v_lot FROM lot WHERE lotnummer = p_nummer FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch of lot %', p_nummer; END IF;
+    IF v_lot.status NOT IN ('in_productie', 'gereed') THEN
+        RAISE EXCEPTION 'Lot % heeft status %; geen herbewerking mogelijk', p_nummer, v_lot.status;
+    END IF;
+    IF v_stap.niveau <> 'lot' OR NOT in_route(lot_product(v_lot.id), v_stap.id) THEN
+        RAISE EXCEPTION 'Stap % is geen lotstap in de route van dit lot', p_stapcode;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM stapregistratie WHERE lot_id = v_lot.id AND processtap_id = v_stap.id AND status = 'afgerond') THEN
+        RAISE EXCEPTION 'Stap % is voor dit lot nog niet doorlopen; geen herbewerking mogelijk', p_stapcode;
+    END IF;
+    IF EXISTS (SELECT 1 FROM herbewerking WHERE lot_id = v_lot.id AND status = 'open') THEN
+        RAISE EXCEPTION 'Voor lot % staat al een herbewerking klaar die nog niet gestart is', p_nummer;
+    END IF;
+    INSERT INTO herbewerking (id, lot_id, processtap_id, reden, aangemaakt_door)
+    VALUES (coalesce(p_id, gen_random_uuid()), v_lot.id, v_stap.id, trim(p_reden), p_door) RETURNING id INTO v_id;
+    RETURN v_id;
+END $$;
+
+-- Migratie 0064: bevestigde tijdelijke herbewerkingsopdrachten.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION rework_order_permission(p_actor uuid,p_batch uuid,p_lot uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,fabriek,pg_temp AS $$
+ SELECT CASE WHEN p_batch IS NOT NULL AND p_lot IS NULL THEN
+   EXISTS (SELECT 1 FROM batch b WHERE b.id=p_batch AND
+     (authorization_permits(p_actor,'inspection.rework.order',NULL,b.product_id,NULL)
+      OR authorization_permits(p_actor,'operations.rework.order',NULL,b.product_id,NULL)))
+ WHEN p_lot IS NOT NULL AND p_batch IS NULL THEN
+   EXISTS (SELECT 1 FROM lot WHERE id=p_lot)
+   AND (
+     (authorization_permits(p_actor,'inspection.rework.order',NULL,lot_product(p_lot),NULL)
+      AND NOT EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=p_lot AND NOT authorization_permits(p_actor,'inspection.rework.order',NULL,b.product_id,NULL)))
+     OR
+     (authorization_permits(p_actor,'operations.rework.order',NULL,lot_product(p_lot),NULL)
+      AND NOT EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=p_lot AND NOT authorization_permits(p_actor,'operations.rework.order',NULL,b.product_id,NULL)))
+   )
+ ELSE false END
+$$;
+
+CREATE FUNCTION rework_order_confirmed(p_actor uuid,p_session bigint,p_number text,p_step text,p_reason text,p_id uuid,p_password text)
+RETURNS TABLE(status text,order_id uuid)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_batch uuid; v_lot uuid; v_id uuid;
+BEGIN
+ SELECT gebruikersnaam INTO v_name FROM gebruiker WHERE id=p_actor AND session_version=p_session
+ AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+ IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+ SELECT id INTO v_batch FROM batch WHERE batchnummer=p_number FOR UPDATE;
+ IF NOT FOUND THEN SELECT id INTO v_lot FROM lot WHERE lotnummer=p_number FOR UPDATE; END IF;
+ IF NOT rework_order_permission(p_actor,v_batch,v_lot) THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+ SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN QUERY SELECT 'locked'::text,NULL::uuid; RETURN; END IF;
+ IF v_login.id IS DISTINCT FROM p_actor THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+ v_id:=maak_herbewerking(p_number,p_step,p_reason,p_actor,p_id);
+ RETURN QUERY SELECT 'created'::text,v_id;
+END $$;
+
+CREATE FUNCTION rework_cancel_confirmed(p_actor uuid,p_session bigint,p_id uuid,p_reason text,p_password text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE v_name text; v_login record; v_order herbewerking%ROWTYPE;
+BEGIN
+ SELECT gebruikersnaam INTO v_name FROM gebruiker WHERE id=p_actor AND session_version=p_session
+ AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'denied'; END IF;
+ SELECT * INTO v_order FROM herbewerking WHERE id=p_id FOR UPDATE;
+ IF NOT FOUND OR NOT rework_order_permission(p_actor,v_order.batch_id,v_order.lot_id) THEN RETURN 'denied'; END IF;
+ SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+ IF v_login.id IS DISTINCT FROM p_actor THEN RETURN 'denied'; END IF;
+ PERFORM trek_herbewerking_in(p_id,p_reason,p_actor);
+ RETURN 'cancelled';
+END $$;
+
+-- De gecontroleerde koppeling vanuit een stapregistratie blijft functioneren
+-- nadat directe schrijfrechten op opdrachten worden ingetrokken.
+ALTER FUNCTION koppel_herbewerking() SECURITY DEFINER;
+CREATE FUNCTION rework_history_guard() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Herbewerkingshistorie blijft bewaard'; END IF;
+ IF OLD.status<>'open' OR NEW.status NOT IN ('gestart','ingetrokken')
+ OR (NEW.id,NEW.batch_id,NEW.lot_id,NEW.processtap_id,NEW.reden,NEW.aangemaakt_door,NEW.aangemaakt_op)
+ IS DISTINCT FROM (OLD.id,OLD.batch_id,OLD.lot_id,OLD.processtap_id,OLD.reden,OLD.aangemaakt_door,OLD.aangemaakt_op) THEN
+   RAISE EXCEPTION 'Herbewerkingsopdracht is onveranderlijk';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER rework_history_guard BEFORE UPDATE OR DELETE ON herbewerking
+ FOR EACH ROW EXECUTE FUNCTION rework_history_guard();
+REVOKE ALL ON FUNCTION maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid),
+ koppel_herbewerking(),rework_history_guard(),rework_order_permission(uuid,uuid,uuid),
+ rework_order_confirmed(uuid,bigint,text,text,text,uuid,text),rework_cancel_confirmed(uuid,bigint,uuid,text,text) FROM PUBLIC;
+
+-- Migratie 0065: actuele uitvoeringsbevoegdheid bij consumptie van een legacy-herbewerkingsopdracht.
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION koppel_herbewerking() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_id uuid; v_actor uuid; v_product uuid;
+BEGIN
+    IF NOT NEW.herbewerking_start THEN RETURN NULL; END IF;
+    SELECT h.id INTO v_id FROM herbewerking h
+      WHERE h.status='open' AND h.processtap_id=NEW.processtap_id
+        AND h.batch_id IS NOT DISTINCT FROM NEW.batch_id
+        AND h.lot_id IS NOT DISTINCT FROM NEW.lot_id
+        AND h.aangemaakt_door IS NOT NULL
+        AND btrim(h.reden)=btrim(NEW.reden)
+      FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Vooraf geregistreerde herbewerkingsopdracht vereist';
+    END IF;
+
+    -- De gekoppelde medewerker moet actief en persoonlijk zijn. Het
+    -- autorisatiefundament controleert ook geldigheid en kwalificaties.
+    SELECT g.id INTO v_actor FROM operator o JOIN gebruiker g ON g.id=o.gebruiker_id
+      WHERE o.id=NEW.operator_id AND o.actief AND g.actief
+        AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen
+      FOR SHARE OF o,g;
+    IF v_actor IS NULL THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist voor herbewerking';
+    END IF;
+    IF NEW.batch_id IS NOT NULL THEN
+        SELECT product_id INTO v_product FROM batch WHERE id=NEW.batch_id;
+    ELSE
+        v_product:=lot_product(NEW.lot_id);
+    END IF;
+    IF NOT authorization_permits(v_actor,'execution.rework',NULL,v_product,NULL)
+       OR (NEW.lot_id IS NOT NULL AND EXISTS (
+           SELECT 1 FROM batch b WHERE b.lot_id=NEW.lot_id
+             AND NOT authorization_permits(v_actor,'execution.rework',NULL,b.product_id,NULL))) THEN
+        RAISE EXCEPTION 'Geen actuele uitvoeringsbevoegdheid voor herbewerking';
+    END IF;
+    UPDATE herbewerking SET status='gestart',stapregistratie_id=NEW.id WHERE id=v_id;
+    RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION koppel_herbewerking() FROM PUBLIC;
+
+-- Migratie 0066: database-uitgegeven persoonlijk sessiebewijs.
+SET search_path = fabriek, public;
+
+CREATE TABLE execution_session (
+    proof_hash bytea PRIMARY KEY CHECK (octet_length(proof_hash)=32),
+    user_id uuid NOT NULL REFERENCES gebruiker(id),
+    session_version bigint NOT NULL,
+    issued_at timestamptz NOT NULL,
+    expires_at timestamptz NOT NULL,
+    CHECK (expires_at > issued_at AND expires_at <= issued_at + interval '12 hours')
+);
+CREATE INDEX execution_session_expiry ON execution_session(expires_at);
+REVOKE ALL ON execution_session FROM PUBLIC;
+
+-- Alleen na succesvolle wachtwoordauthenticatie; geen functie die een
+-- sessiebewijs uitgeeft op basis van een los opgegeven gebruikers-ID.
+CREATE FUNCTION execution_session_login(p_name text,p_password text,p_pc text)
+RETURNS TABLE(id uuid,rol text,gebruikersnaam text,wacht_seconden int,session_version bigint,ww boolean,session_proof text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v record; v_proof text; v_now timestamptz:=clock_timestamp();
+BEGIN
+    SELECT * INTO v FROM login_with_session(p_name,p_password,p_pc);
+    IF v.id IS NOT NULL AND NOT coalesce(v.ww,true) THEN
+        PERFORM 1 FROM gebruiker g WHERE g.id=v.id AND g.session_version=v.session_version
+            AND g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen AND g.rol<>'scherm' FOR SHARE;
+        IF FOUND THEN
+            v_proof:=encode(public.gen_random_bytes(32),'hex');
+            INSERT INTO execution_session(proof_hash,user_id,session_version,issued_at,expires_at)
+            VALUES(public.digest(v_proof,'sha256'),v.id,v.session_version,v_now,v_now+interval '12 hours');
+        END IF;
+    END IF;
+    RETURN QUERY SELECT v.id,v.rol,v.gebruikersnaam,v.wacht_seconden,v.session_version,v.ww,v_proof;
+END $$;
+
+-- Een bewijs is een bearer credential. Geen gebruikers-ID vertrouwen uit
+-- GUC, HTTP-header of functieargument zonder dit bewijs te valideren.
+CREATE FUNCTION execution_session_actor(p_proof text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+    IF p_proof IS NULL OR length(p_proof)<>64 OR p_proof !~ '^[0-9a-f]{64}$' THEN RETURN NULL; END IF;
+    SELECT g.id INTO v_actor FROM execution_session s JOIN gebruiker g ON g.id=s.user_id
+       WHERE s.proof_hash=public.digest(p_proof,'sha256')
+         AND s.issued_at<=clock_timestamp() AND s.expires_at>clock_timestamp()
+         AND s.session_version=g.session_version AND g.actief AND NOT g.gedeeld
+         AND NOT g.wachtwoord_wijzigen AND g.rol<>'scherm'
+       FOR SHARE OF g;
+    RETURN v_actor;
+END $$;
+
+-- Alleen de eigenaar ruimt verlopen bewijzen op. Geen productiehistorie.
+CREATE FUNCTION execution_session_cleanup() RETURNS bigint
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_count bigint;
+BEGIN
+    DELETE FROM execution_session WHERE expires_at<=clock_timestamp();
+    GET DIAGNOSTICS v_count=ROW_COUNT;
+    RETURN v_count;
+END $$;
+REVOKE ALL ON FUNCTION execution_session_login(text,text,text),execution_session_actor(text),execution_session_cleanup() FROM PUBLIC;
+
+-- Migratie 0067: nieuw uitvoeringsbewijs bij bevestigde wachtwoordwijziging.
+SET search_path = fabriek, public;
+CREATE FUNCTION execution_session_change_password(p_user uuid,p_version bigint,p_current text,p_new text)
+RETURNS TABLE(status text,session_version bigint,session_proof text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v record; v_proof text; v_now timestamptz;
+BEGIN
+    SELECT * INTO v FROM change_password_session(p_user,p_version,p_current,p_new);
+    IF v.status='changed' THEN
+        PERFORM 1 FROM gebruiker g WHERE g.id=p_user AND g.session_version=v.session_version
+            AND g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen AND g.rol<>'scherm' FOR SHARE;
+        IF FOUND THEN
+            v_now:=clock_timestamp();
+            v_proof:=encode(public.gen_random_bytes(32),'hex');
+            INSERT INTO execution_session(proof_hash,user_id,session_version,issued_at,expires_at)
+            VALUES(public.digest(v_proof,'sha256'),p_user,v.session_version,v_now,v_now+interval '12 hours');
+        END IF;
+    END IF;
+    RETURN QUERY SELECT v.status,v.session_version,v_proof;
+END $$;
+REVOKE ALL ON FUNCTION execution_session_change_password(uuid,bigint,text,text) FROM PUBLIC;
+
+-- Migratie 0068: transactionele identiteitsbinding voor productie-invoer.
+SET search_path = fabriek, public;
+
+-- Een GUC bevat alleen het bewijs, nooit een vertrouwde actor-ID. Iedere
+-- beschermde operatie valideert opnieuw het bewijs en de actuele koppeling.
+CREATE FUNCTION execution_transaction_actor()
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+    v_actor:=execution_session_actor(current_setting('fabriek.execution_proof',true));
+    IF v_actor IS NULL THEN
+        RAISE EXCEPTION 'Geldig persoonlijk uitvoeringsbewijs vereist' USING ERRCODE='42501';
+    END IF;
+    RETURN v_actor;
+END $$;
+
+CREATE FUNCTION execution_bind_transaction(p_proof text,p_expected uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+    v_actor:=execution_session_actor(p_proof);
+    IF v_actor IS NULL OR v_actor IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Persoonlijke uitvoeringssessie ongeldig' USING ERRCODE='42501';
+    END IF;
+    PERFORM set_config('fabriek.execution_proof',p_proof,true);
+    RETURN v_actor;
+END $$;
+
+-- Gebruik SESSION_USER niet als uitzondering: SET ROLE door een eigenaar
+-- moet in regressietests dezelfde beperkingen ondervinden als de app.
+-- De invoker-trigger ziet de effectieve rol vóór een SECURITY DEFINER call.
+CREATE FUNCTION execution_registration_identity_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_operator uuid;
+BEGIN
+    IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+    v_actor:=execution_transaction_actor();
+    IF TG_OP='INSERT' THEN
+        v_operator:=NEW.operator_id;
+    ELSE
+        IF NEW.operator_id IS DISTINCT FROM OLD.operator_id THEN
+            RAISE EXCEPTION 'Oorspronkelijke operator mag niet wijzigen' USING ERRCODE='42501';
+        END IF;
+        IF NEW.afgerond_door IS DISTINCT FROM OLD.afgerond_door THEN
+            v_operator:=NEW.afgerond_door;
+        END IF;
+    END IF;
+    IF (TG_OP='INSERT' OR v_operator IS NOT NULL) AND NOT EXISTS (
+        SELECT 1 FROM operator o WHERE o.id=v_operator AND o.gebruiker_id=v_actor AND o.actief
+    ) THEN
+        RAISE EXCEPTION 'Operator komt niet overeen met bewezen identiteit' USING ERRCODE='42501';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_00_identity BEFORE INSERT OR UPDATE ON stapregistratie
+ FOR EACH ROW EXECUTE FUNCTION execution_registration_identity_guard();
+
+REVOKE ALL ON FUNCTION execution_transaction_actor(),execution_bind_transaction(text,uuid),execution_registration_identity_guard() FROM PUBLIC;
+
+-- Migratie 0069: identiteitsbinding bij metingen en grondstofverbruik.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION execution_measurement_identity_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE; v_permission text; v_quality boolean; v_correction boolean;
+BEGIN
+    IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+    v_actor:=execution_transaction_actor();
+    SELECT * INTO v_reg FROM stapregistratie WHERE id=NEW.stapregistratie_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stapregistratie'; END IF;
+    IF TG_TABLE_NAME='waarde' THEN
+        SELECT gemeten_door='kwaliteit' INTO v_quality FROM veld WHERE id=NEW.veld_id;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend meetveld'; END IF;
+        v_correction:=NEW.vervangt_waarde_id IS NOT NULL;
+    ELSE
+        v_quality:=false;
+        v_correction:=NEW.vervangt_id IS NOT NULL;
+    END IF;
+    IF v_correction THEN
+        IF NEW.gecorrigeerd_door IS DISTINCT FROM v_actor THEN
+            RAISE EXCEPTION 'Correctie komt niet overeen met bewezen identiteit' USING ERRCODE='42501';
+        END IF;
+        -- Kwaliteitsconflicten krijgen een afzonderlijk gecontroleerd pad;
+        -- geen impliciet correctierecht op kwaliteitsmetingen.
+        IF v_quality THEN
+            RAISE EXCEPTION 'Kwaliteitscorrectie vereist gecontroleerde conflictafhandeling' USING ERRCODE='42501';
+        END IF;
+        v_permission:='execution.correct';
+    ELSE
+        IF NOT EXISTS (SELECT 1 FROM operator o WHERE o.id=NEW.ingevoerd_door AND o.gebruiker_id=v_actor AND o.actief) THEN
+            RAISE EXCEPTION 'Invoerder komt niet overeen met bewezen identiteit' USING ERRCODE='42501';
+        END IF;
+        v_permission:=CASE WHEN v_quality THEN 'inspection.record' ELSE 'execution.record' END;
+    END IF;
+    IF NOT authorization_permits(v_actor,v_permission,NULL,v_reg.product_id,NULL)
+       OR (v_reg.lot_id IS NOT NULL AND EXISTS (
+          SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+           AND NOT authorization_permits(v_actor,v_permission,NULL,b.product_id,NULL))) THEN
+        RAISE EXCEPTION 'Geen actuele meet- of correctiebevoegdheid' USING ERRCODE='42501';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER waarde_00_identity BEFORE INSERT ON waarde
+ FOR EACH ROW EXECUTE FUNCTION execution_measurement_identity_guard();
+CREATE TRIGGER grondstof_gebruik_00_identity BEFORE INSERT ON grondstof_gebruik
+ FOR EACH ROW EXECUTE FUNCTION execution_measurement_identity_guard();
+REVOKE ALL ON FUNCTION execution_measurement_identity_guard() FROM PUBLIC;
+
+-- Migratie 0070: persoonlijk gebonden conflictregistratie en gecontroleerd besluit.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION execution_conflict_insert_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE; v_permission text;
+BEGIN
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ v_actor:=execution_transaction_actor();
+ IF NEW.status<>'open' OR NEW.opgelost_door IS NOT NULL OR NEW.opgelost_op IS NOT NULL OR NEW.reden IS NOT NULL
+ OR NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.ingevoerd_door AND gebruiker_id=v_actor AND actief) THEN
+   RAISE EXCEPTION 'Ongeldige persoonlijke conflictinvoer' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_reg FROM stapregistratie WHERE id=NEW.stapregistratie_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stapregistratie'; END IF;
+ IF NEW.veld_id IS NOT NULL THEN
+   SELECT CASE WHEN gemeten_door='kwaliteit' THEN 'inspection.record' ELSE 'execution.record' END INTO v_permission
+     FROM veld WHERE id=NEW.veld_id AND processtap_id=v_reg.processtap_id;
+   IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM waarde WHERE id=NEW.bestaand_waarde_id AND stapregistratie_id=v_reg.id AND veld_id=NEW.veld_id) THEN
+     RAISE EXCEPTION 'Conflict verwijst niet naar oorspronkelijke meetinvoer';
+   END IF;
+ ELSE
+   v_permission:='execution.record';
+   IF NOT EXISTS (SELECT 1 FROM grondstof_gebruik WHERE id=NEW.bestaand_gebruik_id AND stapregistratie_id=v_reg.id AND grondstof_id=NEW.grondstof_id) THEN
+     RAISE EXCEPTION 'Conflict verwijst niet naar oorspronkelijk grondstofverbruik';
+   END IF;
+ END IF;
+ IF NOT authorization_permits(v_actor,v_permission,NULL,v_reg.product_id,NULL)
+ OR (v_reg.lot_id IS NOT NULL AND EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+      AND NOT authorization_permits(v_actor,v_permission,NULL,b.product_id,NULL))) THEN
+    RAISE EXCEPTION 'Geen actuele conflictinvoerbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER invoerconflict_00_identity BEFORE INSERT ON invoerconflict
+ FOR EACH ROW EXECUTE FUNCTION execution_conflict_insert_guard();
+
+-- Een gecontroleerd besluit is geen vrijgave. Bewaar de oorspronkelijke
+-- conflictgegevens en pas nooit een inmiddels vervangen waarde stilzwijgend aan.
+CREATE FUNCTION execution_resolve_conflict(p_conflict uuid,p_choice text,p_reason text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_c invoerconflict%ROWTYPE; v_reg stapregistratie%ROWTYPE; v_permission text;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF p_choice IS NULL OR p_choice NOT IN ('bestaand','nieuw') OR length(btrim(coalesce(p_reason,''))) NOT BETWEEN 1 AND 500 THEN
+    RAISE EXCEPTION 'Keuze en motivatie vereist';
+ END IF;
+ SELECT * INTO v_c FROM invoerconflict WHERE id=p_conflict FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend conflict'; END IF;
+ SELECT * INTO v_reg FROM stapregistratie WHERE id=v_c.stapregistratie_id FOR UPDATE;
+ v_permission:=CASE WHEN EXISTS (SELECT 1 FROM veld WHERE id=v_c.veld_id AND gemeten_door='kwaliteit')
+                    THEN 'inspection.decide' ELSE 'execution.correct' END;
+ IF NOT authorization_permits(v_actor,v_permission,NULL,v_reg.product_id,NULL)
+ OR (v_reg.lot_id IS NOT NULL AND EXISTS (SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+      AND NOT authorization_permits(v_actor,v_permission,NULL,b.product_id,NULL))) THEN
+    RAISE EXCEPTION 'Geen actuele conflictbeslisbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ IF v_c.status<>'open' THEN
+    IF v_c.status=p_choice AND v_c.opgelost_door=v_actor AND v_c.reden=btrim(p_reason) THEN RETURN; END IF;
+    RAISE EXCEPTION 'Conflict is al opgelost';
+ END IF;
+ IF v_c.veld_id IS NOT NULL THEN
+   PERFORM 1 FROM waarde WHERE id=v_c.bestaand_waarde_id FOR UPDATE;
+   IF NOT EXISTS (SELECT 1 FROM waarde_actueel WHERE id=v_c.bestaand_waarde_id) THEN
+     RAISE EXCEPTION 'Oorspronkelijke waarde is intussen gewijzigd; herbeoordeling vereist';
+   END IF;
+ ELSE
+   PERFORM 1 FROM grondstof_gebruik WHERE id=v_c.bestaand_gebruik_id FOR UPDATE;
+   IF NOT EXISTS (SELECT 1 FROM grondstof_gebruik_actueel WHERE id=v_c.bestaand_gebruik_id) THEN
+     RAISE EXCEPTION 'Oorspronkelijke grondstofregel is intussen gewijzigd; herbeoordeling vereist';
+   END IF;
+ END IF;
+ PERFORM los_invoerconflict_op(p_conflict,p_choice,v_actor,btrim(p_reason));
+END $$;
+REVOKE ALL ON FUNCTION execution_conflict_insert_guard(),execution_resolve_conflict(uuid,text,text),los_invoerconflict_op(uuid,text,uuid,text) FROM PUBLIC;
+
+-- Migratie 0071: gecontroleerde tijdelijke papieren nalevering.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION execution_paper_entry(p_stapcode text,p_nummer text,p_batches text[],p_pc uuid,p_operator uuid,
+ p_begin timestamptz,p_eind timestamptz,p_reden text,p_waarden jsonb,p_grondstoffen jsonb)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_stap processtap%ROWTYPE; v_batch batch%ROWTYPE; v_lot uuid;
+ v_products uuid[]; v_product uuid; v_id uuid; v_old_actor text;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF length(btrim(coalesce(p_reden,''))) NOT BETWEEN 1 AND 500 THEN
+   RAISE EXCEPTION 'Motivatie voor papieren nalevering vereist';
+ END IF;
+ SELECT * INTO v_stap FROM processtap WHERE code=p_stapcode AND actief;
+ IF NOT FOUND OR v_stap.soort='keuring' THEN RAISE EXCEPTION 'Papieren nalevering alleen voor productiestappen'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator) OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Oorspronkelijke operator en actief werkstation vereist';
+ END IF;
+ IF EXISTS (SELECT 1 FROM jsonb_array_elements(coalesce(p_waarden,'[]'::jsonb)) w
+   JOIN veld f ON f.processtap_id=v_stap.id AND f.code=w->>'veldcode' WHERE f.gemeten_door='kwaliteit') THEN
+   RAISE EXCEPTION 'Kwaliteitsmetingen niet via papieren productienalevering';
+ END IF;
+ IF v_stap.is_lot_stap THEN
+   PERFORM 1 FROM batch WHERE batchnummer=ANY(p_batches) ORDER BY id FOR UPDATE;
+   SELECT array_agg(product_id) INTO v_products FROM batch WHERE batchnummer=ANY(p_batches);
+   IF coalesce(cardinality(v_products),0)=0 OR cardinality(v_products)<>cardinality(p_batches) THEN
+      RAISE EXCEPTION 'Alle oorspronkelijke batches moeten bestaan';
+   END IF;
+ ELSIF v_stap.niveau='batch' THEN
+   SELECT * INTO v_batch FROM batch WHERE batchnummer=p_nummer FOR UPDATE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch'; END IF;
+   v_products:=ARRAY[v_batch.product_id];
+ ELSE
+   SELECT id INTO v_lot FROM lot WHERE lotnummer=p_nummer FOR UPDATE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend lot'; END IF;
+   PERFORM 1 FROM batch WHERE lot_id=v_lot ORDER BY id FOR SHARE;
+   SELECT array_agg(product_id) INTO v_products FROM batch WHERE lot_id=v_lot;
+   IF coalesce(cardinality(v_products),0)=0 THEN RAISE EXCEPTION 'Lot zonder batchleden'; END IF;
+ END IF;
+ FOREACH v_product IN ARRAY v_products LOOP
+   IF NOT authorization_permits(v_actor,'execution.correct',NULL,v_product,NULL)
+      OR NOT authorization_permits(v_actor,'execution.start',NULL,v_product,NULL)
+      OR NOT authorization_permits(v_actor,'execution.record',NULL,v_product,NULL)
+      OR NOT authorization_permits(v_actor,'execution.complete',NULL,v_product,NULL)
+      OR (v_stap.is_lot_stap AND NOT authorization_permits(v_actor,'execution.lot.create',NULL,v_product,NULL)) THEN
+     RAISE EXCEPTION 'Geen actuele bevoegdheid voor papieren nalevering' USING ERRCODE='42501';
+   END IF;
+ END LOOP;
+ -- Alleen de digitale transcribent is persoonlijk geauthenticeerd.
+ -- De oorspronkelijke operator is een verklaring afkomstig van papier.
+ v_old_actor:=current_setting('fabriek.gebruiker',true);
+ PERFORM set_config('fabriek.gebruiker',(SELECT gebruikersnaam FROM gebruiker WHERE id=v_actor),true);
+ v_id:=lever_stap_na(p_stapcode,p_nummer,p_batches,p_pc,p_operator,p_begin,p_eind,btrim(p_reden),v_actor,p_waarden,p_grondstoffen);
+ IF EXISTS (SELECT 1 FROM stapregistratie WHERE id=v_id AND herbewerking_start) THEN
+   RAISE EXCEPTION 'Herbewerking niet via gewone papieren nalevering';
+ END IF;
+ PERFORM set_config('fabriek.gebruiker',coalesce(v_old_actor,''),true);
+ RETURN v_id;
+END $$;
+
+-- De gewone applicatierol mag geen papieren herkomst achteraf fabriceren.
+CREATE FUNCTION execution_paper_metadata_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF NOT (current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))) AND pg_has_role(current_user,'mes_app','MEMBER') THEN
+   IF TG_OP='INSERT' THEN
+     IF NEW.nageleverd_door IS NOT NULL OR NEW.nageleverd_reden IS NOT NULL OR NEW.nageleverd_op IS NOT NULL THEN
+       RAISE EXCEPTION 'Papieren herkomst uitsluitend via gecontroleerde nalevering' USING ERRCODE='42501';
+     END IF;
+   ELSIF (NEW.nageleverd_door,NEW.nageleverd_reden,NEW.nageleverd_op)
+        IS DISTINCT FROM (OLD.nageleverd_door,OLD.nageleverd_reden,OLD.nageleverd_op) THEN
+     RAISE EXCEPTION 'Papieren herkomst mag niet achteraf wijzigen' USING ERRCODE='42501';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER stapregistratie_01_paper BEFORE INSERT OR UPDATE ON stapregistratie
+ FOR EACH ROW EXECUTE FUNCTION execution_paper_metadata_guard();
+REVOKE ALL ON FUNCTION execution_paper_entry(text,text,text[],uuid,uuid,timestamptz,timestamptz,text,jsonb,jsonb),
+ execution_paper_metadata_guard(),lever_stap_na(text,text,text[],uuid,uuid,timestamptz,timestamptz,text,uuid,jsonb,jsonb) FROM PUBLIC;
+
+-- Migratie 0072: begrens rechtstreekse statuswijzigingen.
+SET search_path = fabriek, public;
+
+-- Alleen gecontroleerde triggers/functies mogen de productie- of
+-- kwaliteitsstatus veranderen. Planning krijgt een afzonderlijke overgang.
+CREATE FUNCTION execution_object_status_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF TG_TABLE_NAME='batch' THEN
+   IF (NEW.status,NEW.lot_id,NEW.gestart_op,NEW.vervallen_reden)
+      IS DISTINCT FROM (OLD.status,OLD.lot_id,OLD.gestart_op,OLD.vervallen_reden) THEN
+      RAISE EXCEPTION 'Batchstatus uitsluitend via gecontroleerde overgang' USING ERRCODE='42501';
+   END IF;
+ ELSE
+   IF NEW.status IS DISTINCT FROM OLD.status THEN
+      RAISE EXCEPTION 'Lotstatus uitsluitend via gecontroleerde overgang' USING ERRCODE='42501';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER batch_00_status_guard BEFORE UPDATE ON batch
+ FOR EACH ROW EXECUTE FUNCTION execution_object_status_guard();
+CREATE TRIGGER lot_00_status_guard BEFORE UPDATE ON lot
+ FOR EACH ROW EXECUTE FUNCTION execution_object_status_guard();
+
+-- Deze triggers worden uitsluitend geactiveerd door registratie of besluit.
+-- De bijbehorende registratieguard moet vóór de statusovergang uitvoeren.
+ALTER FUNCTION start_geplande_batch() SECURITY DEFINER;
+ALTER FUNCTION start_geplande_batch() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION werk_lotstatus_bij() SECURITY DEFINER;
+ALTER FUNCTION werk_lotstatus_bij() SET search_path=pg_catalog,fabriek,pg_temp;
+
+CREATE FUNCTION execution_batch_hold(p_batch uuid,p_reason text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_batch batch%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ SELECT * INTO v_batch FROM batch WHERE id=p_batch FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch'; END IF;
+ IF length(btrim(coalesce(p_reason,'')))=0 THEN RAISE EXCEPTION 'Motivatie vereist'; END IF;
+ IF NOT (authorization_permits(v_actor,'execution.hold',NULL,v_batch.product_id,NULL)
+         OR authorization_permits(v_actor,'inspection.hold',NULL,v_batch.product_id,NULL)) THEN
+    RAISE EXCEPTION 'Geen actuele blokkadebevoegdheid' USING ERRCODE='42501';
+ END IF;
+ INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door)
+ VALUES(p_batch,'in_beoordeling',btrim(p_reason),v_actor);
+END $$;
+
+CREATE FUNCTION execution_cancel_planned_batch(p_number text,p_reason text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_batch batch%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ SELECT * INTO v_batch FROM batch WHERE batchnummer=p_number FOR UPDATE;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ IF NOT authorization_permits(v_actor,'planning.manage',NULL,v_batch.product_id,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ IF v_batch.status<>'gepland' OR length(btrim(coalesce(p_reason,''))) NOT BETWEEN 3 AND 500 THEN
+   RAISE EXCEPTION 'Alleen geplande batch met motivatie kan vervallen';
+ END IF;
+ UPDATE batch SET status='vervallen',vervallen_reden=btrim(p_reason) WHERE id=v_batch.id;
+ RETURN v_batch.id;
+END $$;
+
+-- Lotsamenstelling via bestaande bedrijfsregels, maar alleen met een bewezen
+-- persoonlijke actor en actuele bevoegdheid voor alle opgegeven batchleden.
+CREATE FUNCTION execution_create_lot(p_number text,p_batches uuid[],p_pc uuid,p_operator uuid,
+ p_lot_id uuid,p_registration_id uuid,p_reason text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_batch batch%ROWTYPE; v_count int:=0;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ FOR v_batch IN SELECT * FROM batch WHERE id=ANY(p_batches) ORDER BY id FOR UPDATE LOOP
+   v_count:=v_count+1;
+   IF NOT authorization_permits(v_actor,'execution.lot.create',NULL,v_batch.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele lotsamenstellingsbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ END LOOP;
+ IF v_count=0 OR v_count<>cardinality(p_batches) THEN RAISE EXCEPTION 'Ongeldige batchleden'; END IF;
+ RETURN maak_lot(p_number,p_batches,p_pc,p_operator,p_lot_id,p_registration_id,p_reason);
+END $$;
+REVOKE ALL ON FUNCTION execution_object_status_guard(),start_geplande_batch(),werk_lotstatus_bij(),
+ execution_batch_hold(uuid,text),execution_cancel_planned_batch(text,text),execution_create_lot(text,uuid[],uuid,uuid,uuid,uuid,text),
+ maak_lot(text,uuid[],uuid,uuid,uuid,uuid,text) FROM PUBLIC;
+
+-- Migratie 0073: gecontroleerde tijdelijke batchcreatie (D98).
+SET search_path = fabriek, public;
+
+-- Tijdelijke PoC-route zonder productieopdracht of productspecificatie.
+-- Geen extra planningsfunctionaliteit; vervalt bij de Job Order-integratie.
+CREATE FUNCTION execution_create_legacy_batch(p_id uuid,p_number text,p_operator uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_id uuid; v_existing batch%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT authorization_permits(v_actor,'execution.batch.create',NULL,NULL,NULL)
+ OR NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief) THEN
+   RAISE EXCEPTION 'Geen bevoegdheid voor tijdelijke batchcreatie' USING ERRCODE='42501';
+ END IF;
+ PERFORM pg_advisory_xact_lock(hashtext('fabriek.batchnummer'));
+ IF p_id IS NOT NULL THEN
+   SELECT * INTO v_existing FROM batch WHERE id=p_id FOR UPDATE;
+   IF FOUND THEN
+     IF v_existing.batchnummer IS DISTINCT FROM p_number OR v_existing.bron<>'operator'
+        OR v_existing.aangemaakt_door IS DISTINCT FROM p_operator THEN
+        RAISE EXCEPTION 'Dit id hoort bij een andere batch';
+     END IF;
+     RETURN v_existing.id;
+   END IF;
+ END IF;
+ INSERT INTO batch(id,batchnummer,bron,aangemaakt_door)
+ VALUES(coalesce(p_id,gen_random_uuid()),p_number,'operator',p_operator) RETURNING id INTO v_id;
+ RETURN v_id;
+END $$;
+
+CREATE FUNCTION execution_plan_legacy_batches(p_count int,p_day date,p_product uuid,p_note text)
+RETURNS SETOF text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT authorization_permits(v_actor,'planning.manage',NULL,p_product,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT * FROM plan_batches(p_count,p_day,p_product,p_note,v_actor);
+END $$;
+
+-- Beperk directe wijziging van de herkomst en van planningscontext.
+CREATE FUNCTION execution_batch_metadata_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ IF current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) OR NOT pg_has_role(current_user,'mes_app','MEMBER') THEN RETURN NEW; END IF;
+ IF (NEW.id,NEW.batchnummer,NEW.bron,NEW.aangemaakt_op,NEW.aangemaakt_door,NEW.gepland_door)
+ IS DISTINCT FROM (OLD.id,OLD.batchnummer,OLD.bron,OLD.aangemaakt_op,OLD.aangemaakt_door,OLD.gepland_door) THEN
+   RAISE EXCEPTION 'Oorspronkelijke batchherkomst mag niet wijzigen' USING ERRCODE='42501';
+ END IF;
+ IF (NEW.geplande_dag,NEW.volgorde,NEW.product_id,NEW.opmerking)
+ IS DISTINCT FROM (OLD.geplande_dag,OLD.volgorde,OLD.product_id,OLD.opmerking) THEN
+   v_actor:=execution_transaction_actor();
+   IF NOT authorization_permits(v_actor,'planning.manage',NULL,OLD.product_id,NULL)
+      OR NOT authorization_permits(v_actor,'planning.manage',NULL,NEW.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele planningsbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER batch_01_metadata BEFORE UPDATE ON batch
+ FOR EACH ROW EXECUTE FUNCTION execution_batch_metadata_guard();
+
+REVOKE ALL ON FUNCTION execution_create_legacy_batch(uuid,text,uuid),execution_plan_legacy_batches(int,date,uuid,text),
+ execution_batch_metadata_guard(),plan_batches(int,date,uuid,text,uuid) FROM PUBLIC;
+
+-- Migratie 0074: gecontroleerde processtart en afronding.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION execution_step_permission(p_actor uuid,p_batch uuid,p_lot uuid,p_permission text,p_completion boolean)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_batch batch%ROWTYPE; v_status text; v_count int:=0;
+BEGIN
+ IF (p_batch IS NULL)=(p_lot IS NULL) THEN RAISE EXCEPTION 'Kies batch of lot'; END IF;
+ IF p_batch IS NOT NULL THEN
+   SELECT * INTO v_batch FROM batch WHERE id=p_batch FOR UPDATE;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch'; END IF;
+   IF v_batch.status NOT IN ('gepland','in_productie') OR (p_completion AND v_batch.status<>'in_productie') THEN
+     RAISE EXCEPTION 'Batchstatus blokkeert proceshandeling';
+   END IF;
+   IF NOT authorization_permits(p_actor,p_permission,NULL,v_batch.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele procesbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ ELSE
+   SELECT status INTO v_status FROM lot WHERE id=p_lot FOR UPDATE;
+   IF NOT FOUND OR v_status='geblokkeerd' OR (p_completion AND v_status<>'in_productie') THEN
+     RAISE EXCEPTION 'Lotstatus blokkeert proceshandeling';
+   END IF;
+   FOR v_batch IN SELECT * FROM batch WHERE lot_id=p_lot ORDER BY id FOR SHARE LOOP
+     v_count:=v_count+1;
+     IF v_batch.status<>'in_lot' OR NOT authorization_permits(p_actor,p_permission,NULL,v_batch.product_id,NULL) THEN
+       RAISE EXCEPTION 'Batchlid blokkeert proceshandeling of scope' USING ERRCODE='42501';
+     END IF;
+   END LOOP;
+   IF v_count=0 THEN RAISE EXCEPTION 'Lot zonder batchleden'; END IF;
+ END IF;
+END $$;
+
+CREATE FUNCTION execution_step_start(p_code text,p_batch uuid,p_lot uuid,p_pc uuid,p_operator uuid,p_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_stap processtap%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_stap FROM processtap WHERE code=p_code AND actief;
+ IF NOT FOUND OR v_stap.is_lot_stap THEN RAISE EXCEPTION 'Onbekende stap of afzonderlijke lotsamenstelling vereist'; END IF;
+ PERFORM execution_step_permission(v_actor,p_batch,p_lot,
+    CASE WHEN v_stap.soort='keuring' THEN 'inspection.start' ELSE 'execution.start' END,false);
+ RETURN start_stap(p_code,p_batch,p_lot,p_pc,p_operator,p_id);
+END $$;
+
+CREATE FUNCTION execution_step_complete(p_registration uuid,p_operator uuid,p_pc uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_reg stapregistratie%ROWTYPE;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_reg FROM stapregistratie WHERE id=p_registration FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende registratie'; END IF;
+ PERFORM execution_step_permission(v_actor,v_reg.batch_id,v_reg.lot_id,'execution.complete',true);
+ IF EXISTS (SELECT 1 FROM invoerconflict WHERE stapregistratie_id=p_registration AND status='open') THEN
+   RAISE EXCEPTION 'Open invoerconflict blokkeert afronding';
+ END IF;
+ PERFORM rond_stap_af(p_registration,p_operator,p_pc);
+END $$;
+
+CREATE FUNCTION execution_step_rework(p_lot uuid,p_code text,p_reason text,p_pc uuid,p_operator uuid,p_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ PERFORM execution_step_permission(v_actor,NULL,p_lot,'execution.rework',false);
+ RETURN start_herbewerking(p_lot,p_code,p_reason,p_pc,p_operator,p_id);
+END $$;
+
+REVOKE ALL ON FUNCTION execution_step_permission(uuid,uuid,uuid,text,boolean),
+ execution_step_start(text,uuid,uuid,uuid,uuid,uuid),execution_step_complete(uuid,uuid,uuid),
+ execution_step_rework(uuid,text,text,uuid,uuid,uuid),start_stap(text,uuid,uuid,uuid,uuid,uuid),
+ rond_stap_af(uuid,uuid,uuid),start_herbewerking(uuid,text,text,uuid,uuid,uuid) FROM PUBLIC;
+
+-- Migratie 0075: behoud expliciete zoekpaden en beperk oude authenticatie-ingangen.
+SET search_path = fabriek, public;
+
+-- Ook functies die door een SECURITY DEFINER worden aangeroepen mogen
+-- geen impliciet voorrang gevend pg_temp-zoekpad hebben.
+DO $$
+DECLARE f record;
+BEGIN
+ FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p
+ JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='fabriek' AND p.prokind='f'
+ AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c
+                 WHERE c LIKE 'search_path=%' AND c LIKE '%pg_temp')
+ LOOP
+   EXECUTE format('ALTER FUNCTION %s SET search_path=pg_catalog,fabriek,public,pg_temp',f.sig);
+ END LOOP;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION inloggen(text,text,text),change_password_confirmed(uuid,text,text) FROM PUBLIC;
+
+-- Migratie 0076: expliciete functie-interface.
+SET search_path = fabriek, public;
+
+-- Geen impliciete PUBLIC-uitvoering voor de functies in deze installatie.
+-- De rechteninstallatie kent de expliciete applicatie-interface daarna toe.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA fabriek FROM PUBLIC;
+
+-- Migratie 0078: expliciete leesinterface, ook oude kolomgrants intrekken.
+SET search_path = fabriek, public;
+REVOKE SELECT ON ALL TABLES IN SCHEMA fabriek FROM PUBLIC;
+
+-- Migratie 0077: expliciete schrijfrechten voor de tijdelijke applicatie-interface.
+SET search_path = fabriek, public;
+REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON ALL TABLES IN SCHEMA fabriek FROM PUBLIC;
+-- Bestaande directe app-grants worden bij db/rechten.sql vervangen door
+-- een expliciete lijst. Leesrechten worden in een afzonderlijke stap beperkt.
+
+-- Migratie 0079: alleen de configuratietrigger en gecontroleerde eigenaarpaden schrijven het logboek.
+SET search_path = fabriek, public;
+ALTER FUNCTION log_config() SECURITY DEFINER;
+ALTER FUNCTION log_config() SET search_path = pg_catalog,fabriek,pg_temp;
+REVOKE ALL ON FUNCTION log_config() FROM PUBLIC;
+REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON fabriek.config_log FROM PUBLIC;
+
+-- Migratie 0080: auditidentiteit uit gevalideerde persoonlijke sessie, nooit een vrije naam.
+SET search_path = fabriek, public;
+CREATE OR REPLACE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE
+    v_oud   jsonb;
+    v_nieuw jsonb;
+    v_actor uuid;
+    v_label text;
+BEGIN
+    IF TG_OP = 'DELETE' AND TG_TABLE_NAME NOT IN ('pc_stap', 'product_stap', 'veld_product', 'capaciteit_stap', 'specificatie', 'specificatie_regel') THEN
+        RAISE EXCEPTION 'Configuratie wordt niet verwijderd; zet % op inactief', TG_TABLE_NAME;
+    END IF;
+    IF TG_OP <> 'INSERT' THEN v_oud := to_jsonb(OLD) - 'wachtwoord_hash'; END IF;
+    IF TG_OP <> 'DELETE' THEN v_nieuw := to_jsonb(NEW) - 'wachtwoord_hash'; END IF;
+    IF TG_TABLE_NAME = 'gebruiker' AND TG_OP = 'UPDATE' THEN
+        IF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash THEN
+            v_nieuw := v_nieuw || '{"wachtwoord": "gewijzigd"}';
+        END IF;
+    END IF;
+    v_actor := execution_session_actor(current_setting('fabriek.execution_proof', true));
+    IF v_actor IS NOT NULL THEN
+        SELECT gebruikersnaam INTO v_label FROM gebruiker WHERE id=v_actor;
+    ELSE
+        -- Een vrije GUC is geen bewijs. Ook eigenaar- en herstelpaden
+        -- zonder persoonlijk bewijs krijgen geen verzonnen persoonsidentiteit.
+        v_label := '[niet persoonlijk bewezen]';
+    END IF;
+    INSERT INTO config_log (tabel, record_id, actie, oud, nieuw, gewijzigd_door)
+    VALUES (TG_TABLE_NAME,
+            coalesce((coalesce(v_nieuw, v_oud) ->> 'id')::uuid, (coalesce(v_nieuw, v_oud) ->> 'pc_id')::uuid,
+                     (coalesce(v_nieuw, v_oud) ->> 'product_id')::uuid),
+            TG_OP, v_oud, v_nieuw,
+            v_label);
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION log_config() FROM PUBLIC;
+
+-- Migratie 0081: stabiele identiteit en expliciete bewijsstatus, geen historische reconstructie.
+SET search_path = fabriek, public;
+ALTER TABLE config_log ADD COLUMN actor_user_id uuid REFERENCES gebruiker(id);
+ALTER TABLE config_log ADD COLUMN actor_origin text NOT NULL DEFAULT 'historical';
+ALTER TABLE config_log ALTER COLUMN actor_origin SET DEFAULT 'unverified';
+ALTER TABLE config_log ADD CONSTRAINT config_log_actor_origin_check CHECK (
+ (actor_origin = 'personal' AND actor_user_id IS NOT NULL)
+ OR (actor_origin IN ('historical','unverified') AND actor_user_id IS NULL)
+);
+CREATE OR REPLACE FUNCTION log_config() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE
+    v_oud   jsonb;
+    v_nieuw jsonb;
+    v_actor uuid;
+    v_label text;
+BEGIN
+    IF TG_OP = 'DELETE' AND TG_TABLE_NAME NOT IN ('pc_stap', 'product_stap', 'veld_product', 'capaciteit_stap', 'specificatie', 'specificatie_regel') THEN
+        RAISE EXCEPTION 'Configuratie wordt niet verwijderd; zet % op inactief', TG_TABLE_NAME;
+    END IF;
+    IF TG_OP <> 'INSERT' THEN v_oud := to_jsonb(OLD) - 'wachtwoord_hash'; END IF;
+    IF TG_OP <> 'DELETE' THEN v_nieuw := to_jsonb(NEW) - 'wachtwoord_hash'; END IF;
+    IF TG_TABLE_NAME = 'gebruiker' AND TG_OP = 'UPDATE' THEN
+        IF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash THEN
+            v_nieuw := v_nieuw || '{"wachtwoord": "gewijzigd"}';
+        END IF;
+    END IF;
+    v_actor := execution_session_actor(current_setting('fabriek.execution_proof', true));
+    IF v_actor IS NOT NULL THEN
+        SELECT gebruikersnaam INTO v_label FROM gebruiker WHERE id=v_actor;
+    ELSE
+        -- Een vrije GUC is geen bewijs. Ook eigenaar- en herstelpaden
+        -- zonder persoonlijk bewijs krijgen geen verzonnen persoonsidentiteit.
+        v_label := '[niet persoonlijk bewezen]';
+    END IF;
+    INSERT INTO config_log (tabel, record_id, actie, oud, nieuw, gewijzigd_door, actor_user_id, actor_origin)
+    VALUES (TG_TABLE_NAME,
+            coalesce((coalesce(v_nieuw, v_oud) ->> 'id')::uuid, (coalesce(v_nieuw, v_oud) ->> 'pc_id')::uuid,
+                     (coalesce(v_nieuw, v_oud) ->> 'product_id')::uuid),
+            TG_OP, v_oud, v_nieuw,
+            v_label, v_actor, CASE WHEN v_actor IS NULL THEN 'unverified' ELSE 'personal' END);
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION log_config() FROM PUBLIC;
+
+-- D101: meldingen uit bestaande bedrijfsgebeurtenissen, geen oude accountrol.
+SET search_path = fabriek, public;
+
+-- Tijdelijke globale routering: historische ontvangerscategorieën zijn
+-- berichtmetadata, nooit de rol van het ingelogde account. Hal is geen area.
+CREATE FUNCTION notification_recipient(p_user uuid,p_roles text[])
+RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT authorization_permits(p_user,'analysis.execution.read',NULL,NULL,NULL)
+ OR ('ploegleider'=ANY(p_roles) AND authorization_permits(p_user,'execution.correct',NULL,NULL,NULL))
+ OR ('kwaliteit'=ANY(p_roles) AND authorization_permits(p_user,'inspection.decide',NULL,NULL,NULL))
+ OR ('planner'=ANY(p_roles) AND authorization_permits(p_user,'planning.manage',NULL,NULL,NULL))
+ OR ('productiemanager'=ANY(p_roles) AND authorization_permits(p_user,'operations.rework.order',NULL,NULL,NULL))
+$$;
+
+CREATE FUNCTION notification_read_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+ IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
+ actor:=execution_transaction_actor();
+ IF NEW.gebruiker_id IS DISTINCT FROM actor OR NOT EXISTS (
+    SELECT 1 FROM melding m WHERE m.id=NEW.melding_id
+      AND m.aangemaakt_op>now()-interval '30 days' AND notification_recipient(actor,m.voor_rollen)
+ ) THEN RAISE EXCEPTION 'Geen persoonlijke MES-meldingsbevoegdheid' USING ERRCODE='42501'; END IF;
+ NEW.gelezen_op:=clock_timestamp();
+ RETURN NEW;
+END $$;
+CREATE TRIGGER melding_gelezen_identity BEFORE INSERT ON melding_gelezen
+ FOR EACH ROW EXECUTE FUNCTION notification_read_guard();
+
+-- Alleen de vaste bestaande event-triggers mogen systeemmeldingen schrijven.
+ALTER FUNCTION meld_waarde() SECURITY DEFINER;
+ALTER FUNCTION meld_besluit() SECURITY DEFINER;
+ALTER FUNCTION meld_lotvoorstel() SECURITY DEFINER;
+ALTER FUNCTION meld_stilstand() SECURITY DEFINER;
+ALTER FUNCTION meld_herbewerking() SECURITY DEFINER;
+ALTER FUNCTION meld_keuring() SECURITY DEFINER;
+ALTER FUNCTION meld_invoerconflict() SECURITY DEFINER;
+ALTER FUNCTION meld_waarde() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_besluit() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_lotvoorstel() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_stilstand() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_herbewerking() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_keuring() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION meld_invoerconflict() SET search_path=pg_catalog,fabriek,pg_temp;
+REVOKE ALL ON FUNCTION notification_recipient(uuid,text[]),notification_read_guard(),
+ meld_waarde(),meld_besluit(),meld_lotvoorstel(),meld_stilstand(),meld_herbewerking(),meld_keuring(),meld_invoerconflict() FROM PUBLIC;
+
+-- Migratie 0083: configuratiewrites vereisen actuele persoonlijke MES-autorisatie (D100/D101).
+SET search_path = fabriek, public;
+
+-- Globale bevoegdheid conform de bestaande API-contracten. Geen scope
+-- afleiden uit een clientwaarde. De eigenaar blijft voor gecontroleerd
+-- onderhoud en bestaande SECURITY DEFINER-processen verantwoordelijk.
+CREATE FUNCTION configuration_write_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid;
+BEGIN
+ IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN
+   v_actor:=execution_transaction_actor();
+   IF NOT authorization_permits(v_actor,TG_ARGV[0],NULL,NULL,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele MES-configuratiebevoegdheid: %',TG_ARGV[0] USING ERRCODE='42501';
+   END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION configuration_write_guard() FROM PUBLIC;
+
+-- Na bestaande identiteitstriggers; vóór log_config en overige wijzigingen.
+CREATE TRIGGER processtap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON processtap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('process.parameter.manage');
+CREATE TRIGGER veld_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON veld
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('process.parameter.manage');
+CREATE TRIGGER veld_product_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON veld_product
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('process.parameter.manage');
+CREATE TRIGGER product_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON product
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('engineering.product.manage');
+CREATE TRIGGER product_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON product_stap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('engineering.product.manage');
+CREATE TRIGGER grondstof_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON grondstof
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('material.definition.manage');
+CREATE TRIGGER stap_grondstof_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON stap_grondstof
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('material.definition.manage');
+CREATE TRIGGER pc_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON pc
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('workstation.manage');
+CREATE TRIGGER pc_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON pc_stap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('workstation.manage');
+CREATE TRIGGER gebruiker_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON gebruiker
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('account.manage');
+CREATE TRIGGER operator_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON operator
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('personnel.manage');
+CREATE TRIGGER ploeg_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON ploeg
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('shift.manage');
+CREATE TRIGGER rooster_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON rooster
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('shift.manage');
+CREATE TRIGGER rooster_ploeg_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON rooster_ploeg
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('shift.manage');
+CREATE TRIGGER stilstand_oorzaak_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON stilstand_oorzaak
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('downtime.reason.manage');
+CREATE TRIGGER capaciteit_stap_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_stap
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('planning.manage');
+CREATE TRIGGER capaciteit_afwijking_0_mes_permission BEFORE INSERT OR UPDATE OR DELETE ON capaciteit_afwijking
+ FOR EACH ROW EXECUTE FUNCTION configuration_write_guard('planning.manage');
+
+-- Migratie 0084: persoonlijke operationele wijzigingen (D100/D101).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION operations_write_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+ IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN
+   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+   RETURN NEW;
+ END IF;
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,TG_ARGV[0],NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-operationele bevoegdheid: %',TG_ARGV[0] USING ERRCODE='42501';
+ END IF;
+ IF TG_TABLE_NAME='stilstand' THEN
+   IF TG_OP='INSERT' THEN
+     IF NEW.gemeld_door IS DISTINCT FROM actor OR NEW.eind_op IS NOT NULL OR NEW.beeindigd_door IS NOT NULL OR NEW.eind_notitie IS NOT NULL
+       OR (NEW.operator_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.operator_id AND gebruiker_id=actor AND actief)) THEN
+       RAISE EXCEPTION 'Ongeldige persoonlijke stilstandmelding' USING ERRCODE='42501';
+     END IF;
+   ELSIF TG_OP='UPDATE' THEN
+     IF NEW.id IS DISTINCT FROM OLD.id OR NEW.eind_op IS NULL
+       OR (NEW.beeindigd_door IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.beeindigd_door AND gebruiker_id=actor AND actief)) THEN
+       RAISE EXCEPTION 'Ongeldige persoonlijke stilstandbeëindiging' USING ERRCODE='42501';
+     END IF;
+   END IF;
+ ELSIF TG_TABLE_NAME='overdracht' AND TG_OP='INSERT' THEN
+   IF NEW.gebruiker_id IS DISTINCT FROM actor
+     OR (NEW.operator_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operator WHERE id=NEW.operator_id AND gebruiker_id=actor AND actief)) THEN
+     RAISE EXCEPTION 'Ongeldige persoonlijke overdracht' USING ERRCODE='42501';
+   END IF;
+ ELSIF TG_TABLE_NAME='stapplanning' AND TG_OP='INSERT' THEN
+   IF NEW.aangemaakt_door IS DISTINCT FROM actor THEN
+     RAISE EXCEPTION 'Ongeldige persoonlijke stapplanning' USING ERRCODE='42501';
+   END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION operations_write_guard() FROM PUBLIC;
+CREATE TRIGGER stilstand_0_mes_permission BEFORE INSERT OR UPDATE ON stilstand
+ FOR EACH ROW EXECUTE FUNCTION operations_write_guard('downtime.record');
+CREATE TRIGGER overdracht_0_mes_permission BEFORE INSERT ON overdracht
+ FOR EACH ROW EXECUTE FUNCTION operations_write_guard('handover.record');
+CREATE TRIGGER stapplanning_0_mes_permission BEFORE INSERT OR DELETE ON stapplanning
+ FOR EACH ROW EXECUTE FUNCTION operations_write_guard('planning.manage');
+
+-- Alleen de bestaande gecontroleerde opslagfunctie mag voorstelleden wijzigen.
+-- Geen nieuw lotmodel: de bestaande PoC-regels blijven voorlopig gelden.
+CREATE FUNCTION planning_save_legacy_proposal(p_id uuid,p_batches uuid[],p_note text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,'planning.manage',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ -- Serialiseer tijdelijke voorstelwijzigingen en vergrendel bestaande voorstellen.
+ PERFORM pg_advisory_xact_lock(84001);
+ IF p_id IS NOT NULL THEN
+   PERFORM 1 FROM lot_voorstel WHERE id=p_id FOR UPDATE;
+ END IF;
+ PERFORM 1 FROM batch WHERE id=ANY(p_batches) ORDER BY id FOR UPDATE;
+ RETURN bewaar_lot_voorstel(p_id,p_batches,p_note,actor);
+END $$;
+
+CREATE FUNCTION planning_cancel_legacy_proposal(p_number int)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,'planning.manage',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-planningsbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ PERFORM pg_advisory_xact_lock(84001);
+ UPDATE lot_voorstel SET status='vervallen',afgesloten_op=now()
+ WHERE nummer=p_number AND status='open' RETURNING id INTO target;
+ IF target IS NOT NULL THEN DELETE FROM stapplanning WHERE voorstel_id=target; END IF;
+ RETURN target;
+END $$;
+REVOKE ALL ON FUNCTION planning_save_legacy_proposal(uuid,uuid[],text),planning_cancel_legacy_proposal(int) FROM PUBLIC;
+
+-- Lotvorming gebruikt dezelfde transactievergrendeling als voorstelbeheer.
+CREATE OR REPLACE FUNCTION execution_create_lot(p_number text,p_batches uuid[],p_pc uuid,p_operator uuid,
+ p_lot_id uuid,p_registration_id uuid,p_reason text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_actor uuid; v_batch batch%ROWTYPE; v_count int:=0;
+BEGIN
+ v_actor:=execution_transaction_actor();
+ PERFORM pg_advisory_xact_lock(84001);
+ IF NOT EXISTS (SELECT 1 FROM operator WHERE id=p_operator AND gebruiker_id=v_actor AND actief)
+ OR NOT EXISTS (SELECT 1 FROM pc WHERE id=p_pc AND actief) THEN
+   RAISE EXCEPTION 'Persoonlijke operator en actief werkstation vereist' USING ERRCODE='42501';
+ END IF;
+ FOR v_batch IN SELECT * FROM batch WHERE id=ANY(p_batches) ORDER BY id FOR UPDATE LOOP
+   v_count:=v_count+1;
+   IF NOT authorization_permits(v_actor,'execution.lot.create',NULL,v_batch.product_id,NULL) THEN
+     RAISE EXCEPTION 'Geen actuele lotsamenstellingsbevoegdheid' USING ERRCODE='42501';
+   END IF;
+ END LOOP;
+ IF v_count=0 OR v_count<>cardinality(p_batches) THEN RAISE EXCEPTION 'Ongeldige batchleden'; END IF;
+ RETURN maak_lot(p_number,p_batches,p_pc,p_operator,p_lot_id,p_registration_id,p_reason);
+END $$;
+
 -- Dit schema staat gelijk aan alle migraties hieronder (bij een nieuwe migratie een regel toevoegen).
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg');
+-- Migratie 0085: uitsluitend eerste, onafhankelijk bevestigde personeelskoppeling.
+SET search_path = fabriek, public;
+
+CREATE TABLE authorization_personnel_link (
+    personnel_id uuid PRIMARY KEY REFERENCES operator(id),
+    user_id uuid NOT NULL UNIQUE REFERENCES gebruiker(id),
+    requested_by uuid NOT NULL REFERENCES gebruiker(id),
+    approved_by uuid NOT NULL REFERENCES gebruiker(id),
+    reason text NOT NULL CHECK (btrim(reason)<>''),
+    linked_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (user_id<>requested_by AND user_id<>approved_by AND requested_by<>approved_by)
+);
+CREATE TRIGGER authorization_personnel_link_immutable BEFORE UPDATE OR DELETE ON authorization_personnel_link
+    FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON authorization_personnel_link FROM PUBLIC;
+
+-- Eigenaar faciliteert de handeling; twee actuele MES-permissions en twee
+-- persoonlijke wachtwoordbevestigingen zijn vereist. Geen grants of historische
+-- registraties wijzigen. De organisatie verifieert dat beide IDs dezelfde persoon betreffen.
+CREATE FUNCTION authorization_link_personnel_confirmed(p_personnel uuid,p_user uuid,p_requester uuid,p_approver uuid,
+    p_reason text,p_requester_password text,p_approver_password text)
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_a text; v_b text; v_login record;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.operator'::regclass)) THEN
+        RAISE EXCEPTION 'Personeelskoppeling vereist database-eigenaar';
+    END IF;
+    IF p_personnel IS NULL OR p_user IS NULL OR p_requester IS NULL OR p_approver IS NULL
+       OR p_user=p_requester OR p_user=p_approver OR p_requester=p_approver
+       OR btrim(coalesce(p_reason,''))='' THEN
+        RAISE EXCEPTION 'Onafhankelijke identiteiten en reden vereist';
+    END IF;
+    PERFORM id FROM gebruiker WHERE id IN (p_user,p_requester,p_approver) ORDER BY id FOR UPDATE;
+    PERFORM id FROM operator WHERE id=p_personnel FOR UPDATE;
+    IF NOT EXISTS (SELECT 1 FROM gebruiker WHERE id=p_user AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen)
+       OR NOT EXISTS (SELECT 1 FROM operator WHERE id=p_personnel AND actief AND gebruiker_id IS NULL)
+       OR EXISTS (SELECT 1 FROM operator WHERE gebruiker_id=p_user)
+       OR EXISTS (SELECT 1 FROM authorization_personnel_link WHERE personnel_id=p_personnel OR user_id=p_user) THEN
+        RAISE EXCEPTION 'Uitsluitend eerste koppeling van actieve persoonlijke identiteiten toegestaan';
+    END IF;
+    IF NOT authorization_permits(p_requester,'personnel.manage',NULL,NULL,NULL)
+       OR NOT authorization_permits(p_approver,'authorization.approve',NULL,NULL,NULL) THEN
+        RAISE EXCEPTION 'Onafhankelijke bevoegde personeelsbeheerder en securitybeoordelaar vereist';
+    END IF;
+    SELECT gebruikersnaam INTO v_a FROM gebruiker WHERE id=p_requester;
+    SELECT gebruikersnaam INTO v_b FROM gebruiker WHERE id=p_approver;
+    SELECT * INTO v_login FROM inloggen(v_a,p_requester_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_requester THEN RETURN 'denied'; END IF;
+    SELECT * INTO v_login FROM inloggen(v_b,p_approver_password,NULL);
+    IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+    IF v_login.id IS DISTINCT FROM p_approver THEN RETURN 'denied'; END IF;
+    UPDATE operator SET gebruiker_id=p_user WHERE id=p_personnel;
+    INSERT INTO authorization_personnel_link(personnel_id,user_id,requested_by,approved_by,reason)
+      VALUES(p_personnel,p_user,p_requester,p_approver,p_reason);
+    RETURN 'linked';
+END $$;
+REVOKE ALL ON FUNCTION authorization_link_personnel_confirmed(uuid,uuid,uuid,uuid,text,text,text) FROM PUBLIC;
+
+-- Migratie 0086: begrensde operationele kwalificaties met onafhankelijk bewijs (D89 P02/P04/P05).
+SET search_path = fabriek, public;
+
+INSERT INTO authorization_permission(code,domain) VALUES
+ ('qualification.issue','operations'),('qualification.approve','operations'),('qualification.revoke','operations');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES
+ ('manufacturing_manager','qualification.issue'),('manufacturing_manager','qualification.approve'),
+ ('manufacturing_manager','qualification.revoke');
+
+CREATE TABLE qualification_issue (
+    qualification_id uuid PRIMARY KEY REFERENCES personnel_qualification(id),
+    requested_by uuid NOT NULL REFERENCES gebruiker(id),
+    approved_by uuid NOT NULL REFERENCES gebruiker(id),
+    evidence text NOT NULL CHECK (btrim(evidence)<>''),
+    issued_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    CHECK (requested_by<>approved_by)
+);
+CREATE TABLE qualification_revocation (
+    qualification_id uuid PRIMARY KEY REFERENCES personnel_qualification(id),
+    revoked_by uuid NOT NULL REFERENCES gebruiker(id),
+    reason text NOT NULL CHECK (btrim(reason)<>''),
+    revoked_at timestamptz NOT NULL
+);
+CREATE TRIGGER qualification_issue_immutable BEFORE UPDATE OR DELETE ON qualification_issue
+ FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+CREATE TRIGGER qualification_revocation_immutable BEFORE UPDATE OR DELETE ON qualification_revocation
+ FOR EACH ROW EXECUTE FUNCTION authorization_audit_immutable();
+REVOKE ALL ON qualification_issue,qualification_revocation FROM PUBLIC;
+
+-- Alleen expliciet aan operationele activiteiten gekoppelde definities.
+-- Andere domeinen en niet-geclassificeerde kwalificaties blijven gesloten.
+CREATE FUNCTION qualification_is_operations(p_code text) RETURNS boolean
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT EXISTS (SELECT 1 FROM activity_qualification WHERE qualification_code=p_code)
+ AND NOT EXISTS (SELECT 1 FROM activity_qualification a JOIN authorization_permission p ON p.code=a.permission_code
+   WHERE a.qualification_code=p_code AND p.domain<>'operations')
+$$;
+
+CREATE FUNCTION qualification_issue_confirmed(p_user uuid,p_code text,p_from timestamptz,p_until timestamptz,
+ p_requester uuid,p_approver uuid,p_evidence text,p_requester_password text,p_approver_password text)
+RETURNS TABLE(status text,qualification_id uuid)
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_name text; v_login record; v_id uuid;
+BEGIN
+ IF current_user<>pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.personnel_qualification'::regclass)) THEN
+   RAISE EXCEPTION 'Kwalificatietoekenning vereist database-eigenaar';
+ END IF;
+ IF p_user IS NULL OR p_requester IS NULL OR p_approver IS NULL
+   OR p_user=p_requester OR p_user=p_approver OR p_requester=p_approver
+   OR p_from IS NULL OR NOT isfinite(p_from) OR p_until IS NULL OR NOT isfinite(p_until)
+   OR p_until<=p_from OR p_until<=clock_timestamp() OR btrim(coalesce(p_evidence,''))='' THEN
+   RAISE EXCEPTION 'Onafhankelijke identiteiten, eindige geldigheid en bewijs vereist';
+ END IF;
+ PERFORM id FROM gebruiker WHERE id IN(p_user,p_requester,p_approver) ORDER BY id FOR UPDATE;
+ LOCK TABLE activity_qualification IN SHARE MODE;
+ PERFORM id FROM operator WHERE gebruiker_id=p_user AND actief FOR UPDATE;
+ IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM gebruiker WHERE id=p_user AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen) THEN
+   RAISE EXCEPTION 'Actief persoonlijk gekoppeld doelaccount vereist';
+ END IF;
+ IF NOT qualification_is_operations(p_code) THEN RAISE EXCEPTION 'Geen geclassificeerde operationele kwalificatie'; END IF;
+ IF NOT authorization_permits(p_requester,'qualification.issue',NULL,NULL,NULL)
+   OR NOT authorization_permits(p_approver,'qualification.approve',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Onafhankelijke inhoudelijk bevoegde beoordelaars vereist';
+ END IF;
+ IF EXISTS(SELECT 1 FROM personnel_qualification WHERE user_id=p_user AND qualification_code=p_code
+   AND revoked_at IS NULL AND tstzrange(valid_from,valid_until,'[)') && tstzrange(p_from,p_until,'[)')) THEN
+   RAISE EXCEPTION 'Overlappende kwalificatie';
+ END IF;
+ SELECT gebruikersnaam INTO v_name FROM gebruiker WHERE id=p_requester;
+ SELECT * INTO v_login FROM inloggen(v_name,p_requester_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN QUERY SELECT 'locked'::text,NULL::uuid; RETURN; END IF;
+ IF v_login.id IS DISTINCT FROM p_requester THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+ SELECT gebruikersnaam INTO v_name FROM gebruiker WHERE id=p_approver;
+ SELECT * INTO v_login FROM inloggen(v_name,p_approver_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN QUERY SELECT 'locked'::text,NULL::uuid; RETURN; END IF;
+ IF v_login.id IS DISTINCT FROM p_approver THEN RETURN QUERY SELECT 'denied'::text,NULL::uuid; RETURN; END IF;
+ INSERT INTO personnel_qualification(user_id,qualification_code,valid_from,valid_until)
+ VALUES(p_user,p_code,p_from,p_until) RETURNING id INTO v_id;
+ INSERT INTO qualification_issue(qualification_id,requested_by,approved_by,evidence)
+ VALUES(v_id,p_requester,p_approver,p_evidence);
+ RETURN QUERY SELECT 'issued'::text,v_id;
+END $$;
+
+-- Beperkende maatregel: geen tweede bevestiging nodig om onveilige toegang te stoppen.
+CREATE FUNCTION qualification_revoke_confirmed(p_id uuid,p_actor uuid,p_reason text,p_password text)
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_target uuid; v_q personnel_qualification%ROWTYPE; v_name text; v_login record; v_now timestamptz;
+BEGIN
+ IF current_user<>pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.personnel_qualification'::regclass)) THEN
+   RAISE EXCEPTION 'Kwalificatie-intrekking vereist database-eigenaar';
+ END IF;
+ SELECT user_id INTO v_target FROM personnel_qualification WHERE id=p_id;
+ IF NOT FOUND OR p_actor IS NULL OR v_target=p_actor OR btrim(coalesce(p_reason,''))='' THEN
+   RAISE EXCEPTION 'Onafhankelijke intrekking en reden vereist';
+ END IF;
+ PERFORM id FROM gebruiker WHERE id IN(v_target,p_actor) ORDER BY id FOR UPDATE;
+ LOCK TABLE activity_qualification IN SHARE MODE;
+ SELECT * INTO v_q FROM personnel_qualification WHERE id=p_id FOR UPDATE;
+ IF NOT FOUND OR v_q.user_id IS DISTINCT FROM v_target OR v_q.revoked_at IS NOT NULL
+   OR NOT qualification_is_operations(v_q.qualification_code) THEN
+   RAISE EXCEPTION 'Geen intrekbare operationele kwalificatie';
+ END IF;
+ IF NOT authorization_permits(p_actor,'qualification.revoke',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen inhoudelijke intrekkingsbevoegdheid';
+ END IF;
+ SELECT gebruikersnaam INTO v_name FROM gebruiker WHERE id=p_actor;
+ SELECT * INTO v_login FROM inloggen(v_name,p_password,NULL);
+ IF v_login.wacht_seconden IS NOT NULL THEN RETURN 'locked'; END IF;
+ IF v_login.id IS DISTINCT FROM p_actor THEN RETURN 'denied'; END IF;
+ v_now:=clock_timestamp();
+ UPDATE personnel_qualification SET revoked_at=v_now WHERE id=p_id;
+ INSERT INTO qualification_revocation(qualification_id,revoked_by,reason,revoked_at)
+ VALUES(p_id,p_actor,p_reason,v_now);
+ RETURN 'revoked';
+END $$;
+
+REVOKE ALL ON FUNCTION qualification_is_operations(text),
+ qualification_issue_confirmed(uuid,text,timestamptz,timestamptz,uuid,uuid,text,text,text),
+ qualification_revoke_confirmed(uuid,uuid,text,text) FROM PUBLIC;
+
+-- Migratie 0087: oude beheerdersrol is geen beschikbaarheidsvoorwaarde (D101).
+SET search_path = fabriek, public;
+
+-- Geen legacy-rol als voorwaarde voor accountdeactivering. De afzonderlijke
+-- MES-guards voor kritieke identiteiten, grants en sessies blijven gelden.
+CREATE OR REPLACE FUNCTION bewaak_beheerder() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF NEW.gebruikersnaam <> OLD.gebruikersnaam THEN
+        RAISE EXCEPTION 'Een gebruikersnaam verandert niet; maak een nieuw account';
+    END IF;
+    RETURN NEW;
+END $$;
+REVOKE EXECUTE ON FUNCTION bewaak_beheerder() FROM PUBLIC;
+
+-- Migratie 0088: kwaliteitsuitvoering op actuele MES-permissions (D101).
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION controleer_stapregistratie() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_stap        processtap%ROWTYPE;
+    v_vorige      processtap%ROWTYPE;
+    v_status      text;
+    v_vorige_reg  stapregistratie%ROWTYPE;
+    v_deze_laatst stapregistratie%ROWTYPE;
+    v_max_poging  int;
+    v_product     uuid;
+    v_vorige_id   uuid;
+    v_opdracht    herbewerking%ROWTYPE;
+BEGIN
+    SELECT * INTO v_stap FROM processtap WHERE id = NEW.processtap_id;
+    IF NOT v_stap.actief THEN
+        RAISE EXCEPTION 'Stap % is inactief', v_stap.code;
+    END IF;
+
+    -- Niveau moet kloppen.
+    IF v_stap.niveau = 'batch' AND NEW.batch_id IS NULL THEN
+        RAISE EXCEPTION 'Stap % wordt per batch geregistreerd', v_stap.code;
+    END IF;
+    IF v_stap.niveau = 'lot' AND NEW.lot_id IS NULL THEN
+        RAISE EXCEPTION 'Stap % wordt per lot geregistreerd', v_stap.code;
+    END IF;
+
+    -- Route: de stap moet bij het product van de batch of het lot horen (D55).
+    v_product := CASE WHEN NEW.batch_id IS NOT NULL THEN (SELECT product_id FROM batch WHERE id = NEW.batch_id)
+                      ELSE lot_product(NEW.lot_id) END;
+    IF NOT in_route(v_product, v_stap.id) THEN
+        RAISE EXCEPTION 'Stap % hoort niet bij de route van product %', v_stap.code, (SELECT code FROM product WHERE id = v_product);
+    END IF;
+    NEW.product_id := v_product;   -- vastgelegd voor grenzen en analyses per product (sinds 0019)
+    -- D101: actuele MES-grant en volledige productscope, geen legacy-rol.
+    IF v_stap.soort = 'keuring' AND NOT EXISTS (
+        SELECT 1 FROM operator o WHERE o.id=NEW.operator_id AND o.actief
+          AND authorization_permits(o.gebruiker_id,'inspection.start',NULL,v_product,NULL)
+          AND (NEW.lot_id IS NULL OR NOT EXISTS (
+              SELECT 1 FROM batch b WHERE b.lot_id=NEW.lot_id
+                AND NOT authorization_permits(o.gebruiker_id,'inspection.start',NULL,b.product_id,NULL)))
+    ) THEN
+        RAISE EXCEPTION 'Stap % is een keuring; actuele MES-keuringsbevoegdheid vereist', v_stap.code USING ERRCODE='42501';
+    END IF;
+
+    -- Batchstatus.
+    IF NEW.batch_id IS NOT NULL THEN
+        SELECT status INTO v_status FROM batch WHERE id = NEW.batch_id;
+        IF v_status <> 'in_productie' THEN
+            RAISE EXCEPTION 'Batch heeft status % en kan niet verder', v_status;
+        END IF;
+    END IF;
+
+    -- De lot-stap wordt alleen via maak_lot() aangemaakt (poging 1).
+    IF v_stap.is_lot_stap AND NEW.poging = 1 AND current_setting('fabriek.maak_lot', true) IS DISTINCT FROM 'aan' THEN
+        RAISE EXCEPTION 'Gebruik maak_lot() om een lot samen te stellen';
+    END IF;
+
+    -- Volgnummer van de poging.
+    IF NEW.batch_id IS NOT NULL THEN
+        SELECT max(poging) INTO v_max_poging FROM stapregistratie
+         WHERE processtap_id = NEW.processtap_id AND batch_id = NEW.batch_id;
+    ELSE
+        SELECT max(poging) INTO v_max_poging FROM stapregistratie
+         WHERE processtap_id = NEW.processtap_id AND lot_id = NEW.lot_id;
+    END IF;
+    IF NEW.poging <> coalesce(v_max_poging, 0) + 1 THEN
+        RAISE EXCEPTION 'Poging moet % zijn', coalesce(v_max_poging, 0) + 1;
+    END IF;
+
+    -- Een herbewerking die nog niet gestart is (sinds 0021): de batch of het lot kan alleen die stap
+    -- starten, en die start is dan de herbewerking (ook vanaf een ouder invoerscherm).
+    SELECT * INTO v_opdracht FROM herbewerking
+     WHERE status = 'open' AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id);
+    IF FOUND THEN
+        IF v_opdracht.processtap_id <> NEW.processtap_id THEN
+            RAISE EXCEPTION 'Er staat een herbewerking open: eerst terug naar stap %',
+                (SELECT code FROM processtap WHERE id = v_opdracht.processtap_id);
+        END IF;
+        IF NOT NEW.herbewerking_start THEN
+            NEW.herbewerking_start := true;
+            NEW.reden := v_opdracht.reden;
+        END IF;
+    END IF;
+
+    -- Wacht de batch of het lot op Kwaliteit, dan kan er niets starten (sinds 0022, #64).
+    IF EXISTS (SELECT 1 FROM keuring k JOIN stapregistratie x ON x.id = k.stapregistratie_id
+                WHERE k.status = 'open' AND (x.batch_id = NEW.batch_id OR x.lot_id = NEW.lot_id)) THEN
+        RAISE EXCEPTION 'Wacht op Kwaliteit: eerst de keuring van stap %',
+            (SELECT s.code FROM keuring k JOIN stapregistratie x ON x.id = k.stapregistratie_id JOIN processtap s ON s.id = x.processtap_id
+              WHERE k.status = 'open' AND (x.batch_id = NEW.batch_id OR x.lot_id = NEW.lot_id) LIMIT 1);
+    END IF;
+
+    -- Herbewerking: een stap die al eens doorlopen is, zonder open stap (batch sinds 0021, D4).
+    IF NEW.herbewerking_start THEN
+        IF v_max_poging IS NULL THEN
+            RAISE EXCEPTION 'Stap % is voor % nog niet doorlopen; geen herbewerking mogelijk', v_stap.code,
+                CASE WHEN NEW.lot_id IS NULL THEN 'deze batch' ELSE 'dit lot' END;
+        END IF;
+        IF EXISTS (SELECT 1 FROM stapregistratie WHERE (batch_id = NEW.batch_id OR lot_id = NEW.lot_id) AND status = 'open') THEN
+            RAISE EXCEPTION '% heeft nog een open stap; rond die eerst af', CASE WHEN NEW.lot_id IS NULL THEN 'Batch' ELSE 'Lot' END;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    -- Niets openzetten als dezelfde stap nog open staat.
+    IF EXISTS (SELECT 1 FROM stapregistratie
+                WHERE processtap_id = NEW.processtap_id
+                  AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id) AND status = 'open') THEN
+        -- Met wie startte, waar en wanneer (sinds 0023, #55): meestal startte een andere pc hem, of een pc die
+        -- offline was en zijn wachtrij later stuurde. Wie hem afmaakt, opent hem bij Bezig.
+        RAISE EXCEPTION 'Stap % staat nog open: gestart door %. Open hem bij Bezig om hem af te maken.', v_stap.code,
+            (SELECT format('%s op %s om %s', o.naam, p.naam, to_char(r.gestart_op, 'DD-MM-YYYY HH24:MI'))
+               FROM stapregistratie r JOIN operator o ON o.id = r.operator_id JOIN pc p ON p.id = r.pc_id
+              WHERE r.processtap_id = NEW.processtap_id AND (r.batch_id = NEW.batch_id OR r.lot_id = NEW.lot_id)
+                AND r.status = 'open'
+              LIMIT 1);
+    END IF;
+
+    -- Volgorde: de vorige stap van hetzelfde niveau in de route moet afgerond
+    -- zijn, en nieuwer zijn dan de laatste registratie van deze stap
+    -- (zo moet een lot na herbewerking alle volgende stappen opnieuw doen).
+    v_vorige_id := route_vorige(v_product, v_stap.id);
+
+    -- Batch (sinds 0021): de vorige stap gedaan en deze nog niet, met herbewerkingen meegerekend.
+    IF NEW.batch_id IS NOT NULL THEN
+        IF v_vorige_id IS NOT NULL AND NOT batch_stap_gedaan(NEW.batch_id, v_vorige_id) THEN
+            IF EXISTS (SELECT 1 FROM keuring k JOIN stapregistratie x ON x.id = k.stapregistratie_id
+                        WHERE x.batch_id = NEW.batch_id AND x.processtap_id = v_vorige_id AND k.status = 'open') THEN
+                RAISE EXCEPTION 'Stap % wacht op Kwaliteit', (SELECT code FROM processtap WHERE id = v_vorige_id);
+            END IF;
+            RAISE EXCEPTION 'Stap % moet eerst afgerond zijn', (SELECT code FROM processtap WHERE id = v_vorige_id);
+        END IF;
+        IF batch_stap_gedaan(NEW.batch_id, v_stap.id) THEN
+            RAISE EXCEPTION 'Stap % is al doorlopen; herhalen kan alleen via herbewerking', v_stap.code;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF v_vorige_id IS NOT NULL THEN
+        SELECT * INTO v_vorige FROM processtap WHERE id = v_vorige_id;
+        SELECT * INTO v_vorige_reg FROM stapregistratie
+         WHERE processtap_id = v_vorige.id
+           AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id)
+         ORDER BY poging DESC LIMIT 1;
+        IF NOT FOUND OR v_vorige_reg.status <> 'afgerond' THEN
+            RAISE EXCEPTION 'Stap % moet eerst afgerond zijn', v_vorige.code;
+        END IF;
+        -- Meet Kwaliteit in de vorige stap, dan eerst de vrijgave (sinds 0022).
+        IF EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = v_vorige_reg.id AND k.status <> 'vrijgegeven') THEN
+            RAISE EXCEPTION 'Stap % wacht op Kwaliteit', v_vorige.code;
+        END IF;
+
+        SELECT * INTO v_deze_laatst FROM stapregistratie
+         WHERE processtap_id = NEW.processtap_id
+           AND (batch_id = NEW.batch_id OR lot_id = NEW.lot_id)
+         ORDER BY poging DESC LIMIT 1;
+        IF FOUND AND v_vorige_reg.afgerond_op <= v_deze_laatst.gestart_op THEN
+            RAISE EXCEPTION 'Stap % is al doorlopen; herhalen kan alleen via herbewerking', v_stap.code;
+        END IF;
+    ELSIF v_max_poging IS NOT NULL THEN
+        -- Eerste stap van dit niveau: herhalen kan alleen via herbewerking.
+        RAISE EXCEPTION 'Stap % is al doorlopen; herhalen kan alleen via herbewerking', v_stap.code;
+    END IF;
+
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION verwerk_waarde() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_veld  veld%ROWTYPE;
+    v_reg   stapregistratie%ROWTYPE;
+    v_oud   waarde%ROWTYPE;
+    v_rol   text;
+    v_grens record;
+BEGIN
+    SELECT * INTO v_veld FROM veld WHERE id = NEW.veld_id;
+    SELECT * INTO v_reg  FROM stapregistratie WHERE id = NEW.stapregistratie_id;
+
+    IF v_veld.processtap_id <> v_reg.processtap_id THEN
+        RAISE EXCEPTION 'Veld % hoort niet bij deze stap', v_veld.code;
+    END IF;
+    IF v_veld.soort = 'procesparameter' AND NEW.setting IS NULL THEN
+        RAISE EXCEPTION 'Veld % is een procesparameter: setting is verplicht', v_veld.code;
+    END IF;
+    IF v_veld.soort <> 'procesparameter' AND NEW.setting IS NOT NULL THEN
+        RAISE EXCEPTION 'Veld % heeft geen setting', v_veld.code;
+    END IF;
+
+    IF NEW.vervangt_waarde_id IS NULL THEN
+        -- Een veld dat Kwaliteit meet (sinds 0022, #64): alleen door iemand van Kwaliteit, in een open stap
+        -- of zolang de stap op Kwaliteit wacht.
+        IF v_veld.gemeten_door = 'kwaliteit' THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM operator o WHERE o.id=NEW.ingevoerd_door AND o.actief
+                  AND authorization_permits(o.gebruiker_id,'inspection.record',NULL,v_reg.product_id,NULL)
+                  AND (v_reg.lot_id IS NULL OR NOT EXISTS (
+                      SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+                        AND NOT authorization_permits(o.gebruiker_id,'inspection.record',NULL,b.product_id,NULL)))
+            ) THEN
+                RAISE EXCEPTION 'Veld % meet Kwaliteit; actuele MES-meetbevoegdheid vereist', v_veld.code USING ERRCODE='42501';
+            END IF;
+            IF v_reg.status <> 'open' AND NOT EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = v_reg.id AND k.status = 'open') THEN
+                RAISE EXCEPTION 'Stap wacht niet meer op Kwaliteit; wijzigen kan alleen als correctie';
+            END IF;
+        -- Gewone invoer: alleen in een open stap, met actief veld.
+        ELSIF v_reg.status <> 'open' THEN
+            RAISE EXCEPTION 'Stap is al afgerond; wijzigen kan alleen als correctie door een ploegleider';
+        END IF;
+        IF NOT v_veld.actief THEN
+            RAISE EXCEPTION 'Veld % is inactief', v_veld.code;
+        END IF;
+        -- Grenzen kopiëren zoals ze nu gelden, voor het product van de batch of het lot (sinds 0019).
+        SELECT * INTO v_grens FROM grenzen_van(NEW.veld_id, v_reg.product_id);
+        NEW.grens_min := v_grens.grens_min;  NEW.grens_max := v_grens.grens_max;
+        NEW.tolerantie := v_grens.tolerantie; NEW.tolerantie_soort := v_grens.tolerantie_soort;
+        NEW.specificatie_id := (SELECT x.id FROM specificatie x JOIN specificatie_regel r ON r.specificatie_id = x.id
+                                 WHERE r.veld_id = NEW.veld_id AND x.product_id = v_reg.product_id AND x.status = 'vastgesteld');
+    ELSE
+        -- Correctie: ploegleider of hoger, zelfde registratie en veld,
+        -- alleen de nieuwste waarde kan vervangen worden. Kwaliteit lost een conflict op in een veld dat
+        -- Kwaliteit meet (sinds 0032, #85): alleen via los_invoerconflict_op.
+        SELECT rol INTO v_rol FROM gebruiker WHERE id = NEW.gecorrigeerd_door AND actief;
+        IF v_rol IS NULL OR NOT (v_rol IN ('ploegleider','beheerder')
+                                 OR (v_rol = 'kwaliteit' AND v_veld.gemeten_door = 'kwaliteit'
+                                     AND current_setting('fabriek.conflict', true) = 'aan')) THEN
+            RAISE EXCEPTION 'Alleen een ploegleider of hogere functie mag corrigeren';
+        END IF;
+        SELECT * INTO v_oud FROM waarde WHERE id = NEW.vervangt_waarde_id;
+        IF v_oud.stapregistratie_id <> NEW.stapregistratie_id OR v_oud.veld_id <> NEW.veld_id THEN
+            RAISE EXCEPTION 'Een correctie hoort bij dezelfde registratie en hetzelfde veld';
+        END IF;
+        -- Grenzen van de oorspronkelijke meting blijven gelden.
+        NEW.grens_min := v_oud.grens_min;  NEW.grens_max := v_oud.grens_max;
+        NEW.tolerantie := v_oud.tolerantie; NEW.tolerantie_soort := v_oud.tolerantie_soort;
+        NEW.specificatie_id := v_oud.specificatie_id;
+    END IF;
+
+    NEW.markering := bereken_markering(NEW.setting, NEW.gemeten, NEW.grens_min, NEW.grens_max,
+                                       NEW.tolerantie, NEW.tolerantie_soort);
+    RETURN NEW;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION controleer_stapregistratie(),verwerk_waarde() FROM PUBLIC;
+
+-- Migratie 0089: correcties en conflictbesluiten onafhankelijk van legacy-rollen (D101).
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION verwerk_waarde() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_veld  veld%ROWTYPE;
+    v_reg   stapregistratie%ROWTYPE;
+    v_oud   waarde%ROWTYPE;
+    v_permission text;
+    v_grens record;
+BEGIN
+    SELECT * INTO v_veld FROM veld WHERE id = NEW.veld_id;
+    SELECT * INTO v_reg  FROM stapregistratie WHERE id = NEW.stapregistratie_id;
+
+    IF v_veld.processtap_id <> v_reg.processtap_id THEN
+        RAISE EXCEPTION 'Veld % hoort niet bij deze stap', v_veld.code;
+    END IF;
+    IF v_veld.soort = 'procesparameter' AND NEW.setting IS NULL THEN
+        RAISE EXCEPTION 'Veld % is een procesparameter: setting is verplicht', v_veld.code;
+    END IF;
+    IF v_veld.soort <> 'procesparameter' AND NEW.setting IS NOT NULL THEN
+        RAISE EXCEPTION 'Veld % heeft geen setting', v_veld.code;
+    END IF;
+
+    IF NEW.vervangt_waarde_id IS NULL THEN
+        -- Een veld dat Kwaliteit meet (sinds 0022, #64): alleen door iemand van Kwaliteit, in een open stap
+        -- of zolang de stap op Kwaliteit wacht.
+        IF v_veld.gemeten_door = 'kwaliteit' THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM operator o WHERE o.id=NEW.ingevoerd_door AND o.actief
+                  AND authorization_permits(o.gebruiker_id,'inspection.record',NULL,v_reg.product_id,NULL)
+                  AND (v_reg.lot_id IS NULL OR NOT EXISTS (
+                      SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+                        AND NOT authorization_permits(o.gebruiker_id,'inspection.record',NULL,b.product_id,NULL)))
+            ) THEN
+                RAISE EXCEPTION 'Veld % meet Kwaliteit; actuele MES-meetbevoegdheid vereist', v_veld.code USING ERRCODE='42501';
+            END IF;
+            IF v_reg.status <> 'open' AND NOT EXISTS (SELECT 1 FROM keuring k WHERE k.stapregistratie_id = v_reg.id AND k.status = 'open') THEN
+                RAISE EXCEPTION 'Stap wacht niet meer op Kwaliteit; wijzigen kan alleen als correctie';
+            END IF;
+        -- Gewone invoer: alleen in een open stap, met actief veld.
+        ELSIF v_reg.status <> 'open' THEN
+            RAISE EXCEPTION 'Stap is al afgerond; wijzigen kan alleen als correctie door een ploegleider';
+        END IF;
+        IF NOT v_veld.actief THEN
+            RAISE EXCEPTION 'Veld % is inactief', v_veld.code;
+        END IF;
+        -- Grenzen kopiëren zoals ze nu gelden, voor het product van de batch of het lot (sinds 0019).
+        SELECT * INTO v_grens FROM grenzen_van(NEW.veld_id, v_reg.product_id);
+        NEW.grens_min := v_grens.grens_min;  NEW.grens_max := v_grens.grens_max;
+        NEW.tolerantie := v_grens.tolerantie; NEW.tolerantie_soort := v_grens.tolerantie_soort;
+        NEW.specificatie_id := (SELECT x.id FROM specificatie x JOIN specificatie_regel r ON r.specificatie_id = x.id
+                                 WHERE r.veld_id = NEW.veld_id AND x.product_id = v_reg.product_id AND x.status = 'vastgesteld');
+    ELSE
+        -- Correctie: ploegleider of hoger, zelfde registratie en veld,
+        -- alleen de nieuwste waarde kan vervangen worden. Kwaliteit lost een conflict op in een veld dat
+        -- Kwaliteit meet (sinds 0032, #85): alleen via los_invoerconflict_op.
+        IF v_veld.gemeten_door='kwaliteit' THEN
+            IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))
+               OR current_setting('fabriek.conflict',true) IS DISTINCT FROM 'aan' THEN
+                RAISE EXCEPTION 'Kwaliteitscorrectie vereist gecontroleerde conflictafhandeling' USING ERRCODE='42501';
+            END IF;
+            v_permission:='inspection.decide';
+        ELSE
+            v_permission:='execution.correct';
+        END IF;
+        IF NOT authorization_permits(NEW.gecorrigeerd_door,v_permission,NULL,v_reg.product_id,NULL)
+           OR (v_reg.lot_id IS NOT NULL AND EXISTS (
+               SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+                 AND NOT authorization_permits(NEW.gecorrigeerd_door,v_permission,NULL,b.product_id,NULL))) THEN
+            RAISE EXCEPTION 'Geen actuele MES-correctiebevoegdheid' USING ERRCODE='42501';
+        END IF;
+        SELECT * INTO v_oud FROM waarde WHERE id = NEW.vervangt_waarde_id;
+        IF v_oud.stapregistratie_id <> NEW.stapregistratie_id OR v_oud.veld_id <> NEW.veld_id THEN
+            RAISE EXCEPTION 'Een correctie hoort bij dezelfde registratie en hetzelfde veld';
+        END IF;
+        -- Grenzen van de oorspronkelijke meting blijven gelden.
+        NEW.grens_min := v_oud.grens_min;  NEW.grens_max := v_oud.grens_max;
+        NEW.tolerantie := v_oud.tolerantie; NEW.tolerantie_soort := v_oud.tolerantie_soort;
+        NEW.specificatie_id := v_oud.specificatie_id;
+    END IF;
+
+    NEW.markering := bereken_markering(NEW.setting, NEW.gemeten, NEW.grens_min, NEW.grens_max,
+                                       NEW.tolerantie, NEW.tolerantie_soort);
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION verwerk_grondstof_gebruik() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_reg  stapregistratie%ROWTYPE;
+    v_oud  grondstof_gebruik%ROWTYPE;
+BEGIN
+    SELECT * INTO v_reg FROM stapregistratie WHERE id = NEW.stapregistratie_id;
+    NEW.partij := btrim(NEW.partij);
+    IF NEW.vervangt_id IS NULL THEN
+        IF v_reg.status <> 'open' THEN
+            RAISE EXCEPTION 'Stap is al afgerond; wijzigen kan alleen als correctie door een ploegleider';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM stap_grondstof x JOIN grondstof g ON g.id = x.grondstof_id
+                        WHERE x.processtap_id = v_reg.processtap_id AND x.grondstof_id = NEW.grondstof_id AND x.actief AND g.actief) THEN
+            RAISE EXCEPTION 'Deze grondstof hoort niet bij deze stap';
+        END IF;
+    ELSE
+        SELECT * INTO v_oud FROM grondstof_gebruik WHERE id = NEW.vervangt_id;
+        IF v_oud.stapregistratie_id <> NEW.stapregistratie_id OR v_oud.grondstof_id <> NEW.grondstof_id THEN
+            RAISE EXCEPTION 'Een correctie hoort bij dezelfde registratie en grondstof';
+        END IF;
+        IF EXISTS (SELECT 1 FROM grondstof_gebruik WHERE vervangt_id = v_oud.id) THEN
+            RAISE EXCEPTION 'Deze regel is al gecorrigeerd';
+        END IF;
+        IF NOT authorization_permits(NEW.gecorrigeerd_door,'execution.correct',NULL,v_reg.product_id,NULL)
+           OR (v_reg.lot_id IS NOT NULL AND EXISTS (
+               SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+                 AND NOT authorization_permits(NEW.gecorrigeerd_door,'execution.correct',NULL,b.product_id,NULL))) THEN
+            RAISE EXCEPTION 'Geen actuele MES-correctiebevoegdheid' USING ERRCODE='42501';
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION los_invoerconflict_op(p_conflict uuid, p_keuze text, p_door uuid, p_reden text DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_c     invoerconflict%ROWTYPE;
+    v_reg stapregistratie%ROWTYPE;
+    v_permission text;
+    v_kw    boolean := false;
+    v_naam  text;
+    v_door  text;
+    v_reden text;
+BEGIN
+    IF p_keuze NOT IN ('bestaand', 'nieuw') THEN
+        RAISE EXCEPTION 'Kies bestaand of nieuw';
+    END IF;
+    SELECT * INTO v_c FROM invoerconflict WHERE id = p_conflict FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Dit conflict bestaat niet'; END IF;
+    IF v_c.status = p_keuze THEN RETURN; END IF;   -- opnieuw verstuurd
+    IF v_c.status <> 'open' THEN
+        SELECT gebruikersnaam INTO v_door FROM gebruiker WHERE id = v_c.opgelost_door;
+        RAISE EXCEPTION 'Dit conflict is al opgelost door %', v_door;
+    END IF;
+    IF v_c.veld_id IS NOT NULL THEN
+        v_kw := (SELECT gemeten_door = 'kwaliteit' FROM veld WHERE id = v_c.veld_id);
+    END IF;
+    SELECT * INTO STRICT v_reg FROM stapregistratie WHERE id=v_c.stapregistratie_id;
+    v_permission:=CASE WHEN v_kw THEN 'inspection.decide' ELSE 'execution.correct' END;
+    IF NOT authorization_permits(p_door,v_permission,NULL,v_reg.product_id,NULL)
+           OR (v_reg.lot_id IS NOT NULL AND EXISTS (
+               SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+                 AND NOT authorization_permits(p_door,v_permission,NULL,b.product_id,NULL))) THEN
+        RAISE EXCEPTION 'Geen actuele MES-conflictbeslisbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF p_keuze = 'nieuw' THEN
+        SELECT naam INTO v_naam FROM operator WHERE id = v_c.ingevoerd_door;
+        v_reden := 'Twee keer ingevuld, gekozen voor de invoer van ' || v_naam
+                   || coalesce(': ' || nullif(btrim(p_reden), ''), '');
+        IF v_c.veld_id IS NOT NULL THEN
+            PERFORM set_config('fabriek.conflict', 'aan', true);
+            INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)
+            SELECT v_c.stapregistratie_id, v_c.veld_id, v_c.setting, v_c.gemeten, w.id, v_reden, p_door
+              FROM waarde_actueel w WHERE w.stapregistratie_id = v_c.stapregistratie_id AND w.veld_id = v_c.veld_id;
+            PERFORM set_config('fabriek.conflict', 'uit', true);
+        ELSE
+            INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, vervangt_id, correctie_reden, gecorrigeerd_door)
+            SELECT v_c.stapregistratie_id, v_c.grondstof_id, v_c.partij, v_c.hoeveelheid, u.id, v_reden, p_door
+              FROM grondstof_gebruik_actueel u WHERE u.stapregistratie_id = v_c.stapregistratie_id AND u.grondstof_id = v_c.grondstof_id;
+        END IF;
+    END IF;
+    UPDATE invoerconflict SET status = p_keuze, opgelost_door = p_door, opgelost_op = now(),
+                              reden = left(nullif(btrim(p_reden), ''), 500)
+     WHERE id = p_conflict;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION verwerk_waarde(),verwerk_grondstof_gebruik(),los_invoerconflict_op(uuid,text,uuid,text) FROM PUBLIC;
+
+-- Migratie 0090: papieren nalevering zonder legacy-rol (D101).
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION lever_stap_na(p_stapcode text, p_nummer text, p_batches text[], p_pc uuid, p_operator uuid,
+                              p_begin timestamptz, p_eind timestamptz, p_reden text, p_gebruiker uuid,
+                              p_waarden jsonb, p_grondstoffen jsonb)
+RETURNS uuid LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_reden  text := nullif(btrim(p_reden), '');
+    v_stap   processtap%ROWTYPE;
+    v_batch  uuid;
+    v_lot    uuid;
+    v_ids    uuid[];
+    v_vorige timestamptz;
+    v_reg    uuid;
+    v_oud    text := current_setting('fabriek.moment', true);
+    v_w      jsonb;
+    v_veld   uuid;
+    v_gs     uuid;
+    v_products uuid[];
+    v_product uuid;
+BEGIN
+    IF v_reden IS NULL THEN
+        RAISE EXCEPTION 'Geef een reden voor het nainvoeren';
+    END IF;
+    IF p_begin IS NULL OR p_eind IS NULL OR p_eind <= p_begin THEN
+        RAISE EXCEPTION 'Het einde moet na het begin liggen';
+    END IF;
+    IF p_eind > clock_timestamp() THEN
+        RAISE EXCEPTION 'Het einde ligt in de toekomst';
+    END IF;
+    IF p_begin < clock_timestamp() - interval '7 days' THEN
+        RAISE EXCEPTION 'Nainvoeren kan tot 7 dagen terug';
+    END IF;
+    SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stap %', p_stapcode; END IF;
+    IF v_stap.soort = 'keuring' THEN
+        RAISE EXCEPTION 'Stap % is een keuring; die doet Kwaliteit in het invoerscherm', p_stapcode;
+    END IF;
+
+    IF v_stap.is_lot_stap THEN
+        SELECT array_agg(b.id), max((SELECT max(r.afgerond_op) FROM stapregistratie r WHERE r.batch_id = b.id))
+          INTO v_ids, v_vorige
+          FROM batch b WHERE b.batchnummer = ANY(p_batches);
+        IF coalesce(cardinality(v_ids), 0) <> coalesce(cardinality(p_batches), 0) THEN
+            RAISE EXCEPTION 'Onbekend batchnummer: %',
+                (SELECT string_agg(x, ', ') FROM unnest(p_batches) x WHERE NOT EXISTS (SELECT 1 FROM batch WHERE batchnummer = x));
+        END IF;
+    ELSIF v_stap.niveau = 'batch' THEN
+        SELECT id INTO v_batch FROM batch WHERE batchnummer = p_nummer;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend batchnummer %', p_nummer; END IF;
+        SELECT max(afgerond_op) INTO v_vorige FROM stapregistratie WHERE batch_id = v_batch;
+    ELSE
+        SELECT id INTO v_lot FROM lot WHERE lotnummer = p_nummer;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend lotnummer %', p_nummer; END IF;
+        SELECT max(r.afgerond_op) INTO v_vorige FROM stapregistratie r
+         WHERE r.lot_id = v_lot OR r.batch_id IN (SELECT b.id FROM batch b WHERE b.lot_id = v_lot);
+    END IF;
+    IF v_vorige IS NOT NULL AND p_begin < v_vorige THEN
+        RAISE EXCEPTION 'Het begin ligt vóór het einde van de vorige stap (%)', to_char(v_vorige, 'DD-MM-YYYY HH24:MI');
+    END IF;
+
+    -- Ook het eigenaarspad controleert de inhoudelijke MES-bevoegdheden.
+    -- De oorspronkelijke operator is een historische verklaring, niet de actor.
+    IF v_stap.is_lot_stap THEN
+        SELECT array_agg(product_id) INTO v_products FROM batch WHERE id=ANY(v_ids);
+    ELSIF v_batch IS NOT NULL THEN
+        SELECT ARRAY[product_id] INTO v_products FROM batch WHERE id=v_batch;
+    ELSE
+        SELECT array_agg(product_id) INTO v_products FROM batch WHERE lot_id=v_lot;
+    END IF;
+    IF coalesce(cardinality(v_products),0)=0 THEN
+        RAISE EXCEPTION 'Geen batches voor papieren nalevering';
+    END IF;
+    FOREACH v_product IN ARRAY v_products LOOP
+        IF NOT authorization_permits(p_gebruiker,'execution.correct',NULL,v_product,NULL)
+           OR NOT authorization_permits(p_gebruiker,'execution.start',NULL,v_product,NULL)
+           OR NOT authorization_permits(p_gebruiker,'execution.record',NULL,v_product,NULL)
+           OR NOT authorization_permits(p_gebruiker,'execution.complete',NULL,v_product,NULL)
+           OR (v_stap.is_lot_stap AND NOT authorization_permits(p_gebruiker,'execution.lot.create',NULL,v_product,NULL)) THEN
+            RAISE EXCEPTION 'Geen actuele MES-bevoegdheid voor papieren nalevering' USING ERRCODE='42501';
+        END IF;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(coalesce(p_waarden,'[]'::jsonb)) w
+        JOIN veld f ON f.processtap_id=v_stap.id AND f.code=w->>'veldcode'
+        WHERE f.gemeten_door='kwaliteit') THEN
+        RAISE EXCEPTION 'Kwaliteitsmetingen niet via papieren productienalevering';
+    END IF;
+
+    -- Starten met de tijd van het papier (zie apparaat_moment).
+    PERFORM set_config('fabriek.moment', p_begin::text, true);
+    IF v_stap.is_lot_stap THEN
+        v_lot := maak_lot(p_nummer, v_ids, p_pc, p_operator, NULL, NULL, 'Nageleverd van papier: ' || v_reden);
+        UPDATE lot SET aangemaakt_op = p_begin WHERE id = v_lot;
+        SELECT id INTO v_reg FROM stapregistratie WHERE lot_id = v_lot AND processtap_id = v_stap.id;
+    ELSE
+        v_reg := start_stap(p_stapcode, v_batch, v_lot, p_pc, p_operator);
+    END IF;
+    UPDATE stapregistratie SET nageleverd_door = p_gebruiker, nageleverd_reden = v_reden, nageleverd_op = clock_timestamp()
+     WHERE id = v_reg;
+
+    -- Waarden, grondstoffen en afronden met het einde van het papier.
+    PERFORM set_config('fabriek.moment', p_eind::text, true);
+    FOR v_w IN SELECT * FROM jsonb_array_elements(coalesce(p_waarden, '[]'::jsonb)) LOOP
+        SELECT id INTO v_veld FROM veld WHERE processtap_id = v_stap.id AND code = v_w ->> 'veldcode' AND actief;
+        IF NOT FOUND THEN RAISE EXCEPTION 'Veld % hoort niet bij stap %', v_w ->> 'veldcode', p_stapcode; END IF;
+        INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door)
+        VALUES (v_reg, v_veld, (v_w ->> 'setting')::numeric, (v_w ->> 'gemeten')::numeric, p_operator);
+    END LOOP;
+    FOR v_w IN SELECT * FROM jsonb_array_elements(coalesce(p_grondstoffen, '[]'::jsonb)) LOOP
+        SELECT id INTO v_gs FROM grondstof WHERE code = v_w ->> 'code';
+        IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende grondstof %', v_w ->> 'code'; END IF;
+        INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, hoeveelheid, ingevoerd_door)
+        VALUES (v_reg, v_gs, v_w ->> 'partij', (v_w ->> 'hoeveelheid')::numeric, p_operator);
+    END LOOP;
+    PERFORM rond_stap_af(v_reg, p_operator, p_pc);
+
+    INSERT INTO config_log (tabel, record_id, actie, nieuw)
+    VALUES ('nalevering', v_reg, 'INSERT', jsonb_build_object(
+        'stap', p_stapcode, 'nummer', p_nummer, 'batches', p_batches, 'begin', p_begin, 'eind', p_eind, 'reden', v_reden,
+        'operator', (SELECT naam FROM operator WHERE id = p_operator), 'pc', (SELECT naam FROM pc WHERE id = p_pc)));
+    PERFORM set_config('fabriek.moment', coalesce(v_oud, ''), true);
+    RETURN v_reg;
+END $$;
+REVOKE EXECUTE ON FUNCTION lever_stap_na(text,text,text[],uuid,uuid,timestamptz,timestamptz,text,uuid,jsonb,jsonb) FROM PUBLIC;
+
+-- Migratie 0091: kwaliteitsbesluiten en herbewerkingsopdrachten op MES-permissions (D101).
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION verwerk_batch_besluit() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_product uuid;
+    v_status text;
+BEGIN
+    SELECT status,product_id INTO v_status,v_product FROM batch WHERE id=NEW.batch_id FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch'; END IF;
+    IF NEW.besluit='in_beoordeling' AND NOT (
+        authorization_permits(NEW.besloten_door,'execution.hold',NULL,v_product,NULL)
+        OR authorization_permits(NEW.besloten_door,'inspection.hold',NULL,v_product,NULL)) THEN
+        RAISE EXCEPTION 'Geen actuele MES-blokkeerbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF NEW.besluit IN ('vrijgegeven','afgekeurd','herbewerken') AND NOT
+        authorization_permits(NEW.besloten_door,'inspection.batch.decide',NULL,v_product,NULL) THEN
+        RAISE EXCEPTION 'Geen actuele MES-batchbeslisbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF v_status IN ('in_lot','afgekeurd') THEN
+        RAISE EXCEPTION 'Batch heeft status %; geen besluit meer mogelijk', v_status;
+    END IF;
+    IF NEW.besluit = 'in_beoordeling' AND v_status <> 'in_productie' THEN
+        RAISE EXCEPTION 'Alleen een batch in productie kan in beoordeling (nu: %)', v_status;
+    END IF;
+    IF NEW.besluit IN ('vrijgegeven','afgekeurd','herbewerken') AND v_status <> 'in_beoordeling' THEN
+        RAISE EXCEPTION 'Een keurresultaat kan alleen na "in beoordeling" (nu: %)', v_status;
+    END IF;
+
+    UPDATE batch SET status = CASE NEW.besluit
+        WHEN 'in_beoordeling' THEN 'in_beoordeling'
+        WHEN 'vrijgegeven'    THEN 'in_productie'
+        WHEN 'herbewerken'    THEN 'in_productie'
+        WHEN 'afgekeurd'      THEN 'afgekeurd' END
+    WHERE id = NEW.batch_id;
+
+    -- NOK: een stap die nog open stond wordt afgebroken, met de reden erbij.
+    IF NEW.besluit = 'afgekeurd' THEN
+        UPDATE stapregistratie
+           SET status = 'afgebroken', afgerond_op = clock_timestamp(),
+               reden = 'Batch afgekeurd: ' || NEW.reden
+         WHERE batch_id = NEW.batch_id AND status = 'open';
+        -- Wat nog op Kwaliteit wachtte, is ook afgekeurd (sinds 0022).
+        UPDATE keuring k SET status = 'afgekeurd', besloten_door = NEW.besloten_door, besloten_op = now(), reden = NEW.reden
+          FROM stapregistratie r WHERE r.id = k.stapregistratie_id AND r.batch_id = NEW.batch_id AND k.status = 'open';
+        -- Een herbewerking die nog niet gestart is, vervalt (sinds 0021).
+        UPDATE herbewerking
+           SET status = 'ingetrokken', ingetrokken_door = NEW.besloten_door, ingetrokken_op = now(),
+               ingetrokken_reden = 'Batch afgekeurd: ' || NEW.reden
+         WHERE batch_id = NEW.batch_id AND status = 'open';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION beslis_keuring(p_keuring uuid, p_besluit text, p_reden text, p_door uuid, p_stapcode text DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_k        keuring%ROWTYPE;
+    v_reg      stapregistratie%ROWTYPE;
+    v_stap     processtap%ROWTYPE;
+    v_nummer   text;
+    v_status   text;
+    v_mist     text;
+    v_h        uuid;
+BEGIN
+    IF p_besluit NOT IN ('vrijgegeven', 'herbewerken', 'afgekeurd') THEN
+        RAISE EXCEPTION 'Onbekend besluit %', p_besluit;
+    END IF;
+    SELECT * INTO v_k FROM keuring WHERE id = p_keuring FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Keuring bestaat niet'; END IF;
+    SELECT * INTO v_reg FROM stapregistratie WHERE id = v_k.stapregistratie_id;
+    IF NOT authorization_permits(p_door,'inspection.decide',NULL,v_reg.product_id,NULL)
+       OR (v_reg.lot_id IS NOT NULL AND EXISTS (
+          SELECT 1 FROM batch b WHERE b.lot_id=v_reg.lot_id
+            AND NOT authorization_permits(p_door,'inspection.decide',NULL,b.product_id,NULL))) THEN
+        RAISE EXCEPTION 'Geen actuele MES-keuringsbeslisbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF v_k.status = p_besluit THEN RETURN; END IF;
+    IF v_k.status <> 'open' THEN RAISE EXCEPTION 'Over deze stap is al beslist'; END IF;
+    SELECT * INTO v_stap FROM processtap WHERE id = v_reg.processtap_id;
+    v_nummer := coalesce((SELECT batchnummer FROM batch WHERE id = v_reg.batch_id), (SELECT lotnummer FROM lot WHERE id = v_reg.lot_id));
+    IF p_besluit <> 'vrijgegeven' AND length(trim(coalesce(p_reden, ''))) = 0 THEN
+        RAISE EXCEPTION 'Geef de reden';
+    END IF;
+
+    IF p_besluit = 'vrijgegeven' THEN
+        SELECT string_agg(v.code, ', ' ORDER BY v.volgnummer) INTO v_mist
+          FROM veld v WHERE v.processtap_id = v_reg.processtap_id AND v.actief AND v.verplicht AND v.gemeten_door = 'kwaliteit'
+           AND NOT EXISTS (SELECT 1 FROM waarde w WHERE w.stapregistratie_id = v_reg.id AND w.veld_id = v.id);
+        IF v_mist IS NOT NULL THEN
+            RAISE EXCEPTION 'Nog niet gemeten: %', v_mist;
+        END IF;
+        UPDATE keuring SET status = 'vrijgegeven', besloten_door = p_door, besloten_op = now(), reden = nullif(trim(coalesce(p_reden, '')), '')
+         WHERE id = v_k.id;
+        -- De laatste lotstap: nu is het lot gereed.
+        IF v_reg.lot_id IS NOT NULL AND v_reg.processtap_id = route_laatste(lot_product(v_reg.lot_id), 'lot') THEN
+            UPDATE lot SET status = 'gereed' WHERE id = v_reg.lot_id AND status = 'in_productie';
+        END IF;
+    ELSIF p_besluit = 'herbewerken' THEN
+        v_h := maak_herbewerking(v_nummer, coalesce(p_stapcode, v_stap.code), p_reden, p_door);
+        UPDATE keuring SET status = 'herbewerken', besloten_door = p_door, besloten_op = now(), reden = trim(p_reden), herbewerking_id = v_h
+         WHERE id = v_k.id;
+    ELSIF v_reg.batch_id IS NOT NULL THEN
+        SELECT status INTO v_status FROM batch WHERE id = v_reg.batch_id;
+        IF v_status = 'in_productie' THEN
+            INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door)
+            VALUES (v_reg.batch_id, 'in_beoordeling', 'Keuring ' || v_stap.code || ': ' || trim(p_reden), p_door);
+        END IF;
+        -- Het keurresultaat NOK zet ook deze keuring op afgekeurd (verwerk_batch_besluit).
+        INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (v_reg.batch_id, 'afgekeurd', trim(p_reden), p_door);
+        UPDATE keuring SET status = 'afgekeurd', besloten_door = p_door, besloten_op = now(), reden = trim(p_reden)
+         WHERE id = v_k.id AND status = 'open';
+    ELSE
+        UPDATE lot SET status = 'geblokkeerd' WHERE id = v_reg.lot_id;
+        UPDATE keuring SET status = 'afgekeurd', besloten_door = p_door, besloten_op = now(), reden = trim(p_reden) WHERE id = v_k.id;
+        INSERT INTO melding (soort, ernst, tekst, lotnummer, voor_rollen, bron_id)
+        VALUES ('afgekeurd', 'kritiek',
+                format('Lot %s afgekeurd bij %s door %s: %s', v_nummer, v_stap.code, (SELECT gebruikersnaam FROM gebruiker WHERE id = p_door), trim(p_reden)),
+                v_nummer, ARRAY['ploegleider','planner','productiemanager','kwaliteit'], v_k.id);
+    END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION maak_herbewerking(p_nummer text, p_stapcode text, p_reden text, p_door uuid, p_id uuid DEFAULT NULL)
+RETURNS uuid LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_batch  batch%ROWTYPE;
+    v_lot    lot%ROWTYPE;
+    v_stap   processtap%ROWTYPE;
+    v_id     uuid;
+BEGIN
+    IF length(trim(coalesce(p_reden, ''))) = 0 THEN
+        RAISE EXCEPTION 'Geef de reden van de herbewerking';
+    END IF;
+    SELECT * INTO v_stap FROM processtap WHERE code = p_stapcode AND actief;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende stap %', p_stapcode; END IF;
+
+    SELECT * INTO v_batch FROM batch WHERE batchnummer = p_nummer FOR UPDATE;
+    IF FOUND THEN
+        IF NOT rework_order_permission(p_door,v_batch.id,NULL) THEN
+            RAISE EXCEPTION 'Geen actuele MES-herbewerkingsbevoegdheid' USING ERRCODE='42501';
+        END IF;
+        IF v_batch.status = 'in_lot' THEN
+            RAISE EXCEPTION 'Batch % zit al in een lot; maak de herbewerking voor het lot', p_nummer;
+        END IF;
+        IF v_batch.status NOT IN ('in_productie', 'in_beoordeling') THEN
+            RAISE EXCEPTION 'Batch % heeft status %; geen herbewerking mogelijk', p_nummer, v_batch.status;
+        END IF;
+        IF v_stap.niveau <> 'batch' OR NOT in_route(v_batch.product_id, v_stap.id) THEN
+            RAISE EXCEPTION 'Stap % is geen batchstap in de route van deze batch', p_stapcode;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM stapregistratie WHERE batch_id = v_batch.id AND processtap_id = v_stap.id AND status = 'afgerond') THEN
+            RAISE EXCEPTION 'Stap % is voor deze batch nog niet doorlopen; geen herbewerking mogelijk', p_stapcode;
+        END IF;
+        IF EXISTS (SELECT 1 FROM herbewerking WHERE batch_id = v_batch.id AND status = 'open') THEN
+            RAISE EXCEPTION 'Voor batch % staat al een herbewerking klaar die nog niet gestart is', p_nummer;
+        END IF;
+        IF v_batch.status = 'in_beoordeling' THEN
+            RAISE EXCEPTION 'Kwaliteitsblokkade blijft onafhankelijk van herbewerking';
+        END IF;
+        INSERT INTO herbewerking (id, batch_id, processtap_id, reden, aangemaakt_door)
+        VALUES (coalesce(p_id, gen_random_uuid()), v_batch.id, v_stap.id, trim(p_reden), p_door) RETURNING id INTO v_id;
+        RETURN v_id;
+    END IF;
+
+    SELECT * INTO v_lot FROM lot WHERE lotnummer = p_nummer FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende batch of lot %', p_nummer; END IF;
+    IF NOT rework_order_permission(p_door,NULL,v_lot.id) THEN
+        RAISE EXCEPTION 'Geen actuele MES-herbewerkingsbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF v_lot.status NOT IN ('in_productie', 'gereed') THEN
+        RAISE EXCEPTION 'Lot % heeft status %; geen herbewerking mogelijk', p_nummer, v_lot.status;
+    END IF;
+    IF v_stap.niveau <> 'lot' OR NOT in_route(lot_product(v_lot.id), v_stap.id) THEN
+        RAISE EXCEPTION 'Stap % is geen lotstap in de route van dit lot', p_stapcode;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM stapregistratie WHERE lot_id = v_lot.id AND processtap_id = v_stap.id AND status = 'afgerond') THEN
+        RAISE EXCEPTION 'Stap % is voor dit lot nog niet doorlopen; geen herbewerking mogelijk', p_stapcode;
+    END IF;
+    IF EXISTS (SELECT 1 FROM herbewerking WHERE lot_id = v_lot.id AND status = 'open') THEN
+        RAISE EXCEPTION 'Voor lot % staat al een herbewerking klaar die nog niet gestart is', p_nummer;
+    END IF;
+    INSERT INTO herbewerking (id, lot_id, processtap_id, reden, aangemaakt_door)
+    VALUES (coalesce(p_id, gen_random_uuid()), v_lot.id, v_stap.id, trim(p_reden), p_door) RETURNING id INTO v_id;
+    RETURN v_id;
+END $$;
+
+CREATE OR REPLACE FUNCTION trek_herbewerking_in(p_id uuid, p_reden text, p_door uuid) RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,public,pg_temp AS $$
+DECLARE
+    v_order herbewerking%ROWTYPE;
+BEGIN
+    SELECT * INTO v_order FROM herbewerking WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR NOT rework_order_permission(p_door,v_order.batch_id,v_order.lot_id) THEN
+        RAISE EXCEPTION 'Geen actuele MES-herbewerkingsbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF length(trim(coalesce(p_reden, ''))) = 0 THEN
+        RAISE EXCEPTION 'Geef de reden van het intrekken';
+    END IF;
+    UPDATE herbewerking SET status = 'ingetrokken', ingetrokken_door = p_door, ingetrokken_op = now(), ingetrokken_reden = trim(p_reden)
+     WHERE id = p_id AND status = 'open';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Deze herbewerking is al gestart of ingetrokken';
+    END IF;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
+
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -3075,9 +6437,188 @@ INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), 
 DO $$
 DECLARE f record;
 BEGIN
-    FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'fabriek' LOOP
-        EXECUTE format('ALTER FUNCTION %s SET search_path = fabriek, public', f.sig);
+    FOR f IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'fabriek' AND p.prokind='f' AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c WHERE c LIKE 'search_path=%') LOOP
+        EXECUTE format('ALTER FUNCTION %s SET search_path = pg_catalog,fabriek,public,pg_temp', f.sig);
     END LOOP;
 END $$;
+
+-- Afgeschermde functies houden pg_temp expliciet achter de vertrouwde schema's.
+ALTER FUNCTION inloggen(text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION wijzig_eigen_wachtwoord(uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION demo_account_names(text[]) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_revoke_confirmed(uuid,uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_audit_immutable() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION change_password_confirmed(uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_guard_legacy_role() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_protect_identity() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_bootstrap_empty(text,text,text,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_recover_confirmed(uuid,uuid,uuid,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+
+ALTER FUNCTION authorization_session_version() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION login_with_session(text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION change_password_session(uuid,bigint,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_recovery_readiness(uuid) SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION operator_van_account(uuid) SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_personnel_identity_guard() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_channel_submit(uuid,uuid,text,text,uuid,text,timestamptz,timestamptz,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_decide(uuid,uuid,boolean,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_revoke(uuid,uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+
+ALTER FUNCTION authorization_channel_actor(text) SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_channel_submit(uuid,text,text,uuid,text,timestamptz,timestamptz,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_decide(uuid,boolean,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_revoke(uuid,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION authorization_channel_requests() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_channel_grants() SET search_path = pg_catalog,fabriek,pg_temp;
+
+ALTER FUNCTION authorization_channel_role_safe(oid) SET search_path = pg_catalog,pg_temp;
+ALTER FUNCTION authorization_channel_bind(name,uuid,text) SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION authorization_channel_unbind(name,text) SET search_path = pg_catalog,fabriek,pg_temp;
+
+ALTER FUNCTION quality_decision_confirmed(uuid,bigint,text,uuid,text,text,text,text) SET search_path = pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION quality_legacy_decision_guard() SET search_path = pg_catalog,fabriek,pg_temp;
+
+ALTER FUNCTION koppel_herbewerking() SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION quality_rework_hold_guard() SET search_path = pg_catalog,fabriek,pg_temp;
+
+ALTER FUNCTION maak_herbewerking(text,text,text,uuid,uuid) SET search_path = pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION rework_order_permission(uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION rework_order_confirmed(uuid,bigint,text,text,text,uuid,text) SET search_path=pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION rework_cancel_confirmed(uuid,bigint,uuid,text,text) SET search_path=pg_catalog,fabriek,public,pg_temp;
+ALTER FUNCTION rework_history_guard() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION start_geplande_batch() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION werk_lotstatus_bij() SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_permission(uuid,uuid,uuid,text,boolean) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_start(text,uuid,uuid,uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_complete(uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
+ALTER FUNCTION execution_step_rework(uuid,text,text,uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
+-- Migratie 0093: toets effectieve persoonlijke rechten in de MES-database (D100).
+CREATE OR REPLACE FUNCTION fabriek.authorization_channel_role_safe(p_role oid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $$
+ SELECT EXISTS (SELECT 1 FROM pg_roles r WHERE r.oid=p_role AND r.rolcanlogin
+    AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+    AND NOT r.rolreplication AND NOT r.rolbypassrls)
+ AND pg_has_role(p_role,'mes_security_channel','MEMBER')
+ AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.oid<>p_role AND r.rolname<>'mes_security_channel'
+                 AND pg_has_role(p_role,r.oid,'MEMBER'))
+ AND NOT EXISTS (SELECT 1 FROM pg_auth_members a WHERE a.member=p_role AND a.admin_option)
+ AND NOT EXISTS (
+   SELECT 1 FROM pg_database d WHERE d.datname=current_database()
+     AND (d.datdba=p_role OR has_database_privilege(p_role,d.oid,'CREATE'))
+ )
+ AND NOT EXISTS (
+   SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('fabriek','public')
+     AND (n.nspowner=p_role OR has_schema_privilege(p_role,n.oid,'CREATE'))
+ )
+ AND NOT EXISTS (
+   SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+   WHERE n.nspname='fabriek' AND
+     (c.relowner=p_role OR CASE
+       WHEN c.relkind IN ('r','p','v','m','f') THEN
+         has_any_column_privilege(p_role,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+         OR has_table_privilege(p_role,c.oid,'DELETE,TRUNCATE,TRIGGER')
+       WHEN c.relkind='S' THEN has_sequence_privilege(p_role,c.oid,'SELECT,USAGE,UPDATE')
+       ELSE false END)
+ )
+ AND NOT EXISTS (
+   SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='fabriek'
+     AND (p.proowner=p_role
+       OR has_function_privilege(p_role,p.oid,'EXECUTE WITH GRANT OPTION')
+       OR (has_function_privilege(p_role,p.oid,'EXECUTE')
+           AND NOT has_function_privilege('mes_security_channel',p.oid,'EXECUTE')))
+ )
+$$;
+
+-- Migratie 0094: eenmalige gecontroleerde eerste MES-rechten op bestaande administratie.
+SET search_path = fabriek, public;
+
+-- Hergebruik het onveranderlijke singleton-bootstraprecord als permanente blokkade.
+-- Geen automatische vertaling van legacy-rollen en geen wijziging van historische accounts.
+CREATE FUNCTION authorization_bootstrap_existing(p_system uuid,p_system_password text,
+    p_a uuid,p_a_password text,p_b uuid,p_b_password text,p_reason text)
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v record; v_login record;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.gebruiker'::regclass)) THEN
+        RAISE EXCEPTION 'Overgang vereist database-eigenaar';
+    END IF;
+    LOCK TABLE gebruiker IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE authorization_grant, authorization_bootstrap, authorization_request IN SHARE ROW EXCLUSIVE MODE;
+    IF NOT EXISTS (SELECT 1 FROM gebruiker)
+       OR EXISTS (SELECT 1 FROM authorization_bootstrap)
+       OR EXISTS (SELECT 1 FROM authorization_grant)
+       OR EXISTS (SELECT 1 FROM authorization_request) THEN
+        RAISE EXCEPTION 'Overgang uitsluitend op bestaande administratie zonder MES-rechtenhistorie';
+    END IF;
+    IF p_system IS NULL OR p_a IS NULL OR p_b IS NULL
+       OR p_system=p_a OR p_system=p_b OR p_a=p_b
+       OR btrim(coalesce(p_reason,''))=''
+       OR length(coalesce(p_system_password,''))=0 OR length(coalesce(p_a_password,''))=0
+       OR length(coalesce(p_b_password,''))=0
+       OR p_system_password=p_a_password OR p_system_password=p_b_password OR p_a_password=p_b_password THEN
+        RAISE EXCEPTION 'Drie afzonderlijke persoonlijke identiteiten, bevestigingen en referentie vereist';
+    END IF;
+    IF (SELECT count(*) FROM gebruiker WHERE id IN (p_system,p_a,p_b)
+        AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen AND rol<>'scherm'
+        AND wachtwoord_hash IS NOT NULL) <> 3 THEN
+        RAISE EXCEPTION 'Ongeschikte persoonlijke overgangsidentiteit';
+    END IF;
+    FOR v IN SELECT g.id,g.gebruikersnaam,CASE g.id WHEN p_system THEN p_system_password
+        WHEN p_a THEN p_a_password ELSE p_b_password END AS wachtwoord
+        FROM gebruiker g WHERE g.id IN (p_system,p_a,p_b) ORDER BY g.id
+    LOOP
+        SELECT * INTO v_login FROM inloggen(v.gebruikersnaam,v.wachtwoord,NULL);
+        IF v_login.id IS DISTINCT FROM v.id THEN
+            RETURN CASE WHEN coalesce(v_login.wacht_seconden,0)>0 THEN 'locked' ELSE 'denied' END;
+        END IF;
+    END LOOP;
+    -- Bestaande sessies mogen de nieuwe bevoegdheden niet ongemerkt verkrijgen.
+    UPDATE gebruiker SET session_version=session_version+1 WHERE id IN (p_system,p_a,p_b);
+    INSERT INTO authorization_grant(user_id,role_code) VALUES
+      (p_system,'system_administrator'),(p_a,'security_administrator'),(p_b,'security_administrator');
+    INSERT INTO authorization_bootstrap(system_user_id,security_user_a,security_user_b,database_actor,reason)
+      VALUES(p_system,p_a,p_b,current_user,'Gecontroleerde overgang bestaande administratie: '||p_reason);
+    RETURN 'initialized';
+END $$;
+REVOKE ALL ON FUNCTION authorization_bootstrap_existing(uuid,text,uuid,text,uuid,text,text) FROM PUBLIC;
+
+-- De vertrouwde eigenaar mag expliciet exact één sessiegeneratie verhogen.
+-- Runtime kan deze kolom niet schrijven; gewone accountwijzigingen houden hun bestaande gedrag.
+CREATE OR REPLACE FUNCTION authorization_session_version() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF TG_OP='INSERT' THEN
+        NEW.session_version := 1;
+    ELSIF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash
+       OR NEW.wachtwoord_wijzigen IS DISTINCT FROM OLD.wachtwoord_wijzigen
+       OR NEW.actief IS DISTINCT FROM OLD.actief OR NEW.rol IS DISTINCT FROM OLD.rol
+       OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+       OR NEW.gebruikersnaam IS DISTINCT FROM OLD.gebruikersnaam
+       OR (current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))
+           AND NEW.session_version=OLD.session_version+1) THEN
+        NEW.session_version := OLD.session_version + 1;
+    ELSE
+        NEW.session_version := OLD.session_version;
+    END IF;
+    RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION authorization_session_version() FROM PUBLIC;
+
+COMMIT;
+
+-- Migratie 0095: actuele demo-accountindicatie (D103).
+BEGIN;
+-- D103: toon uitsluitend actuele MES-demo-identiteiten, zonder accounts of grants te wijzigen.
+SET search_path = fabriek, public;
+CREATE OR REPLACE FUNCTION demo_account_names(p_names text[]) RETURNS TABLE(gebruikersnaam text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog,fabriek,public,pg_temp AS $$
+    SELECT g.gebruikersnaam FROM fabriek.gebruiker g
+      WHERE g.actief AND NOT g.gedeeld AND lower(g.gebruikersnaam)=ANY(p_names)
+        AND lower(g.gebruikersnaam) IN ('mes.operator','mes.supervisor','mes.manager','mes.planner','mes.engineer','mes.eng.approver','mes.quality','mes.quality.approver','mes.maintenance','mes.system','mes.security.a','mes.security.b','mes.analyst','mes.display')
+        AND g.wachtwoord_hash=public.crypt('demo',g.wachtwoord_hash)
+      ORDER BY g.gebruikersnaam
+$$;
+REVOKE ALL ON FUNCTION demo_account_names(text[]) FROM PUBLIC;
 
 COMMIT;

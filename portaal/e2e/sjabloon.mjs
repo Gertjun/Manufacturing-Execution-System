@@ -6,6 +6,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-sjabloon";
 const BASIS = "http://localhost:3469";
 mkdirSync(SHOTS, { recursive: true });
@@ -19,9 +21,17 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
+const PSQL = (bestand) => execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL(`../../db/${bestand}`, import.meta.url).pathname], { stdio: "ignore" });
+await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
+PSQL("schema.sql");
+PSQL("rechten.sql");
+PSQL("seed_config.sql");
+PSQL("seed_accounts_demo.sql");
+execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL("../../tests/fixtures/scherm_grants.sql", import.meta.url).pathname], { stdio: "inherit" });
+
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3469", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3469", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -41,11 +51,7 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-beheer").click();
 };
 
 const leesXlsx = (pad) => JSON.parse(execFileSync("python3", ["-c", `
@@ -55,7 +61,6 @@ ws = wb.active
 print(json.dumps({"blad": ws.title, "rijen": [[c for c in r] for r in ws.iter_rows(values_only=True)],
   "bladen": {b.title: [[c for c in r] for r in b.iter_rows(values_only=True)] for b in wb.worksheets}}, default=str))`, pad]).toString());
 // Zelf de database klaarzetten: alleen configuratie en testaccounts.
-const PSQL = (bestand) => execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL(`../../db/${bestand}`, import.meta.url).pathname], { stdio: "ignore" });
 const bewerk = (pad, uit, python) => execFileSync("python3", ["-c", `
 import sys, openpyxl
 wb = openpyxl.load_workbook(sys.argv[1])
@@ -64,14 +69,10 @@ ${python}
 wb.save(sys.argv[2])`, pad, uit]);
 
 try {
-  await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
-  PSQL("schema.sql");
-  try { PSQL("rechten.sql"); } catch {}
-  PSQL("seed_config.sql");
-  PSQL("seed_accounts_demo.sql");
+
 
   console.log("\nSjabloon downloaden");
-  await inloggen("beheerder1");
+  await inloggen("mes.engineer");
   await page.getByRole("link", { name: "Stappen en velden" }).click();
   await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
   const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Sjabloon downloaden" }).click()]);
@@ -136,56 +137,19 @@ g.append(["S3.1", "PRD-A", 20, 120, "4", "absoluut"])`);
   const gp = (await q(`SELECT v.code || ' ' || p.code || ' ' || coalesce(vp.grens_max::text, '-') || ' ' || coalesce(vp.tolerantie::text, '-') AS r
                          FROM fabriek.veld_product vp JOIN fabriek.veld v ON v.id = vp.veld_id JOIN fabriek.product p ON p.id = vp.product_id ORDER BY 1`)).map((r) => r.r);
   check("Grenzen per product opgeslagen", gp.join("|") === "S3.1 PRD-A 120 4|S5.1 PRD-B 120 3|S9.2 PRD-C 470 -", gp.join("|"));
-  const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel = 'veld' AND gewijzigd_door = 'beheerder1'");
+  const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel = 'veld' AND gewijzigd_door = 'mes.engineer'");
   check("Wijzigingen in het logboek", log.n >= 2, String(log.n));
   await shot("03-opgeslagen");
 
-  console.log("\nAccounts via het sjabloon (#76)");
-  await page.getByRole("link", { name: "Medewerkers" }).click();
-  await page.getByRole("heading", { name: "Medewerkers", level: 1 }).waitFor();
-  const [dla] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Sjabloon downloaden" }).click()]);
-  const apad = `${SHOTS}/${dla.suggestedFilename()}`;
-  await dla.saveAs(apad);
-  const ax = leesXlsx(apad);
-  check("Accounts: kolommen en geen wachtwoorden in het bestand",
-    ax.rijen[0].join("|") === "Gebruikersnaam|Rol|Naam bij de invoer|Ploeg|Tijdelijk wachtwoord|Actief" && ax.rijen.slice(1).every((r) => !r[4]), ax.rijen[0].join("|"));
-  const afout = `${SHOTS}/accounts-fout.xlsx`;
-  bewerk(apad, afout, `
-ws.append(["nieuw.x", "Operator", "Nieuwe X", None, "kort", "ja"])
-ws.append(["nieuw.y", "Bakker", None, None, "tijdelijk-123", "ja"])`);
-  await page.locator("#accounts-bestand").setInputFiles(afout);
-  await page.getByRole("heading", { name: "Accounts inlezen" }).waitFor();
-  await page.getByText("Er wordt niets opgeslagen zolang er een regel met een fout is").waitFor();
-  const tekstFout = await page.locator("tbody").innerText();
-  check("Fouten: te kort wachtwoord en onbekende rol", tekstFout.includes("minstens 8 tekens") && tekstFout.includes('Onbekende rol "Bakker"'), tekstFout);
-  await page.getByRole("button", { name: "Annuleren" }).click();
-  await page.getByRole("heading", { name: "Medewerkers", exact: true }).waitFor();
-  const agoed = `${SHOTS}/accounts-goed.xlsx`;
-  bewerk(apad, agoed, `
-for r in ws.iter_rows(min_row=2):
-    if r[0].value == "analist1": r[5].value = "nee"
-ws.append(["nieuw.x", "Operator", "Operator E", "a2", "tijdelijk-123", "ja"])
-ws.append(["nieuw.y", "kwaliteit", None, None, 12345678, None])
-ws.append(["tv.hal2", "Wandscherm", None, None, "scherm-hal2", "ja"])`);
-  await page.locator("#accounts-bestand").setInputFiles(agoed);
-  await page.getByRole("button", { name: "4 wijzigingen opslaan" }).waitFor();
-  const controle = await page.locator("tbody").innerText();
-  check("Controle: drie nieuw (één gekoppeld aan een bestaande naam), één uitgezet",
-    controle.includes("gekoppeld aan de bestaande naam Operator E") && controle.includes("ploeg A2") && controle.includes("uit"), controle);
-  await shot("04-accounts-controle");
-  await page.getByRole("button", { name: "4 wijzigingen opslaan" }).click();
-  await page.getByText("3 accounts aangemaakt, 1 gewijzigd").waitFor();
-  const acc = await q(`SELECT g.gebruikersnaam, g.rol, g.actief, g.wachtwoord_wijzigen AS ww, o.naam
-                         FROM fabriek.gebruiker g LEFT JOIN fabriek.operator o ON o.gebruiker_id = g.id
-                        WHERE g.gebruikersnaam IN ('nieuw.x', 'nieuw.y', 'tv.hal2', 'analist1') ORDER BY 1`);
-  check("Opgeslagen: tijdelijk wachtwoord (niet bij een wandscherm), naam gekoppeld, analist uit",
-    JSON.stringify(acc) === JSON.stringify([
-      { gebruikersnaam: "analist1", rol: "analist", actief: false, ww: false, naam: null },
-      { gebruikersnaam: "nieuw.x", rol: "operator", actief: true, ww: true, naam: "Operator E" },
-      { gebruikersnaam: "nieuw.y", rol: "kwaliteit", actief: true, ww: true, naam: null },
-      { gebruikersnaam: "tv.hal2", rol: "scherm", actief: true, ww: false, naam: null },
-    ]), JSON.stringify(acc));
-  check("Lijst toont het tijdelijke wachtwoord", (await page.locator("tr", { hasText: "nieuw.x" }).innerText()).includes("tijdelijk wachtwoord"));
+  console.log("\\nPersoonlijke accounts");
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await inloggen("beheerder1");
+  await page.getByRole("link", { name: "Accounts" }).click();
+  await page.getByRole("heading", { name: "Accounts", level: 1 }).waitFor();
+  check("Geen accountsjabloon meer", await page.getByRole("button", { name: "Sjabloon downloaden" }).count() === 0 && await page.locator("#accounts-bestand").count() === 0);
+  const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const created = await fetch(`${BASIS}/beheer/gebruikers`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ gebruikersnaam: "nieuw.y", wachtwoord: "12345678" }) });
+  if (created.status !== 201) throw new Error("Persoonlijk account aanmaken mislukt: " + await created.text());
 
   console.log("\nEerste inlog met een tijdelijk wachtwoord");
   await page.getByRole("button", { name: "Afmelden" }).click();
@@ -201,20 +165,20 @@ ws.append(["tv.hal2", "Wandscherm", None, None, "scherm-hal2", "ja"])`);
   await page.locator("#ww-nieuw").fill("12345678");
   await page.locator("#ww-nogmaals").fill("12345678");
   await page.getByRole("button", { name: "Opslaan en verder" }).click();
-  await page.getByText("Kies een ander wachtwoord dan het tijdelijke").waitFor();
+  await page.getByText("Kies een ander wachtwoord van minstens 8 tekens").waitFor();
   check("Hetzelfde als het tijdelijke wachtwoord mag niet", true);
   await page.locator("#ww-nieuw").fill("mijn-eigen-ww");
   await page.locator("#ww-nogmaals").fill("mijn-eigen-ww");
   await shot("05-eigen-wachtwoord");
   await page.getByRole("button", { name: "Opslaan en verder" }).click();
-  await page.locator(".startpagina").waitFor();
+  await page.getByText("Er is geen portaal beschikbaar met je actuele MES-bevoegdheden.", { exact: false }).waitFor();
   const [ny] = await q("SELECT wachtwoord_wijzigen FROM fabriek.gebruiker WHERE gebruikersnaam = 'nieuw.y'");
-  check("Daarna de startpagina; het wachtwoord is niet meer tijdelijk", ny.wachtwoord_wijzigen === false);
+  check("Geen portaal zonder grant; het wachtwoord is niet meer tijdelijk", ny.wachtwoord_wijzigen === false);
   await page.getByRole("button", { name: "Afmelden" }).click();
   await page.getByLabel("Gebruikersnaam").fill("nieuw.y");
   await page.getByLabel("Wachtwoord").fill("mijn-eigen-ww");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  await page.locator(".startpagina").waitFor();
+  await page.getByText("Er is geen portaal beschikbaar met je actuele MES-bevoegdheden.", { exact: false }).waitFor();
   check("Inloggen met het eigen wachtwoord", true);
 
   console.log("\nZelf het wachtwoord wijzigen");

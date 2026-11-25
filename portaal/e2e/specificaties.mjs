@@ -1,6 +1,5 @@
 // Test van keuringsstappen en specificaties (#80, D73) in Chrome, op data van tools/genereer_testdata.py.
-// Portaal Kwaliteit → Specificaties: nieuwe versie, concept, vaststellen. Invoerscherm op de lab-pc: een
-// tussenkeuring starten, meten tegen de nieuwe versie en vrijgeven. Een operator ziet geen keuringsstappen.
+// Historische specificaties alleen lezen; tussenkeuring tegen bestaande versie en persoonlijke vrijgave.
 // Gebruik: node e2e/specificaties.mjs   (start zelf de API op poort 3471)
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -8,6 +7,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-specificaties";
 const BASIS = "http://localhost:3471";
 mkdirSync(SHOTS, { recursive: true });
@@ -23,7 +24,7 @@ const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3471", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3471", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -56,22 +57,23 @@ try {
     (await page.locator(".spec-stap h2").allInnerTexts()).join(",") === "TK1 Tussenkeuring 1,TK2 Tussenkeuring 2,EK Eindkeuring");
   const tk1 = page.locator(".spec-stap", { has: page.getByRole("heading", { name: "TK1 Tussenkeuring 1" }) });
   check("Geldige versie 1 met de grenzen", (await tk1.innerText()).includes("versie 1") && (await tk1.locator("tr", { hasText: "TK1.1" }).innerText()).includes("≤ 4"));
-  await page.getByRole("button", { name: "Nieuwe versie TK1" }).click();
-  await dialoog().locator('[id="v-TK1.1-max"]').fill("4,2");
-  await dialoog().locator('[id="v-opmerking"]').fill("Iets ruimer na overleg");
-  await dialoog().getByRole("button", { name: "Opslaan" }).click();
-  await page.locator("#melding", { hasText: "Concept opgeslagen" }).waitFor();
-  check("Concept versie 2 naast de geldige versie", (await tk1.locator("tr", { hasText: "TK1.1" }).locator(".spec-concept").innerText()).includes("≤ 4,2"));
-  check("Het concept geldt nog niet", (await q(`SELECT g.grens_max::float AS m FROM fabriek.grenzen_van((SELECT id FROM fabriek.veld WHERE code = 'TK1.1'),
-                                                (SELECT id FROM fabriek.product WHERE code = 'PRD-C')) g`))[0].m === 4);
-  await shot("01-concept");
-  await page.getByRole("button", { name: "Versie 2 van TK1 vaststellen" }).click();
-  await dialoog().getByRole("button", { name: "Vaststellen" }).click();
-  await page.locator("#melding", { hasText: "Versie 2 geldt nu" }).waitFor();
-  const [v] = await q(`SELECT x.versie, x.status, g.gebruikersnaam FROM fabriek.specificatie x JOIN fabriek.processtap s ON s.id = x.processtap_id
-                        JOIN fabriek.gebruiker g ON g.id = x.vastgesteld_door WHERE s.code = 'TK1' AND x.status = 'vastgesteld'`);
-  check("Versie 2 vastgesteld door kwaliteit1", v?.versie === 2 && v?.gebruikersnaam === "kwaliteit1", JSON.stringify(v));
-  check("Versie 1 staat bij de eerdere versies", (await tk1.innerText()).includes("Eerdere versies: versie 1"));
+  await page.getByText("Alleen-lezen: bestaande specificaties en versies blijven raadpleegbaar.",{exact:false}).waitFor();
+  check("Geen nieuwe versie of vaststelling via scherm", await page.getByRole("button",{name:/Nieuwe versie|vaststellen/i}).count() === 0);
+  const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const headers = {authorization:"Bearer "+token,"content-type":"application/json"};
+  const lees = async () => { const r=await fetch(BASIS+"/specificaties?product=PRD-C",{headers}); if(!r.ok) throw new Error("Specificaties ophalen: "+r.status); return r.json(); };
+  const voor = await lees();
+  const id = voor.stappen.find(s=>s.stap==="TK1").geldig.id;
+  for(const [method,pad,body] of [
+    ["POST","/specificaties",{product:"PRD-C",stap:"TK1"}],
+    ["PUT","/specificaties/"+id,{regels:[]}],
+    ["POST","/specificaties/"+id+"/vaststellen",undefined],
+    ["POST","/specificaties/"+id+"/weggooien",undefined]
+  ]) {
+    check("Specificaties: geweigerd "+method+" "+pad,(await fetch(BASIS+pad,{method,headers:body===undefined?{authorization:headers.authorization}:headers,...(body===undefined?{}:{body:JSON.stringify(body)})})).status===403);
+  }
+  check("Historische specificaties ongewijzigd",JSON.stringify(await lees())===JSON.stringify(voor));
+  await shot("01-historische-specificatie");
   await page.goto(`${BASIS}/portaal/#/kwaliteit/specificaties/PRD-A`);
   await page.locator(".leeg", { hasText: "geen keuringsstappen" }).waitFor();
   check("PRD-A zonder keuringsstappen: uitleg waar je ze toevoegt", true);
@@ -107,14 +109,16 @@ try {
   await page.locator(".route.keuring .tegel").first().waitFor();
   const groep = [await page.getByRole("heading", { name: "Keuringsstappen", exact: true }).count(), await page.locator(".route.keuring .tegel").count()];
   check("Kwaliteit ziet de keuringsstappen als eigen groep", groep[0] === 1 && groep[1] === 3, JSON.stringify(groep));
-  check("Bij Nu te doen: de batch staat klaar voor TK1", (await page.locator(".keuring-blok").first().innerText()).includes(nr));
+  check("Nog niet gestarte keuring staat niet tussen openstaande besluiten", !(await page.locator(".keuring-blok").first().innerText()).includes(nr));
   await page.goto(`${BASIS}/invoer/#/stap/${stap}`);
   const rij = page.locator(".rij", { hasText: nr });
+  await rij.getByRole("button", { name: "Keuring starten" }).waitFor();
+  check("Batch staat klaar voor TK1 in de werkvoorraad",await rij.getByRole("button", { name: "Keuring starten" }).isVisible());
   await rij.getByRole("button", { name: "Keuring starten" }).click();
   // Zodra de start bij de server is, ververst het scherm: afgerond en de keuring staat open.
   await page.getByText("Wacht op Kwaliteit").first().waitFor({ timeout: 15000 });
-  check("Na de start: keuring open, grens uit versie 2 zichtbaar", (await page.locator("body").innerText()).includes("Maximaal 4,2"));
-  const velden = stap === "TK1" ? [["TK1.1", "4,1"], ["TK1.2", "260"]] : [["TK2.1", "620"]];
+  check("Na de start: keuring open, grens uit versie 1 zichtbaar", (await page.locator("body").innerText()).includes("Maximaal 4"));
+  const velden = stap === "TK1" ? [["TK1.1", "3,9"], ["TK1.2", "260"]] : [["TK2.1", "620"]];
   for (const [code, w] of velden) await page.locator(`[id="g-${code}"]`).fill(w);
   await page.getByRole("button", { name: "Opslaan" }).click();
   await dialoog().getByRole("button", { name: "Opslaan" }).click();
@@ -122,6 +126,8 @@ try {
   await shot("02-keuring");
   await page.getByRole("button", { name: "Vrijgeven" }).click();
   await dialoog().getByRole("button", { name: "Vrijgeven" }).click();
+  await dialoog().getByLabel("Je eigen wachtwoord").fill("demo");
+  await dialoog().getByRole("button", { name: "Besluit bevestigen" }).click();
   await page.locator(".label-keuring-vrijgegeven").waitFor();
   let k = null;
   for (let i = 0; i < 20 && k?.status !== "vrijgegeven"; i++) {
@@ -136,7 +142,7 @@ try {
                           JOIN fabriek.specificatie x ON x.id = w.specificatie_id
                           JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.batch b ON b.id = r.batch_id
                          WHERE v.code = 'TK1.1' AND b.batchnummer = $1`, [nr]);
-    check("4,1 % is binnen versie 2 (max 4,2), en de meting bewaart versie 2", m?.markering === "ok" && m?.max === 4.2 && m?.versie === 2, JSON.stringify(m));
+    check("3,9 % is binnen versie 1 (max 4), en de meting bewaart versie 1", m?.markering === "ok" && m?.max === 4 && m?.versie === 1, JSON.stringify(m));
   }
 
   console.log("\nOperator ziet geen keuringsstappen");
@@ -145,6 +151,9 @@ try {
   // Staat er nog iets in de wachtrij, dan vraagt het invoerscherm eerst of je toch wilt afmelden.
   const nogEven = dialoog().getByRole("button", { name: "Afmelden" });
   if (await nogEven.waitFor({ timeout: 2000 }).then(() => true, () => false)) await nogEven.click();
+  await page.waitForURL(u => u.pathname.startsWith("/portaal/") && u.hash === "#/login");
+  await page.goto(`${BASIS}/invoer/#/pc`);
+  await page.getByRole("button", { name: /^PC-01/ }).click();
   await page.getByLabel("Gebruikersnaam").fill("operator.a");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
@@ -152,7 +161,7 @@ try {
   await page.locator(".route .tegel").first().waitFor();
   check("Geen keuringstegels voor een operator", (await page.locator(".route.keuring").count()) === 0 && (await page.locator(".tegel").count()) === 18);
 } catch (e) {
-  console.log("  AFGEBROKEN", e.message.split("\n")[0]);
+  console.log("  AFGEBROKEN", e.message);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {

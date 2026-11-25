@@ -5,7 +5,7 @@ import { tabelNaarExcel } from "../excel";
 import { h, laden, melding, tijd, toon, vastHouden, vraag } from "../../../gedeeld/ui";
 import { markeringTekst, toonGetal } from "../../../gedeeld/markering";
 import type { Markering, Stap } from "../../../gedeeld/types";
-import { ApiFout, gekozenProduct, haal, periode, PERIODES, producten, qs, sessie, stuur } from "../basis";
+import { ApiFout, gekozenProduct, haal, periode, PERIODES, producten, qs, sessie, stuur, heeftRecht, rechten } from "../basis";
 import { afwijkingenPerWeek, gemengdeGrenzen, trend, type TrendPunt, type TrendVeld, type Week } from "../grafiek";
 import { filterKnop, maakSorteerbaar } from "../tabelsorteer";
 import { aanvullen, perTekst, perWoord, resolutie, RESOLUTIES, volgende, type Per } from "../resolutie";
@@ -123,14 +123,16 @@ export function fout(e: unknown, titel = "Kon de gegevens niet laden") {
   toon(kop(titel), h("p", { class: "leeg" }, (e as Error).message));
 }
 
-const magKeuren = () => sessie.rol === "kwaliteit";
+const magKeuren = () => heeftRecht("inspection.batch.decide");
+const magKeurHerbewerking = () => heeftRecht("inspection.rework.order");
+const bevestigWachtwoord = { naam: "wachtwoord", label: "Bevestig met je eigen wachtwoord", type: "password" as const };
 
 async function keur(batchnummer: string, besluit: "vrijgegeven" | "afgekeurd", daarna: () => void) {
   const ok = besluit === "vrijgegeven";
-  const r = await vraag(`Keurresultaat ${ok ? "OK" : "NOK"} voor ${batchnummer}`, [{ naam: "reden", label: ok ? "Toelichting" : "Reden van afkeur" }], ok ? "OK: vrijgeven" : "NOK: afkeuren");
+  const r = await vraag(`Keurresultaat ${ok ? "OK" : "NOK"} voor ${batchnummer}`, [{ naam: "reden", label: ok ? "Toelichting" : "Reden van afkeur" }, bevestigWachtwoord], ok ? "OK: vrijgeven" : "NOK: afkeuren");
   if (!r) return;
   try {
-    await stuur("POST", `/batches/${batchnummer}/besluiten`, { besluit, reden: r.reden });
+    await stuur("POST", `/batches/${batchnummer}/besluiten`, { besluit, reden: r.reden, wachtwoord: r.wachtwoord });
     melding(ok ? `${batchnummer} vrijgegeven` : `${batchnummer} afgekeurd`, ok ? "ok" : "info");
     daarna();
   } catch (e) {
@@ -146,7 +148,8 @@ function keurKnoppen(batchnummer: string, daarna: () => void) {
 
 // ---------- Herbewerking (#61, D57) ----------
 /** Kwaliteit en de productiemanager besluiten over een herbewerking. */
-const magHerbewerken = () => sessie.rol === "kwaliteit" || sessie.rol === "productiemanager";
+const magHerbewerken = () => heeftRecht("inspection.rework.order", "operations.rework.order");
+const magHerbewerkingProduct = (product: string | null) => magHerbewerken() || !!product && !!rechten()?.products.some(p => p.product === product && ["inspection.rework.order","operations.rework.order"].includes(p.permission));
 interface Herbewerking {
   id: string; soort: "batch" | "lot"; nummer: string; product: string | null; stap: string; stapnaam: string; reden: string;
   door: string | null; aangemaakt_op: string; gepland_op: string | null; gestart_op: string | null;
@@ -168,12 +171,12 @@ function herbewerkingKnop(nummer: string, daarna: () => void, inBeoordeling = fa
     if (!stappen.length) return melding(`${nummer} heeft nog geen afgeronde stap om naar terug te gaan.`, "info");
     const r = await vraag(`Herbewerking ${nummer}`, [
       { naam: "stap", label: "Terug naar stap", opties: stappen.map((s) => [s.code, `${s.code} ${s.naam}`] as [string, string]), waarde: stappen[stappen.length - 1].code },
-      { naam: "reden", label: "Reden" },
+      { naam: "reden", label: "Reden" }, bevestigWachtwoord,
     ], "Herbewerking aanmaken",
       `${nummer} doet de gekozen stap opnieuw en daarna alle volgende stappen. De operator start hem in die stap; de planner kan hem inplannen.${inBeoordeling ? " Dit is het keurresultaat: herbewerken." : ""}`);
     if (!r) return;
     try {
-      await stuur("POST", "/herbewerkingen", { nummer, stapcode: r.stap, reden: r.reden });
+      await stuur("POST", "/herbewerkingen", { nummer, stapcode: r.stap, reden: r.reden, wachtwoord: r.wachtwoord });
       melding(`Herbewerking ${nummer} naar ${r.stap} aangemaakt`, "ok");
       daarna();
     } catch (e) { melding((e as Error).message, "fout"); }
@@ -183,9 +186,9 @@ function herbewerkingKnop(nummer: string, daarna: () => void, inBeoordeling = fa
 /** Tabel met herbewerkingen en hun stand; open opdrachten kunnen worden ingetrokken. */
 function herbewerkingTabel(lijst: Herbewerking[], daarna: () => void, metNummer = true) {
   const intrekken = async (x: Herbewerking) => {
-    const r = await vraag(`Herbewerking ${x.nummer} intrekken`, [{ naam: "reden", label: "Reden" }], "Intrekken");
+    const r = await vraag(`Herbewerking ${x.nummer} intrekken`, [{ naam: "reden", label: "Reden" }, bevestigWachtwoord], "Intrekken");
     if (!r) return;
-    try { await stuur("POST", `/herbewerkingen/${x.id}/intrekken`, { reden: r.reden }); melding("Herbewerking ingetrokken", "ok"); daarna(); }
+    try { await stuur("POST", `/herbewerkingen/${x.id}/intrekken`, { reden: r.reden, wachtwoord: r.wachtwoord }); melding("Herbewerking ingetrokken", "ok"); daarna(); }
     catch (e) { melding((e as Error).message, "fout"); }
   };
   const nummerLink = (x: Herbewerking) => h("a", { href: x.soort === "lot" ? `#/kwaliteit/lotpaspoort/${x.nummer}` : `#/kwaliteit/batch/${x.nummer}`, class: "sterk" }, x.nummer);
@@ -196,7 +199,7 @@ function herbewerkingTabel(lijst: Herbewerking[], daarna: () => void, metNummer 
       x.stand === "ingetrokken" && x.ingetrokken_reden ? h("span", {}, x.reden, h("br"), h("small", { class: "noot" }, `Ingetrokken door ${x.ingetrokken_door ?? "?"}: ${x.ingetrokken_reden}`)) : x.reden,
       h("span", {}, datum(x.aangemaakt_op), h("br"), h("small", { class: "noot" }, x.door ?? "zonder opdracht gestart")),
       standLabel(x),
-      magHerbewerken() && (x.stand === "te_plannen" || x.stand === "gepland")
+      magHerbewerkingProduct(x.product) && (x.stand === "te_plannen" || x.stand === "gepland")
         ? h("button", { class: "knop knop-klein knop-stil", type: "button", onclick: () => intrekken(x) }, "Intrekken") : "",
     ]), "compact");
 }
@@ -288,11 +291,11 @@ export async function beoordelen() {
       ? "Batches die in beoordeling staan. OK geeft de batch vrij voor de volgende stap, NOK keurt hem af, Herbewerken stuurt hem terug naar een eerdere stap."
       : "Batches die in beoordeling staan. Alleen Kwaliteit voert het keurresultaat in."),
     rijen.length
-      ? tabel(["Batch", "In beoordeling sinds", "Reden", "Door", "Laatst afgerond", "Afwijkingen", magKeuren() ? "Keurresultaat" : ""],
+      ? tabel(["Batch", "In beoordeling sinds", "Reden", "Door", "Laatst afgerond", "Afwijkingen", magKeuren() || magKeurHerbewerking() ? "Keurresultaat" : ""],
           rijen.map((r) => [
             h("a", { href: `#/kwaliteit/batch/${r.batchnummer}`, class: "sterk" }, r.batchnummer), datum(r.sinds), r.reden, r.door,
             r.laatst_afgeronde_stap ?? "Nog geen stap", h("span", { class: "getal" }, r.afwijkingen),
-            magKeuren() ? h("div", { class: "knoppen-klein" }, keurKnoppen(r.batchnummer, beoordelen), herbewerkingKnop(r.batchnummer, beoordelen, true)) : "",
+            magKeuren() || magKeurHerbewerking() ? h("div", { class: "knoppen-klein" }, magKeuren() ? keurKnoppen(r.batchnummer, beoordelen) : null, magKeurHerbewerking() ? herbewerkingKnop(r.batchnummer, beoordelen, true) : null) : "",
           ]))
       : h("p", { class: "leeg" }, "Er staan geen batches in beoordeling."),
     wachtOpKwaliteit,
@@ -439,7 +442,7 @@ async function toonLotpaspoort(nummer: string) {
       h("div", { class: "knoppen-klein" },
         h("a", { class: "knop knop-stil", href: `#/etiketten/printer/${encodeURIComponent(lot.lotnummer)}` }, "Etiket"),
         h("a", { class: "knop knop-stil", href: `#/kwaliteit/certificaat/${encodeURIComponent(lot.lotnummer)}` }, "Certificaat"),
-        magHerbewerken() && ["in_productie", "gereed"].includes(lot.status) && !openHerb ? herbewerkingKnop(lot.lotnummer, opnieuw) : null,
+        magHerbewerkingProduct(lot.product ?? null) && ["in_productie", "gereed"].includes(lot.status) && !openHerb ? herbewerkingKnop(lot.lotnummer, opnieuw) : null,
         h("button", { class: "knop", onclick: () => window.print() }, "Afdrukken"))),
     h("dl", { class: "feiten" },
       h("div", {}, h("dt", {}, "Batches"), h("dd", {}, lot.batches.flatMap((b, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/batch/${b}` }, b)]))),
@@ -486,9 +489,10 @@ export async function batch(nummer: string) {
     kop(`Batch ${b.batchnummer}`,
       h("span", {}, batchStatus[b.status] ?? b.status, b.lotnummer ? [", in lot ", h("a", { href: `#/kwaliteit/lotpaspoort/${b.lotnummer}` }, b.lotnummer)] : null),
       h("div", { class: "knoppen-klein" },
-      b.status === "in_beoordeling" && magKeuren() ? [keurKnoppen(b.batchnummer, opnieuw), herbewerkingKnop(b.batchnummer, opnieuw, true)] : null,
+      b.status === "in_beoordeling" && magKeuren() ? keurKnoppen(b.batchnummer, opnieuw) : null,
+      b.status === "in_beoordeling" && magKeurHerbewerking() ? herbewerkingKnop(b.batchnummer, opnieuw, true) : null,
       b.status === "in_productie" && magHerbewerken() && !openHerb ? herbewerkingKnop(b.batchnummer, opnieuw) : null,
-      b.status === "in_productie" && ["kwaliteit", "ploegleider", "productiemanager"].includes(sessie.rol ?? "")
+      b.status === "in_productie" && heeftRecht("execution.hold", "inspection.hold")
         ? h("button", { class: "knop", onclick: async () => {
             const r = await vraag(`${b.batchnummer} in beoordeling zetten`, [{ naam: "reden", label: "Reden" }], "In beoordeling zetten");
             if (!r) return;

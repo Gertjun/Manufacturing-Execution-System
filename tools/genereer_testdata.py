@@ -55,7 +55,7 @@ operators = {naam: oid for oid, naam in con.execute("SELECT id, naam FROM operat
 opnamen = sorted(operators)
 gebruiker = {n: i for i, n in con.execute("SELECT id, gebruikersnaam FROM gebruiker")}
 # Kwaliteit meet in het lab onder een eigen naam (#64); niet in de lijst van operators op de vloer.
-kwaliteit_op = con.execute("SELECT operator_van_account(%s)", (gebruiker["kwaliteit1"],)).fetchone()[0]
+kwaliteit_op = con.execute("SELECT operator_van_account(%s)", (gebruiker["mes.quality"],)).fetchone()[0]
 producten = [r[0] for r in con.execute("SELECT id FROM product WHERE actief ORDER BY code")]
 productcode = {i: c for i, c in con.execute("SELECT id, code FROM product")}
 stap_grondstoffen: dict = {}
@@ -142,10 +142,20 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
         pc, oid = pcs[-1], kwaliteit_op  # het lab
     else:
         pc, oid = pcs[(int(stapcode[2:]) - 1) % len(pcs)], operators[operator]
+    # Bij een herbewerkingsstart is de gekoppelde persoonlijke MES-bevoegdheid
+    # ook voor eigenaar-gegenereerde fixtures verplicht. Kies uitsluitend voor
+    # deze handeling de expliciet bevoegde fictieve uitvoerder.
+    if herbewerking or con.execute(
+        """SELECT EXISTS (SELECT 1 FROM herbewerking h JOIN processtap s ON s.id=h.processtap_id
+           WHERE h.status='open' AND s.code=%s AND h.batch_id IS NOT DISTINCT FROM %s
+             AND h.lot_id IS NOT DISTINCT FROM %s)""", (stapcode, batch_id, lot_id)
+    ).fetchone()[0]:
+        operator = "mes.operator"
+        oid = operators[operator]
     if herbewerking:
         # Kwaliteit besluit tot de herbewerking (#61); de operator start daarna gewoon de stap.
         lotnr = con.execute("SELECT lotnummer FROM lot WHERE id = %s", (lot_id,)).fetchone()[0]
-        hid = con.execute("SELECT maak_herbewerking(%s, %s, %s, %s)", (lotnr, stapcode, herbewerking, gebruiker["kwaliteit1"])).fetchone()[0]
+        hid = con.execute("SELECT maak_herbewerking(%s, %s, %s, %s)", (lotnr, stapcode, herbewerking, gebruiker["mes.quality.approver"])).fetchone()[0]
         tijd_herbewerking.append((hid, moment - dt.timedelta(minutes=90)))  # geen toeval: de rest van de testdata blijft gelijk
         reg = con.execute("SELECT start_stap(%s, NULL, %s, %s, %s)", (stapcode, lot_id, pc, oid)).fetchone()[0]
     else:
@@ -183,7 +193,7 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
             tijd_waarde.append((reg, moment + duur + dt.timedelta(minutes=40)))
         buiten = con.execute("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND markering = 'buiten_grens'", (reg,)).fetchone()[0]
         if buiten == 0:
-            con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k, gebruiker["kwaliteit1"]))
+            con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k, gebruiker["mes.quality.approver"]))
             tijd_keuring.append((k, moment + duur, moment + duur + dt.timedelta(minutes=50)))
         else:
             tijd_keuring.append((k, moment + duur, None))
@@ -255,7 +265,7 @@ def maak_lots(lot_prod, wachtrij):
         if open_k and moment < eind - dt.timedelta(hours=2):
             stats["herbewerkingen"] += 1
             moment += dt.timedelta(hours=rnd.uniform(1, 6))
-            con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te nat na verpakken', %s, %s)", (open_k[0], gebruiker["kwaliteit1"], route_l[0]))
+            con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te nat na verpakken', %s, %s)", (open_k[0], gebruiker["mes.quality.approver"], route_l[0]))
             tijd_keuring[:] = [(k, a, moment - dt.timedelta(minutes=20)) if k == open_k[0] else (k, a, b) for k, a, b in tijd_keuring]
             hid = con.execute("SELECT herbewerking_id FROM keuring WHERE id = %s", (open_k[0],)).fetchone()[0]
             tijd_herbewerking.append((hid, moment - dt.timedelta(minutes=20)))
@@ -267,7 +277,7 @@ def maak_lots(lot_prod, wachtrij):
                                     AND EXISTS (SELECT 1 FROM waarde w JOIN veld v ON v.id = w.veld_id
                                                  WHERE w.stapregistratie_id = r.id AND v.gemeten_door = 'kwaliteit')""", (lot,)).fetchone()
             if nog:
-                con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'na herbewerking en overleg vrijgegeven', %s)", (nog[0], gebruiker["kwaliteit1"]))
+                con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'na herbewerking en overleg vrijgegeven', %s)", (nog[0], gebruiker["mes.quality.approver"]))
                 tijd_keuring[:] = [(k, a, moment) if k == nog[0] else (k, a, b) for k, a, b in tijd_keuring]
                 # Daarna de rest van de route (bijvoorbeeld de eindkeuring, #80).
                 moment, rest = lotroute(lot, rest, moment)
@@ -317,14 +327,14 @@ while dag < eind:
                 break
             if beoordeel_bij == n:
                 stats["beoordeling"] += 1
-                besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "steekproef", "afwijkende geur", "visuele afwijking"]), "ploegleider1", moment)
+                besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "steekproef", "afwijkende geur", "visuele afwijking"]), "mes.supervisor", moment)
                 moment += dt.timedelta(hours=rnd.uniform(2, 20))
                 if rnd.random() < 0.35:
-                    besluit(bid, "afgekeurd", rnd.choice(["buiten specificatie", "vervuiling", "kleur buiten specificatie"]), "kwaliteit1", moment)
+                    besluit(bid, "afgekeurd", rnd.choice(["buiten specificatie", "vervuiling", "kleur buiten specificatie"]), "mes.quality.approver", moment)
                     stats["afgekeurd"] += 1
                     afgekeurd = True
                     break
-                besluit(bid, "vrijgegeven", "binnen specificatie", "kwaliteit1", moment)
+                besluit(bid, "vrijgegeven", "binnen specificatie", "mes.quality.approver", moment)
         if not afgekeurd and not wacht and tot == len(route_b):
             wachtrij_lot.setdefault(product, []).append((bid, moment))
         elif not afgekeurd and not wacht and tot < len(route_b) and route_b[tot] not in keuringsstappen and rnd.random() < 0.5 and moment < eind:
@@ -371,7 +381,7 @@ with con.transaction():
 
 # Twee lopende batches wachten op een keurresultaat (voor "Te beoordelen").
 for (bid,) in con.execute("SELECT id FROM batch WHERE status = 'in_productie' ORDER BY aangemaakt_op LIMIT 2").fetchall():
-    besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "afwijkende geur"]), "ploegleider1", eind - dt.timedelta(hours=1))
+    besluit(bid, "in_beoordeling", rnd.choice(["kleur wijkt af", "afwijkende geur"]), "mes.supervisor", eind - dt.timedelta(hours=1))
     with con.transaction():
         con.execute("SET LOCAL session_replication_role = replica")
         con.execute("UPDATE batch_besluit SET besloten_op = %s WHERE id = %s", tijd_besluit[-1][::-1])
@@ -379,11 +389,11 @@ for (bid,) in con.execute("SELECT id FROM batch WHERE status = 'in_productie' OR
 
 # Enkele correcties door ploegleiders (tikfouten en verkeerd afgelezen waarden).
 kandidaten = con.execute("""SELECT w.id, w.setting, w.gemeten, w.ingevoerd_op, v.naam FROM waarde_actueel w JOIN veld v ON v.id = w.veld_id
-                             WHERE w.markering <> 'ok' AND v.naam IN ('Temperatuur', 'Gewicht') ORDER BY w.ingevoerd_op""").fetchall()
+                             WHERE w.markering <> 'ok' AND v.gemeten_door='productie' AND v.naam IN ('Temperatuur', 'Gewicht') ORDER BY w.ingevoerd_op""").fetchall()
 for wid, setting, gemeten, op, naam in rnd.sample(kandidaten, min(6, len(kandidaten))):
     nieuw = round(float(setting) + rnd.uniform(-1.5, 1.5), 1) if naam == "Temperatuur" else round(rnd.gauss(410, 5), 1)
     reden = rnd.choice(["tikfout", "verkeerd afgelezen"] + (["weegschaal niet op nul gezet"] if naam == "Gewicht" else ["sensor afgelezen in plaats van display"]))
-    door = rnd.choice(["ploegleider1", "ploegleider2"])
+    door = "mes.supervisor"
     nid = con.execute("""INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)
                           SELECT stapregistratie_id, veld_id, setting, %s, id, %s, %s FROM waarde WHERE id = %s RETURNING id""",
                        (nieuw, reden, gebruiker[door], wid)).fetchone()[0]
@@ -474,11 +484,11 @@ herb_kandidaten = con.execute(
          FROM batch b WHERE b.status = 'in_productie'
           AND (SELECT count(*) FROM stapregistratie r WHERE r.batch_id = b.id AND r.status = 'afgerond') >= 3
         ORDER BY b.batchnummer LIMIT 2""").fetchall()
-for (nr, bid, stap), (door, reden) in zip(herb_kandidaten, [("productiemanager1", "menger liep te kort"), ("kwaliteit1", "kleur wijkt af na monster")]):
+for (nr, bid, stap), (door, reden) in zip(herb_kandidaten, [("mes.manager", "menger liep te kort"), ("mes.quality.approver", "kleur wijkt af na monster")]):
     hid = con.execute("SELECT maak_herbewerking(%s, %s, %s, %s)", (nr, stap, reden, gebruiker[door])).fetchone()[0]
     stats["herbewerkingen"] += 1
     con.execute("DELETE FROM stapplanning WHERE batch_id = %s AND dag = %s", (bid, vandaag))
-    if door == "kwaliteit1":
+    if door == "mes.quality.approver":
         con.execute("""INSERT INTO stapplanning (dag, processtap_id, batch_id, volgorde, aangemaakt_door)
                        SELECT %s, s.id, %s, coalesce((SELECT max(volgorde) FROM stapplanning WHERE dag = %s AND processtap_id = s.id), 0) + 1, %s
                          FROM processtap s WHERE s.code = %s""", (vandaag, bid, vandaag, planner, stap))

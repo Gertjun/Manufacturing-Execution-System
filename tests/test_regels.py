@@ -32,25 +32,622 @@ def main():
     con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE processtap_id IN (SELECT id FROM processtap WHERE soort = 'proces')")
 
     def one(sql, p=()):
-        return con.execute(sql, p).fetchone()
+        return (con.execute(sql, p) if p else con.execute(sql)).fetchone()
 
     def val(sql, p=()):
         return one(sql, p)[0]
 
     def faalt(naam, sql, p=(), bevat=""):
         try:
-            con.execute(sql, p)
+            con.execute(sql, p) if p else con.execute(sql)
         except psycopg.Error as e:
             msg = str(e).splitlines()[0]
             check(naam, bevat.lower() in msg.lower(), msg)
             return
         check(naam, False, "geen foutmelding")
 
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD100 technische rollidmaatschappen")
+    rechten_sql = (ROOT / "db/rechten.sql").read_text()
+    # Gebruik de bestaande voorgedefinieerde rol zonder objecten of gegevens te wijzigen.
+    for login in ("mes_app", "mes_security_channel"):
+        con.execute(f"GRANT pg_read_all_data TO {login}")
+        try:
+            faalt(f"D100 {login}: ongewenst rollidmaatschap geweigerd",
+                  rechten_sql, bevat="Onveilige technische MES-databaserol")
+            check(f"D100 {login}: afwijking niet stilzwijgend verwijderd",
+                  val("SELECT pg_has_role(%s,'pg_read_all_data','MEMBER')", (login,)))
+        finally:
+            con.execute(f"REVOKE pg_read_all_data FROM {login}")
+    con.execute("ALTER ROLE mes_security_channel LOGIN")
+    try:
+        faalt("D100 securitykanaal mag geen login zijn", rechten_sql,
+              bevat="Onveilige technische MES-databaserol")
+    finally:
+        con.execute("ALTER ROLE mes_security_channel NOLOGIN")
+    con.execute(rechten_sql)
+    check("D100 beperkte technische rollen geaccepteerd", True)
+    print("\nD100 vertrouwd public-schema")
+    con.execute("GRANT CREATE ON SCHEMA public TO PUBLIC")
+    try:
+        faalt("D100 public CREATE voor iedereen geweigerd", rechten_sql,
+              bevat="Onvertrouwd public-schema")
+    finally:
+        con.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
+    con.execute(rechten_sql)
+    check("D100 vertrouwd public-schema geaccepteerd", True)
+    print("\nD100 effectieve SECURITY DEFINER-eigenschappen")
+    check("D100 alle definerfuncties hebben vertrouwd zoekpad",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='fabriek' AND p.prosecdef AND NOT EXISTS
+                 (SELECT 1 FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c
+                  WHERE replace(c,' ','') IN ('search_path=pg_catalog,fabriek,pg_temp',
+                                              'search_path=pg_catalog,fabriek,public,pg_temp'))""")==0)
+    check("D100 alle definerfuncties eigendom van schema-eigenaar",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='fabriek' AND p.prosecdef AND p.proowner<>n.nspowner""")==0)
+    check("D100 geen PUBLIC-uitvoering van definerfuncties",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+                 WHERE n.nspname='fabriek' AND p.prosecdef AND a.grantee=0 AND a.privilege_type='EXECUTE'""")==0)
+    con.execute("ALTER FUNCTION fabriek.execution_session_actor(text) SET search_path=pg_temp,fabriek")
+    try:
+        faalt("D100 rechteninstallatie weigert onveilig definerzoekpad",
+              (ROOT / "db/rechten.sql").read_text(),bevat="Onveilige SECURITY DEFINER-interface")
+    finally:
+        con.execute("ALTER FUNCTION fabriek.execution_session_actor(text) SET search_path=pg_catalog,fabriek,pg_temp")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD100 historische functie- en schemarechten")
+    con.execute("GRANT EXECUTE ON FUNCTION fabriek.maak_herbewerking(text,text,text,uuid,uuid) TO PUBLIC")
+    con.execute("GRANT EXECUTE ON FUNCTION fabriek.authorization_channel_requests() TO mes_app WITH GRANT OPTION")
+    con.execute("GRANT EXECUTE ON FUNCTION fabriek.execution_session_login(text,text,text) TO mes_security_channel")
+    con.execute("GRANT CREATE ON SCHEMA fabriek TO PUBLIC")
+    con.execute("GRANT USAGE,CREATE ON SCHEMA fabriek TO mes_app WITH GRANT OPTION")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    for login in ("mes_app","batchgui_app","mes_security_channel"):
+        if val("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(login,)):
+            check(f"D100 {login}: geen CREATE in fabriek",
+                  not val("SELECT has_schema_privilege(%s,'fabriek','CREATE')",(login,)))
+            check(f"D100 {login}: geen USAGE-delegatie",
+                  not val("SELECT has_schema_privilege(%s,'fabriek','USAGE WITH GRANT OPTION')",(login,)))
+            check(f"D100 {login}: geen functie-delegatie",
+                  val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                         WHERE n.nspname='fabriek' AND has_function_privilege(%s,p.oid,'EXECUTE WITH GRANT OPTION')""",(login,))==0)
+            check(f"D100 {login}: oude herbewerkingsfunctie niet uitvoerbaar",
+                  not val("SELECT has_function_privilege(%s,'fabriek.maak_herbewerking(text,text,text,uuid,uuid)','EXECUTE')",(login,)))
+    check("D100 gewone runtime kan securitykanaal niet uitvoeren",
+          not val("SELECT has_function_privilege('mes_app','fabriek.authorization_channel_requests()','EXECUTE')"))
+    check("D100 securitykanaal kan runtime-login niet uitvoeren",
+          not val("SELECT has_function_privilege('mes_security_channel','fabriek.execution_session_login(text,text,text)','EXECUTE')"))
+    check("D100 exact vijf uitvoerbare securitykanaalfuncties",
+          val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='fabriek' AND has_function_privilege('mes_security_channel',p.oid,'EXECUTE')""")==5)
+    check("D100 persoonlijk gebonden security-aanvragen blijven toegankelijk",
+          val("SELECT has_function_privilege('mes_security_channel','fabriek.authorization_channel_requests()','EXECUTE')"))
+    check("D100 runtime-login blijft toegankelijk",
+          val("SELECT has_function_privilege('mes_app','fabriek.execution_session_login(text,text,text)','EXECUTE')"))
+    print("\nD100 historische tabel- en kolomgrants")
+    con.execute("GRANT UPDATE(gemeten), REFERENCES(id) ON waarde TO mes_app WITH GRANT OPTION")
+    con.execute("GRANT SELECT(proof_hash) ON execution_session TO PUBLIC")
+    con.execute("GRANT SELECT(wachtwoord_hash) ON gebruiker TO mes_security_channel")
+    con.execute("GRANT TRIGGER ON waarde TO mes_app")
+    con.execute("GRANT INSERT(role_code) ON authorization_grant TO PUBLIC")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    for login in ("mes_app","batchgui_app","mes_security_channel"):
+        if val("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(login,)):
+            for tabel,kolom,recht in (("waarde","gemeten","UPDATE"),("waarde","id","REFERENCES"),
+                                       ("execution_session","proof_hash","SELECT"),
+                                       ("gebruiker","wachtwoord_hash","SELECT"),
+                                       ("authorization_grant","role_code","INSERT")):
+                check(f"D100 {login}: oude {tabel}.{kolom} {recht} ingetrokken",
+                      not val("SELECT has_column_privilege(%s,%s,%s,%s)",(login,"fabriek."+tabel,kolom,recht)))
+            check(f"D100 {login}: geen TRIGGER-rechten",
+                  val("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                         WHERE n.nspname='fabriek' AND c.relkind IN ('r','p','v','m','f')
+                           AND has_table_privilege(%s,c.oid,'TRIGGER')""",(login,))==0)
+            check(f"D100 {login}: geen UPDATE-delegatie op waarde",
+                  not val("SELECT has_column_privilege(%s,'fabriek.waarde','gemeten','UPDATE WITH GRANT OPTION')",(login,)))
+    check("D100 toegestane meetinvoer blijft mogelijk",
+          val("SELECT has_table_privilege('mes_app','fabriek.waarde','INSERT')"))
+    check("D100 begrensde accountleesinterface behouden",
+          val("SELECT has_column_privilege('mes_app','fabriek.gebruiker','gebruikersnaam','SELECT')"))
+    print("\nD24/D100 effectieve sequencerechten")
+    # Simuleer achtergebleven oude grants, inclusief PUBLIC en delegatie.
+    con.execute("GRANT SELECT,USAGE,UPDATE ON ALL SEQUENCES IN SCHEMA fabriek TO PUBLIC")
+    con.execute("GRANT SELECT,USAGE,UPDATE ON ALL SEQUENCES IN SCHEMA fabriek TO mes_app WITH GRANT OPTION")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    for login in ("mes_app","batchgui_app","mes_security_channel"):
+        if val("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(login,)):
+            for recht in ("SELECT","USAGE","UPDATE"):
+                check(f"D100 {login}: geen effectief sequence-{recht}",
+                      val("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                             WHERE n.nspname='fabriek' AND c.relkind='S'
+                               AND CASE WHEN c.relkind='S' THEN has_sequence_privilege(%s,c.oid,%s) ELSE false END""",(login,recht))==0)
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("D100 auditsequence niet rechtstreeks te verhogen",
+              "SELECT nextval('fabriek.config_log_id_seq')",bevat="permission denied")
+        faalt("D100 auditsequence niet rechtstreeks te wijzigen",
+              "SELECT setval('fabriek.config_log_id_seq',1)",bevat="permission denied")
+        faalt("D100 auditsequence niet rechtstreeks leesbaar",
+              "SELECT last_value FROM fabriek.config_log_id_seq",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    print("\nDatabase-uitgegeven sessiebewijs")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Sessieregister niet leesbaar","SELECT proof_hash FROM execution_session",bevat="permission denied")
+        faalt("Sessieregister niet schrijfbaar","UPDATE execution_session SET expires_at=now() WHERE false",bevat="permission denied")
+        faalt("Sessieregister niet direct op te ruimen","SELECT execution_session_cleanup()",bevat="permission denied")
+        check("Onbekend sessiebewijs geweigerd",val("SELECT execution_session_actor(%s)",("0"*64,)) is None)
+        check("Leeg sessiebewijs geweigerd",val("SELECT execution_session_actor(NULL)") is None)
+        faalt("Transactie zonder bewijs geweigerd","SELECT execution_transaction_actor()",bevat="Geldig persoonlijk")
+        faalt("Vervalst bewijs bindt geen transactie","SELECT execution_bind_transaction(%s,NULL)",("0"*64,),bevat="ongeldig")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",("0"*64,))
+        try:
+            faalt("Zelf ingestelde GUC bewijst geen identiteit","SELECT execution_transaction_actor()",bevat="Geldig persoonlijk")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
+        faalt("Directe stapregistratie geweigerd","INSERT INTO stapregistratie DEFAULT VALUES",bevat="permission denied")
+        faalt("Directe afronding geweigerd","UPDATE stapregistratie SET status='afgerond' WHERE false",bevat="permission denied")
+        faalt("Oude startfunctie eigenaar-only","SELECT start_stap(NULL,NULL,NULL,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Oude afrondfunctie eigenaar-only","SELECT rond_stap_af(NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Start zonder bewijs geweigerd","SELECT execution_step_start(NULL,NULL,NULL,NULL,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Afronding zonder bewijs geweigerd","SELECT execution_step_complete(NULL,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Herbewerking zonder bewijs geweigerd","SELECT execution_step_rework(NULL,NULL,NULL,NULL,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Directe meetinvoer zonder bewijs geweigerd","INSERT INTO waarde DEFAULT VALUES",bevat="Geldig persoonlijk")
+        faalt("Directe grondstofinvoer zonder bewijs geweigerd","INSERT INTO grondstof_gebruik DEFAULT VALUES",bevat="Geldig persoonlijk")
+        faalt("Direct conflict zonder bewijs geweigerd","INSERT INTO invoerconflict DEFAULT VALUES",bevat="Geldig persoonlijk")
+        faalt("Direct conflictbesluit geweigerd","UPDATE invoerconflict SET status='bestaand' WHERE false",bevat="permission denied")
+        faalt("Oude conflictfunctie eigenaar-only","SELECT los_invoerconflict_op(NULL,'nieuw',NULL,'test')",bevat="permission denied")
+        faalt("Conflictbesluit zonder sessiebewijs geweigerd","SELECT execution_resolve_conflict(NULL,'nieuw','test')",bevat="Geldig persoonlijk")
+        faalt("Oude papieren naleverfunctie eigenaar-only","SELECT lever_stap_na(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Papieren nalevering zonder bewijs geweigerd","SELECT execution_paper_entry(NULL,NULL,NULL,NULL,NULL,NULL,NULL,'test',NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Directe lotcreatie geweigerd","INSERT INTO lot DEFAULT VALUES",bevat="permission denied")
+        faalt("Directe batchcreatie geweigerd","INSERT INTO batch DEFAULT VALUES",bevat="permission denied")
+        faalt("Configuratie zonder sessiebewijs geweigerd","UPDATE veld SET naam=naam WHERE code='S1.1'",bevat="Geldig persoonlijk")
+        for tabel in ("stilstand","overdracht","stapplanning"):
+            faalt(f"D101 {tabel}: geen operationele insert zonder bewijs",f"INSERT INTO {tabel} DEFAULT VALUES",bevat="Geldig persoonlijk")
+        for tabel in ("lot_voorstel","lot_voorstel_batch"):
+            check(f"D101 {tabel}: geen directe insert",not val("SELECT has_any_column_privilege(current_user,%s,'INSERT')",("fabriek."+tabel,)))
+            check(f"D101 {tabel}: geen directe update",not val("SELECT has_any_column_privilege(current_user,%s,'UPDATE')",("fabriek."+tabel,)))
+            check(f"D101 {tabel}: geen directe delete",not val("SELECT has_table_privilege(current_user,%s,'DELETE')",("fabriek."+tabel,)))
+        faalt("Oude lotvoorstelfunctie eigenaar-only","SELECT bewaar_lot_voorstel(NULL,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Lotvoorstel opslaan zonder bewijs geweigerd","SELECT planning_save_legacy_proposal(NULL,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Lotvoorstel annuleren zonder bewijs geweigerd","SELECT planning_cancel_legacy_proposal(1)",bevat="Geldig persoonlijk")
+        proof = val("SELECT session_proof FROM execution_session_login('mes.operator','demo',NULL)")
+        check("Persoonlijk operationeel bewijs beschikbaar",bool(proof))
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",(proof,))
+        try:
+            faalt("Operator kan geen planning schrijven","INSERT INTO stapplanning DEFAULT VALUES",bevat="MES-operationele bevoegdheid")
+            faalt("Operator kan geen lotvoorstel opslaan","SELECT planning_save_legacy_proposal(NULL,NULL,NULL)",bevat="MES-planningsbevoegdheid")
+            faalt("Stilstand kan niet op andermans naam","INSERT INTO stilstand(gemeld_door) VALUES ((SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'))",bevat="Ongeldige persoonlijke")
+            faalt("Overdracht kan niet op andermans naam","INSERT INTO overdracht(gebruiker_id) VALUES ((SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'))",bevat="Ongeldige persoonlijke")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
+        faalt("Directe systeemmelding geweigerd","INSERT INTO melding DEFAULT VALUES",bevat="permission denied")
+        faalt("Leesregistratie zonder bewijs geweigerd","INSERT INTO melding_gelezen DEFAULT VALUES",bevat="Geldig persoonlijk")
+        check("Geen directe meldingsinsert via kolomgrant",not val("SELECT has_any_column_privilege(current_user,'fabriek.melding','INSERT')"))
+        check("Configuratieguard niet rechtstreeks uitvoerbaar",not val("SELECT has_function_privilege(current_user,'fabriek.configuration_write_guard()','EXECUTE')"))
+        proof = val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        check("Persoonlijk engineeringbewijs beschikbaar",bool(proof))
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",(proof,))
+        try:
+            con.execute("UPDATE veld SET naam=naam WHERE code='S1.1'")
+            check("Engineeringwijziging persoonlijk geaudit",val("""SELECT actor_origin='personal' AND actor_user_id=(SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer')
+              FROM config_log WHERE tabel='veld' AND record_id=(SELECT id FROM veld WHERE code='S1.1') ORDER BY id DESC LIMIT 1"""))
+            faalt("Engineer heeft geen accountbeheer","INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-engineer-account','pending',wachtwoord_hash('demo-test'),true)",bevat="MES-configuratiebevoegdheid")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
+        for tabel in ("specificatie", "specificatie_regel", "certificaat", "instelling", "terugmelding"):
+            for recht in ("INSERT", "UPDATE"):
+                check(f"D101 {tabel}: geen {recht} via tabel- of kolomgrant",
+                      not val("SELECT has_any_column_privilege(current_user,%s,%s)",("fabriek."+tabel,recht)))
+            check(f"D101 {tabel}: geen DELETE",
+                  not val("SELECT has_table_privilege(current_user,%s,'DELETE')",("fabriek."+tabel,)))
+        faalt("Legacy-specificatiecreatie eigenaar-only","SELECT nieuwe_specificatie(NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Legacy-specificatievaststelling eigenaar-only","SELECT stel_specificatie_vast(NULL,NULL)",bevat="permission denied")
+        faalt("Meetwaarden niet rechtstreeks wijzigbaar","UPDATE waarde SET gemeten=0 WHERE false",bevat="permission denied")
+        faalt("Grondstofhistorie niet rechtstreeks wijzigbaar","UPDATE grondstof_gebruik SET partij='test' WHERE false",bevat="permission denied")
+        faalt("Lotmetadata niet rechtstreeks wijzigbaar","UPDATE lot SET lotnummer='L-2000-0001' WHERE false",bevat="permission denied")
+        faalt("Keuring niet rechtstreeks aanmaken","INSERT INTO keuring DEFAULT VALUES",bevat="permission denied")
+        faalt("Auditregels niet rechtstreeks aanmaakbaar","INSERT INTO config_log (tabel,record_id,actie) VALUES ('test',gen_random_uuid(),'INSERT')",bevat="permission denied")
+        check("Geen audit-insert via kolomgrant",not val("SELECT has_any_column_privilege(current_user,'fabriek.config_log','INSERT')"))
+        check("Geen audit-update via kolomgrant",not val("SELECT has_any_column_privilege(current_user,'fabriek.config_log','UPDATE')"))
+        check("Audittrigger niet rechtstreeks uitvoerbaar",not val("SELECT has_function_privilege(current_user,'fabriek.log_config()','EXECUTE')"))
+        check("Audittrigger draait met eigenaarrechten",val("SELECT prosecdef FROM pg_proc WHERE oid='fabriek.log_config()'::regprocedure"))
+        faalt("Auditregels niet rechtstreeks wijzigbaar","UPDATE config_log SET gewijzigd_door='test' WHERE false",bevat="permission denied")
+        check("Persoonlijke sessiebewijzen niet leesbaar",not val("SELECT has_any_column_privilege(current_user,'fabriek.execution_session','SELECT')"))
+        check("Securitybinding niet leesbaar",not val("SELECT has_any_column_privilege(current_user,'fabriek.authorization_channel_identity','SELECT')"))
+        check("Intrekking securitybinding niet leesbaar",not val("SELECT has_any_column_privilege(current_user,'fabriek.authorization_channel_identity_revocation','SELECT')"))
+        check("Wachtwoordhash niet leesbaar",not val("SELECT has_column_privilege(current_user,'fabriek.gebruiker','wachtwoord_hash','SELECT')"))
+        check("Sessiegeneratie blijft leesbaar",val("SELECT has_column_privilege(current_user,'fabriek.gebruiker','session_version','SELECT')"))
+        check("Actuele meetwaarden blijven leesbaar",val("SELECT has_table_privilege(current_user,'fabriek.waarde_actueel','SELECT')"))
+        check("Meetinvoer blijft beschikbaar",val("SELECT has_table_privilege(current_user,'fabriek.waarde','INSERT')"))
+        check("Geen rechtstreeks wijzigingsrecht op meldingen",not val("SELECT has_table_privilege(current_user,'fabriek.melding','UPDATE')"))
+        faalt("Tijdelijke batchcreatie zonder bewijs geweigerd","SELECT execution_create_legacy_batch(NULL,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Oude planningfunctie eigenaar-only","SELECT plan_batches(1,current_date,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Batchplanning zonder bewijs geweigerd","SELECT execution_plan_legacy_batches(1,current_date,NULL,NULL)",bevat="Geldig persoonlijk")
+        faalt("Direct batchbesluit geweigerd","INSERT INTO batch_besluit DEFAULT VALUES",bevat="permission denied")
+        faalt("Oude lotsamenstelling eigenaar-only","SELECT maak_lot(NULL,NULL,NULL,NULL,NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Blokkade zonder bewijs geweigerd","SELECT execution_batch_hold(NULL,'test')",bevat="Geldig persoonlijk")
+        faalt("Planning annuleren zonder bewijs geweigerd","SELECT execution_cancel_planned_batch(NULL,'test')",bevat="Geldig persoonlijk")
+        faalt("Oude loginwrapper eigenaar-only","SELECT login_with_session(NULL,NULL,NULL)",bevat="permission denied")
+        faalt("Oude login eigenaar-only","SELECT inloggen(NULL,NULL,NULL)",bevat="permission denied")
+        check("Gecontroleerde startfunctie beschikbaar",val("SELECT has_function_privilege(current_user,'fabriek.execution_step_start(text,uuid,uuid,uuid,uuid,uuid)','EXECUTE')"))
+        check("Geen impliciete PUBLIC-uitvoerrechten",val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+          WHERE n.nspname='fabriek' AND a.grantee=0 AND a.privilege_type='EXECUTE'""")==0)
+        faalt("Onderhoudsfunctie niet beschikbaar voor app","SELECT ruim_inlogpogingen_op()",bevat="permission denied")
+        faalt("Oude wachtwoordbevestiging eigenaar-only","SELECT change_password_confirmed(NULL,NULL,NULL)",bevat="permission denied")
+        check("Alle fabriekfuncties hebben expliciet veilig tijdelijk zoekpad",val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          WHERE n.nspname='fabriek' AND p.prokind='f' AND NOT EXISTS
+          (SELECT 1 FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c WHERE c LIKE 'search_path=%' AND c LIKE '%pg_temp')""")==0)
+        faalt("Oude wachtwoordwrapper eigenaar-only","SELECT change_password_session(NULL,1,NULL,NULL)",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    print("\nMES rollenregister en demo-bootstrap (D95)")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Oude kwaliteitsfunctie niet direct toegankelijk","SELECT beslis_keuring(NULL::uuid,'vrijgegeven',NULL,NULL::uuid,NULL)",bevat="permission denied")
+        faalt("Directe keuringupdate geweigerd","UPDATE keuring SET status='vrijgegeven' WHERE false",bevat="permission denied")
+        faalt("Directe besluitupdate geweigerd","UPDATE batch_besluit SET reden='test' WHERE false",bevat="permission denied")
+        check("Onbekende actor kan geen kwaliteitsbesluit nemen",val("SELECT quality_decision_confirmed(NULL,1,'batch',NULL,'vrijgegeven','test',NULL,'demo')")=="denied")
+    finally:
+        con.execute("RESET ROLE")
+    demo_operator = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.operator'")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Directe opdrachtinvoer geweigerd","INSERT INTO herbewerking(reden) VALUES ('test')",bevat="permission denied")
+        faalt("Directe opdrachtwijziging geweigerd","UPDATE herbewerking SET reden='test' WHERE false",bevat="permission denied")
+        faalt("Onbevestigde oude opdrachtfunctie geweigerd","SELECT maak_herbewerking('test','PS1','test',NULL::uuid)",bevat="permission denied")
+        faalt("Onbevestigde oude intrekking geweigerd","SELECT trek_herbewerking_in(NULL::uuid,'test',NULL::uuid)",bevat="permission denied")
+        check("Operator zonder opdrachtbevoegdheid geweigerd",one("SELECT * FROM rework_order_confirmed(%s,1,'test','PS1','test',NULL,'demo')",(demo_operator,))[0]=="denied")
+    finally:
+        con.execute("RESET ROLE")
+    check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
+    check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))
+
+    check("Dertien MES-rollen gedefinieerd", val("SELECT count(*) FROM authorization_role") == 13)
+    check("Twee persoonlijke security-identiteiten", val("SELECT count(DISTINCT g.user_id) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE g.role_code='security_administrator' AND u.actief AND NOT u.gedeeld AND NOT u.wachtwoord_wijzigen") == 2)
+    check("Security-identiteit heeft geen legacy beheerdersrol", val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam IN ('mes.security.a','mes.security.b') AND rol='beheerder'") == 0)
+    check("Supervisor met twee afzonderlijke grants", val("SELECT count(*) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE u.gebruikersnaam='mes.supervisor'") == 2)
+    sec_demo = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
+    check("Security heeft expliciet aanvraagrecht", val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
+    check("Security heeft geen onbekend productierecht", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (sec_demo,)))
+    # Simuleer een inconsistent gemigreerd account: beide beheerdomeinen weigeren.
+    conflicting = val("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'system_administrator') RETURNING id", (sec_demo,))
+    check("Gemengd beheer weigert securityrecht", not val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
+    check("Gemengd beheer weigert technisch recht", not val("SELECT authorization_permits(%s,'account.manage',NULL,NULL,NULL)", (sec_demo,)))
+    con.execute("DELETE FROM authorization_grant WHERE id=%s", (conflicting,))
+    check("Afzonderlijk securityrecht blijft beschikbaar", val("SELECT authorization_permits(%s,'authorization.request',NULL,NULL,NULL)", (sec_demo,)))
+
+    print("\\nMES autorisaties (uitbreidingsmodel)")
+    con.execute((ROOT / "db/rechten.sql").read_text())
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag bootstrap niet uitvoeren", "SELECT authorization_bootstrap_empty('test.sys','test-pass1','test.sec.a','test-pass2','test.sec.b','test-pass3','test')", bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    faalt("Bootstrap op bestaande database geweigerd", "SELECT authorization_bootstrap_empty('test.sys','test-pass1','test.sec.a','test-pass2','test.sec.b','test-pass3','test')", bevat="lege identiteitsadministratie")
+    auth_user = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
+    check("Geen automatische MES-bevoegdheid", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO authorization_role VALUES ('test_operator','operations'), ('test_technical','technical')")
+    con.execute("INSERT INTO authorization_permission VALUES ('execution.record','operations') ON CONFLICT DO NOTHING")
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_operator','execution.record')")
+    con.execute("INSERT INTO authorization_grant (user_id,role_code,area_code) VALUES (%s,'test_operator','A')", (auth_user,))
+    check("Recht binnen scope", val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    check("Recht buiten scope geweigerd", not val("SELECT authorization_permits(%s,'execution.record','B',NULL,NULL)", (auth_user,)))
+    check("Ontbrekende scope geweigerd", not val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO qualification VALUES ('test_training','Fictieve training')")
+    con.execute("INSERT INTO activity_qualification VALUES ('execution.record','test_training')")
+    check("Ontbrekende kwalificatie geweigerd", not val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO personnel_qualification (user_id,qualification_code) VALUES (%s,'test_training')", (auth_user,))
+    check("Geldige kwalificatie", val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    con.execute("INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_technical')", (auth_user,))
+    check("Functiescheiding bij gecombineerde rollen", not val("SELECT authorization_permits(%s,'execution.record','A',NULL,NULL)", (auth_user,)))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Applicatie kan geen oude rol bij accountcreatie toekennen", "INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_wijzigen) VALUES ('test-legacy-role','beheerder',true)", bevat="gecontroleerde roltoekenning")
+        faalt("Applicatie kan geen oude rol wijzigen", "UPDATE gebruiker SET rol='beheerder' WHERE id=%s", (auth_user,), "Oude rol")
+        faalt("Applicatie kan account niet gedeeld maken", "UPDATE gebruiker SET gedeeld=true WHERE id=%s", (auth_user,), "Oude rol")
+        check("Accountcreatie heeft begrensd kolomrecht", val("SELECT has_column_privilege(current_user,'fabriek.gebruiker','gebruikersnaam','INSERT')"))
+        check("Geen tabelbreed accountschrijfrecht", not val("SELECT has_table_privilege(current_user,'fabriek.gebruiker','UPDATE')"))
+        check("Sessiegeneratie niet direct schrijfbaar", not val("SELECT has_column_privilege(current_user,'fabriek.gebruiker','session_version','UPDATE')"))
+        check("Personeelskoppeling niet direct schrijfbaar", not val("SELECT has_column_privilege(current_user,'fabriek.operator','gebruiker_id','UPDATE')"))
+        faalt("Accountcreatie zonder persoonlijk bewijs geweigerd", "INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-pending','pending',wachtwoord_hash('demo-test'),true)", bevat="Geldig persoonlijk")
+        proof = val("SELECT session_proof FROM execution_session_login('mes.system','demo',NULL)")
+        check("Persoonlijk technisch bewijs beschikbaar", bool(proof))
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,false)",(proof,))
+        try:
+            pending = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-pending','pending',wachtwoord_hash('demo-test'),true) RETURNING id")
+            faalt("Technisch account heeft geen procesparameterbeheer","UPDATE veld SET naam=naam WHERE code='S1.1'",bevat="MES-configuratiebevoegdheid")
+        finally:
+            con.execute("RESET fabriek.execution_proof")
+        check("Nieuw account heeft geen beheerrecht", not val("SELECT authorization_permits(%s,'account.manage',NULL,NULL,NULL)", (pending,)))
+        faalt("Applicatie kan geen directe grant toevoegen", "INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_operator')", (auth_user,), "permission denied")
+        faalt("Applicatie kan geen kwalificaties wijzigen", "UPDATE personnel_qualification SET revoked_at=now()", bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+
+    print("\nMES vierogencontrole (eigenaar-only)")
+    sec_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='beheerder1'")
+    sec_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='planner1'")
+    target = val("SELECT id FROM gebruiker WHERE gebruikersnaam='operator.a'")
+    con.execute("INSERT INTO authorization_role VALUES ('test_security','security')")
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_security','authorization.request'), ('test_security','authorization.approve')")
+    con.execute("INSERT INTO authorization_grant (user_id,role_code) VALUES (%s,'test_security'),(%s,'test_security')", (sec_a,sec_b))
+    submit = "SELECT authorization_submit(%s,%s,'test_operator','A',NULL,NULL,now(),NULL,'Testaanvraag')"
+    decide = "SELECT authorization_decide(%s,%s,true,'Testbesluit')"
+    faalt("Geen eigen bevoegdheid aanvragen", submit, (sec_a,sec_a), "Geen bevoegdheid")
+    faalt("Onbevoegde aanvrager", submit, (target,sec_a), "Geen bevoegdheid")
+    req = val(submit, (sec_a,target))
+    faalt("Aanvrager mag niet zelf goedkeuren", decide, (sec_a,req), "Onafhankelijke")
+    faalt("Doelaccount mag niet goedkeuren", decide, (target,req), "Onafhankelijke")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag geen aanvraagfunctie uitvoeren", submit, (sec_a,target), "permission denied")
+        faalt("App mag geen besluitfunctie uitvoeren", decide, (sec_b,req), "permission denied")
+        faalt("App mag aanvraaginhoud niet wijzigen", "UPDATE authorization_request SET reason='gewijzigd'", bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    grant = val(decide, (sec_b,req))
+    check("Onafhankelijk besluit verleent exacte aangevraagde rol en scope",
+          val("SELECT count(*) FROM authorization_grant WHERE id=%s AND user_id=%s AND role_code='test_operator' AND area_code='A'", (grant,target)) == 1)
+    check("Aanvraag en besluit zijn gekoppeld", val("SELECT grant_id FROM authorization_decision WHERE request_id=%s", (req,)) == grant)
+    faalt("Geen tweede besluit", decide, (sec_b,req), "al beoordeeld")
+    conflict = val(submit, (sec_a,sec_b))
+    faalt("Functiescheiding: doelaccount kan niet goedkeuren", decide, (sec_b,conflict), "Onafhankelijke")
+    denied = val(submit, (sec_a,target))
+    check("Afwijzing maakt geen grant", val("SELECT authorization_decide(%s,%s,false,'Afgewezen')", (sec_b,denied)) is None)
+
+    # D89: technische app-login mag security-identiteiten niet overnemen.
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Applicatie kan geen wachtwoordhash lezen", "SELECT wachtwoord_hash FROM gebruiker", bevat="permission denied")
+        faalt("Productieaccount kan niet worden overgenomen", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (demo_operator,), "Kritisch account")
+        faalt("Technisch account kan niet worden uitgezet", "UPDATE gebruiker SET actief=false WHERE gebruikersnaam='mes.system'", bevat="Kritisch account")
+        faalt("Security-wachtwoordreset geblokkeerd", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (sec_a,), "Kritisch account")
+        faalt("Security-rolwijziging geblokkeerd", "UPDATE gebruiker SET rol='analist' WHERE id=%s", (sec_a,), "Oude rol")
+        faalt("Security-account hernoemen geblokkeerd", "UPDATE gebruiker SET gebruikersnaam='andere-naam' WHERE id=%s", (sec_a,), "Kritisch account")
+        faalt("App mag bevestigde besluitfunctie niet uitvoeren", "SELECT * FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,req), "permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    channel_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
+    channel_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
+    channel_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-channel','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    channel_submit = "SELECT * FROM authorization_channel_submit(%s,'operator',NULL,NULL,NULL,now(),NULL,'Testkanaal',%s)"
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Gewone app mag securitykanaal niet aanroepen",channel_submit,(channel_target,'demo'),"permission denied")
+        faalt("Gewone app mag bindingen niet lezen","SELECT * FROM authorization_channel_identity",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    con.execute("SET ROLE mes_security_channel")
+    try:
+        faalt("Groepsrol zonder persoonlijke login is onvoldoende",channel_submit,(channel_target,'demo'),"Geen gebonden")
+        faalt("Securitykanaal mag geen directe grants schrijven","INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(channel_target,),"permission denied")
+        faalt("Securitykanaal mag geen actor opgeven","SELECT * FROM authorization_channel_submit(%s,%s,'operator',NULL,NULL,NULL,now(),NULL,'Test','demo')",(channel_a,channel_target),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    # Uitsluitend fictieve rollen; SET SESSION AUTHORIZATION simuleert de oorspronkelijke login.
+    # De eigenaar is in deze tijdelijke testdatabase superuser.
+    import uuid
+    suffix = uuid.uuid4().hex[:12]
+    role_a, role_b, role_c = "mes_test_sec_a_"+suffix, "mes_test_sec_b_"+suffix, "mes_test_sec_c_"+suffix
+    try:
+        for role, actor in [(role_a,channel_a),(role_b,channel_b)]:
+            con.execute(f"CREATE ROLE {role} LOGIN IN ROLE mes_security_channel")
+            val("SELECT authorization_channel_bind(%s::name,%s,'Fictieve test')",(role,actor))
+        # D100: directe rechten die na binding ontstaan mogen niet ongemerkt blijven.
+        for acl_grant_sql, acl_revoke_sql in (
+            ("GRANT SELECT(wachtwoord_hash) ON fabriek.gebruiker TO", "REVOKE SELECT(wachtwoord_hash) ON fabriek.gebruiker FROM"),
+            ("GRANT EXECUTE ON FUNCTION fabriek.execution_session_login(text,text,text) TO", "REVOKE EXECUTE ON FUNCTION fabriek.execution_session_login(text,text,text) FROM"),
+            ("GRANT CREATE ON SCHEMA public TO", "REVOKE CREATE ON SCHEMA public FROM"),
+        ):
+            con.execute(f"{acl_grant_sql} {role_a}")
+            try:
+                faalt("D100 installatie weigert extra persoonlijk recht", rechten_sql,
+                      bevat="Onveilige persoonlijke MES-databaserol")
+                con.execute(f"SET SESSION AUTHORIZATION {role_a}")
+                try:
+                    faalt("D100 securitykanaal weigert extra persoonlijk recht",
+                          "SELECT * FROM authorization_channel_requests()", bevat="Geen gebonden")
+                finally:
+                    con.execute("RESET SESSION AUTHORIZATION")
+            finally:
+                con.execute(f"{acl_revoke_sql} {role_a}")
+        con.execute(rechten_sql)
+        con.execute(f"SET SESSION AUTHORIZATION {role_a}")
+        check("Onjuiste herbevestiging weigert aanvraag",one(channel_submit,(channel_target,'onjuist'))[0]=="denied")
+        status, channel_request = one(channel_submit,(channel_target,'demo'))
+        check("Bevestigde aanvraag via gebonden kanaal",status=="submitted")
+        channel_decide = "SELECT * FROM authorization_channel_decide(%s,true,'Testbesluit',%s)"
+        faalt("Geen eigen aanvraag goedkeuren",channel_decide,(channel_request,'demo'),"Onafhankelijke")
+        con.execute("RESET SESSION AUTHORIZATION")
+        con.execute(f"SET SESSION AUTHORIZATION {role_b}")
+        check("Exacte aanvraag leesbaar",val("SELECT count(*) FROM authorization_channel_requests() WHERE request_id=%s AND requested_by=%s",(channel_request,channel_a))==1)
+        status, channel_grant = one(channel_decide,(channel_request,'demo'))
+        check("Onafhankelijk besluit via gebonden kanaal",status=="decided" and channel_grant is not None)
+        check("Bevestigde intrekking via gebonden kanaal",val("SELECT authorization_channel_revoke(%s,'Testintrekking','demo')",(channel_grant,))=="revoked")
+        check("Ingetrokken grant blijft leesbaar",val("SELECT count(*) FROM authorization_channel_grants() WHERE grant_id=%s AND revoked_at IS NOT NULL",(channel_grant,))==1)
+        faalt("Kanaal mag eigen binding niet intrekken","SELECT authorization_channel_unbind(%s::name,'Test')",(role_b,),"permission denied")
+        con.execute("RESET SESSION AUTHORIZATION")
+        con.execute(f"CREATE ROLE {role_c} LOGIN IN ROLE mes_security_channel")
+        faalt("Geen tweede actieve binding","SELECT authorization_channel_bind(%s::name,%s,'Fictieve test')",(role_c,channel_a),"actieve binding")
+        val("SELECT authorization_channel_unbind(%s::name,'Fictieve intrekking')",(role_a,))
+        con.execute(f"SET SESSION AUTHORIZATION {role_a}")
+        faalt("Ingetrokken login kan niet meer lezen","SELECT * FROM authorization_channel_requests()",bevat="Geen gebonden")
+        con.execute("RESET SESSION AUTHORIZATION")
+        val("SELECT authorization_channel_bind(%s::name,%s,'Fictieve vervanging')",(role_c,channel_a))
+        con.execute(f"SET SESSION AUTHORIZATION {role_c}")
+        check("Vervangende login kan lezen",val("SELECT count(*) FROM authorization_channel_requests() WHERE request_id=%s",(channel_request,))==1)
+        con.execute("RESET SESSION AUTHORIZATION")
+        check("Historische binding en intrekking blijven bewaard",val("SELECT count(*) FROM authorization_channel_identity i JOIN authorization_channel_identity_revocation v USING(database_role_oid) WHERE i.user_id=%s",(channel_a,))==1)
+    finally:
+        con.execute("RESET SESSION AUTHORIZATION")
+        con.execute(f"DROP ROLE IF EXISTS {role_a}")
+        con.execute(f"DROP ROLE IF EXISTS {role_b}")
+        con.execute(f"DROP ROLE IF EXISTS {role_c}")
+    personnel_manager = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.manager'")
+    personnel_system = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.system'")
+    check("Manufacturing Manager heeft personeelsbeheer", val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_manager,)))
+    check("Technisch beheer heeft geen personeelsbeheer", not val("SELECT authorization_permits(%s,'personnel.manage',NULL,NULL,NULL)",(personnel_system,)))
+    unlinked = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-unlinked','operator',wachtwoord_hash('demo-test')) RETURNING id")
+    check("Loginprojectie maakt geen persoon aan", val("SELECT operator_van_account(%s)",(unlinked,)) is None)
+    check("Geen nieuwe personeelskoppeling", val("SELECT count(*) FROM operator WHERE gebruiker_id=%s",(unlinked,)) == 0)
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag personeelskoppeling niet wijzigen", "UPDATE operator SET gebruiker_id=%s WHERE gebruiker_id=%s",(unlinked,demo_operator),"permission denied")
+        faalt("App mag gekoppelde persoon niet aanmaken", "INSERT INTO operator(naam,gebruiker_id) VALUES ('test-koppeling',%s)",(unlinked,),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    # 0085: eerste personeelskoppeling, onafhankelijke herbevestiging en audit.
+    link_person = val("INSERT INTO operator(naam) VALUES ('Test persoonlijke koppeling 0085') RETURNING id")
+    link_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-link-target','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    link_manager = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-link-manager','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    link_security = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-link-security','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'manufacturing_manager'),(%s,'security_administrator')",(link_manager,link_security))
+    link_sql = "SELECT authorization_link_personnel_confirmed(%s,%s,%s,%s,'Fictieve identiteitscontrole',%s,%s)"
+    link_args = (link_person,link_target,link_manager,link_security,'demo-test','demo-test')
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App kan gecontroleerde koppeling niet aanroepen",link_sql,link_args,"permission denied")
+        faalt("App kan geen koppelbewijs fabriceren","INSERT INTO authorization_personnel_link DEFAULT VALUES",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    faalt("Personeelskoppeling vereist onafhankelijkheid",link_sql,(link_person,link_target,link_manager,link_manager,'demo-test','demo-test'),"Onafhankelijke")
+    faalt("Securitybeheerder vervangt personeelsbeheerder niet",link_sql,(link_person,link_target,link_security,link_manager,'demo-test','demo-test'),"Onafhankelijke bevoegde")
+    check("Verkeerde herbevestiging weigert koppeling",val(link_sql,(*link_args[:5],'onjuist'))=="denied")
+    check("Geweigerde koppeling laat identiteit en audit intact",val("SELECT gebruiker_id FROM operator WHERE id=%s",(link_person,)) is None and val("SELECT count(*) FROM authorization_personnel_link WHERE personnel_id=%s",(link_person,))==0)
+    check("Onafhankelijk bevestigde eerste koppeling slaagt",val(link_sql,link_args)=="linked")
+    check("Loginprojectie gebruikt gekoppelde personeels-ID",val("SELECT operator_van_account(%s)",(link_target,))==link_person)
+    check("Audit bewaart beide persoonlijke verantwoordelijken",val("SELECT count(*) FROM authorization_personnel_link WHERE personnel_id=%s AND user_id=%s AND requested_by=%s AND approved_by=%s",link_args[:4])==1)
+    check("Koppeling verleent geen MES-grants",val("SELECT count(*) FROM authorization_grant WHERE user_id=%s",(link_target,))==0)
+    faalt("Bestaande koppeling niet overschrijven",link_sql,link_args,"Uitsluitend eerste")
+    faalt("Koppelbewijs onveranderlijk","UPDATE authorization_personnel_link SET reason='gewijzigd' WHERE personnel_id=%s",(link_person,),"onveranderlijk")
+
+    # 0086: operationele kwalificatie, twee inhoudelijke beoordelaars, intrekking.
+    qual_manager = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-qual-manager','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'manufacturing_manager')",(qual_manager,))
+    con.execute("INSERT INTO authorization_permission VALUES ('test.qualified.activity','operations')")
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_operator','test.qualified.activity')")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'test_operator')",(link_target,))
+    con.execute("INSERT INTO qualification VALUES ('test_0086','Fictieve kwalificatie 0086'),('test_0086_unknown','Niet geclassificeerd')")
+    con.execute("INSERT INTO activity_qualification VALUES ('test.qualified.activity','test_0086')")
+    issue_sql = "SELECT * FROM qualification_issue_confirmed(%s,%s,now()-interval '1 minute',now()+interval '1 day',%s,%s,'Fictief bewijs',%s,%s)"
+    issue_args = (link_target,'test_0086',link_manager,qual_manager,'demo-test','demo-test')
+    check("0086 Zonder kwalificatie geen activiteit",not val("SELECT authorization_permits(%s,'test.qualified.activity',NULL,NULL,NULL)",(link_target,)))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("0086 App mag kwalificatie niet toekennen",issue_sql,issue_args,"permission denied")
+        faalt("0086 App mag geen bewijs fabriceren","INSERT INTO qualification_issue DEFAULT VALUES",bevat="permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    faalt("0086 Geen eigen of dubbele beoordeling",issue_sql,(link_target,'test_0086',link_manager,link_manager,'demo-test','demo-test'),"Onafhankelijke")
+    faalt("0086 Security beoordeelt geen vakbekwaamheid",issue_sql,(link_target,'test_0086',link_manager,link_security,'demo-test','demo-test'),"inhoudelijk")
+    faalt("0086 Ongeclassificeerde kwalificatie geweigerd",issue_sql,(link_target,'test_0086_unknown',link_manager,qual_manager,'demo-test','demo-test'),"geclassificeerde")
+    check("0086 Onjuiste bevestiging geweigerd",one(issue_sql,(*issue_args[:5],'onjuist'))==('denied',None))
+    check("0086 Geen kwalificatie na geweigerde bevestiging",val("SELECT count(*) FROM personnel_qualification WHERE user_id=%s AND qualification_code='test_0086'",(link_target,))==0)
+    qual_status, qual_id=one(issue_sql,issue_args)
+    check("0086 Onafhankelijke toekenning slaagt",qual_status=='issued' and qual_id is not None)
+    check("0086 Kwalificatie geeft toegang uitsluitend met grant",val("SELECT authorization_permits(%s,'test.qualified.activity',NULL,NULL,NULL)",(link_target,)))
+    check("0086 Bewijs koppelt beide beoordelaars",val("SELECT count(*) FROM qualification_issue WHERE qualification_id=%s AND requested_by=%s AND approved_by=%s",(qual_id,link_manager,qual_manager))==1)
+    faalt("0086 Overlap geweigerd",issue_sql,issue_args,"Overlappende")
+    revoke_q="SELECT qualification_revoke_confirmed(%s,%s,'Fictieve intrekking',%s)"
+    faalt("0086 Geen zelfintrekking",revoke_q,(qual_id,link_target,'demo-test'),"Onafhankelijke")
+    check("0086 Verkeerd wachtwoord trekt niet in",val(revoke_q,(qual_id,link_manager,'onjuist'))=='denied')
+    check("0086 Intrekking slaagt",val(revoke_q,(qual_id,link_manager,'demo-test'))=='revoked')
+    check("0086 Ingetrokken kwalificatie weigert activiteit",not val("SELECT authorization_permits(%s,'test.qualified.activity',NULL,NULL,NULL)",(link_target,)))
+    check("0086 Intrekking bewaart oorspronkelijke kwalificatie",val("SELECT count(*) FROM personnel_qualification q JOIN qualification_revocation r ON r.qualification_id=q.id AND r.revoked_at=q.revoked_at WHERE q.id=%s",(qual_id,))==1)
+    faalt("0086 Toekenningsbewijs onveranderlijk","UPDATE qualification_issue SET evidence='x' WHERE qualification_id=%s",(qual_id,),"onveranderlijk")
+    faalt("0086 Intrekkingsbewijs onveranderlijk","DELETE FROM qualification_revocation WHERE qualification_id=%s",(qual_id,),"onveranderlijk")
+
+    recovery_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-recovery','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    recovery_a = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.a'")
+    recovery_b = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.security.b'")
+    check("Hersteldiagnose telt onafhankelijke paren", val("SELECT independent_pairs FROM authorization_recovery_readiness(%s)",(recovery_target,)) >= 2)
+    check("Doelaccount uitgesloten bij hersteldiagnose", val("SELECT independent_pairs FROM authorization_recovery_readiness(%s)",(recovery_a,)) < val("SELECT independent_pairs FROM authorization_recovery_readiness(%s)",(recovery_target,)))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Gewone app mag hersteldiagnose niet uitvoeren", "SELECT * FROM authorization_recovery_readiness(%s)",(recovery_target,),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    recover = "SELECT authorization_recover_confirmed(%s,%s,%s,'Fictief herstel',%s,%s,'tijdelijk-herstel')"
+    faalt("Herstel vereist twee verschillende beoordelaars", recover, (recovery_target,recovery_a,recovery_a,'demo','demo'), "Onafhankelijke")
+    faalt("Herstel vereist onafhankelijke doelidentiteit", recover, (recovery_a,recovery_a,recovery_b,'demo','demo'), "Onafhankelijke")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag herstel niet uitvoeren", recover, (recovery_target,recovery_a,recovery_b,'demo','demo'), "permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    check("Verkeerde herbevestiging weigert herstel", val(recover,(recovery_target,recovery_a,recovery_b,'demo','onjuist')) == "denied")
+    check("Geen herstelrecord bij geweigerde herbevestiging", val("SELECT count(*) FROM authorization_recovery WHERE user_id=%s",(recovery_target,)) == 0)
+    before_recovery = val("SELECT session_version FROM gebruiker WHERE id=%s",(recovery_target,))
+    check("Onafhankelijk herbevestigd herstel slaagt", val(recover,(recovery_target,recovery_a,recovery_b,'demo','demo')) == "recovered")
+    check("Herstel trekt sessiegeneratie in", val("SELECT session_version FROM gebruiker WHERE id=%s",(recovery_target,)) == before_recovery+1)
+    check("Oude generatie kan wachtwoord niet wijzigen", val("SELECT status FROM change_password_session(%s,%s,'tijdelijk-herstel','persoonlijk-test')",(recovery_target,before_recovery)) == "stale")
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Applicatie mag generatie niet terugzetten", "UPDATE gebruiker SET session_version=1 WHERE id=%s",(recovery_target,),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    check("Herstel vereist persoonlijk wachtwoord kiezen", val("SELECT wachtwoord_wijzigen FROM gebruiker WHERE id=%s",(recovery_target,)))
+    check("Herstelrecord koppelt exacte identiteit en beoordelaars", val("SELECT count(*) FROM authorization_recovery WHERE user_id=%s AND requested_by=%s AND approved_by=%s",(recovery_target,recovery_a,recovery_b)) == 1)
+    faalt("Herstelrecord onveranderlijk", "UPDATE authorization_recovery SET reason='gewijzigd' WHERE user_id=%s",(recovery_target,),"onveranderlijk")
+    # Ook een nog niet geldige grant beschermt de identiteit.
+    future_user = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('test-future','pending',wachtwoord_hash('demo-test')) RETURNING id")
+    con.execute("INSERT INTO authorization_grant(user_id,role_code,valid_from) VALUES (%s,'operator',now()+interval '1 day')", (future_user,))
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("Toekomstige grant beschermt wachtwoord", "UPDATE gebruiker SET wachtwoord_hash=wachtwoord_hash('nieuw-test') WHERE id=%s", (future_user,), "Kritisch account")
+        generation = val("SELECT session_version FROM gebruiker WHERE id=%s", (future_user,))
+        check("Eigen bevestigde wachtwoordwijziging blijft mogelijk", val("SELECT status FROM execution_session_change_password(%s,%s,'demo-test','persoonlijk-test')", (future_user,generation)) == "changed")
+    finally:
+        con.execute("RESET ROLE")
+    temporary_target = val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash,wachtwoord_wijzigen) VALUES ('test-temp-grant','pending',wachtwoord_hash('demo-test'),true) RETURNING id")
+    temporary_request = val(submit, (sec_a,temporary_target))
+    faalt("Geen grant bij tijdelijk wachtwoord", decide, (sec_b,temporary_request), "Ongeldig persoonlijk doelaccount")
+    confirm_req = val(submit, (sec_a,target))
+    check("Onjuist wachtwoord verleent geen bevoegdheid",
+          val("SELECT status FROM authorization_decide_confirmed(%s,%s,true,'Test','onjuist')", (sec_b,confirm_req)) == "denied")
+    check("Mislukte herbevestiging heeft geen besluit",
+          val("SELECT count(*) FROM authorization_decision WHERE request_id=%s", (confirm_req,)) == 0)
+    check("Persoonlijke herbevestiging beslist exacte aanvraag",
+          val("SELECT status FROM authorization_decide_confirmed(%s,%s,true,'Test','demo')", (sec_b,confirm_req)) == "decided")
+    check("Bevestigd besluit bewaard", val("SELECT count(*) FROM authorization_decision WHERE request_id=%s AND decided_by=%s", (confirm_req,sec_b)) == 1)
+    con.execute("INSERT INTO authorization_role_permission VALUES ('test_security','authorization.revoke')")
+    revoke = "SELECT authorization_revoke_confirmed(%s,%s,'Testintrekking',%s)"
+    faalt("Onbevoegde intrekking geweigerd", revoke, (target,grant,"demo"), "Geen bevoegdheid")
+    check("Verkeerd wachtwoord trekt geen grant in", val(revoke,(sec_b,grant,"onjuist")) == "denied")
+    check("Grant nog geldig na mislukte herbevestiging", val("SELECT revoked_at FROM authorization_grant WHERE id=%s",(grant,)) is None)
+    con.execute("SET ROLE mes_app")
+    try:
+        faalt("App mag intrekking niet rechtstreeks uitvoeren", revoke,(sec_b,grant,"demo"),"permission denied")
+    finally:
+        con.execute("RESET ROLE")
+    check("Bevestigde intrekking slaagt", val(revoke,(sec_b,grant,"demo")) == "revoked")
+    check("Intrekking behoudt grant en auditspoor", val("SELECT count(*) FROM authorization_revocation r JOIN authorization_grant g ON g.id=r.grant_id AND g.revoked_at=r.revoked_at WHERE r.grant_id=%s AND r.revoked_by=%s",(grant,sec_b)) == 1)
+    faalt("Dubbele intrekking geweigerd",revoke,(sec_b,grant,"demo"),"al ingetrokken")
+    faalt("Besluit kan niet worden gewijzigd","UPDATE authorization_decision SET reason='gewijzigd' WHERE request_id=%s",(req,),"onveranderlijk")
+    faalt("Aanvraag kan niet worden verwijderd","DELETE FROM authorization_request WHERE id=%s",(req,),"onveranderlijk")
+    faalt("Intrekking kan niet worden gewijzigd","UPDATE authorization_revocation SET reason='gewijzigd' WHERE grant_id=%s",(grant,),"onveranderlijk")
+    # Ruim testgrants niet op: trek ze in zodat bestaande regressies niet door
+    # fictieve security-rechten worden beïnvloed en het testspoor bewaard blijft.
+    con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE role_code='test_security'")
+
     pc = val("SELECT id FROM pc WHERE naam = 'PC-01'")
     op = val("SELECT id FROM operator WHERE naam = 'Operator A'")
     pl = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'ploegleider1'")
     op_account = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator'")
     kw = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'kwaliteit1'")
+    mes_corrector = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.supervisor'")
+    mes_quality_decider = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.quality.approver'")
+
     bh = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'beheerder1'")
     veld = {code: vid for code, vid in con.execute("SELECT code, id FROM veld")}
     soort = {code: s for code, s in con.execute("SELECT code, soort FROM veld")}
@@ -135,9 +732,13 @@ def main():
     faalt("Grondstofregel wijzigen kan niet", "UPDATE grondstof_gebruik SET partij = 'X' WHERE id = %s", (gid,), "niet gewijzigd")
     faalt("Correctie van een grondstof door kwaliteit kan niet",
           "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
-          (reg, gs["GS-A"], gid, kw), "ploegleider")
+          (reg, gs["GS-A"], gid, kw), "MES-correctiebevoegdheid")
+    faalt("D101 oude ploegleider zonder MES-grant corrigeert geen grondstof",
+          "INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
+          (reg, gs["GS-A"], gid, pl), "MES-correctiebevoegdheid")
+    con.execute("UPDATE gebruiker SET rol='pending' WHERE id=%s", (mes_corrector,))
     con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, vervangt_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,'P-3',%s,'tikfout',%s)",
-                (reg, gs["GS-A"], gid, pl))
+                (reg, gs["GS-A"], gid, mes_corrector))
     check("Correctie door ploegleider: actuele partij is P-3",
           val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s", (reg,)) == "P-3")
     faalt("PS1 herhalen zonder herbewerking", "SELECT start_stap('PS1', %s, NULL, %s, %s)", (b[0], pc, op), "al doorlopen")
@@ -165,35 +766,38 @@ def main():
     doorloop(b[4], 1, 15)
     faalt("Operator-account mag geen besluit vastleggen",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','twijfel',%s)",
-          (b[4], op_account), "of Kwaliteit mag een batch in beoordeling")
+          (b[4], op_account), "MES-blokkeerbevoegdheid")
+    faalt("D101 oude kwaliteitsrol zonder grant mag geen batch blokkeren",
+          "INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'in_beoordeling','test',%s)",
+          (b[4],kw),"MES-blokkeerbevoegdheid")
     faalt("Keurresultaat zonder eerst in beoordeling",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','x',%s)",
-          (b[4], kw), "in beoordeling")
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','kleur wijkt af',%s)", (b[4], pl))
+          (b[4], mes_quality_decider), "in beoordeling")
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','kleur wijkt af',%s)", (b[4], mes_corrector))
     faalt("Batch in beoordeling kan niet in een lot",
           "SELECT maak_lot('L-2026-0001', %s, %s, %s)", ([b[0], b[1], b[2], b[4]], pc, op), "status in_beoordeling")
     faalt("Ploegleider mag geen keurresultaat invoeren",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','x',%s)",
-          (b[4], pl), "Alleen Kwaliteit")
+          (b[4], mes_corrector), "MES-batchbeslisbevoegdheid")
     faalt("Beheerder mag geen keurresultaat invoeren",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','x',%s)",
-          (b[4], bh), "Alleen Kwaliteit")
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','NOK: afvoeren',%s)", (b[4], kw))
+          (b[4], bh), "MES-batchbeslisbevoegdheid")
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','NOK: afvoeren',%s)", (b[4], mes_quality_decider))
     check("Afgekeurde batch heeft status afgekeurd", val("SELECT status FROM batch WHERE id=%s", (b[4],)) == "afgekeurd")
     faalt("Afgekeurde batch kan niet meer vrijgegeven worden",
           "INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','x',%s)",
-          (b[4], kw), "geen besluit meer")
+          (b[4], mes_quality_decider), "geen besluit meer")
     # Kwaliteit mag ook in beoordeling zetten; OK geeft de batch weer vrij.
     doorloop(b[5], 1, 1)
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','steekproef',%s)", (b[5], kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','steekproef',%s)", (b[5], mes_quality_decider))
     faalt("Batch in beoordeling kan niet naar de volgende stap", "SELECT start_stap('PS2', %s, NULL, %s, %s)", (b[5], pc, op), "in_beoordeling")
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','OK',%s)", (b[5], kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'vrijgegeven','OK',%s)", (b[5], mes_quality_decider))
     check("Keurresultaat OK: batch weer in productie", val("SELECT status FROM batch WHERE id=%s", (b[5],)) == "in_productie")
     reg2 = val("SELECT start_stap('PS2', %s, NULL, %s, %s)", (b[5], pc, op))
     check("Na OK kan de batch door naar de volgende stap", reg2 is not None)
     # NOK terwijl PS2 open staat: die stap wordt afgebroken.
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','tweede steekproef',%s)", (b[5], pl))
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','vervuild',%s)", (b[5], kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','tweede steekproef',%s)", (b[5], mes_corrector))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','vervuild',%s)", (b[5], mes_quality_decider))
     st, reden, eind = one("SELECT status, reden, afgerond_op FROM stapregistratie WHERE id=%s", (reg2,))
     check("NOK sluit de open stap af als afgebroken", st == "afgebroken" and reden == "Batch afgekeurd: vervuild" and eind is not None, f"{st} {reden}")
     faalt("Afgebroken stap kan niet meer worden afgerond", "SELECT rond_stap_af(%s)", (reg2,), "al afgerond")
@@ -228,7 +832,21 @@ def main():
     faalt("Herbewerking zonder reden",
           "SELECT start_herbewerking(%s, 'PS17', '', %s, %s)", (lot, pc, op), "check")
     faalt("Herbewerking naar een batchstap", "SELECT start_herbewerking(%s, 'PS10', 'x', %s, %s)", (lot, pc, op), "lot-stap")
+    faalt("Opdrachtloze herbewerking geweigerd","SELECT start_herbewerking(%s, 'PS17', 'te nat na verpakken', %s, %s)",(lot,pc,op),"Vooraf geregistreerde")
+    check("Geweigerde herbewerking laat lot gereed",val("SELECT status FROM lot WHERE id=%s",(lot,))=="gereed")
+    rework_approver = mes_quality_decider
+    first_order = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id=%s),'PS17','te nat na verpakken',%s)",(lot,rework_approver))
+    faalt("Afwijkende reden bij opdracht geweigerd","SELECT start_herbewerking(%s,'PS17','andere reden',%s,%s)",(lot,pc,op),"Vooraf geregistreerde")
+    # De historische fictieve Operator A krijgt geen impliciete MES-rechten.
+    faalt("Operator zonder actuele uitvoeringsbevoegdheid geweigerd",
+          "SELECT start_herbewerking(%s,'PS17','te nat na verpakken',%s,%s)",(lot,pc,op),"uitvoeringsbevoegdheid")
+    check("Geweigerde uitvoering consumeert opdracht niet",
+          val("SELECT status FROM herbewerking WHERE id=%s",(first_order,))=="open")
+    # Expliciete fixturegrant door eigenaar, uitsluitend voor deze fictieve test.
+    rework_fixture_user = val("SELECT gebruiker_id FROM operator WHERE id=%s",(op,))
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(rework_fixture_user,))
     h17 = val("SELECT start_herbewerking(%s, 'PS17', 'te nat na verpakken', %s, %s)", (lot, pc, op))
+    check("Vooraf bestaande opdracht gekoppeld",val("SELECT stapregistratie_id FROM herbewerking WHERE id=%s",(first_order,))==h17)
     check("Herbewerking zet het lot terug in productie", val("SELECT status FROM lot WHERE id=%s", (lot,)) == "in_productie")
     check("Herbewerking PS17 is poging 2", val("SELECT poging FROM stapregistratie WHERE id=%s", (h17,)) == 2)
     faalt("PS18 voordat herbewerkte PS17 is afgerond", "SELECT start_stap('PS18', NULL, %s, %s, %s)", (lot, pc, op), "PS17 moet eerst afgerond")
@@ -252,12 +870,15 @@ def main():
     faalt("Stapregistratie verwijderen kan niet", "DELETE FROM stapregistratie WHERE id=%s", (h18,), "niet verwijderd")
     faalt("Operator-account mag niet corrigeren",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'tikfout',%s)",
-          (h18, veld["S18.2"], w_oud, op_account), "ploegleider")
+          (h18, veld["S18.2"], w_oud, op_account), "MES-correctiebevoegdheid")
+    faalt("D101 oude beheerder zonder inhoudelijke MES-grant corrigeert niet",
+          "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'tikfout',%s)",
+          (h18, veld["S18.2"], w_oud, bh), "MES-correctiebevoegdheid")
     faalt("Correctie zonder reden",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'',%s)",
-          (h18, veld["S18.2"], w_oud, pl), "check")
+          (h18, veld["S18.2"], w_oud, mes_corrector), "check")
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) VALUES (%s,%s,1650,%s,'tikfout',%s)",
-                (h18, veld["S18.2"], w_oud, pl))
+                (h18, veld["S18.2"], w_oud, mes_corrector))
     check("Actuele waarde is de correctie", val("SELECT gemeten FROM waarde_actueel WHERE stapregistratie_id=%s AND veld_id=%s", (h18, veld["S18.2"])) == 1650)
     check("Origineel blijft opvraagbaar", val("SELECT gemeten FROM waarde WHERE id=%s", (w_oud,)) == 1640)
 
@@ -267,7 +888,11 @@ def main():
     con.execute("SELECT set_config('fabriek.gebruiker', 'beheerder1', false)")
     con.execute("UPDATE veld SET tolerantie = 8 WHERE code='S1.1'")
     check("Grenswijziging staat in het logboek",
-          val("SELECT count(*) FROM config_log WHERE actie='UPDATE' AND gewijzigd_door='beheerder1'") == 1)
+          val("SELECT gewijzigd_door FROM config_log WHERE tabel='veld' AND record_id=%s ORDER BY id DESC LIMIT 1", (veld["S1.1"],)) == "[niet persoonlijk bewezen]")
+    check("Onbewezen audit heeft geen persoonlijke ID",
+          one("SELECT actor_origin, actor_user_id FROM config_log WHERE tabel='veld' AND record_id=%s ORDER BY id DESC LIMIT 1", (veld["S1.1"],)) == ("unverified", None))
+    faalt("Persoonlijke audit vereist een stabiele ID",
+          "INSERT INTO config_log(tabel,record_id,actie,actor_origin) VALUES ('test',gen_random_uuid(),'INSERT','personal')", (), "config_log_actor_origin_check")
     check("Oude meting houdt de tolerantie van toen (5)",
           val("SELECT tolerantie FROM waarde WHERE veld_id=%s ORDER BY ingevoerd_op LIMIT 1", (veld["S1.1"],)) == 5)
 
@@ -275,7 +900,23 @@ def main():
     con.execute("UPDATE gebruiker SET wachtwoord_hash = public.crypt('nieuw-ww', public.gen_salt('bf')) WHERE gebruikersnaam = 'analist1'")
     log = one("SELECT nieuw FROM config_log WHERE tabel = 'gebruiker' ORDER BY id DESC LIMIT 1")[0]
     check("Wachtwoordwijziging gelogd zonder hash", log.get("wachtwoord") == "gewijzigd" and "wachtwoord_hash" not in log)
-    faalt("Laatste beheerder kan niet weg", "UPDATE gebruiker SET actief = false WHERE gebruikersnaam = 'beheerder1'", (), "minstens één actieve beheerder")
+    # D101: oude rol is geen beschikbaarheidsvoorwaarde. Eigenaar-fixture
+    # deactiveert legacy-identiteiten zonder historische records te verwijderen.
+    # MES-grant blijft onafhankelijk van legacy-rol; rollback bewaart fixtures.
+    con.execute("BEGIN")
+    try:
+        con.execute("UPDATE gebruiker SET rol='pending' WHERE gebruikersnaam='mes.system'")
+        check("System Administrator zonder legacy beheerdersrol behoudt expliciete MES-bevoegdheid",
+              val("SELECT authorization_permits(id,'system.read',NULL,NULL,NULL) FROM gebruiker WHERE gebruikersnaam='mes.system'"))
+        con.execute("UPDATE gebruiker SET actief=false WHERE rol='beheerder'")
+        check("Geen actieve legacy-beheerder vereist",
+              val("SELECT count(*) FROM gebruiker WHERE rol='beheerder' AND actief") == 0)
+        check("Oude beheerdersidentiteit historisch behouden",
+              val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam='beheerder1'") == 1)
+        check("MES-technische bevoegdheid blijft beschikbaar zonder legacy-beheerder",
+              val("SELECT authorization_permits(id,'system.read',NULL,NULL,NULL) FROM gebruiker WHERE gebruikersnaam='mes.system'"))
+    finally:
+        con.execute("ROLLBACK")
     faalt("Gebruikersnaam verandert niet", "UPDATE gebruiker SET gebruikersnaam = 'x' WHERE gebruikersnaam = 'analist1'", (), "verandert niet")
     pc2 = val("SELECT id FROM pc WHERE naam = 'PC-02'")
     ps1 = val("SELECT id FROM processtap WHERE code = 'PS1'")
@@ -438,7 +1079,7 @@ def main():
     op_c = val("SELECT id FROM operator WHERE naam = 'Operator C'")
     pc1 = val("SELECT id FROM pc WHERE naam = 'PC-01'")
     pc2 = val("SELECT id FROM pc WHERE naam = 'PC-02'")
-    check("Gedeeld account heeft geen eigen naam (kiest er een)", val("SELECT operator_van_account(%s)", (gedeeld,)) is None)
+    check("Gedeeld account heeft geen eigen naam", val("SELECT operator_van_account(%s)", (gedeeld,)) is None)
     check("Eigen account geeft zijn gekoppelde naam", val("SELECT operator_van_account(%s)", (acc_a,)) == op_a)
     pl_op = val("SELECT operator_van_account(%s)", (pl,))
     check("Ploegleider zonder naam krijgt er een, met de gebruikersnaam",
@@ -449,13 +1090,13 @@ def main():
     check("Eigen naam: mag", val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_a, pc1)))
     check("Naam van een ander zonder inlog op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
     con.execute("SELECT * FROM inloggen('operator.b', 'demo', 'PC-01')")
-    check("Wachtrij na persoonswissel: B logde op deze pc in, A verstuurt: mag", val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
+    check("Eerdere login B geeft A geen bevoegdheid", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc1)))
     check("Maar niet vanaf een andere pc", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_b, pc2)))
-    check("Gedeeld account mag elke naam (zoals voorheen)", val("SELECT mag_invoeren_namens(%s, %s, %s)", (gedeeld, op_c, pc2)))
-    check("Naam zonder account, geen gedeeld account op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
+    check("Gedeeld account mag geen naam gebruiken", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (gedeeld, op_c, pc2)))
+    check("Andere operator op deze pc: mag niet", not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
     con.execute("SELECT * FROM inloggen('operator', 'demo', 'PC-02')")
-    check("Naam zonder account, gedeeld account logde op deze pc in (oude wachtrij): mag",
-          val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
+    check("Gedeelde eerdere login verleent geen bevoegdheid",
+          not val("SELECT mag_invoeren_namens(%s, %s, %s)", (acc_a, op_c, pc2)))
     con.execute("UPDATE gebruiker SET actief = false WHERE id = %s", (acc_b,))
     check("Uitgezet account heeft geen naam meer", val("SELECT operator_van_account(%s)", (acc_b,)) is None)
     con.execute("UPDATE gebruiker SET actief = true WHERE id = %s", (acc_b,))
@@ -563,7 +1204,7 @@ def main():
     reg5a = val("SELECT id FROM stapregistratie WHERE batch_id = %s AND processtap_id = %s", (ga, sid["PS5"]))
     con.execute("""INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door)
                    SELECT stapregistratie_id, veld_id, 80, 84, id, 'tikfout', %s FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s""",
-                (pl, reg5a, veld["S5.1"]))
+                (mes_corrector, reg5a, veld["S5.1"]))
     check("PRD-A: 4 graden verschil is binnen de tolerantie van het veld (5)",
           val("SELECT markering FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (reg5a, veld["S5.1"])) == "ok")
     faalt("Tolerantie per product bij een gewicht", "INSERT INTO veld_product (veld_id, product_id, tolerantie) VALUES (%s, %s, 1)",
@@ -629,11 +1270,14 @@ def main():
           belasting("PS1", capdag)["PRD-A"] == (1, 1, 8)))
 
     print("\nHerbewerking met opdracht (#61)")
-    pm = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'productiemanager1'")
+    pm = val("SELECT id FROM gebruiker WHERE gebruikersnaam = 'mes.manager'")
     hb = batch_met("B-2026-0801", prd["PRD-A"])
     for k in range(1, 7):
         doe(hb, f"PS{k}")
-    faalt("Ploegleider maakt geen herbewerking aan", "SELECT maak_herbewerking('B-2026-0801', 'PS3', 'kleur', %s)", (pl,), "Kwaliteit of de productiemanager")
+    faalt("Ploegleider maakt geen herbewerking aan", "SELECT maak_herbewerking('B-2026-0801', 'PS3', 'kleur', %s)", (pl,), "MES-herbewerkingsbevoegdheid")
+    faalt("D101 oude productiemanager zonder grant maakt geen opdracht",
+          "SELECT maak_herbewerking('B-2026-0801','PS3','test',%s)",
+          (val("SELECT id FROM gebruiker WHERE gebruikersnaam='productiemanager1'"),),"MES-herbewerkingsbevoegdheid")
     faalt("Herbewerking naar een stap die nog niet doorlopen is", "SELECT maak_herbewerking('B-2026-0801', 'PS8', 'x', %s)", (pm,), "nog niet doorlopen")
     faalt("Batch naar een lotstap", "SELECT maak_herbewerking('B-2026-0801', 'PS17', 'x', %s)", (pm,), "geen batchstap")
     faalt("Herbewerking zonder reden", "SELECT maak_herbewerking('B-2026-0801', 'PS3', '  ', %s)", (pm,), "reden")
@@ -642,7 +1286,7 @@ def main():
     check("Nieuwe herbewerking: te plannen", stand() == "te_plannen", stand())
     check("Melding voor vloer, planner, Kwaliteit en productiemanager",
           val("SELECT voor_rollen FROM melding WHERE bron_id = %s", (h,)) == ["ploegleider", "planner", "kwaliteit", "productiemanager"])
-    faalt("Tweede open herbewerking voor dezelfde batch", "SELECT maak_herbewerking('B-2026-0801', 'PS4', 'x', %s)", (kw,), "al een herbewerking")
+    faalt("Tweede open herbewerking voor dezelfde batch", "SELECT maak_herbewerking('B-2026-0801', 'PS4', 'x', %s)", (mes_quality_decider,), "al een herbewerking")
     check("Batch staat in de werkvoorraad van PS3", "B-2026-0801" in voorraad("PS3"))
     check("... en niet meer in die van PS7", "B-2026-0801" not in voorraad("PS7"))
     faalt("Een andere stap starten kan niet", "SELECT start_stap('PS7', %s, NULL, %s, %s)", (hb, pc, op), "eerst terug naar stap PS3")
@@ -672,32 +1316,36 @@ def main():
     for k in range(1, 4):
         doe(hb2, f"PS{k}")
     con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','druk te laag',%s)", (hb2, pm))
-    faalt("Batch in beoordeling: productiemanager beslist niet", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'x', %s)", (pm,), "alleen Kwaliteit")
-    h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (kw,))
-    check("Kwaliteit: keurresultaat herbewerken, batch weer in productie",
-          val("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op DESC LIMIT 1", (hb2,)) == "herbewerken"
-          and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_productie")
-    faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, kw), "reden")
-    con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, kw))
+    faalt("Batch in beoordeling: productiemanager kan blokkade niet omzeilen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'x', %s)", (pm,), "Kwaliteitsblokkade")
+    faalt("Ook Kwaliteit kan blokkade niet via herbewerking opheffen", "SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (mes_quality_decider,), "Kwaliteitsblokkade")
+    check("Blokkade en besluit blijven behouden",
+          val("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op DESC LIMIT 1", (hb2,)) == "in_beoordeling"
+          and val("SELECT status FROM batch WHERE id = %s", (hb2,)) == "in_beoordeling")
+    check("Geen opdracht ontstaan tijdens blokkade", val("SELECT count(*) FROM herbewerking WHERE batch_id=%s",(hb2,)) == 0)
+    # Afzonderlijk eigenaar-fixturebesluit; de bevestigde API-route wordt elders getest.
+    con.execute("INSERT INTO batch_besluit(batch_id,besluit,reden,besloten_door) VALUES (%s,'vrijgegeven','afzonderlijk kwaliteitsbesluit',%s)",(hb2,mes_quality_decider))
+    h2 = val("SELECT maak_herbewerking('B-2026-0802', 'PS2', 'opnieuw mengen', %s)", (mes_quality_decider,))
+    faalt("Intrekken zonder reden", "SELECT trek_herbewerking_in(%s, '', %s)", (h2, mes_quality_decider), "reden")
+    con.execute("SELECT trek_herbewerking_in(%s, 'toch niet nodig', %s)", (h2, mes_quality_decider))
     check("Ingetrokken: batch gaat gewoon verder met PS4", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h2,)) == "ingetrokken" and "B-2026-0802" in voorraad("PS4"))
-    faalt("Intrekken kan maar één keer", "SELECT trek_herbewerking_in(%s, 'x', %s)", (h2, kw), "al gestart of ingetrokken")
+    faalt("Intrekken kan maar één keer", "SELECT trek_herbewerking_in(%s, 'x', %s)", (h2, mes_quality_decider), "al gestart of ingetrokken")
     h3 = val("SELECT maak_herbewerking('B-2026-0802', 'PS1', 'grondstof verkeerd', %s)", (pm,))
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','toch afkeuren',%s)", (hb2, kw))
-    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','afvoeren',%s)", (hb2, kw))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'in_beoordeling','toch afkeuren',%s)", (hb2, mes_quality_decider))
+    con.execute("INSERT INTO batch_besluit (batch_id, besluit, reden, besloten_door) VALUES (%s,'afgekeurd','afvoeren',%s)", (hb2, mes_quality_decider))
     check("Batch afgekeurd: open herbewerking vervalt", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (h3,)) == "ingetrokken")
     # Lot: opdracht vooraf; de oude functie zonder opdracht blijft werken (oudere invoerschermen, D18).
-    faalt("Batch die in een lot zit", "SELECT maak_herbewerking((SELECT batchnummer FROM batch WHERE lot_id = %s LIMIT 1), 'PS3', 'x', %s)", (lot, kw), "zit al in een lot")
-    hl = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS17', 'opnieuw drogen', %s)", (lot, kw))
+    faalt("Batch die in een lot zit", "SELECT maak_herbewerking((SELECT batchnummer FROM batch WHERE lot_id = %s LIMIT 1), 'PS3', 'x', %s)", (lot, mes_quality_decider), "zit al in een lot")
+    hl = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS17', 'opnieuw drogen', %s)", (lot, mes_quality_decider))
     check("Lot: herbewerking te plannen, lot staat in de werkvoorraad van PS17", val("SELECT stand FROM herbewerking_stand WHERE id = %s", (hl,)) == "te_plannen"
           and val("SELECT lotnummer FROM lot WHERE id = %s", (lot,)) in voorraad("PS17"))
     rl = val("SELECT start_herbewerking(%s, 'PS17', 'opnieuw drogen', %s, %s)", (lot, pc, op))
     check("Start via de oude functie koppelt aan de opdracht", val("SELECT stapregistratie_id FROM herbewerking WHERE id = %s", (hl,)) == rl)
-    check("Herbewerkingen zonder opdracht (van vóór #61) staan er ook in, zonder aanmaker",
-          val("SELECT count(*) FROM herbewerking_stand WHERE lot_id = %s AND door IS NULL", (lot,)) >= 1)
+    check("Geen nieuwe opdrachtloze herbewerking",
+          val("SELECT count(*) FROM herbewerking_stand WHERE lot_id = %s AND door IS NULL", (lot,)) == 0)
 
     print("\nKeuring door Kwaliteit (#64)")
     con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code IN ('S18.3', 'S5.2')")
-    kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    kw_op = val("SELECT operator_van_account(id) FROM gebruiker WHERE gebruikersnaam='mes.quality'")
     check("Kwaliteit heeft een naam voor de invoer", kw_op is not None)
     kb = batch_met("B-2026-0971", prd["PRD-A"])
     for k in range(1, 5):
@@ -714,12 +1362,14 @@ def main():
     check("Volgende stap nog niet in de werkvoorraad", "B-2026-0971" not in voorraad("PS6"))
     check("... en PS5 ook niet opnieuw", "B-2026-0971" not in voorraad("PS5"))
     faalt("PS6 starten kan niet", "SELECT start_stap('PS6', %s, NULL, %s, %s)", (kb, pc, op), "Wacht op Kwaliteit")
-    faalt("Vrijgeven zonder meting", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw), "Nog niet gemeten: S5.2")
-    faalt("Ploegleider beslist niet over een keuring", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, pl), "Alleen Kwaliteit")
+    faalt("D101 oude kwaliteitsrol zonder grant beslist niet over keuring",
+          "SELECT beslis_keuring(%s,'vrijgegeven',NULL,%s)",(k5,kw),"MES-keuringsbeslisbevoegdheid")
+    faalt("Vrijgeven zonder meting", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, mes_quality_decider), "Nog niet gemeten: S5.2")
+    faalt("Ploegleider beslist niet over een keuring", "SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, pl), "MES-keuringsbeslisbevoegdheid")
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,412,%s)", (r5, veld["S5.2"], kw_op))
     check("Kwaliteit meet na het afronden", val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (r5, veld["S5.2"])) == 1)
-    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw))
-    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, kw))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, mes_quality_decider))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', NULL, %s)", (k5, mes_quality_decider))
     check("Vrijgegeven (twee keer versturen mag): PS6 in de werkvoorraad", "B-2026-0971" in voorraad("PS6"))
     faalt("Na de vrijgave meet Kwaliteit niet meer zonder correctie",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,1,%s)", (r5, veld["S5.1"], kw_op), "")
@@ -733,8 +1383,8 @@ def main():
     con.execute("SELECT rond_stap_af(%s)", (r5b,))
     k5b = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5b,))
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,470,%s)", (r5b, veld["S5.2"], kw_op))
-    faalt("Herbewerken zonder reden", "SELECT beslis_keuring(%s, 'herbewerken', '', %s)", (k5b, kw), "reden")
-    con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te zwaar', %s, 'PS5')", (k5b, kw))
+    faalt("Herbewerken zonder reden", "SELECT beslis_keuring(%s, 'herbewerken', '', %s)", (k5b, mes_quality_decider), "reden")
+    con.execute("SELECT beslis_keuring(%s, 'herbewerken', 'te zwaar', %s, 'PS5')", (k5b, mes_quality_decider))
     check("Herbewerken: opdracht terug naar PS5, batch staat daar klaar",
           val("SELECT stand FROM herbewerking_stand WHERE id = (SELECT herbewerking_id FROM keuring WHERE id = %s)", (k5b,)) == "te_plannen"
           and "B-2026-0972" in voorraad("PS5") and "B-2026-0972" not in voorraad("PS6"))
@@ -744,14 +1394,14 @@ def main():
     k5c = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r5c,))
     check("De herbewerkte stap wacht opnieuw op Kwaliteit", k5c is not None and k5c != k5b)
     # Afkeuren: keurresultaat NOK.
-    con.execute("SELECT beslis_keuring(%s, 'afgekeurd', 'veel te zwaar', %s)", (k5c, kw))
+    con.execute("SELECT beslis_keuring(%s, 'afgekeurd', 'veel te zwaar', %s)", (k5c, mes_quality_decider))
     check("Afkeuren: batch afgekeurd, met in beoordeling ervoor",
           val("SELECT status FROM batch WHERE id = %s", (kb2,)) == "afgekeurd"
           and [r[0] for r in con.execute("SELECT besluit FROM batch_besluit WHERE batch_id = %s ORDER BY besloten_op", (kb2,))][-2:] == ["in_beoordeling", "afgekeurd"])
     # Lot: na PS18 pas gereed na de vrijgave.
     lots = {r[0]: r[1] for r in con.execute("SELECT lotnummer, id FROM lot WHERE status = 'gereed'")}
     lk = next(iter(lots.values()))
-    hk = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS18', 'opnieuw meten', %s)", (lk, kw))
+    hk = val("SELECT maak_herbewerking((SELECT lotnummer FROM lot WHERE id = %s), 'PS18', 'opnieuw meten', %s)", (lk, mes_quality_decider))
     r18k = val("SELECT start_stap('PS18', NULL, %s, %s, %s)", (lk, pc, op))
     for code in ("S18.1", "S18.2"):
         con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, setting, gemeten, ingevoerd_door) VALUES (%s,%s,%s,%s,%s)",
@@ -760,7 +1410,7 @@ def main():
     check("Lot na PS18 nog niet gereed: wacht op Kwaliteit", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "in_productie")
     k18 = val("SELECT id FROM keuring WHERE stapregistratie_id = %s", (r18k,))
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,3.1,%s)", (r18k, veld["S18.3"], kw_op))
-    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'droog genoeg', %s)", (k18, kw))
+    con.execute("SELECT beslis_keuring(%s, 'vrijgegeven', 'droog genoeg', %s)", (k18, mes_quality_decider))
     check("Na de vrijgave is het lot gereed", val("SELECT status FROM lot WHERE id = %s", (lk,)) == "gereed")
 
     print("\nEen gestarte stap overnemen (#55)")
@@ -789,30 +1439,45 @@ def main():
     g1 = json.dumps([{"code": "GS-A", "partij": "LEV-PAPIER-01", "hoeveelheid": 120}])
     na = "SELECT lever_stap_na(%s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s)"
     faalt("Een operator kan niet nainvoeren", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", opa, w1, g1), "ploegleider of beheerder")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", opa, w1, g1), "MES-bevoegdheid")
+    faalt("D101 oude ploegleider zonder grant kan niet nainvoeren", na,
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", pl, w1, g1), "MES-bevoegdheid")
+    faalt("D101 oude beheerder zonder grant kan niet nainvoeren", na,
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", bh, w1, g1), "MES-bevoegdheid")
     faalt("Zonder reden kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "  ", pl, w1, g1), "reden")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "  ", mes_corrector, w1, g1), "reden")
     faalt("Meer dan 7 dagen terug kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(days=8), nu - dt.timedelta(days=8, hours=-1), "storing", pl, w1, g1), "7 dagen")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(days=8), nu - dt.timedelta(days=8, hours=-1), "storing", mes_corrector, w1, g1), "7 dagen")
     faalt("Einde in de toekomst kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu + dt.timedelta(hours=1), "storing", pl, w1, g1), "toekomst")
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu + dt.timedelta(hours=1), "storing", mes_corrector, w1, g1), "toekomst")
     faalt("Einde vóór het begin kan niet", na,
-          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu - dt.timedelta(hours=2), "storing", pl, w1, g1), "na het begin")
-    rn = val(na, ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "server en pc uit", pl, w1, g1))
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=1), nu - dt.timedelta(hours=2), "storing", mes_corrector, w1, g1), "na het begin")
+    # De eerdere kwalificatietest heeft voor execution.record een fictieve
+    # opleiding verplicht gemaakt. Toets die eis ook bij papieren nalevering,
+    # en geef uitsluitend deze testidentiteit de passende fictieve kwalificatie.
+    check("D101 supervisor zonder vereiste kwalificatie mag niet registreren",
+          not val("SELECT authorization_permits(%s,'execution.record',NULL,(SELECT product_id FROM batch WHERE id=%s),NULL)", (mes_corrector,bn)))
+    faalt("D101 papieren nalevering zonder kwalificatie geweigerd", na,
+          ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "storing", mes_corrector, w1, g1), "MES-bevoegdheid")
+    con.execute("INSERT INTO personnel_qualification(user_id,qualification_code) VALUES (%s,'test_training')", (mes_corrector,))
+    for permission in ("execution.correct","execution.start","execution.record","execution.complete","execution.lot.create"):
+        check("D101 bevoegde gekwalificeerde supervisor: "+permission,
+              val("SELECT authorization_permits(%s,%s,NULL,(SELECT product_id FROM batch WHERE id=%s),NULL)", (mes_corrector,permission,bn)))
+    rn = val(na, ("PS1", "B-2026-0974", pc, op, nu - dt.timedelta(hours=3), nu - dt.timedelta(hours=2), "server en pc uit", mes_corrector, w1, g1))
     r = con.execute("""SELECT status, gestart_op, afgerond_op, nageleverd_door, nageleverd_reden, afgerond_door,
                               (SELECT count(*) FROM waarde w WHERE w.stapregistratie_id = r.id AND w.ingevoerd_op = r.afgerond_op)
                          FROM stapregistratie r WHERE id = %s""", (rn,)).fetchone()
     check("Nageleverd: afgerond met de tijden van het papier, waarden op het einde",
           r[0] == "afgerond" and r[1] == nu - dt.timedelta(hours=3) and r[2] == nu - dt.timedelta(hours=2) and r[6] == 2, str(r))
-    check("Nageleverd: wie, waarom, en de operator van het papier", r[3] == pl and r[4] == "server en pc uit" and r[5] == op)
+    check("Nageleverd: wie, waarom, en de operator van het papier", r[3] == mes_corrector and r[4] == "server en pc uit" and r[5] == op)
     check("Nageleverd: in het logboek",
           val("SELECT count(*) FROM config_log WHERE tabel = 'nalevering' AND record_id = %s", (rn,)) == 1)
     w2 = json.dumps([{"veldcode": c, "setting": 80 if soort[c] == "procesparameter" else None, "gemeten": 81 if c.endswith(".1") else 410}
                      for c in sorted(veld) if c.startswith("S2.")])
     faalt("Begin vóór het einde van de vorige stap kan niet", na,
-          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2, minutes=30), nu - dt.timedelta(hours=1), "storing", pl, w2, "[]"), "vóór het einde van de vorige stap")
+          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2, minutes=30), nu - dt.timedelta(hours=1), "storing", mes_corrector, w2, "[]"), "vóór het einde van de vorige stap")
     faalt("Gewone regels gelden: verplicht veld ontbreekt", na,
-          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2), nu - dt.timedelta(hours=1), "storing", pl, "[]", "[]"), "Nog niet ingevuld")
+          ("PS2", "B-2026-0974", pc, op, nu - dt.timedelta(hours=2), nu - dt.timedelta(hours=1), "storing", mes_corrector, "[]", "[]"), "Nog niet ingevuld")
     check("Na een geweigerde nalevering staat er niets half",
           val("SELECT count(*) FROM stapregistratie r JOIN processtap s ON s.id = r.processtap_id WHERE r.batch_id = %s AND s.code = 'PS2'", (bn,)) == 0)
     # Lot samenstellen van papier: 4 batches door PS15, dan PS16 nainvoeren.
@@ -825,12 +1490,19 @@ def main():
     w16 = json.dumps([{"veldcode": c, "setting": 80 if soort[c] == "procesparameter" else None, "gemeten": 81 if c.endswith(".1") else 1640}
                       for c in sorted(veld) if c.startswith("S16.")])
     rl = val("SELECT lever_stap_na('PS16', 'L-2026-0975', %s, %s, %s, %s, %s, %s, %s, %s, '[]')",
-             ([f"B-2026-097{i}" for i in range(5, 9)], pc, op, begin, eind, "lot op papier samengesteld", pl, w16))
+             ([f"B-2026-097{i}" for i in range(5, 9)], pc, op, begin, eind, "lot op papier samengesteld", mes_corrector, w16))
     lr = con.execute("""SELECT l.aangemaakt_op, r.gestart_op, r.afgerond_op, r.status, (SELECT count(*) FROM batch b WHERE b.lot_id = l.id)
                           FROM stapregistratie r JOIN lot l ON l.id = r.lot_id WHERE r.id = %s""", (rl,)).fetchone()
     check("Lot nageleverd: 4 batches, met de tijden van het papier",
           lr[0] == begin and lr[1] == begin and lr[2] == eind and lr[3] == "afgerond" and lr[4] == 4, str(lr))
 
+    print("\nBegrensde wachtwoordcontrole (D99)")
+    check("Gedeeld account kan niet authenticeren", one("SELECT * FROM inloggen('operator','demo',NULL)") is None)
+    auth_test = val("INSERT INTO gebruiker (gebruikersnaam,rol,wachtwoord_hash) VALUES ('mes.auth.test','planner',wachtwoord_hash('test-wachtwoord')) RETURNING id")
+    for _ in range(5):
+        check("Onjuiste herbevestiging geweigerd", val("SELECT change_password_confirmed(%s,'fout','nieuw-wachtwoord')",(auth_test,)) == "denied")
+    check("Mislukte herbevestiging blijft geregistreerd", val("SELECT count(*) FROM inlogpoging WHERE gebruikersnaam='mes.auth.test' AND uitkomst='mislukt'") == 5)
+    check("Ook juiste wachtwoordwijziging tijdelijk geblokkeerd", val("SELECT change_password_confirmed(%s,'test-wachtwoord','nieuw-wachtwoord')",(auth_test,)) == "locked")
     print("\nEigen wachtwoord na een tijdelijk wachtwoord (#76)")
     tg = val("INSERT INTO gebruiker (gebruikersnaam, rol, wachtwoord_hash, wachtwoord_wijzigen) VALUES ('tijdelijk.t', 'planner', wachtwoord_hash('tijdelijk-1'), true) RETURNING id")
     faalt("Huidig wachtwoord moet kloppen", "SELECT wijzig_eigen_wachtwoord(%s, 'fout', 'nieuw-wachtwoord')", (tg,), "klopt niet")
@@ -856,7 +1528,7 @@ def main():
 
     print("\nKeuringsstappen en specificaties (#80, D73)")
     con.execute("SELECT zet_route(%s, %s)", (prd["PRD-C"], route_c_keuring))
-    kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    kw_op = val("SELECT operator_van_account(id) FROM gebruiker WHERE gebruikersnaam='mes.quality'")
     tk = batch_met("B-2026-0980", prd["PRD-C"])
     for code in ["PS1", "PS2", "PS3"]:
         doe(tk, code)
@@ -864,12 +1536,21 @@ def main():
     faalt("Een operator start geen keuringsstap", "SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, op), "is een keuring")
     faalt("Nainvoeren van een keuring kan niet", "SELECT lever_stap_na('TK1', 'B-2026-0980', NULL, %s, %s, now() - interval '2 hours', now() - interval '1 hour', 'papier', %s, '[]', '[]')",
           (pc, kw_op, pl), "is een keuring")
+    legacy_kw_op = val("SELECT operator_van_account(%s)", (kw,))
+    faalt("D101 oude kwaliteitsrol zonder grant start geen keuring",
+          "SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, legacy_kw_op), "MES-keuringsbevoegdheid")
+    con.execute("UPDATE gebruiker SET rol='pending' WHERE gebruikersnaam='mes.quality'")
+    check("D101 kwaliteitsidentiteit zonder legacyrol heeft startpermission",
+          val("SELECT authorization_permits(id,'inspection.start',NULL,%s,NULL) FROM gebruiker WHERE gebruikersnaam='mes.quality'", (prd["PRD-C"],)))
     rtk = val("SELECT start_stap('TK1', %s, NULL, %s, %s)", (tk, pc, kw_op))
     check("Kwaliteit start TK1: meteen afgerond, keuring open",
           one("SELECT r.status, k.status FROM stapregistratie r JOIN keuring k ON k.stapregistratie_id = r.id WHERE r.id = %s", (rtk,)) == ("afgerond", "open"))
     faalt("PS4 wacht op de keuring", "SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op), "wacht op Kwaliteit")
     veld_tk = {c: i for c, i in con.execute("SELECT code, id FROM veld WHERE code LIKE 'TK%%' OR code LIKE 'EK%%'")}
     spec_tk1 = val("SELECT id FROM specificatie WHERE processtap_id = %s AND status = 'vastgesteld'", (sid["TK1"],))
+    faalt("D101 oude kwaliteitsrol zonder grant meet niet",
+          "INSERT INTO waarde(stapregistratie_id,veld_id,gemeten,ingevoerd_door) VALUES (%s,%s,4.4,%s)",
+          (rtk,veld_tk["TK1.1"],legacy_kw_op),"MES-meetbevoegdheid")
     w = one("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 4.4, %s) RETURNING markering, grens_max::float, specificatie_id",
             (rtk, veld_tk["TK1.1"], kw_op))
     check("Meting getoetst aan de specificatie: max 4,0, buiten grens, versie bewaard", w == ("buiten_grens", 4.0, spec_tk1), str(w))
@@ -905,7 +1586,7 @@ def main():
           and val("SELECT count(*) FROM specificatie_regel WHERE specificatie_id = %s", (v3,)) == 0)
     check("Specificaties staan in het logboek", val("SELECT count(*) FROM config_log WHERE tabel = 'specificatie'") >= 3)
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s, %s, 250, %s)", (rtk, veld_tk["TK1.2"], kw_op))
-    con.execute("SELECT beslis_keuring((SELECT id FROM keuring WHERE stapregistratie_id = %s), 'vrijgegeven', NULL, %s)", (rtk, kw))
+    con.execute("SELECT beslis_keuring((SELECT id FROM keuring WHERE stapregistratie_id = %s), 'vrijgegeven', NULL, %s)", (rtk, mes_quality_decider))
     r4 = val("SELECT start_stap('PS4', %s, NULL, %s, %s)", (tk, pc, op))
     check("Na de vrijgave gaat de batch verder met PS4", r4 is not None)
 
@@ -929,43 +1610,45 @@ def main():
           val("SELECT gemeten::float FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 81)
     check("Melding voor ploegleider en beheerder, met beide waarden",
           one("SELECT voor_rollen, tekst LIKE '%%81 en 83%%' FROM melding WHERE bron_id = %s", (cid,)) == (["ploegleider", "beheerder"], True))
-    faalt("Een operator lost geen conflict op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, op_account), "Alleen een ploegleider")
-    faalt("Kwaliteit lost een conflict in een veld van Productie niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, kw), "Alleen een ploegleider")
+    faalt("Een operator lost geen conflict op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, op_account), "MES-conflictbeslisbevoegdheid")
+    faalt("Kwaliteit lost een conflict in een veld van Productie niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, kw), "MES-conflictbeslisbevoegdheid")
     faalt("Een conflict wijzig je niet zomaar", "UPDATE invoerconflict SET gemeten = 1 WHERE id = %s", (cid,), "niet gewijzigd")
-    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s, 'weegschaal B is geijkt')", (cid, pl))
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s, 'weegschaal B is geijkt')", (cid, mes_corrector))
     w = one("SELECT gemeten::float, vervangt_waarde_id IS NOT NULL, correctie_reden FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"]))
     check("Kiezen voor de tweede: correctie met reden, origineel bewaard",
           w[0] == 83 and w[1] and "Operator B" in w[2] and "geijkt" in w[2]
           and val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 2)
-    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, pl))
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (cid, mes_corrector))
     check("Hetzelfde besluit opnieuw versturen verandert niets",
           val("SELECT count(*) FROM waarde WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.1"])) == 2)
-    faalt("Een opgelost conflict kies je niet opnieuw", "SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (cid, bh), "al opgelost door ploegleider1")
+    faalt("Een opgelost conflict kies je niet opnieuw", "SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (cid, bh), "al opgelost door mes.supervisor")
     con.execute("INSERT INTO grondstof_gebruik (stapregistratie_id, grondstof_id, partij, ingevoerd_door) VALUES (%s,%s,'LEV-1',%s)", (rc, gs["GS-A"], op))
     check("Zelfde partij (andere hoofdletters) is geen conflict",
           val("SELECT leg_grondstofconflict_vast(%s, %s, ' lev-1', NULL, %s, %s)", (rc, gs["GS-A"], op_b, pc)) == "zelfde")
     check("Andere partij is een conflict",
           val("SELECT leg_grondstofconflict_vast(%s, %s, 'LEV-2', NULL, %s, %s)", (rc, gs["GS-A"], op_b, pc)) == "conflict")
     gcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND grondstof_id IS NOT NULL", (rc,))
-    con.execute("SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (gcid, pl))
+    con.execute("SELECT los_invoerconflict_op(%s, 'bestaand', %s)", (gcid, mes_corrector))
     check("Kiezen voor de eerste: partij blijft, conflict gesloten",
           val("SELECT partij FROM grondstof_gebruik_actueel WHERE stapregistratie_id = %s AND grondstof_id = %s", (rc, gs["GS-A"])) == "LEV-1"
           and val("SELECT status FROM invoerconflict WHERE id = %s", (gcid,)) == "bestaand")
     con.execute("UPDATE veld SET gemeten_door = 'kwaliteit' WHERE code = 'S1.2'")
-    kw_op1 = val("SELECT operator_van_account(%s)", (kw,))
+    kw_op1 = val("SELECT operator_van_account(id) FROM gebruiker WHERE gebruikersnaam='mes.quality'")
     con.execute("INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, ingevoerd_door) VALUES (%s,%s,410,%s)", (rc, veld["S1.2"], kw_op1))
     val("SELECT leg_invoerconflict_vast(%s, %s, NULL, 415, %s, %s)", (rc, veld["S1.2"], kw_op1, pc))
     kcid = val("SELECT id FROM invoerconflict WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"]))
     check("Conflict in een veld van Kwaliteit: melding voor Kwaliteit",
           val("SELECT voor_rollen FROM melding WHERE bron_id = %s", (kcid,)) == ["kwaliteit", "beheerder"])
-    faalt("Een ploegleider lost een conflict van Kwaliteit niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, pl), "Alleen Kwaliteit")
-    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, kw))
+    faalt("Een ploegleider lost een conflict van Kwaliteit niet op", "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, mes_corrector), "MES-conflictbeslisbevoegdheid")
+    faalt("D101 oude kwaliteitsrol zonder grant beslist niet",
+          "SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, kw), "MES-conflictbeslisbevoegdheid")
+    con.execute("SELECT los_invoerconflict_op(%s, 'nieuw', %s)", (kcid, mes_quality_decider))
     check("Kwaliteit kiest de tweede meting",
           val("SELECT gemeten::float FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s", (rc, veld["S1.2"])) == 415)
     faalt("Kwaliteit corrigeert verder niet zelf",
           "INSERT INTO waarde (stapregistratie_id, veld_id, gemeten, vervangt_waarde_id, correctie_reden, gecorrigeerd_door) "
           "SELECT stapregistratie_id, veld_id, 1, id, 'x', %s FROM waarde_actueel WHERE stapregistratie_id = %s AND veld_id = %s",
-          (kw, rc, veld["S1.2"]), "ploegleider")
+          (mes_quality_decider, rc, veld["S1.2"]), "gecontroleerde conflictafhandeling")
     con.execute("UPDATE veld SET gemeten_door = 'productie' WHERE code = 'S1.2'")
 
     print("\nPloegen en rooster (#86)")

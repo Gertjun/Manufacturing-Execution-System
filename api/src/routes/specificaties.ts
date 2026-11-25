@@ -1,12 +1,9 @@
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { IEDEREEN, vereist, type Rol } from "../auth.js";
-import { inTransactie, lees } from "../db.js";
+import { personalSession } from "../modules/authorization/access.js";
+import { lees } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
-import { NulGetal, StapCode } from "./schemas.js";
-
-/** Wie specificaties beheert (D73): Kwaliteit en de beheerder. Lezen mag iedereen met een persoonlijk account. */
-const BEHEREN: Rol[] = ["kwaliteit", "beheerder"];
+import { NulGetal } from "./schemas.js";
 
 const Regel = Type.Object({ veld: Type.String(), grens_min: NulGetal(), grens_max: NulGetal() });
 const Versie = Type.Object({
@@ -34,7 +31,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/",
     {
-      preHandler: vereist(...IEDEREEN),
+      preHandler: personalSession,
       schema: {
         tags: ["specificaties"],
         description:
@@ -61,6 +58,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req) => {
       const [p] = await lees<{ id: string; code: string; naam: string }>(app.db, "SELECT id, code, naam FROM product WHERE code = $1", [req.query.product]);
       if (!p) throw niet("Product");
+      const [recht] = await lees<{ allowed: boolean }>(app.db, "SELECT authorization_read_execution($1,$2) AS allowed", [req.user.sub,p.id]);
+      if (!recht?.allowed) throw new ApiFout(403, "Geen MES-leesbevoegdheid voor dit product");
       const stappen = await lees<{ id: string; stap: string; stapnaam: string; niveau: string; velden: unknown[] }>(
         app.db,
         `SELECT s.id, s.code AS stap, s.naam AS stapnaam, s.niveau,
@@ -88,110 +87,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
-  app.post(
-    "/",
-    {
-      preHandler: vereist(...BEHEREN),
-      schema: {
-        tags: ["specificaties"],
-        description: "Nieuwe versie als concept, met de regels van de geldige versie. Bestaat er al een concept, dan komt dat terug.",
-        body: Type.Object({ product: Type.String({ maxLength: 40 }), stap: StapCode }),
-        response: { 201: Versie },
-      },
-    },
-    async (req, reply) => {
-      const id = await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query(
-          `SELECT p.id AS product, s.id AS stap FROM product p, processtap s WHERE p.code = $1 AND s.code = $2 AND s.actief`,
-          [req.body.product, req.body.stap]);
-        if (!rows[0]) throw niet("Product of stap");
-        return (await tx.query("SELECT nieuwe_specificatie($1, $2, $3) AS id", [rows[0].product, rows[0].stap, req.user.sub])).rows[0].id as string;
-      });
-      const [v] = await lees<{ vastgesteld_op: Date | null }>(app.db, `${VERSIES_SQL} WHERE x.id = $1`, [id]);
-      return reply.status(201).send(metTijd(v) as never);
-    },
-  );
-
-  app.put(
-    "/:id",
-    {
-      preHandler: vereist(...BEHEREN),
-      schema: {
-        tags: ["specificaties"],
-        description:
-          "De regels en de opmerking van een concept. De lijst is volledig: een veld dat ontbreekt, of zonder minimum en maximum, gaat uit het concept.",
-        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-        body: Type.Object({
-          opmerking: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
-          regels: Type.Array(Regel, { maxItems: 100 }),
-        }),
-        response: { 200: Versie },
-      },
-    },
-    async (req) => {
-      await inTransactie(app.db, req.user.naam, async (tx) => {
-        const { rows } = await tx.query("SELECT status, processtap_id FROM specificatie WHERE id = $1 FOR UPDATE", [req.params.id]);
-        if (!rows[0]) throw niet("Specificatie");
-        if (rows[0].status !== "concept") throw new ApiFout(409, "Een vastgestelde specificatie verandert niet; maak een nieuwe versie");
-        const regels = req.body.regels.filter((r) => r.grens_min !== null || r.grens_max !== null);
-        const velden = new Map((await tx.query("SELECT code, id FROM veld WHERE processtap_id = $1", [rows[0].processtap_id])).rows.map((r) => [r.code, r.id]));
-        const onbekend = regels.filter((r) => !velden.has(r.veld)).map((r) => r.veld);
-        if (onbekend.length) throw new ApiFout(400, `Dit veld hoort niet bij de keuringsstap: ${onbekend.join(", ")}`);
-        for (const r of regels) {
-          if (r.grens_min !== null && r.grens_max !== null && r.grens_min > r.grens_max) throw new ApiFout(400, `${r.veld}: het minimum is groter dan het maximum`);
-        }
-        await tx.query("DELETE FROM specificatie_regel WHERE specificatie_id = $1 AND NOT (veld_id = ANY($2::uuid[]))",
-          [req.params.id, regels.map((r) => velden.get(r.veld))]);
-        for (const r of regels) {
-          await tx.query(
-            `INSERT INTO specificatie_regel (specificatie_id, veld_id, grens_min, grens_max) VALUES ($1, $2, $3, $4)
-             ON CONFLICT (specificatie_id, veld_id) DO UPDATE SET grens_min = EXCLUDED.grens_min, grens_max = EXCLUDED.grens_max`,
-            [req.params.id, velden.get(r.veld), r.grens_min, r.grens_max]);
-        }
-        if (req.body.opmerking !== undefined) {
-          await tx.query("UPDATE specificatie SET opmerking = $2 WHERE id = $1", [req.params.id, req.body.opmerking?.trim() || null]);
-        }
-      });
-      const [v] = await lees<{ vastgesteld_op: Date | null }>(app.db, `${VERSIES_SQL} WHERE x.id = $1`, [req.params.id]);
-      return metTijd(v) as never;
-    },
-  );
-
-  app.post(
-    "/:id/vaststellen",
-    {
-      preHandler: vereist(...BEHEREN),
-      schema: {
-        tags: ["specificaties"],
-        description: "Het concept geldt vanaf nu; de vorige versie vervalt. Metingen van daarvoor houden hun eigen versie.",
-        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-        response: { 200: Versie },
-      },
-    },
-    async (req) => {
-      await inTransactie(app.db, req.user.naam, (tx) => tx.query("SELECT stel_specificatie_vast($1, $2)", [req.params.id, req.user.sub]));
-      const [v] = await lees<{ vastgesteld_op: Date | null }>(app.db, `${VERSIES_SQL} WHERE x.id = $1`, [req.params.id]);
-      return metTijd(v) as never;
-    },
-  );
-
-  app.post(
-    "/:id/weggooien",
-    {
-      preHandler: vereist(...BEHEREN),
-      schema: {
-        tags: ["specificaties"],
-        description: "Een concept weggooien; een vastgestelde of vervallen versie blijft altijd bewaard.",
-        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-        response: { 204: Type.Null() },
-      },
-    },
-    async (req, reply) => {
-      const n = await inTransactie(app.db, req.user.naam, (tx) => tx.query("DELETE FROM specificatie WHERE id = $1", [req.params.id]));
-      if (!n.rowCount) throw niet("Specificatie");
-      return reply.status(204).send(null);
-    },
-  );
+  // D99/D101: geen legacy-vaststelling of conceptbeheer zonder de
+  // toekomstige gecontroleerde wijzigings- en vrijgaveworkflow (fase 2).
+  const geblokkeerd = async () => { throw new ApiFout(403, "Specificatiebeheer tijdelijk geblokkeerd tot de gecontroleerde MES-workflow"); };
+  app.post("/", { preHandler: personalSession }, geblokkeerd);
+  app.put("/:id", { preHandler: personalSession }, geblokkeerd);
+  app.post("/:id/vaststellen", { preHandler: personalSession }, geblokkeerd);
+  app.post("/:id/weggooien", { preHandler: personalSession }, geblokkeerd);
 };
 
 export default routes;

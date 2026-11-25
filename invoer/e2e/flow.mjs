@@ -7,6 +7,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots";
 const BASIS = "http://localhost:3456";
 mkdirSync(SHOTS, { recursive: true });
@@ -19,7 +21,7 @@ const check = (naam, ok, extra = "") => {
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3456", INVOER_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3456", INVOER_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -46,17 +48,16 @@ try {
   await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
   await shot("01-pc-kiezen");
   await page.getByRole("button", { name: /^PC-01/ }).click();
-  // Het oude gedeelde account kiest nog een naam (D6); namen met een eigen account staan er niet tussen (D53).
+  // D93: gedeelde identiteit krijgt geen sessie, ook niet op een gekoppelde pc.
   await page.getByLabel("Gebruikersnaam").fill("operator");
   await page.getByLabel("Wachtwoord").fill("demo");
   await shot("02-inloggen");
+  const geweigerd = page.waitForResponse(r => r.url().endsWith("/auth/login") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  await page.getByRole("heading", { name: "Wie ben je?" }).waitFor();
-  await shot("03-naam-kiezen");
-  check("Gedeeld account: Operator A (eigen account) staat niet in de namenlijst", (await page.getByRole("button", { name: "Operator A" }).count()) === 0);
-  check("Gedeeld account: uitleg om een eigen account te vragen", (await page.getByText("gedeelde account").count()) === 1);
-  await page.getByRole("button", { name: "Afmelden" }).click();
-  await page.getByLabel("Gebruikersnaam").waitFor();
+  check("Gedeeld account: login geweigerd", (await geweigerd).status() === 401);
+  await page.getByRole("alert").filter({ hasText: "Onjuiste gebruikersnaam of wachtwoord" }).waitFor();
+  check("Gedeeld account: geen invoertoken", await page.evaluate(() => localStorage.getItem("invoer.token") === null));
+  await page.getByRole("heading", { name: "Inloggen" }).waitFor();
   // Eigen account (D53): meteen naar de stappen, naam vast in de balk.
   await page.getByLabel("Gebruikersnaam").fill("operator.a");
   await page.getByLabel("Wachtwoord").fill("demo");
@@ -132,7 +133,7 @@ try {
   const pmLogin = await (await fetch(`${BASIS}/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ gebruikersnaam: "productiemanager1", wachtwoord: "demo" }) })).json();
   const pm = { "content-type": "application/json", authorization: `Bearer ${pmLogin.token}` };
-  const aanmaak = await fetch(`${BASIS}/herbewerkingen`, { method: "POST", headers: pm, body: JSON.stringify({ nummer: "B-2026-0004", stapcode: "PS15", reden: "test: opnieuw" }) });
+  const aanmaak = await fetch(`${BASIS}/herbewerkingen`, { method: "POST", headers: pm, body: JSON.stringify({ nummer: "B-2026-0004", stapcode: "PS15", reden: "test: opnieuw", wachtwoord: "demo" }) });
   const hb = await aanmaak.json();
   check("Productiemanager maakt een herbewerking aan", aanmaak.status === 201, `${aanmaak.status} ${JSON.stringify(hb)}`);
   await page.goto(`${BASIS}/invoer/#/stap/PS15`);
@@ -144,7 +145,7 @@ try {
   await page.goto(`${BASIS}/invoer/#/stap/PS16`);
   await page.getByRole("heading", { name: "Process Step 16" }).waitFor();
   check("... en zolang hij niet gedaan is, niet klaar voor een lot", !(await page.locator("main").innerText()).includes("B-2026-0004"));
-  const intrek = await fetch(`${BASIS}/herbewerkingen/${hb.id}/intrekken`, { method: "POST", headers: pm, body: JSON.stringify({ reden: "test klaar" }) });
+  const intrek = await fetch(`${BASIS}/herbewerkingen/${hb.id}/intrekken`, { method: "POST", headers: pm, body: JSON.stringify({ reden: "test klaar", wachtwoord: "demo" }) });
   check("Herbewerking ingetrokken", intrek.status === 200);
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.getByRole("heading", { name: "Gepland voor vandaag" }).waitFor();
@@ -223,14 +224,10 @@ try {
   await page.getByRole("button", { name: "Stap afronden" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Afronden" }).click();
   await page.locator(".verbinding.uit").waitFor();
-  // Iets melden zonder verbinding (#78): gaat via de wachtrij mee.
-  await page.getByRole("button", { name: "Iets melden" }).click();
-  await page.locator("#v-tekst").fill("E2E: de knop Afronden zit te dicht bij Opslaan");
-  await page.getByRole("dialog").getByRole("button", { name: "Versturen" }).click();
-  await page.getByText("Bedankt, je melding gaat mee zodra er verbinding is").waitFor();
-  await page.waitForTimeout(300);
+  // D99: pilotfeedback is uitgesteld; uitsluitend de drie productieacties mogen in de wachtrij.
+  check("Geen pilotfeedbackknop", await page.getByRole("button", { name: "Iets melden" }).count() === 0);
   await shot("08-offline-wachtrij");
-  check("Statusbalk meldt wachtende acties (3 voor de stap, 1 melding)", /Geen verbinding, 4 wachten/.test(await page.locator(".verbinding").innerText()));
+  check("Statusbalk meldt drie wachtende productieacties", /Geen verbinding, 3 wachten/.test(await page.locator(".verbinding").innerText()));
   const [voor] = await q("SELECT count(*) AS n FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'");
   check("Zonder verbinding nog niets in de database", Number(voor.n) === 0);
 
@@ -246,8 +243,6 @@ try {
   await context.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
-  const [tm] = await q("SELECT t.stapcode, o.naam, t.tekst FROM fabriek.terugmelding t LEFT JOIN fabriek.operator o ON o.id = t.operator_id WHERE t.tekst LIKE 'E2E:%'");
-  check("Melding van zonder verbinding is aangekomen, met stap en naam", tm?.stapcode === "PS2" && tm.naam === "Operator A", JSON.stringify(tm));
   const [na] = await q(`SELECT r.status, (SELECT count(*) FROM fabriek.waarde w WHERE w.stapregistratie_id = r.id) AS n
       FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id
       WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'`);
@@ -346,12 +341,35 @@ try {
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
   await page.locator(".balk-eigen-naam", { hasText: "ploegleider1" }).waitFor();
-  await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
-  await page.waitForTimeout(1500);
+
+  const leesWachtrij = () => new Promise((resolve,reject) => {
+    const req = indexedDB.open("batch-invoer",1);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      const read = db.transaction("wachtrij","readonly").objectStore("wachtrij").getAll();
+      read.onerror = () => { db.close(); reject(read.error); };
+      read.onsuccess = () => { db.close(); resolve(read.result); };
+    };
+  });
+  const [oorsprong] = await q("SELECT g.id::text AS gebruiker,o.id::text AS operator FROM fabriek.gebruiker g JOIN fabriek.operator o ON o.gebruiker_id=g.id WHERE g.gebruikersnaam='operator.a'");
+  const herken = a => a.status === "beoordeling" && a.userId === oorsprong.gebruiker && a.operatorId === oorsprong.operator && a.pad === "/registraties" && a.body?.stapcode === "PS3" && a.body?.batchnummer === "B-2026-0100";
+  await page.waitForFunction(({gebruiker,operator}) => new Promise((resolve,reject) => {
+    const req=indexedDB.open("batch-invoer",1);
+    req.onerror=()=>reject(req.error);
+    req.onsuccess=()=>{
+      const db=req.result;
+      const read=db.transaction("wachtrij","readonly").objectStore("wachtrij").getAll();
+      read.onerror=()=>{db.close();reject(read.error);};
+      read.onsuccess=()=>{db.close();resolve(read.result.some(a=>a.status==="beoordeling" && a.userId===gebruiker && a.operatorId===operator && a.pad==="/registraties" && a.body?.stapcode==="PS3" && a.body?.batchnummer==="B-2026-0100"));};
+    };
+  }), oorsprong, {timeout:15000});
+  const bewaard=await page.evaluate(leesWachtrij);
+  check("Actie bewaard met oorspronkelijke identiteit voor beoordeling",bewaard.some(herken),JSON.stringify(bewaard));
   const [ps3] = await q(`SELECT o.naam FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id
       JOIN fabriek.batch b ON b.id = r.batch_id JOIN fabriek.operator o ON o.id = r.operator_id
       WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS3'`);
-  check("Wachtende start na afmelden staat op naam van wie hem invoerde (Operator A)", ps3?.naam === "Operator A", JSON.stringify(ps3));
+  check("Andere sessie verstuurt de wachtende start niet", ps3 === undefined, JSON.stringify(ps3));
   await page.getByRole("link", { name: "Zoeken" }).click();
   await page.getByLabel("Batch- of lotnummer").fill("B-2026-0100");
   await page.getByRole("button", { name: "Zoeken" }).click();
@@ -382,6 +400,7 @@ try {
   check("Bovenaan: twee keer ingevuld", (await page.locator(".waarschuwing", { hasText: "Twee keer ingevuld: S1.2" }).count()) === 1);
   await shot("12b-conflict");
   await conflict.getByRole("button", { name: "999 nemen" }).click();
+  await page.getByRole("dialog").getByLabel("Reden van de keuze").fill("Tweede meting Operator B gecontroleerd");
   await page.getByRole("dialog").getByRole("button", { name: "999 nemen" }).click();
   await page.locator(".conflict").waitFor({ state: "detached" });
   const [s12] = await q("SELECT gemeten, correctie_reden FROM fabriek.waarde_actueel w JOIN fabriek.veld v ON v.id = w.veld_id JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND v.code = 'S1.2'");
@@ -411,8 +430,8 @@ try {
   // Kwaliteit heeft een eigen startscherm (#88): wat nu te doen is en wat eraan komt, zonder aantallen per processtap.
   await page.getByRole("heading", { name: "Keuringen", level: 1 }).waitFor();
   await page.getByRole("heading", { name: /^Nu te doen/ }).waitFor();
-  check("Kwaliteit: Nu te doen en Verwacht, geen tegels per processtap",
-    (await page.getByRole("heading", { name: "Verwacht", exact: true }).count()) === 1 && (await page.getByRole("heading", { name: "Per batch" }).count()) === 0);
+  check("Kwaliteit: Nu te doen, geen uitgestelde voorspelling of tegels per processtap",
+    (await page.getByRole("heading", { name: "Verwacht", exact: true }).count()) === 0 && (await page.getByRole("heading", { name: "Per batch" }).count()) === 0);
   await shot("13b-kwaliteit-start");
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.getByRole("heading", { name: "Process Step 1" }).waitFor();
@@ -420,6 +439,7 @@ try {
   await page.goto(`${BASIS}/invoer/#/zoek/B-2026-0005`);
   await page.getByRole("button", { name: "Keurresultaat NOK" }).click();
   await page.getByLabel("Reden").fill("kleur buiten specificatie");
+  await page.getByLabel("Bevestig met je eigen wachtwoord").fill("demo");
   await page.getByRole("dialog").getByRole("button", { name: "NOK: afkeuren" }).click();
   await page.getByText("Keurresultaat NOK, afgekeurd").waitFor();
   await shot("14-keurresultaat-nok");
@@ -436,7 +456,8 @@ try {
     return { status: r.status, body: await r.json().catch(() => null) };
   };
   const bh = (await api("POST", "/auth/login", null, { gebruikersnaam: "beheerder1", wachtwoord: "demo" })).body.token;
-  check("Beheerder zet S2.2 op 'Kwaliteit meet'", (await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "kwaliteit" })).status === 200);
+  const engineer = (await api("POST", "/auth/login", null, { gebruikersnaam: "mes.engineer", wachtwoord: "demo" })).body.token;
+  check("Process Engineer zet S2.2 op 'Kwaliteit meet'", (await api("PATCH", "/beheer/velden/S2.2", engineer, { gemeten_door: "kwaliteit" })).status === 200);
   // B-2026-0006 staat nog voor PS1: de operator doet PS1, en PS2 zonder S2.2.
   const kb = { batchnummer: "B-2026-0006" };
   const opT = (await api("POST", "/auth/login", null, { gebruikersnaam: "operator.a", wachtwoord: "demo", pc: "PC-02" })).body.token;
@@ -461,22 +482,32 @@ try {
   await shot("14d-meting-kwaliteit");
   await page.getByRole("button", { name: "Vrijgeven" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Vrijgeven" }).click();
+  await page.getByRole("dialog").getByLabel("Je eigen wachtwoord").fill("demo");
+  await page.getByRole("dialog").getByRole("button", { name: "Besluit bevestigen" }).click();
   await page.locator(".label-keuring-vrijgegeven").waitFor();
   let vrij = null;
   for (let i = 0; i < 20 && vrij?.status !== "vrijgegeven"; i++) {
     [vrij] = await q("SELECT k.status FROM fabriek.keuring k WHERE k.stapregistratie_id = $1", [regPs2.body.id]);
     if (vrij?.status !== "vrijgegeven") await page.waitForTimeout(250);
   }
-  check("Vrijgegeven, ook in de database (via de wachtrij)", vrij?.status === "vrijgegeven", JSON.stringify(vrij));
-  await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "productie" });
+  check("Vrijgegeven, ook in de database (online persoonlijk besluit)", vrij?.status === "vrijgegeven", JSON.stringify(vrij));
+  await api("PATCH", "/beheer/velden/S2.2", engineer, { gemeten_door: "productie" });
 
   console.log("\nTijdelijk wachtwoord op het invoerscherm (#76)");
-  const nieuwAcc = await api("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.f", rol: "operator", wachtwoord: "tijdelijk-1", bestaandeNaam: undefined, naam: "Operator Nieuw" });
-  check("Beheerder maakt een account met een tijdelijk wachtwoord", nieuwAcc.status === 201 && nieuwAcc.body.tijdelijk === true, JSON.stringify(nieuwAcc.body));
+  const nieuwAcc = await api("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.f", wachtwoord: "tijdelijk-1" });
+  check("Beheerder maakt een onbevoegd persoonlijk account met tijdelijk wachtwoord", nieuwAcc.status === 201 && nieuwAcc.body.tijdelijk === true && nieuwAcc.body.rol === "pending", JSON.stringify(nieuwAcc.body));
+  // Alleen fictieve fixture: aparte eigenaar bereidt een persoonlijke koppeling en expliciete grant voor.
+  // Accountaanmaak zelf verleent geen van beide.
+  const [pending] = await q("SELECT g.id, (SELECT count(*)::int FROM fabriek.authorization_grant a WHERE a.user_id=g.id) AS grants, (SELECT count(*)::int FROM fabriek.operator o WHERE o.gebruiker_id=g.id) AS personen FROM fabriek.gebruiker g WHERE g.gebruikersnaam=$1", ["operator.f"]);
+  check("Geen automatische grant of personeelskoppeling", pending.grants === 0 && pending.personen === 0);
+  await q("INSERT INTO fabriek.operator(naam,gebruiker_id) VALUES ($1,$2)", ["Operator Nieuw",pending.id]);
+  await q("INSERT INTO fabriek.authorization_grant(user_id,role_code) VALUES ($1,'operator')",[pending.id]);
   await page.goto(`${BASIS}/invoer/#/stappen`);
   await page.getByRole("button", { name: "Afmelden" }).click();
   const bevestigAf = page.getByRole("dialog").getByRole("button", { name: "Afmelden" });
   if (await bevestigAf.isVisible().catch(() => false)) await bevestigAf.click();
+  await page.waitForURL(u => u.pathname.startsWith("/portaal/") && u.hash === "#/login");
+  await page.goto(`${BASIS}/invoer/#/login`);
   await page.getByLabel("Gebruikersnaam").fill("operator.f");
   await page.getByLabel("Wachtwoord").fill("tijdelijk-1");
   await page.getByRole("button", { name: "Inloggen" }).click();
@@ -485,7 +516,10 @@ try {
   await page.locator("#ww-nieuw").fill("eigen-ww-f");
   await page.locator("#ww-nogmaals").fill("eigen-ww-f");
   await shot("14e-eigen-wachtwoord");
+  const gewijzigd = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/wachtwoord" && r.request().method() === "POST");
   await page.getByRole("button", { name: "Opslaan en verder" }).click();
+  const gewijzigdRes = await gewijzigd;
+  check("Eigen wachtwoord door server bevestigd", gewijzigdRes.status() === 200);
   await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
   check("Daarna de stappen, met de eigen naam", (await page.locator(".balk-eigen-naam").innerText()) === "Operator Nieuw");
 
