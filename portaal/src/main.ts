@@ -7,6 +7,7 @@ import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
+import * as engineering from "./engineering/schermen";
 import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
 import { volgStappenlijsten } from "./stappenkeuze";
@@ -262,6 +263,11 @@ async function route() {
     : p.id === "kwaliteit" && deel === "batch" ? "beoordelen" : deel;
   if (!zichtbaar.some(o => o.pad === alias)) return void (location.hash = "#/"+p.id);
   const a = arg ? decodeURIComponent(arg) : undefined;
+  if (p.id === "engineering") {
+    await tekenMenu(p.id, deel);
+    if (!actueel()) return;
+    return engineering.scherm(deel);
+  }
   if (p.id === "productie") {
     await tekenMenu(p.id, ["stap", "batch", "lot"].includes(deel) ? "overzicht" : deel);
     switch (deel) {
