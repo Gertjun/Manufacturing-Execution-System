@@ -132,8 +132,42 @@ try {
       check("Meer toont Hulp en Afmelden",
         await page.locator(".meer-paneel").getByRole("button", { name: "Afmelden" }).isVisible()
         && await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).isVisible());
-      await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).click();
+      // D103: lok echte statuscallbacks uit zonder op toevallige polltiming te vertrouwen.
+      const hulp = page.locator(".meer-paneel").getByRole("link", { name: "Hulp" });
+      await hulp.focus();
+      const oorspronkelijk = await hulp.elementHandle();
+      if (!oorspronkelijk) throw new Error("Hulp-link ontbreekt");
+      await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+      await page.waitForFunction(() => document.querySelector(".verbinding")?.classList.contains("uit"));
+      check("Meer en focus blijven behouden na statusverversing",
+        await oorspronkelijk.evaluate(el => el.isConnected && document.activeElement === el)
+        && await page.locator(".meer-knop").getAttribute("aria-expanded") === "true"
+        && await hulp.isVisible());
+      // Herstel de status via de bestaande online-handler en de echte health-request.
+      const gezond = page.waitForResponse(r => new URL(r.url()).pathname === "/gezondheid" && r.ok());
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await gezond;
+      await page.waitForFunction(() => {
+        const el = document.querySelector(".verbinding");
+        return !!el && !el.classList.contains("uit");
+      });
+      check("Meer blijft open na herstel van verbinding",
+        await oorspronkelijk.evaluate(el => el.isConnected && document.activeElement === el)
+        && await hulp.isVisible());
+      await oorspronkelijk.dispose();
+      await hulp.click();
+      await page.waitForURL(/#\/hulp$/);
       check("Na kiezen is Meer weer dicht en staat Hulp open", await page.locator(".meer-paneel").isHidden() && /#\/hulp/.test(page.url()));
+      await page.getByRole("button", { name: "Meer" }).click();
+      await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).press("Escape");
+      check("Escape sluit Meer en herstelt focus op knop",
+        await page.locator(".meer-paneel").isHidden()
+        && await page.locator(".meer-knop").evaluate(el => document.activeElement === el));
+      await page.getByRole("button", { name: "Meer" }).click();
+      await page.locator("#onderbalk > a[href='#/stappen']").click();
+      await page.waitForURL(/#\/stappen$/);
+      await klaar(page);
+      check("Navigatie sluit Meer", await page.locator(".meer-paneel").isHidden());
     } else {
       check("Navigatie bovenaan, geen balk onderaan", boven && !onder);
     }

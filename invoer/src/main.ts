@@ -92,10 +92,35 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// Een status- of meldingenupdate mag de actieve bediening niet vervangen.
+// Houd de context uitsluitend in geheugen; zet het sessietoken nooit in de DOM.
+let onderContext: { token: string | null; pc: string | null; hash: string } | null = null;
+
 /** Navigatie onderaan op een staande telefoon (D64). Op bredere schermen verbergt de CSS hem. */
 function tekenOnderbalk(links: (Node | null)[] | null, meer: (Node | null)[]) {
   let onder = document.getElementById("onderbalk");
-  if (!links) { onder?.remove(); document.body.classList.remove("met-onderbalk"); return; }
+  if (!links) {
+    onder?.remove();
+    onderContext = null;
+    document.body.classList.remove("met-onderbalk");
+    return;
+  }
+  const context = { token: sessie.token, pc: sessie.pc, hash: location.hash };
+  const nieuw = links.filter((link): link is Node => link !== null);
+  const paneelBestaand = onder?.querySelector<HTMLElement>(".meer-paneel");
+  const knopBestaand = onder?.querySelector<HTMLButtonElement>(".meer-knop");
+  if (onder && paneelBestaand && knopBestaand && onderContext &&
+      onderContext.token === context.token && onderContext.pc === context.pc && onderContext.hash === context.hash) {
+    // Alleen de dynamische links bijwerken (bijvoorbeeld de meldingenteller).
+    // Paneel en knop blijven dezelfde DOM-nodes, inclusief openstaat en focus.
+    const oud = Array.from(onder.children).filter(el => el !== paneelBestaand && el !== knopBestaand);
+    if (oud.length !== nieuw.length || oud.some((el, i) => !el.isEqualNode(nieuw[i]))) {
+      for (const el of oud) el.remove();
+      for (const link of nieuw) onder.insertBefore(link, knopBestaand);
+    }
+    return;
+  }
+  onderContext = context;
   if (!onder) {
     onder = h("nav", { id: "onderbalk", "aria-label": "Hoofdmenu onderaan" });
     document.body.append(onder);
@@ -112,7 +137,7 @@ function tekenOnderbalk(links: (Node | null)[] | null, meer: (Node | null)[]) {
   };
   paneel.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest("a, button")) sluit(); });
   paneel.addEventListener("keydown", (e) => { if (e.key === "Escape") { sluit(); knop.focus(); } });
-  onder.replaceChildren(paneel, ...(links.filter(Boolean) as Node[]), knop);
+  onder.replaceChildren(paneel, ...nieuw, knop);
 }
 
 /** Afmelden; waarschuw als er nog acties wachten (die gaan later mee met de naam van wie ze invoerde). */
