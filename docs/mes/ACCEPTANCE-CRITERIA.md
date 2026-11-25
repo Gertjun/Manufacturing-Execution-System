@@ -373,3 +373,5 @@ W7: één tester simuleerde drie accounthouders; onderbreking met lege reden, he
 | Overkoepelend | Persoonlijke actuele grants, productcontext uit vertrouwde records, negatieve API/DB/UI-tests (legacy-only, operator, technisch beheer, ingetrokken/verlopen of verkeerde scope); beperkte mes_app; schone installatie en upgrade 0095, behoud ID's en historie, herstel, schema-equivalentie en diagram. |
 
 Voor integrale acceptatie: audit en testreview, volledige Node 22/26 op actuele head/base, Windows-pakket en praktijktests, formele toestemming. Geen bewijs geclaimd. Exacte wijzigingstype/beoordelaarsmatrix en lotgrenzen vóór implementatie van betreffende regels aan goedgekeurde besluiten toetsen; open ontwerpkeuzes eerst voorleggen.
+
+0096 (#109, deel): geplande DB-regressies op unieke codes, unieke bronkoppelingen, revisie-FK/positieve revisienummers, twee naast elkaar bestaande versies, geweigerde update/delete en afwezigheid directe app-ACL. Geen uitvoering geclaimd. Bronmigratie en gecontroleerde persoonlijke functies volgen; diagram opnieuw genereren.

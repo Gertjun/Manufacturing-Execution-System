@@ -1694,6 +1694,35 @@ def main():
     faalt("Een gewicht per batch van 0 kan niet", "UPDATE product SET batchgewicht_kg = 0 WHERE code = 'PRD-A'", (), "check")
     check("Productie-uren per dag: de drie diensten samen = 24", float(val("SELECT productie_uren_per_dag()")) == 24)
 
+    print("\\nFase 2: materiaalstamdatafundament (#109)")
+    for tabel in ("material_class", "material_definition", "material_definition_version"):
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+            check(f"#109 {tabel}: geen directe app-{privilege}",
+                  not val("SELECT has_table_privilege('mes_app',%s,%s)", ("fabriek."+tabel, privilege)))
+    con.execute("BEGIN")
+    try:
+        mid = val("INSERT INTO material_definition(code,product_id) SELECT 'TEST-MAT',id FROM product ORDER BY id LIMIT 1 RETURNING id")
+        cid = val("INSERT INTO material_class(code,name) VALUES ('TEST-CLASS','Fictieve klasse') RETURNING id")
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        vid = val("INSERT INTO material_definition_version(material_definition_id,revision,name,material_class_id,created_by) VALUES (%s,1,'Fictief',%s,%s) RETURNING id", (mid,cid,actor))
+        con.execute("INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,2,'Fictief revisie 2',%s)", (mid,actor))
+        check("#109 twee versies naast elkaar", val("SELECT count(*) FROM material_definition_version WHERE material_definition_id=%s",(mid,)) == 2)
+        for label, sql, params, msg in (
+            ("dubbele identiteit","INSERT INTO material_definition(code) VALUES ('TEST-MAT')",(),"duplicate"),
+            ("dubbele bronkoppeling","INSERT INTO material_definition(code,product_id) SELECT 'TEST-DUP',product_id FROM material_definition WHERE id=%s",(mid,),"duplicate"),
+            ("dubbele revisie","INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,1,'Dubbel',%s)",(mid,actor),"duplicate"),
+            ("ongeldige revisie","INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,0,'Ongeldig',%s)",(mid,actor),"check"),
+            ("onbekende materiaalidentiteit","INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (gen_random_uuid(),1,'Onbekend',%s)",(actor,),"foreign key"),
+            ("versie wijzigen","UPDATE material_definition_version SET name='Gewijzigd' WHERE id=%s",(vid,),"onveranderlijk"),
+            ("versie verwijderen","DELETE FROM material_definition_version WHERE id=%s",(vid,),"onveranderlijk"),
+        ):
+            con.execute("SAVEPOINT material_test")
+            faalt("#109 "+label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT material_test")
+            con.execute("RELEASE SAVEPOINT material_test")
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
