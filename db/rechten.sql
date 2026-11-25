@@ -15,7 +15,7 @@ END $$;
 -- D100: weiger afwijkende technische rollen vóór het opnieuw toekennen van ACLs.
 -- Alleen de historische batchgui_app -> mes_app relatie is toegestaan.
 -- Wijzig geen onbekende rollidmaatschappen of beheerdersinstellingen automatisch.
-DO $
+DO $$
 DECLARE v_bad text;
 BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=92) THEN
@@ -38,7 +38,7 @@ BEGIN
      RAISE EXCEPTION 'Onveilige technische MES-databaserol: %',v_bad;
    END IF;
  END IF;
-END $;
+END $$;
 
 -- D100: herstel de expliciete ACL vanaf een schoon uitgangspunt, ook bij upgrades.
 -- Tabel-REVOKE alleen verwijdert niet alle afzonderlijke kolomgrants.
