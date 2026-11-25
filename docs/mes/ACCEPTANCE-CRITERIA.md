@@ -290,3 +290,6 @@ D99/#136: verplichte CI beperkt tot ondersteunde PostgreSQL-/laptopomgeving; dem
 
 
 D99/#136: directe afhankelijkhedenreview van package.json (api/invoer/portaal), pakketbouw, acceptatieverificatie, test-/releaseworkflow en documentatie afgerond voor de geïnspecteerde bestanden. Geen verplichte PGlite-afhankelijkheid aangetroffen; historische demo-bron behouden. Integrale acceptatie op actuele tree blijft vereist.
+
+
+D100: serverstart toetst volledige migratie-inventaris; herstelcontrole sluit verbindingen en ruimt uitsluitend eigen uniek benoemde tijdelijke database op vóór exit, met foutmelding bij mislukte cleanup. Gerichte regressies voor onbekend schema, ontbrekende tussenmigratie, beschadigde dump, behoud historie en onderhoudslog toegevoegd. Uitvoeringsbewijs open; geen schemawijziging.
