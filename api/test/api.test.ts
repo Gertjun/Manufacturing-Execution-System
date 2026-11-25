@@ -1776,7 +1776,7 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     const r = await app.inject({ method: "GET", url: "/auth/omgeving" });
     const b = JSON.parse(r.body);
     assert.equal(b.test, true);
-    assert.ok(b.testaccounts.some((t: { naam: string }) => t.naam === "operator.a"));
+    assert.ok(b.testaccounts.some((t: { naam: string }) => t.naam === "mes.operator"));
   });
 
   test("eerste inlog van een ploegleider zonder naam: maakt geen personeelsidentiteit aan (D99)", async () => {
@@ -1917,7 +1917,7 @@ describe("Startpagina en testaccounts (0.22.1)", () => {
   test("met testdata noemt de startpagina de testaccounts, zonder niet", async () => {
     const r = await app.inject({ method: "GET", url: "/" });
     assert.match(r.body, /Testomgeving met fictieve gegevens/);
-    assert.match(r.body, /planner1/);
+    assert.match(r.body, /mes\.planner/);
     const echt = startpagina(false);
     assert.doesNotMatch(echt, /Testaccounts|demo|Testomgeving/);
   });
@@ -1925,7 +1925,7 @@ describe("Startpagina en testaccounts (0.22.1)", () => {
   test("Beheer > Server waarschuwt voor testaccounts met wachtwoord demo", async () => {
     const r = await verzoek("GET", "/beheer/server", await login("beheerder1"));
     assert.equal(r.status, 200);
-    assert.ok(r.body.testaccounts.includes("beheerder1"), JSON.stringify(r.body.testaccounts));
+    assert.ok(r.body.testaccounts.includes("mes.system"), JSON.stringify(r.body.testaccounts));
     assert.ok(!r.body.waarschuwingen.some((w: { tekst: string }) => /testaccount/.test(w.tekst)), "geen waarschuwing: met testdata is dit normaal");
   });
 });

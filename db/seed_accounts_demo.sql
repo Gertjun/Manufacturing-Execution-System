@@ -31,6 +31,7 @@ UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaa
 UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.c') WHERE naam = 'Operator C';
 UPDATE operator SET gebruiker_id = (SELECT id FROM gebruiker WHERE gebruikersnaam = 'operator.d') WHERE naam = 'Operator D';
 
+-- BEGIN MES DEMO IDENTITIES (ook gebruikt door Windows-starter)
 -- Nieuwe fictieve MES-identiteiten. De oude accountrol is voorlopig alleen
 -- een compatibiliteitsveld; MES-grants zijn expliciet en afzonderlijk.
 -- Security-accounts krijgen geen legacy beheerders- of productierol.
@@ -57,7 +58,7 @@ FROM (VALUES
 -- Expliciete fictieve personeelskoppelingen; login maakt geen personen meer aan.
 INSERT INTO operator(naam,gebruiker_id)
 SELECT g.gebruikersnaam,g.id FROM gebruiker g
-WHERE NOT g.gedeeld AND g.rol IN ('operator','ploegleider','kwaliteit')
+WHERE g.actief AND NOT g.gedeeld AND g.rol IN ('operator','ploegleider','kwaliteit')
 AND NOT EXISTS (SELECT 1 FROM operator o WHERE o.gebruiker_id=g.id);
 
 -- Uitsluitend door de database-eigenaar geladen demo-bootstrap.
@@ -81,4 +82,5 @@ SELECT g.id,v.role_code FROM (VALUES
  ('mes.supervisor','operator')
 ) v(naam,role_code) JOIN gebruiker g ON g.gebruikersnaam=v.naam;
 
+-- END MES DEMO IDENTITIES
 COMMIT;

@@ -302,20 +302,22 @@ async function bouwDatabase(metTestdata) {
     await d.query(sqlBestand("testdata.sql"));
     await verschuifNaarNu(d);
     await d.query("COMMIT");
-    // Alleen bij expliciete aanmaak van een NIEUWE fictieve database:
-    // de oude dump bevat legacy accounts, geen actuele MES-grants.
-    // Voeg afzonderlijke demo-identiteiten toe; geen mapping bij upgrades.
-    await d.query(`
-      INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash)
-      VALUES ('mes.laptop.system','beheerder',fabriek.wachtwoord_hash('demo'))
-      ON CONFLICT (gebruikersnaam) DO NOTHING
-    `);
-    await d.query(`
-      INSERT INTO fabriek.authorization_grant(user_id,role_code)
-      SELECT id,'system_administrator' FROM fabriek.gebruiker
-      WHERE gebruikersnaam='mes.laptop.system'
-      AND NOT EXISTS (SELECT 1 FROM fabriek.authorization_grant a WHERE a.user_id=gebruiker.id AND a.role_code='system_administrator')
-    `);
+    // Alleen bij het opnieuw opbouwen van de fictieve database. Historische
+    // identiteiten blijven als referentie bestaan, maar kunnen niet meer inloggen.
+    const seed = sqlBestand("seed_accounts_demo.sql");
+    const blok = seed.split("-- BEGIN MES DEMO IDENTITIES")[1]?.split("-- END MES DEMO IDENTITIES")[0];
+    if (!blok || !blok.includes("INSERT INTO authorization_grant")) throw new Error("MES-demo-initialisatie ontbreekt");
+    await d.query("BEGIN");
+    try {
+      await d.query("SET LOCAL search_path = fabriek, public");
+      await d.query("SELECT set_config('fabriek.gebruiker', 'seed', true)");
+      await d.query("UPDATE gebruiker SET actief=false WHERE actief");
+      await d.query(blok);
+      await d.query("COMMIT");
+    } catch (e) {
+      await d.query("ROLLBACK");
+      throw e;
+    }
 
   } else {
     console.log("Lege fabriek: alleen configuratie (stappen, velden, accounts, operators, pc's) …");
@@ -441,10 +443,10 @@ if (inst.adres === "0.0.0.0") {
 }
 {
   const c = await verbind(inst.db.database);
-  const { rowCount } = await c.query("SELECT 1 FROM fabriek.gebruiker WHERE gebruikersnaam = 'beheerder1' AND actief");
+  const { rowCount } = await c.query("SELECT 1 FROM fabriek.demo_account_names(ARRAY['mes.system','mes.operator','mes.planner'])");
   await c.end();
-  if (rowCount) console.log("Testaccounts: operator, ploegleider1, kwaliteit1, beheerder1, analist1 (wachtwoord: demo)");
-  else console.log("Inloggen met je eigen beheerder; maak in Portaal Beheer de andere accounts aan.");
+  if (rowCount >= 3) console.log("Fictieve MES-testaccounts: zie het aanmeldscherm en README.md.");
+  else console.log("Log in met je persoonlijke account; bevoegdheden worden afzonderlijk toegekend.");
 }
 console.log("Stoppen: druk Ctrl+C in dit venster (of sluit het venster).\n");
 

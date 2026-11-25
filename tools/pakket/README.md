@@ -10,37 +10,40 @@ Bij de start staan er 90 dagen fictieve productie in. Je kunt ook met een lege f
 2. **Dubbelklik op `START.bat`.** De eerste keer maakt hij de database aan en laadt de testdata; dat duurt minder dan een minuut.
 3. De browser opent vanzelf op http://localhost:3000/ met links naar het invoerscherm, de portalen en de API-documentatie.
 
-Krijg je een blauwe Windows-melding ("Windows heeft uw pc beschermd")? Kies *Meer informatie* → *Toch uitvoeren*.
+Bij een Windows-beveiligingsmelding: stop en beoordeel de herkomst en het lokale IT-beleid; omzeil geen beveiligingsbeleid.
 
 **Stoppen:** druk **Ctrl+C** in het zwarte venster en beantwoord de vraag "Batchtaak beëindigen (J/N)?" met **J** (of sluit gewoon het venster). De database wordt netjes afgesloten; je gegevens blijven bewaard en de volgende keer start alles direct.
 
 ## Testaccounts
 
-Met de fictieve testdata zijn er testaccounts; het wachtwoord is steeds `demo`. Wijzig of vervang ze in Portaal Beheer (Accounts) als je anderen laat meekijken.
+Uitsluitend voor de nieuwe fictieve database: alle onderstaande persoonlijke MES-testaccounts gebruiken het demowachtwoord `demo`. De actuele MES-grants bepalen welke functies beschikbaar zijn. Historische identiteiten kunnen in een nieuwe fictieve Windows-installatie niet inloggen. Bij een upgrade worden geen demoaccounts of grants toegevoegd.
 
-| Account | Komt in |
+| Account | Rol |
 | --- | --- |
-| `operator.a`, `operator.b` | Invoerscherm, met een eigen account (daarna de pc kiezen) |
-| `operator` | Het oude gedeelde account: invoerscherm, daarna pc en naam kiezen |
-| `ploegleider1`, `ploegleider2` | Invoerscherm en de portalen Productieanalyse, Kwaliteit en Planning |
-| `kwaliteit1` | Portaal Kwaliteit, en het invoerscherm op de lab-pc (metingen en keuring) |
-| `productiemanager1` | Portalen Productieanalyse, Kwaliteit en Planning; herbewerkingen |
-| `planner1` | Portaal Planning |
-| `scherm1` | Wandscherm (voor een tv in de hal) |
-| `beheerder1` | Portaal Beheer |
-| `analist1` | Portalen, alleen lezen |
-
-Hulp per rol staat in de schermen onder **Hulp**, en is per rol af te drukken op één A4.
+| `mes.operator` | Operator |
+| `mes.supervisor` | Ploegleider en operator |
+| `mes.manager` | Manufacturing Manager |
+| `mes.planner` | Productieplanner |
+| `mes.engineer` | Procesengineer |
+| `mes.eng.approver` | Engineering-beoordelaar |
+| `mes.quality` | Kwaliteitsmedewerker |
+| `mes.quality.approver` | Kwaliteitsbeoordelaar |
+| `mes.maintenance` | Onderhoudsmedewerker |
+| `mes.system` | Technisch beheer |
+| `mes.security.a` | Autorisatiebeheer A |
+| `mes.security.b` | Autorisatiebeheer B |
+| `mes.analyst` | Analist |
+| `mes.display` | Stilstanddisplay |
 
 ## Wat je kunt uitproberen
 
-- **Invoerscherm:** log in als `operator.a`, kies bijvoorbeeld PC-01, start een stap voor een batch, vul waarden in (probeer een waarde buiten de grens) en rond af.
+- **Invoerscherm:** log in als `mes.operator`, kies bijvoorbeeld PC-01, start een stap voor een batch, vul waarden in (probeer een waarde buiten de grens) en rond af.
 - **Offline:** stop de applicatie terwijl het invoerscherm open is. Het invoerscherm blijft werken en verstuurt alles zodra je START.bat weer start.
 - **Kwaliteit:** de batches die op een keurresultaat wachten, de trend van S5.1 die langzaam oploopt, het lotpaspoort.
 - **Productie:** werkvoorraad, doorlooptijden en de correcties.
-- **Planning:** log in als `planner1`, plan batches voor de komende dagen, bekijk de planning per stap en de lotvoorstellen.
-- **Wandscherm:** log in als `scherm1` voor het overzicht dat later op een tv in de hal komt.
-- **Beheer:** wijzig een grens of koppel een stap aan een pc en kijk wat er in het invoerscherm en het logboek verandert. Onder **Server** zie je de versie en de laatste back-up.
+- **Planning:** log in als `mes.planner`, plan batches voor de komende dagen, bekijk de planning per stap en de lotvoorstellen.
+- **Wandscherm:** log in als `mes.display` voor het overzicht dat later op een tv in de hal komt.
+- **Beheer:** log in als `mes.system` en bekijk onder **Server** de versie en laatste back-up. Inhoudelijke instellingen zijn uitsluitend voor afzonderlijk bevoegde MES-rollen.
 
 ## Je eigen proces inrichten
 

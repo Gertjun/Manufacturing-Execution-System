@@ -1,5 +1,59 @@
-/** Testaccounts uit db/seed_accounts_demo.sql (wachtwoord demo); alleen in testdata, nooit in een echte installatie. */
+/** Uitsluitend actuele fictieve MES-demoaccounts; geen productieaccounts. */
 export const TESTACCOUNTS: [string, string][] = [
-  ["operator.a", "invoerscherm, eigen account (Operator A)"], ["operator.b", "invoerscherm, eigen account (Operator B)"], ["operator.c", "invoerscherm, eigen account (Operator C)"], ["operator.d", "invoerscherm, eigen account (Operator D)"], ["ploegleider1", "invoerscherm en Portaal Productie"], ["kwaliteit1", "Portaal Kwaliteit"],
-  ["planner1", "Portaal Planning"], ["beheerder1", "Portaal Beheer"], ["analist1", "portalen, alleen lezen"], ["scherm1", "wandscherm"],
+  [
+    "mes.operator",
+    "Operator"
+  ],
+  [
+    "mes.supervisor",
+    "Ploegleider en operator"
+  ],
+  [
+    "mes.manager",
+    "Manufacturing Manager"
+  ],
+  [
+    "mes.planner",
+    "Productieplanner"
+  ],
+  [
+    "mes.engineer",
+    "Procesengineer"
+  ],
+  [
+    "mes.eng.approver",
+    "Engineering-beoordelaar"
+  ],
+  [
+    "mes.quality",
+    "Kwaliteitsmedewerker"
+  ],
+  [
+    "mes.quality.approver",
+    "Kwaliteitsbeoordelaar"
+  ],
+  [
+    "mes.maintenance",
+    "Onderhoudsmedewerker"
+  ],
+  [
+    "mes.system",
+    "Technisch beheer"
+  ],
+  [
+    "mes.security.a",
+    "Autorisatiebeheer A"
+  ],
+  [
+    "mes.security.b",
+    "Autorisatiebeheer B"
+  ],
+  [
+    "mes.analyst",
+    "Analist"
+  ],
+  [
+    "mes.display",
+    "Stilstanddisplay"
+  ]
 ];

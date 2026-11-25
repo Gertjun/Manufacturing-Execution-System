@@ -49,7 +49,42 @@ const i = JSON.parse(fs.readFileSync("instellingen.json", "utf8"));
 })().catch(e => { console.error(e.message); process.exitCode=1; });
 JS
 
-TOK=$(curl -fsS -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"mes.laptop.system","wachtwoord":"demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const t=JSON.parse(s).token;if(!t)process.exit(1);console.log(t)})') || fout "technische MES-testlogin mislukt"
+# D103: alle actuele fictieve identiteiten kunnen inloggen; de historische
+# accounts blijven alleen als inactieve referenties in de fictieve dataset.
+node --input-type=commonjs <<'JS' || fout "MES-demoaccounts en historische identiteiten"
+const fs = require("node:fs");
+const {Client}=require("./server/node_modules/pg");
+const assert=require("node:assert/strict");
+const names=["mes.operator","mes.supervisor","mes.manager","mes.planner","mes.engineer","mes.eng.approver","mes.quality","mes.quality.approver","mes.maintenance","mes.system","mes.security.a","mes.security.b","mes.analyst","mes.display"];
+(async()=>{
+  const i=JSON.parse(fs.readFileSync("instellingen.json","utf8"));
+  const c=new Client(i.beheerDb);
+  await c.connect();
+  try {
+    const {rows}=await c.query("SELECT gebruikersnaam FROM fabriek.gebruiker WHERE actief ORDER BY gebruikersnaam");
+    assert.deepEqual(rows.map(r=>r.gebruikersnaam), [...names].sort());
+    const {rows:[g]}=await c.query("SELECT count(*)::int AS n FROM fabriek.authorization_grant WHERE revoked_at IS NULL");
+    assert.equal(g.n,15);
+    const {rows:[v]}=await c.query("SELECT count(*)::int AS n FROM fabriek.operator o JOIN fabriek.gebruiker g ON g.id=o.gebruiker_id WHERE g.actief");
+    assert.equal(v.n,4);
+  } finally {await c.end();}
+  for(const gebruikersnaam of names){
+    const r=await fetch("http://localhost:3000/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gebruikersnaam,wachtwoord:"demo"})});
+    assert.equal(r.status,200,gebruikersnaam);
+  }
+  for(const gebruikersnaam of ["operator","operator.a","beheerder1","mes.laptop.system"]){
+    const r=await fetch("http://localhost:3000/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gebruikersnaam,wachtwoord:"demo"})});
+    assert.equal(r.status,401,gebruikersnaam);
+  }
+  const r=await fetch("http://localhost:3000/auth/omgeving");
+  assert.equal(r.status,200);
+  const o=await r.json();
+  assert.equal(o.test,true);
+  assert.deepEqual(o.testaccounts.map(x=>x.naam).sort(),[...names].sort());
+})().catch(e=>{console.error(e.message);process.exitCode=1;});
+JS
+
+TOK=$(curl -fsS -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"mes.system","wachtwoord":"demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const t=JSON.parse(s).token;if(!t)process.exit(1);console.log(t)})') || fout "technische MES-testlogin mislukt"
 curl -fsS localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"postgres":"18' || fout "serverinformatie niet beschikbaar voor technische MES-testidentiteit of verkeerde PostgreSQL-versie"
 stopApp
 pgDraait && fout "database draait nog na Ctrl+C"
@@ -109,7 +144,7 @@ rm -rf data/backups
 start
 grep -q "Back-up maken" /tmp/laptoptest.log || fout "geen back-up bij tweede start"
 [ "$(ls data/backups | wc -l)" = "1" ] || fout "back-upmap klopt niet"
-TOK=$(curl -fsS -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"mes.laptop.system","wachtwoord":"demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const t=JSON.parse(s).token;if(!t)process.exit(1);console.log(t)})') || fout "technische MES-testlogin mislukt"
+TOK=$(curl -fsS -X POST localhost:3000/auth/login -H 'content-type: application/json' -d '{"gebruikersnaam":"mes.system","wachtwoord":"demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const t=JSON.parse(s).token;if(!t)process.exit(1);console.log(t)})') || fout "technische MES-testlogin mislukt"
 curl -fsS localhost:3000/beheer/server -H "authorization: Bearer $TOK" | grep -q '"waarschuwingen":\[\]' || fout "waarschuwingen na back-up"
 pkill -9 -f "node opstarten.mjs"; sleep 1
 start
