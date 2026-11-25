@@ -19,8 +19,8 @@ De automatische tests draaien bij elke versie op GitHub (zie README, "Testen"). 
 | L2 | Stoppen en weer starten | Een stap starten in het invoerscherm. Stoppen met Ctrl+C en **J**. Opnieuw `START.bat`. Daarna nog eens, nu door het zwarte venster te sluiten. | Beide keren start alles weer; de gestarte stap staat er nog. |
 | L3 | Nieuwe versie | Nieuwe zip naar een nieuwe map, `data` en `instellingen.json` meekopiëren, starten (tools/pakket/README.md, "Nieuwe versie"). | Beheer → Server toont de nieuwe versie; de batches van daarvoor staan er nog. |
 | L4 | Back-up terugzetten | Een batch starten, stoppen, `BACKUP TERUGZETTEN.bat`, de back-up van vóór die batch kiezen, starten. | De batch is weg; de rest staat er; de oude database staat nog in de map `data`. |
-| L5 | Lege fabriek | `LEGE FABRIEK.bat`, een eerste beheerder aanmaken, inloggen. | Geen batches en geen testaccounts; de beheerder kan accounts en velden aanmaken. |
-| L6 | Beheerder vergeten | `BEHEERDER HERSTELLEN.bat`, nieuw wachtwoord geven, inloggen. | Inloggen lukt; Beheer → Logboek toont het herstel. |
+| L5 | Lege fabriek | Uitsluitend aparte fictieve testmap: LEGE FABRIEK.bat, drie persoonlijke bootstrapidentiteiten en afzonderlijke wachtwoorden. | Geen batches of testaccounts; System Administrator kan technisch accountbeheer uitvoeren, maar geen inhoudelijk beheer zonder afzonderlijke grant. |
+| L6 | Hersteldiagnose | BEHEERDER HERSTELLEN.bat op bestaande fictieve administratie. | Oude noodsleutel geblokkeerd; diagnose wijzigt geen accounts; regulier herstel alleen via onafhankelijke bevestigingen. |
 | L7 | Offline op de laptop | Invoerscherm open als `operator.a`. Applicatie stoppen (Ctrl+C). Een stap afronden met waarden. Applicatie weer starten. | Tijdens het stoppen gaat de invoer door en toont de balk het aantal wachtende acties; na het starten zijn ze verstuurd, met de tijd van invoer (niet van versturen). |
 | L8 | Accounts voor de pilot | Bij Beheer → Medewerkers een fictief persoonlijk account toevoegen met tijdelijk wachtwoord. Met dat account inloggen op het invoerscherm. | Geen Excel-import van accounts; bij de eerste inlog eerst een eigen wachtwoord, daarna gewoon verder. |
 
@@ -72,3 +72,19 @@ Volgt [`docs/SERVER.md`](SERVER.md); eerst op een testmachine, dan op de echte s
 | S5 | Update en terugdraaien | Update naar een nieuwere versie en daarna terugdraaien volgens SERVER.md. | Beide lukken binnen het afgesproken onderhoudsmoment; geen invoer verloren. |
 | S6 | Herstel na een storing | Een back-up terugzetten volgens "Herstel na een storing". | De database staat op het moment van de back-up; invoer van de pc's daarna komt alsnog binnen. |
 | S7 | Netwerk in de hal | Op elke pc in hal 1 de server openen; ook op de plek met het slechtste wifi. | Elke pc bereikt de server; bij wegvallen werkt de pc offline door (S2). |
+
+
+## F1 – Operationele securityacceptatie
+
+Uitsluitend geïsoleerde fictieve testomgeving; leg head/pakketversie, uitvoerders, datum en resultaat vast zonder credentials.
+
+| Test | Goed als |
+|---|---|
+| F1.1 persoonlijke PostgreSQL-login en TLS | Vertrouwd certificaat werkt; verkeerde hostnaam/onvertrouwde CA en onbeveiligde verbinding geweigerd; geen eigenaarsecret beschikbaar aan securitypersoon. |
+| F1.2 binding en privileges | Ongebonden login geweigerd; gebonden login alleen kanaalfuncties; geen directe tabelwrites of andere rollen. |
+| F1.3 onafhankelijke aanvraag en besluit | Twee verschillende personen; zelftoekenning en fout wachtwoord geweigerd; exacte scope en audit zichtbaar. |
+| F1.4 intrekking en vervanging | Oude binding en sessie niet bruikbaar; nieuwe login alleen na expliciete registratie. |
+| F1.5 herstel | Securitykanaal na restore afgeschermd tot IT-reconciliatie; intrekkingen van na backup niet stilzwijgend ongedaan maken. |
+| F1.6 kwalificatie en personeelskoppeling | Onafhankelijke bevestiging, bewijsreferentie, geldigheid, intrekking; onbevoegde acties geweigerd. |
+
+D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
