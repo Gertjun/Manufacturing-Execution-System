@@ -83,6 +83,7 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 - #109 **Materiaaldefinities en MBR-identiteiten; meerdere recepten per product** — Migratie 0096: afgeschermd relationeel materiaalstamdatafundament; 0097 gecontroleerde materiaalfuncties toegevoegd; materiaal-API toegevoegd; gerichte DB/API-baseline geslaagd op a28cd0e (run 45682177664); gegenereerd diagram en OpenAPI opgenomen. 0098–0099 MBR-identiteiten, conceptversies, wijzigingsteller, audit en API gericht gevalideerd op d1815d3 (run 45684478100); portaal, bronmigratie en integrale acceptatie open.
 - #110 **Onveranderlijke receptversies, procedurehiërarchie en afhankelijkheden** — 0100 relationele vierlaagse procedureboom en voorwaartse afhankelijkheden binnen één siblinggroep; versiegrenzen, volgorde en beperkte ACL afgedwongen. 0101 persoonlijke mutaties, gezamenlijke wijzigingsteller en audit toegevoegd; procedure-API en regressies toegevoegd; baseline 45687274731 op 593d495 volledig groen; 782 DB-regels en 121 API-tests. Vrijgavepoort volgt.
 - #111 **Parameters, vijf voorwaarden, formule, schaalbaarheid, lotregels, instructies en specificaties** — 0102 relationele parameterdefinities en vijf afzonderlijke numerieke categorieën; 0103 referentieformule, materiaalversies, input/output en expliciet fixed/linear-schaalbeleid toegevoegd. Regressies nog niet uitgevoerd. Middelen/kwalificaties, instructies, specificaties, lotregels en compatibiliteit, persoonlijke functies en API volgen.
+- #141 **Eenhedenmodel en versiegebonden schaalregels (D106)** — Binnen fase 2, vóór MOC/vrijgave: centraal model voor fysische grootheden/dimensies en eenheden, SI/ISO 80000 als aanvullend uitgangspunt; gecontroleerde, onveranderlijke conversiedefinities (factor/offset, onderscheid absolute waarde en verschil) en versiegebonden schaalregels. Uitbreidbaar naar niet-lineaire relaties, afhankelijkheid van andere formuleparameters en equipment; expliciete inputs, eenheden, toepassingsgebied, versie en validatie; geen automatische uitvoering of willekeurige code. Integreer met #109/#111/#112/#113, behoud de fixed/linear-basis. Ontbrekende of ongeldige regels mogen geen vrijgave of berekening mogelijk maken. Rekenfunctionaliteit volgt #142.
 - #112 **MOC, vierogenprincipe, vergelijking, geldigheid en vrijgave** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #113 **Process Engineering-portaal, Excel en migratie naar concepten** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #103 **Routeversie-fundament** — Opnieuw implementeren binnen MBR; prototype PR #1 is niet gemerged.
@@ -110,6 +111,7 @@ D105: start uitsluitend na volledige acceptatie, merge en officiële release van
 ## Fase 6 — Control Recipes en productie-uitvoering
 
 - #120 **Control Recipes, revisies, batchstart en geautoriseerde wijzigingen** — Zie ontwerpdocumenten en acceptatiecriteria. D98: systeem geeft batchidentiteit uit vanuit vrijgegeven werk; sluit legacy ongeplande creatieroute bij omschakeling.
+- #142 **Gecontroleerde receptberekeningen en eenheidsconversie (D106)** — Afhankelijk van #141 en fase 4 voor equipmentcontext. Bij afleiding/revisie van Control Recipe: dimensioneel geldige conversies, vaste/lineaire en goedgekeurde niet-lineaire schaalrelaties, afhankelijke parameters en beschikbare equipmentgegevens. Contextafhankelijke omzetting (massa/volume, hoeveelheid stof) alleen met toepasselijke, versiegebonden eigenschappen en condities. Detecteer cycli, ontbrekende gegevens, buitenbereik, ongeldige dimensies, ongedefinieerde uitkomsten en afrondingsconflicten; geen impliciete fallback. Leg originele waarden, regels/versies, inputs, eenheden, factoren/offset, afronding, equipmentcontext en resultaten reproduceerbaar vast; gecontroleerde wijzigingen, geen retroactieve herberekening. Geen generieke scriptuitvoering of procesbesturing.
 - #121 **Procedure-uitvoering, instructies, kwalificaties, middelen en ISA-88-statussen** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #122 **Offline geldigheid, synchronisatie, conflicten en Production Execution-portaal** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #104 **Routeversies en lotvorming door de hele keten** — Expliciete productrecepten, Control Recipes, historische voorwaarden, gemengde receptversies van hetzelfde product tenzij expliciet incompatibel, offline overgang.
@@ -132,6 +134,7 @@ D105: start uitsluitend na volledige acceptatie, merge en officiële release van
 
 - #126 **Materiaalpartijen, status, verbruik, transformaties en genealogie** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #127 **Impactanalyse, visualisatie en basis massabalans** — Zie ontwerpdocumenten en acceptatiecriteria.
+- #143 **Automatische operationele massabalans en rendement (D106)** — Bouw voort op #126/#127, #142 en de feitelijke uitvoeringsrecords. Per batch, lot en processtap/transformatie: theoretische versus werkelijke input/output en verbruik, voorraadverandering/hold-up, afval, bijproducten, bekende verliezen, onverklaard verschil en rendement. Expliciete systeemgrens, tijdsperiode, grondslag, eenheden, volledigheid en toleranties; geen dubbel tellen van interne transfers of gemengde batches. Onbekend/niet gemeten blijft onbekend; afwijkingen zichtbaar en door bevoegden beoordeeld. Geen nieuwe dubbele bron van feitelijk verbruik.
 
 ## Fase 10 — Pilotvoorbereiding en integrale validatie
 
@@ -155,6 +158,7 @@ D105: start uitsluitend na volledige acceptatie, merge en officiële release van
 - #88 **Voorspelling toekomstige keuringen** (nice-to-have, D96) — Opnieuw beoordelen na de basis-MES en pilot; alleen bij aantoonbare behoefte en betrouwbare planning/doorlooptijden, met scopecontrole. Actuele openstaande metingen, besluiten en beschikbare keuringsstappen blijven basisfunctionaliteit.
 
 - #130 **KPI-definities, Management-portaal, MBR-vergelijking en massabalans** — Zie ontwerpdocumenten en acceptatiecriteria.
+- #144 **Historische massabalans-, rendements- en verliesanalyse (D106)** — Op basis van #143 en reproduceerbare EBR/CR-standen: vergelijk batches, producten, loten en MBR-revisies, trends in rendement en materiaalverbruik, structurele verliezen en verbeterpotentieel. Expliciete KPI-definities, vergelijkbare grondslagen, datakwaliteit en traceerbare bron; ISO 22400 waar toepasselijk als aanvullend referentiekader, geen automatische wijziging van vrijgegeven recepten.
 - #131 **RCA, CAPA, effectiviteitscontrole en aanvullende analyses** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #22 **OEE compleet** (middel) — Normtijden per stap vastleggen, zodat ook de prestatie (snelheid) en de volledige OEE berekend kunnen worden. De capaciteit in kg per uur (0.57.0, D80) is daarvoor de basis. De OEE komt in Productieanalyse, naast Stilstand en beschikbaarheid.
 - #32 **Kwaliteit "in één keer goed"** (klein) — Herbewerkingen tellen niet als goed; stilstand per oorzaak als paretodiagram, op minuten en op aantal.
@@ -185,7 +189,7 @@ D105: start uitsluitend na volledige acceptatie, merge en officiële release van
 
 ## Werkafspraken
 
-- Nieuwe taken met het volgende vrije nummer (nu #141); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
+- Nieuwe taken met het volgende vrije nummer (nu #145); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
 - Faseacceptatie volgens docs/mes/ACCEPTANCE-CRITERIA.md en D88; eigenaar merget. Geen automatische release.
 
 Fase 1 (0058): personeelsrechten en koppeling afgeschermd; gecontroleerde identiteitsoverdracht, kwalificaties, UI en testbewijs nog open.

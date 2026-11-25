@@ -1,6 +1,6 @@
 # MES
 
-> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 gestart. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D105 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
+> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 gestart. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D106 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
 
 Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. De huidige fictieve PoC gebruikt 18 processtappen en een lot van vier batches in PS16; dit is een tijdelijk model, geen definitief MES-recept. Lokale registratie ondersteunt offline werken. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
@@ -24,7 +24,7 @@ Bijgewerkt: 25 november 2026 · versie **0.63.0** (officieel uitgebracht).
 - **Ontwikkeling:** fase 1 gemerged (PR #6) en [v0.63.0 gepubliceerd](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.63.0). Main `ea3b78bc938647140b4e228e9382761504518906`, schema 0095. Fase 2 op `feature/mes-phase-2`: materiaalstamdatafundament 0096–0097 in ontwikkeling; gecontroleerde databasefuncties en materiaal-API toegevoegd; gerichte PostgreSQL-baseline geslaagd (run 45682177664); 0098–0099 MBR-conceptfundament, persoonlijke conceptwijzigingen en API gericht gevalideerd (run 45684478100). 0100–0101 procedurefundament, gecontroleerde mutaties en procedure-API: gerichte baseline 45687274731 geslaagd; 0102–0103 parameter- en formulefundament toegevoegd, nog niet getest. Bronmigratie, portaal en integrale acceptatie open. Fase-1-bewijs: zie D104 en acceptatiecriteria.
 - **Databaseplaatje:** 69 tabellen en 146 relaties op geteste schema 0101; gegenereerd in run 45687274731. Schema 0103 in ontwikkeling; regeneratie en gelijkheidscontrole volgen.
 - **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
-- **Open:** fase 2 (ongewijzigde scope), daarna fase 3 Portalstructuur, navigatie en UI-harmonisatie (D105; nog niet gestart), vervolgens middelenbeheer en overige domeinen; operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Open:** fase 2 (uitgebreid met #141 volgens D106), daarna fase 3 Portalstructuur, navigatie en UI-harmonisatie (D105; nog niet gestart), vervolgens middelenbeheer en overige domeinen; operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
 - **Releases:** uitsluitend op aanvraag na acceptatie. Fase 1 is uitgebracht; fase 2 vereist afzonderlijke acceptatie.
 
 **Links**

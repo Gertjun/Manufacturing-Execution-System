@@ -416,3 +416,17 @@ Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsb
 | UI3.6 | Tussentijdse audit, testreview, volledige Node 22/26 op actuele head/base, Windows-praktijktest, formele faseacceptatie, afzonderlijke merge/release. |
 
 Bevinding uit v0.63.0 is een navigatie-inconsistentie, geen bewezen securitylek; als werkelijke omzeiling blijkt, afzonderlijk melden en noodzakelijke beveiligingscorrectie niet uitstellen. Indicatie 1–2 ontwikkelingsdagen zonder deadline.
+
+
+## D106 — geplande acceptatie schaalregels, eenheden en massabalansen
+
+| ID | Fase / taak | Acceptatie-eis |
+|---|---|---|
+| D106.1 | 2 / #141 | Eenheden, fysische dimensies en conversiedefinities met onveranderlijke versie; factor/offset en absolute versus verschilwaarde expliciet; verkeerde dimensie, onbekende conversie of ongeldige definitie geweigerd. |
+| D106.2 | 2 / #141 | Versiegebonden schaalregels, expliciete inputs, eenheden, toepassingsgebied en uitbreidbare afhankelijkheden; fixed/linear behouden; niet-lineaire/parameter/equipment-afhankelijkheden voorbereid; geen ongeldige of onbewezen definitie vrijgeven; MOC, audit, scope en gezamenlijke wijzigingsteller. Geen uitvoering vereist in fase 2. |
+| D106.3 | 6 / #142 | Positieve en negatieve conversie- en rekenregressies, inclusief kg/g, absolute °C/K versus temperatuurverschil, dimensionele fouten, contextafhankelijke massa/volume en massa/mol, ontbrekende eigenschappen, niet-lineaire en parameter/equipment-afhankelijke gevallen, cycli, bereik, afronding en reproduceerbare resultaten. |
+| D106.4 | 6 / #142 | Exacte regels/versies, bronwaarden, context, conversies en resultaten in CR vastgelegd; wijziging na vrijgave alleen gecontroleerde revisie, geen retroactieve herberekening, ongeldige berekening blokkeert toepasselijke werkvrijgave/start. |
+| D106.5 | 9 / #143 | Massabalans per batch, lot en transformatie/processtap met theoretische/werkelijke hoeveelheden, voorraadverandering, verliezen, bijproducten, rendement, expliciete systeemgrens en volledigheid; interne transfers niet dubbel tellen, onbekend niet als nul, onverklaard verschil en afwijking zichtbaar. |
+| D106.6 | 11 / #144 | Historische vergelijking van producten, batches, loten en MBR-revisies op vergelijkbare grondslag, traceerbare KPI's, trends en verliesanalyse; onvolledige data herkenbaar, geen automatische wijziging van vrijgegeven recept. |
+
+Alle tests met fictieve gegevens zolang geen pilot; concrete rekenfixtures en acceptatiegrenzen vóór uitvoering ontwerpen. D106.1–2 worden meegenomen in integrale fase-2-acceptatie. D106.3–6 zijn latere fasepoorten. Geen uitvoering of formele normconformiteit geclaimd.

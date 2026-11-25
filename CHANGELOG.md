@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- D106: roadmap en ontwerp uitgebreid met #141 eenheden-/schaalregelmodel (fase 2), #142 gecontroleerde CR-berekeningen (fase 6), #143 operationele massabalans (fase 9) en #144 historische analyse (fase 11); acceptatiecriteria en normmapping toegevoegd. Alleen documentatie, geen implementatie.
+
 - #111 (deel): 0103 versiegebonden referentieformule, materiaalvereisten met exacte materiaalversie, input/output, vaste/lineaire hoeveelheden en expliciete parameterschaling (standaard vast). Geen impliciete eenheidsconversie of uitvoering; regressies nog niet uitgevoerd.
 
 - #103/110: hertest 45687274731 op 593d495 volledig geslaagd (782 DB, 121 API); gegenereerd databaseplaatje 0101 en OpenAPI opgenomen. Geen integrale acceptatie.

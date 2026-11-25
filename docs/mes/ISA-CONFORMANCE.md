@@ -31,3 +31,15 @@ Deels geïmplementeerde personnel/qualification-ondersteuning (M08/P01–P05), p
 Fase 1 / D102: Run [45575488676 (#499)](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45575488676), job 139072267943, head de213112f706f7bbcbd07b4928c93e36e6d7ba02, base 31c86973bf13848cba44fc38785084953fe65e39: gerichte PostgreSQL-baseline geslaagd; schone installatie, schema-equivalentie 0001–0094, beperkte rechten, historische upgrade 0035–0094 met behoud van tien historische tabellen en zonder automatische legacy-grants, D102 eenmalige initialisatie, 14/14 security, 10/10 autorisatie, 117/117 API, back-up/herstel/rollback en Linux-laptoppakket. Documentatiecontrole 45575458558 geslaagd. Geen volledige Node 26-acceptatie of Windows-praktijkbewijs. Architectuurmapping blijft ontwerpbewijs; geen formele ISA-conformiteitsclaim.
 
 D105: fase 3 is een projectmatige portal/UI-acceptatiepoort, geen nieuwe ISA-normclaim; fasekolom hierboven is hernummerd, normscope en bewijsgrenzen ongewijzigd.
+
+
+### D106 — aanvullende mapping (ontwerp, geen conformiteitsbewijs)
+
+| Onderwerp | Aansluiting | Fase / taak | Afbakening |
+|---|---|---|---|
+| Receptformule, berekende parameters | ISA-88 Master/Control Recipe | 2 #141; 6 #142 | Ondersteunde normconcepten; eigen schaalregels en engine, exacte normclausules nog te toetsen |
+| Materiaalhoeveelheden en eenheden | ISA-88 formule, ISA-95 materiaalmodel; SI/ISO 80000 aanvullend | 2 #141; 6 #142 | Gecontroleerde dimensies/conversies als projectkeuze |
+| Feitelijk verbruik, output en transformaties | ISA-95 materiaal-/operationsmodel, ISA-88 recept en records | 9 #143 | Automatische massabalans en rendement eigen uitbreiding |
+| Productieprestatie en historische analyse | ISA-95 Manufacturing Operations; ISO 22400 waar toepasselijk | 11 #144 | Eigen KPI- en analysetoepassing |
+
+Geen formele ISA-, ISO- of SI-conformiteitsclaim. Bij acceptatie per onderwerp de concrete normeditie/clausule, ondersteund concept versus projecteis, implementatiebewijs en afwijkingen afzonderlijk beoordelen.
