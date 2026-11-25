@@ -735,3 +735,11 @@ BEGIN
      fabriek.recipe_create_next_version(uuid,integer,text,text),fabriek.recipe_list(uuid) TO mes_app;
  END IF;
 END $$;
+
+-- 0099: gecontroleerde conceptheaderwijziging; geen directe tabelwrites.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=99) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_update_draft(uuid,integer,text,text) TO mes_app;
+ END IF;
+END $$;

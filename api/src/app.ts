@@ -11,6 +11,7 @@ import { foutAfhandeling } from "./fouten.js";
 import authRoutes from "./routes/auth.js";
 import configRoutes from "./routes/config.js";
 import materialRoutes from "./routes/materials.js";
+import recipeRoutes from "./routes/recipes.js";
 import batchRoutes from "./routes/batches.js";
 import registratieRoutes from "./routes/registraties.js";
 import lotRoutes from "./routes/lots.js";
@@ -120,6 +121,7 @@ export async function bouwApp({ db, jwtGeheim, logger = false, invoerMap, portaa
   await app.register(authRoutes, { prefix: "/auth" });
   await app.register(configRoutes, { prefix: "/config" });
   await app.register(materialRoutes, { prefix: "/materials" });
+  await app.register(recipeRoutes, { prefix: "/recipes" });
   await app.register(batchRoutes, { prefix: "/batches" });
   await app.register(registratieRoutes, { prefix: "/registraties" });
   await app.register(lotRoutes, { prefix: "/lots" });

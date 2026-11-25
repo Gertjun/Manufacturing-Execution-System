@@ -2056,3 +2056,61 @@ describe("#109 materiaal-API", () => {
     assert.equal((await verzoek("POST","/materials/classes",token,{code:"REVOKED",name:"Geweigerd"})).status,403);
   });
 });
+
+describe("#110 MBR-API", () => {
+  test("productscope, revisies en persoonlijke conceptaudit", async () => {
+    const engineer = await login("mes.engineer");
+    const op = await login("mes.operator");
+    const system = await login("mes.system");
+    const { rows: products } = await beheerDb.query("SELECT id,code FROM fabriek.product WHERE code IN ('PRD-A','PRD-B')");
+    const pa = products.find(p=>p.code==="PRD-A").id;
+    const pb = products.find(p=>p.code==="PRD-B").id;
+    const naam = "mes.recipe.scoped";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]} = await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,pa]);
+    const scoped = await login(naam);
+    const base = "/recipes/";
+    const listA = base+"?product_id="+pa;
+    const listB = base+"?product_id="+pb;
+    const payload = {product_id:pa,code:"API-MBR-A",name:"Fictief A",description:""};
+    assert.equal((await verzoek("GET",listA)).status,401);
+    for(const token of [op,system]) {
+      assert.equal((await verzoek("GET",listA,token)).status,403);
+      assert.equal((await verzoek("POST",base,token,payload)).status,403);
+    }
+    assert.equal((await verzoek("GET",listB,scoped)).status,403);
+    assert.equal((await verzoek("POST",base,scoped,{...payload,product_id:pb})).status,403);
+    const a = await verzoek("POST",base,scoped,payload);
+    assert.equal(a.status,201,JSON.stringify(a.body));
+    const b = await verzoek("POST",base,engineer,{...payload,product_id:pb,code:"API-MBR-B"});
+    assert.equal(b.status,201,JSON.stringify(b.body));
+    assert.equal((await verzoek("POST",base,scoped,payload)).status,409);
+    assert.equal((await verzoek("POST",base,scoped,{...payload,created_by:randomUUID()})).status,400);
+    const next = {expected_revision:1,name:"Fictief A2",description:""};
+    assert.equal((await verzoek("POST",base+b.body.id+"/versions",scoped,next)).status,403);
+    const version = await verzoek("POST",base+a.body.id+"/versions",scoped,next);
+    assert.equal(version.status,201,JSON.stringify(version.body));
+    assert.equal((await verzoek("POST",base+a.body.id+"/versions",scoped,next)).status,409);
+    const target = base+"versions/"+version.body.id;
+    const edit = {expected_change_no:0,name:"Fictief gewijzigd",description:"Test"};
+    const edited = await verzoek("PATCH",target,scoped,edit);
+    assert.equal(edited.status,200,JSON.stringify(edited.body));
+    assert.equal(edited.body.change_no,1);
+    assert.equal((await verzoek("PATCH",target,scoped,edit)).status,409);
+    const other = await verzoek("GET",listB,engineer);
+    assert.equal(other.status,200,JSON.stringify(other.body));
+    const otherVersion = other.body.find((x:any)=>x.id===b.body.id).versions[0].id;
+    assert.equal((await verzoek("PATCH",base+"versions/"+otherVersion,scoped,edit)).status,403);
+    const listing = await verzoek("GET",listA,scoped);
+    assert.equal(listing.status,200,JSON.stringify(listing.body));
+    const versions = listing.body.find((x:any)=>x.id===a.body.id).versions;
+    assert.deepEqual(versions.map((x:any)=>[x.revision,x.name,x.change_no]),[[1,"Fictief A",0],[2,"Fictief gewijzigd",1]]);
+    const {rows:[audit]} = await beheerDb.query("SELECT l.actor_origin,g.gebruikersnaam,l.oud,l.nieuw FROM fabriek.config_log l JOIN fabriek.gebruiker g ON g.id=l.actor_user_id WHERE l.tabel='master_recipe_version' AND l.record_id=$1 AND l.actie='UPDATE'",[version.body.id]);
+    assert.equal(audit.actor_origin,"personal");
+    assert.equal(audit.gebruikersnaam,naam);
+    assert.equal(audit.oud.name,"Fictief A2");
+    assert.equal(audit.nieuw.name,"Fictief gewijzigd");
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("PATCH",target,scoped,{...edit,expected_change_no:1})).status,403);
+  });
+});
