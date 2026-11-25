@@ -73,16 +73,31 @@ grep -q "Onbekende schemaversie in back-up" "$T/toekomst-herstel.txt" || fout "o
 [ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "historie gewijzigd bij geweigerd herstel"
 
 
-# Database-update: eerst een back-up. Doe alsof de laatste migratie nog open staat; die mislukt dan
-# (de onderdelen bestaan al), maar de back-up ervoor moet er zijn en de database blijft ongewijzigd.
-LAATSTE=$(psql -Atc "SELECT max(nummer) FROM fabriek.schema_versie" -d $DB)
-psql -q -d $DB -c "DELETE FROM fabriek.schema_versie WHERE nummer = $LAATSTE"
-node tools/migreer.mjs > "$T/migreer.txt" 2>&1 && fout "dubbele migratie zou moeten mislukken"
+# Database-update: gebruik een geïsoleerde kopie van de echte migratietool
+# met een opzettelijk falende testmigratie. Geen aanpassing aan productiemigraties.
+mkdir -p "$T/pakket/tools" "$T/pakket/db/migraties"
+cp tools/migreer.mjs tools/lib.mjs "$T/pakket/tools/"
+cp db/migraties/*.sql "$T/pakket/db/migraties/"
+cp db/rechten.sql "$T/pakket/db/"
+cp VERSIE "$T/pakket/"
+ln -s "$(pwd)/api" "$T/pakket/api"
+TESTNUMMER=$(printf '%04d' "$TOEKOMST")
+cat > "$T/pakket/db/migraties/${TESTNUMMER}_test_rollback.sql" <<'SQL'
+CREATE TABLE fabriek.test_migratie_rollback (id integer);
+INSERT INTO fabriek.test_migratie_rollback VALUES (1);
+DO $$ BEGIN RAISE EXCEPTION 'MES_TEST_OPZETTELIJKE_ROLLBACK'; END $$;
+SQL
+if node "$T/pakket/tools/migreer.mjs" > "$T/migreer.txt" 2>&1; then
+  cat "$T/migreer.txt"; fout "opzettelijk falende migratie geaccepteerd"
+fi
 grep -q "Back-up vóór de database-update" "$T/migreer.txt" || fout "geen back-up vóór de database-update"
-ls "$T"/backups/batchgui_*_voor-migratie-*.dump >/dev/null || fout "geen back-upbestand vóór de migratie"
+grep -q "MES_TEST_OPZETTELIJKE_ROLLBACK" "$T/migreer.txt" || { cat "$T/migreer.txt"; fout "verkeerde oorzaak migratiefout"; }
 grep -q "De database staat nog op de vorige versie" "$T/migreer.txt" || fout "mislukte migratie niet gemeld"
-psql -q -d $DB -c "INSERT INTO fabriek.schema_versie (nummer, naam) SELECT $LAATSTE, 'terug'"
-[ "$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)" = "$N" ] || fout "na de mislukte migratie klopt het aantal waarden niet"
+ls "$T"/backups/batchgui_*_voor-migratie-"${TESTNUMMER}".dump >/dev/null || fout "geen back-upbestand vóór de migratie"
+[ "$(psql -At -d "$DB" -c "SELECT to_regclass('fabriek.test_migratie_rollback') IS NULL")" = "t" ] || fout "DDL niet teruggedraaid"
+[ "$(psql -At -d "$DB" -c "SELECT max(nummer) FROM fabriek.schema_versie")" = "$((TOEKOMST-1))" ] || fout "mislukte migratie gemarkeerd"
+[ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "na de mislukte migratie klopt het aantal waarden niet"
+[ "$(psql -At -d "$DB" -c "SELECT EXISTS (SELECT 1 FROM fabriek.onderhoud_log WHERE soort='migratie' AND NOT gelukt AND melding LIKE '%MES_TEST_OPZETTELIJKE_ROLLBACK%')")" = "t" ] || fout "mislukte migratie ontbreekt in onderhoudslogboek"
 
 L=$(psql -Atc "SELECT string_agg(soort || ':' || gelukt, ' ' ORDER BY id) FROM fabriek.onderhoud_log" -d $DB)
 echo "$L" | grep -q "herstel:t" || fout "onderhoudslogboek mist het herstel ($L)"
