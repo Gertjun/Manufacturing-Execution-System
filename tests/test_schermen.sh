@@ -1,8 +1,8 @@
 #!/bin/sh
-# Schermtests in Chrome: invoerscherm, alle portalen en de browserdemo.
+# Schermtests in Chrome: invoerscherm en alle portalen (PostgreSQL, D99).
 # Gebruik: DATABASE_URL=postgres://postgres@localhost:5432/batchgui tests/test_schermen.sh
 # LET OP: de database wordt meerdere keren leeggemaakt en opnieuw gevuld met fictieve gegevens.
-# Vooraf nodig: npm ci in api, invoer, portaal en demo; invoer en portaal gebouwd (npm run build);
+# Vooraf nodig: npm ci in api, invoer en portaal; invoer en portaal gebouwd (npm run build);
 # Google Chrome in /usr/bin/google-chrome; Python met psycopg.
 set -e
 set -f  # geen bestandsnamen uitbreiden (de verbindingstekst bevat een ?)
@@ -48,25 +48,7 @@ draai portaal beheer.mjs
 draai portaal planning.mjs
 draai portaal sjabloon.mjs
 
-# Browserdemo (PGlite in de browser, zonder server).
-if ! (cd demo && ./bouw.sh) > /tmp/schermtest-demo-bouw.log 2>&1; then
-  cat /tmp/schermtest-demo-bouw.log
-  exit 1
-fi
-python3 -m http.server 4173 --directory demo/dist > /tmp/schermtest-demo-server.log 2>&1 &
-SERVER=$!
-trap 'kill "$SERVER" 2>/dev/null || true' EXIT
-poging=0
-until curl -fsS http://localhost:4173/ >/dev/null; do
-  poging=$((poging + 1))
-  if [ "$poging" -ge 20 ]; then
-    cat /tmp/schermtest-demo-server.log
-    exit 1
-  fi
-  sleep 1
-done
-draai portaal demo.mjs
-kill $SERVER 2>/dev/null || true
+# De historische browserdemo valt buiten de verplichte acceptatie (D99).
 
 if [ "$FOUT" -gt 0 ]; then
   echo "Schermtests: $FOUT test(s) mislukt (zie /tmp/schermtest-*.log)."
