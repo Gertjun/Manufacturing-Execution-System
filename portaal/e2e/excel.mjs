@@ -38,16 +38,12 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
 const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
-const inloggen = async (naam) => {
+const inloggen = async (naam, portaal) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-"+portaal).click();
 };
 
 const leesXlsx = (pad) => JSON.parse(execFileSync("python3", ["-c", `
@@ -58,8 +54,7 @@ print(json.dumps({"blad": ws.title, "rijen": [[c for c in r] for r in ws.iter_ro
 const libre = (pad) => execFileSync("soffice", ["--headless", "--convert-to", "csv", "--outdir", SHOTS, pad], { timeout: 120000 }).toString();
 try {
   console.log("\nProductie: stilstand per stap");
-  await inloggen("ploegleider1");
-  await page.getByRole("heading", { name: "Productie" }).first().waitFor();
+  await inloggen("ploegleider1","productie");
   await page.goto(`${BASIS}/portaal/#/productie/stilstand`);
   await page.getByRole("heading", { name: "Stilstand per stap" }).waitFor();
   const blok = page.locator("section", { hasText: "Stilstand per stap" });
@@ -80,7 +75,7 @@ try {
 
   console.log("\nKwaliteit: afwijkingen");
   await page.evaluate(() => localStorage.clear());
-  await inloggen("kwaliteit1");
+  await inloggen("kwaliteit1","kwaliteit");
   await page.getByRole("heading", { name: "Kwaliteit", exact: true }).waitFor();
   await page.getByRole("link", { name: "Afwijkingen" }).click();
   await page.getByRole("heading", { name: "Afwijkingen", exact: true }).waitFor();
