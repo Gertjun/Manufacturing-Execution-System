@@ -2518,6 +2518,9 @@ describe("#112 MOC- en beoordelings-API", () => {
     assert.equal((await verzoek("POST",base+"/reviews",engineer,{expected_change_no:2,expected_baseline_change_no:null,password:"onjuist"})).status,403);
     const {rows:[after]}=await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam='mes.engineer' AND uitkomst='mislukt'");
     assert.equal(after.n,before.n+1);
+    // Een werkelijke referentieteller 0 is niet hetzelfde als geen referentie.
+    assert.equal((await verzoek("POST",base+"/reviews",engineer,{expected_change_no:2,expected_baseline_change_no:0,password:"demo"})).status,409);
+    assert.equal((await verzoek("POST",base+"/reviews",engineer,{expected_change_no:2,expected_baseline_change_no:false,password:"demo"})).status,400);
     const submitted=await verzoek("POST",base+"/reviews",engineer,{expected_change_no:2,expected_baseline_change_no:null,password:"demo"});
     assert.equal(submitted.status,201,JSON.stringify(submitted.body));
     const round=submitted.body.round_id;

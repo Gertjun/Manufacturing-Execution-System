@@ -37,12 +37,12 @@ def main():
     def val(sql, p=()):
         return one(sql, p)[0]
 
-    def faalt(naam, sql, p=(), bevat=""):
+    def faalt(naam, sql, p=(), bevat="", sqlstate=None):
         try:
             con.execute(sql, p) if p else con.execute(sql)
         except psycopg.Error as e:
             msg = str(e).splitlines()[0]
-            check(naam, bevat.lower() in msg.lower(), msg)
+            check(naam, bevat.lower() in msg.lower() and (sqlstate is None or e.sqlstate == sqlstate), msg)
             return
         check(naam, False, "geen foutmelding")
 
@@ -2213,16 +2213,17 @@ def main():
         check("#111 oudere revisie niet gemuteerd",val("SELECT count(*) FROM recipe_compatibility_rule WHERE recipe_version_id=%s",(v1,))==0)
         check("#111 expliciet verbod tussen receptidentiteiten van hetzelfde product",val("SELECT count(*) FROM recipe_compatibility_rule WHERE recipe_version_id=%s AND other_recipe_version_id=%s",(v3,v2))==1)
         check("#111 geen impliciet verbod tussen overige revisies",val("SELECT count(*) FROM recipe_compatibility_rule WHERE (recipe_version_id=%s AND other_recipe_version_id=%s) OR (recipe_version_id=%s AND other_recipe_version_id=%s)",(v1,v3,v3,v1))==0)
-        def denied(label,sql,params=(),msg="check"):
+        def denied(label,sql,params=(),msg="check",sqlstate=None):
             con.execute("SAVEPOINT lot_rule_guard")
-            faalt(label,sql,params,msg)
+            faalt(label,sql,params,msg,sqlstate)
             con.execute("ROLLBACK TO SAVEPOINT lot_rule_guard")
             con.execute("RELEASE SAVEPOINT lot_rule_guard")
         denied("#111 nul batches",lsql,(v4,0,True))
         denied("#111 norm groter dan 50",lsql,(v4,51,True))
         denied("#111 dubbele lotnorm",lsql,(v1,5,True),"duplicate")
         denied("#111 afwijkingsreden niet uitzetten","UPDATE recipe_lot_rule SET deviation_reason_required=false WHERE recipe_version_id=%s",(v1,))
-        denied("#111 lotregel niet verplaatsen","UPDATE recipe_lot_rule SET recipe_version_id=%s WHERE recipe_version_id=%s",(v4,v1),"onveranderlijk")
+        denied("#111 lotregel niet verplaatsen","UPDATE recipe_lot_rule SET recipe_version_id=%s WHERE recipe_version_id=%s",(v4,v1),"MBR-inhoud kan niet naar een andere versie worden verplaatst","55000")
+        check("#111 lotregel blijft bij oorspronkelijke versie",val("SELECT count(*) FROM recipe_lot_rule WHERE recipe_version_id=%s",(v1,))==1 and val("SELECT count(*) FROM recipe_lot_rule WHERE recipe_version_id=%s",(v4,))==0)
         denied("#111 zelfincompatibiliteit",csql,(v1,v1,"Fictief"))
         denied("#111 incompatibiliteit andere producten",csql,(v1,v4,"Fictief"),"hetzelfde product")
         denied("#111 lege incompatibiliteitsreden",csql,(v1,v3," "))

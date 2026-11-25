@@ -173,7 +173,7 @@ const Dossier = Type.Object({ round: Type.Object({ id: Id, recipe_version_id: Id
   decisions: Type.Array(Type.Object({ id: Id, round_id: Id, domain: ReviewDomain, decision: ReviewDecision, reason: Nonblank, reviewer_id: Id, decided_at: Type.String() })),
   release: Type.Union([ReleaseRecord,Type.Null()]), withdrawal: Type.Union([WithdrawalRecord,Type.Null()]) });
 const ConfirmationPassword = Type.String({ minLength: 1, maxLength: 1024 });
-const SubmitReview = Type.Object({ expected_change_no: Expected, expected_baseline_change_no: Type.Union([Expected,Type.Null()]), password: ConfirmationPassword }, { additionalProperties: false });
+const SubmitReview = Type.Object({ expected_change_no: Expected, expected_baseline_change_no: Type.Integer({ minimum: 0, maximum: 2147483646, nullable: true }), password: ConfirmationPassword }, { additionalProperties: false });
 const DecideReview = Type.Object({ expected_change_no: Expected, domain: ReviewDomain, decision: ReviewDecision, reason: Nonblank, password: ConfirmationPassword }, { additionalProperties: false });
 const SubmitResult = Type.Object({ status: Type.Literal("submitted"), round_id: Id });
 const DecideResult = Type.Object({ status: Type.Literal("decided"), decision_id: Id, lifecycle_status: Lifecycle });
@@ -812,6 +812,14 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     (await tx.query("SELECT recipe_review_dossier($1) AS data",[req.params.roundId])).rows[0].data));
 
   app.post("/versions/:id/reviews", {
+    // AJV coerceert een null in een integer-first anyOf naar 0. Een initiële
+    // beoordeling heeft juist geen referentierevisie; 0 is een echte teller.
+    preValidation: async req => {
+      const value = req.body?.expected_baseline_change_no;
+      if (value !== null && (typeof value !== "number" || !Number.isInteger(value))) {
+        throw new ApiFout(400,"Referentiewijzigingsteller moet een geheel getal of null zijn");
+      }
+    },
     preHandler: personalSession,
     schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: SubmitReview, response: { 201: SubmitResult } },
   }, async (req,reply) => {
