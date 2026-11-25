@@ -9,13 +9,15 @@ set -f  # geen bestandsnamen uitbreiden (de verbindingstekst bevat een ?)
 cd "$(dirname "$0")/.."
 : "${DATABASE_URL:=postgres://postgres@localhost/batchgui?host=/tmp&port=5433}"
 export DATABASE_URL
+: "${TEST_APP_DATABASE_URL:?Stel TEST_APP_DATABASE_URL in op de beperkte mes_app-testverbinding}"
+export TEST_APP_DATABASE_URL
 PSQL="psql -q -v ON_ERROR_STOP=1 -d $DATABASE_URL"
 FOUT=0
 
 leeg() {
   $PSQL -c "DROP SCHEMA IF EXISTS fabriek CASCADE" >/dev/null 2>&1
   $PSQL -f db/schema.sql >/dev/null 2>&1
-  $PSQL -f db/rechten.sql >/dev/null 2>&1 || true
+  $PSQL -f db/rechten.sql >/dev/null
   $PSQL -f db/seed_config.sql >/dev/null
   $PSQL -f db/seed_accounts_demo.sql >/dev/null
 }
