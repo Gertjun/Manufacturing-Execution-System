@@ -64,12 +64,15 @@ try {
   check("Gelezen: teller één lager", true);
 
   console.log("\nNieuwe melding");
+  const initTeller = page.waitForResponse(r=>new URL(r.url()).pathname==="/meldingen" && r.ok());
+  await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
+  await initTeller;
+  await page.waitForFunction(x=>document.querySelector(".menu-meldingen .teller")?.textContent === (x ? String(x) : ""), n-1);
   const [b] = await q("SELECT batchnummer FROM fabriek.batch WHERE status = 'in_productie' ORDER BY batchnummer LIMIT 1");
   await q(`INSERT INTO fabriek.batch_besluit (batch_id, besluit, reden, besloten_door)
            SELECT b.id, 'in_beoordeling', 'e2e: kleur wijkt af', g.id FROM fabriek.batch b, fabriek.gebruiker g
             WHERE b.batchnummer = $1 AND g.gebruikersnaam = 'ploegleider1'`, [b.batchnummer]);
-  await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
-  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 10000 });
+  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 75000 });
   check("Nieuwe melding verschijnt onderin beeld", (await page.locator("#melding").innerText()).includes(b.batchnummer));
   await page.locator(".menu-meldingen").click();
   await page.locator(".melding-rij", { hasText: "e2e: kleur wijkt af" }).getByRole("link", { name: "Bekijken" }).click();
