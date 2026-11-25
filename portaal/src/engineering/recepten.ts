@@ -2,6 +2,7 @@
 // kopie van receptinhoud, vrijgave of historische mutaties.
 import { h, toon, vastHouden, melding } from "../../../gedeeld/ui";
 import { haal, stuur, sessie, magReceptconcept } from "../basis";
+import { procedurePane } from "./procedure";
 
 interface Product {id:string;code:string;name:string;can_edit:boolean;can_review:boolean}
 interface Version {id:string;revision:number;name:string;description:string;change_no:number;lifecycle_status:string}
@@ -63,6 +64,7 @@ export async function recepten() {
                 h("p",{class:"sub"},"Wijzigingsteller: "+v.change_no),
                 v.lifecycle_status==="draft"?editForm("Conceptheader wijzigen","/recipes/versions/"+v.id,"PATCH",(name,description)=>({expected_change_no:v.change_no,name,description}),v)
                   :h("p",{class:"sub"},"Deze revisie is niet wijzigbaar."),
+                procedurePane(v,()=>active(id,g),load),
               )));
           }),
           ...(recipes.length?[]:[h("p",{class:"leeg"},"Voor dit product zijn nog geen Master Recipes.")])
