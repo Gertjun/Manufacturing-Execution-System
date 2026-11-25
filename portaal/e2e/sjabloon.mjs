@@ -6,6 +6,8 @@ import { chromium } from "playwright-core";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
+const APP_DB = process.env.TEST_APP_DATABASE_URL;
+if (!APP_DB || APP_DB === DB) throw new Error("TEST_APP_DATABASE_URL moet een afzonderlijke beperkte MES-testverbinding zijn");
 const SHOTS = process.env.SHOTS ?? "/tmp/shots-sjabloon";
 const BASIS = "http://localhost:3469";
 mkdirSync(SHOTS, { recursive: true });
@@ -19,9 +21,16 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
+const PSQL = (bestand) => execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL(`../../db/${bestand}`, import.meta.url).pathname], { stdio: "ignore" });
+await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
+PSQL("schema.sql");
+PSQL("rechten.sql");
+PSQL("seed_config.sql");
+PSQL("seed_accounts_demo.sql");
+
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
-  env: { ...process.env, DATABASE_URL: DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3469", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
+  env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3469", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
@@ -55,7 +64,6 @@ ws = wb.active
 print(json.dumps({"blad": ws.title, "rijen": [[c for c in r] for r in ws.iter_rows(values_only=True)],
   "bladen": {b.title: [[c for c in r] for r in b.iter_rows(values_only=True)] for b in wb.worksheets}}, default=str))`, pad]).toString());
 // Zelf de database klaarzetten: alleen configuratie en testaccounts.
-const PSQL = (bestand) => execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL(`../../db/${bestand}`, import.meta.url).pathname], { stdio: "ignore" });
 const bewerk = (pad, uit, python) => execFileSync("python3", ["-c", `
 import sys, openpyxl
 wb = openpyxl.load_workbook(sys.argv[1])
@@ -64,11 +72,7 @@ ${python}
 wb.save(sys.argv[2])`, pad, uit]);
 
 try {
-  await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
-  PSQL("schema.sql");
-  try { PSQL("rechten.sql"); } catch {}
-  PSQL("seed_config.sql");
-  PSQL("seed_accounts_demo.sql");
+
 
   console.log("\nSjabloon downloaden");
   await inloggen("beheerder1");
