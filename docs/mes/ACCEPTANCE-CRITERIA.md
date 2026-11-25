@@ -305,3 +305,8 @@ Run [45572488766](https://github.com/Gertjun/Manufacturing-Execution-System/acti
 | #136 | directe afhankelijkhedenreview, demo buiten verplichte CI | integrale acceptatie |
 
 Geen nieuwe functionele tekortkoming geclaimd op basis van uitsluitend deze documentatiereview. D100 nog niet formeel afgesloten; diagram en integrale testreview vereist.
+
+
+### Operationele securityreview
+D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
+Draaiboek en praktijktests F1.1–F1.6 toegevoegd. TLS, persoonlijke provisioning, transport, intrekking en reconciliatie na restore nog niet praktisch uitgevoerd. Geen formele auditafsluiting.
