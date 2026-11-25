@@ -43,8 +43,9 @@ page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; 
 const shot = (naam, fullPage = true) => page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage });
 const dialoog = () => page.getByRole("dialog");
 const inloggen = async naam => {
-  await page.evaluate(()=>localStorage.clear());
   await page.goto(BASIS+"/portaal/#/login");
+  await page.evaluate(()=>localStorage.clear());
+  await page.reload();
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button",{name:"Inloggen"}).click();
