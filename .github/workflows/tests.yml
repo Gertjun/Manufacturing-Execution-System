@@ -194,6 +194,7 @@ jobs:
         run: |
           pg_dump --version
           sh tests/test_tools.sh
+          sh tests/test_historische_upgrade.sh
       - name: Invoerscherm controleren en bouwen
         working-directory: invoer
         run: |
@@ -329,6 +330,7 @@ jobs:
           pg_dump --version
           pg_restore --version
           sh tests/test_tools.sh
+          sh tests/test_historische_upgrade.sh
       - name: API typecheck en autorisatiemodule
         if: always() && steps.npm.outcome == 'success'
         working-directory: api
