@@ -11,6 +11,7 @@
 import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import readline from "node:readline/promises";
+import { randomBytes } from "node:crypto";
 import { argumenten, controleerPgVersie, leesInstellingen, logOnderhoud, pg, pgProgramma, ROOT, sqlBestand, stop, tijdstempel, verbind, verbindingArgs, voerUit } from "./lib.mjs";
 
 const { opties, los } = argumenten();
@@ -41,48 +42,55 @@ if (!existsSync(bestand)) stop(`Bestand niet gevonden: ${bestand}`);
 
 await controleerPgVersie(inst, pgProgramma(inst, "pg_restore"), DB);
 
-async function zetTerug(database) {
+async function zetTerug(database, aangemaakt = () => {}) {
   const beheer = await verbind(DB, "postgres");
-  await beheer.query(`CREATE DATABASE ${pg.escapeIdentifier(database)} ENCODING 'UTF8' TEMPLATE template0`);
-  await beheer.end();
+  try {
+    await beheer.query(`CREATE DATABASE ${pg.escapeIdentifier(database)} ENCODING 'UTF8' TEMPLATE template0`);
+    aangemaakt();
+  } finally { await beheer.end(); }
   const r = await voerUit(pgProgramma(inst, "pg_restore"), [...verbindingArgs(DB, database), "--no-owner", "--exit-on-error", bestand], DB);
   if (r.code !== 0) throw new Error(r.uitvoer.slice(0, 500) || `pg_restore stopte met code ${r.code}`);
 }
 
 async function tel(database) {
   const c = await verbind(DB, database);
+  try {
   const { rows } = await c.query(`SELECT (SELECT count(*) FROM fabriek.batch)::int AS batches,
                                          (SELECT count(*) FROM fabriek.waarde)::int AS waarden,
                                          (SELECT count(*) FROM fabriek.lot)::int AS lots,
                                          (SELECT count(*) FROM fabriek.processtap)::int AS stappen,
                                          (SELECT max(nummer) FROM fabriek.schema_versie)::int AS schema`);
-  await c.end();
   return rows[0];
+  } finally { await c.end(); }
 }
 
 async function verwijder(database) {
   const beheer = await verbind(DB, "postgres");
-  await beheer.query(`DROP DATABASE IF EXISTS ${pg.escapeIdentifier(database)} WITH (FORCE)`);
-  await beheer.end();
+  try { await beheer.query(`DROP DATABASE IF EXISTS ${pg.escapeIdentifier(database)} WITH (FORCE)`); }
+  finally { await beheer.end(); }
 }
 
 if (opties.controle) {
-  const tijdelijk = `${DB.database}_hersteltest_${tijdstempel(start).replace(/-/g, "")}`;
+  // Unieke korte naam; verwijder alleen een database die deze aanroep heeft gemaakt.
+  const tijdelijk = `${DB.database.slice(0, 20)}_hersteltest_${randomBytes(12).toString("hex")}`;
+  let gemaakt = false, melding, fout;
   try {
-    await zetTerug(tijdelijk);
+    await zetTerug(tijdelijk, () => { gemaakt = true; });
     const n = await tel(tijdelijk);
-    // Volledig teruggezet = de configuratie en de schemaversie zijn er (een nieuwe fabriek heeft nog geen batches).
     if (!n.schema) throw new Error("de teruggezette database heeft geen schemaversie");
     if (n.stappen === 0) throw new Error("de teruggezette database bevat geen processtappen");
-    const melding = `${n.batches} batches, ${n.lots} lots, ${n.waarden} waarden teruggezet (schemaversie ${n.schema})`;
-    await logOnderhoud(inst, { soort: "hersteltest", gestart_op: start, gelukt: true, bestand: basename(bestand), grootte_bytes: statSync(bestand).size, melding });
-    console.log(`Hersteltest geslaagd: ${melding} uit ${basename(bestand)}.`);
+    melding = `${n.batches} batches, ${n.lots} lots, ${n.waarden} waarden teruggezet (schemaversie ${n.schema})`;
   } catch (e) {
-    await logOnderhoud(inst, { soort: "hersteltest", gestart_op: start, gelukt: false, bestand: basename(bestand), melding: e.message });
-    stop(`Hersteltest mislukt: ${e.message}`);
+    fout = e.message;
   } finally {
-    await verwijder(tijdelijk).catch(() => {});
+    if (gemaakt) {
+      try { await verwijder(tijdelijk); }
+      catch (e) { fout = [fout, `tijdelijke database ${tijdelijk} niet opgeruimd: ${e.message}`].filter(Boolean).join("; "); }
+    }
   }
+  await logOnderhoud(inst, { soort: "hersteltest", gestart_op: start, gelukt: !fout, bestand: basename(bestand), grootte_bytes: statSync(bestand).size, melding: fout ?? melding });
+  if (fout) stop(`Hersteltest mislukt: ${fout}`);
+  console.log(`Hersteltest geslaagd: ${melding} uit ${basename(bestand)}.`);
   process.exit(0);
 }
 
