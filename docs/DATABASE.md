@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 62 tabellen en 132 verbanden.
+Schema `fabriek`: 65 tabellen en 137 verbanden.
 
 ## Overzicht
 
@@ -46,6 +46,9 @@ erDiagram
     lot
     lot_voorstel
     lot_voorstel_batch
+    material_class
+    material_definition
+    material_definition_version
     melding
     melding_gelezen
     onderhoud_log
@@ -92,6 +95,7 @@ erDiagram
     gebruiker |o--o| operator : "gebruiker_id"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
+    grondstof |o--o| material_definition : "raw_material_id"
     grondstof ||--o{ stap_grondstof : "grondstof_id"
     grondstof_gebruik |o--o| grondstof_gebruik : "vervangt_id"
     grondstof_gebruik |o--o{ invoerconflict : "bestaand_gebruik_id"
@@ -104,6 +108,8 @@ erDiagram
     lot |o--o{ stapregistratie : "lot_id"
     lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
     lot_voorstel |o--o{ stapplanning : "voorstel_id"
+    material_class |o--o{ material_definition_version : "material_class_id"
+    material_definition ||--o{ material_definition_version : "material_definition_id"
     melding ||--o{ melding_gelezen : "melding_id"
     personnel_qualification ||--o| qualification_issue : "qualification_id"
     personnel_qualification ||--o| qualification_revocation : "qualification_id"
@@ -124,6 +130,7 @@ erDiagram
     product |o--o{ batch : "product_id"
     product |o--o{ capaciteit_afwijking : "product_id"
     product ||--o{ capaciteit_stap : "product_id"
+    product |o--o| material_definition : "product_id"
     product ||--o{ product_stap : "product_id"
     product ||--o{ specificatie : "product_id"
     product |o--o{ stapregistratie : "product_id"
@@ -184,6 +191,9 @@ erDiagram
 | [`lot`](#lot) | 4 |  |  |
 | [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
+| [`material_class`](#material_class) | 3 |  | Stabiele materiaalclassificatie; geen automatisch afgeleide classificaties. |
+| [`material_definition`](#material_definition) | 4 | `grondstof`, `product` | Materiaalidentiteit met expliciete koppelingen naar behouden PoC-identiteiten. |
+| [`material_definition_version`](#material_definition_version) | 8 | `gebruiker`, `material_class`, `material_definition` | Onveranderlijke materiaalversie; ontbrekende classificatie of eenheid blijft onbekend. |
 | [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
 | [`melding_gelezen`](#melding_gelezen) | 3 | `gebruiker`, `melding` |  |
 | [`onderhoud_log`](#onderhoud_log) | 9 |  |  |
@@ -602,6 +612,36 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | --- | --- | --- | --- |
 | `voorstel_id` | uuid | PK FK | `lot_voorstel` |
 | `batch_id` | uuid | PK FK | `batch` |
+
+### material_class
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `code` | text | UK |  |
+| `name` | text |  |  |
+
+### material_definition
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `code` | text | UK |  |
+| `product_id` | uuid | FK UK leeg | `product` |
+| `raw_material_id` | uuid | FK UK leeg | `grondstof` |
+
+### material_definition_version
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `material_definition_id` | uuid | FK | `material_definition` |
+| `revision` | int |  |  |
+| `name` | text |  |  |
+| `material_class_id` | uuid | FK leeg | `material_class` |
+| `unit` | text | leeg |  |
+| `created_at` | timestamptz |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
 
 ### melding
 

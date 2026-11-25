@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "MES API",
-    "version": "0.62.0",
+    "version": "0.63.0",
     "description": "API voor invoer, beheer en analyse van batch- en lotgegevens. Alle regels worden ook door de database bewaakt. Fictieve data."
   },
   "components": {
@@ -16,6 +16,64 @@
     "schemas": {}
   },
   "paths": {
+    "/auth/permissions": {
+      "get": {
+        "tags": [
+          "inloggen"
+        ],
+        "description": "Actuele UI-projectie; geen vervanging van autorisatie per handeling.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "global",
+                    "products",
+                    "personal",
+                    "linkedPerson"
+                  ],
+                  "properties": {
+                    "global": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "permission",
+                          "product"
+                        ],
+                        "properties": {
+                          "permission": {
+                            "type": "string"
+                          },
+                          "product": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "personal": {
+                      "type": "boolean"
+                    },
+                    "linkedPerson": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "tags": [
@@ -71,7 +129,7 @@
                     },
                     "naamKiezen": {
                       "type": "boolean",
-                      "description": "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)"
+                      "description": "Compatibiliteitsveld; altijd false"
                     },
                     "operator": {
                       "description": "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
@@ -153,7 +211,7 @@
                     },
                     "naamKiezen": {
                       "type": "boolean",
-                      "description": "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)"
+                      "description": "Compatibiliteitsveld; altijd false"
                     },
                     "operator": {
                       "description": "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
@@ -231,117 +289,7 @@
                     },
                     "naamKiezen": {
                       "type": "boolean",
-                      "description": "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)"
-                    },
-                    "operator": {
-                      "description": "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
-                      "type": "object",
-                      "required": [
-                        "id",
-                        "naam"
-                      ],
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "naam": {
-                          "type": "string"
-                        }
-                      },
-                      "nullable": true
-                    },
-                    "wachtwoordWijzigen": {
-                      "type": "boolean",
-                      "description": "true: het wachtwoord is tijdelijk; kies eerst een eigen wachtwoord via /auth/wachtwoord. Het token mag tot dan niets anders (#76)."
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/operators": {
-      "get": {
-        "tags": [
-          "inloggen"
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "required": [
-                      "id",
-                      "naam"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "naam": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/operator": {
-      "post": {
-        "tags": [
-          "inloggen"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "operatorId"
-                ],
-                "properties": {
-                  "operatorId": {
-                    "type": "string",
-                    "format": "uuid"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "token",
-                    "rol",
-                    "naamKiezen"
-                  ],
-                  "properties": {
-                    "token": {
-                      "type": "string"
-                    },
-                    "rol": {
-                      "type": "string"
-                    },
-                    "naamKiezen": {
-                      "type": "boolean",
-                      "description": "true: kies eerst een naam via /auth/operator (alleen het oude gedeelde account, D53)"
+                      "description": "Compatibiliteitsveld; altijd false"
                     },
                     "operator": {
                       "description": "De naam waaronder dit account invoert (eigen account, D53); null bij een gedeeld account of een rol zonder invoer",
@@ -664,6 +612,371 @@
                         "type": "string",
                         "nullable": true
                       }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/materials/": {
+      "get": {
+        "tags": [
+          "materialen"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "classes",
+                    "definitions",
+                    "versions"
+                  ],
+                  "properties": {
+                    "classes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "code",
+                          "name"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100,
+                            "pattern": "\\S"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 250,
+                            "pattern": "\\S"
+                          }
+                        }
+                      }
+                    },
+                    "definitions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "code",
+                          "product_id",
+                          "raw_material_id"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100,
+                            "pattern": "\\S"
+                          },
+                          "product_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "raw_material_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "material_definition_id",
+                          "revision",
+                          "name",
+                          "material_class_id",
+                          "unit",
+                          "created_at",
+                          "created_by"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "material_definition_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 250,
+                            "pattern": "\\S"
+                          },
+                          "material_class_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "unit": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40,
+                            "pattern": "\\S",
+                            "nullable": true
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/materials/classes": {
+      "post": {
+        "tags": [
+          "materialen"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "name"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "\\S"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 250,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/materials/definitions": {
+      "post": {
+        "tags": [
+          "materialen"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "name",
+                  "material_class_id",
+                  "unit",
+                  "product_id",
+                  "raw_material_id"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "\\S"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 250,
+                    "pattern": "\\S"
+                  },
+                  "material_class_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "pattern": "\\S",
+                    "nullable": true
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  },
+                  "raw_material_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/materials/definitions/{id}/versions": {
+      "post": {
+        "tags": [
+          "materialen"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_revision",
+                  "name",
+                  "material_class_id",
+                  "unit"
+                ],
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483646
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 250,
+                    "pattern": "\\S"
+                  },
+                  "material_class_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "pattern": "\\S",
+                    "nullable": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
                     }
                   }
                 }
@@ -1372,6 +1685,11 @@
                   "reden": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "wachtwoord": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
                   }
                 }
               }
@@ -9239,7 +9557,6 @@
                 "type": "object",
                 "required": [
                   "gebruikersnaam",
-                  "rol",
                   "wachtwoord"
                 ],
                 "properties": {
@@ -9251,51 +9568,61 @@
                   "rol": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "enum": [
-                          "operator"
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "operator"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "ploegleider"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "kwaliteit"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "beheerder"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "analist"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "planner"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "scherm"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "productiemanager"
+                            ]
+                          }
                         ]
                       },
                       {
                         "type": "string",
                         "enum": [
-                          "ploegleider"
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "kwaliteit"
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "beheerder"
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "analist"
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "planner"
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "scherm"
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "productiemanager"
+                          "pending"
                         ]
                       }
                     ]
@@ -10006,6 +10333,40 @@
                             "type": "boolean"
                           }
                         }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beheer/pc-stappen": {
+      "get": {
+        "tags": [
+          "beheer"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "code",
+                      "naam"
+                    ],
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "naam": {
+                        "type": "string"
                       }
                     }
                   }
@@ -12896,7 +13257,8 @@
                 "required": [
                   "nummer",
                   "stapcode",
-                  "reden"
+                  "reden",
+                  "wachtwoord"
                 ],
                 "properties": {
                   "id": {
@@ -12915,6 +13277,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "wachtwoord": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
                   }
                 }
               }
@@ -13114,13 +13481,19 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "reden"
+                  "reden",
+                  "wachtwoord"
                 ],
                 "properties": {
                   "reden": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "wachtwoord": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
                   }
                 }
               }
@@ -13374,7 +13747,7 @@
         "tags": [
           "keuringen"
         ],
-        "description": "Kwaliteit beslist: vrijgegeven (alle verplichte metingen van Kwaliteit zijn er), herbewerken (met reden, terug naar stapcode of deze stap) of afgekeurd (met reden). Hetzelfde besluit opnieuw versturen (offline wachtrij) geeft gewoon de stand terug.",
+        "description": "Persoonlijk bevestigd proceskeuringsbesluit; geen offline herhaling of definitieve MES-vrijgave.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13382,7 +13755,8 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "besluit"
+                  "besluit",
+                  "wachtwoord"
                 ],
                 "properties": {
                   "besluit": {
@@ -13413,8 +13787,12 @@
                     "nullable": true
                   },
                   "stapcode": {
+                    "type": "string"
+                  },
+                  "wachtwoord": {
                     "type": "string",
-                    "description": "Bij herbewerken: terug naar deze stap (standaard de stap van de keuring)"
+                    "minLength": 1,
+                    "maxLength": 200
                   }
                 }
               }
@@ -14027,7 +14405,7 @@
         "tags": [
           "conflicten"
         ],
-        "description": "Kies welke invoer blijft: bestaand (wat er staat) of nieuw (de tweede invoer, als correctie met reden; het origineel blijft bewaard). Een veld van Kwaliteit: Kwaliteit of de beheerder; anders een ploegleider of de beheerder. Dezelfde keuze opnieuw versturen geeft de stand terug.",
+        "description": "Kies welke invoer blijft: bestaand (wat er staat) of nieuw (de tweede invoer, als correctie met reden; het origineel blijft bewaard). Een kwaliteitsveld vereist inspection.decide; andere conflicten execution.correct. Dezelfde keuze opnieuw versturen geeft de stand terug.",
         "requestBody": {
           "required": true,
           "content": {
@@ -14035,7 +14413,8 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "keuze"
+                  "keuze",
+                  "reden"
                 ],
                 "properties": {
                   "keuze": {
@@ -14056,8 +14435,8 @@
                   },
                   "reden": {
                     "type": "string",
-                    "maxLength": 500,
-                    "nullable": true
+                    "minLength": 1,
+                    "maxLength": 500
                   }
                 }
               }
@@ -14894,187 +15273,19 @@
         }
       },
       "post": {
-        "tags": [
-          "specificaties"
-        ],
-        "description": "Nieuwe versie als concept, met de regels van de geldige versie. Bestaat er al een concept, dan komt dat terug.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "product",
-                  "stap"
-                ],
-                "properties": {
-                  "product": {
-                    "type": "string",
-                    "maxLength": 40
-                  },
-                  "stap": {
-                    "type": "string",
-                    "pattern": "^(PS[0-9]+|TK[0-9]+|EK[0-9]*)$",
-                    "example": "PS3"
-                  }
-                }
-              }
-            }
-          }
-        },
         "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "versie",
-                    "status",
-                    "opmerking",
-                    "aangemaakt_door",
-                    "vastgesteld_door",
-                    "vastgesteld_op",
-                    "regels"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "versie": {
-                      "type": "integer"
-                    },
-                    "status": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": [
-                            "concept"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "vastgesteld"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "vervallen"
-                          ]
-                        }
-                      ]
-                    },
-                    "opmerking": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "aangemaakt_door": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "vastgesteld_door": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "vastgesteld_op": {
-                      "type": "string",
-                      "format": "date-time",
-                      "nullable": true
-                    },
-                    "regels": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "veld",
-                          "grens_min",
-                          "grens_max"
-                        ],
-                        "properties": {
-                          "veld": {
-                            "type": "string"
-                          },
-                          "grens_min": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "grens_max": {
-                            "type": "number",
-                            "nullable": true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "200": {
+            "description": "Default Response"
           }
         }
       }
     },
     "/specificaties/{id}": {
       "put": {
-        "tags": [
-          "specificaties"
-        ],
-        "description": "De regels en de opmerking van een concept. De lijst is volledig: een veld dat ontbreekt, of zonder minimum en maximum, gaat uit het concept.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "regels"
-                ],
-                "properties": {
-                  "opmerking": {
-                    "type": "string",
-                    "maxLength": 500,
-                    "nullable": true
-                  },
-                  "regels": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "veld",
-                        "grens_min",
-                        "grens_max"
-                      ],
-                      "properties": {
-                        "veld": {
-                          "type": "string"
-                        },
-                        "grens_min": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "grens_max": {
-                          "type": "number",
-                          "nullable": true
-                        }
-                      }
-                    },
-                    "maxItems": 100
-                  }
-                }
-              }
-            }
-          }
-        },
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
@@ -15083,111 +15294,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "versie",
-                    "status",
-                    "opmerking",
-                    "aangemaakt_door",
-                    "vastgesteld_door",
-                    "vastgesteld_op",
-                    "regels"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "versie": {
-                      "type": "integer"
-                    },
-                    "status": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": [
-                            "concept"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "vastgesteld"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "vervallen"
-                          ]
-                        }
-                      ]
-                    },
-                    "opmerking": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "aangemaakt_door": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "vastgesteld_door": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "vastgesteld_op": {
-                      "type": "string",
-                      "format": "date-time",
-                      "nullable": true
-                    },
-                    "regels": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "veld",
-                          "grens_min",
-                          "grens_max"
-                        ],
-                        "properties": {
-                          "veld": {
-                            "type": "string"
-                          },
-                          "grens_min": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "grens_max": {
-                            "type": "number",
-                            "nullable": true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
         }
       }
     },
     "/specificaties/{id}/vaststellen": {
       "post": {
-        "tags": [
-          "specificaties"
-        ],
-        "description": "Het concept geldt vanaf nu; de vorige versie vervalt. Metingen van daarvoor houden hun eigen versie.",
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
@@ -15196,111 +15313,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "versie",
-                    "status",
-                    "opmerking",
-                    "aangemaakt_door",
-                    "vastgesteld_door",
-                    "vastgesteld_op",
-                    "regels"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "versie": {
-                      "type": "integer"
-                    },
-                    "status": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": [
-                            "concept"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "vastgesteld"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "vervallen"
-                          ]
-                        }
-                      ]
-                    },
-                    "opmerking": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "aangemaakt_door": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "vastgesteld_door": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "vastgesteld_op": {
-                      "type": "string",
-                      "format": "date-time",
-                      "nullable": true
-                    },
-                    "regels": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "veld",
-                          "grens_min",
-                          "grens_max"
-                        ],
-                        "properties": {
-                          "veld": {
-                            "type": "string"
-                          },
-                          "grens_min": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "grens_max": {
-                            "type": "number",
-                            "nullable": true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
         }
       }
     },
     "/specificaties/{id}/weggooien": {
       "post": {
-        "tags": [
-          "specificaties"
-        ],
-        "description": "Een concept weggooien; een vastgestelde of vervallen versie blijft altijd bewaard.",
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
@@ -15308,7 +15331,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Default Response"
           }
         }
@@ -15963,219 +15986,26 @@
     },
     "/terugmeldingen/": {
       "post": {
-        "tags": [
-          "terugmeldingen"
-        ],
-        "description": "Iets melden. Het id komt van het apparaat: opnieuw versturen maakt geen tweede melding. Tijd, pc en naam komen van de inlog en de wachtrij.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "id",
-                  "tekst"
-                ],
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "tekst": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 1000
-                  },
-                  "stapcode": {
-                    "type": "string",
-                    "maxLength": 20,
-                    "nullable": true
-                  },
-                  "scherm": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "nullable": true
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
         "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    }
-                  }
-                }
-              }
-            }
+          "200": {
+            "description": "Default Response"
           }
         }
       },
       "get": {
-        "tags": [
-          "terugmeldingen"
-        ],
-        "description": "Wat gebruikers meldden, nieuwste eerst. Standaard alleen wat nog open staat.",
-        "parameters": [
-          {
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "open"
-                  ]
-                },
-                {
-                  "type": "string",
-                  "enum": [
-                    "alle"
-                  ]
-                }
-              ]
-            },
-            "in": "query",
-            "name": "status",
-            "required": false
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "required": [
-                      "id",
-                      "gemeld_op",
-                      "gebruikersnaam",
-                      "naam",
-                      "pc",
-                      "stapcode",
-                      "scherm",
-                      "tekst",
-                      "status",
-                      "afgehandeld_door",
-                      "afgehandeld_op",
-                      "notitie"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "gemeld_op": {
-                        "type": "string",
-                        "format": "date-time"
-                      },
-                      "gebruikersnaam": {
-                        "type": "string"
-                      },
-                      "naam": {
-                        "description": "Naam bij de invoer, als die er is",
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "pc": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "stapcode": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "scherm": {
-                        "description": "Waar in de schermen het gemeld werd",
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "tekst": {
-                        "type": "string"
-                      },
-                      "status": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "enum": [
-                              "open"
-                            ]
-                          },
-                          {
-                            "type": "string",
-                            "enum": [
-                              "afgehandeld"
-                            ]
-                          }
-                        ]
-                      },
-                      "afgehandeld_door": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "afgehandeld_op": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                      },
-                      "notitie": {
-                        "type": "string",
-                        "nullable": true
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
         }
       }
     },
     "/terugmeldingen/{id}/afhandelen": {
       "post": {
-        "tags": [
-          "terugmeldingen"
-        ],
-        "description": "Een melding afhandelen, met een notitie (bijvoorbeeld het roadmapnummer of wat er gedaan is).",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "notitie": {
-                    "type": "string",
-                    "maxLength": 500,
-                    "nullable": true
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "in": "path",
             "name": "id",
@@ -16183,7 +16013,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Default Response"
           }
         }
@@ -16191,394 +16021,17 @@
     },
     "/pilot/": {
       "get": {
-        "tags": [
-          "beheer"
-        ],
-        "description": "Pilotoverzicht van van tot en met tot (dagen in de tijdzone van de fabriek). Zonder van: vanaf de start van de pilot, of de laatste 7 dagen.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-            },
-            "in": "query",
-            "name": "van",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-            },
-            "in": "query",
-            "name": "tot",
-            "required": false
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "van",
-                    "tot",
-                    "pilot_start",
-                    "te_laat_minuten",
-                    "kerncijfers",
-                    "per_dag_pc",
-                    "per_pc",
-                    "per_dag",
-                    "per_veld",
-                    "geweigerd"
-                  ],
-                  "properties": {
-                    "van": {
-                      "type": "string",
-                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                    },
-                    "tot": {
-                      "type": "string",
-                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                    },
-                    "pilot_start": {
-                      "type": "string",
-                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                      "nullable": true
-                    },
-                    "te_laat_minuten": {
-                      "type": "number"
-                    },
-                    "kerncijfers": {
-                      "type": "object",
-                      "required": [
-                        "afgerond",
-                        "binnen_tijd",
-                        "nageleverd",
-                        "geweigerd",
-                        "opmerkingen"
-                      ],
-                      "properties": {
-                        "afgerond": {
-                          "type": "number"
-                        },
-                        "binnen_tijd": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "nageleverd": {
-                          "type": "number"
-                        },
-                        "geweigerd": {
-                          "type": "number"
-                        },
-                        "opmerkingen": {
-                          "type": "number"
-                        }
-                      },
-                      "description": "binnen_tijd: deel (0–1) van de invoer dat binnen te_laat_minuten binnenkwam; null zonder invoer"
-                    },
-                    "per_dag_pc": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "dag",
-                          "pc",
-                          "gestart",
-                          "afgerond",
-                          "waarden",
-                          "gemiddeld_minuten",
-                          "langst_minuten",
-                          "te_laat",
-                          "nageleverd",
-                          "geweigerd",
-                          "opmerkingen"
-                        ],
-                        "properties": {
-                          "dag": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                            "nullable": true
-                          },
-                          "pc": {
-                            "type": "string"
-                          },
-                          "gestart": {
-                            "type": "number"
-                          },
-                          "afgerond": {
-                            "type": "number"
-                          },
-                          "waarden": {
-                            "type": "number"
-                          },
-                          "gemiddeld_minuten": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "langst_minuten": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "te_laat": {
-                            "type": "number"
-                          },
-                          "nageleverd": {
-                            "type": "number"
-                          },
-                          "geweigerd": {
-                            "type": "number"
-                          },
-                          "opmerkingen": {
-                            "type": "number"
-                          }
-                        }
-                      }
-                    },
-                    "per_pc": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "dag",
-                          "pc",
-                          "gestart",
-                          "afgerond",
-                          "waarden",
-                          "gemiddeld_minuten",
-                          "langst_minuten",
-                          "te_laat",
-                          "nageleverd",
-                          "geweigerd",
-                          "opmerkingen"
-                        ],
-                        "properties": {
-                          "dag": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                            "nullable": true
-                          },
-                          "pc": {
-                            "type": "string"
-                          },
-                          "gestart": {
-                            "type": "number"
-                          },
-                          "afgerond": {
-                            "type": "number"
-                          },
-                          "waarden": {
-                            "type": "number"
-                          },
-                          "gemiddeld_minuten": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "langst_minuten": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "te_laat": {
-                            "type": "number"
-                          },
-                          "nageleverd": {
-                            "type": "number"
-                          },
-                          "geweigerd": {
-                            "type": "number"
-                          },
-                          "opmerkingen": {
-                            "type": "number"
-                          }
-                        }
-                      },
-                      "description": "Per pc over de hele periode (dag is leeg)"
-                    },
-                    "per_dag": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "dag",
-                          "pc",
-                          "gestart",
-                          "afgerond",
-                          "waarden",
-                          "gemiddeld_minuten",
-                          "langst_minuten",
-                          "te_laat",
-                          "nageleverd",
-                          "geweigerd",
-                          "opmerkingen"
-                        ],
-                        "properties": {
-                          "dag": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                            "nullable": true
-                          },
-                          "pc": {
-                            "type": "string"
-                          },
-                          "gestart": {
-                            "type": "number"
-                          },
-                          "afgerond": {
-                            "type": "number"
-                          },
-                          "waarden": {
-                            "type": "number"
-                          },
-                          "gemiddeld_minuten": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "langst_minuten": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "te_laat": {
-                            "type": "number"
-                          },
-                          "nageleverd": {
-                            "type": "number"
-                          },
-                          "geweigerd": {
-                            "type": "number"
-                          },
-                          "opmerkingen": {
-                            "type": "number"
-                          }
-                        }
-                      },
-                      "description": "Per dag over alle pc's"
-                    },
-                    "per_veld": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "veld",
-                          "naam",
-                          "stap",
-                          "verplicht",
-                          "keer",
-                          "leeg",
-                          "gecorrigeerd"
-                        ],
-                        "properties": {
-                          "veld": {
-                            "type": "string"
-                          },
-                          "naam": {
-                            "type": "string"
-                          },
-                          "stap": {
-                            "type": "string"
-                          },
-                          "verplicht": {
-                            "type": "boolean"
-                          },
-                          "keer": {
-                            "type": "number"
-                          },
-                          "leeg": {
-                            "type": "number"
-                          },
-                          "gecorrigeerd": {
-                            "type": "number"
-                          }
-                        }
-                      },
-                      "description": "Velden die leeg bleven of gecorrigeerd zijn, het vaakst eerst"
-                    },
-                    "geweigerd": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "op",
-                          "pc",
-                          "naam",
-                          "stapcode",
-                          "batchnummer",
-                          "fout"
-                        ],
-                        "properties": {
-                          "op": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "pc": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "naam": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "stapcode": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "batchnummer": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "fout": {
-                            "type": "string",
-                            "nullable": true
-                          }
-                        }
-                      },
-                      "description": "De laatste 100 geweigerde invoeren in de periode"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
         }
       }
     },
     "/pilot/instellingen": {
       "put": {
-        "tags": [
-          "beheer"
-        ],
-        "description": "Startdatum van de pilot (leeg = geen) en vanaf hoeveel minuten invoer te laat binnenkomt.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "pilot_start",
-                  "te_laat_minuten"
-                ],
-                "properties": {
-                  "pilot_start": {
-                    "type": "string",
-                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                    "nullable": true
-                  },
-                  "te_laat_minuten": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 720
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
         "responses": {
-          "204": {
+          "200": {
             "description": "Default Response"
           }
         }
@@ -19483,448 +18936,18 @@
     },
     "/wandscherm/": {
       "get": {
-        "tags": [
-          "wandscherm"
-        ],
-        "description": "Alles voor het wandscherm in één keer: per stap de planning van vandaag, wat bezig is en wat klaarstaat, en de kerncijfers van vandaag. Met hal alleen de stappen van de pc's in die hal; met stappen alleen die stappen (#54).",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "maxLength": 100
-            },
-            "in": "query",
-            "name": "hal",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "maxLength": 300
-            },
-            "example": "PS3,PS4",
-            "in": "query",
-            "name": "stappen",
-            "required": false,
-            "description": "Stapcodes met komma's, bijvoorbeeld PS3,PS4"
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "tijd",
-                    "hal",
-                    "keuze",
-                    "hallen",
-                    "kerncijfers",
-                    "stappen"
-                  ],
-                  "properties": {
-                    "tijd": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "hal": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "keuze": {
-                      "description": "De gekozen stappen, of leeg voor alle (#54)",
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "nullable": true
-                    },
-                    "hallen": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "kerncijfers": {
-                      "type": "object",
-                      "required": [
-                        "gepland_vandaag",
-                        "gestart_vandaag",
-                        "lots_gereed_vandaag",
-                        "in_beoordeling"
-                      ],
-                      "properties": {
-                        "gepland_vandaag": {
-                          "type": "integer"
-                        },
-                        "gestart_vandaag": {
-                          "type": "integer"
-                        },
-                        "lots_gereed_vandaag": {
-                          "type": "integer"
-                        },
-                        "in_beoordeling": {
-                          "type": "integer"
-                        }
-                      }
-                    },
-                    "stappen": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "code",
-                          "naam",
-                          "niveau",
-                          "gepland",
-                          "bezig",
-                          "klaar",
-                          "stilstand"
-                        ],
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "naam": {
-                            "type": "string"
-                          },
-                          "niveau": {
-                            "type": "string"
-                          },
-                          "gepland": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "required": [
-                                "nummer",
-                                "volgorde",
-                                "status",
-                                "opmerking"
-                              ],
-                              "properties": {
-                                "nummer": {
-                                  "type": "string"
-                                },
-                                "volgorde": {
-                                  "type": "integer"
-                                },
-                                "status": {
-                                  "type": "string"
-                                },
-                                "opmerking": {
-                                  "type": "string",
-                                  "nullable": true
-                                }
-                              }
-                            }
-                          },
-                          "bezig": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "required": [
-                                "nummer",
-                                "sinds",
-                                "lang",
-                                "gepland",
-                                "opmerking"
-                              ],
-                              "properties": {
-                                "nummer": {
-                                  "type": "string"
-                                },
-                                "sinds": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "nullable": true
-                                },
-                                "lang": {
-                                  "type": "boolean",
-                                  "description": "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen"
-                                },
-                                "gepland": {
-                                  "type": "integer",
-                                  "description": "Plek in de dagplanning van deze stap",
-                                  "nullable": true
-                                },
-                                "opmerking": {
-                                  "type": "string",
-                                  "nullable": true
-                                }
-                              }
-                            }
-                          },
-                          "klaar": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "required": [
-                                "nummer",
-                                "sinds",
-                                "lang",
-                                "gepland",
-                                "opmerking"
-                              ],
-                              "properties": {
-                                "nummer": {
-                                  "type": "string"
-                                },
-                                "sinds": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "nullable": true
-                                },
-                                "lang": {
-                                  "type": "boolean",
-                                  "description": "Wacht of loopt langer dan 90% van de keren in de laatste 30 dagen"
-                                },
-                                "gepland": {
-                                  "type": "integer",
-                                  "description": "Plek in de dagplanning van deze stap",
-                                  "nullable": true
-                                },
-                                "opmerking": {
-                                  "type": "string",
-                                  "nullable": true
-                                }
-                              }
-                            }
-                          },
-                          "stilstand": {
-                            "type": "object",
-                            "required": [
-                              "oorzaak",
-                              "categorie",
-                              "sinds",
-                              "toelichting"
-                            ],
-                            "properties": {
-                              "oorzaak": {
-                                "type": "string"
-                              },
-                              "categorie": {
-                                "type": "string"
-                              },
-                              "sinds": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "toelichting": {
-                                "type": "string",
-                                "nullable": true
-                              }
-                            },
-                            "nullable": true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
         }
       }
     },
     "/wandscherm/kwaliteit": {
       "get": {
-        "tags": [
-          "wandscherm"
-        ],
-        "description": "Wandscherm voor Kwaliteit (#83): wat op Kwaliteit wacht (keuringen en batches in beoordeling, oudste eerst), de afwijkende metingen van vandaag (nieuwste eerst, hoogstens 30) en de kerncijfers van vandaag.",
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "tijd",
-                    "kerncijfers",
-                    "wacht",
-                    "afwijkingen"
-                  ],
-                  "properties": {
-                    "tijd": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "kerncijfers": {
-                      "type": "object",
-                      "required": [
-                        "wacht",
-                        "vrijgegeven_vandaag",
-                        "herbewerken_vandaag",
-                        "afgekeurd_vandaag",
-                        "metingen_vandaag",
-                        "afwijkingen_vandaag",
-                        "binnen_grenzen_procent"
-                      ],
-                      "properties": {
-                        "wacht": {
-                          "type": "integer",
-                          "description": "Keuringen open plus batches in beoordeling"
-                        },
-                        "vrijgegeven_vandaag": {
-                          "type": "integer"
-                        },
-                        "herbewerken_vandaag": {
-                          "type": "integer"
-                        },
-                        "afgekeurd_vandaag": {
-                          "type": "integer"
-                        },
-                        "metingen_vandaag": {
-                          "type": "integer"
-                        },
-                        "afwijkingen_vandaag": {
-                          "type": "integer"
-                        },
-                        "binnen_grenzen_procent": {
-                          "type": "integer",
-                          "description": "Deel van de metingen van vandaag zonder afwijking; null zonder metingen",
-                          "nullable": true
-                        }
-                      }
-                    },
-                    "wacht": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "soort",
-                          "nummer",
-                          "product",
-                          "stap",
-                          "stapnaam",
-                          "sinds",
-                          "lang",
-                          "te_meten",
-                          "afwijkingen",
-                          "reden"
-                        ],
-                        "properties": {
-                          "soort": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "keuring"
-                                ]
-                              },
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "beoordeling"
-                                ]
-                              }
-                            ],
-                            "description": "keuring = wacht op een meting of besluit van Kwaliteit na een stap (D58); beoordeling = batch in beoordeling (D7)"
-                          },
-                          "nummer": {
-                            "type": "string"
-                          },
-                          "product": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "stap": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "stapnaam": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "sinds": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "lang": {
-                            "type": "boolean",
-                            "description": "Wacht langer dan 90% van de keuringen in de laatste 30 dagen (minstens een kwartier)"
-                          },
-                          "te_meten": {
-                            "type": "integer",
-                            "description": "Verplichte velden van Kwaliteit die nog leeg zijn (0 bij een beoordeling)"
-                          },
-                          "afwijkingen": {
-                            "type": "integer",
-                            "description": "Afwijkende metingen in die stap (0 bij een beoordeling)"
-                          },
-                          "reden": {
-                            "description": "Reden van de beoordeling",
-                            "type": "string",
-                            "nullable": true
-                          }
-                        }
-                      }
-                    },
-                    "afwijkingen": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "tijd",
-                          "nummer",
-                          "stap",
-                          "veld",
-                          "veldnaam",
-                          "gemeten",
-                          "eenheid",
-                          "markering"
-                        ],
-                        "properties": {
-                          "tijd": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "nummer": {
-                            "type": "string"
-                          },
-                          "stap": {
-                            "type": "string"
-                          },
-                          "veld": {
-                            "type": "string"
-                          },
-                          "veldnaam": {
-                            "type": "string"
-                          },
-                          "gemeten": {
-                            "type": "number"
-                          },
-                          "eenheid": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "markering": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "buiten_tolerantie"
-                                ]
-                              },
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "buiten_grens"
-                                ]
-                              }
-                            ]
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
         }
       }
@@ -21163,7 +20186,7 @@
         "tags": [
           "meldingen"
         ],
-        "description": "Meldingen voor mijn rol van de laatste 30 dagen, nieuwste eerst.",
+        "description": "Meldingen voor mijn actuele bevoegdheden van de laatste 30 dagen, nieuwste eerst.",
         "parameters": [
           {
             "schema": {
@@ -22269,263 +21292,19 @@
         }
       },
       "post": {
-        "tags": [
-          "certificaat"
-        ],
-        "description": "Certificaat uitgeven: krijgt een volgnummer en de inhoud wordt bewaard zoals hij nu is.",
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "pattern": "^L-[0-9]{4}-[0-9]{4}$"
+              "type": "string"
             },
-            "example": "L-2026-0042",
             "in": "path",
             "name": "lotnummer",
             "required": true
           }
         ],
         "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "type": "object",
-                      "required": [
-                        "nummer",
-                        "door",
-                        "uitgegeven_op"
-                      ],
-                      "properties": {
-                        "nummer": {
-                          "type": "integer"
-                        },
-                        "door": {
-                          "type": "string"
-                        },
-                        "uitgegeven_op": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "inhoud"
-                      ],
-                      "properties": {
-                        "inhoud": {
-                          "type": "object",
-                          "required": [
-                            "lotnummer",
-                            "status",
-                            "gereed_op",
-                            "producten",
-                            "batches",
-                            "bedrijf",
-                            "kenmerken",
-                            "grondstoffen",
-                            "voldoet"
-                          ],
-                          "properties": {
-                            "lotnummer": {
-                              "type": "string"
-                            },
-                            "status": {
-                              "type": "string"
-                            },
-                            "gereed_op": {
-                              "type": "string",
-                              "format": "date-time",
-                              "nullable": true
-                            },
-                            "producten": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "batches": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "bedrijf": {
-                              "type": "object",
-                              "required": [
-                                "naam",
-                                "adres",
-                                "verklaring"
-                              ],
-                              "properties": {
-                                "naam": {
-                                  "type": "string"
-                                },
-                                "adres": {
-                                  "type": "string"
-                                },
-                                "verklaring": {
-                                  "type": "string"
-                                }
-                              }
-                            },
-                            "kenmerken": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "required": [
-                                  "veld",
-                                  "naam",
-                                  "stap",
-                                  "niveau",
-                                  "eenheid",
-                                  "decimalen",
-                                  "spec_min",
-                                  "spec_max",
-                                  "resultaten",
-                                  "min",
-                                  "max",
-                                  "gemiddelde",
-                                  "voldoet"
-                                ],
-                                "properties": {
-                                  "veld": {
-                                    "type": "string"
-                                  },
-                                  "naam": {
-                                    "type": "string"
-                                  },
-                                  "stap": {
-                                    "type": "string"
-                                  },
-                                  "niveau": {
-                                    "type": "string"
-                                  },
-                                  "eenheid": {
-                                    "type": "string",
-                                    "nullable": true
-                                  },
-                                  "decimalen": {
-                                    "type": "integer",
-                                    "nullable": true
-                                  },
-                                  "spec_min": {
-                                    "type": "number",
-                                    "nullable": true
-                                  },
-                                  "spec_max": {
-                                    "type": "number",
-                                    "nullable": true
-                                  },
-                                  "resultaten": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "required": [
-                                        "nummer",
-                                        "waarde"
-                                      ],
-                                      "properties": {
-                                        "nummer": {
-                                          "type": "string"
-                                        },
-                                        "waarde": {
-                                          "type": "number"
-                                        }
-                                      }
-                                    }
-                                  },
-                                  "min": {
-                                    "type": "number",
-                                    "nullable": true
-                                  },
-                                  "max": {
-                                    "type": "number",
-                                    "nullable": true
-                                  },
-                                  "gemiddelde": {
-                                    "type": "number",
-                                    "nullable": true
-                                  },
-                                  "voldoet": {
-                                    "description": "null = geen meting",
-                                    "type": "boolean",
-                                    "nullable": true
-                                  }
-                                }
-                              }
-                            },
-                            "grondstoffen": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "required": [
-                                  "grondstof",
-                                  "naam",
-                                  "partijen"
-                                ],
-                                "properties": {
-                                  "grondstof": {
-                                    "type": "string"
-                                  },
-                                  "naam": {
-                                    "type": "string"
-                                  },
-                                  "partijen": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
-                                    }
-                                  }
-                                }
-                              }
-                            },
-                            "specificaties": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "required": [
-                                  "stap",
-                                  "stapnaam",
-                                  "versie",
-                                  "vastgesteld_op"
-                                ],
-                                "properties": {
-                                  "stap": {
-                                    "type": "string"
-                                  },
-                                  "stapnaam": {
-                                    "type": "string"
-                                  },
-                                  "versie": {
-                                    "type": "integer"
-                                  },
-                                  "vastgesteld_op": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "nullable": true
-                                  }
-                                }
-                              },
-                              "description": "Specificaties waaraan de keuringen van dit lot en zijn batches zijn getoetst (#80); ontbreekt bij certificaten van vóór 0.51.0"
-                            },
-                            "voldoet": {
-                              "type": "boolean",
-                              "description": "Alle kenmerken gemeten en binnen de specificatie, en geen batch afgekeurd"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
+          "200": {
+            "description": "Default Response"
           }
         }
       }
@@ -22827,43 +21606,8 @@
         }
       },
       "put": {
-        "tags": [
-          "certificaat",
-          "beheer"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "bedrijfsnaam",
-                  "bedrijfsadres",
-                  "certificaat_verklaring"
-                ],
-                "properties": {
-                  "bedrijfsnaam": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  },
-                  "bedrijfsadres": {
-                    "type": "string",
-                    "maxLength": 300
-                  },
-                  "certificaat_verklaring": {
-                    "type": "string",
-                    "maxLength": 1500
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
         "responses": {
-          "204": {
+          "200": {
             "description": "Default Response"
           }
         }
