@@ -623,3 +623,25 @@ Opdrachtgever akkoord met opname in roadmap. ISA-88 en ISA-95 blijven leidende a
 - Fase 11 #144: historische vergelijkingen, rendement, structurele verliezen en procesoptimalisatie; traceerbare KPI-grondslag en datakwaliteit, geen automatische receptwijziging.
 
 Fasering ongewijzigd; #141 is uitbreiding van werkpakket 2.4 en vereist eigen regressies vóór fase-2-acceptatie; #142 en #143 onderdeel van de kern vóór pilot, #144 na pilotpoort volgens bestaande planning. D105 blijft gelden. Precieze formulegrammatica, afrondingsbeleid en catalogus van eenheden/conversies worden bij implementatie ontworpen; geen willekeurige code of onbewezen conversies. Geen nieuwe implementatie of testbewijs in dit besluit.
+
+
+## D107 – Uniforme huisstijl en visuele ontwerpstandaard binnen fase 3 (25 nov 2026)
+
+Opdrachtgever breidt D105 uit: fase 3 heet **Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard**. Fase 2 eerst volledig afronden inclusief acceptatie, merge en release. Nu uitsluitend planning en besluit; geen technische implementatie. ISA-88/95, D89/D99/D101 en bestaande MES-besluiten blijven leidend voor inhoud, rechten en functiescheiding; actueel SQL-schema blijft bron voor fysieke relaties. Vormgeving verandert nooit architectuur of gegevensrelaties. Geen afzonderlijke ISA-conformiteitsclaim voor huisstijl.
+
+| Kleur | Hex | Betekenis |
+|---|---|---|
+| Donkerblauw | #0B2E59 | Structuur, definitie en titels |
+| Oranje | #F28C28 | Actie, uitvoering en accenten |
+| Lichtblauw | #E7EEF6 | Structurele blokken |
+| Lichtoranje | #FDEBD9 | Uitvoeringsblokken |
+| Gebroken wit | #F4F7F9 | Algemene achtergrond |
+| Tekstgrijs | #526578 | Ondersteunende tekst |
+
+Donkerblauw bepaalt hoe het moet: architectuur, masterdata, producten, recepten/revisies, specificaties, configuratie, rollen/rechten en equipmentdefinities. Oranje laat zien wat er gebeurt: uitvoering, processtromen, batches/lots, stapregistraties, meetwaarden, besluiten, kwaliteitscontroles/vrijgave, wijzigingen en actieve werkzaamheden. Grijs voor ondersteuning en structurele relaties; groen/rood uitsluitend expliciete status (positief, fout, waarschuwing of blokkade); waarschuwingen onderscheidbaar van regulier oranje. Kleur nooit enige informatiedrager. In planning aparte semantiek: donkerblauw afgerond, oranje in uitvoering, lichtgrijs toekomstig, steeds tekststatus. Interactieve UI onderscheidt actie, focus, selectie en status van diagramsemantiek; contrast toetsen aan relevante toegankelijkheidseisen (voorgesteld WCAG 2.2 AA als toetskader; definitieve toepasselijkheid tijdens fase 3 vastleggen), niet blind alle paletcombinaties toepassen.
+
+Diagramregels: zelfde entiteit consistent gekleurd in dezelfde semantische context; masterdata blauw/lichtblauw, transacties oranje/lichtoranje; oranje proces-/actiepijlen versus neutraal grijze databaserelaties. Pijlen aan blokranden, niet door tekst/blokken, consistente blokmaten, legenda waar nodig, korte Nederlandstalige functionele omschrijvingen van technische entiteiten; leesbaarheid boven paginatal. Geen verwarring tussen FK-relaties en procesvolgorde.
+
+Scope: alle portalen, navigatie, pagina's, knoppen, formulieren, tabellen, dashboards, statussen, dialogen, fouten, typografie, witruimte, iconen, selectie; architectuur-, workflow-, proces- en datamodeldiagrammen, ERD's, roadmaps/Gantt, technische documentatie, presentaties, managementrapportages, opleiding en handleidingen. Centrale tokens/gedeelde componenten waar passend, vermijd CSS-duplicatie. Leg standaard in fase 3 vast in docs/mes/VISUAL-STYLE.md inclusief correcte/ongewenste voorbeelden en pijltypen. Onderzoek generator voor DATABASE.md; SQL-bron, reproduceerbaarheid en integriteitscontroles behouden. Geen handmatige afwijking van gegenereerd model. Bestaand PDF-naslagwerk MES – Van fabriek tot digitale productieomgeving is momentopname; later afzonderlijk actualiseren en harmoniseren.
+
+Werkpakketten en volgorde in ROADMAP, acceptatie in docs/mes/ACCEPTANCE-CRITERIA.md. D105 #138–#140 blijven open en volledig van kracht. Fasen 4–12 gebruiken de standaard voor nieuwe UI/documentatie, geen vooruitbouw. Eerdere duurindicatie fase 3 herijken na inventarisatie, geen nieuwe deadline of pilotdatum. Behoud alle bestaande beveiliging, functionele eisen en acceptatiepoorten.

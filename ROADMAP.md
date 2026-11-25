@@ -16,7 +16,7 @@ gantt
     section Fundament
     Fundament :done, b, after a, 1d
     Master Data en Recipe Management :c, after b, 1d
-    Portalstructuur en UI-harmonisatie :ui, after c, 1d
+    Portalstructuur UI en ontwerpstandaard :ui, after c, 1d
     Middelenbeheer en stilstand :res, after ui, 1d
     section Kern
     Planning en execution :d, after res, 1d
@@ -88,13 +88,28 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 - #113 **Process Engineering-portaal, Excel en migratie naar concepten** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #103 **Routeversie-fundament** — Opnieuw implementeren binnen MBR; prototype PR #1 is niet gemerged.
 
-## Fase 3 — Portalstructuur, navigatie en UI-harmonisatie
+## Fase 3 — Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard
 
-D105: start uitsluitend na volledige acceptatie, merge en officiële release van fase 2. Indicatief één tot twee ontwikkelingsdagen, geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.
+D105: start uitsluitend na volledige acceptatie, merge en officiële release van fase 2. D107 breidt de scope uit; de eerdere indicatie van één tot twee ontwikkelingsdagen vervalt. Nieuwe inschatting na inventarisatie; geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.
 
 - #138 **Centrale portalregistratie en navigatie** — Eén uitbreidbare definitie van portalen, namen, iconen, routes, volgorde en vereiste bevoegdheden; dezelfde actuele autorisatielogica voor portalenscherm en linkerbalk, ook bij meerdere rollen en relevante combinaties/scopes. Alle bevoegde portalen op beide plaatsen, onbevoegde onzichtbaar én technisch ontoegankelijk bij directe URL. Onafhankelijke API/database-autorisatie blijft leidend; geen extra grants voor cosmetische consistentie.
 - #139 **UI-harmonisatie en herbruikbare componenten** — Uniforme schermopbouw, hoofdbalk, linkernavigatie, namen, iconen, kleuren, typografie, tabellen, formulieren, knoppen, filters, status- en foutmeldingen, bevestigingsdialogen en lege toestanden. Herbruikbare componenten en ontwerpprincipes; praktisch bruikbaar in industriële productieomgeving. Geen nieuwe domeinfuncties vooruitbouwen.
 - #140 **Portalregressies, audit en faseacceptatie** — Alle bestaande rollen en relevante bevoegdheidscombinaties; expliciet mes.quality met Kwaliteit en Production Execution, overeenstemming portalenscherm/linkerbalk, directe onbevoegde URL en onafhankelijke backendweigering; bestaande functionaliteit en beveiliging behouden. Tussentijdse audit, testreview, integrale CI, Windows-praktijktest en formele faseacceptatie, merge en release volgens D88/D90. Zie acceptatiecriteria.
+
+D107 — volgorde binnen fase 3 (geen extra fase):
+
+| Werkpakket | Resultaat |
+|---|---|
+| Inventarisatie | Alle bestaande portalen, UI, schema's, documenttypen en afwijkingen inventariseren; omvang en afhankelijkheden bepalen. |
+| Ontwerpstandaard | `docs/mes/VISUAL-STYLE.md` vastleggen met palet, semantiek, typografie, componenten, diagrammen, status, toegankelijkheid en goede/slechte voorbeelden. |
+| UI-fundament | Centrale tokens en herbruikbare componenten; dubbele CSS beperken. |
+| Portalharmonisatie | #138 ongewijzigd, gedeelde registratie en permissionprojectie. |
+| UI-harmonisatie | #139 uitbreiden met formulieren, tabellen, dashboards, dialogen, focus, selectie, foutmeldingen, marges en iconen. |
+| Documentatieharmonisatie | Architectuur, processen, workflows, conceptuele modellen, fysieke ERD, roadmap/Gantt, technische docs, presentaties, management- en opleidingsmateriaal; generator en integriteitscontroles behouden. |
+| Borging | Gerichte controles op tokens, afwijkingen, toegankelijkheid en diagramintegriteit; toepassen op nieuwe schermen en documentatie in fasen 4–12. |
+| Acceptatie | #140 plus D107-criteria; functionele en visuele Windows-praktijkacceptatie, audit en integrale CI. |
+
+Afhankelijkheden: fase 2 volledig accepteren, mergen en publiceren vóór start; fase 3 vóór fase 4; latere portalen en documentatie volgen de standaard bij ontwikkeling. Geen nieuwe domeinfunctionaliteit, geen SQL- of autorisatiewijziging vanwege vormgeving. Bestaand PDF-naslagwerk is een momentopname en wordt afzonderlijk geharmoniseerd/geactualiseerd na vaststelling van de standaard. Geen nieuwe pilotdatum.
 
 ## Fase 4 — Middelenbeheer en stilstand (Resource Management)
 

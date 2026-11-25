@@ -402,7 +402,7 @@ Gerichte fase 2.3-baseline [45687274731](https://github.com/Gertjun/Manufacturin
 
 0103 (#111): referentieformule per MBR-revisie, positieve eindige hoeveelheden, exacte materiaalversie en eenheid, input/output, optionele procedurekoppeling binnen dezelfde versie, fixed/linear, standaard vaste parametergrenzen, expliciete schaalkeuze alleen met referentieformule. Referentiewijziging bij bestaande afhankelijke inhoud geweigerd; geen automatische conversie of massabalans. Negatieve FK/check/ACL-regressies toegevoegd; nog geen uitvoeringsbewijs. Beheer/API, afronding en berekening bij Control Recipe volgen; geen uitvoering in fase 2.
 
-## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
+## Fase 3 — geplande acceptatie portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard (D105/D107)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.
 
@@ -415,8 +415,21 @@ Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsb
 | UI3.5 | Bestaande domeinfuncties, offline werking en beveiliging zonder regressie; geen voortijdige nieuwe productiefuncties. |
 | UI3.6 | Tussentijdse audit, testreview, volledige Node 22/26 op actuele head/base, Windows-praktijktest, formele faseacceptatie, afzonderlijke merge/release. |
 
-Bevinding uit v0.63.0 is een navigatie-inconsistentie, geen bewezen securitylek; als werkelijke omzeiling blijkt, afzonderlijk melden en noodzakelijke beveiligingscorrectie niet uitstellen. Indicatie 1–2 ontwikkelingsdagen zonder deadline.
+Bevinding uit v0.63.0 is een navigatie-inconsistentie, geen bewezen securitylek; als werkelijke omzeiling blijkt, afzonderlijk melden en noodzakelijke beveiligingscorrectie niet uitstellen. Eerdere indicatie 1–2 ontwikkelingsdagen vervalt; herijken na inventarisatie, geen deadline.
 
+
+Aanvullende D107-criteria (naast UI3.1–UI3.6):
+
+| ID | Acceptatie-eis |
+|---|---|
+| UI3.7 | Inventarisatie en formele VISUAL-STYLE.md met palet, kleursemantiek per context, typografie, componenten, pijlen/relaties, statussen, toegankelijkheid en correcte/ongewenste voorbeelden. |
+| UI3.8 | Alle bestaande portalen en schermtypen volgen de standaard; centrale tokens/componenten waar passend, CSS-duplicatie beoordeeld; focus, selectie, lege toestanden, acties en foutmeldingen consistent. |
+| UI3.9 | Diagrammen en documentatie: definities blauw, uitvoering oranje, structurele relaties grijs, procespijlen oranje; labels/legenda, aansluitingen, leesbaarheid, geen overlappende tekst/blokken; roadmapstatus tekstueel én visueel; geen architectuurwijziging. |
+| UI3.10 | Automatische DATABASE.md-generatie blijft reproduceerbaar en inhoudelijk gelijk aan SQL; schema-equivalentie en bestaande integriteitscontroles slagen; geen handmatige wijziging van fysieke relaties. |
+| UI3.11 | Contrast, toetsenbordbediening, focus, status zonder kleur alleen, leesbaarheid en waarschuwingen onderscheidbaar van oranje acties; relevante toegankelijkheidseisen en resultaten vastgelegd. |
+| UI3.12 | Functionele en visuele regressies op representatieve schermen en documenttypen, Windows-praktijktest, bestaande autorisaties/offline functies ongewijzigd; borgingscontroles voor toekomstige portalen en documentatie. |
+
+Bestaand PDF-naslagwerk wordt afzonderlijk bijgewerkt na vaststelling standaard; geen acceptatiebewijs voor fase 3 in deze planning. Alle bestaande UI3.1–6 blijven verplicht.
 
 ## D106 — geplande acceptatie schaalregels, eenheden en massabalansen
 
