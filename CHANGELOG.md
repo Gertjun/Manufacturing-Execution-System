@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #109 (deel): materiaal-API met persoonlijk gebonden transacties, invoervalidatie, revisieconflict (409) en positieve/negatieve API-regressies; nog niet uitgevoerd.
+
 - #109 (deel): 0097 persoonlijk materiaalbeheer met afgeschermde lees-/creatiefuncties, revisiecontrole en onveranderlijke identiteit/classificatie. Negatieve autorisatieregressies toegevoegd; nog niet uitgevoerd.
 
 - #109 (deel): migratie 0096 introduceert materiaalclassificatie, stabiele identiteit, expliciete bronkoppelingen en onveranderlijke materiaalversies. Geen automatische bronmigratie of runtime-toegang; regressies toegevoegd, nog niet uitgevoerd.

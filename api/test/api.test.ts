@@ -2010,3 +2010,49 @@ describe("Pilotoverzicht (#77, D66)", () => {
   await beheerDb.query("UPDATE fabriek.gebruiker SET actief=true WHERE gebruikersnaam='session.test'");
   assert.equal((await verzoek("POST","/auth/pc",changed.body.token,{pc:"PC-01"})).status,401);
 });
+
+describe("#109 materiaal-API", () => {
+  test("persoonlijke toegang, actuele grants en onveranderlijke revisies", async () => {
+    const engineer = await login("mes.engineer");
+    const operator = await login("mes.operator");
+    const system = await login("mes.system");
+    const approver = await login("mes.eng.approver");
+    const legacy = await login("analist1");
+    const base = "/materials/";
+    const payload = { code:"API-MAT",name:"Fictief",material_class_id:null,unit:"kg",product_id:null,raw_material_id:null };
+    assert.equal((await verzoek("GET",base)).status,401);
+    for (const token of [operator,system,approver,legacy]) {
+      assert.equal((await verzoek("GET",base,token)).status,403);
+      assert.equal((await verzoek("POST",base+"definitions",token,payload)).status,403);
+    }
+    assert.equal((await verzoek("POST",base+"definitions",engineer,{...payload,created_by:randomUUID()})).status,400);
+    assert.equal((await verzoek("POST",base+"definitions",engineer,{...payload,name:"   "})).status,400);
+    const klasse = await verzoek("POST",base+"classes",engineer,{code:"API-MAT-C",name:"Fictieve klasse"});
+    assert.equal(klasse.status,201,JSON.stringify(klasse.body));
+    const created = await verzoek("POST",base+"definitions",engineer,{...payload,material_class_id:klasse.body.id});
+    assert.equal(created.status,201,JSON.stringify(created.body));
+    const url = base+"definitions/"+created.body.id+"/versions";
+    const change = {expected_revision:1,name:"Fictief 2",material_class_id:klasse.body.id,unit:"kg"};
+    assert.equal((await verzoek("POST",url,engineer,change)).status,201);
+    assert.equal((await verzoek("POST",url,engineer,change)).status,409);
+    assert.equal((await verzoek("POST",base+"definitions",engineer,payload)).status,409);
+    assert.equal((await verzoek("POST",base+"definitions",engineer,{...payload,code:"API-MAT-BAD",material_class_id:randomUUID()})).status,422);
+    const result = await verzoek("GET",base,engineer);
+    assert.equal(result.status,200,JSON.stringify(result.body));
+    const versions = result.body.versions.filter((v:any)=>v.material_definition_id===created.body.id);
+    assert.deepEqual(versions.map((v:any)=>v.revision),[1,2]);
+    const {rows:[actor]} = await beheerDb.query("SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam='mes.engineer'");
+    assert.ok(versions.every((v:any)=>v.created_by===actor.id));
+    assert.ok(!result.body.definitions.some((d:any)=>d.code==="API-MAT-BAD"));
+  });
+  test("ingetrokken grant blokkeert een nog geldig token", async () => {
+    const naam = "mes.material.revoked";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[g]} = await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code) SELECT id,'process_engineer' FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam]);
+    const token = await login(naam);
+    assert.equal((await verzoek("GET","/materials/",token)).status,200);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[g.id]);
+    assert.equal((await verzoek("GET","/materials/",token)).status,403);
+    assert.equal((await verzoek("POST","/materials/classes",token,{code:"REVOKED",name:"Geweigerd"})).status,403);
+  });
+});
