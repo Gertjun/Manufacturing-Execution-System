@@ -712,6 +712,19 @@ BEGIN
  END IF;
 END $;
 
+-- 0110: expliciete persoonlijke catalogusfuncties.
+DO $
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=110) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.unit_catalog_list(),
+     fabriek.unit_catalog_create_dimension(smallint,smallint,smallint,smallint,smallint,smallint,smallint),
+     fabriek.unit_catalog_create_kind(uuid,text,text,text),
+     fabriek.unit_catalog_create_unit(uuid,text,text,text),
+     fabriek.unit_catalog_create_conversion(uuid,uuid,numeric,numeric,numeric,text),
+     fabriek.unit_catalog_append_conversion(uuid,integer,numeric,numeric,numeric,text) TO mes_app;
+ END IF;
+END $;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

@@ -2346,6 +2346,52 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#141 persoonlijk eenhedencatalogusbeheer")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('catalog.global','analist',wachtwoord_hash('test-catalog')),('catalog.scoped','analist',wachtwoord_hash('test-catalog'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='catalog.global'")
+        scoped=val("SELECT id FROM gebruiker WHERE gebruikersnaam='catalog.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',NULL),(%s,'process_engineer',%s)",(actor,scoped,pa))
+        con.execute("SET LOCAL ROLE mes_app")
+        def login(name):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-catalog',NULL)",(name,))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MES-materiaalbeheerbevoegdheid"):
+            con.execute("SAVEPOINT catalog_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT catalog_guard")
+            con.execute("RELEASE SAVEPOINT catalog_guard")
+        login("catalog.scoped")
+        denied("#141 productscope geen globaal catalogusbeheer","SELECT unit_catalog_list()")
+        denied("#141 productscope geen dimensiecreatie","SELECT unit_catalog_create_dimension(0::smallint,1::smallint,0::smallint,0::smallint,0::smallint,0::smallint,0::smallint)")
+        login("catalog.global")
+        dim=val("SELECT unit_catalog_create_dimension(0::smallint,1::smallint,0::smallint,0::smallint,0::smallint,0::smallint,0::smallint)")
+        kind=val("SELECT unit_catalog_create_kind(%s,'CAT_MASS','Massa','ratio')",(dim,))
+        kg=val("SELECT unit_catalog_create_unit(%s,'CAT_KG','kg','Kilogram')",(kind,))
+        g=val("SELECT unit_catalog_create_unit(%s,'CAT_G','g','Gram')",(kind,))
+        mg=val("SELECT unit_catalog_create_unit(%s,'CAT_MG','mg','Milligram')",(kind,))
+        c=val("SELECT unit_catalog_create_conversion(%s,%s,1000,1,0,'Fictieve bron')",(kg,g))
+        denied("#141 ongeldige conversie atomair","SELECT unit_catalog_create_conversion(%s,%s,1000,0,0,'Fictieve bron')",(g,mg),"check")
+        denied("#141 stale conversierevisie","SELECT unit_catalog_append_conversion(%s,0,1000,1,0,'Fictieve bron')",(c,),"revisie is gewijzigd")
+        denied("#141 ratio-offset geweigerd","SELECT unit_catalog_append_conversion(%s,1,1000,1,1,'Fictieve bron')",(c,),"check")
+        v2=val("SELECT unit_catalog_append_conversion(%s,1,1000,1,0,'Fictieve bron tweede versie')",(c,))
+        data=val("SELECT unit_catalog_list()")
+        versions=[x for x in data["versions"] if x["conversion_id"]==str(c)]
+        check("#141 exacte revisies en persoonlijke actor",[x["revision"] for x in versions]==[1,2] and all(x["created_by"]==str(actor) for x in versions))
+        check("#141 ongeldige identiteit niet opgeslagen",not any(x["from_unit_id"]==str(g) and x["to_unit_id"]==str(mg) for x in data["conversions"]))
+        denied("#141 directe catalogusmutatie","DELETE FROM measurement_unit WHERE false",msg="permission denied")
+        con.execute("RESET ROLE")
+        check("#141 persoonlijke conversie-audit",val("SELECT count(*) FROM config_log WHERE tabel='unit_conversion_version' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='INSERT'",(v2,actor))==1)
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#141 ingetrokken catalogusbevoegdheid","SELECT unit_catalog_list()")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
