@@ -2615,6 +2615,52 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+
+    print("\n#112 versiegebonden MOC-concept")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('moc.scoped','analist',wachtwoord_hash('test-moc'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='moc.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        def version(product,code):
+            rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(product,code,actor))
+            first=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+            second=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,2,'Fictief',%s) RETURNING id",(rid,actor))
+            return first,second
+        first,v=version(pa,"MOC-A")
+        foreign,_=version(pb,"MOC-B")
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('moc.scoped','test-moc',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MOC"):
+            con.execute("SAVEPOINT moc_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT moc_guard")
+            con.execute("RELEASE SAVEPOINT moc_guard")
+        denied("#112 MOC vreemde productscope","SELECT recipe_change_list(%s)",(foreign,),"MES-receptbevoegdheid")
+        denied("#112 MOC verkeerde referentie","SELECT recipe_create_change_request(%s,0,%s,'Reden','Impact')",(v,foreign),"eerdere revisie")
+        denied("#112 MOC revisie zonder referentie","SELECT recipe_create_change_request(%s,0,NULL,'Reden','Impact')",(v,),"eerste receptrevisie")
+        initial=val("SELECT recipe_create_change_request(%s,0,NULL,'Initiële invoer','Fictief')",(first,))
+        req=val("SELECT recipe_create_change_request(%s,0,%s,'Wijziging','Fictief')",(v,first))
+        check("#112 MOC initiële en revisieclassificatie",val("SELECT recipe_change_list(%s)",(first,))["request"]["change_kind"]=="initial" and val("SELECT recipe_change_list(%s)",(v,))["request"]["change_kind"]=="revision")
+        denied("#112 MOC stale","SELECT recipe_update_change_request(%s,0,%s,'Oud','Oud')",(v,req["id"]),"ondertussen gewijzigd")
+        impact=val("SELECT recipe_save_change_impact(%s,1,NULL,%s,'formula','Fictief')",(v,req["id"]))
+        denied("#112 MOC impact vreemd dossier","SELECT recipe_save_change_impact(%s,2,NULL,%s,'quality','Fictief')",(v,initial["id"]),"foreign key")
+        denied("#112 MOC impact onbekend","SELECT recipe_save_change_impact(%s,2,NULL,%s,'unknown','Fictief')",(v,req["id"]),"check constraint")
+        data=val("SELECT recipe_change_list(%s)",(v,))
+        check("#112 MOC dossier en teller",data["change_no"]==2 and data["request"]["baseline_version_id"]==str(first) and data["impacts"][0]["area"]=="formula")
+        denied("#112 MOC directe tabelmutatie","DELETE FROM recipe_change_request WHERE false",msg="permission denied")
+        check("#112 MOC impact verwijderen",val("SELECT recipe_delete_change_impact(%s,2,%s)",(v,impact["id"]))==3)
+        updated=val("SELECT recipe_update_change_request(%s,3,%s,'Nieuwe reden','Nieuwe impact')",(v,req["id"]))
+        check("#112 MOC stabiele identiteit",updated["id"]==req["id"] and updated["change_no"]==4)
+        con.execute("RESET ROLE")
+        check("#112 MOC persoonlijke audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_change_request' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='UPDATE'",(req["id"],actor))==1)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

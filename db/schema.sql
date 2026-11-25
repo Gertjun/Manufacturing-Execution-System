@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -8892,5 +8892,143 @@ CREATE TRIGGER recipe_scaling_expression_00_lifecycle BEFORE INSERT OR UPDATE OR
  FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
 REVOKE ALL ON FUNCTION recipe_lifecycle_header_guard(),recipe_lifecycle_content_guard(),recipe_lock_draft(uuid,integer) FROM PUBLIC;
 -- Geen statusovergang, goedkeuringsrecht, vrijgave of uitvoeringsrecht in 0115.
+
+-- Migratie 0116: versiegebonden Management of Change-concept (#112, D89).
+SET search_path = fabriek, public;
+
+-- Eén wijzigingsdossier per versie. De referentieversie is expliciet,
+-- behoort tot dezelfde receptidentiteit en heeft een lager revisienummer.
+-- De voorlopige classificatie is beschrijvend, geen beoordelingsmatrix.
+CREATE TABLE recipe_change_request (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ recipe_version_id uuid NOT NULL UNIQUE REFERENCES master_recipe_version(id),
+ baseline_version_id uuid REFERENCES master_recipe_version(id),
+ change_kind text NOT NULL CHECK (change_kind IN ('initial','revision')),
+ reason text NOT NULL CHECK (reason ~ '[^[:space:]]'),
+ impact_description text NOT NULL CHECK (impact_description ~ '[^[:space:]]'),
+ created_by uuid NOT NULL REFERENCES gebruiker(id),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(recipe_version_id,id),
+ CHECK ((change_kind='initial')=(baseline_version_id IS NULL))
+);
+CREATE TABLE recipe_change_impact (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ recipe_version_id uuid NOT NULL,
+ request_id uuid NOT NULL,
+ area text NOT NULL CHECK (area IN ('header','procedure','parameters','formula','materials','equipment','personnel','instructions','quality','lot','scaling','other')),
+ explanation text NOT NULL CHECK (explanation ~ '[^[:space:]]'),
+ FOREIGN KEY(recipe_version_id,request_id) REFERENCES recipe_change_request(recipe_version_id,id),
+ UNIQUE(request_id,area)
+);
+
+CREATE FUNCTION recipe_change_request_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE recipe uuid; rev integer; baseline_recipe uuid; baseline_rev integer;
+BEGIN
+ IF TG_OP='DELETE' THEN
+   RAISE EXCEPTION 'MOC-dossier mag niet worden verwijderd' USING ERRCODE='55000';
+ END IF;
+ IF TG_OP='UPDATE' AND (NEW.id,NEW.recipe_version_id,NEW.baseline_version_id,NEW.change_kind,NEW.created_by,NEW.created_at)
+   IS DISTINCT FROM (OLD.id,OLD.recipe_version_id,OLD.baseline_version_id,OLD.change_kind,OLD.created_by,OLD.created_at) THEN
+   RAISE EXCEPTION 'MOC-identiteit en referentie zijn onveranderlijk' USING ERRCODE='55000';
+ END IF;
+ SELECT master_recipe_id,revision INTO recipe,rev FROM master_recipe_version WHERE id=NEW.recipe_version_id;
+ IF NEW.change_kind='initial' THEN
+   IF rev IS DISTINCT FROM 1 THEN
+     RAISE EXCEPTION 'Initiële MOC vereist eerste receptrevisie' USING ERRCODE='23514';
+   END IF;
+ ELSE
+   SELECT master_recipe_id,revision INTO baseline_recipe,baseline_rev FROM master_recipe_version WHERE id=NEW.baseline_version_id;
+   IF baseline_recipe IS NULL OR baseline_recipe IS DISTINCT FROM recipe OR baseline_rev>=rev THEN
+     RAISE EXCEPTION 'MOC vereist eerdere revisie van dezelfde receptidentiteit' USING ERRCODE='23514';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER recipe_change_request_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_change_request
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_change_request_guard BEFORE INSERT OR UPDATE OR DELETE ON recipe_change_request
+ FOR EACH ROW EXECUTE FUNCTION recipe_change_request_guard();
+CREATE TRIGGER recipe_change_request_audit AFTER INSERT OR UPDATE ON recipe_change_request
+ FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER recipe_change_impact_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_change_impact
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_change_impact_audit AFTER INSERT OR UPDATE OR DELETE ON recipe_change_impact
+ FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+
+CREATE FUNCTION recipe_change_list(p_version uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE product uuid; result jsonb;
+BEGIN
+ SELECT r.product_id INTO product FROM master_recipe_version v JOIN master_recipe r ON r.id=v.master_recipe_id WHERE v.id=p_version;
+ PERFORM recipe_draft_actor(product);
+ SELECT jsonb_build_object('change_no',v.change_no,'lifecycle_status',v.lifecycle_status,
+   'request',(SELECT to_jsonb(c) FROM recipe_change_request c WHERE c.recipe_version_id=v.id),
+   'impacts',COALESCE((SELECT jsonb_agg(to_jsonb(i) ORDER BY i.area) FROM recipe_change_impact i WHERE i.recipe_version_id=v.id),'[]'::jsonb))
+ INTO result FROM master_recipe_version v WHERE v.id=p_version;
+ RETURN result;
+END $$;
+
+CREATE FUNCTION recipe_create_change_request(p_version uuid,p_expected integer,p_baseline uuid,p_reason text,p_impact text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE n integer; actor uuid; target uuid;
+BEGIN
+ n:=recipe_lock_draft(p_version,p_expected);
+ actor:=execution_transaction_actor();
+ INSERT INTO recipe_change_request(recipe_version_id,baseline_version_id,change_kind,reason,impact_description,created_by)
+ VALUES(p_version,p_baseline,CASE WHEN p_baseline IS NULL THEN 'initial' ELSE 'revision' END,p_reason,p_impact,actor)
+ RETURNING id INTO target;
+ UPDATE master_recipe_version SET change_no=n+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',n+1);
+END $$;
+
+CREATE FUNCTION recipe_update_change_request(p_version uuid,p_expected integer,p_id uuid,p_reason text,p_impact text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE n integer; target uuid;
+BEGIN
+ n:=recipe_lock_draft(p_version,p_expected);
+ UPDATE recipe_change_request SET reason=p_reason,impact_description=p_impact
+ WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend MOC-dossier binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=n+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',n+1);
+END $$;
+
+CREATE FUNCTION recipe_save_change_impact(p_version uuid,p_expected integer,p_id uuid,p_request uuid,p_area text,p_explanation text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE n integer; target uuid;
+BEGIN
+ n:=recipe_lock_draft(p_version,p_expected);
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_change_impact(recipe_version_id,request_id,area,explanation)
+   VALUES(p_version,p_request,p_area,p_explanation) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_change_impact SET area=p_area,explanation=p_explanation
+   WHERE recipe_version_id=p_version AND id=p_id AND request_id=p_request RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend MOC-impactrecord binnen dit dossier' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=n+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',n+1);
+END $$;
+
+CREATE FUNCTION recipe_delete_change_impact(p_version uuid,p_expected integer,p_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE n integer;
+BEGIN
+ n:=recipe_lock_draft(p_version,p_expected);
+ DELETE FROM recipe_change_impact WHERE recipe_version_id=p_version AND id=p_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekend MOC-impactrecord binnen deze versie' USING ERRCODE='23503'; END IF;
+ UPDATE master_recipe_version SET change_no=n+1 WHERE id=p_version;
+ RETURN n+1;
+END $$;
+
+REVOKE ALL ON recipe_change_request,recipe_change_impact FROM PUBLIC;
+REVOKE ALL ON FUNCTION recipe_change_request_guard(),recipe_change_list(uuid),
+ recipe_create_change_request(uuid,integer,uuid,text,text),
+ recipe_update_change_request(uuid,integer,uuid,text,text),
+ recipe_save_change_impact(uuid,integer,uuid,uuid,text,text),
+ recipe_delete_change_impact(uuid,integer,uuid) FROM PUBLIC;
+-- Impactlabels vormen geen autorisatie of bewijs van volledigheid.
+-- De beoordelingsmatrix en automatische vergelijking volgen; statuspoort blijft gesloten.
 
 COMMIT;

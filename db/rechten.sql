@@ -758,6 +758,18 @@ BEGIN
  END IF;
 END $$;
 
+-- 0116: persoonlijke MOC-conceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=116) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_change_list(uuid),
+     fabriek.recipe_create_change_request(uuid,integer,uuid,text,text),
+     fabriek.recipe_update_change_request(uuid,integer,uuid,text,text),
+     fabriek.recipe_save_change_impact(uuid,integer,uuid,uuid,text,text),
+     fabriek.recipe_delete_change_impact(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
