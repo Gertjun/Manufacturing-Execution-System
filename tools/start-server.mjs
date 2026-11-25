@@ -16,13 +16,21 @@ const inst = leesInstellingen(opties);
 if (!inst.jwtGeheim || inst.jwtGeheim.length < 32) stop("Zet jwtGeheim in de instellingen: een willekeurige tekst van minstens 32 tekens.");
 
 // Schemaversie controleren
-const nieuwste = Math.max(...readdirSync(join(ROOT, "db", "migraties")).map((f) => Number(/^(\d{4})_/.exec(f)?.[1] ?? 0)));
+const verwacht = new Set(readdirSync(join(ROOT, "db", "migraties"))
+  .map(f => /^(\d{4})_.+\.sql$/.exec(f)).filter(Boolean).map(m => Number(m[1])));
+const nieuwste = Math.max(...verwacht);
 {
   const c = await verbind(inst.db).catch((e) => stop(`Database ${inst.db.database} niet gevonden (${e.message}). Voer eerst tools/migreer.mjs uit.`));
-  const { rows } = await c.query("SELECT to_regclass('fabriek.schema_versie') IS NOT NULL AS er").catch(() => ({ rows: [{ er: false }] }));
-  const huidig = rows[0].er ? Number((await c.query("SELECT max(nummer) AS n FROM fabriek.schema_versie")).rows[0].n) : 1;
-  await c.end();
-  if (huidig < nieuwste) stop(`De database staat op schemaversie ${huidig}, versie ${VERSIE} heeft ${nieuwste} nodig. Voer eerst tools/migreer.mjs uit.`);
+  let uitgevoerd;
+  try {
+    const { rows } = await c.query("SELECT to_regclass('fabriek.schema_versie') IS NOT NULL AS er");
+    uitgevoerd = new Set(rows[0].er ? (await c.query("SELECT nummer FROM fabriek.schema_versie")).rows.map(r => r.nummer) : []);
+  } finally { await c.end(); }
+  const onbekend = [...uitgevoerd].filter(n => !verwacht.has(n));
+  const ontbreekt = [...verwacht].filter(n => !uitgevoerd.has(n));
+  if (onbekend.length) stop(`Onbekende schemaversie(s): ${onbekend.join(", ")}. Gebruik het bijbehorende applicatiepakket.`);
+  if (ontbreekt.length) stop(`Ontbrekende migratie(s): ${ontbreekt.join(", ")}; versie ${VERSIE} vereist schema ${nieuwste}. Voer eerst tools/migreer.mjs uit.`);
+
   const c2 = await verbind(inst.db);
   try {
     const { rows: b } = await c2.query(`
@@ -35,7 +43,6 @@ const nieuwste = Math.max(...readdirSync(join(ROOT, "db", "migraties")).map((f) 
     `);
     if (!b[0]?.beschikbaar) console.log("Let op: geen actieve persoonlijke identiteit met globale MES-bevoegdheid system.read. Laat de identiteitsadministratie gecontroleerd beoordelen; geen automatische roltoekenning.");
   } finally { await c2.end(); }
-  if (huidig > nieuwste) stop(`De database (schemaversie ${huidig}) is nieuwer dan deze applicatie (${VERSIE}, schemaversie ${nieuwste}). Gebruik de nieuwere versie.`);
 }
 
 const d = inst.db;
@@ -55,5 +62,5 @@ if (inst.https?.pfx) {
   process.env.HTTPS_KEY = inst.https.key;
 }
 
-console.log(`Batch input GUI ${VERSIE} start op poort ${process.env.POORT} (${inst.https ? "https" : "http"}).`);
+console.log(`MES ${VERSIE} start op poort ${process.env.POORT} (${inst.https ? "https" : "http"}).`);
 await import(pathToFileURL(join(SERVER_MAP, "dist", "index.js")).href);
