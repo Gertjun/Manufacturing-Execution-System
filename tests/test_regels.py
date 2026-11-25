@@ -2661,6 +2661,35 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#112 inhoudelijke MBR-versievergelijking")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'COMPARE-TEST',%s) RETURNING id",(pa,actor))
+        def version(rev):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Fictief',%s) RETURNING id",(rid,rev,actor))
+        a,b=version(1),version(2)
+        for v in (a,b):
+            root=val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+            con.execute("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'P','Fictief','decimal','kg','per batch',true,'productie',false)",(v,root))
+        con.execute("INSERT INTO recipe_change_request(recipe_version_id,baseline_version_id,change_kind,reason,impact_description,created_by) VALUES (%s,%s,'revision','Fictief','Fictief',%s)",(b,a,actor))
+        check("#112 vergelijking negeert lokale record-ID's",val("SELECT count(*) FROM (SELECT * FROM recipe_comparison_rows(%s) EXCEPT SELECT * FROM recipe_comparison_rows(%s)) q",(a,b))==0)
+        con.execute("UPDATE recipe_parameter SET name='Gewijzigd' WHERE recipe_version_id=%s",(b,))
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,6,true)",(b,))
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,4,true)",(a,))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        data=val("SELECT recipe_compare_change(%s)",(b,))
+        check("#112 gewijzigde inhoud onafhankelijk van impactlabels",data["baseline_version_id"]==str(a) and {(x["area"],x["change"]) for x in data["differences"]}=={("parameters","changed"),("lot","changed")})
+        check("#112 vergelijking behoudt tellers",data["change_no"]==0 and data["baseline_change_no"]==0)
+        check("#112 geen directe projectiefunctie",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_comparison_rows(uuid)','EXECUTE')"))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
