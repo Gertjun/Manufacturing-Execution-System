@@ -1820,6 +1820,45 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+    print("\n#103/110 procedurehiërarchie en afhankelijkheden")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        pa = val("SELECT id FROM product WHERE code='PRD-A'")
+        rid = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PROC-TEST',%s) RETURNING id",(pa,actor))
+        v1 = val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Procedure test',%s) RETURNING id",(rid,actor))
+        v2 = val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,2,'Procedure test 2',%s) RETURNING id",(rid,actor))
+        def elem(v, parent, pk, kind, code, pos, required=True):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,parent_id,parent_kind,kind,code,name,position,required) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",(v,parent,pk,kind,code,code,pos,required))
+        root = elem(v1,None,None,"procedure","ROOT",1)
+        unit = elem(v1,root,"procedure","unit_procedure","UP",1)
+        op = elem(v1,unit,"unit_procedure","operation","OP",1)
+        p1 = elem(v1,op,"operation","phase","P1",1)
+        p2 = elem(v1,op,"operation","phase","P2",2,False)
+        root2 = elem(v2,None,None,"procedure","ROOT",1)
+        dep = val("INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s) RETURNING id",(v1,p1,p2))
+        check("#110 geldige vierlaagse boom en optionele handeling",bool(dep) and val("SELECT required FROM recipe_procedural_element WHERE id=%s",(p2,)) is False)
+        def proc_denied(label, sql, params=(), msg="check"):
+            con.execute("SAVEPOINT proc_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT proc_guard")
+            con.execute("RELEASE SAVEPOINT proc_guard")
+        proc_denied("#110 terugwaartse edge/cyclus geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p2,p1),"voorwaarts")
+        proc_denied("#110 edge over versiegrens geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p1,root2),"voorwaarts")
+        proc_denied("#110 edge over hiërarchiegroep geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,unit,p2),"voorwaarts")
+        proc_denied("#110 zelfverwijzing geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p1,p1),"voorwaarts")
+        proc_denied("#110 positie maakt edge ongeldig","UPDATE recipe_procedural_element SET position=3 WHERE id=%s",(p1,),"afhankelijkheid ongeldig")
+        proc_denied("#110 parent in andere versie","UPDATE recipe_procedural_element SET parent_id=%s WHERE id=%s",(root2,unit),"foreign key")
+        proc_denied("#110 verkeerde parentsoort","UPDATE recipe_procedural_element SET parent_id=%s,parent_kind='procedure' WHERE id=%s",(root,p1),"check")
+        proc_denied("#110 dubbele root","INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT2','Dubbel',2)",(v1,),"duplicate")
+        proc_denied("#110 dubbele positie","UPDATE recipe_procedural_element SET position=1 WHERE id=%s",(p2,),"afhankelijkheid ongeldig")
+        proc_denied("#110 versie van element onveranderlijk","UPDATE recipe_procedural_element SET recipe_version_id=%s WHERE id=%s",(v2,p1),"onveranderlijk")
+        for tabel in ("recipe_procedural_element","recipe_dependency"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#110 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

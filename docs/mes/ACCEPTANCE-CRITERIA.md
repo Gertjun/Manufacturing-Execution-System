@@ -388,6 +388,8 @@ Gerichte fase 2.1-baseline: [run 45682177664](https://github.com/Gertjun/Manufac
 
 Gerichte fase 2.2-baseline: [run 45684478100](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45684478100), head `d1815d3ffa7dcf06204a0974e260e794dca3b348`, base `ea3b78bc938647140b4e228e9382761504518906`, job 139453323328: alle stappen success; 744/744 DB, 14/14 security/beheertools, 10/10 autorisatie, 120/120 API, schema-equivalentie, historische upgrade 0035→0099, back-up/herstel en Linux-laptoppakket. Documentatie gegenereerd uit dezelfde job. Geen integrale acceptatie; volgende werkpakket procedurehiërarchie.
 
+0100 (#103/110): regressies op procedure/unit procedure/operation/phase, optionele handeling, één root per versie, parenttype, versiegrens, voorwaartse edge binnen siblinggroep, cyclus/zelfverwijzing, ongeldige herordening, identiteit en beperkte ACL. Onvolledige conceptboom toegestaan; volledigheid vóór vrijgave. Geen uitvoeringsbewijs, persoonlijke mutaties/API en gezamenlijk change_no volgen. Diagram regenereren na bundeling.
+
 ## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.

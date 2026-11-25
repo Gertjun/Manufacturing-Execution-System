@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #103/110 (deel): 0100 relationeel procedurefundament met vier niveaus, verplichte/optionele elementen, versiegebonden parent-FK en voorwaartse afhankelijkheden binnen dezelfde groep; regressies toegevoegd, nog niet uitgevoerd. Geen runtimewrites of uitvoering.
+
 - D105: nieuwe fase 3 Portalstructuur, navigatie en UI-harmonisatie ingepland; bestaande fasen 3–11 hernummerd naar 4–12, geen functionele wijziging. Fase 2 ongewijzigd.
 - #109–110 (deel): gerichte PostgreSQL-baseline 0099 geslaagd (run 45684478100, d1815d3): 744 DB-controles en 120 API-tests; databaseplaatje en OpenAPI uit dezelfde run opgenomen. Geen integrale acceptatie.
 
