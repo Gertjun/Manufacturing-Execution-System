@@ -1,0 +1,53 @@
+name: Databaseplaatje tijdelijk genereren
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+    paths: ['.github/workflows/schema-plaatje-tijdelijk.yml']
+permissions:
+  contents: read
+jobs:
+  schema-plaatje:
+    if: github.event.pull_request.number == 6 && github.event.pull_request.head.ref == 'feature/mes-phase-1' && github.event.before == '740bbd7adbe1d314ab98069956ed9038820ecdb8'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Head en base controleren
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
+      - name: Genereer en controleer databaseplaatje
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          python3 tools/schema_plaatje.py "host=localhost port=5432 user=postgres"
+          tests/test_schema_plaatje.sh
+      - name: Gegenereerd bestand met controlehash
+        run: |
+          sha256sum docs/DATABASE.md
+          python3 - <<'PY'
+          import pathlib, base64
+          data = base64.b64encode(pathlib.Path("docs/DATABASE.md").read_bytes()).decode()
+          for i in range(0, len(data), 512):
+              print(f"SCHEMA_DOC_{i//512:04d}:{data[i:i+512]}")
+          PY
