@@ -25,6 +25,8 @@ const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
 for (const f of ["schema.sql", "rechten.sql", "seed_config.sql", "seed_accounts_demo.sql"]) await db.query(readFileSync(new URL(`../../db/${f}`, import.meta.url), "utf8"));
 
+await db.query(readFileSync(new URL("../../tests/fixtures/scherm_grants.sql", import.meta.url), "utf8"));
+
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3462",
