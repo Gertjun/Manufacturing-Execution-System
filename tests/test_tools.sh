@@ -8,7 +8,7 @@ H="${PGHOST:-localhost}"; P="${PGPORT:-5432}"; U="${PGUSER:-postgres}"
 cat > "$T/inst.json" <<JSON
 { "db": {"host":"$H","port":$P,"database":"$DB","user":"mes_app","password":""},
   "beheerDb": {"user":"$U","password":"${PGPASSWORD:-}"},
-  "backupMap": "$T/backups" }
+  "backupMap": "$T/backups", "jwtGeheim": "uitsluitend-fictieve-test-sleutel-1234567890" }
 JSON
 export BATCHGUI_INSTELLINGEN="$T/inst.json"
 fout() { echo "FOUT: $1"; exit 1; }
@@ -50,12 +50,25 @@ node tools/herstel.mjs "$B" --ja | grep -q "Herstel gelukt" || fout "herstel"
 [ -n "$(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}_voor_herstel%'")" ] || fout "oude database niet bewaard"
 
 head -c 3000 "$B" > "$T/half.dump"
+# Een echte mislukte herstelcontrole moet ook de tijdelijke database opruimen.
+if node tools/herstel.mjs --controle "$T/half.dump" > "$T/half-controle.txt" 2>&1; then
+  fout "onvolledige dump slaagt als herstelcontrole"
+fi
+grep -q "Hersteltest mislukt" "$T/half-controle.txt" || { cat "$T/half-controle.txt"; fout "herstelcontrole meldt verkeerde fout"; }
+[ -z "$(psql -Atc "SELECT datname FROM pg_database WHERE datname LIKE '${DB}_hersteltest%'")" ] || fout "tijdelijke database na mislukte controle niet opgeruimd"
+[ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "actieve database gewijzigd door herstelcontrole"
+[ "$(psql -At -d "$DB" -c "SELECT EXISTS (SELECT 1 FROM fabriek.onderhoud_log WHERE soort='hersteltest' AND NOT gelukt AND bestand='half.dump')")" = "t" ] || fout "mislukte herstelcontrole ontbreekt in log"
 node tools/herstel.mjs "$T/half.dump" --ja >/dev/null 2>&1 && fout "half bestand zou moeten mislukken"
 [ "$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)" = "$N" ] || fout "na mislukt herstel is de oude database niet terug"
 
 # D100: een ouder pakket mag een nieuwere database niet wijzigen, ook niet de ACLs.
 TOEKOMST=$(psql -At -d "$DB" -c "SELECT max(nummer)+1 FROM fabriek.schema_versie")
 psql -q -d "$DB" -c "INSERT INTO fabriek.schema_versie (nummer,naam) VALUES ($TOEKOMST,'fictieve toekomstige migratie'); GRANT SELECT ON fabriek.gebruiker TO mes_app"
+# Serverstart weigert het toekomstige schema voordat de API wordt geladen.
+if node tools/start-server.mjs > "$T/start-toekomst.txt" 2>&1; then
+  fout "server start met onbekend schema"
+fi
+grep -q "Onbekende schemaversie(s): $TOEKOMST" "$T/start-toekomst.txt" || { cat "$T/start-toekomst.txt"; fout "server weigert toekomstschema niet expliciet"; }
 node tools/migreer.mjs > "$T/toekomst.txt" 2>&1 && fout "onbekende schemaversie geaccepteerd"
 grep -q "Onbekende schemaversie" "$T/toekomst.txt" || fout "onbekende schemaversie niet expliciet geweigerd"
 [ "$(psql -At -d "$DB" -c "SELECT has_table_privilege('mes_app','fabriek.gebruiker','SELECT')")" = "t" ] || fout "rechten gewijzigd op nieuwere database"
@@ -72,6 +85,15 @@ grep -q "Onbekende schemaversie in back-up" "$T/toekomst-herstel.txt" || fout "o
 [ "$(psql -At -d "$DB" -c "SELECT has_table_privilege('mes_app','fabriek.gebruiker','SELECT')")" = "f" ] || fout "actieve ACL niet hersteld"
 [ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "historie gewijzigd bij geweigerd herstel"
 
+
+# Een gat in de inventaris met onveranderd maximum mag niet starten.
+psql -v ON_ERROR_STOP=1 -q -d "$DB" -c "CREATE TABLE public.test_migratiemarkering AS SELECT * FROM fabriek.schema_versie WHERE nummer=36; DELETE FROM fabriek.schema_versie WHERE nummer=36"
+if node tools/start-server.mjs > "$T/start-gat.txt" 2>&1; then
+  fout "server start met ontbrekende tussenmigratie"
+fi
+grep -q "Ontbrekende migratie(s): 36;" "$T/start-gat.txt" || { cat "$T/start-gat.txt"; fout "server weigert ontbrekende migratie niet expliciet"; }
+psql -v ON_ERROR_STOP=1 -q -d "$DB" -c "INSERT INTO fabriek.schema_versie SELECT * FROM public.test_migratiemarkering; DROP TABLE public.test_migratiemarkering"
+[ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "servercontrole wijzigde historie"
 
 # Database-update: gebruik een geïsoleerde kopie van de echte migratietool
 # met een opzettelijk falende testmigratie. Geen aanpassing aan productiemigraties.
