@@ -17,13 +17,16 @@ interface LotRule {id:string;nominal_batch_count:number;deviation_approval_requi
 interface CompatibilityRule {id:string;other_recipe_version_id:string;reason:string}
 type RuleKind="nonlinear"|"parameter_dependent"|"equipment_dependent";
 interface ScalingRule {id:string;code:string;description:string;rule_kind:RuleKind;output_unit_id:string;source_reference:string;applicability:string}
-interface Scaling {change_no:number;rules:ScalingRule[]}
+type SourceKind="batch_quantity"|"parameter"|"equipment_property"|"constant";
+interface ScalingInput {id:string;rule_id:string;code:string;source_kind:SourceKind;parameter_id:string|null;equipment_property:string|null;constant_value:string|null;unit_id:string;conversion_version_id:string|null}
+interface Scaling {change_no:number;rules:ScalingRule[];inputs:ScalingInput[]}
+const sourceKinds:Record<SourceKind,string>={batch_quantity:"Batchhoeveelheid",parameter:"Procesparameter",equipment_property:"Equipmenteigenschap",constant:"Constante"};
 const ruleKinds:Record<RuleKind,string>={nonlinear:"Niet-lineair",parameter_dependent:"Parameterafhankelijk",equipment_dependent:"Equipmentafhankelijk"};
 interface Requirements {lot_rules:LotRule[];compatibility_rules:CompatibilityRule[];change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
 interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
-interface Catalog {units:{id:string;code:string;symbol:string;name:string}[]}
+interface Catalog {units:{id:string;code:string;symbol:string;name:string}[];conversions:{id:string;from_unit_id:string;to_unit_id:string}[];versions:{id:string;conversion_id:string;revision:number;factor_numerator:string;factor_denominator:string;additive_offset:string;source_reference:string}[]}
 const categories:Record<Category,string>={target:"Doelwaarde",operating_tolerance:"Bedrijfstolerantie",process_limit:"Procesgrens",specification_limit:"Specificatiegrens",statistical_control_limit:"Statistische beheersgrens"};
 const numeric=(type:string)=>type==="decimal"||type==="integer";
 type Choice={id:string;label:string};
@@ -278,6 +281,68 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           return {code:code.value.trim(),description:description.value.trim(),rule_kind:kind.value,output_unit_id:output.value,source_reference:source.value.trim(),applicability:applicability.value.trim()};
         },r?.id,scalingRoot);
       }
+      const numericParameters=data.parameters.filter(p=>numeric(p.data_type)&&p.measurement_unit_id&&unit(p.measurement_unit_id));
+      const batchUnit=data.formulas.length===1?data.formulas[0].reference_unit_id:null;
+      function conversionChoices(from:string,to:string) {
+        return catalog.versions.filter(v=>catalog.conversions.some(c=>c.id===v.conversion_id&&c.from_unit_id===from&&c.to_unit_id===to));
+      }
+      function conversionLabel(v:Catalog["versions"][number]) {
+        const c=catalog.conversions.find(c=>c.id===v.conversion_id);
+        return (c?(unit(c.from_unit_id)?.code??c.from_unit_id)+" → "+(unit(c.to_unit_id)?.code??c.to_unit_id):v.conversion_id)+" · revisie "+v.revision+" · factor "+v.factor_numerator+"/"+v.factor_denominator+" · offset "+v.additive_offset+" · "+v.source_reference;
+      }
+      function scalingInputForm(rule:ScalingRule,r?:ScalingInput) {
+        const code=input(r?.code??"",100);
+        const source=choice(Object.entries(sourceKinds).map(([id,label])=>({id,label})),r?.source_kind??"");
+        const parameter=choice(numericParameters.map(p=>({id:p.id,label:p.code+" — "+p.name+" ("+p.unit+")"})),r?.parameter_id??"",false);
+        const property=input(r?.equipment_property??"",10000);
+        const constant=exact(r?.constant_value??"");
+        const target=choice(unitOptions,r?.unit_id??"");
+        const conversion=choice([], "", false);
+        const sourceInfo=h("p",{class:"sub","aria-live":"polite"});
+        const fromUnit=()=>source.value==="batch_quantity"?batchUnit:source.value==="parameter"?numericParameters.find(p=>p.id===parameter.value)?.measurement_unit_id??null:null;
+        function sync(initial=false) {
+          const k=source.value, from=fromUnit(), to=target.value;
+          parameter.disabled=k!=="parameter";parameter.required=k==="parameter";
+          property.disabled=k!=="equipment_property";property.required=k==="equipment_property";
+          constant.disabled=k!=="constant";constant.required=k==="constant";
+          const needs=!!from&&!!to&&from!==to;
+          const old=initial?r?.conversion_version_id??"":conversion.value;
+          const versions=needs?conversionChoices(from!,to):[];
+          conversion.replaceChildren(h("option",{value:""},"Kies expliciet een conversierevisie"),...versions.map(v=>h("option",{value:v.id},conversionLabel(v))));
+          conversion.value=versions.some(v=>v.id===old)?old:"";
+          conversion.disabled=!needs;conversion.required=needs;
+          sourceInfo.textContent=k==="batch_quantity"||k==="parameter"?(from?"Broneenheid: "+(unit(from)?.symbol??from)+(needs&&!versions.length?" — geen passende conversierevisie beschikbaar.":""):"Kies een bron met expliciete cataloguseenheid."):"Eenheid wordt expliciet bij deze invoer vastgelegd; geen conversie.";
+        }
+        for(const control of [source,parameter,target])control.addEventListener("change",()=>sync());
+        sync(true);
+        return save(r?"Schaalinvoer wijzigen":"Schaalinvoer toevoegen",[
+          field("Code invoer",code),field("Brontype",source),field("Numerieke procesparameter",parameter),
+          field("Equipmenteigenschap (voorlopige definitie)",property),field("Exacte constante",constant),
+          sourceInfo,field("Invoereenheid",target),field("Exacte conversierevisie indien nodig",conversion)
+        ],"inputs",()=>{
+          const k=source.value,from=fromUnit(),to=target.value;
+          if(!Object.prototype.hasOwnProperty.call(sourceKinds,k)||!unit(to)||!code.value.trim())throw Error("Kies een brontype, eenheid en code.");
+          const sourced=k==="batch_quantity"||k==="parameter";
+          if(sourced&&(!from||!unit(from)))throw Error("Bron vereist een expliciete cataloguseenheid.");
+          const needs=sourced&&from!==to;
+          if(needs&&!conversionChoices(from!,to).some(v=>v.id===conversion.value))throw Error("Kies een passende exacte conversierevisie.");
+          if(k==="equipment_property"&&!property.value.trim())throw Error("Geef een equipmenteigenschap op.");
+          if(k==="constant"&&!constant.value.trim())throw Error("Geef een exacte constante op.");
+          return {rule_id:rule.id,code:code.value.trim(),source_kind:k,parameter_id:k==="parameter"?parameter.value:null,
+            equipment_property:k==="equipment_property"?property.value.trim():null,constant_value:k==="constant"?constant.value.trim():null,
+            unit_id:to,conversion_version_id:needs?conversion.value:null};
+        },r?.id,scalingRoot);
+      }
+      function scalingInputView(rule:ScalingRule,r:ScalingInput) {
+        const v=catalog.versions.find(v=>v.id===r.conversion_version_id);
+        const p=data.parameters.find(p=>p.id===r.parameter_id);
+        const value=r.source_kind==="parameter"?(p?p.code+" — "+p.name:r.parameter_id):r.source_kind==="equipment_property"?r.equipment_property:r.source_kind==="constant"?r.constant_value:"Referentieformule";
+        return h("details",{},h("summary",{},r.code+" · "+sourceKinds[r.source_kind]),
+          h("p",{},(value??"Onbekend")+" · "+(unit(r.unit_id)?.symbol??r.unit_id)),
+          h("p",{class:"sub"},r.conversion_version_id?(v?conversionLabel(v):"Conversierevisie: "+r.conversion_version_id):"Geen conversie"),
+          editable&&unitOptions.length?scalingInputForm(rule,r):null,
+          editable?remove("inputs",r.id,"Schaalinvoer "+r.code,scalingRoot):null);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -367,13 +432,17 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(editable&&availableVersions().length?[compatibilityForm()]:[]),
         ...(editable&&!otherVersions.length?[h("p",{class:"sub"},"Er zijn nog geen andere receptrevisies van dit product.")]:[]),
         h("h4",{},"Geavanceerde schaalregels"),
-        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Invoer, formule en uitvoerkoppelingen volgen in volgende werkpakketten. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
+        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Getypeerde invoer en exacte conversierevisies; formule en uitvoerkoppelingen volgen. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
         ...scaling.rules.map(r=>h("details",{},h("summary",{},r.code+" — "+ruleKinds[r.rule_kind]),
           h("p",{},r.description),
           h("p",{class:"sub"},"Uitvoereenheid: "+(unit(r.output_unit_id)?.symbol??r.output_unit_id)),
           h("p",{},"Bronreferentie: "+r.source_reference),h("p",{},"Toepassingsgebied: "+r.applicability),
           editable&&unitOptions.length?scalingRuleForm(r):null,
-          editable?remove("rules",r.id,"Schaalregel "+r.code,scalingRoot):null)),
+          editable?remove("rules",r.id,"Schaalregel "+r.code,scalingRoot):null,
+          h("h5",{},"Getypeerde invoer"),
+          ...scaling.inputs.filter(i=>i.rule_id===r.id).map(i=>scalingInputView(r,i)),
+          scaling.inputs.some(i=>i.rule_id===r.id)?null:h("p",{class:"leeg"},"Nog geen schaalinvoer."),
+          editable&&unitOptions.length?scalingInputForm(r):null)),
         ...(scaling.rules.length?[]:[h("p",{class:"leeg"},"Nog geen geavanceerde schaalregels.")]),
         ...(editable&&unitOptions.length?[scalingRuleForm()]:[]),
         h("h4",{},"Procesparameters"),
