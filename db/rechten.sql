@@ -657,3 +657,20 @@ BEGIN
    END IF;
  END IF;
 END $$;
+
+-- D100/0093: controleer ook persoonlijke leden na herstel van de groeps-ACLs.
+-- Onbekende persoonlijke rechten niet automatisch intrekken: IT moet de afwijking oplossen.
+DO $$
+DECLARE v_bad text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=93) THEN
+   SELECT string_agg(r.rolname::text,', ' ORDER BY r.rolname) INTO v_bad
+   FROM pg_catalog.pg_roles r
+   WHERE r.rolname<>'mes_security_channel'
+     AND pg_catalog.pg_has_role(r.oid,'mes_security_channel','MEMBER')
+     AND NOT fabriek.authorization_channel_role_safe(r.oid);
+   IF v_bad IS NOT NULL THEN
+     RAISE EXCEPTION 'Onveilige persoonlijke MES-databaserol: %',v_bad;
+   END IF;
+ END IF;
+END $$;

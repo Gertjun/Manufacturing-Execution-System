@@ -21,9 +21,9 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 Bijgewerkt: 25 november 2026 · versie **0.62.1** (ongewijzigd).
 
-- **Ontwikkeling:** MES-fase 1, concept-PR #6 op `feature/mes-phase-1`. Tussentijdse audit D100 nog open; databaseschema 0092. Scope en open punten in ROADMAP.md.
+- **Ontwikkeling:** MES-fase 1, concept-PR #6 op `feature/mes-phase-1`. Tussentijdse audit D100 nog open; databaseschema 0093. Scope en open punten in ROADMAP.md.
 - **Laatste geslaagde technische baseline:** D100: gerichte PostgreSQL-baseline [45512808472](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45512808472), job 138864559805, head b06ec8b274326a40a90a54eb65b22c8e6214ca35, base 31c86973bf13848cba44fc38785084953fe65e39: alle stappen geslaagd, inclusief databaseregels, security, autorisatie, API en Linux-pakket; Node 26 overgeslagen. Geen integrale faseacceptatie.
-- **Sinds baseline:** technische rolcontrole toegevoegd; regressies voorbereid, nog niet uitgevoerd.
+- **Sinds baseline:** technische rolcontrole en persoonlijke effectieve rechtencontrole (0093) toegevoegd; regressies voorbereid, nog niet uitgevoerd.
 - **Omgevingen:** Windows-laptoppakket verplicht voor PoC/acceptatie; actuele lokale installatie niet opnieuw vastgesteld. Fabrieksserver nog niet ingericht voor zover vastgesteld. Browserdemo volgens D99 buiten verplichte scope; geen verdere demo-investering.
 - **Open:** effectieve/transitieve privileges, D101-restcontrole, #106–#108 en #136, representatieve oude schema-upgrade, Windows-praktijkvalidatie, schema-diagram, integrale review en volledige Node 26-acceptatie. Zie docs/mes/ACCEPTANCE-CRITERIA.md.
 - **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd. Uitsluitend fictieve gegevens.
