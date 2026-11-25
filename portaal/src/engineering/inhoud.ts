@@ -15,6 +15,10 @@ interface Instruction {id:string;procedural_element_id:string;code:string;positi
 interface SpecificationLink {id:string;parameter_limit_id:string;code:string;description:string}
 interface LotRule {id:string;nominal_batch_count:number;deviation_approval_required:boolean;deviation_reason_required:true}
 interface CompatibilityRule {id:string;other_recipe_version_id:string;reason:string}
+type RuleKind="nonlinear"|"parameter_dependent"|"equipment_dependent";
+interface ScalingRule {id:string;code:string;description:string;rule_kind:RuleKind;output_unit_id:string;source_reference:string;applicability:string}
+interface Scaling {change_no:number;rules:ScalingRule[]}
+const ruleKinds:Record<RuleKind,string>={nonlinear:"Niet-lineair",parameter_dependent:"Parameterafhankelijk",equipment_dependent:"Equipmentafhankelijk"};
 interface Requirements {lot_rules:LotRule[];compatibility_rules:CompatibilityRule[];change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
 interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
@@ -41,9 +45,9 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
     if(!active())return;
     area.replaceChildren(h("p",{class:"sub"},"Formule en parameters ophalen…"));
     try {
-      const [data,procedure,catalog,references,requirements]=await Promise.all([haal<Content>(base),haal<Procedure>(prefix+"/procedure"),haal<Catalog>("/units/for-product/"+encodeURIComponent(productId)),haal<References>("/recipes/references/"+encodeURIComponent(productId)),haal<Requirements>(prefix+"/requirements")]);
+      const [data,procedure,catalog,references,requirements,scaling]=await Promise.all([haal<Content>(base),haal<Procedure>(prefix+"/procedure"),haal<Catalog>("/units/for-product/"+encodeURIComponent(productId)),haal<References>("/recipes/references/"+encodeURIComponent(productId)),haal<Requirements>(prefix+"/requirements"),haal<Scaling>(prefix+"/scaling")]);
       if(!active())return;
-      if(data.change_no!==procedure.change_no||data.change_no!==requirements.change_no)throw Error("Recept is ondertussen gewijzigd. Vernieuw het onderdeel.");
+      if(data.change_no!==procedure.change_no||data.change_no!==requirements.change_no||data.change_no!==scaling.change_no)throw Error("Recept is ondertussen gewijzigd. Vernieuw het onderdeel.");
       const editable=version.lifecycle_status==="draft"&&magReceptconcept();
       const error=h("p",{class:"foutmelding",role:"alert"});
       const unitOptions=catalog.units.map(u=>({id:u.id,label:u.code+" — "+u.symbol+" ("+u.name+")"}));
@@ -257,6 +261,23 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           return {other_recipe_version_id:other.value,reason:reason.value.trim()};
         },r?.id,requirementsRoot);
       }
+      const scalingRoot=prefix+"/scaling";
+      function scalingRuleForm(r?:ScalingRule) {
+        const code=input(r?.code??"",100);
+        const description=h("textarea",{required:true,maxlength:10000,rows:3},r?.description??"");
+        const kind=choice(Object.entries(ruleKinds).map(([id,label])=>({id,label})),r?.rule_kind??"");
+        const output=choice(unitOptions,r?.output_unit_id??"");
+        const source=h("textarea",{required:true,maxlength:10000,rows:3},r?.source_reference??"");
+        const applicability=h("textarea",{required:true,maxlength:10000,rows:3},r?.applicability??"");
+        return save(r?"Schaalregel wijzigen":"Schaalregel definiëren",[
+          field("Code schaalregel",code),field("Omschrijving",description),field("Type schaalregel",kind),
+          field("Uitvoereenheid",output),field("Bronreferentie / onderbouwing",source),field("Toepassingsgebied en voorwaarden",applicability)
+        ],"rules",()=>{
+          if(!Object.prototype.hasOwnProperty.call(ruleKinds,kind.value)||!unit(output.value))throw Error("Kies een geldig regeltype en cataloguseenheid.");
+          if(!code.value.trim()||!description.value.trim()||!source.value.trim()||!applicability.value.trim())throw Error("Vul alle verplichte gegevens in.");
+          return {code:code.value.trim(),description:description.value.trim(),rule_kind:kind.value,output_unit_id:output.value,source_reference:source.value.trim(),applicability:applicability.value.trim()};
+        },r?.id,scalingRoot);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -345,6 +366,16 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(requirements.compatibility_rules.length?[]:[h("p",{class:"leeg"},"Geen uitgaande incompatibiliteitsregels vastgelegd voor deze revisie.")]),
         ...(editable&&availableVersions().length?[compatibilityForm()]:[]),
         ...(editable&&!otherVersions.length?[h("p",{class:"sub"},"Er zijn nog geen andere receptrevisies van dit product.")]:[]),
+        h("h4",{},"Geavanceerde schaalregels"),
+        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Invoer, formule en uitvoerkoppelingen volgen in volgende werkpakketten. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
+        ...scaling.rules.map(r=>h("details",{},h("summary",{},r.code+" — "+ruleKinds[r.rule_kind]),
+          h("p",{},r.description),
+          h("p",{class:"sub"},"Uitvoereenheid: "+(unit(r.output_unit_id)?.symbol??r.output_unit_id)),
+          h("p",{},"Bronreferentie: "+r.source_reference),h("p",{},"Toepassingsgebied: "+r.applicability),
+          editable&&unitOptions.length?scalingRuleForm(r):null,
+          editable?remove("rules",r.id,"Schaalregel "+r.code,scalingRoot):null)),
+        ...(scaling.rules.length?[]:[h("p",{class:"leeg"},"Nog geen geavanceerde schaalregels.")]),
+        ...(editable&&unitOptions.length?[scalingRuleForm()]:[]),
         h("h4",{},"Procesparameters"),
         ...data.parameters.map(p=>{
           const limits=data.parameter_limits.filter(l=>l.parameter_id===p.id);
