@@ -6,7 +6,7 @@ import { drukEtikettenAf, FORMATEN, type EtiketInfo, type Formaat } from "../../
 import { beslisKeuring, corrigeer, corrigeerGrondstof, losConflictOp, registratie, rondAf, slaGrondstoffenOp, slaWaardenOp, stappen, type GrondstofInvoer, type Invoer } from "../registraties";
 import { sessie } from "../sessie";
 import { heeftProductRecht, rechtenOnline } from "../rechten";
-import { opStatus } from "../wachtrij";
+import { heeftWachtende, opStatus } from "../wachtrij";
 import type { Conflict, Markering, Registratie, VeldMetWaarde } from "../types";
 import { bevestig, bezigBij, h, laden, melding, tijd, toon, vastHouden, vraag } from "../ui";
 
@@ -40,23 +40,46 @@ export async function registratieScherm(id: string) {
     return;
   }
   teken(reg);
-  // Keuringsstap (#80) nog niet bij de server: zodra de wachtrij leeg is, de versie van de server tonen; de keuring
-  // staat dan open en Kwaliteit kan meten en beslissen. Alleen zolang er nog niets is ingetypt, zodat niemand invoer kwijtraakt.
-  const keuringsstap = (await stappen().catch(() => [])).find((x) => x.code === reg!.stapcode)?.soort === "keuring";
-  if (reg.lokaal && keuringsstap) {
-    const route = location.hash;
-    let stop: (() => void) | undefined;
-    let eerste = true;  // opStatus meldt meteen de huidige stand; pas reageren op een verandering
-    stop = opStatus((st) => {
-      if (eerste) return void (eerste = false);
-      if (location.hash !== route) return void stop?.();
-      if (st.verbonden && st.wacht === 0 && st.fout === 0) {
-        stop?.();
-        const getypt = [...document.querySelectorAll<HTMLInputElement>("main input")].some((i) => i.value.trim() !== "");
-        if (!getypt) void registratieScherm(id);
-      }
-    });
-  }
+}
+
+// Vernieuw uitsluitend een eigen lokale kwaliteitsregistratie nadat de server
+// de acties voor die registratie heeft verwerkt. Geen optimistische vrijgave.
+// Een andere sessie of route, afgewezen invoer of onopgeslagen tekst blokkeert
+// de automatische verversing.
+let stopVerversing: (() => void) | undefined;
+function volgKwaliteitsregistratie(reg: Registratie) {
+  stopVerversing?.();
+  stopVerversing = undefined;
+  if (!reg.lokaal || !heeftProductRecht(reg.product, "inspection.read")) return;
+  const actueel = vastHouden(), route = location.hash, token = sessie.token;
+  let bezig = false, gestopt = false;
+  let stop: (() => void) | undefined;
+  const klaar = () => {
+    gestopt = true;
+    stop?.();
+    if (stopVerversing === klaar) stopVerversing = undefined;
+  };
+  stopVerversing = klaar;
+  const nogActueel = () => !gestopt && actueel() && route === location.hash && token === sessie.token;
+  const getypt = () => [...document.querySelectorAll<HTMLInputElement>("#scherm input")].some(i => i.value.trim() !== "");
+  stop = opStatus(st => {
+    if (!nogActueel()) return klaar();
+    if (!st.verbonden || st.inloggenNodig || bezig || getypt()) return;
+    bezig = true;
+    void (async () => {
+      try {
+        if (await heeftWachtende(reg.id)) return;
+        if (!nogActueel() || getypt()) return;
+        const vers = await registratie(reg.id);
+        if (!nogActueel() || getypt() || !vers || vers.lokaal || await heeftWachtende(reg.id)) return;
+        if (!nogActueel() || getypt()) return;
+        klaar();
+        teken(vers);
+      } catch { /* behoud het scherm en probeer opnieuw bij een volgende status */ }
+      finally { bezig = false; }
+    })();
+  });
+  if (gestopt) stop();
 }
 
 /**
@@ -456,6 +479,7 @@ function teken(reg: Registratie) {
       ? h("div", { class: "balk-onder" }, h("div", {}, hint, magInvoeren || isKwaliteit ? opslaan : null, magAfronden && reg.status === "open" ? afronden : null, magBeslissen && keuringOpen ? [vrijgeven, herbewerken, afkeuren] : null)) : null,
   );
   werkBij();
+  volgKwaliteitsregistratie(reg);
 }
 
 /** Etiket voor deze batch of dit lot. Met verbinding met product en dag; zonder alleen nummer en barcode. */
