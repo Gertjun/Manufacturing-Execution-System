@@ -636,6 +636,62 @@ BEGIN
  END IF;
 END $$;
 
+-- 0097: uitsluitend de persoonlijk gecontroleerde materiaalinterface.
+-- De tabellen en interne autorisatiehelper blijven ontoegankelijk.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=97) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.material_create_class(text,text),
+     fabriek.material_create_definition(text,text,uuid,text,uuid,uuid),
+     fabriek.material_append_version(uuid,integer,text,uuid,text),
+     fabriek.material_list() TO mes_app;
+ END IF;
+END $$;
+
+-- 0098: alleen productgebonden, persoonlijk gecontroleerde MBR-conceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=98) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_create(uuid,text,text,text),
+     fabriek.recipe_create_next_version(uuid,integer,text,text),fabriek.recipe_list(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0099: gecontroleerde conceptheaderwijziging; geen directe tabelwrites.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=99) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_update_draft(uuid,integer,text,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0101: uitsluitend persoonlijke procedureinterface, interne lock/audit niet toegankelijk.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=101) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_procedure_list(uuid),
+     fabriek.recipe_save_element(uuid,integer,uuid,uuid,text,text,text,integer,boolean),
+     fabriek.recipe_delete_element(uuid,integer,uuid),fabriek.recipe_add_dependency(uuid,integer,uuid,uuid),
+     fabriek.recipe_delete_dependency(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0108: alleen de expliciete persoonlijke parameter-/formulefuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=108) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_content_list(uuid),
+     fabriek.recipe_save_parameter(uuid,integer,uuid,uuid,text,text,text,text,text,boolean,text,boolean,uuid),
+     fabriek.recipe_delete_parameter(uuid,integer,uuid),
+     fabriek.recipe_save_parameter_limit(uuid,integer,uuid,uuid,text,text,numeric,numeric,numeric,text),
+     fabriek.recipe_delete_parameter_limit(uuid,integer,uuid),
+     fabriek.recipe_save_formula(uuid,integer,uuid,numeric,text,uuid),
+     fabriek.recipe_delete_formula(uuid,integer,uuid),
+     fabriek.recipe_save_material_requirement(uuid,integer,uuid,uuid,uuid,uuid,text,text,numeric,text,text,uuid),
+     fabriek.recipe_delete_material_requirement(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
@@ -715,42 +771,3 @@ BEGIN
  END IF;
 END $$;
 
--- 0097: uitsluitend de persoonlijk gecontroleerde materiaalinterface.
--- De tabellen en interne autorisatiehelper blijven ontoegankelijk.
-DO $$
-BEGIN
- IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=97) THEN
-   GRANT EXECUTE ON FUNCTION fabriek.material_create_class(text,text),
-     fabriek.material_create_definition(text,text,uuid,text,uuid,uuid),
-     fabriek.material_append_version(uuid,integer,text,uuid,text),
-     fabriek.material_list() TO mes_app;
- END IF;
-END $$;
-
--- 0098: alleen productgebonden, persoonlijk gecontroleerde MBR-conceptfuncties.
-DO $$
-BEGIN
- IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=98) THEN
-   GRANT EXECUTE ON FUNCTION fabriek.recipe_create(uuid,text,text,text),
-     fabriek.recipe_create_next_version(uuid,integer,text,text),fabriek.recipe_list(uuid) TO mes_app;
- END IF;
-END $$;
-
--- 0099: gecontroleerde conceptheaderwijziging; geen directe tabelwrites.
-DO $$
-BEGIN
- IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=99) THEN
-   GRANT EXECUTE ON FUNCTION fabriek.recipe_update_draft(uuid,integer,text,text) TO mes_app;
- END IF;
-END $$;
-
--- 0101: uitsluitend persoonlijke procedureinterface, interne lock/audit niet toegankelijk.
-DO $$
-BEGIN
- IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=101) THEN
-   GRANT EXECUTE ON FUNCTION fabriek.recipe_procedure_list(uuid),
-     fabriek.recipe_save_element(uuid,integer,uuid,uuid,text,text,text,integer,boolean),
-     fabriek.recipe_delete_element(uuid,integer,uuid),fabriek.recipe_add_dependency(uuid,integer,uuid,uuid),
-     fabriek.recipe_delete_dependency(uuid,integer,uuid) TO mes_app;
- END IF;
-END $$;
