@@ -154,7 +154,9 @@ Nieuwe installaties gebruiken `mes_app`. Bij bestaande installaties blijft `batc
 
 ## Persoonlijke securitybediening (D100/D101, fase 1)
 
-D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
+D102/0094: goedgekeurde eenmalige initialisatie van bestaande persoonlijke identiteiten zonder MES-rechtenhistorie, via eigenaar en drie persoonlijke bevestigingen. Geen automatische legacy-grants; drie exact afgebakende grants, sessiegeneratie verhoogd, onveranderlijk bootstraprecord. Schone bootstrap blijft voorkeur voor fictieve pre-pilot. Gerichte DB- en toolregressies toegevoegd; uitvoeringsbewijs open.
+
+Voor een bestaande administratie zonder MES-rechtenhistorie: eigenaar voert `node tools/beheerder.mjs --initialiseer-bestaand` interactief uit met drie persoonlijk aanwezige accounthouders en goedkeuringsreferentie. Daarna opnieuw inloggen en persoonlijke securitylogins afzonderlijk binden. Geen herhaling of gebruik als noodherstel.
 
 - IT richt per bevoegde persoon een afzonderlijke PostgreSQL-login in, zonder beheerattributen of andere groepsrollen, uitsluitend met lidmaatschap van `mes_security_channel`. Geen rechtstreeks toegekende objectrechten of delegatie. Controleer ook andere databases in het cluster.
 - Beperk toegang tot een beheerpunt; gebruik PostgreSQL-TLS met vertrouwde certificaatketen en passende hostnaam, SCRAM en passende pg_hba-regels. Geen trust of uitgeschakelde certificaatcontrole. `tools/security.mjs` vereist TLS-verificatie en interactieve persoonlijke credentials. Gebruik voor securitybediening een afzonderlijk instellingenbestand met uitsluitend host, port en database in `db`, zonder eigenaar-/runtimegeheimen.
