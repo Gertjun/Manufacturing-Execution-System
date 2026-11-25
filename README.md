@@ -1,8 +1,8 @@
 # MES
 
-> **MES-transitie (ontwerp):** de huidige software blijft versie 0.62.1. Goedgekeurde architectuur in [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), besluiten D89 en geïntegreerde [ROADMAP.md](ROADMAP.md). PR #1 wordt niet gemerged; de nieuwe implementatie vertrekt vanaf main. Op de ontwikkelbranch is het fase-1-fundament in uitvoering; geen uitgebrachte MES-versie.
+> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 in voorbereiding. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D104 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
 
-Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. Batches doorlopen 18 processtappen; in stap 16 worden 4 batches samengevoegd tot 1 lot. Alles werkt lokaal en offline. **Alle namen, nummers en waarden in deze repository zijn fictief.**
+Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. De huidige fictieve PoC gebruikt 18 processtappen en een lot van vier batches in PS16; dit is een tijdelijk model, geen definitief MES-recept. Lokale registratie ondersteunt offline werken. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
 ## Waar vind je wat
 
@@ -19,16 +19,13 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 ## Stand
 
-Bijgewerkt: 25 november 2026 · versie **0.62.1** (ongewijzigd).
+Bijgewerkt: 25 november 2026 · versie **0.63.0** (releasevoorbereiding).
 
-- **Ontwikkeling:** MES-fase 1, concept-PR #6 op `feature/mes-phase-1`. Tussentijdse inhoudelijke audit D100 afgesloten; faseacceptatie open; databaseschema 0094. Scope en open punten in ROADMAP.md.
-- **Laatste geslaagde technische baseline:** Run [45575488676 (run 499)](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45575488676), job 139072267943, head de213112f706f7bbcbd07b4928c93e36e6d7ba02, base 31c86973bf13848cba44fc38785084953fe65e39: gerichte PostgreSQL-baseline geslaagd; schone installatie, schema-equivalentie 0001–0094, beperkte rechten, historische upgrade 0035–0094 met behoud van tien historische tabellen en zonder automatische legacy-grants, D102 eenmalige initialisatie, 14/14 security, 10/10 autorisatie, 117/117 API, back-up/herstel/rollback en Linux-laptoppakket. Documentatiecontrole 45575458558 geslaagd. Geen volledige Node 26-acceptatie of Windows-praktijkbewijs.
-- **Afzonderlijk offline-testbewijs:** D101 offline-permissioncontrole en gezamenlijke IndexedDB-opslag geïmplementeerd. D101: [Node 22-compatibiliteitsrun 45558147763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45558147763), job 139015099770, head 6aaa391c1afa9e516d8d512573249feedb1a6d60, base 31c86973bf13848cba44fc38785084953fe65e39: 22/22 gerichte Chrome/IndexedDB-controles geslaagd, API-typecheck en beide applicatiebuilds groen; documentatiecontrole eveneens groen. Fictieve sessies en gesimuleerde serverweigering; geen integrale scherm-/netwerkacceptatie. Volledige Node 26-suite overgeslagen.
-- **Omgevingen:** Windows-laptoppakket verplicht voor PoC/acceptatie; actuele lokale installatie niet opnieuw vastgesteld. Fabrieksserver nog niet ingericht voor zover vastgesteld. Browserdemo volgens D99 buiten verplichte scope; verplichte demo-tests en versieafhankelijkheid uitgefaseerd, historische bron blijft behouden.
-- **Schermvalidatie:** Run [45616999067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45616999067), job 139214856901, head 2e25ac588a081335ee16e75979e1212bb06a23df, base 31c86973bf13848cba44fc38785084953fe65e39: alle 16 verplichte Chrome/PostgreSQL-schermtestsuites geslaagd (768 getelde OK-controles, nul fouten), Node 26 API-typecheck, beide builds en offline-rechtenregressie geslaagd; documentatiecontrole 45616998994 groen. Uitsluitend fictieve gegevens; applicatie gebruikt beperkte mes_app-verbinding, eigenaar uitsluitend voor testvoorbereiding en DB-asserties. Geen volledige acceptatie of Windows-praktijkbewijs.
-- **Open:** operationele security-inrichting, Windows-praktijkvalidatie en volledige Node 26-acceptatie; integrale testreview afgerond; volledige acceptatie nog vereist. Zie docs/mes/ACCEPTANCE-CRITERIA.md.
-- **Databaseplaatje:** schema 0094, 62 tabellen en 132 verbanden; generator en test geslaagd (run 45577237440).
-- **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd. Uitsluitend fictieve gegevens.
+- **Ontwikkeling:** fase 1 functioneel geaccepteerd; PR #6 op `feature/mes-phase-1`, releasevoorbereiding. Databaseschema 0095. Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
+- **Databaseplaatje:** 62 tabellen en 132 relaties; schema 0095 wijzigt alleen de demo-indicatiefunctie; diagramcontrole geslaagd in integrale CI.
+- **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
+- **Open:** definitieve CI op releasetree, toestemming merge/publicatie, operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd voor fase 1.
 
 **Links**
 - Code: https://github.com/Gertjun/Manufacturing-Execution-System (privé)
@@ -56,7 +53,7 @@ Eén platform met één login. Na het inloggen toont de startpagina (`/`, D54) e
 
 **Inloggen:** hoofdletters in de gebruikersnaam tellen niet mee. Na 5 verkeerde wachtwoorden binnen 15 minuten moet je 1 minuut wachten; elke poging wordt vastgelegd (zonder wachtwoord) en Beheer → Server waarschuwt bij veel mislukte pogingen (D45).
 
-**Testaccounts** (alleen in de fictieve testdata, nooit in een echte installatie, wachtwoord `demo`): `operator.a` en `operator.b` (eigen account, D53), `operator` (het oude gedeelde account, kiest een naam), `ploegleider1`, `ploegleider2`, `kwaliteit1`, `productiemanager1`, `beheerder1`, `analist1`, `planner1`, `scherm1`.
+**Testaccounts** (uitsluitend nieuwe fictieve Windows-database; wachtwoord `demo`): zie de [pakketinstructies](tools/pakket/README.md#testaccounts) voor de veertien actuele `mes.*`-accounts. Historische identiteiten krijgen bij upgrades geen automatische grants.
 
 ### Invoerscherm
 - Per stap zie je wat bezig is, wat klaarstaat en wat gepland is voor vandaag. Het formulier komt uit de velden die per stap zijn ingesteld; tijdens het typen zie je of een waarde buiten tolerantie of grens valt.

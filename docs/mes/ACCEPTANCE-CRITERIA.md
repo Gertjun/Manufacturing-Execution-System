@@ -342,3 +342,21 @@ De schermreview corrigeerde legacy-rolverwachtingen, expliciete persoonlijke fix
 
 ### Afsluiting integrale testreview vóór acceptatie (25 november 2026)
 De reviewpoort is afgesloten voor de verplichte geautomatiseerde fase-1-scope. De actuele workflow is opnieuw gecontroleerd: concept-PR start volledige Node 26 en Node 22 alleen via acceptatie-test; checkout op event-head, base-ancestry en treebewijs; main-hergebruik uitsluitend via acceptatieverificatie. PostgreSQL 18, PG18 dump/restore, databaseregels, migratie-equivalentie, databaseplaatje, API inclusief autorisatiemodule, security-tools, rotatie, beheertools, historische upgrade, Linux-pakket, offline-regressie en alle 16 schermsuites blijven verplicht. Fictieve fixtures, actuele persoonlijke grants en beperkte app-verbindingen zijn gecontroleerd; historische gegevens en negatieve autorisatieasserties blijven beschermd. D99 browserdemo is niet verplicht. Geen nieuwe concrete blokkade voor het starten van integrale CI vastgesteld. Afzonderlijke groene runs zijn geen vervanging van volledige acceptatie op de actuele head/base. Resterend: Windows-praktijkbewijs, operationele security en organisatievoorwaarden vóór pilot, optionele LibreOffice-nevencontrole, en formele beoordeling; geen merge, release of formele ISA-claim.
+
+
+## Eindacceptatie fase 1 — D104 (25 november 2026)
+
+Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
+
+| Test | Uitkomst |
+|---|---|
+| W1 integriteit/schone installatie | 9/9 |
+| W2 veertien accounts, functiescheiding, oude demoaccounts geweigerd | 22/22 |
+| W3 online PS1 | 11 geslaagd, werkplek behouden als verwacht gedrag |
+| W4 offline PS2, herladen, synchronisatie | 12/12 |
+| W5 schema 0094 naar 0095, behoud data en accounts | 12/12 |
+| W6 back-up/herstel, PS1/PS2 behouden, PS3 teruggedraaid | 12/12 |
+| W7 lege fabriek, drie identiteiten | 15/15 na hervatting |
+| W8 tijdelijk wachtwoord, deactivering, diagnose zonder reset | 13/13 |
+
+W7: één tester simuleerde drie accounthouders; onderbreking met lege reden, hervatting gelukt, oorzaak niet vastgesteld. W8: oude noodsleutel geblokkeerd; diagnose alleen-lezen. Gecontroleerd herstel met onafhankelijke personen, persoonlijke database-login/TLS/provisioning/intrekking en herstelreconciliatie niet als operationeel bewezen. Fysieke apparatuur, fabrieksnetwerk, organisatorische maatregelen en echte pilot blijven open. Geen formele ISA-claim. Eerdere historische open-statusregels zijn geen actuele eindstatus. Releasevoorbereiding vereist nieuwe volledige CI, geen merge/publicatie zonder toestemming.

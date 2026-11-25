@@ -47,7 +47,7 @@ Uitsluitend voor de nieuwe fictieve database: alle onderstaande persoonlijke MES
 
 ## Je eigen proces inrichten
 
-**LEGE FABRIEK.bat** maakt een lege fictieve fabriek met configuratie en zonder testaccounts. De gecontroleerde MES-bootstrap vraagt een reden en drie verschillende persoonlijke identiteiten: een System Administrator en twee Security Administrators. Iedere accounthouder kiest zelf zijn wachtwoord. Technische en inhoudelijke bevoegdheden worden niet automatisch gecombineerd.
+**LEGE FABRIEK.bat** maakt een lege fictieve fabriek met configuratie en zonder testaccounts. Gebruik een aparte map: deze handeling vervangt de database. Als de bootstrap is afgebroken nadat de lege database is aangemaakt, start dan `START.bat` om de initialisatie te hervatten zonder de database opnieuw op te bouwen. Vul de reden in en gebruik drie verschillende wachtwoorden. De gecontroleerde MES-bootstrap vraagt een reden en drie verschillende persoonlijke identiteiten: een System Administrator en twee Security Administrators. Iedere accounthouder kiest zelf zijn wachtwoord. Technische en inhoudelijke bevoegdheden worden niet automatisch gecombineerd.
 
 ## Wachtwoord vergeten
 

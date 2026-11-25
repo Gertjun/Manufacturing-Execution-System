@@ -2,7 +2,7 @@
 
 Enige centrale takenlijst; besluiten in DECISIONS.md, gerealiseerd in CHANGELOG.md, actuele werking in README.md. D89: 69 ontwerpbesluiten, nieuwe start vanaf main; PR #1 niet mergen.
 
-Bijgewerkt: 25 november 2026 · huidige versie 0.62.1
+Bijgewerkt: 25 november 2026 · huidige versie 0.63.0
 
 ## Afhankelijkheden (geen kalenderplanning)
 
@@ -14,7 +14,7 @@ gantt
     section Architectuur
     Ontwerp :done, a, 2026-11-24, 1d
     section Fundament
-    Fundament :b, after a, 1d
+    Fundament :done, b, after a, 1d
     MBR en resources :c, after b, 1d
     section Kern
     Planning en execution :d, after c, 1d
@@ -27,14 +27,17 @@ gantt
 
 De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fase 0: ontwerpbesluiten vastgelegd in D89 en docs/mes; acceptatie van documentatie nog vereist. Fasen 1–8 vormen de betrouwbare kern voor pilot 1.0.0. Minimale materiaalidentiteit, middelenvereisten en blokkades worden vóór afhankelijke functies ingevoerd; geen onbewezen productieomschakeling. Praktijkvoorbereiding parallel mogelijk. D99: de goedgekeurde legacy-review bepaalt de overgang per fase. Geen verdere investering in achterhaalde procesmodellen of uitgestelde uitbreidingen; alleen noodzakelijke beveiliging van tijdelijke interfaces.
 
-## Fase 1 — Projectfundament en autorisaties
+## Fase 1 — Projectfundament en autorisaties (functioneel geaccepteerd)
 
-- #106 **Naam MES, terminologie, modulaire structuur** — Zie ontwerpdocumenten en acceptatiecriteria.
-- #107 **Meerdere rollen, permissions, scope, scheiding beheer** — Fundament geïmplementeerd; actuele DB/API-regressies en historische upgrade geslaagd. Persoonlijk securitykanaal en eigenaar-tools aanwezig; operationele provisioning/transport en volledige acceptatie open. Area/equipment-context volgt fase 3; zonder vertrouwde context geen scoped toegang.
-- #108 **Kritische rechten, herbevestiging, audittrail en kwalificaties** — Persoonlijke bevestiging, onafhankelijke grants, intrekking, personeelskoppeling en kwalificatiehandelingen via begrensde tools; DB/API en toolregressies geslaagd. Operationele bewijsvoering, volledige acceptatie en uitzonderingsherstelbesluit open. Definitieve MBR/CR/quality-release in eigen fasen.
-- #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; verplichte demo-specifieke CI-stappen, schermtestpad en versiekoppeling uitgefaseerd; historische bron behouden; directe afhankelijkheden in de drie package.json-bestanden, test-/releaseworkflow, pakketbouw en acceptatieverificatie gecontroleerd; integrale validatie open. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
+Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
 
-### Afsluiting tussentijdse audit (D100)
+Afgerond binnen fase-1-scope: #106 naam/terminologie/structuur; #107 rollen, permissions en functiescheiding; #108 kritische rechten, herbevestiging, audit en kwalificatiefundament; #136 Windows/PostgreSQL als PoC, browserdemo buiten verplichte scope. Definitieve domeinfuncties en betrouwbare area/equipment-context blijven in toegewezen fasen. Operationele security blijft vóór pilot vereist.
+
+- #137 **Windows-bootstrap: onderbroken redeninvoer nader onderzoeken** — W7 geslaagd na hervatting met START.bat; exacte oorzaak niet gereproduceerd. Herstartinstructie en batchaankondiging gecorrigeerd in releasevoorbereiding. Bij herhaling terminalinvoer reproduceren; geen functionele blokker vastgesteld. 
+
+Releasepoort: nieuwe volledige CI op actuele releasetree; opdrachtgever merget en autoriseert publicatie afzonderlijk. Geen formele ISA-conformiteit of fabrieksvrijgave.
+
+### Historisch bewijs — tussentijdse audit (D100, eerdere tussenstanden)
 
 Inhoudelijke audit afgesloten op basis van bestaande inventarisaties en baseline run 499; geen nieuwe concrete functionele blokker vastgesteld binnen beoordeelde scope. #106–#108/#136 functioneel gereed binnen deze bewijsgrens, niet geaccepteerd. Zie ACCEPTANCE-CRITERIA.md voor de formele afbakening. Databaseplaatje bijgewerkt en gericht gevalideerd; schermreview en gerichte schermvalidatie afgerond. Integrale testreview afgesloten; volledige acceptatie en Windows-praktijkvalidatie blijven verplicht.
 
@@ -169,7 +172,7 @@ D101: alle legacy-rollen verliezen binnen fase 1 hun zelfstandige autorisatiewer
 ## Werkafspraken
 
 - Volgende vrije nummer (nu #137) wordt toegekend aan nieuwe taken.
-- Nieuwe taken met het volgende vrije nummer (nu #137); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
+- Nieuwe taken met het volgende vrije nummer (nu #138); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
 - Faseacceptatie volgens docs/mes/ACCEPTANCE-CRITERIA.md en D88; eigenaar merget. Geen automatische release.
 
 Fase 1 (0058): personeelsrechten en koppeling afgeschermd; gecontroleerde identiteitsoverdracht, kwalificaties, UI en testbewijs nog open.
