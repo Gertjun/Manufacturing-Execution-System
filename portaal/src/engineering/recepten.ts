@@ -4,6 +4,7 @@ import { h, toon, vastHouden, melding } from "../../../gedeeld/ui";
 import { haal, stuur, sessie, magReceptconcept } from "../basis";
 import { procedurePane } from "./procedure";
 import { contentPane } from "./inhoud";
+import { mocPane } from "./moc";
 
 interface Product {id:string;code:string;name:string;can_edit:boolean;can_review:boolean}
 interface Version {id:string;revision:number;name:string;description:string;change_no:number;lifecycle_status:string}
@@ -68,6 +69,7 @@ export async function recepten() {
                   :h("p",{class:"sub"},"Deze revisie is niet wijzigbaar."),
                 procedurePane(v,()=>active(id,g),load),
                 contentPane(v,id,()=>active(id,g),load,productVersions),
+                mocPane(v,versions,()=>active(id,g),load),
               )));
           }),
           ...(recipes.length?[]:[h("p",{class:"leeg"},"Voor dit product zijn nog geen Master Recipes.")])
