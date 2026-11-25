@@ -106,6 +106,37 @@ const requirementsSql = `WITH c AS (SELECT recipe_requirements_list($1) AS data)
  SELECT data || jsonb_build_object('equipment_requirements',
  COALESCE((SELECT jsonb_agg(x || jsonb_build_object('minimum_capacity',x->>'minimum_capacity') ORDER BY x->>'id')
  FROM jsonb_array_elements(data->'equipment_requirements') x),'[]'::jsonb)) AS data FROM c`;
+
+const RuleKind = Type.Union([Type.Literal("nonlinear"),Type.Literal("parameter_dependent"),Type.Literal("equipment_dependent")]);
+const SourceKind = Type.Union([Type.Literal("batch_quantity"),Type.Literal("parameter"),Type.Literal("equipment_property"),Type.Literal("constant")]);
+const OperatorCode = Type.Union([Type.Literal("add"),Type.Literal("subtract"),Type.Literal("multiply"),Type.Literal("divide"),Type.Literal("power")]);
+const Token = Type.Union([
+  Type.Object({ op: Type.Literal("input"), id: Id }, { additionalProperties: false }),
+  Type.Object({ op: OperatorCode }, { additionalProperties: false }),
+]);
+const Tokens = Type.Array(Token, { minItems: 1, maxItems: 128 });
+const ExpressionBody = Type.Object({ expected_change_no: Expected, tokens: Tokens }, { additionalProperties: false });
+const ExpressionRecord = Type.Object({ id: Id, recipe_version_id: Id, rule_id: Id, grammar_version: Type.Literal(1), tokens: Tokens });
+const ScalingRuleFields = { code: Code, description: Nonblank, rule_kind: RuleKind, output_unit_id: Id, source_reference: Nonblank, applicability: Nonblank };
+const ScalingRuleBody = Type.Object({ expected_change_no: Expected, ...ScalingRuleFields }, { additionalProperties: false });
+const ScalingRuleRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingRuleFields });
+const ScalingInputFields = { rule_id: Id, code: Code, source_kind: SourceKind, parameter_id: OptId, equipment_property: Type.Union([Nonblank,Type.Null()]), constant_value: NullableDecimal, unit_id: Id, conversion_version_id: OptId };
+const ScalingInputBody = Type.Object({ expected_change_no: Expected, ...ScalingInputFields }, { additionalProperties: false });
+const ScalingInputRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingInputFields });
+const ScalingBindingFields = { rule_id: Id, parameter_limit_id: OptId, material_requirement_id: OptId };
+const ScalingBindingBody = Type.Object({ expected_change_no: Expected, ...ScalingBindingFields }, { additionalProperties: false });
+const ScalingBindingRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingBindingFields });
+const ScalingContent = Type.Object({
+  change_no: Type.Integer({ minimum: 0 }),
+  rules: Type.Array(ScalingRuleRecord), inputs: Type.Array(ScalingInputRecord),
+  bindings: Type.Array(ScalingBindingRecord), expressions: Type.Array(ExpressionRecord),
+});
+
+// Preserve exact numeric constants before parsing JSON in JavaScript.
+const scalingSql = `WITH c AS (SELECT recipe_scaling_list($1) AS data)
+ SELECT data || jsonb_build_object('inputs',
+ COALESCE((SELECT jsonb_agg(x || jsonb_build_object('constant_value',x->>'constant_value') ORDER BY x->>'id')
+ FROM jsonb_array_elements(data->'inputs') x),'[]'::jsonb)) AS data FROM c`;
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get("/", {
     preHandler: personalSession,
@@ -515,6 +546,116 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   }, async req => persoonlijkeTransactie(app.db,req,async tx =>
     (await tx.query("SELECT recipe_delete_compatibility_rule($1,$2,$3) AS change_no",
       [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.get("/versions/:id/scaling", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), response: { 200: ScalingContent } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query(scalingSql,[req.params.id])).rows[0].data));
+
+  app.post("/versions/:id/scaling/rules", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: ScalingRuleBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_rule($1,$2,NULL,$3,$4,$5,$6,$7,$8) AS data",
+        [req.params.id,b.expected_change_no,b.code,b.description,b.rule_kind,b.output_unit_id,b.source_reference,b.applicability])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/scaling/rules/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: ScalingRuleBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_rule($1,$2,$3,$4,$5,$6,$7,$8,$9) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.code,b.description,b.rule_kind,b.output_unit_id,b.source_reference,b.applicability])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/scaling/rules/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_scaling_rule($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/scaling/inputs", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: ScalingInputBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_input($1,$2,NULL,$3,$4,$5,$6,$7,$8,$9,$10) AS data",
+        [req.params.id,b.expected_change_no,b.rule_id,b.code,b.source_kind,b.parameter_id,b.equipment_property,b.constant_value,b.unit_id,b.conversion_version_id])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/scaling/inputs/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: ScalingInputBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_input($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.rule_id,b.code,b.source_kind,b.parameter_id,b.equipment_property,b.constant_value,b.unit_id,b.conversion_version_id])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/scaling/inputs/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_scaling_input($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/scaling/bindings", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: ScalingBindingBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_binding($1,$2,NULL,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,b.rule_id,b.parameter_limit_id,b.material_requirement_id])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/scaling/bindings/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: ScalingBindingBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_binding($1,$2,$3,$4,$5,$6) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.rule_id,b.parameter_limit_id,b.material_requirement_id])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/scaling/bindings/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_scaling_binding($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  // One expression per rule; PUT replaces its complete token list.
+  // Explicit JSON serialization is necessary: node-postgres otherwise encodes arrays as SQL arrays.
+  app.put("/versions/:id/scaling/rules/:ruleId/expression", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, ruleId: Id }), body: ExpressionBody, response: { 200: ChangedId } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_save_scaling_expression($1,$2,$3,$4::jsonb) AS data",
+      [req.params.id,req.body.expected_change_no,req.params.ruleId,JSON.stringify(req.body.tokens)])).rows[0].data));
+
+  app.delete("/versions/:id/scaling/rules/:ruleId/expression", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, ruleId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_scaling_expression($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.ruleId])).rows[0]));
 
 };
 export default routes;
