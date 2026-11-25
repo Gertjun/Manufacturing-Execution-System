@@ -427,6 +427,7 @@ try {
   await page.goto(`${BASIS}/invoer/#/zoek/B-2026-0005`);
   await page.getByRole("button", { name: "Keurresultaat NOK" }).click();
   await page.getByLabel("Reden").fill("kleur buiten specificatie");
+  await page.getByLabel("Bevestig met je eigen wachtwoord").fill("demo");
   await page.getByRole("dialog").getByRole("button", { name: "NOK: afkeuren" }).click();
   await page.getByText("Keurresultaat NOK, afgekeurd").waitFor();
   await shot("14-keurresultaat-nok");
@@ -443,7 +444,8 @@ try {
     return { status: r.status, body: await r.json().catch(() => null) };
   };
   const bh = (await api("POST", "/auth/login", null, { gebruikersnaam: "beheerder1", wachtwoord: "demo" })).body.token;
-  check("Beheerder zet S2.2 op 'Kwaliteit meet'", (await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "kwaliteit" })).status === 200);
+  const engineer = (await api("POST", "/auth/login", null, { gebruikersnaam: "mes.engineer", wachtwoord: "demo" })).body.token;
+  check("Process Engineer zet S2.2 op 'Kwaliteit meet'", (await api("PATCH", "/beheer/velden/S2.2", engineer, { gemeten_door: "kwaliteit" })).status === 200);
   // B-2026-0006 staat nog voor PS1: de operator doet PS1, en PS2 zonder S2.2.
   const kb = { batchnummer: "B-2026-0006" };
   const opT = (await api("POST", "/auth/login", null, { gebruikersnaam: "operator.a", wachtwoord: "demo", pc: "PC-02" })).body.token;
@@ -468,18 +470,26 @@ try {
   await shot("14d-meting-kwaliteit");
   await page.getByRole("button", { name: "Vrijgeven" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Vrijgeven" }).click();
+  await page.getByRole("dialog").getByLabel("Je eigen wachtwoord").fill("demo");
+  await page.getByRole("dialog").getByRole("button", { name: "Besluit bevestigen" }).click();
   await page.locator(".label-keuring-vrijgegeven").waitFor();
   let vrij = null;
   for (let i = 0; i < 20 && vrij?.status !== "vrijgegeven"; i++) {
     [vrij] = await q("SELECT k.status FROM fabriek.keuring k WHERE k.stapregistratie_id = $1", [regPs2.body.id]);
     if (vrij?.status !== "vrijgegeven") await page.waitForTimeout(250);
   }
-  check("Vrijgegeven, ook in de database (via de wachtrij)", vrij?.status === "vrijgegeven", JSON.stringify(vrij));
-  await api("PATCH", "/beheer/velden/S2.2", bh, { gemeten_door: "productie" });
+  check("Vrijgegeven, ook in de database (online persoonlijk besluit)", vrij?.status === "vrijgegeven", JSON.stringify(vrij));
+  await api("PATCH", "/beheer/velden/S2.2", engineer, { gemeten_door: "productie" });
 
   console.log("\nTijdelijk wachtwoord op het invoerscherm (#76)");
-  const nieuwAcc = await api("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.f", rol: "operator", wachtwoord: "tijdelijk-1", bestaandeNaam: undefined, naam: "Operator Nieuw" });
-  check("Beheerder maakt een account met een tijdelijk wachtwoord", nieuwAcc.status === 201 && nieuwAcc.body.tijdelijk === true, JSON.stringify(nieuwAcc.body));
+  const nieuwAcc = await api("POST", "/beheer/gebruikers", bh, { gebruikersnaam: "operator.f", wachtwoord: "tijdelijk-1" });
+  check("Beheerder maakt een onbevoegd persoonlijk account met tijdelijk wachtwoord", nieuwAcc.status === 201 && nieuwAcc.body.tijdelijk === true && nieuwAcc.body.rol === "pending", JSON.stringify(nieuwAcc.body));
+  // Alleen fictieve fixture: aparte eigenaar bereidt een persoonlijke koppeling en expliciete grant voor.
+  // Accountaanmaak zelf verleent geen van beide.
+  const [pending] = await q("SELECT g.id, (SELECT count(*)::int FROM fabriek.authorization_grant a WHERE a.user_id=g.id) AS grants, (SELECT count(*)::int FROM fabriek.operator o WHERE o.gebruiker_id=g.id) AS personen FROM fabriek.gebruiker g WHERE g.gebruikersnaam=$1", ["operator.f"]);
+  check("Geen automatische grant of personeelskoppeling", pending.grants === 0 && pending.personen === 0);
+  await q("INSERT INTO fabriek.operator(naam,gebruiker_id) VALUES ($1,$2)", ["Operator Nieuw",pending.id]);
+  await q("INSERT INTO fabriek.authorization_grant(user_id,role_code) VALUES ($1,'operator')",[pending.id]);
   await page.goto(`${BASIS}/invoer/#/stappen`);
   await page.getByRole("button", { name: "Afmelden" }).click();
   const bevestigAf = page.getByRole("dialog").getByRole("button", { name: "Afmelden" });
