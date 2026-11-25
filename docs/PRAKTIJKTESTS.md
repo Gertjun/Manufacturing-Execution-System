@@ -87,4 +87,6 @@ Uitsluitend geïsoleerde fictieve testomgeving; leg head/pakketversie, uitvoerde
 | F1.5 herstel | Securitykanaal na restore afgeschermd tot IT-reconciliatie; intrekkingen van na backup niet stilzwijgend ongedaan maken. |
 | F1.6 kwalificatie en personeelskoppeling | Onafhankelijke bevestiging, bewijsreferentie, geldigheid, intrekking; onbevoegde acties geweigerd. |
 
-D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
+D102/0094: goedgekeurde eenmalige initialisatie van bestaande persoonlijke identiteiten zonder MES-rechtenhistorie, via eigenaar en drie persoonlijke bevestigingen. Geen automatische legacy-grants; drie exact afgebakende grants, sessiegeneratie verhoogd, onveranderlijk bootstraprecord. Schone bootstrap blijft voorkeur voor fictieve pre-pilot. Gerichte DB- en toolregressies toegevoegd; uitvoeringsbewijs open.
+
+F1.7: op een afzonderlijke gemigreerde fictieve database de eenmalige overgang uitvoeren, exact drie grants en ingetrokken oude sessies aantonen; herhaling weigeren.
