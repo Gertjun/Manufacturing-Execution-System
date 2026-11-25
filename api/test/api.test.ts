@@ -2545,6 +2545,29 @@ describe("#112 MOC- en beoordelings-API", () => {
     assert.equal((await verzoek("POST","/recipes/releases/"+round+"/withdrawals",approver,{reason:"Fictief",password:"demo"})).status,422);
     assert.equal((await verzoek("POST","/recipes/reviews/"+round+"/decisions",approver,body)).status,409);
     assert.equal((await verzoek("PATCH",base+"/moc/"+moc.body.id,engineer,{expected_change_no:2,reason:"Bevroren",impact_description:"Fictief"})).status,409);
+    // Reject the first round and resubmit unchanged: equal counters alone must not make old rounds actionable.
+    const qa=await login("mes.quality.approver");
+    const reject=await verzoek("POST","/recipes/reviews/"+round+"/decisions",qa,{...body,domain:"quality",decision:"reject"});
+    assert.equal(reject.status,201,JSON.stringify(reject.body));
+    assert.equal(reject.body.lifecycle_status,"draft");
+    const second=await verzoek("POST",base+"/reviews",engineer,{expected_change_no:2,expected_baseline_change_no:null,password:"demo"});
+    assert.equal(second.status,201,JSON.stringify(second.body));
+    const secondRound=second.body.round_id;
+    const history=await verzoek("GET","/recipes/reviews?product_id="+p.id,approver);
+    assert.equal(history.status,200,JSON.stringify(history.body));
+    const rounds=history.body.filter((x:any)=>x.recipe_version_id===v);
+    assert.deepEqual(rounds.map((x:any)=>x.round_id),[secondRound,round]);
+    assert.deepEqual(rounds[0].my_pending_domains,["engineering"]);
+    assert.deepEqual(rounds[1].my_pending_domains,[]);
+    const historical=await verzoek("GET","/recipes/reviews/"+round,approver);
+    assert.equal(historical.status,200);
+    assert.equal(historical.body.is_current,false);
+    assert.equal(historical.body.round.snapshot_text,dossier.body.round.snapshot_text);
+    assert.equal(historical.body.decisions.length,2);
+    assert.equal((await verzoek("POST","/recipes/reviews/"+round+"/decisions",approver,body)).status,409);
+    assert.equal((await verzoek("POST",base+"/releases",approver,releaseBody)).status,409);
+    assert.equal((await verzoek("GET","/recipes/reviews/"+round,operator)).status,403);
+    assert.equal((await verzoek("GET","/recipes/reviews?product_id="+p.id,operator)).status,403);
   });
 });
 
