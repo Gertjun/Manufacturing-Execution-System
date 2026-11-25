@@ -812,6 +812,14 @@ BEGIN
  END IF;
 END $$;
 
+-- 0124: persoonlijke read-only beoordelingsinterface.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=124) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_review_inbox(uuid),fabriek.recipe_review_dossier(uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

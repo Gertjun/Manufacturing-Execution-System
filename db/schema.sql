@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -9868,5 +9868,78 @@ END $$;
 REVOKE ALL ON FUNCTION recipe_release_actor(uuid,boolean),recipe_release_insert_guard(),recipe_withdrawal_insert_guard(),
  recipe_release_confirmed(uuid,uuid,integer,timestamptz,text,text),recipe_withdraw_confirmed(uuid,text,text) FROM PUBLIC;
 -- De selector is nog intern; CR-koppeling volgt fase 6.
+
+-- Migratie 0124: persoonlijke read-only toegang tot MBR-beoordelingsbewijs.
+SET search_path = fabriek, public;
+
+CREATE FUNCTION recipe_review_read_permitted(p_actor uuid,p_product uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT p_product IS NOT NULL AND EXISTS (
+   SELECT 1 FROM unnest(ARRAY['recipe.draft.manage','recipe.review.engineering',
+     'recipe.review.production','recipe.review.quality','recipe.release',
+     'recipe.withdraw.engineering','recipe.withdraw.quality']) AS perm(code)
+   WHERE authorization_permits(p_actor,perm.code,NULL,p_product,NULL) IS TRUE
+ )
+$$;
+
+-- Geen algemene toegang tot concepten. Alleen versies waarvoor een
+-- beoordelingsronde bestaat; actuele inhoud uitsluitend voor auteurs via
+-- bestaande conceptinterface. Historische rondes blijven raadpleegbaar.
+CREATE FUNCTION recipe_review_inbox(p_product uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; result jsonb;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF recipe_review_read_permitted(actor,p_product) IS NOT TRUE THEN
+   RAISE EXCEPTION 'Geen actuele MES-beoordelingsleestoegang' USING ERRCODE='42501';
+ END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(q) ORDER BY q.recipe_code,q.revision DESC),'[]'::jsonb) INTO result
+ FROM (
+ SELECT m.id AS master_recipe_id,m.code AS recipe_code,v.id AS recipe_version_id,v.revision,
+ v.lifecycle_status,r.id AS round_id,r.round_no,r.change_no,
+ r.snapshot->'current'->'header'->>'name' AS name,r.required_reviews,
+ ARRAY(SELECT d.domain FROM recipe_review_decision d WHERE d.round_id=r.id AND d.decision='approve' ORDER BY d.domain) AS approved_domains,
+ ARRAY(SELECT d FROM unnest(r.required_reviews) d
+       WHERE v.lifecycle_status='in_review' AND actor<>ALL(r.contributors)
+       AND authorization_permits(actor,'recipe.review.'||d,NULL,p_product,NULL) IS TRUE
+       AND NOT EXISTS (SELECT 1 FROM recipe_review_decision x WHERE x.round_id=r.id AND (x.domain=d OR x.reviewer_id=actor))
+       ORDER BY d) AS my_pending_domains
+ FROM master_recipe m JOIN master_recipe_version v ON v.master_recipe_id=m.id
+ JOIN LATERAL (SELECT rr.* FROM recipe_review_round rr WHERE rr.recipe_version_id=v.id ORDER BY rr.round_no DESC LIMIT 1) r ON true
+ WHERE m.product_id=p_product
+ ) q;
+ RETURN result;
+END $$;
+
+-- Exacte snapshot als TEXT: de JSONB-getallen mogen niet ongemerkt door
+-- JavaScript Number worden afgerond. HTTP retourneert deze tekst expliciet.
+CREATE FUNCTION recipe_review_dossier(p_round uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; product uuid; r recipe_review_round%ROWTYPE; v master_recipe_version%ROWTYPE; result jsonb;
+BEGIN
+ actor:=execution_transaction_actor();
+ SELECT m.product_id INTO product FROM recipe_review_round rr JOIN master_recipe_version x ON x.id=rr.recipe_version_id
+ JOIN master_recipe m ON m.id=x.master_recipe_id WHERE rr.id=p_round;
+ IF recipe_review_read_permitted(actor,product) IS NOT TRUE THEN
+   RAISE EXCEPTION 'Geen actuele MES-beoordelingsleestoegang' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO STRICT r FROM recipe_review_round WHERE id=p_round;
+ SELECT * INTO STRICT v FROM master_recipe_version WHERE id=r.recipe_version_id FOR SHARE;
+ SELECT jsonb_build_object(
+ 'round', (to_jsonb(r)-'snapshot') || jsonb_build_object('snapshot_text',r.snapshot::text),
+ 'lifecycle_status',v.lifecycle_status,
+ 'is_current',v.lifecycle_status IN ('in_review','approved','released','withdrawn')
+     AND v.change_no=r.change_no
+     AND NOT EXISTS (SELECT 1 FROM recipe_review_round x WHERE x.recipe_version_id=v.id AND x.round_no>r.round_no),
+ 'decisions',COALESCE((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.decided_at,d.id) FROM recipe_review_decision d WHERE d.round_id=r.id),'[]'::jsonb),
+ 'release',(SELECT to_jsonb(z) FROM recipe_release z WHERE z.round_id=r.id),
+ 'withdrawal',(SELECT to_jsonb(w) FROM recipe_release z JOIN recipe_release_withdrawal w ON w.release_id=z.id WHERE z.round_id=r.id)
+ ) INTO result;
+ RETURN result;
+END $$;
+
+REVOKE ALL ON FUNCTION recipe_review_read_permitted(uuid,uuid),recipe_review_inbox(uuid),recipe_review_dossier(uuid) FROM PUBLIC;
+-- Uitsluitend leestoegang; conceptmutaties en besluiten blijven onder de
+-- bestaande afzonderlijke capabilities en herbevestiging.
 
 COMMIT;

@@ -2858,6 +2858,39 @@ def main():
         check("D109 persoonlijke interface "+sig,val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
     check("D109 interne actor afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_release_actor(uuid,boolean)','EXECUTE')"))
 
+
+    print("\n#112 persoonlijke beoordelingsleestoegang")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('review.read.scoped','analist',wachtwoord_hash('test-review-read'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='review.read.scoped'")
+        grant_id=val("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'quality_approver',%s) RETURNING id",(actor,pa))
+        check("#112 review read scope positief",val("SELECT recipe_review_read_permitted(%s,%s)",(actor,pa)))
+        check("#112 review read scope negatief",not val("SELECT recipe_review_read_permitted(%s,%s)",(actor,pb)))
+        check("#112 review read geen conceptrecht",not val("SELECT authorization_permits(%s,'recipe.draft.manage',NULL,%s,NULL)",(actor,pa)))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('review.read.scoped','test-review-read',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        check("#112 lege review inbox toegestaan",isinstance(val("SELECT recipe_review_inbox(%s)",(pa,)),list))
+        def denied(label,sql,params=()):
+            con.execute("SAVEPOINT review_read_guard")
+            faalt(label,sql,params,"Geen actuele MES-beoordelingsleestoegang")
+            con.execute("ROLLBACK TO SAVEPOINT review_read_guard")
+            con.execute("RELEASE SAVEPOINT review_read_guard")
+        denied("#112 vreemde review scope","SELECT recipe_review_inbox(%s)",(pb,))
+        denied("#112 onbekend dossier niet lekken","SELECT recipe_review_dossier(gen_random_uuid())")
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE id=%s",(grant_id,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#112 ingetrokken reviewrecht","SELECT recipe_review_inbox(%s)",(pa,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    check("#112 interne leeshelper afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_read_permitted(uuid,uuid)','EXECUTE')"))
+    check("#112 geen directe snapshottoegang",not val("SELECT has_table_privilege('mes_app','fabriek.recipe_review_round','SELECT')"))
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
