@@ -2074,6 +2074,65 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+    print("\n#141 getypeerde schaalregelgrafiek")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product = val("SELECT id FROM product WHERE code='PRD-A'")
+        dim = val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        q = val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'SCALE-MASS','Testmassa','ratio') RETURNING id",(dim,))
+        def su(code,symbol):
+            return val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,%s,%s,%s) RETURNING id",(q,code,symbol,code))
+        kg,g=su("SCALE-KG","kg"),su("SCALE-G","g")
+        cv=val("INSERT INTO unit_conversion(quantity_kind_id,from_unit_id,to_unit_id) VALUES (%s,%s,%s) RETURNING id",(q,kg,g))
+        cvv=val("INSERT INTO unit_conversion_version(conversion_id,quantity_kind_id,value_semantics,revision,factor_numerator,factor_denominator,additive_offset,source_reference,created_by) VALUES (%s,%s,'ratio',1,1000,1,0,'test',%s) RETURNING id",(cv,q,actor))
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'SCALING-TEST',%s) RETURNING id",(product,actor))
+        def sv(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Scale test',%s) RETURNING id",(rid,n,actor))
+        v1,v2=sv(1),sv(2)
+        def se(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2=se(v1),se(v2)
+        form=val("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit,reference_unit_id) VALUES (%s,1000,'kg',%s) RETURNING id",(v1,kg))
+        def sp(v,e,code):
+            p=val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical,measurement_unit_id) VALUES (%s,%s,%s,%s,'decimal','kg','per batch',true,'productie',true,%s) RETURNING id",(v,e,code,code,kg))
+            l=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value) VALUES (%s,%s,'decimal','target',10) RETURNING id",(v,p))
+            return p,l
+        pa,la=sp(v1,e1,"A")
+        pb,lb=sp(v1,e1,"B")
+        pc,lc=sp(v2,e2,"C")
+        def sr(v,code,unit=kg):
+            return val("INSERT INTO recipe_scaling_rule(recipe_version_id,code,description,rule_kind,output_unit_id,source_reference,applicability) VALUES (%s,%s,'Fictieve definitie','parameter_dependent',%s,'test','testbereik') RETURNING id",(v,code,unit))
+        ra,rb=sr(v1,"RA"),sr(v1,"RB")
+        wrong=sr(v1,"WRONG",g)
+        bind_sql="INSERT INTO recipe_scaling_binding(recipe_version_id,rule_id,parameter_limit_id) VALUES (%s,%s,%s)"
+        con.execute(bind_sql,(v1,ra,la))
+        con.execute(bind_sql,(v1,rb,lb))
+        input_sql="INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,parameter_id,unit_id,conversion_version_id) VALUES (%s,%s,%s,%s,%s,%s,%s)"
+        con.execute(input_sql,(v1,ra,"BATCH","batch_quantity",None,g,cvv))
+        con.execute(input_sql,(v1,rb,"SOURCE-A","parameter",pa,kg,None))
+        check("#141 expliciete conversieversie en invoer behouden",val("SELECT count(*) FROM recipe_scaling_input WHERE rule_id=%s AND conversion_version_id=%s",(ra,cvv))==1)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT scale_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT scale_guard")
+            con.execute("RELEASE SAVEPOINT scale_guard")
+        denied("#141 cyclus tussen regels",input_sql,(v1,ra,"SOURCE-B","parameter",pb,kg,None),"Circulaire")
+        denied("#141 zelfafhankelijkheid",input_sql,(v1,ra,"SELF","parameter",pa,kg,None),"Circulaire")
+        denied("#141 invoer andere versie",input_sql,(v1,ra,"OTHER","parameter",pc,kg,None),"bekende numerieke bron")
+        denied("#141 conversie niet impliciet",input_sql,(v1,ra,"NO-CONV","batch_quantity",None,g,None),"Expliciete conversieversie")
+        denied("#141 conversie verkeerde richting",input_sql,(v1,ra,"BAD-CONV","batch_quantity",None,kg,cvv),"past niet")
+        denied("#141 doel andere versie",bind_sql,(v1,wrong,lc),"dezelfde bekende cataloguseenheid")
+        denied("#141 uitvoereenheid wijzigen","UPDATE recipe_scaling_rule SET output_unit_id=%s WHERE id=%s",(g,ra),"uitvoerkoppelingen")
+        denied("#141 referentiebron niet stilzwijgend aanpassen","UPDATE recipe_formula SET reference_quantity=2000 WHERE id=%s",(form,),"schaalinvoer")
+        denied("#141 gebruikte parameter niet verwijderen","DELETE FROM recipe_parameter WHERE id=%s",(pa,),"foreign key")
+        check("#141 geweigerde cycli wijzigen grafiek niet",val("SELECT count(*) FROM recipe_scaling_input WHERE recipe_version_id=%s",(v1,))==2)
+        for tabel in ("recipe_scaling_rule","recipe_scaling_input","recipe_scaling_binding"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#141 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
