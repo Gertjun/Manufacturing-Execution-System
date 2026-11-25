@@ -53,6 +53,17 @@ head -c 3000 "$B" > "$T/half.dump"
 node tools/herstel.mjs "$T/half.dump" --ja >/dev/null 2>&1 && fout "half bestand zou moeten mislukken"
 [ "$(psql -Atc "SELECT count(*) FROM fabriek.waarde" -d $DB)" = "$N" ] || fout "na mislukt herstel is de oude database niet terug"
 
+# D100: een ouder pakket mag een nieuwere database niet wijzigen, ook niet de ACLs.
+TOEKOMST=$(psql -At -d "$DB" -c "SELECT max(nummer)+1 FROM fabriek.schema_versie")
+psql -q -d "$DB" -c "INSERT INTO fabriek.schema_versie (nummer,naam) VALUES ($TOEKOMST,'fictieve toekomstige migratie'); GRANT SELECT ON fabriek.gebruiker TO mes_app"
+node tools/migreer.mjs > "$T/toekomst.txt" 2>&1 && fout "onbekende schemaversie geaccepteerd"
+grep -q "Onbekende schemaversie" "$T/toekomst.txt" || fout "onbekende schemaversie niet expliciet geweigerd"
+[ "$(psql -At -d "$DB" -c "SELECT has_table_privilege('mes_app','fabriek.gebruiker','SELECT')")" = "t" ] || fout "rechten gewijzigd op nieuwere database"
+[ "$(psql -At -d "$DB" -c "SELECT max(nummer) FROM fabriek.schema_versie")" = "$TOEKOMST" ] || fout "schemaversie gewijzigd"
+[ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "historie gewijzigd op nieuwere database"
+# Uitsluitend de opzettelijke afwijkingen in deze fictieve test ongedaan maken.
+psql -q -d "$DB" -c "REVOKE SELECT ON fabriek.gebruiker FROM mes_app; DELETE FROM fabriek.schema_versie WHERE nummer=$TOEKOMST"
+
 # Database-update: eerst een back-up. Doe alsof de laatste migratie nog open staat; die mislukt dan
 # (de onderdelen bestaan al), maar de back-up ervoor moet er zijn en de database blijft ongewijzigd.
 LAATSTE=$(psql -Atc "SELECT max(nummer) FROM fabriek.schema_versie" -d $DB)
