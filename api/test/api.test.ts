@@ -2114,3 +2114,80 @@ describe("#110 MBR-API", () => {
     assert.equal((await verzoek("PATCH",target,scoped,{...edit,expected_change_no:1})).status,403);
   });
 });
+
+describe("#103/110 procedure-API", () => {
+  test("versiegebonden boom, productscope, audit en gezamenlijke teller", async () => {
+    const engineer = await login("mes.engineer");
+    const op = await login("mes.operator");
+    const system = await login("mes.system");
+    const {rows:products} = await beheerDb.query("SELECT id,code FROM fabriek.product WHERE code IN ('PRD-A','PRD-B')");
+    const pa = products.find(p=>p.code==="PRD-A").id;
+    const pb = products.find(p=>p.code==="PRD-B").id;
+    const naam = "mes.procedure.scoped";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]} = await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,pa]);
+    const scoped = await login(naam);
+    const make = async (product_id:string,code:string) => {
+      const made = await verzoek("POST","/recipes/",engineer,{product_id,code,name:code,description:""});
+      assert.equal(made.status,201,JSON.stringify(made.body));
+      const list = await verzoek("GET","/recipes/?product_id="+product_id,engineer);
+      assert.equal(list.status,200,JSON.stringify(list.body));
+      return list.body.find((r:any)=>r.id===made.body.id).versions[0].id as string;
+    };
+    const version = await make(pa,"API-PROC-A");
+    const other = await make(pb,"API-PROC-B");
+    const base = "/recipes/versions/"+version+"/procedure";
+    const otherBase = "/recipes/versions/"+other+"/procedure";
+    const body = (expected_change_no:number,parent_id:string|null,kind:string,code:string,position:number,required=true) =>
+      ({expected_change_no,parent_id,kind,code,name:code,position,required});
+    const add = async (n:number,parent:string|null,kind:string,code:string,pos:number,required=true) => {
+      const r = await verzoek("POST",base+"/elements",scoped,body(n,parent,kind,code,pos,required));
+      assert.equal(r.status,201,JSON.stringify(r.body));
+      assert.equal(r.body.change_no,n+1);
+      return r.body.id as string;
+    };
+    assert.equal((await verzoek("GET",base)).status,401);
+    for (const token of [op,system]) {
+      assert.equal((await verzoek("GET",base,token)).status,403);
+      assert.equal((await verzoek("POST",base+"/elements",token,body(0,null,"procedure","NO",1))).status,403);
+    }
+    assert.equal((await verzoek("GET",otherBase,scoped)).status,403);
+    assert.equal((await verzoek("POST",otherBase+"/elements",scoped,body(0,null,"procedure","NO",1))).status,403);
+    assert.equal((await verzoek("POST",base+"/elements",scoped,{...body(0,null,"procedure","NO",1),parent_kind:"procedure"})).status,400);
+    const root = await add(0,null,"procedure","ROOT",1);
+    const up = await add(1,root,"unit_procedure","UP",1);
+    const operation = await add(2,up,"operation","OP",1);
+    const first = await add(3,operation,"phase","P1",1);
+    const second = await add(4,operation,"phase","P2",2,false);
+    assert.equal((await verzoek("PATCH","/recipes/versions/"+version,scoped,{expected_change_no:0,name:"Oud",description:""})).status,409);
+    const edge = await verzoek("POST",base+"/dependencies",scoped,{expected_change_no:5,predecessor_id:first,successor_id:second});
+    assert.equal(edge.status,201,JSON.stringify(edge.body));
+    assert.equal(edge.body.change_no,6);
+    assert.equal((await verzoek("POST",base+"/dependencies",scoped,{expected_change_no:6,predecessor_id:second,successor_id:first})).status,422);
+    assert.equal((await verzoek("DELETE",base+"/elements/"+first+"?expected_change_no=6",scoped)).status,422);
+    assert.equal((await verzoek("PATCH",base+"/elements/"+second,scoped,body(5,operation,"phase","OLD",2))).status,409);
+    const changed = await verzoek("PATCH",base+"/elements/"+second,scoped,body(6,operation,"phase","P2-EDIT",2,false));
+    assert.equal(changed.status,200,JSON.stringify(changed.body));
+    assert.equal(changed.body.id,second);
+    assert.equal(changed.body.change_no,7);
+    const delEdge = await verzoek("DELETE",base+"/dependencies/"+edge.body.id+"?expected_change_no=7",scoped);
+    assert.equal(delEdge.status,200,JSON.stringify(delEdge.body));
+    assert.equal(delEdge.body.change_no,8);
+    const del = await verzoek("DELETE",base+"/elements/"+second+"?expected_change_no=8",scoped);
+    assert.equal(del.status,200,JSON.stringify(del.body));
+    assert.equal(del.body.change_no,9);
+    const list = await verzoek("GET",base,scoped);
+    assert.equal(list.status,200,JSON.stringify(list.body));
+    assert.equal(list.body.change_no,9);
+    assert.equal(list.body.elements.length,4);
+    assert.deepEqual(list.body.dependencies,[]);
+    const {rows:[audit]} = await beheerDb.query("SELECT l.actor_origin,g.gebruikersnaam,l.oud,l.nieuw FROM fabriek.config_log l JOIN fabriek.gebruiker g ON g.id=l.actor_user_id WHERE l.tabel='recipe_procedural_element' AND l.record_id=$1 AND l.actie='DELETE'",[second]);
+    assert.equal(audit.actor_origin,"personal");
+    assert.equal(audit.gebruikersnaam,naam);
+    assert.equal(audit.oud.code,"P2-EDIT");
+    assert.equal(audit.nieuw,null);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("GET",base,scoped)).status,403);
+    assert.equal((await verzoek("DELETE",base+"/elements/"+first+"?expected_change_no=9",scoped)).status,403);
+  });
+});

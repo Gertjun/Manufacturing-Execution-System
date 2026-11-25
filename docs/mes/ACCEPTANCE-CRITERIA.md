@@ -392,6 +392,8 @@ Gerichte fase 2.2-baseline: [run 45684478100](https://github.com/Gertjun/Manufac
 
 0101 (#103/110): persoonlijke procedurelees-/schrijffuncties, vertrouwde parenttype/productcontext, gedeelde recipe_lock_draft voor header en kinderen, exacte teller, audit van insert/update/delete, geen cascadeverwijdering, atomaire foutafhandeling, negatieve scope/ACL/stale/edge-regressies. Afzonderlijke beperkte audittrigger schrijft bestaand config_log omdat log_config conceptdeletes niet toestaat. Geen vrijgavestatus of API in deze migratie; uitvoeringsbewijs open.
 
+Procedure-API (#103/110): zes routes voor consistente procedurelijst, elementcreate/edit/delete en edgecreate/delete; actuele persoonlijke productscope, strikte input, 401/403/400/409/422, atomaire teller/inhoud/audit en ingetrokken grants. Regressies toegevoegd, nog niet uitgevoerd; statuspoort blijft werkpakket 2.5.
+
 ## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.

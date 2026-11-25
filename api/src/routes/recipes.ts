@@ -16,6 +16,20 @@ const Recept = Type.Object({
   id: Id, product_id: Id, code: Code, created_at: Type.String(), created_by: Id,
   versions: Type.Array(Versie),
 });
+const Kind = Type.Union([Type.Literal("procedure"),Type.Literal("unit_procedure"),Type.Literal("operation"),Type.Literal("phase")]);
+const OptId = Type.Union([Id,Type.Null()]);
+const Expected = Type.Integer({ minimum: 0, maximum: 2147483646 });
+const Change = Type.Object({ change_no: Type.Integer({ minimum: 1 }) });
+const ChangedId = Type.Object({ id: Id, change_no: Type.Integer({ minimum: 1 }) });
+const Element = Type.Object({
+  id: Id, recipe_version_id: Id, parent_id: OptId, parent_kind: Type.Union([Kind,Type.Null()]),
+  kind: Kind, code: Code, name: Naam, position: Type.Integer({ minimum: 1 }), required: Type.Boolean(),
+});
+const Dependency = Type.Object({ id: Id, recipe_version_id: Id, predecessor_id: Id, successor_id: Id });
+const ElementBody = Type.Object({
+  expected_change_no: Expected, parent_id: OptId, kind: Kind, code: Code, name: Naam,
+  position: Type.Integer({ minimum: 1, maximum: 2147483647 }), required: Type.Boolean(),
+}, { additionalProperties: false });
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get("/", {
     preHandler: personalSession,
@@ -62,5 +76,67 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       (await tx.query("SELECT recipe_update_draft($1,$2,$3,$4) AS change_no",
         [req.params.id,b.expected_change_no,b.name,b.description])).rows[0]);
   });
+  app.get("/versions/:id/procedure", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }),
+      response: { 200: Type.Object({ change_no: Type.Integer({ minimum: 0 }),
+        elements: Type.Array(Element), dependencies: Type.Array(Dependency) }) } },
+  }, async req => persoonlijkeTransactie(app.db, req, async tx =>
+    (await tx.query("SELECT recipe_procedure_list($1) AS data",[req.params.id])).rows[0].data));
+
+  app.post("/versions/:id/procedure/elements", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: ElementBody,
+      response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b = req.body;
+    const result = await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_element($1,$2,NULL,$3,$4,$5,$6,$7,$8) AS data",
+        [req.params.id,b.expected_change_no,b.parent_id,b.kind,b.code,b.name,b.position,b.required])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/procedure/elements/:elementId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, elementId: Id }), body: ElementBody,
+      response: { 200: ChangedId } },
+  }, async req => {
+    const b = req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_element($1,$2,$3,$4,$5,$6,$7,$8,$9) AS data",
+        [req.params.id,b.expected_change_no,req.params.elementId,b.parent_id,b.kind,b.code,b.name,b.position,b.required])).rows[0].data);
+  });
+
+  app.delete("/versions/:id/procedure/elements/:elementId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, elementId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }),
+      response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_element($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.elementId])).rows[0]));
+
+  app.post("/versions/:id/procedure/dependencies", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }),
+      body: Type.Object({ expected_change_no: Expected, predecessor_id: Id, successor_id: Id }, { additionalProperties: false }),
+      response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b = req.body;
+    const result = await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_add_dependency($1,$2,$3,$4) AS data",
+        [req.params.id,b.expected_change_no,b.predecessor_id,b.successor_id])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.delete("/versions/:id/procedure/dependencies/:dependencyId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, dependencyId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }),
+      response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_dependency($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.dependencyId])).rows[0]));
+
 };
 export default routes;
