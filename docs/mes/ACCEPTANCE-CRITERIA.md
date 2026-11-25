@@ -293,3 +293,15 @@ D99/#136: directe afhankelijkhedenreview van package.json (api/invoer/portaal), 
 
 
 D100: serverstart toetst volledige migratie-inventaris; herstelcontrole sluit verbindingen en ruimt uitsluitend eigen uniek benoemde tijdelijke database op vóór exit, met foutmelding bij mislukte cleanup. Gerichte regressies voor onbekend schema, ontbrekende tussenmigratie, beschadigde dump, behoud historie en onderhoudslog toegevoegd. Uitvoeringsbewijs open; geen schemawijziging.
+
+
+### Eindbeoordeling fase-1-fundament (tussenstand)
+Run [45572488766](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45572488766), job 139062300483, head 6e332599aafc949b8cca94c401c4d0c21579d69c, base 31c86973bf13848cba44fc38785084953fe65e39: gehele gerichte PostgreSQL-baseline groen, inclusief startinventaris, mislukte herstelcontrole/cleanup, historische upgrade 0035–0093, 12/12 security, 10/10 autorisatie, 117/117 API en Linux-pakket; documentatie 45572480062 groen. Geen volledige acceptatie of Windows-bewijs.
+| Onderdeel | Bewijs | Resterende grens |
+|---|---|---|
+| #106 | MES API/servernaam, domeinmodule authorization, terminologie/blueprint | historische interfaces niet hernoemen alsof definitieve MBR/EBR bestaat; documentatie en schermreview |
+| #107 | 0036–0061, 0076–0093, access.ts, auth, security.mjs; DB/API en historische upgrade | praktische persoonlijke provisioning, transport, herbinding na restore; area/equipment volgt fase 3 |
+| #108 | persoonlijke bevestiging, onafhankelijke grantbesluiten, recovery, 0085/0086 personeelskoppeling/kwalificaties; security-tools en DB/API | echte bediening en uitzonderingsherstel niet geaccepteerd; definitieve domeinbesluiten later |
+| #136 | directe afhankelijkhedenreview, demo buiten verplichte CI | integrale acceptatie |
+
+Geen nieuwe functionele tekortkoming geclaimd op basis van uitsluitend deze documentatiereview. D100 nog niet formeel afgesloten; diagram en integrale testreview vereist.
