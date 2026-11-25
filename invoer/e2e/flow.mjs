@@ -341,13 +341,8 @@ try {
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
   await page.locator(".balk-eigen-naam", { hasText: "ploegleider1" }).waitFor();
-  await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
-  await page.waitForTimeout(1500);
-  const [ps3] = await q(`SELECT o.naam FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id
-      JOIN fabriek.batch b ON b.id = r.batch_id JOIN fabriek.operator o ON o.id = r.operator_id
-      WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS3'`);
-  check("Andere sessie verstuurt de wachtende start niet", ps3 === undefined, JSON.stringify(ps3));
-  const bewaard = await page.evaluate(() => new Promise((resolve,reject) => {
+
+  const leesWachtrij = () => new Promise((resolve,reject) => {
     const req = indexedDB.open("batch-invoer",1);
     req.onerror = () => reject(req.error);
     req.onsuccess = () => {
@@ -356,9 +351,25 @@ try {
       read.onerror = () => { db.close(); reject(read.error); };
       read.onsuccess = () => { db.close(); resolve(read.result); };
     };
-  }));
+  });
   const [oorsprong] = await q("SELECT g.id::text AS gebruiker,o.id::text AS operator FROM fabriek.gebruiker g JOIN fabriek.operator o ON o.gebruiker_id=g.id WHERE g.gebruikersnaam='operator.a'");
-  check("Actie bewaard met oorspronkelijke identiteit voor beoordeling", bewaard.some(a => a.status === "beoordeling" && a.userId === oorsprong.gebruiker && a.operatorId === oorsprong.operator && a.pad === "/registraties" && a.body.stapcode === "PS3" && a.body.batchnummer === "B-2026-0100"), JSON.stringify(bewaard));
+  const herken = a => a.status === "beoordeling" && a.userId === oorsprong.gebruiker && a.operatorId === oorsprong.operator && a.pad === "/registraties" && a.body?.stapcode === "PS3" && a.body?.batchnummer === "B-2026-0100";
+  await page.waitForFunction(({gebruiker,operator}) => new Promise((resolve,reject) => {
+    const req=indexedDB.open("batch-invoer",1);
+    req.onerror=()=>reject(req.error);
+    req.onsuccess=()=>{
+      const db=req.result;
+      const read=db.transaction("wachtrij","readonly").objectStore("wachtrij").getAll();
+      read.onerror=()=>{db.close();reject(read.error);};
+      read.onsuccess=()=>{db.close();resolve(read.result.some(a=>a.status==="beoordeling" && a.userId===gebruiker && a.operatorId===operator && a.pad==="/registraties" && a.body?.stapcode==="PS3" && a.body?.batchnummer==="B-2026-0100"));};
+    };
+  }), oorsprong, {timeout:15000});
+  const bewaard=await page.evaluate(leesWachtrij);
+  check("Actie bewaard met oorspronkelijke identiteit voor beoordeling",bewaard.some(herken),JSON.stringify(bewaard));
+  const [ps3] = await q(`SELECT o.naam FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id
+      JOIN fabriek.batch b ON b.id = r.batch_id JOIN fabriek.operator o ON o.id = r.operator_id
+      WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS3'`);
+  check("Andere sessie verstuurt de wachtende start niet", ps3 === undefined, JSON.stringify(ps3));
   await page.getByRole("link", { name: "Zoeken" }).click();
   await page.getByLabel("Batch- of lotnummer").fill("B-2026-0100");
   await page.getByRole("button", { name: "Zoeken" }).click();
