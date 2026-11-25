@@ -20,6 +20,7 @@ leeg() {
   $PSQL -f db/rechten.sql >/dev/null
   $PSQL -f db/seed_config.sql >/dev/null
   $PSQL -f db/seed_accounts_demo.sql >/dev/null
+  $PSQL -f tests/fixtures/scherm_grants.sql >/dev/null
 }
 testdata() {
   leeg
