@@ -400,7 +400,7 @@ try {
   check("Bovenaan: twee keer ingevuld", (await page.locator(".waarschuwing", { hasText: "Twee keer ingevuld: S1.2" }).count()) === 1);
   await shot("12b-conflict");
   await conflict.getByRole("button", { name: "999 nemen" }).click();
-  await page.getByRole("dialog").getByLabel("Toelichting (niet verplicht)").fill("Tweede meting Operator B gecontroleerd");
+  await page.getByRole("dialog").getByLabel("Reden van de keuze").fill("Tweede meting Operator B gecontroleerd");
   await page.getByRole("dialog").getByRole("button", { name: "999 nemen" }).click();
   await page.locator(".conflict").waitFor({ state: "detached" });
   const [s12] = await q("SELECT gemeten, correctie_reden FROM fabriek.waarde_actueel w JOIN fabriek.veld v ON v.id = w.veld_id JOIN fabriek.stapregistratie r ON r.id = w.stapregistratie_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND v.code = 'S1.2'");
