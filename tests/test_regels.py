@@ -2591,6 +2591,30 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#112 MBR-levenscyclusfundament")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'LIFECYCLE-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        check("#112 nieuwe versie uitsluitend concept",val("SELECT lifecycle_status FROM master_recipe_version WHERE id=%s",(v,))=="draft")
+        def denied(label,sql,params=(),msg="MBR"):
+            con.execute("SAVEPOINT lifecycle_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT lifecycle_guard")
+            con.execute("RELEASE SAVEPOINT lifecycle_guard")
+        denied("#112 geen directe statusovergang","UPDATE master_recipe_version SET lifecycle_status='released',change_no=change_no+1 WHERE id=%s",(v,),"statusovergang")
+        denied("#112 geen vrijgegeven versie bij creatie","INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by,lifecycle_status) VALUES (%s,2,'Fictief',%s,'released')",(rid,actor),"moet een concept zijn")
+        check("#112 statusafwijzing laat teller intact",val("SELECT change_no FROM master_recipe_version WHERE id=%s",(v,))==0)
+        tables=["recipe_procedural_element","recipe_dependency","recipe_parameter","recipe_parameter_limit","recipe_formula","recipe_material_requirement","recipe_equipment_requirement","recipe_personnel_requirement","recipe_instruction","recipe_specification_link","recipe_lot_rule","recipe_compatibility_rule","recipe_scaling_rule","recipe_scaling_input","recipe_scaling_binding","recipe_scaling_expression"]
+        for table in tables:
+            check("#112 lifecycleguard "+table,val("SELECT count(*) FROM pg_trigger WHERE tgrelid=%s::regclass AND tgname=%s AND tgenabled='O' AND NOT tgisinternal",("fabriek."+table,table+"_00_lifecycle"))==1)
+        check("#112 geen directe app-statusmutatie",not val("SELECT has_column_privilege('mes_app','fabriek.master_recipe_version','lifecycle_status','UPDATE')"))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

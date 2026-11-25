@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -8793,5 +8793,104 @@ END $$;
 REVOKE ALL ON FUNCTION material_create_definition_with_unit(text,text,uuid,uuid,uuid,uuid),
  material_append_version_with_unit(uuid,integer,text,uuid,uuid),recipe_unit_catalog_list(uuid),
  material_append_version(uuid,integer,text,uuid,text) FROM PUBLIC;
+
+-- Migratie 0115: MBR-levenscyclus en inhoudsbeveiliging (#112, D89).
+SET search_path = fabriek, public;
+
+-- Bestaande versies zijn uitsluitend concepten. Geen impliciete vrijgave.
+-- Status staat apart van inhoud; wijzigingsteller blijft inhoudsteller.
+ALTER TABLE master_recipe_version ADD COLUMN lifecycle_status text NOT NULL DEFAULT 'draft'
+ CHECK (lifecycle_status IN ('draft','in_review','approved','released','superseded','withdrawn'));
+
+CREATE FUNCTION recipe_lifecycle_header_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF TG_OP='INSERT' THEN
+   IF NEW.lifecycle_status IS DISTINCT FROM 'draft' THEN
+     RAISE EXCEPTION 'Nieuwe MBR-versie moet een concept zijn' USING ERRCODE='55000';
+   END IF;
+   RETURN NEW;
+ END IF;
+ -- 0115 opent bewust nog geen enkele statusovergang.
+ -- De latere gecontroleerde MOC-migratie vervangt deze statuspoort.
+ IF NEW.lifecycle_status IS DISTINCT FROM OLD.lifecycle_status THEN
+   RAISE EXCEPTION 'MBR-statusovergang nog niet beschikbaar' USING ERRCODE='55000';
+ END IF;
+ IF OLD.lifecycle_status IS DISTINCT FROM 'draft' THEN
+   RAISE EXCEPTION 'MBR-inhoud is alleen wijzigbaar in conceptstatus' USING ERRCODE='55000';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER master_recipe_version_lifecycle_guard BEFORE INSERT OR UPDATE ON master_recipe_version
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_header_guard();
+
+CREATE OR REPLACE FUNCTION recipe_lock_draft(p_version uuid,p_expected integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE product uuid; current_no integer; state text;
+BEGIN
+ SELECT r.product_id INTO product FROM master_recipe_version v
+ JOIN master_recipe r ON r.id=v.master_recipe_id WHERE v.id=p_version;
+ PERFORM recipe_draft_actor(product);
+ SELECT change_no,lifecycle_status INTO current_no,state FROM master_recipe_version WHERE id=p_version FOR UPDATE;
+ IF current_no IS NULL OR current_no IS DISTINCT FROM p_expected THEN
+   RAISE EXCEPTION 'MBR-concept is ondertussen gewijzigd' USING ERRCODE='40001';
+ END IF;
+ IF state IS DISTINCT FROM 'draft' THEN
+   RAISE EXCEPTION 'MBR-inhoud is alleen wijzigbaar in conceptstatus' USING ERRCODE='55000';
+ END IF;
+ RETURN current_no;
+END $$;
+
+-- Onafhankelijke databaseguard voor alle huidige versiegebonden inhoud.
+-- De lock is dezelfde als voor de header en de toekomstige MOC-overgang.
+CREATE FUNCTION recipe_lifecycle_content_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v uuid; state text;
+BEGIN
+ v:=CASE WHEN TG_OP='DELETE' THEN OLD.recipe_version_id ELSE NEW.recipe_version_id END;
+ IF TG_OP='UPDATE' AND NEW.recipe_version_id IS DISTINCT FROM OLD.recipe_version_id THEN
+   RAISE EXCEPTION 'MBR-inhoud kan niet naar een andere versie worden verplaatst' USING ERRCODE='55000';
+ END IF;
+ SELECT lifecycle_status INTO state FROM master_recipe_version WHERE id=v FOR UPDATE;
+ IF state IS DISTINCT FROM 'draft' THEN
+   RAISE EXCEPTION 'MBR-inhoud is alleen wijzigbaar in conceptstatus' USING ERRCODE='55000';
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER recipe_procedural_element_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_procedural_element
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_dependency_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_dependency
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_parameter_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_parameter
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_parameter_limit_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_parameter_limit
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_formula_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_formula
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_material_requirement_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_material_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_equipment_requirement_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_equipment_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_personnel_requirement_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_personnel_requirement
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_instruction_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_instruction
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_specification_link_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_specification_link
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_lot_rule_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_lot_rule
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_compatibility_rule_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_compatibility_rule
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_scaling_rule_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_scaling_rule
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_scaling_input_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_scaling_input
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_scaling_binding_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_scaling_binding
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+CREATE TRIGGER recipe_scaling_expression_00_lifecycle BEFORE INSERT OR UPDATE OR DELETE ON recipe_scaling_expression
+ FOR EACH ROW EXECUTE FUNCTION recipe_lifecycle_content_guard();
+REVOKE ALL ON FUNCTION recipe_lifecycle_header_guard(),recipe_lifecycle_content_guard(),recipe_lock_draft(uuid,integer) FROM PUBLIC;
+-- Geen statusovergang, goedkeuringsrecht, vrijgave of uitvoeringsrecht in 0115.
 
 COMMIT;
