@@ -115,8 +115,14 @@ await beheer.end();
 try {
   await zetTerug(DB.database);
   const c = await verbind(DB);
-  await c.query(sqlBestand(join(ROOT, "db", "rechten.sql")));
-  await c.end();
+  try {
+    const bekend = new Set(readdirSync(join(ROOT, "db", "migraties"))
+      .map(f => /^(\d{4})_/.exec(f)).filter(Boolean).map(m => Number(m[1])));
+    const { rows } = await c.query("SELECT nummer FROM fabriek.schema_versie");
+    const onbekend = rows.filter(r => !bekend.has(r.nummer));
+    if (onbekend.length) throw new Error("Onbekende schemaversie in back-up; gebruik het bijbehorende applicatiepakket");
+    await c.query(sqlBestand(join(ROOT, "db", "rechten.sql")));
+  } finally { await c.end(); }
   const n = await tel(DB.database);
   const melding = `${n.batches} batches, ${n.lots} lots, ${n.waarden} waarden teruggezet; oude database bewaard als ${rowCount ? bewaarnaam : "(geen)"}`;
   await logOnderhoud(inst, { soort: "herstel", gestart_op: start, gelukt: true, bestand: basename(bestand), melding });
