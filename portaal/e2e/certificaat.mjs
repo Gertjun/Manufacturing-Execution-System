@@ -68,7 +68,7 @@ try {
   check("Geen uitgifteknop in fase 1", await page.getByRole("button", { name: "Uitgeven", exact: true }).count() === 0);
   await page.getByText("Nieuwe certificaatuitgifte wacht op de MES-kwaliteitsvrijgave in fase 7.", { exact: false }).waitFor();
   const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
-  const headers = { authorization: "Bearer "+token, "content-type": "application/json" };
+  const headers = { authorization: "Bearer "+token };
   const pad = "/certificaten/lots/"+lot.lotnummer;
   const response = await fetch(BASIS+pad,{headers});
   if (!response.ok) throw new Error("Concept ophalen mislukt: "+response.status);
@@ -113,7 +113,7 @@ try {
 
   console.log("\nCertificaatinstellingen en historische bescherming");
   const instellingen = { bedrijfsnaam:"Testfabriek (fictief)", bedrijfsadres:"Testweg 1", certificaat_verklaring:"Test." };
-  check("Kwaliteit kan bedrijfsgegevens niet wijzigen", (await fetch(BASIS+"/certificaten/instellingen",{method:"PUT",headers,body:JSON.stringify(instellingen)})).status === 403);
+  check("Kwaliteit kan bedrijfsgegevens niet wijzigen", (await fetch(BASIS+"/certificaten/instellingen",{method:"PUT",headers:{...headers,"content-type":"application/json"},body:JSON.stringify(instellingen)})).status === 403);
   await page.evaluate(() => localStorage.clear());
   await inloggen("beheerder1");
   await page.locator(".starttegel-beheer").click();
@@ -121,7 +121,7 @@ try {
   check("Technisch beheer heeft geen bedrijfsgegevensmenu", await page.getByRole("link",{name:"Bedrijfsgegevens"}).count() === 0);
   const beheerToken = await page.evaluate(() => localStorage.getItem("portaal.token"));
   const beheerHeaders = {...headers,authorization:"Bearer "+beheerToken};
-  check("Technisch beheer mag certificaatinstellingen niet wijzigen", (await fetch(BASIS+"/certificaten/instellingen",{method:"PUT",headers:beheerHeaders,body:JSON.stringify(instellingen)})).status === 403);
+  check("Technisch beheer mag certificaatinstellingen niet wijzigen", (await fetch(BASIS+"/certificaten/instellingen",{method:"PUT",headers:{...beheerHeaders,"content-type":"application/json"},body:JSON.stringify(instellingen)})).status === 403);
   check("Technisch beheer heeft geen historische lotscope", (await fetch(BASIS+"/certificaten/"+c.nummer,{headers:beheerHeaders})).status === 404);
   const [historie] = await q("SELECT inhoud = $2::jsonb AS gelijk FROM fabriek.certificaat WHERE nummer=$1",[c.nummer,JSON.stringify(concept)]);
   check("Historische inhoud ongewijzigd na geweigerde handelingen", historie.gelijk === true);
