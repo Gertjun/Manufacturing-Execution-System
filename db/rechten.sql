@@ -795,6 +795,14 @@ BEGIN
  END IF;
 END $$;
 
+-- 0121: persoonlijke preview van inhoudelijke vrijgaveblokkades.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=121) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_release_validation(uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

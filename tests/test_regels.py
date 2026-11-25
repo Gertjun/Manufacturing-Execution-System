@@ -2804,6 +2804,34 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#112 inhoudelijke vrijgavevalidatie")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'RELEASE-VALIDATION-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        def codes():
+            return set(val("SELECT array_agg(DISTINCT code) FROM recipe_release_blockers(%s)",(v,)) or [])
+        check("#112 onvolledig recept geblokkeerd",codes()=={"missing_moc","missing_root","missing_formula","missing_lot_rule"})
+        root=val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        check("#112 lege proceduretak geblokkeerd","empty_procedure_branch" in codes())
+        con.execute("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,100,'kg')",(v,))
+        check("#112 onbekende referentie-eenheid geblokkeerd","unmapped_formula_unit" in codes())
+        con.execute("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'P','Fictief','decimal','kg','per batch',true,'productie',false)",(v,root))
+        check("#112 onbekende parametereenheid geblokkeerd","unmapped_parameter_unit" in codes())
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,6,true)",(v,))
+        check("#112 expliciete variabele lotnorm","missing_lot_rule" not in codes())
+        con.execute("SAVEPOINT release_guard")
+        faalt("#112 assert blokkeert onvolledig recept","SELECT recipe_assert_release_content(%s)",(v,),"vrijgave geblokkeerd")
+        con.execute("ROLLBACK TO SAVEPOINT release_guard")
+        con.execute("RELEASE SAVEPOINT release_guard")
+        check("#112 interne poort afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_assert_release_content(uuid)','EXECUTE')"))
+        check("#112 validatie verandert geen inhoud",val("SELECT lifecycle_status='draft' AND change_no=0 FROM master_recipe_version WHERE id=%s",(v,)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
