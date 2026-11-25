@@ -83,10 +83,13 @@ function tekenBalk() {
 
 volgNummers(document.getElementById("scherm")!);
 
-// Het paneel "Meer" sluit bij een tik ernaast.
+// Het paneel "Meer" sluit bij een tik ernaast of op een directe navigatielink.
 document.addEventListener("click", (e) => {
   const paneel = document.getElementById("meer-paneel");
-  if (paneel && !paneel.hidden && !(e.target as Element).closest("#onderbalk")) {
+  // Een directe navigatielink sluit het paneel meteen, ook wanneer de
+  // hashchange en de nieuwe schermrender nog niet zijn afgehandeld.
+  const doel = e.target instanceof Element ? e.target : null;
+  if (paneel && !paneel.hidden && (!doel?.closest("#onderbalk") || doel.closest("#onderbalk > a"))) {
     paneel.hidden = true;
     document.querySelector(".meer-knop")?.setAttribute("aria-expanded", "false");
   }

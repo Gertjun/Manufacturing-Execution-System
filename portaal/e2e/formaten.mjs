@@ -166,8 +166,11 @@ try {
       await page.getByRole("button", { name: "Meer" }).click();
       await page.locator("#onderbalk > a[href='#/stappen']").click();
       await page.waitForURL(/#\/stappen$/);
-      await klaar(page);
-      check("Navigatie sluit Meer", await page.locator(".meer-paneel").isHidden());
+      // wacht op de nieuwe route, niet op de nog aanwezige inhoud van Hulp.
+      await page.waitForFunction(() => document.querySelector("#onderbalk > a[href='#/stappen']")?.getAttribute("aria-current") === "page");
+      await page.locator(".meer-paneel").waitFor({ state: "hidden" });
+      check("Navigatie sluit Meer", await page.locator(".meer-paneel").isHidden()
+        && await page.locator(".meer-knop").getAttribute("aria-expanded") === "false");
     } else {
       check("Navigatie bovenaan, geen balk onderaan", boven && !onder);
     }
