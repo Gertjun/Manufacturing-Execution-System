@@ -241,6 +241,7 @@ jobs:
       - name: Schermtests in Chrome (invoerscherm, portalen)
         env:
           DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
         run: |
           google-chrome --version
           python3 -m pip install --quiet openpyxl pillow pyzbar
