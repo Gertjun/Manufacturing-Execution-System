@@ -36,7 +36,9 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 
 ### Afsluiting tussentijdse audit (D100)
 
-Inhoudelijke audit afgesloten op basis van bestaande inventarisaties en baseline #499; geen nieuwe concrete functionele blokker vastgesteld binnen beoordeelde scope. #106–#108/#136 functioneel gereed binnen deze bewijsgrens, niet geaccepteerd. Zie ACCEPTANCE-CRITERIA.md voor de formele afbakening. Databaseplaatje, integrale testreview, volledige acceptatie en Windows-praktijkvalidatie blijven verplicht.
+Inhoudelijke audit afgesloten op basis van bestaande inventarisaties en baseline #499; geen nieuwe concrete functionele blokker vastgesteld binnen beoordeelde scope. #106–#108/#136 functioneel gereed binnen deze bewijsgrens, niet geaccepteerd. Zie ACCEPTANCE-CRITERIA.md voor de formele afbakening. Databaseplaatje bijgewerkt en gericht gevalideerd; integrale testreview, volledige acceptatie en Windows-praktijkvalidatie blijven verplicht.
+
+D84/schema 0094: [run 45577237440](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45577237440), job 139078079937, head 36ecbb9a04f1ae6d5f70dca5d7e04db6a7490455, base 31c86973bf13848cba44fc38785084953fe65e39: databaseplaatje gegenereerd in geïsoleerde PostgreSQL 18 en tests/test_schema_plaatje.sh geslaagd (62 tabellen, 132 verbanden). SHA-256 6f9e535cdf4e7cc82113181b0316d550b41c8c60ca663265bda3a512d7ea518c gecontroleerd bij opname in commit 65c73e04d072944178868c34d4e18ca91082f0f1; tijdelijke workflow verwijderd. Geen schemawijziging of integrale acceptatie.
 
 D102/0094: goedgekeurde eenmalige initialisatie van bestaande persoonlijke identiteiten zonder MES-rechtenhistorie, via eigenaar en drie persoonlijke bevestigingen. Geen automatische legacy-grants; drie exact afgebakende grants, sessiegeneratie verhoogd, onveranderlijk bootstraprecord. Schone bootstrap blijft voorkeur voor fictieve pre-pilot. Gerichte DB- en toolregressies toegevoegd; uitvoeringsbewijs geslaagd in run #499.
 
