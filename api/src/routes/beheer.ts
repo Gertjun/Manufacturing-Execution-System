@@ -695,6 +695,16 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   const PC_SQL = `SELECT p.naam, p.locatie, p.actief,
                          coalesce(array_agg(s.code ORDER BY s.volgorde) FILTER (WHERE s.id IS NOT NULL), '{}') AS stappen
                     FROM pc p LEFT JOIN pc_stap ps ON ps.pc_id = p.id LEFT JOIN processtap s ON s.id = ps.processtap_id`;
+  // Technisch werkplekbeheer krijgt alleen de actieve stapcodes en namen,
+  // geen meetvelden, specificaties of operationele gegevens.
+  app.get(
+    "/pc-stappen",
+    {
+      preHandler: requiresPermission("workstation.manage"),
+      schema: { tags: ["beheer"], response: { 200: Type.Array(Type.Object({ code: Type.String(), naam: Type.String() })) } },
+    },
+    async () => (await lees(app.db, "SELECT code, naam FROM processtap WHERE actief ORDER BY volgorde")) as never,
+  );
   app.get(
     "/pcs",
     { preHandler: requiresPermission("workstation.manage"), schema: { tags: ["beheer"], response: { 200: Type.Array(Pc) } } },
