@@ -130,6 +130,9 @@ try {
   await page.getByRole("button", { name: "Inloggen" }).click();
   await page.locator(".startpagina").waitFor();
   check("Productiemanager ziet de tegel niet", (await page.locator(".starttegel-nainvoeren").count()) === 0);
+  await page.goto(BASIS+"/portaal/#/nainvoeren");
+  await page.waitForFunction(()=>location.hash==="#/");
+  check("Rechtstreekse naleveringsroute geblokkeerd",await page.getByRole("heading",{name:"Nainvoeren van papier"}).count()===0);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await page.screenshot({ path: `${SHOTS}/fout.png` }).catch(() => {});
