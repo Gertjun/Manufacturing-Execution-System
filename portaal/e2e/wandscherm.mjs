@@ -91,6 +91,7 @@ try {
   check("Persoonlijke ploegleider heeft geen displaytegel", await page.locator(".starttegel-wandscherm").count() === 0);
   await page.goto(BASIS+"/portaal/#/wandscherm");
   await page.waitForFunction(() => location.hash === "#/");
+  await page.locator(".starttegel-productie").waitFor();
   check("Persoonlijke identiteit kan niet naar displayroute", await page.locator(".starttegel-productie").isVisible());
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
