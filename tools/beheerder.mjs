@@ -324,18 +324,48 @@ export async function kwalificatieActie(c, io, actie, toon = console.log) {
   return result?.status===verwacht;
 }
 
+// Eenmalige overgang van bestaande persoonlijke identiteiten, nooit een gewone reset.
+export async function initialiseerBestaandeAdministratie(c, io) {
+  const identities = [];
+  for (const label of ["System Administrator", "Security Administrator A", "Security Administrator B"]) {
+    const name = (await io.vraag(label + " bestaande gebruikersnaam: ")).trim().toLowerCase();
+    if (!NAAM.test(name)) throw new Error("Ongeldige gebruikersnaam.");
+    const { rows: [r] } = await c.query("SELECT id,gebruikersnaam FROM fabriek.gebruiker WHERE lower(gebruikersnaam)=$1 AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen AND rol<>'scherm'", [name]);
+    if (!r) throw new Error("Geen geschikte persoonlijke identiteit.");
+    identities.push(r);
+  }
+  if (new Set(identities.map(r=>r.id)).size !== 3) throw new Error("Drie verschillende identiteiten vereist.");
+  const reason = (await io.vraag("Organisatorische goedkeuring en referentie: ")).trim();
+  if (!reason) throw new Error("Goedkeuringsreferentie vereist.");
+  console.log(JSON.stringify({system:identities[0],securityA:identities[1],securityB:identities[2],reason},null,2));
+  if (await io.vraag("Typ OVERGANG om deze eenmalige inrichting te bevestigen: ") !== "OVERGANG") return false;
+  const params = [];
+  for (const r of identities) params.push(r.id, await io.wachtwoord(r.gebruikersnaam + ", bevestig persoonlijk uw MES-wachtwoord: "));
+  let result;
+  try {
+    ({rows:[result]} = await c.query("SELECT fabriek.authorization_bootstrap_existing($1::uuid,$2::text,$3::uuid,$4::text,$5::uuid,$6::text,$7::text) AS status", [...params,reason]));
+  } catch {
+    throw new Error("Overgang geweigerd of technische fout; controleer de actuele status voordat u opnieuw probeert.");
+  }
+  if (result?.status !== "initialized") { console.log("Overgang niet uitgevoerd; persoonlijke bevestiging geweigerd of geblokkeerd."); return false; }
+  console.log("Eenmalige MES-overgang geregistreerd. De drie personen moeten opnieuw inloggen.");
+  return true;
+}
+
 // Los gestart: node tools/beheerder.mjs
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { argumenten, leesInstellingen, stop, verbind } = await import("./lib.mjs");
   const { opties } = argumenten();
-  const acties = ['herstel-account', 'security-binden', 'security-intrekken', 'personeel-koppelen','kwalificatie-overzicht','kwalificatie-toekennen','kwalificatie-intrekken'].filter(a => opties[a]);
+  const acties = ['initialiseer-bestaand', 'herstel-account', 'security-binden', 'security-intrekken', 'personeel-koppelen','kwalificatie-overzicht','kwalificatie-toekennen','kwalificatie-intrekken'].filter(a => opties[a]);
   if (acties.length > 1) stop('Kies precies één beheerdershandeling.');
   if (acties.length && (!process.stdin.isTTY || !process.stdout.isTTY)) stop('Deze beheerdershandeling vereist een persoonlijk interactief terminalvenster.');
   const inst = leesInstellingen(opties);
   const c = await verbind(inst.beheerDb);
   const io = maakInvoer();
   try {
-    if (opties['herstel-account']) {
+    if (opties['initialiseer-bestaand']) {
+      if (!await initialiseerBestaandeAdministratie(c, io)) process.exitCode = 1;
+    } else if (opties['herstel-account']) {
       if (!await herstelAccount(c, io)) process.exitCode = 1;
     } else if (opties['security-binden'] || opties['security-intrekken']) {
       if (!await securityBinding(c, io, !!opties['security-intrekken'])) process.exitCode = 1;
