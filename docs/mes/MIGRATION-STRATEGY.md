@@ -13,3 +13,32 @@ D95 / 0043: het MES-rollenregister wordt zonder automatische grants aan bestaand
 D97: vóór de eerste pilot mogen fictieve demo-/testgegevens en accounts opnieuw worden opgebouwd. Historische fictieve records zijn geen verplichte functionele compatibiliteitseis. Test upgrades en herstel wel met representatieve gegevens en bescherm onbekende/echte databases tegen destructieve resets. In deze commit is geen data gewist.
 
 D105: portal/UI-harmonisatie na release fase 2 en vóór middelenbeheer (nu fase 4). Expand/Migrate/Validate/Switch/Contract en historische gegevensbescherming ongewijzigd; geen schema- of datamigratie uitsluitend voor deze planningswijziging.
+
+## Fase 2 / 113.6 — gecontroleerde bronvoorbereiding (D110)
+
+Inventarisatie op basis van repositoryschema 0128, uitsluitend fictieve PoC. Geen echte bronbestanden beoordeeld. Onderstaande mapping is een voorstel dat per product en bronversie inhoudelijk moet worden bevestigd; geen automatische omzetting.
+
+| Bron / sleutel | Doel / behandeling | Vereist bewijs / stopconditie |
+|---|---|---|
+| product.id, code | Bestaande productidentiteit; master_recipe.product_id; eventueel material_definition.product_id | ID behouden; meerdere recepten mogelijk, geen receptcode afleiden zonder besluit |
+| grondstof.id, code, naam, eenheid | material_definition.raw_material_id en onveranderlijke material_definition_version | Exacte bron-ID, expliciete klasse en eenheid; onbekend blijft onbekend |
+| product_stap (product_id, processtap_id), plek; processtap.id | Concept procedure / unit procedure / operation / phase en expliciete dependencies | Productgebonden volgorde, inhoudelijke hiërarchie en afhankelijkheden bevestigen; batch/lot-niveau is geen ISA-proceduretype |
+| veld.id, veld_product (veld_id, product_id) | recipe_parameter per exacte conceptrevisie | Expliciete datatype, eenheid, activiteit, frequentie, kriticiteit; productoverride en NULL-semantiek controleren tegen bestaande serverlogica |
+| veld.grens_min/max, tolerantie, tolerantie_soort | Kandidaten voor afzonderlijke recipe_parameter_limit-categorieën | Geen automatische categorie, doelwaarde, procentomrekening of SPC-grens; betekenis per veld bevestigen |
+| specificatie.id/versie, specificatie_regel.id | Kandidaat specification_limit en recipe_specification_link | Exacte product-, stap-, veld- en bronversie; legacy vastgesteld is geen MBR-vrijgave |
+| stap_grondstof.id | Kandidaat recipe_material_requirement | Exacte materiaalrevisie, input/output, hoeveelheid, referentieformule en schaling expliciet; verplicht-vlag alleen is onvoldoende |
+| pc_stap, activiteit/kwalificatie, capaciteit_stap | Kandidaat equipment-/personeelsvereisten | Geen fysieke asset, capaciteit of kwalificatie afleiden zonder bewijs; resourcebeheer fase 4 |
+| lot, batch.lot_id, legacy lotregel | Historische feiten behouden; toekomstige recipe_lot_rule expliciet per revisie | Geen standaard vier batches; afwijkingsreden verplicht, reviewbeleid en compatibiliteit expliciet |
+| stapregistratie, waarde, grondstof_gebruik, keuring, herbewerking, certificaat | Bestaande historische feiten en correctieketens behouden | Geen koppeling aan nieuwste MBR zonder exact bewijs; historical unknown indien onvoldoende bewijs |
+| config_log en bestaande bronbestanden (indien later beschikbaar) | Herkomst-/vergelijkingsbewijs | Onveranderlijke extract-ID/hash, sleutel, bronversie, tijd en verantwoordelijke; geen verzonnen herkomst |
+
+### Uitvoerings- en validatieplan
+
+1. Inventariseer bronhouder, extractdatum/tijdzone, schema/versie, sleutel, eenheden en autorisatie; maak read-only extract met SHA256 en aantallen. Geen productie-export in fase 2.
+2. Leg per bronrecord mappingbesluit vast: bron-ID/versie, doel-ID/revisie (indien bekend), status mapped/needs_review/blocked/historical_unknown, reden, bewijsreferentie en persoonlijke beoordelaar. Bewaar originele waarden, inclusief NULL en exacte decimale tekst. Mappingmanifest is voorbereidingsbewijs, geen operationele tabel of automatische import.
+3. Controleer duplicaten, referenties, scope, inactieve identiteiten, grenscategorieën, fysische grootheid, exacte eenheids-/conversierevisies, procedurehiërarchie, lotnorm en incompatibiliteit. Onbekende of tegenstrijdige gegevens rapporteren en niet stilzwijgend invullen.
+4. Maak uitsluitend concepten via bestaande persoonlijke API in geïsoleerde testdatabase. Gebruik bestaande MOC, onafhankelijke review en expliciete vrijgave; geen automatische statusovergang of directe tabelwrites.
+5. Vergelijk bron- en doelmanifest: alle bronrecords verantwoord, geen onverklaarde verliezen/duplicaten, historische ID's/relaties/waarden/correctieketens ongewijzigd. Herhaal dry-run en controleer dat het plan geen dubbele identiteiten creëert. Een gewijzigde bronhash vereist nieuwe beoordeling.
+6. Test schone installatie, upgrade vanaf v0.63.0, back-up/herstel en negatieve scenario's. Stop bij verschil, onbekende echte database, ongeldige mapping of ontbrekend bewijs; geen omschakeling. Bij pilot afzonderlijke goedkeuring, gecontroleerde cutover en terugvalplan zonder verlies van nieuwe feiten.
+
+Representatieve fictieve gevallen: [fixtures/phase2-source-cases.json](fixtures/phase2-source-cases.json). Dit zijn beoordelingsfixtures met verwachte uitkomsten, geen importformaat, geen operationele gegevens. Werkelijke uitvoering en bronvalidatie blijven open; specifieke importtool alleen na afzonderlijk besluit.

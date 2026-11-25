@@ -1,0 +1,208 @@
+{
+  "purpose": "Fictieve beoordelingsfixtures voor 113.6; geen importer of productiedata",
+  "cases": [
+    {
+      "id": "S01",
+      "source": "product",
+      "key": "FICT-P1",
+      "input": {
+        "product_id": "fictional-product-1",
+        "recipe_code": "FICT-R1",
+        "explicit_product_mapping": true
+      },
+      "expected_status": "mapped",
+      "reason": "Bevestigde productidentiteit behouden; uitsluitend concept",
+      "automatic_release": false
+    },
+    {
+      "id": "S02",
+      "source": "grondstof",
+      "key": "FICT-M1",
+      "input": {
+        "raw_material_id": "fictional-material-1",
+        "unit": "kg",
+        "unit_code": "FICT-MASS-KG",
+        "quantity_kind": "mass",
+        "class_code": "FICT-RAW"
+      },
+      "expected_status": "mapped",
+      "reason": "Expliciete materiaalidentiteit en cataloguseenheid",
+      "automatic_release": false
+    },
+    {
+      "id": "S03",
+      "source": "grondstof",
+      "key": "FICT-M2",
+      "input": {
+        "unit": null
+      },
+      "expected_status": "needs_review",
+      "reason": "Onbekende eenheid niet invullen",
+      "automatic_release": false
+    },
+    {
+      "id": "S04",
+      "source": "veld",
+      "key": "FICT-F1",
+      "input": {
+        "unit": "L",
+        "target_unit": "kg",
+        "density": null
+      },
+      "expected_status": "blocked",
+      "reason": "Geen impliciete massa-volumeconversie",
+      "automatic_release": false
+    },
+    {
+      "id": "S05",
+      "source": "veld_product",
+      "key": "FICT-P1/FICT-F2",
+      "input": {
+        "grens_min": "1.230000000000000001",
+        "grens_max": null,
+        "tolerantie": "5",
+        "tolerantie_soort": "procent"
+      },
+      "expected_status": "needs_review",
+      "reason": "Exacte decimalen en NULL bewaren; categorie en procentbasis bevestigen",
+      "automatic_release": false
+    },
+    {
+      "id": "S06",
+      "source": "product_stap",
+      "key": "FICT-P1/FICT-S1",
+      "input": {
+        "plek": 1,
+        "niveau": "batch",
+        "parent": null
+      },
+      "expected_status": "needs_review",
+      "reason": "Volgorde alleen bewijst geen procedurehiërarchie",
+      "automatic_release": false
+    },
+    {
+      "id": "S07",
+      "source": "specificatie",
+      "key": "FICT-SP1",
+      "input": {
+        "versie": 2,
+        "status": "vastgesteld",
+        "product": "FICT-P1"
+      },
+      "expected_status": "needs_review",
+      "reason": "Geen automatische MBR-vrijgave",
+      "automatic_release": false
+    },
+    {
+      "id": "S08",
+      "source": "stap_grondstof",
+      "key": "FICT-S1/FICT-M1",
+      "input": {
+        "verplicht": true,
+        "quantity": null
+      },
+      "expected_status": "needs_review",
+      "reason": "Formulehoeveelheid en richting ontbreken",
+      "automatic_release": false
+    },
+    {
+      "id": "S09",
+      "source": "lotregel",
+      "key": "FICT-R1",
+      "input": {
+        "lot_norm": null,
+        "legacy_default": 4
+      },
+      "expected_status": "blocked",
+      "reason": "Geen automatische lotnorm",
+      "automatic_release": false
+    },
+    {
+      "id": "S10",
+      "source": "waarde",
+      "key": "FICT-V1",
+      "input": {
+        "gemeten": "12.000000000000000001",
+        "recipe_version_evidence": null,
+        "vervangt_waarde_id": "FICT-V0"
+      },
+      "expected_status": "historical_unknown",
+      "reason": "Historisch feit en correctieketen behouden, geen MBR-koppeling",
+      "automatic_release": false
+    },
+    {
+      "id": "S11",
+      "source": "material_definition",
+      "key": "FICT-M1-DUP",
+      "input": {
+        "source_id": "fictional-material-1",
+        "conflicting_target_ids": [
+          "FICT-A",
+          "FICT-B"
+        ]
+      },
+      "expected_status": "blocked",
+      "reason": "Conflicterende mapping niet automatisch oplossen",
+      "automatic_release": false
+    },
+    {
+      "id": "S12",
+      "source": "recipe_compatibility_rule",
+      "key": "FICT-R1/R2",
+      "input": {
+        "product_a": "FICT-P1",
+        "product_b": "FICT-P2"
+      },
+      "expected_status": "blocked",
+      "reason": "Geen compatibiliteitsregel over productgrens",
+      "automatic_release": false
+    },
+    {
+      "id": "S13",
+      "source": "unit_conversion",
+      "key": "FICT-C1",
+      "input": {
+        "from_kind": "absolute_temperature",
+        "to_kind": "temperature_difference"
+      },
+      "expected_status": "blocked",
+      "reason": "Absolute en verschilgrootheid niet uitwisselbaar",
+      "automatic_release": false
+    },
+    {
+      "id": "S14",
+      "source": "recipe_scaling_rule",
+      "key": "FICT-SCALE1",
+      "input": {
+        "rule_kind": "complex",
+        "runtime_evidence": null
+      },
+      "expected_status": "needs_review",
+      "reason": "Bestaande vrijgaveblokkade behouden",
+      "automatic_release": false
+    },
+    {
+      "id": "S15",
+      "source": "product_stap",
+      "key": "FICT-P1/FICT-S2",
+      "input": {
+        "dependency_product": "FICT-P2"
+      },
+      "expected_status": "blocked",
+      "reason": "Geen cross-product/versie-afhankelijkheid",
+      "automatic_release": false
+    },
+    {
+      "id": "S16",
+      "source": "source_manifest",
+      "key": "FICT-EXTRACT1",
+      "input": {
+        "prior_hash": "fictional-old",
+        "current_hash": "fictional-new"
+      },
+      "expected_status": "blocked",
+      "reason": "Gewijzigde bron vereist nieuwe beoordeling",
+      "automatic_release": false
+    }
+  ]
+}

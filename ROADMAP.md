@@ -92,6 +92,8 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 
 113.5d: persoonlijke formele vrijgave en intrekking via bestaande API, expliciete ingangsdatum, reden en herbevestiging; inhoudelijke blokkades en geregistreerd bewijs zichtbaar. 0128: alle beoordelingsrondes via bestaande productscope, alleen laatste actuele ronde met open persoonlijke domeinen; exacte historische snapshots en besluiten blijven behouden. API-regressie toegevoegd voor afwijzing, herindiening, historische leesrechten en geweigerde mutaties. Build, migratiegelijkheid en regressies nog niet uitgevoerd. Verdere visuele/UX-uitwerking inclusief datuminvoer en dossierpresentatie in fase 3; geen nieuwe bevoegdheden.
 
+113.6: broninventarisatie op schema 0128, expliciete mapping-/validatieprocedure, stopcriteria en 16 fictieve beoordelingsfixtures vastgelegd in docs/mes/MIGRATION-STRATEGY.md. Geen importer, echte migratie of automatisch vrijgegeven recept. Uitvoering van fixture-/integrale validatie volgt 113.7; echte bronvalidatie vóór relevante pilot.
+
 ## Fase 3 — Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard
 
 D105: start uitsluitend na volledige acceptatie, merge en officiële release van fase 2. D107 breidt de scope uit; de eerdere indicatie van één tot twee ontwikkelingsdagen vervalt. Nieuwe inschatting na inventarisatie; geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.
