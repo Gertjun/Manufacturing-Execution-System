@@ -22,7 +22,8 @@ interface ScalingInput {id:string;rule_id:string;code:string;source_kind:SourceK
 type Operator="add"|"subtract"|"multiply"|"divide"|"power";
 type ScalingToken={op:"input";id:string}|{op:Operator};
 interface ScalingExpression {id:string;rule_id:string;grammar_version:1;tokens:ScalingToken[]}
-interface Scaling {change_no:number;rules:ScalingRule[];inputs:ScalingInput[];expressions:ScalingExpression[]}
+interface ScalingBinding {id:string;rule_id:string;parameter_limit_id:string|null;material_requirement_id:string|null}
+interface Scaling {change_no:number;rules:ScalingRule[];inputs:ScalingInput[];expressions:ScalingExpression[];bindings:ScalingBinding[]}
 const operators:Record<Operator,string>={add:"+",subtract:"−",multiply:"×",divide:"÷",power:"^"};
 const sourceKinds:Record<SourceKind,string>={batch_quantity:"Batchhoeveelheid",parameter:"Procesparameter",equipment_property:"Equipmenteigenschap",constant:"Constante"};
 const ruleKinds:Record<RuleKind,string>={nonlinear:"Niet-lineair",parameter_dependent:"Parameterafhankelijk",equipment_dependent:"Equipmentafhankelijk"};
@@ -410,6 +411,52 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           }},"Opgeslagen formule verwijderen"):null,
           stored?h("p",{class:"sub"},"Verwijder eerst de opgeslagen formule voordat invoer of uitvoereenheid wordt gewijzigd."):null);
       }
+      function bindingLimitLabel(l:Limit) {
+        const p=data.parameters.find(p=>p.id===l.parameter_id);
+        const e=procedure.elements.find(e=>e.id===p?.procedural_element_id);
+        return (e?e.code+" · ":"")+(p?p.code+" — "+p.name:l.parameter_id)+" · "+categories[l.category]+" ("+(p?.unit??"geen eenheid")+")";
+      }
+      function bindingMaterialLabel(m:MaterialRequirement) {
+        return m.code+" · "+(m.direction==="input"?"Input":"Output")+" · "+m.quantity+" "+m.unit;
+      }
+      function bindingTargets(rule:ScalingRule,b?:ScalingBinding) {
+        const other=scaling.bindings.filter(x=>x.id!==b?.id);
+        if(!unit(rule.output_unit_id))return [];
+        return [
+          ...data.parameter_limits.filter(l=>data.parameters.some(p=>p.id===l.parameter_id&&p.measurement_unit_id===rule.output_unit_id)&&!other.some(x=>x.parameter_limit_id===l.id))
+            .map(l=>({id:"limit:"+l.id,label:"Parametergrens · "+bindingLimitLabel(l),parameter_limit_id:l.id,material_requirement_id:null})),
+          ...data.material_requirements.filter(m=>m.measurement_unit_id===rule.output_unit_id&&!other.some(x=>x.material_requirement_id===m.id))
+            .map(m=>({id:"material:"+m.id,label:"Materiaalvereiste · "+bindingMaterialLabel(m),parameter_limit_id:null,material_requirement_id:m.id}))
+        ];
+      }
+      function bindingForm(rule:ScalingRule,b?:ScalingBinding) {
+        const targets=bindingTargets(rule,b);
+        const selected=b?.parameter_limit_id?"limit:"+b.parameter_limit_id:b?.material_requirement_id?"material:"+b.material_requirement_id:"";
+        const target=choice(targets,selected);
+        return save(b?"Uitvoerkoppeling wijzigen":"Uitvoerkoppeling toevoegen",[
+          field("Exact doel met dezelfde cataloguseenheid",target),
+          h("p",{class:"sub"},"Deze koppeling activeert geen berekening. Complexe schaalregels blijven onder verplichte vrijgaveblokkade.")
+        ],"bindings",()=>{
+          const t=targets.find(t=>t.id===target.value);
+          if(!t)throw Error("Kies een beschikbaar doel met exact dezelfde cataloguseenheid.");
+          return {rule_id:rule.id,parameter_limit_id:t.parameter_limit_id,material_requirement_id:t.material_requirement_id};
+        },b?.id,scalingRoot);
+      }
+      function bindingPane(rule:ScalingRule) {
+        const bindings=scaling.bindings.filter(b=>b.rule_id===rule.id);
+        return h("div",{},h("h5",{},"Uitvoerkoppelingen"),
+          h("p",{class:"sub"},"Elke koppeling verwijst naar één materiaalvereiste of parametergrens binnen deze revisie. Geen impliciete eenheidsconversie of dubbele koppeling."),
+          ...bindings.map(b=>{
+            const l=data.parameter_limits.find(l=>l.id===b.parameter_limit_id);
+            const m=data.material_requirements.find(m=>m.id===b.material_requirement_id);
+            return h("details",{},h("summary",{},l?bindingLimitLabel(l):m?bindingMaterialLabel(m):"Onbekend doel: "+(b.parameter_limit_id??b.material_requirement_id)),
+              editable&&bindingTargets(rule,b).length?bindingForm(rule,b):null,
+              editable?remove("bindings",b.id,"Uitvoerkoppeling",scalingRoot):null);
+          }),
+          bindings.length?null:h("p",{class:"leeg"},"Nog geen uitvoerkoppelingen."),
+          editable&&bindingTargets(rule).length?bindingForm(rule):null,
+          editable&&!bindingTargets(rule).length?h("p",{class:"sub"},"Geen vrije doelen met exact dezelfde cataloguseenheid beschikbaar."):null);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -499,7 +546,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(editable&&availableVersions().length?[compatibilityForm()]:[]),
         ...(editable&&!otherVersions.length?[h("p",{class:"sub"},"Er zijn nog geen andere receptrevisies van dit product.")]:[]),
         h("h4",{},"Geavanceerde schaalregels"),
-        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Getypeerde invoer, exacte conversierevisies en gecontroleerde formule; uitvoerkoppelingen volgen. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
+        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Getypeerde invoer, exacte conversierevisies, gecontroleerde formule en expliciete uitvoerkoppelingen. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
         ...scaling.rules.map(r=>h("details",{},h("summary",{},r.code+" — "+ruleKinds[r.rule_kind]),
           h("p",{},r.description),
           h("p",{class:"sub"},"Uitvoereenheid: "+(unit(r.output_unit_id)?.symbol??r.output_unit_id)),
@@ -509,7 +556,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           h("h5",{},"Getypeerde invoer"),
           ...scaling.inputs.filter(i=>i.rule_id===r.id).map(i=>scalingInputView(r,i)),
           scaling.inputs.some(i=>i.rule_id===r.id)?null:h("p",{class:"leeg"},"Nog geen schaalinvoer."),
-          editable&&unitOptions.length?scalingInputForm(r):null,expressionPane(r))),
+          editable&&unitOptions.length?scalingInputForm(r):null,expressionPane(r),bindingPane(r))),
         ...(scaling.rules.length?[]:[h("p",{class:"leeg"},"Nog geen geavanceerde schaalregels.")]),
         ...(editable&&unitOptions.length?[scalingRuleForm()]:[]),
         h("h4",{},"Procesparameters"),
