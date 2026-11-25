@@ -2832,6 +2832,27 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+
+    print("\n#112 vrijgavebewijs en geldigheid")
+    for table in ("recipe_release","recipe_release_withdrawal"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+            check("#112 geen directe "+privilege+" "+table,not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+    for sig in ("recipe_effective_release(uuid,timestamptz,timestamptz)","recipe_release_intervals(uuid,timestamptz)"):
+        check("#112 interne geldigheidsfunctie "+sig,not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
+    con.execute("BEGIN")
+    try:
+        con.execute("SAVEPOINT release_closed")
+        faalt("#112 formele vrijgave nog gesloten","INSERT INTO recipe_release DEFAULT VALUES",bevat="wachten op gecontroleerde besluitworkflow")
+        con.execute("ROLLBACK TO SAVEPOINT release_closed")
+        con.execute("RELEASE SAVEPOINT release_closed")
+        con.execute("SAVEPOINT withdrawal_closed")
+        faalt("#112 intrekking nog gesloten","INSERT INTO recipe_release_withdrawal DEFAULT VALUES",bevat="wachten op gecontroleerde besluitworkflow")
+        con.execute("ROLLBACK TO SAVEPOINT withdrawal_closed")
+        con.execute("RELEASE SAVEPOINT withdrawal_closed")
+        check("#112 geen impliciet geldig recept",val("SELECT recipe_effective_release(gen_random_uuid(),now(),now())") is None)
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
