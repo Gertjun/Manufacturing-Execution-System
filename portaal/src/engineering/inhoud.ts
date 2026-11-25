@@ -19,7 +19,11 @@ type RuleKind="nonlinear"|"parameter_dependent"|"equipment_dependent";
 interface ScalingRule {id:string;code:string;description:string;rule_kind:RuleKind;output_unit_id:string;source_reference:string;applicability:string}
 type SourceKind="batch_quantity"|"parameter"|"equipment_property"|"constant";
 interface ScalingInput {id:string;rule_id:string;code:string;source_kind:SourceKind;parameter_id:string|null;equipment_property:string|null;constant_value:string|null;unit_id:string;conversion_version_id:string|null}
-interface Scaling {change_no:number;rules:ScalingRule[];inputs:ScalingInput[]}
+type Operator="add"|"subtract"|"multiply"|"divide"|"power";
+type ScalingToken={op:"input";id:string}|{op:Operator};
+interface ScalingExpression {id:string;rule_id:string;grammar_version:1;tokens:ScalingToken[]}
+interface Scaling {change_no:number;rules:ScalingRule[];inputs:ScalingInput[];expressions:ScalingExpression[]}
+const operators:Record<Operator,string>={add:"+",subtract:"−",multiply:"×",divide:"÷",power:"^"};
 const sourceKinds:Record<SourceKind,string>={batch_quantity:"Batchhoeveelheid",parameter:"Procesparameter",equipment_property:"Equipmenteigenschap",constant:"Constante"};
 const ruleKinds:Record<RuleKind,string>={nonlinear:"Niet-lineair",parameter_dependent:"Parameterafhankelijk",equipment_dependent:"Equipmentafhankelijk"};
 interface Requirements {lot_rules:LotRule[];compatibility_rules:CompatibilityRule[];change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
@@ -343,6 +347,69 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           editable&&unitOptions.length?scalingInputForm(rule,r):null,
           editable?remove("inputs",r.id,"Schaalinvoer "+r.code,scalingRoot):null);
       }
+      function expressionPane(rule:ScalingRule) {
+        const inputs=scaling.inputs.filter(i=>i.rule_id===rule.id);
+        const stored=scaling.expressions.find(e=>e.rule_id===rule.id);
+        const tokens:ScalingToken[]=[...(stored?.tokens??[])];
+        const path=scalingRoot+"/rules/"+encodeURIComponent(rule.id)+"/expression";
+        function describe(items:ScalingToken[]) {
+          const stack:string[]=[];
+          for(const t of items) {
+            if(t.op==="input") {
+              const i=inputs.find(i=>i.id===t.id);
+              if(!i)return {valid:false,text:"Onbekende invoer-ID: "+t.id};
+              stack.push(i.code);
+            } else {
+              if(stack.length<2)return {valid:false,text:"Onvoldoende operanden voor "+operators[t.op]};
+              const right=stack.pop()!,left=stack.pop()!;
+              stack.push("("+left+" "+operators[t.op]+" "+right+")");
+            }
+          }
+          return {valid:items.length>=1&&items.length<=128&&stack.length===1,text:stack.join(" ; ")||"Nog geen formule"};
+        }
+        const tokenLabel=(t:ScalingToken)=>t.op==="input"?(inputs.find(i=>i.id===t.id)?.code??t.id):operators[t.op];
+        const preview=h("p",{class:"sub","aria-live":"polite"});
+        const sequence=h("ol",{});
+        const pick=choice(inputs.map(i=>({id:i.id,label:i.code+" ("+(unit(i.unit_id)?.symbol??i.unit_id)+")"})));
+        const op=choice(Object.entries(operators).map(([id,label])=>({id,label})));
+        const addInput=h("button",{type:"button",class:"knop knop-klein",onclick:()=>{
+          if(!active()||busy||!editable||tokens.length>=128||!inputs.some(i=>i.id===pick.value))return;
+          tokens.push({op:"input",id:pick.value});render();
+        }},"Invoer toevoegen");
+        const addOperator=h("button",{type:"button",class:"knop knop-klein",onclick:()=>{
+          if(!active()||busy||!editable||tokens.length>=128||!Object.prototype.hasOwnProperty.call(operators,op.value))return;
+          tokens.push({op:op.value as Operator});render();
+        }},"Operator toevoegen");
+        const undo=h("button",{type:"button",class:"knop knop-klein",onclick:()=>{
+          if(!active()||busy||!editable)return;tokens.pop();render();
+        }},"Laatste token verwijderen");
+        const reset=h("button",{type:"button",class:"knop knop-klein",onclick:()=>{
+          if(!active()||busy||!editable)return;tokens.splice(0,tokens.length,...(stored?.tokens??[]));render();
+        }},"Lokale wijzigingen herstellen");
+        const submit=h("button",{type:"button",class:"knop knop-hoofd",onclick:async()=>{
+          if(!active()||!editable||!describe(tokens).valid)return;
+          await mutate("PUT",path,{expected_change_no:data.change_no,tokens:[...tokens]});
+        }},"Formule opslaan");
+        function render(){
+          const result=describe(tokens);
+          sequence.replaceChildren(...tokens.map(t=>h("li",{},tokenLabel(t))));
+          preview.textContent=tokens.length+"/128 tokens · "+(result.valid?"Structureel compleet: ":"Nog niet compleet: ")+result.text;
+          addInput.disabled=tokens.length>=128||!inputs.length;
+          addOperator.disabled=tokens.length>=128;
+          undo.disabled=!tokens.length;submit.disabled=!result.valid;
+        }
+        render();
+        return h("div",{},h("h5",{},"Gecontroleerde formule"),
+          h("p",{class:"sub"},"Grammatica v1: voeg eerst operanden toe en daarna de operator (postfix). De voorbeeldweergave is symbolisch; de server controleert structuur, dimensies en grootheidsemantiek. Geen numerieke berekening."),
+          stored?h("p",{},"Opgeslagen formule: "+describe(stored.tokens).text):h("p",{class:"leeg"},"Nog geen opgeslagen formule."),
+          editable&&inputs.length?h("details",{},h("summary",{},"Formule samenstellen"),
+            field("Invoer",pick),addInput,field("Operator",op),addOperator,sequence,preview,undo,reset,submit):null,
+          editable&&!inputs.length?h("p",{class:"sub"},"Definieer eerst schaalinvoer."):null,
+          editable&&stored?h("button",{type:"button",class:"knop knop-klein",onclick:async()=>{
+            if(active()&&window.confirm("Opgeslagen schaalformule verwijderen uit dit concept?"))await mutate("DELETE",path+"?expected_change_no="+data.change_no);
+          }},"Opgeslagen formule verwijderen"):null,
+          stored?h("p",{class:"sub"},"Verwijder eerst de opgeslagen formule voordat invoer of uitvoereenheid wordt gewijzigd."):null);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -432,7 +499,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(editable&&availableVersions().length?[compatibilityForm()]:[]),
         ...(editable&&!otherVersions.length?[h("p",{class:"sub"},"Er zijn nog geen andere receptrevisies van dit product.")]:[]),
         h("h4",{},"Geavanceerde schaalregels"),
-        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Getypeerde invoer en exacte conversierevisies; formule en uitvoerkoppelingen volgen. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
+        h("p",{class:"sub"},"Uitsluitend conceptdefinities. Getypeerde invoer, exacte conversierevisies en gecontroleerde formule; uitvoerkoppelingen volgen. Complexe regels blijven onder verplichte vrijgaveblokkade; geen berekening of impliciete terugval op vast/lineair."),
         ...scaling.rules.map(r=>h("details",{},h("summary",{},r.code+" — "+ruleKinds[r.rule_kind]),
           h("p",{},r.description),
           h("p",{class:"sub"},"Uitvoereenheid: "+(unit(r.output_unit_id)?.symbol??r.output_unit_id)),
@@ -442,7 +509,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           h("h5",{},"Getypeerde invoer"),
           ...scaling.inputs.filter(i=>i.rule_id===r.id).map(i=>scalingInputView(r,i)),
           scaling.inputs.some(i=>i.rule_id===r.id)?null:h("p",{class:"leeg"},"Nog geen schaalinvoer."),
-          editable&&unitOptions.length?scalingInputForm(r):null)),
+          editable&&unitOptions.length?scalingInputForm(r):null,expressionPane(r))),
         ...(scaling.rules.length?[]:[h("p",{class:"leeg"},"Nog geen geavanceerde schaalregels.")]),
         ...(editable&&unitOptions.length?[scalingRuleForm()]:[]),
         h("h4",{},"Procesparameters"),
