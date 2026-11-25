@@ -27,6 +27,7 @@ PSQL("schema.sql");
 PSQL("rechten.sql");
 PSQL("seed_config.sql");
 PSQL("seed_accounts_demo.sql");
+execFileSync("psql", ["-q", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", new URL("../../tests/fixtures/scherm_grants.sql", import.meta.url).pathname], { stdio: "inherit" });
 
 const api = spawn("npx", ["tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
