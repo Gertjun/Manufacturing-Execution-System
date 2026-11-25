@@ -539,3 +539,5 @@ D110: bij scope- en integrale audit iedere nieuwe legacywens toetsen aan ISA-geb
 113.6: broninventarisatie op schema 0128, expliciete mapping-/validatieprocedure, stopcriteria en 16 fictieve beoordelingsfixtures vastgelegd in docs/mes/MIGRATION-STRATEGY.md. Geen importer, echte migratie of automatisch vrijgegeven recept. Uitvoering van fixture-/integrale validatie volgt 113.7; echte bronvalidatie vóór relevante pilot.
 
 113.7b: functionele Chrome-regressie toegevoegd voor persoonlijke Engineering-toegang, conceptaanmaak/headerwijziging, bevroren revisie, historische rondes, onafhankelijke beoordeling en directe route na sessiewissel. Echte beperkte API en fictieve schone database; overige scenario's en integrale uitvoering nog open. Geen visuele harmonisatie.
+
+113.7b vervolg: operatorredirect en precieze headerformulierselector gecorrigeerd; afzonderlijke productscope, geweigerde toegang tot globale materiaalcatalogus en inhoudelijk geblokkeerde vrijgave na drie onafhankelijke goedkeuringen toegevoegd. Uitvoering nog open.

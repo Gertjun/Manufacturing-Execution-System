@@ -96,6 +96,8 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 
 113.7b: functionele Chrome-regressie toegevoegd voor persoonlijke Engineering-toegang, conceptaanmaak/headerwijziging, bevroren revisie, historische rondes, onafhankelijke beoordeling en directe route na sessiewissel. Echte beperkte API en fictieve schone database; overige scenario's en integrale uitvoering nog open. Geen visuele harmonisatie.
 
+113.7b vervolg: operatorredirect en precieze headerformulierselector gecorrigeerd; afzonderlijke productscope, geweigerde toegang tot globale materiaalcatalogus en inhoudelijk geblokkeerde vrijgave na drie onafhankelijke goedkeuringen toegevoegd. Uitvoering nog open.
+
 ## Fase 3 — Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard
 
 D105 zoals gewijzigd door D111: start uitsluitend na expliciete technische acceptatie van fase 2; handmatige Windows-praktijkacceptatie van beide fasen volgt na fase 3. D107 breidt de scope uit; de eerdere indicatie van één tot twee ontwikkelingsdagen vervalt. Nieuwe inschatting na inventarisatie; geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.

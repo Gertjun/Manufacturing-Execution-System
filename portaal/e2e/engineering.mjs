@@ -35,6 +35,10 @@ try {
   const engineer=await loginApi("mes.engineer");
   const approver=await loginApi("mes.eng.approver");
   const qa=await loginApi("mes.quality.approver");
+  const production=await loginApi("mes.manager");
+  const scopedName="mes.e2e.recipe.scoped";
+  await db.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[scopedName]);
+  await db.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[scopedName,product.id]);
   browser=await chromium.launch({executablePath:"/usr/bin/google-chrome",args:["--no-sandbox"]});
   const context=await browser.newContext({viewport:{width:1440,height:900},locale:"nl-NL",timezoneId:"Europe/Amsterdam"});
   const page=await context.newPage();
@@ -47,8 +51,8 @@ try {
     await page.getByLabel("Gebruikersnaam").fill(naam);
     await page.getByLabel("Wachtwoord",{exact:true}).fill("demo");
     await page.getByRole("button",{name:"Inloggen",exact:true}).click();
-    await page.waitForURL(u=>u.hash==="#/");
-    await page.locator(".startpagina").waitFor();
+    await page.waitForURL(u=>u.hash==="#/" || u.pathname.startsWith("/invoer/"));
+    await page.waitForFunction(()=>location.pathname.startsWith("/invoer/") || !!document.querySelector("main h1")?.textContent?.startsWith("Welkom,"));
   }
   async function route(path,heading){
     await page.goto(BASIS+"/portaal/#/engineering/"+path);
@@ -68,7 +72,7 @@ try {
   const recipe=page.locator("section.blok").filter({has:page.getByRole("heading",{name:"E2E-PE",exact:true})});
   await recipe.getByText("Revisie 1 — Fictief schermrecept · Concept",{exact:true}).click();
   await recipe.getByText("Conceptheader wijzigen",{exact:true}).click();
-  const edit=recipe.locator("details").filter({has:page.locator("summary",{hasText:/^Conceptheader wijzigen$/})}).locator("form").filter({has:page.getByLabel("Naam",{exact:true})}).last();
+  const edit=recipe.locator("summary").filter({hasText:/^Conceptheader wijzigen$/}).locator("..").locator("form");
   await edit.getByLabel("Naam",{exact:true}).fill("Fictief gewijzigd");
   await edit.getByRole("button",{name:"Opslaan",exact:true}).click();
   await recipe.getByText("Revisie 1 — Fictief gewijzigd · Concept",{exact:true}).waitFor();
@@ -83,7 +87,7 @@ try {
   const first=await request("POST",base+"/reviews",engineer,submission,201);
   const firstPath="/recipes/reviews/"+first.round_id+"/decisions";
   await request("POST",firstPath,qa,{expected_change_no:3,domain:"quality",decision:"reject",reason:"Fictieve afwijzing",password:"demo"},201);
-  await request("POST",base+"/reviews",engineer,submission,201);
+  const second=await request("POST",base+"/reviews",engineer,submission,201);
   await route("recepten","Master Recipes");
   await page.getByLabel("Product",{exact:true}).selectOption(product.id);
   await recipe.getByText("Revisie 1 — Fictief gewijzigd · Ter beoordeling",{exact:true}).click();
@@ -107,13 +111,32 @@ try {
   await current.getByRole("button",{name:"Beoordeling bevestigen"}).click();
   await current.getByText(/Goedgekeurd: Engineering/).waitFor();
   assert.equal(await current.getByRole("button",{name:"Formele vrijgave bevestigen"}).count(),0);
+  // Complete the remaining independent domains through the real API.
+  for(const [token,domain] of [[production,"production"],[qa,"quality"]]) {
+    await request("POST","/recipes/reviews/"+second.round_id+"/decisions",token,{expected_change_no:3,domain,decision:"approve",reason:"Fictieve goedkeuring",password:"demo"},201);
+  }
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await current.getByText(/Goedgekeurd · ronde 2/).waitFor();
+  await current.getByRole("button",{name:"Vastgezet dossier laden / vernieuwen"}).click();
+  await current.getByRole("button",{name:"Vrijgavevalidatie laden / vernieuwen"}).click();
+  await current.getByText("Inhoudelijke vrijgave geblokkeerd.",{exact:true}).waitFor();
+  await current.getByText(/missing_formula/).waitFor();
+  assert.equal(await current.getByRole("button",{name:"Formele vrijgave bevestigen"}).count(),0);
+  await login(scopedName);
+  await route("recepten","Master Recipes");
+  const allowed=await page.getByLabel("Product",{exact:true}).locator("option").evaluateAll(options=>options.map(o=>o.value).filter(Boolean));
+  assert.deepEqual(allowed,[product.id]);
+  await page.goto(BASIS+"/portaal/#/engineering/materialen");
+  await page.waitForURL(u=>u.hash==="#/engineering");
+  await page.getByRole("heading",{name:"Process Engineering",exact:true}).waitFor();
+  assert.equal(await page.getByRole("heading",{name:"Materiaalstamgegevens",exact:true}).count(),0);
   // Direct URL must not expose unauthorized screens after identity change.
   for(const naam of ["mes.operator","mes.system"]){
     await login(naam);
     assert.equal(await page.locator(".starttegel-engineering").count(),0);
     await page.goto(BASIS+"/portaal/#/engineering/beoordelingen");
-    await page.waitForURL(u=>u.hash==="#/");
-    await page.locator(".startpagina").waitFor();
+    await page.waitForURL(u=>u.hash==="#/" || u.pathname.startsWith("/invoer/"));
+    await page.waitForFunction(()=>location.pathname.startsWith("/invoer/") || !!document.querySelector("main h1")?.textContent?.startsWith("Welkom,"));
     assert.equal(await page.getByRole("heading",{name:"Receptbeoordelingen",exact:true}).count(),0);
     assert.equal(await page.getByText(/E2E-PE · revisie/).count(),0);
   }
