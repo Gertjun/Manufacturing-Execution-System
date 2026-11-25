@@ -396,6 +396,10 @@ Procedure-API (#103/110): zes routes voor consistente procedurelijst, elementcre
 
 Gerichte procedurebaseline [45686412128](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45686412128), head fddee3a39fa2680619df884b90bc3b322247b829, job 139460074976: 780/781 DB-controles; uitsluitend verkeerde parentsoort faalt doordat de edgeguard de mutatie eerder weigert. Schema/migraties, API, autorisatie, security, beheer, documentgeneratie en Linux-pakket geslaagd. Testfixture geïsoleerd op een element zonder afhankelijkheden; CHECK-verwachting behouden en expliciete behoudsassertie toegevoegd. Geen productiecode of afgezwakte testverwachting. Hertest vereist.
 
+Gerichte fase 2.3-baseline [45687274731](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45687274731), head `593d4951344071ab35b19ef4eb6a48ade45be1dc`, base `ea3b78bc938647140b4e228e9382761504518906`, job 139463093126: 782/782 DB, 14/14 security, 10/10 autorisatie, 121/121 API; schema-equivalentie, historische upgrade 0035→0101, beheer, Linux-pakket en documentatiegeneratie geslaagd. Diagram 69 tabellen/146 relaties en OpenAPI uit geteste job opgenomen. Geen integrale acceptatie.
+
+0102 (#111): regressies op parameter-versie/procedure-FK, unieke code per versie, vijf onafhankelijke categorieën, target versus een-/tweezijdige grenzen, eindige numerieke waarden, integer- en typegrenzen, eenheidswijziging zonder stilzwijgende herinterpretatie, geen cascade of directe ACL. Frequentie en verantwoordelijke zijn conceptlabels, geen uitvoeringsregels; niet-numerieke voorwaarden en schaalregels volgen. Nog geen runtimewrites/API of uitvoeringsbewijs.
+
 ## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.

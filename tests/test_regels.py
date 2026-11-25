@@ -1912,6 +1912,61 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+    print("\n#111 versiegebonden parameters en vijf voorwaarden")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product = val("SELECT id FROM product WHERE code='PRD-A'")
+        recipe = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PARAM-TEST',%s) RETURNING id",(product,actor))
+        def version(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Param test',%s) RETURNING id",(recipe,n,actor))
+        v1,v2 = version(1),version(2)
+        def root(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2 = root(v1),root(v2)
+        def param(v,e,code,typ,unit=None):
+            return val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,%s,%s,%s,%s,'per batch',true,'productie',true) RETURNING id",(v,e,code,code,typ,unit))
+        p1=param(v1,e1,"TEMP","decimal","degC")
+        p2=param(v2,e2,"TEMP","decimal","degC")
+        pi=param(v1,e1,"COUNT","integer","count")
+        pt=param(v1,e1,"NOTE","text")
+        def limit(v,p,typ,cat,target=None,lo=None,hi=None):
+            return val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value,lower_value,upper_value) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",(v,p,typ,cat,target,lo,hi))
+        limit(v1,p1,"decimal","target",90)
+        limit(v1,p1,"decimal","operating_tolerance",None,88,92)
+        limit(v1,p1,"decimal","process_limit",None,85,95)
+        limit(v1,p1,"decimal","specification_limit",None,82,98)
+        limit(v1,p1,"decimal","statistical_control_limit",None,87,93)
+        limit(v2,p2,"decimal","target",92)
+        limit(v1,pi,"integer","process_limit",None,0,None)
+        check("#111 vijf onafhankelijke categorieën",val("SELECT count(*) FROM recipe_parameter_limit WHERE parameter_id=%s",(p1,))==5)
+        check("#111 zelfde parametercode afzonderlijk per revisie",val("SELECT target_value FROM recipe_parameter_limit WHERE parameter_id=%s AND category='target'",(p2,))==92)
+        check("#111 eenzijdige limiet",val("SELECT upper_value IS NULL FROM recipe_parameter_limit WHERE parameter_id=%s",(pi,)))
+        def rejected(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT parameter_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT parameter_guard")
+            con.execute("RELEASE SAVEPOINT parameter_guard")
+        insert_limit="INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value,lower_value,upper_value) VALUES (%s,%s,%s,%s,%s,%s,%s)"
+        rejected("#111 verkeerde versiegrens",insert_limit,(v2,p1,"decimal","target",1,None,None),"foreign key")
+        rejected("#111 tekstparameter geen numerieke grenzen",insert_limit,(v1,pt,"decimal","target",1,None,None),"foreign key")
+        rejected("#111 integer geen fractioneel doel",insert_limit,(v1,pi,"integer","target",1.5,None,None))
+        rejected("#111 doel vereist afzonderlijke waarde",insert_limit,(v1,pi,"integer","target",None,1,2))
+        rejected("#111 lege grens",insert_limit,(v1,pi,"integer","specification_limit",None,None,None))
+        rejected("#111 omgekeerde grenzen",insert_limit,(v1,pi,"integer","specification_limit",None,5,2))
+        rejected("#111 niet-eindig getal",insert_limit,(v1,pi,"integer","target","NaN",None,None))
+        rejected("#111 dubbele categorie",insert_limit,(v1,p1,"decimal","target",90,None,None),"duplicate")
+        rejected("#111 procedure uit andere revisie","UPDATE recipe_parameter SET procedural_element_id=%s WHERE id=%s",(e2,p1),"foreign key")
+        rejected("#111 eenheid niet stilzwijgend wijzigen","UPDATE recipe_parameter SET unit='K' WHERE id=%s",(p1,),"eenheidswijziging")
+        rejected("#111 datatype niet stilzwijgend wijzigen","UPDATE recipe_parameter SET data_type='integer' WHERE id=%s",(p1,),"foreign key")
+        rejected("#111 procedure met parameter niet verwijderen","DELETE FROM recipe_procedural_element WHERE id=%s",(e1,),"foreign key")
+        rejected("#111 parameter met voorwaarden niet verwijderen","DELETE FROM recipe_parameter WHERE id=%s",(p1,),"foreign key")
+        for tabel in ("recipe_parameter","recipe_parameter_limit"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

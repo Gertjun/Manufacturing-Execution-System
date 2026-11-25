@@ -7,6 +7,9 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #103/110: hertest 45687274731 op 593d495 volledig geslaagd (782 DB, 121 API); gegenereerd databaseplaatje 0101 en OpenAPI opgenomen. Geen integrale acceptatie.
+- #111 (deel): 0102 versiegebonden parameterdefinities en vijf afzonderlijke numerieke voorwaardencategorieën, type-/eenheids-/versiegrenzen en ACL-regressies. Nog niet getest; geen runtimewrites.
+
 - #103/110: gerichte baseline 45686412128 faalde uitsluitend op parenttype-testfixture (edgeguard eerder dan CHECK). Onafhankelijk element zonder edges en behoudsassertie toegevoegd; productiecode en oorspronkelijke CHECK-verwachting ongewijzigd. Hertest open.
 
 - #103/110 (deel): procedure-API voor lezen, aanmaken, wijzigen en verwijderen van elementen/afhankelijkheden met gezamenlijke change_no; API-regressies toegevoegd. Nog niet getest.

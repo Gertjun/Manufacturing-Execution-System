@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 67 tabellen en 141 verbanden.
+Schema `fabriek`: 69 tabellen en 146 verbanden.
 
 ## Overzicht
 
@@ -66,6 +66,8 @@ erDiagram
     qualification
     qualification_issue
     qualification_revocation
+    recipe_dependency
+    recipe_procedural_element
     rooster
     rooster_ploeg
     schema_versie
@@ -111,6 +113,8 @@ erDiagram
     lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
     lot_voorstel |o--o{ stapplanning : "voorstel_id"
     master_recipe ||--o{ master_recipe_version : "master_recipe_id"
+    master_recipe_version ||--o{ recipe_dependency : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_procedural_element : "recipe_version_id"
     material_class |o--o{ material_definition_version : "material_class_id"
     material_definition ||--o{ material_definition_version : "material_definition_id"
     melding ||--o{ melding_gelezen : "melding_id"
@@ -141,6 +145,9 @@ erDiagram
     product ||--o{ veld_product : "product_id"
     qualification ||--o{ activity_qualification : "qualification_code"
     qualification ||--o{ personnel_qualification : "qualification_code"
+    recipe_procedural_element ||--o{ recipe_dependency : "recipe_version_id, predecessor_id"
+    recipe_procedural_element ||--o{ recipe_dependency : "recipe_version_id, successor_id"
+    recipe_procedural_element |o--o{ recipe_procedural_element : "recipe_version_id, parent_id, parent_kind"
     rooster_ploeg |o--o{ operator : "ploeg_id"
     specificatie ||--o{ specificatie_regel : "specificatie_id"
     specificatie |o--o{ waarde : "specificatie_id"
@@ -215,6 +222,8 @@ erDiagram
 | [`qualification`](#qualification) | 2 |  | Definitie van een personeelskwalificatie. |
 | [`qualification_issue`](#qualification_issue) | 5 | `gebruiker`, `personnel_qualification` |  |
 | [`qualification_revocation`](#qualification_revocation) | 4 | `gebruiker`, `personnel_qualification` |  |
+| [`recipe_dependency`](#recipe_dependency) | 4 | `master_recipe_version`, `recipe_procedural_element` | Expliciete voorganger/opvolger; voorlopig alleen binnen dezelfde siblinggroep. |
+| [`recipe_procedural_element`](#recipe_procedural_element) | 9 | `master_recipe_version` | Een concept mag nog onvolledig zijn; volledigheid is een latere vrijgave-eis. |
 | [`rooster`](#rooster) | 3 |  | Ploegen en rooster (sinds 0033, #86, D76). |
 | [`rooster_ploeg`](#rooster_ploeg) | 6 |  |  |
 | [`schema_versie`](#schema_versie) | 3 |  |  |
@@ -828,6 +837,29 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `revoked_by` | uuid | FK | `gebruiker` |
 | `reason` | text |  |  |
 | `revoked_at` | timestamptz |  |  |
+
+### recipe_dependency
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `predecessor_id` | uuid | FK | `recipe_procedural_element` |
+| `successor_id` | uuid | FK | `recipe_procedural_element` |
+
+### recipe_procedural_element
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `parent_id` | uuid | FK leeg | `recipe_procedural_element` |
+| `parent_kind` | text | FK leeg | `recipe_procedural_element` |
+| `kind` | text |  |  |
+| `code` | text |  |  |
+| `name` | text |  |  |
+| `position` | int |  |  |
+| `required` | bool |  |  |
 
 ### rooster
 
