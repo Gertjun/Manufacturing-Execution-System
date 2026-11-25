@@ -193,7 +193,7 @@ jobs:
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: |
           pg_dump --version
-          tests/test_tools.sh
+          sh tests/test_tools.sh
       - name: Invoerscherm controleren en bouwen
         working-directory: invoer
         run: |
@@ -328,7 +328,7 @@ jobs:
         run: |
           pg_dump --version
           pg_restore --version
-          tests/test_tools.sh
+          sh tests/test_tools.sh
       - name: API typecheck en autorisatiemodule
         if: always() && steps.npm.outcome == 'success'
         working-directory: api
