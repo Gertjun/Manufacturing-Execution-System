@@ -131,7 +131,7 @@ Er blijft altijd minstens één actieve beheerder. Niets wordt verwijderd, allee
 | --- | --- | --- |
 | Laptop (proof of concept) | `tools/maak_laptoppakket.sh <map> windows` bouwt `batch-gui-laptop-<versie>-windows.zip` met Node.js, PostgreSQL en de Visual C++-runtime erin; uitpakken en `START.bat` (D27) | [`tools/pakket/README.md`](tools/pakket/README.md) |
 | Fabrieksserver | `tools/maak_serverpakket.sh` bouwt `batch-gui-server-<versie>.zip` | [`docs/SERVER.md`](docs/SERVER.md) |
-| Browserdemo | `cd demo && npm install && ./bouw.sh` bouwt `demo/dist`: het hele platform in de browser met PGlite, alleen voor demonstratie | — |
+| Historische browserdemo | Bron in `demo/`; niet ondersteund en geen bouw- of acceptatieverplichting (D99) | — |
 | Ontwikkelen | zie hieronder | — |
 
 Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of `--instellingen <pad>`):
@@ -160,7 +160,7 @@ Beheertools op de server (lezen `instellingen.json`, `BATCHGUI_INSTELLINGEN` of 
 | `invoer/` | Invoerscherm (PWA) |
 | `portaal/` | Portalen en wandscherm |
 | `gedeeld/` | Onderdelen die invoerscherm en portalen delen, waaronder `tokens.css` (alle kleuren, afstanden, tekstgroottes en rondingen) en `knoppen.css` (bezig-stand en klikzone) |
-| `demo/` | Browserdemo |
+| `demo/` | Historische browserdemo; buiten verplichte scope |
 | `tools/` | Pakketten bouwen, beheertools, versie zetten |
 | `tests/`, `api/test/`, `invoer/e2e/`, `portaal/e2e/` | Tests |
 
@@ -214,7 +214,7 @@ Vóór elke push (zie ook `CLAUDE.md`):
 | Beheertools | `tests/test_tools.sh` | ja |
 | Opruimschema back-ups | `node --test tests/rotatie.test.mjs` | ja |
 | Laptoppakket | `tests/test_laptoppakket.sh` (als gewone gebruiker) | ja |
-| Schermtests in Chrome: invoerscherm, alle portalen, browserdemo | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (formaten: alle schermen in zes formaten van telefoon tot pc, D64; portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; nalevering op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
+| Schermtests in Chrome: invoerscherm en alle portalen (PostgreSQL) | `tests/test_schermen.sh` (met `DATABASE_URL`; zet zelf telkens de juiste testdata klaar). Eén test los: `cd portaal && node e2e/<naam>.mjs` (formaten: alle schermen in zes formaten van telefoon tot pc, D64; portaal, productie, wandscherm, grondstoffen, meldingen, certificaat, regelkaarten, excel op verse testdata; hulp vraagt alleen de testaccounts; nalevering op verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar) | ja |
 
 ### Versies
 Eén versienummer voor het hele platform (D17), in `VERSIE`; zetten met `tools/zet_versie.sh <versie>`. Een release wordt uitsluitend op aanvraag gemaakt (`release.yml`), na acceptatie van de exacte inhoud, met het Windows-laptoppakket als bijlage (D88). Tussentijdse wijzigingen staan onder Unreleased. Downloaden: repository → Releases → versie → Assets. Wat er per versie veranderde: [`CHANGELOG.md`](CHANGELOG.md).
