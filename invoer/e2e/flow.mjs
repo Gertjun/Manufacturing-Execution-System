@@ -224,14 +224,10 @@ try {
   await page.getByRole("button", { name: "Stap afronden" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Afronden" }).click();
   await page.locator(".verbinding.uit").waitFor();
-  // Iets melden zonder verbinding (#78): gaat via de wachtrij mee.
-  await page.getByRole("button", { name: "Iets melden" }).click();
-  await page.locator("#v-tekst").fill("E2E: de knop Afronden zit te dicht bij Opslaan");
-  await page.getByRole("dialog").getByRole("button", { name: "Versturen" }).click();
-  await page.getByText("Bedankt, je melding gaat mee zodra er verbinding is").waitFor();
-  await page.waitForTimeout(300);
+  // D99: pilotfeedback is uitgesteld; uitsluitend de drie productieacties mogen in de wachtrij.
+  check("Geen pilotfeedbackknop", await page.getByRole("button", { name: "Iets melden" }).count() === 0);
   await shot("08-offline-wachtrij");
-  check("Statusbalk meldt wachtende acties (3 voor de stap, 1 melding)", /Geen verbinding, 4 wachten/.test(await page.locator(".verbinding").innerText()));
+  check("Statusbalk meldt drie wachtende productieacties", /Geen verbinding, 3 wachten/.test(await page.locator(".verbinding").innerText()));
   const [voor] = await q("SELECT count(*) AS n FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'");
   check("Zonder verbinding nog niets in de database", Number(voor.n) === 0);
 
@@ -247,8 +243,6 @@ try {
   await context.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await page.locator(".verbinding", { hasText: "Verbonden" }).waitFor({ timeout: 15000 });
-  const [tm] = await q("SELECT t.stapcode, o.naam, t.tekst FROM fabriek.terugmelding t LEFT JOIN fabriek.operator o ON o.id = t.operator_id WHERE t.tekst LIKE 'E2E:%'");
-  check("Melding van zonder verbinding is aangekomen, met stap en naam", tm?.stapcode === "PS2" && tm.naam === "Operator A", JSON.stringify(tm));
   const [na] = await q(`SELECT r.status, (SELECT count(*) FROM fabriek.waarde w WHERE w.stapregistratie_id = r.id) AS n
       FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id
       WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'`);
@@ -352,7 +346,19 @@ try {
   const [ps3] = await q(`SELECT o.naam FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id
       JOIN fabriek.batch b ON b.id = r.batch_id JOIN fabriek.operator o ON o.id = r.operator_id
       WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS3'`);
-  check("Wachtende start na afmelden staat op naam van wie hem invoerde (Operator A)", ps3?.naam === "Operator A", JSON.stringify(ps3));
+  check("Andere sessie verstuurt de wachtende start niet", ps3 === undefined, JSON.stringify(ps3));
+  const bewaard = await page.evaluate(() => new Promise((resolve,reject) => {
+    const req = indexedDB.open("batch-invoer",1);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      const read = db.transaction("wachtrij","readonly").objectStore("wachtrij").getAll();
+      read.onerror = () => { db.close(); reject(read.error); };
+      read.onsuccess = () => { db.close(); resolve(read.result); };
+    };
+  }));
+  const [oorsprong] = await q("SELECT g.id::text AS gebruiker,o.id::text AS operator FROM fabriek.gebruiker g JOIN fabriek.operator o ON o.gebruiker_id=g.id WHERE g.gebruikersnaam='operator.a'");
+  check("Actie bewaard met oorspronkelijke identiteit voor beoordeling", bewaard.some(a => a.status === "beoordeling" && a.userId === oorsprong.gebruiker && a.operatorId === oorsprong.operator && a.pad === "/registraties" && a.body.stapcode === "PS3" && a.body.batchnummer === "B-2026-0100"), JSON.stringify(bewaard));
   await page.getByRole("link", { name: "Zoeken" }).click();
   await page.getByLabel("Batch- of lotnummer").fill("B-2026-0100");
   await page.getByRole("button", { name: "Zoeken" }).click();
@@ -412,8 +418,8 @@ try {
   // Kwaliteit heeft een eigen startscherm (#88): wat nu te doen is en wat eraan komt, zonder aantallen per processtap.
   await page.getByRole("heading", { name: "Keuringen", level: 1 }).waitFor();
   await page.getByRole("heading", { name: /^Nu te doen/ }).waitFor();
-  check("Kwaliteit: Nu te doen en Verwacht, geen tegels per processtap",
-    (await page.getByRole("heading", { name: "Verwacht", exact: true }).count()) === 1 && (await page.getByRole("heading", { name: "Per batch" }).count()) === 0);
+  check("Kwaliteit: Nu te doen, geen uitgestelde voorspelling of tegels per processtap",
+    (await page.getByRole("heading", { name: "Verwacht", exact: true }).count()) === 0 && (await page.getByRole("heading", { name: "Per batch" }).count()) === 0);
   await shot("13b-kwaliteit-start");
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.getByRole("heading", { name: "Process Step 1" }).waitFor();
