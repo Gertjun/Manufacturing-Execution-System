@@ -35,6 +35,8 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 - #136 **PoC-omgeving vereenvoudigen** — D99: PGlite-browserdemo uit verplichte scope; inventariseer en faseer demo-specifieke afhankelijkheden, tests en workflows gecontroleerd uit. Windows-laptoppakket en PostgreSQL blijven verplichte PoC-/acceptatiebasis. Geen verdere demo-compatibiliteitsinvesteringen.
 
 ### Afsluiting tussentijdse audit (D100)
+
+D100: [PostgreSQL-baseline 45566354900](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45566354900), job 139041993323, head e7813d396e03f3bc64fcd691ad159b416316f7d3, base 31c86973bf13848cba44fc38785084953fe65e39: alle stappen geslaagd, inclusief 117/117 API, schema-equivalentie 0001–0093, beheertools (onbekende schema’s, back-up/herstel, opzettelijke rollback) en Linux-pakket. Documentatiecontrole 45566342443 groen. Geen integrale acceptatie; historische schema-upgrade en Windows blijven open.
  
 D100: weigering onbekende schemaversies vóór wijziging door een ouder migratiepakket geïmplementeerd; gerichte beheertoolregressie toegevoegd, testbewijs nog open.
 
@@ -46,7 +48,7 @@ Werk in deze volgorde; dit is de afbakening van #106–#108 en #136, geen nieuwe
 
 D101: alle legacy-rollen verliezen binnen fase 1 hun zelfstandige autorisatiewerking; behoud historische gegevens en noodzakelijke compatibiliteitsvelden. Controleer API, database, UI en regressies. Geen automatische grants, geen nieuwe domeinfunctionaliteit.
  
-1. Gerichte baseline (concept-PR, label `database-baseline`, afzonderlijke PostgreSQL-job; laatste gerichte DB-baseline groen op 82598c5, zie ACCEPTANCE-CRITERIA.md voor exact bewijs; inhoudelijke auditreview nog open): schone installatie, migraties vanaf main, beperkte DB-rechten, autorisatie-unit-tests en relevante API-regressies. Eerst uitvoeringsbewijs en oorzaken van fouten vaststellen; geen nieuwe reeks speculative hardening-migraties.
+1. Gerichte baseline (concept-PR, label `database-baseline`, afzonderlijke PostgreSQL-job; laatste gerichte DB-baseline groen op e7813d3, zie ACCEPTANCE-CRITERIA.md voor exact bewijs; inhoudelijke auditreview nog open): schone installatie, migraties vanaf main, beperkte DB-rechten, autorisatie-unit-tests en relevante API-regressies. Eerst uitvoeringsbewijs en oorzaken van fouten vaststellen; geen nieuwe reeks speculative hardening-migraties.
 2. Bundel alleen resterende blokkers: persoonlijk account-/sessiebeheer, rollen/permissions/scope/kwalificaties, onafhankelijke toekenning/intrekking, gecontroleerde personeelskoppeling, kritische herbevestiging en audit, effectieve DB-privileges en veilige tijdelijke interfaces. Zie acceptatiecriteria voor de bewijsgrens.
 3. Rond #106–#108 en #136 functioneel af; geen uitbreiding van legacy procesmodellen. Indien tijdelijk pad niet veilig kan blijven: blokkeren en expliciet vastleggen, met beoordeling van gevolgen voor behouden kernfuncties.
 4. Eindcontrole D99/ISA-mapping, integrale testreview, databaseplaatje genereren, volledige acceptatie op actuele head/base en beoordeling door Geert. Geen release of merge zonder toestemming.
