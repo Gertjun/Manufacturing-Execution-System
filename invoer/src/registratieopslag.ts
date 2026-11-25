@@ -7,11 +7,11 @@ export function registratieIdentiteit(): string {
   if (!sessie.geldig() || !i?.sub || !i.operatorId) throw new Error("Persoonlijke sessie vereist");
   return i.sub + ":" + i.operatorId;
 }
-const sleutel = (id: string, identiteit: string) => "registratie:v2:" + identiteit + ":" + id;
+export const registratieSleutel = (id: string, identiteit: string) => "registratie:v2:" + identiteit + ":" + id;
 // Oude gedeelde kopieën blijven ongemoeid; nieuwe kopieën krijgen een eigen sleutel.
 export async function bewaarEigenRegistratie(reg: Registratie, identiteit: string) {
-  await opslag.zet("cache", reg, sleutel(reg.id, identiteit));
+  await opslag.zet("cache", reg, registratieSleutel(reg.id, identiteit));
 }
 export async function leesEigenRegistratie(id: string, identiteit: string) {
-  return opslag.haal<Registratie>("cache", sleutel(id, identiteit));
+  return opslag.haal<Registratie>("cache", registratieSleutel(id, identiteit));
 }

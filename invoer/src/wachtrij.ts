@@ -5,7 +5,8 @@ import { ApiFout, GeenVerbinding, stuur } from "./api";
 import { opslag } from "./opslag";
 import { sessie } from "./sessie";
 import type { Registratie } from "./types";
-import { bewaarEigenRegistratie } from "./registratieopslag";
+import { bewaarEigenRegistratie, registratieSleutel, registratieIdentiteit } from "./registratieopslag";
+import { rechten, heeftProductRecht } from "./rechten";
 
 export interface Actie {
   volgnr?: number;
@@ -87,19 +88,62 @@ function zonderGeheim(body: unknown): unknown {
   return Object.fromEntries(Object.entries(body).filter(([k]) => !/wachtwoord|password|passphrase|authorization|token|sessionproof/i.test(k)).map(([k,v]) => [k,zonderGeheim(v)]));
 }
 
-export async function voegToe(actie: Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam" | "userId">) {
-  if (!sessie.geldig() || !sessie.inhoud()?.operatorId) throw new Error("Persoonlijke sessie vereist voor offline invoer");
-  if (!toegestaanOffline(actie.pad) || bevatGeheim(actie.body)) throw new Error("Deze handeling mag niet in de offline wachtrij");
-  await opslag.zet("wachtrij", {
-    ...actie,
-    status: "wacht",
-    aangemaakt: new Date().toISOString(),
-    userId: sessie.inhoud()?.sub,
-    operatorId: sessie.inhoud()?.operatorId,
-    operatornaam: sessie.operatornaam ?? undefined,
-  });
+type NieuweActie = Omit<Actie, "status" | "aangemaakt" | "operatorId" | "operatornaam" | "userId">;
+type Context = { registratie: Registratie; startRecht?: "execution.start" | "inspection.start" };
+
+export function controleerOfflineActie(actie: NieuweActie, context?: Context): void {
+  if (!sessie.geldig() || !sessie.inhoud()?.operatorId || !rechten()?.personal || !rechten()?.linkedPerson)
+    throw new Error("Persoonlijke sessie met MES-bevoegdheden vereist voor offline invoer");
+  if (!toegestaanOffline(actie.pad) || bevatGeheim(actie.body))
+    throw new Error("Deze handeling mag niet in de offline wachtrij");
+  const vereisten: string[] = [];
+  let product: string | null | undefined;
+  if (actie.pad === "/batches") vereisten.push("execution.batch.create");
+  else if (actie.pad === "/overdracht") vereisten.push("handover.record");
+  else if (actie.pad === "/stilstand" || actie.pad.endsWith("/einde")) vereisten.push("downtime.record");
+  else {
+    const reg = context?.registratie;
+    if (!reg || actie.registratieId !== reg.id ||
+        (actie.pad.startsWith("/registraties/") && !actie.pad.startsWith("/registraties/" + reg.id + "/")))
+      throw new Error("Registratiecontext ontbreekt");
+    product = reg.product;
+    if (actie.pad === "/lots") vereisten.push("execution.lot.create");
+    else if (actie.pad === "/registraties" && context?.startRecht) vereisten.push(context.startRecht);
+    else if (actie.pad.endsWith("/grondstoffen")) vereisten.push("execution.record");
+    else if (actie.pad.endsWith("/afronden")) vereisten.push("execution.complete");
+    else if (actie.pad.endsWith("/waarden")) {
+      const waarden = (actie.body as { waarden?: { veldcode: string }[] } | undefined)?.waarden;
+      if (!waarden?.length) throw new Error("Geen meetwaarden");
+      for (const w of waarden) {
+        const veld = reg.velden?.find(v => v.code === w.veldcode);
+        if (!veld) throw new Error("Onbekend meetveld");
+        vereisten.push(veld.gemeten_door === "kwaliteit" ? "inspection.record" : "execution.record");
+      }
+    }
+  }
+  if (!vereisten.length || !vereisten.every(code => heeftProductRecht(product, code)))
+    throw new Error("Geen MES-bevoegdheid voor deze handeling");
+}
+
+// Context is uitsluitend lokaal voor de UI-controle; nooit autorisatiebewijs voor de server.
+export async function voegActiesToe(nieuweActies: NieuweActie[], context?: Context, token = sessie.token) {
+  const identiteit = registratieIdentiteit();
+  const i = sessie.inhoud()!;
+  const controleer = () => {
+    if (token !== sessie.token || identiteit !== registratieIdentiteit()) throw new Error("Sessie gewijzigd");
+    for (const actie of nieuweActies) controleerOfflineActie(actie, context);
+  };
+  controleer();
+  await opslag.voegActiesToe(nieuweActies.map(actie => ({
+    ...actie, status: "wacht", aangemaakt: new Date().toISOString(),
+    userId: i.sub, operatorId: i.operatorId, operatornaam: sessie.operatornaam ?? undefined,
+  })), context ? { sleutel: registratieSleutel(context.registratie.id, identiteit), waarde: context.registratie } : undefined, controleer);
   await tel();
   void verwerk();
+}
+
+export async function voegToe(actie: NieuweActie, context?: Context, token = sessie.token) {
+  await voegActiesToe([actie], context, token);
 }
 
 export async function verwijder(volgnr: number) {

@@ -37,6 +37,22 @@ async function bak(naam: string, modus: IDBTransactionMode = "readonly") {
 }
 
 export const opslag = {
+  async voegActiesToe(acties: unknown[], registratie: { sleutel: string; waarde: unknown } | undefined, controleer: () => void): Promise<void> {
+    const db = await open();
+    controleer();
+    await new Promise<void>((ok, fout) => {
+      const tx = db.transaction(["wachtrij", "cache"], "readwrite");
+      tx.oncomplete = () => ok();
+      tx.onabort = () => fout(tx.error ?? new Error("Opslagtransactie afgebroken"));
+      try {
+        for (const actie of acties) tx.objectStore("wachtrij").add(actie);
+        if (registratie) tx.objectStore("cache").put(registratie.waarde, registratie.sleutel);
+      } catch (e) {
+        tx.abort();
+        fout(e);
+      }
+    });
+  },
   async alle<T>(naam: string): Promise<T[]> {
     return verzoek((await bak(naam)).getAll()) as Promise<T[]>;
   },
