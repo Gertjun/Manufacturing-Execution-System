@@ -164,9 +164,39 @@ jobs:
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap bij met de laatste versie
         run: tests/test_roadmap.sh
-      - name: Databaseregels
+      - name: PostgreSQL-client en Python voorbereiden
         run: |
           python3 -m pip install --quiet "psycopg[binary]"
+          mkdir -p "$RUNNER_TEMP/pg18"
+          cat > "$RUNNER_TEMP/pg18/pg_dump" <<'SH'
+          #!/bin/bash
+          args=()
+          output=""
+          while (( $# )); do
+            if [[ "$1" == "-f" ]]; then output="$2"; shift 2
+            else args+=("$1"); shift
+            fi
+          done
+          if [[ -n "$output" ]]; then
+            exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "${args[@]}" > "$output"
+          fi
+          exec docker exec -e PGUSER=postgres "$PG_CONTAINER" pg_dump "${args[@]}"
+          SH
+          cat > "$RUNNER_TEMP/pg18/pg_restore" <<'SH'
+          #!/bin/bash
+          if [[ "$1" == "--version" ]]; then
+            exec docker exec "$PG_CONTAINER" pg_restore --version
+          fi
+          args=("$@")
+          input="${args[-1]}"
+          unset 'args[-1]'
+          exec docker exec -i -e PGUSER=postgres "$PG_CONTAINER" pg_restore "${args[@]}" < "$input"
+          SH
+          chmod +x "$RUNNER_TEMP/pg18/pg_dump" "$RUNNER_TEMP/pg18/pg_restore"
+          echo "$RUNNER_TEMP/pg18" >> "$GITHUB_PATH"
+          echo "PG_CONTAINER=${{ job.services.postgres.id }}" >> "$GITHUB_ENV"
+      - name: Databaseregels
+        run: |
           python3 tests/test_regels.py "host=localhost port=5432 user=postgres dbname=batchgui"
       - name: Schema en migraties gelijk
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
@@ -185,6 +215,8 @@ jobs:
           npm ci --no-audit --no-fund
           npm run typecheck
           npm test
+      - name: Security- en beheertoolregressies
+        run: node --test tests/security-tools.test.mjs
       - name: Opruimschema back-ups
         run: node --test tests/rotatie.test.mjs
       - name: Beheertools (migreer, back-up, herstel)
