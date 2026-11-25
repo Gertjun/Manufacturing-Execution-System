@@ -2392,6 +2392,61 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#141 persoonlijk schaalregelconceptbeheer")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('scaling.scoped','analist',wachtwoord_hash('test-scaling'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='scaling.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        def version(product,code):
+            rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(product,code,actor))
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        v,other=version(pa,"SCALE-MANAGE"),version(pb,"SCALE-OTHER")
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'SCALE_MASS','Massa','ratio') RETURNING id",(dim,))
+        kg=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'SCALE_KG','kg','Kilogram') RETURNING id",(kind,))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('scaling.scoped','test-scaling',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT scaling_manage")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT scaling_manage")
+            con.execute("RELEASE SAVEPOINT scaling_manage")
+        denied("#141 schaalregels andere productscope lezen","SELECT recipe_scaling_list(%s)",(other,))
+        denied("#141 schaalregels andere productscope schrijven","SELECT recipe_save_scaling_rule(%s,0,NULL,'R','Fictief','nonlinear',%s,'Bron','Test')",(other,kg))
+        root=val("SELECT recipe_save_element(%s,0,NULL,NULL,'procedure','ROOT','Root',1,true)",(v,))["id"]
+        p=val("SELECT recipe_save_parameter(%s,1,NULL,%s,'Q','Massa','decimal','kg','per batch',true,'productie',true,%s)",(v,root,kg))["id"]
+        limit=val("SELECT recipe_save_parameter_limit(%s,2,NULL,%s,'decimal','target',2,NULL,NULL,'fixed')",(v,p))["id"]
+        r=val("SELECT recipe_save_scaling_rule(%s,3,NULL,'R','Fictief','nonlinear',%s,'Bron','Test')",(v,kg))
+        i=val("SELECT recipe_save_scaling_input(%s,4,NULL,%s,'I','constant',NULL,NULL,2,%s,NULL)",(v,r["id"],kg))
+        b=val("SELECT recipe_save_scaling_binding(%s,5,NULL,%s,%s,NULL)",(v,r["id"],limit))
+        data=val("SELECT recipe_scaling_list(%s)",(v,))
+        check("#141 schaalregels en gedeelde teller",data["change_no"]==6 and all(len(data[k])==1 for k in ("rules","inputs","bindings")))
+        denied("#141 stale schaalregel","SELECT recipe_delete_scaling_binding(%s,5,%s)",(v,b["id"]),"ondertussen gewijzigd")
+        denied("#141 zelfafhankelijkheid via persoonlijke functie","SELECT recipe_save_scaling_input(%s,6,NULL,%s,'CYCLE','parameter',%s,NULL,NULL,%s,NULL)",(v,r["id"],p,kg),"Circulaire afhankelijkheid")
+        denied("#141 gebonden schaalregel niet verwijderen","SELECT recipe_delete_scaling_rule(%s,6,%s)",(v,r["id"]),"foreign key")
+        denied("#141 directe schaalregelmutatie","DELETE FROM recipe_scaling_rule WHERE false",msg="permission denied")
+        check("#141 afgewezen schaalmutaties atomair",val("SELECT recipe_scaling_list(%s)",(v,))["change_no"]==6)
+        changed=val("SELECT recipe_save_scaling_rule(%s,6,%s,'R','Gewijzigd','nonlinear',%s,'Bron','Test')",(v,r["id"],kg))
+        check("#141 stabiele schaalregelidentiteit",changed["id"]==r["id"] and changed["change_no"]==7)
+        check("#141 gecontroleerde uitvoerkoppeling verwijderen",val("SELECT recipe_delete_scaling_binding(%s,7,%s)",(v,b["id"]))==8)
+        check("#141 gecontroleerde invoer verwijderen",val("SELECT recipe_delete_scaling_input(%s,8,%s)",(v,i["id"]))==9)
+        check("#141 gecontroleerde regel verwijderen",val("SELECT recipe_delete_scaling_rule(%s,9,%s)",(v,r["id"]))==10)
+        data=val("SELECT recipe_scaling_list(%s)",(v,))
+        check("#141 lege schaalgrafiek na verwijderen",data["change_no"]==10 and all(not data[k] for k in ("rules","inputs","bindings")))
+        con.execute("RESET ROLE")
+        check("#141 persoonlijke schaalregel-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_scaling_rule' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='DELETE'",(r["id"],actor))==1)
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#141 ingetrokken schaalregelbevoegdheid","SELECT recipe_scaling_list(%s)",(v,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

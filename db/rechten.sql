@@ -693,7 +693,7 @@ BEGIN
 END $$;
 
 -- 0109: expliciete persoonlijke receptvereisten-/lotregelfuncties.
-DO $
+DO $$
 BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=109) THEN
    GRANT EXECUTE ON FUNCTION fabriek.recipe_requirements_list(uuid),
@@ -710,10 +710,10 @@ BEGIN
      fabriek.recipe_save_compatibility_rule(uuid,integer,uuid,uuid,text),
      fabriek.recipe_delete_compatibility_rule(uuid,integer,uuid) TO mes_app;
  END IF;
-END $;
+END $$;
 
 -- 0110: expliciete persoonlijke catalogusfuncties.
-DO $
+DO $$
 BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=110) THEN
    GRANT EXECUTE ON FUNCTION fabriek.unit_catalog_list(),
@@ -723,7 +723,21 @@ BEGIN
      fabriek.unit_catalog_create_conversion(uuid,uuid,numeric,numeric,numeric,text),
      fabriek.unit_catalog_append_conversion(uuid,integer,numeric,numeric,numeric,text) TO mes_app;
  END IF;
-END $;
+END $$;
+
+-- 0111: uitsluitend de expliciete persoonlijke schaalregelconceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=111) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_scaling_list(uuid),
+     fabriek.recipe_save_scaling_rule(uuid,integer,uuid,text,text,text,uuid,text,text),
+     fabriek.recipe_delete_scaling_rule(uuid,integer,uuid),
+     fabriek.recipe_save_scaling_input(uuid,integer,uuid,uuid,text,text,uuid,text,numeric,uuid,uuid),
+     fabriek.recipe_delete_scaling_input(uuid,integer,uuid),
+     fabriek.recipe_save_scaling_binding(uuid,integer,uuid,uuid,uuid,uuid),
+     fabriek.recipe_delete_scaling_binding(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
 
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
