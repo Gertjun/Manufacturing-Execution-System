@@ -1,0 +1,52 @@
+name: Windows fase 1 praktijktestpakket
+on:
+  push:
+    branches: [test/windows-phase-1-582cf3c]
+    paths: ['.github/workflows/windows-praktijkpakket.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  pakket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 582cf3c11308db77684d3062fed2fc1c2743bf80
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Geaccepteerde bron verifiëren
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD)" = "582cf3c11308db77684d3062fed2fc1c2743bf80"
+          test "$(node tools/verifieer_acceptatie.mjs '582cf3c11308db77684d3062fed2fc1c2743bf80')" = true
+          git rev-parse 'HEAD^{tree}'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Windows-pakket bouwen
+        run: |
+          for m in api invoer portaal; do (cd "$m" && npm ci --no-audit --no-fund); done
+          tools/maak_laptoppakket.sh "$RUNNER_TEMP/batch-gui-laptop" windows
+      - name: Pakket controleren en herkomst vastleggen
+        run: |
+          mkdir -p "$RUNNER_TEMP/praktijk"
+          V="$(cat VERSIE)"
+          ZIP="$RUNNER_TEMP/batch-gui-laptop-$V-windows.zip"
+          unzip -tq "$ZIP"
+          for f in START.bat runtime/node.exe postgres/bin/postgres.exe db/schema.sql db/seed_accounts_demo.sql db/migraties/0095_mes_demo_accounts.sql README.md VERSIE; do
+            test -s "$RUNNER_TEMP/batch-gui-laptop/$f"
+          done
+          cp "$ZIP" "$RUNNER_TEMP/praktijk/"
+          cd "$RUNNER_TEMP/praktijk"
+          sha256sum "batch-gui-laptop-$V-windows.zip" > SHA256SUMS.txt
+          printf 'Broncommit: %s\nVersie: %s\nAcceptatierun: 45645684067\nUitsluitend fictieve data; geen release.\n' '582cf3c11308db77684d3062fed2fc1c2743bf80' "$V" > HERKOMST.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: MES-fase1-Windows-582cf3c
+          path: ${{ runner.temp }}/praktijk/
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
