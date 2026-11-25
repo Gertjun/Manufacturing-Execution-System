@@ -1694,7 +1694,7 @@ def main():
     faalt("Een gewicht per batch van 0 kan niet", "UPDATE product SET batchgewicht_kg = 0 WHERE code = 'PRD-A'", (), "check")
     check("Productie-uren per dag: de drie diensten samen = 24", float(val("SELECT productie_uren_per_dag()")) == 24)
 
-    print("\\nFase 2: materiaalstamdatafundament (#109)")
+    print("\nFase 2: materiaalstamdatafundament (#109)")
     for tabel in ("material_class", "material_definition", "material_definition_version"):
         for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
             check(f"#109 {tabel}: geen directe app-{privilege}",
@@ -1723,7 +1723,7 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
-    print("\\n#109 persoonlijk materiaalbeheer")
+    print("\n#109 persoonlijk materiaalbeheer")
     con.execute("BEGIN")
     try:
         # Afzonderlijke fictieve accounts; geen invloed van eerdere fixtures.
