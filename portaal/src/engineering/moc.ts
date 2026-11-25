@@ -6,6 +6,10 @@ interface Version {id:string;revision:number;name:string;lifecycle_status:string
 interface Request {id:string;baseline_version_id:string|null;change_kind:"initial"|"revision";reason:string;impact_description:string;created_by:string;created_at:string}
 type Area="header"|"procedure"|"parameters"|"formula"|"materials"|"equipment"|"personnel"|"instructions"|"quality"|"lot"|"scaling"|"other";
 interface Impact {id:string;request_id:string;area:Area;explanation:string}
+interface ReviewRequirements {matrix_version:number;recipe_version_id:string;change_no:number;baseline_version_id:string|null;baseline_change_no:number|null;impact_areas:string[];required_reviews:string[]}
+interface ComparisonIndex {recipe_version_id:string;change_no:number;baseline_version_id:string|null;baseline_change_no:number|null;differences:{area:string;entity:string;item_key:string;change:"added"|"removed"|"changed"}[]}
+const reviewDomains:Record<string,string>={engineering:"Engineering",production:"Productie",quality:"Kwaliteit"};
+const changeLabels:Record<string,string>={added:"Toegevoegd",removed:"Verwijderd",changed:"Gewijzigd"};
 interface Moc {change_no:number;lifecycle_status:string;request:Request|null;impacts:Impact[]}
 const areas:Record<Area,string>={header:"Receptheader",procedure:"Procedure",parameters:"Procesparameters",formula:"Formule",materials:"Materialen",equipment:"Equipment",personnel:"Personeel",instructions:"Instructies",quality:"Kwaliteit",lot:"Lotregels",scaling:"Schaalregels",other:"Overig"};
 const field=(name:string,control:Node)=>h("label",{},name,control);
@@ -65,6 +69,48 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
           await mutate(i?"PATCH":"POST",base+"/impacts"+(i?"/"+encodeURIComponent(i.id):""),{expected_change_no:data.change_no,request_id:r.id,area:area.value,explanation:explanation.value.trim()});
         });
       }
+      function comparisonPane(r:Request){
+        const result=h("div",{});
+        let reading=false;
+        async function compare(){
+          if(!active()||reading||busy)return;
+          reading=true;result.replaceChildren(h("p",{class:"sub"},"Vergelijking en beoordelingsmatrix ophalen…"));
+          try{
+            const [raw,matrix]=await Promise.all([
+              haal<{comparison_text:string}>(base+"/comparison"),
+              haal<ReviewRequirements>(base.replace(/\/moc$/,"")+"/review-requirements")
+            ]);
+            if(!active())return;
+            // Parse only the index and bounded integer counters for navigation.
+            // Never render parsed numeric recipe content: the original JSON text is authoritative.
+            const index=JSON.parse(raw.comparison_text) as ComparisonIndex;
+            if(index.recipe_version_id!==version.id||matrix.recipe_version_id!==version.id||
+              index.change_no!==data.change_no||matrix.change_no!==data.change_no||
+              index.baseline_version_id!==r.baseline_version_id||matrix.baseline_version_id!==r.baseline_version_id||
+              index.baseline_change_no!==matrix.baseline_change_no)throw Error("Recept of referentie is ondertussen gewijzigd. Vernieuw het MOC-dossier.");
+            const areaNames=(code:string)=>areas[code as Area]??code;
+            const grouped=[...new Set(index.differences.map(x=>x.area))];
+            result.replaceChildren(
+              h("p",{class:"sub"},"Momentopname · conceptteller "+index.change_no+" · referentieteller "+(index.baseline_change_no??"niet van toepassing")),
+              h("h5",{},"Vereiste onafhankelijke beoordelingen"),
+              h("p",{class:"sub"},"Matrixversie "+matrix.matrix_version+" · combinatie van opgegeven en afgeleide impactgebieden. Dit is een preview, geen vastgezette beoordelingsronde."),
+              h("ul",{},...matrix.required_reviews.map(x=>h("li",{},reviewDomains[x]??x))),
+              h("p",{},"Impactgebieden: "+(matrix.impact_areas.map(areaNames).join(", ")||"Geen")),
+              h("h5",{},"Inhoudelijke verschillen ("+index.differences.length+")"),
+              h("p",{class:"sub"},["added","removed","changed"].map(k=>changeLabels[k]+": "+index.differences.filter(x=>x.change===k).length).join(" · ")),
+              ...grouped.map(a=>h("details",{},h("summary",{},areaNames(a)+" ("+index.differences.filter(x=>x.area===a).length+")"),
+                h("ul",{},...index.differences.filter(x=>x.area===a).map(x=>h("li",{},(changeLabels[x.change]??x.change)+" · "+x.entity+" · "+x.item_key))))),
+              index.differences.length?null:h("p",{class:"leeg"},"Geen inhoudelijke verschillen."),
+              h("details",{},h("summary",{},"Exacte voor-/na-gegevens (server-JSON)"),
+                h("p",{class:"sub"},"Originele servertekst, zonder numerieke herinterpretatie of afronding. Bevat alle voor-/na-waarden en sleutels."),
+                h("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},raw.comparison_text)));
+          }catch(e){if(active())result.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
+          finally{reading=false;}
+        }
+        return h("section",{},h("h5",{},"Revisievergelijking en beoordelingsmatrix"),
+          h("p",{class:"sub"},r.baseline_version_id?"Vergelijking met "+label(r.baseline_version_id):"Initiële definitie zonder referentierevisie."),
+          h("button",{type:"button",class:"knop",onclick:compare},"Vergelijking en matrix laden / vernieuwen"),result);
+      }
       const r=data.request;
       pane.replaceChildren(h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("p",{class:"sub"},"Eén onverwijderbaar dossier per receptrevisie. Impactlabels beschrijven de wijziging, maar bewijzen geen volledigheid en bepalen geen autorisatie."),
@@ -77,7 +123,7 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
               if(active()&&window.confirm("Impactgebied uit dit concept verwijderen?"))await mutate("DELETE",base+"/impacts/"+encodeURIComponent(i.id)+"?expected_change_no="+data.change_no);
             }},"Verwijderen"):null)),
           data.impacts.length?null:h("p",{class:"leeg"},"Nog geen impactgebieden vastgelegd."),
-          editable&&data.impacts.length<Object.keys(areas).length?impactForm(r):null)
+          editable&&data.impacts.length<Object.keys(areas).length?impactForm(r):null,comparisonPane(r))
           :h("div",{},h("p",{class:"leeg"},"Nog geen MOC-dossier."),
             editable&&(version.revision===1||earlier.length)?requestForm():null,
             editable&&version.revision>1&&!earlier.length?h("p",{class:"sub"},"Geen eerdere revisie van deze receptidentiteit beschikbaar."):null),
