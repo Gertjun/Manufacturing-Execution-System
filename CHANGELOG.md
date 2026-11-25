@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #111 (deel): 0107 versiegebonden lotnorm (1–50), verplichte afwijkingsreden, receptafhankelijk goedkeuringsvereiste en expliciete incompatibiliteit tussen MBR-revisies van hetzelfde product. Audit, beperkte ACL en regressies toegevoegd. Geen lotvorming of uitvoering; nog niet getest.
+
 - #111 (deel): 0106 versiegebonden equipment- en kwalificatievereisten, instructies met bevestigingsplicht en links naar exacte specificatiegrenzen; audit, beperkte ACL en regressies toegevoegd. Geen fysieke toewijzing, kwalificatietoekenning of uitvoering; nog niet getest.
 
 - #141 (deel): 0105 relationele schaalregelgrafiek binnen MBR-versie, getypeerde batch-/parameter-/equipment-/constante invoer, expliciete conversieversie, uitvoerkoppeling, cycluspreventie en audit. Geen uitvoerbare formules of runtimewrites; regressies nog niet uitgevoerd.

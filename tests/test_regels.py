@@ -2187,6 +2187,52 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+    print("\n#111 lotnorm en expliciete receptincompatibiliteit")
+    con.execute("BEGIN")
+    try:
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product=val("SELECT id FROM product WHERE code='PRD-A'")
+        other_product=val("SELECT id FROM product WHERE id<>%s ORDER BY id LIMIT 1",(product,))
+        def lr(p,code):
+            return val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(p,code,actor))
+        r1,r2,r3=lr(product,"LOT-RULE-A"),lr(product,"LOT-RULE-B"),lr(other_product,"LOT-RULE-C")
+        def lv(r,n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Lot rule test',%s) RETURNING id",(r,n,actor))
+        v1,v2,v3,v4,v5=lv(r1,1),lv(r1,2),lv(r2,1),lv(r3,1),lv(r1,3)
+        lsql="INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,%s,%s)"
+        con.execute(lsql,(v1,4,True))
+        con.execute(lsql,(v2,6,False))
+        con.execute(lsql,(v3,1,True))
+        con.execute(lsql,(v5,50,True))
+        check("#111 verschillende lotnormen binnen product",val("SELECT count(DISTINCT nominal_batch_count) FROM recipe_lot_rule WHERE recipe_version_id IN (%s,%s)",(v1,v2))==2)
+        check("#111 reden altijd vereist",val("SELECT bool_and(deviation_reason_required) FROM recipe_lot_rule WHERE recipe_version_id IN (%s,%s)",(v1,v2)))
+        check("#111 goedkeuring per recept",val("SELECT deviation_approval_required FROM recipe_lot_rule WHERE recipe_version_id=%s",(v1,)) and not val("SELECT deviation_approval_required FROM recipe_lot_rule WHERE recipe_version_id=%s",(v2,)))
+        csql="INSERT INTO recipe_compatibility_rule(recipe_version_id,other_recipe_version_id,reason) VALUES (%s,%s,%s)"
+        con.execute(csql,(v2,v1,"Fictief verschil in materiaalvereiste"))
+        con.execute(csql,(v3,v2,"Fictief verschil tussen receptidentiteiten"))
+        check("#111 oudere revisie niet gemuteerd",val("SELECT count(*) FROM recipe_compatibility_rule WHERE recipe_version_id=%s",(v1,))==0)
+        check("#111 expliciet verbod tussen receptidentiteiten van hetzelfde product",val("SELECT count(*) FROM recipe_compatibility_rule WHERE recipe_version_id=%s AND other_recipe_version_id=%s",(v3,v2))==1)
+        check("#111 geen impliciet verbod tussen overige revisies",val("SELECT count(*) FROM recipe_compatibility_rule WHERE (recipe_version_id=%s AND other_recipe_version_id=%s) OR (recipe_version_id=%s AND other_recipe_version_id=%s)",(v1,v3,v3,v1))==0)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT lot_rule_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT lot_rule_guard")
+            con.execute("RELEASE SAVEPOINT lot_rule_guard")
+        denied("#111 nul batches",lsql,(v4,0,True))
+        denied("#111 norm groter dan 50",lsql,(v4,51,True))
+        denied("#111 dubbele lotnorm",lsql,(v1,5,True),"duplicate")
+        denied("#111 afwijkingsreden niet uitzetten","UPDATE recipe_lot_rule SET deviation_reason_required=false WHERE recipe_version_id=%s",(v1,))
+        denied("#111 lotregel niet verplaatsen","UPDATE recipe_lot_rule SET recipe_version_id=%s WHERE recipe_version_id=%s",(v4,v1),"onveranderlijk")
+        denied("#111 zelfincompatibiliteit",csql,(v1,v1,"Fictief"))
+        denied("#111 incompatibiliteit andere producten",csql,(v1,v4,"Fictief"),"hetzelfde product")
+        denied("#111 lege incompatibiliteitsreden",csql,(v1,v3," "))
+        denied("#111 dubbele incompatibiliteit",csql,(v2,v1,"Fictief"),"duplicate")
+        for tabel in ("recipe_lot_rule","recipe_compatibility_rule"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
