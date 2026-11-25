@@ -297,18 +297,21 @@ async function bouwDatabase(metTestdata) {
   await d.query(sqlBestand("schema.sql"));
   if (metTestdata) {
     console.log("Fictieve productiedata laden (90 dagen, ca. 540 batches) …");
-    await d.query("BEGIN");
-    await d.query("SET LOCAL session_replication_role = replica"); // regels zijn al toegepast bij het genereren
-    await d.query(sqlBestand("testdata.sql"));
-    await verschuifNaarNu(d);
-    await d.query("COMMIT");
     // Alleen bij het opnieuw opbouwen van de fictieve database. Historische
     // identiteiten blijven als referentie bestaan, maar kunnen niet meer inloggen.
     const seed = sqlBestand("seed_accounts_demo.sql");
-    const blok = seed.split("-- BEGIN MES DEMO IDENTITIES")[1]?.split("-- END MES DEMO IDENTITIES")[0];
-    if (!blok || !blok.includes("INSERT INTO authorization_grant")) throw new Error("MES-demo-initialisatie ontbreekt");
+    const begin = "-- BEGIN MES DEMO IDENTITIES (ook gebruikt door Windows-starter)";
+    const einde = "-- END MES DEMO IDENTITIES";
+    const delen = seed.split(begin);
+    const blokken = delen[1]?.split(einde);
+    const blok = blokken?.[0];
     await d.query("BEGIN");
     try {
+      if (delen.length !== 2 || blokken?.length !== 2 || !blok?.includes("INSERT INTO authorization_grant")) throw new Error("MES-demo-initialisatie ontbreekt");
+      await d.query("SET LOCAL session_replication_role = replica");
+      await d.query(sqlBestand("testdata.sql"));
+      await verschuifNaarNu(d);
+      await d.query("SET LOCAL session_replication_role = origin");
       await d.query("SET LOCAL search_path = fabriek, public");
       await d.query("SELECT set_config('fabriek.gebruiker', 'seed', true)");
       await d.query("UPDATE gebruiker SET actief=false WHERE actief");
@@ -316,6 +319,11 @@ async function bouwDatabase(metTestdata) {
       await d.query("COMMIT");
     } catch (e) {
       await d.query("ROLLBACK");
+      await d.end();
+      // Alleen de zojuist nieuw opgebouwde fictieve database opruimen.
+      const cleanup = await verbind("postgres");
+      try { await cleanup.query(`DROP DATABASE IF EXISTS "${naam}" WITH (FORCE)`); }
+      finally { await cleanup.end(); }
       throw e;
     }
 
