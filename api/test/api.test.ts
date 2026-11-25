@@ -2238,3 +2238,73 @@ describe("#141 eenhedencatalogus en materiaal-eenheidsAPI", () => {
     assert.equal((await verzoek("GET","/units/for-product/"+pa,scoped)).status,403);
   });
 });
+
+describe("#111 receptinhoud-API", () => {
+  test("persoonlijke productscope, exacte hoeveelheden, gezamenlijke teller en gecontroleerde mutaties", async () => {
+    const engineer=await login("mes.engineer");
+    const operator=await login("mes.operator");
+    const {rows:products}=await beheerDb.query("SELECT id,code FROM fabriek.product WHERE code IN ('PRD-A','PRD-B')");
+    const pa=products.find(p=>p.code==="PRD-A").id;
+    const pb=products.find(p=>p.code==="PRD-B").id;
+    const naam="mes.content.scoped";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]}=await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,pa]);
+    const scoped=await login(naam);
+    const make=async (product_id:string,code:string) => {
+      const r=await verzoek("POST","/recipes/",engineer,{product_id,code,name:code,description:""});
+      assert.equal(r.status,201,JSON.stringify(r.body));
+      const list=await verzoek("GET","/recipes/?product_id="+product_id,engineer);
+      assert.equal(list.status,200,JSON.stringify(list.body));
+      return list.body.find((x:any)=>x.id===r.body.id).versions[0].id as string;
+    };
+    const v=await make(pa,"API-CONTENT-A");
+    const other=await make(pb,"API-CONTENT-B");
+    const base="/recipes/versions/"+v+"/content";
+    const otherBase="/recipes/versions/"+other+"/content";
+    const root=await verzoek("POST","/recipes/versions/"+v+"/procedure/elements",scoped,{expected_change_no:0,parent_id:null,kind:"procedure",code:"ROOT",name:"Root",position:1,required:true});
+    assert.equal(root.status,201,JSON.stringify(root.body));
+    const {rows:[mv]}=await beheerDb.query("WITH m AS (INSERT INTO fabriek.material_definition(code) VALUES ('API-CONTENT-MAT') RETURNING id) INSERT INTO fabriek.material_definition_version(material_definition_id,revision,name,unit,created_by) SELECT m.id,1,'Fictief','kg',g.id FROM m CROSS JOIN fabriek.gebruiker g WHERE g.gebruikersnaam='mes.engineer' RETURNING id");
+    const parameter={expected_change_no:1,procedural_element_id:root.body.id,code:"TEMP",name:"Temperatuur",data_type:"decimal",unit:"degC",frequency:"per batch",required:true,responsible_activity:"productie",critical:true,measurement_unit_id:null};
+    assert.equal((await verzoek("GET",base)).status,401);
+    assert.equal((await verzoek("GET",base,operator)).status,403);
+    assert.equal((await verzoek("GET",otherBase,scoped)).status,403);
+    assert.equal((await verzoek("POST",otherBase+"/parameters",scoped,parameter)).status,403);
+    assert.equal((await verzoek("POST",base+"/parameters",scoped,{...parameter,created_by:randomUUID()})).status,400);
+    const add=async (path:string,body:object) => {
+      const res=await verzoek("POST",base+"/"+path,scoped,body);
+      assert.equal(res.status,201,JSON.stringify(res.body));
+      return res.body;
+    };
+    const p=await add("parameters",parameter);
+    const precise="9007199254740993.125";
+    const limit={expected_change_no:2,parameter_id:p.id,data_type:"decimal",category:"target",target_value:precise,lower_value:null,upper_value:null,scaling:"fixed"};
+    const l=await add("parameter-limits",limit);
+    const f=await add("formulas",{expected_change_no:3,reference_quantity:"1000.125",reference_unit:"kg",reference_unit_id:null});
+    const m=await add("material-requirements",{expected_change_no:4,formula_id:f.id,procedural_element_id:root.body.id,material_version_id:mv.id,code:"INPUT",direction:"input",quantity:"600.125",unit:"kg",scaling:"linear",measurement_unit_id:null});
+    const data=await verzoek("GET",base,scoped);
+    assert.equal(data.status,200,JSON.stringify(data.body));
+    assert.equal(data.body.change_no,5);
+    assert.equal(data.body.parameter_limits[0].target_value,precise);
+    assert.equal(data.body.formulas[0].reference_quantity,"1000.125");
+    assert.equal(data.body.material_requirements[0].quantity,"600.125");
+    assert.equal((await verzoek("PATCH",base+"/parameter-limits/"+l.id,scoped,limit)).status,409);
+    assert.equal((await verzoek("POST",base+"/parameter-limits",scoped,{...limit,expected_change_no:5,category:"process_limit",target_value:null,lower_value:"10",upper_value:"1"})).status,422);
+    assert.equal((await verzoek("DELETE",base+"/parameters/"+p.id+"?expected_change_no=5",scoped)).status,422);
+    const updated=await verzoek("PATCH",base+"/parameter-limits/"+l.id,scoped,{...limit,expected_change_no:5,target_value:"91.125"});
+    assert.equal(updated.status,200,JSON.stringify(updated.body));
+    assert.equal(updated.body.id,l.id);
+    assert.equal(updated.body.change_no,6);
+    let n=6;
+    for(const [path,id] of [["material-requirements",m.id],["formulas",f.id],["parameter-limits",l.id],["parameters",p.id]]) {
+      const deleted=await verzoek("DELETE",base+"/"+path+"/"+id+"?expected_change_no="+n,scoped);
+      assert.equal(deleted.status,200,JSON.stringify(deleted.body));
+      assert.equal(deleted.body.change_no,++n);
+    }
+    const final=await verzoek("GET",base,scoped);
+    assert.equal(final.status,200,JSON.stringify(final.body));
+    assert.equal(final.body.change_no,10);
+    for(const key of ["parameters","parameter_limits","formulas","material_requirements"]) assert.deepEqual(final.body[key],[]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("GET",base,scoped)).status,403);
+  });
+});
