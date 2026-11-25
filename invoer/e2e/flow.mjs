@@ -506,6 +506,8 @@ try {
   await page.getByRole("button", { name: "Afmelden" }).click();
   const bevestigAf = page.getByRole("dialog").getByRole("button", { name: "Afmelden" });
   if (await bevestigAf.isVisible().catch(() => false)) await bevestigAf.click();
+  await page.waitForURL(u => u.pathname.startsWith("/portaal/") && u.hash === "#/login");
+  await page.goto(`${BASIS}/invoer/#/login`);
   await page.getByLabel("Gebruikersnaam").fill("operator.f");
   await page.getByLabel("Wachtwoord").fill("tijdelijk-1");
   await page.getByRole("button", { name: "Inloggen" }).click();
@@ -514,7 +516,10 @@ try {
   await page.locator("#ww-nieuw").fill("eigen-ww-f");
   await page.locator("#ww-nogmaals").fill("eigen-ww-f");
   await shot("14e-eigen-wachtwoord");
+  const gewijzigd = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/wachtwoord" && r.request().method() === "POST");
   await page.getByRole("button", { name: "Opslaan en verder" }).click();
+  const gewijzigdRes = await gewijzigd;
+  check("Eigen wachtwoord door server bevestigd", gewijzigdRes.status() === 200);
   await page.getByRole("heading", { name: "Kies een stap" }).waitFor();
   check("Daarna de stappen, met de eigen naam", (await page.locator(".balk-eigen-naam").innerText()) === "Operator Nieuw");
 
