@@ -9,6 +9,8 @@ interface Limit {id:string;parameter_id:string;data_type:"decimal"|"integer";cat
 interface Formula {id:string;reference_quantity:string;reference_unit:string;reference_unit_id:string|null}
 interface MaterialRequirement {id:string;formula_id:string;procedural_element_id:string|null;material_version_id:string;code:string;direction:"input"|"output";quantity:string;unit:string;scaling:"fixed"|"linear";measurement_unit_id:string|null}
 interface MaterialReference {id:string;material_code:string;revision:number;name:string;unit:string|null;measurement_unit_id:string|null}
+interface EquipmentRequirement {id:string;procedural_element_id:string;code:string;equipment_class_code:string;description:string;required_count:number;minimum_capacity:string|null;capacity_unit_id:string|null}
+interface Requirements {change_no:number;equipment_requirements:EquipmentRequirement[]}
 interface References {materials:MaterialReference[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
@@ -34,9 +36,9 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
     if(!active())return;
     area.replaceChildren(h("p",{class:"sub"},"Formule en parameters ophalen…"));
     try {
-      const [data,procedure,catalog,references]=await Promise.all([haal<Content>(base),haal<Procedure>(prefix+"/procedure"),haal<Catalog>("/units/for-product/"+encodeURIComponent(productId)),haal<References>("/recipes/references/"+encodeURIComponent(productId))]);
+      const [data,procedure,catalog,references,requirements]=await Promise.all([haal<Content>(base),haal<Procedure>(prefix+"/procedure"),haal<Catalog>("/units/for-product/"+encodeURIComponent(productId)),haal<References>("/recipes/references/"+encodeURIComponent(productId)),haal<Requirements>(prefix+"/requirements")]);
       if(!active())return;
-      if(data.change_no!==procedure.change_no)throw Error("Recept is ondertussen gewijzigd. Vernieuw het onderdeel.");
+      if(data.change_no!==procedure.change_no||data.change_no!==requirements.change_no)throw Error("Recept is ondertussen gewijzigd. Vernieuw het onderdeel.");
       const editable=version.lifecycle_status==="draft"&&magReceptconcept();
       const error=h("p",{class:"foutmelding",role:"alert"});
       const unitOptions=catalog.units.map(u=>({id:u.id,label:u.code+" — "+u.symbol+" ("+u.name+")"}));
@@ -52,17 +54,17 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         melding("Receptinhoud opgeslagen","ok");
         await refresh();
       }
-      function save(title:string,fields:Node[],path:string,body:()=>object,id?:string) {
+      function save(title:string,fields:Node[],path:string,body:()=>object,id?:string,root=base) {
         return h("details",{},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
           e.preventDefault();
           if(!active())return;
-          try{await mutate(id?"PATCH":"POST",base+"/"+path+(id?"/"+id:""),{expected_change_no:data.change_no,...body()});}
+          try{await mutate(id?"PATCH":"POST",root+"/"+path+(id?"/"+id:""),{expected_change_no:data.change_no,...body()});}
           catch(e){if(active())error.textContent=(e as Error).message;}
         }},fields,h("button",{class:"knop knop-hoofd",type:"submit"},"Opslaan")));
       }
-      function remove(path:string,id:string,label:string) {
+      function remove(path:string,id:string,label:string,root=base) {
         return h("button",{class:"knop knop-klein",type:"button",onclick:async()=>{
-          if(active()&&window.confirm(label+" verwijderen uit dit concept?"))await mutate("DELETE",base+"/"+path+"/"+id+"?expected_change_no="+data.change_no);
+          if(active()&&window.confirm(label+" verwijderen uit dit concept?"))await mutate("DELETE",root+"/"+path+"/"+id+"?expected_change_no="+data.change_no);
         }},"Verwijderen");
       }
       function formulaForm(f?:Formula) {
@@ -145,6 +147,32 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
             scaling:scaling.value,measurement_unit_id:selected.measurement_unit_id};
         },m?.id);
       }
+      const requirementsRoot=prefix+"/requirements";
+      function equipmentForm(r?:EquipmentRequirement) {
+        const element=choice(elementOptions,r?.procedural_element_id??"");
+        const code=input(r?.code??"",100),equipmentClass=input(r?.equipment_class_code??"",100);
+        const description=input(r?.description??"",10000);
+        const count=h("input",{type:"number",min:1,max:2147483647,step:1,required:true,value:String(r?.required_count??1)});
+        const capacity=exact(r?.minimum_capacity??"");
+        const capacityUnit=choice(unitOptions,r?.capacity_unit_id??"",false);
+        function sync(){
+          const hasCapacity=capacity.value.trim()!=="";
+          capacityUnit.disabled=!hasCapacity;
+          capacityUnit.required=hasCapacity;
+        }
+        capacity.addEventListener("input",sync);sync();
+        return save(r?"Equipmentvereiste wijzigen":"Equipmentvereiste toevoegen",[
+          field("Procedure-element",element),field("Code vereiste",code),
+          field("Equipmentklassecode (voorlopig)",equipmentClass),field("Omschrijving",description),
+          field("Vereist aantal",count),field("Minimumcapaciteit (optioneel)",capacity),field("Capaciteitseenheid",capacityUnit)
+        ],"equipment-requirements",()=>{
+          const n=Number(count.value),value=decimalValue(capacity);
+          if(!Number.isInteger(n)||n<1||n>2147483647)throw Error("Geef een geldig positief geheel aantal op.");
+          if(value!==null&&(!/^[0-9]+(?:\.[0-9]+)?$/.test(value)||!/[1-9]/.test(value)||!unit(capacityUnit.value)))throw Error("Minimumcapaciteit vereist een positieve waarde en cataloguseenheid.");
+          return {procedural_element_id:element.value,code:code.value.trim(),equipment_class_code:equipmentClass.value.trim(),
+            description:description.value.trim(),required_count:n,minimum_capacity:value,capacity_unit_id:value===null?null:capacityUnit.value};
+        },r?.id,requirementsRoot);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -168,6 +196,20 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(editable&&data.formulas.length&&usableMaterials.length?[materialForm()]:[]),
         ...(editable&&!data.formulas.length?[h("p",{class:"sub"},"Maak eerst de referentieformule aan.")]:[]),
         ...(editable&&!usableMaterials.length?[h("p",{class:"sub"},"Geen materiaalrevisies met expliciet gekoppelde cataloguseenheid beschikbaar.")]:[]),
+        h("h4",{},"Equipmentvereisten"),
+        h("p",{class:"sub"},"Voorlopige equipmentklasse-eisen per procedure-element; geen fysieke toewijzing. Resourcecatalogus en geschiktheidsvalidatie volgen in fase 4."),
+        ...requirements.equipment_requirements.map(r=>{
+          const element=procedure.elements.find(e=>e.id===r.procedural_element_id);
+          const u=r.capacity_unit_id?unit(r.capacity_unit_id):undefined;
+          return h("details",{},h("summary",{},r.code+" — "+r.equipment_class_code),
+            h("p",{},r.description),
+            h("p",{class:"sub"},"Procedure-element: "+(element?element.code+" — "+element.name:r.procedural_element_id)+" · Aantal: "+r.required_count),
+            h("p",{},"Minimumcapaciteit: "+(r.minimum_capacity===null?"Niet opgegeven":r.minimum_capacity+" "+(u?.symbol??r.capacity_unit_id??"onbekende eenheid"))),
+            editable&&elementOptions.length?equipmentForm(r):null,
+            editable?remove("equipment-requirements",r.id,"Equipmentvereiste "+r.code,requirementsRoot):null);
+        }),
+        ...(requirements.equipment_requirements.length?[]:[h("p",{class:"leeg"},"Nog geen equipmentvereisten.")]),
+        ...(editable&&elementOptions.length?[equipmentForm()]:[]),
         h("h4",{},"Procesparameters"),
         ...data.parameters.map(p=>{
           const limits=data.parameter_limits.filter(l=>l.parameter_id===p.id);
@@ -186,5 +228,5 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
       );
     }catch(e){if(active())area.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
   }
-  return h("section",{},h("h3",{},"Formule, materialen en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
+  return h("section",{},h("h3",{},"Formule, materialen, equipment en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
 }
