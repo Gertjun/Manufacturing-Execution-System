@@ -726,3 +726,12 @@ BEGIN
      fabriek.material_list() TO mes_app;
  END IF;
 END $$;
+
+-- 0098: alleen productgebonden, persoonlijk gecontroleerde MBR-conceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=98) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_create(uuid,text,text,text),
+     fabriek.recipe_create_next_version(uuid,integer,text,text),fabriek.recipe_list(uuid) TO mes_app;
+ END IF;
+END $$;

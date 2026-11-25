@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #109–110 (deel): 0098 stabiele MBR-identiteiten per product, afzonderlijke conceptversies, persoonlijke productgebonden receptbevoegdheid en regressies. Geen beoordeling/vrijgave of uitvoering; nog niet getest.
+
 - #109 (deel): gerichte PostgreSQL/Node 22-baseline geslaagd op a28cd0e (run 45682177664): 714 DB-controles, 119 API-tests, historische upgrade en laptoppakket; databaseplaatje en OpenAPI uit dezelfde run opgenomen. Geen integrale acceptatie.
 
 - #109 (deel): materiaal-API met persoonlijk gebonden transacties, invoervalidatie, revisieconflict (409) en positieve/negatieve API-regressies; nog niet uitgevoerd.

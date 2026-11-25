@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -6748,5 +6748,121 @@ END $$;
 REVOKE ALL ON FUNCTION material_manage_actor(),material_create_class(text,text),
  material_create_definition(text,text,uuid,text,uuid,uuid),
  material_append_version(uuid,integer,text,uuid,text),material_list() FROM PUBLIC;
+
+COMMIT;
+
+BEGIN;
+-- Migratie 0098: MBR-identiteit en conceptversies (D89 R01-R05, #109-110).
+SET search_path = fabriek, public;
+
+-- Eén product kan meerdere stabiele receptidentiteiten hebben.
+CREATE TABLE master_recipe (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL REFERENCES product(id),
+    code text NOT NULL CHECK (btrim(code) <> ''),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    created_by uuid NOT NULL REFERENCES gebruiker(id),
+    UNIQUE (product_id, code)
+);
+
+-- Conceptversie; inhoud en gecontroleerde statusovergangen volgen in fase 2.
+-- Geen vrijgavestatus zolang beoordeling en vrijgave nog niet bestaan.
+CREATE TABLE master_recipe_version (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    master_recipe_id uuid NOT NULL REFERENCES master_recipe(id),
+    revision integer NOT NULL CHECK (revision > 0),
+    name text NOT NULL CHECK (btrim(name) <> ''),
+    description text NOT NULL DEFAULT '',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    created_by uuid NOT NULL REFERENCES gebruiker(id),
+    UNIQUE (master_recipe_id, revision)
+);
+
+-- De identiteit en het product van een recept mogen niet wijzigen.
+CREATE FUNCTION master_recipe_identity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ RAISE EXCEPTION 'MBR-identiteit is onveranderlijk' USING ERRCODE='55000';
+END $$;
+CREATE TRIGGER master_recipe_identity_guard BEFORE UPDATE OR DELETE ON master_recipe
+ FOR EACH ROW EXECUTE FUNCTION master_recipe_identity_guard();
+
+-- Revisie-identiteit en oorspronkelijke auteur blijven behouden.
+-- Inhoudelijke conceptwijzigingen worden pas via een gecontroleerde functie geopend.
+CREATE FUNCTION master_recipe_version_identity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ IF TG_OP='DELETE' THEN
+   RAISE EXCEPTION 'MBR-versie mag niet worden verwijderd' USING ERRCODE='55000';
+ END IF;
+ IF (NEW.id,NEW.master_recipe_id,NEW.revision,NEW.created_at,NEW.created_by)
+    IS DISTINCT FROM (OLD.id,OLD.master_recipe_id,OLD.revision,OLD.created_at,OLD.created_by) THEN
+   RAISE EXCEPTION 'MBR-versie-identiteit is onveranderlijk' USING ERRCODE='55000';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER master_recipe_version_identity_guard BEFORE UPDATE OR DELETE ON master_recipe_version
+ FOR EACH ROW EXECUTE FUNCTION master_recipe_version_identity_guard();
+
+REVOKE ALL ON master_recipe,master_recipe_version FROM PUBLIC;
+REVOKE ALL ON FUNCTION master_recipe_identity_guard(),master_recipe_version_identity_guard() FROM PUBLIC;
+
+-- Eigen domeinpermission; geen nieuwe persoonlijke grants.
+INSERT INTO authorization_permission(code,domain) VALUES ('recipe.draft.manage','engineering');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES ('process_engineer','recipe.draft.manage');
+
+-- Productcontext komt uit de receptidentiteit of uit de gevalideerde product-FK.
+CREATE FUNCTION recipe_draft_actor(p_product uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF p_product IS NULL OR NOT authorization_permits(actor,'recipe.draft.manage',NULL,p_product,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-receptbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ RETURN actor;
+END $$;
+
+CREATE FUNCTION recipe_create(p_product uuid,p_code text,p_name text,p_description text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid;
+BEGIN
+ actor:=recipe_draft_actor(p_product);
+ INSERT INTO master_recipe(product_id,code,created_by)
+ VALUES(p_product,p_code,actor) RETURNING id INTO target;
+ INSERT INTO master_recipe_version(master_recipe_id,revision,name,description,created_by)
+ VALUES(target,1,p_name,p_description,actor);
+ RETURN target;
+END $$;
+
+-- Voorlopig uitsluitend lege conceptheaders. Kopiëren van volledige
+-- receptinhoud volgt zodra alle versiegebonden kinderen bestaan.
+CREATE FUNCTION recipe_create_next_version(p_recipe uuid,p_expected integer,p_name text,p_description text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid; product uuid; latest integer;
+BEGIN
+ SELECT product_id INTO product FROM master_recipe WHERE id=p_recipe;
+ actor:=recipe_draft_actor(product);
+ PERFORM 1 FROM master_recipe WHERE id=p_recipe FOR UPDATE;
+ SELECT max(revision) INTO latest FROM master_recipe_version WHERE master_recipe_id=p_recipe;
+ IF latest IS NULL OR latest IS DISTINCT FROM p_expected THEN
+   RAISE EXCEPTION 'MBR-revisie is gewijzigd' USING ERRCODE='40001';
+ END IF;
+ INSERT INTO master_recipe_version(master_recipe_id,revision,name,description,created_by)
+ VALUES(p_recipe,latest+1,p_name,p_description,actor) RETURNING id INTO target;
+ RETURN target;
+END $$;
+
+CREATE FUNCTION recipe_list(p_product uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ PERFORM recipe_draft_actor(p_product);
+ RETURN COALESCE((SELECT jsonb_agg(to_jsonb(r)||jsonb_build_object('versions',
+   COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.revision) FROM master_recipe_version v WHERE v.master_recipe_id=r.id),'[]'::jsonb))
+   ORDER BY r.code) FROM master_recipe r WHERE r.product_id=p_product),'[]'::jsonb);
+END $$;
+
+REVOKE ALL ON FUNCTION recipe_draft_actor(uuid),recipe_create(uuid,text,text,text),
+ recipe_create_next_version(uuid,integer,text,text),recipe_list(uuid) FROM PUBLIC;
 
 COMMIT;
