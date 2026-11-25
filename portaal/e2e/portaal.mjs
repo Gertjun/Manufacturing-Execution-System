@@ -336,10 +336,12 @@ try {
   await page.getByRole("button", { name: "Afmelden" }).click();
   await login("productiemanager1");
   await page.locator(".starttegel-productie").waitFor();
-  check("Productiemanager heeft productie en planning, geen kwaliteitsportaal", await page.locator(".starttegel-planning").count() === 1 && await page.locator(".starttegel-kwaliteit").count() === 0);
+  check("Productiemanager heeft productie, planning en beperkte herbewerkingstoegang", await page.locator(".starttegel-planning").count() === 1 && await page.locator(".starttegel-kwaliteit").count() === 1);
   await page.goto(BASIS+"/portaal/#/kwaliteit/batch/"+hbatch.batchnummer);
-  await page.waitForFunction(() => location.hash === "#/");
-  await page.locator(".starttegel-productie").click();
+  await page.waitForFunction(() => location.hash === "#/kwaliteit");
+  await page.getByRole("heading",{name:"Herbewerkingen en afkeur",exact:true}).waitFor();
+  check("Geen kwaliteitsbesluitmenu",await page.getByRole("link",{name:/Te beoordelen/}).count()===0);
+  await page.goto(BASIS+"/portaal/#/productie");
   await page.goto(BASIS+"/portaal/#/productie/batch/"+hbatch.batchnummer);
   await page.getByRole("button", { name: "Herbewerking", exact: true }).waitFor();
   check("Productiemanager kan herbewerking aanmaken en in beoordeling zetten, niet keuren",
