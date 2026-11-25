@@ -142,6 +142,16 @@ def doe_stap(stapcode, moment, operator, batch_id=None, lot_id=None, herbewerkin
         pc, oid = pcs[-1], kwaliteit_op  # het lab
     else:
         pc, oid = pcs[(int(stapcode[2:]) - 1) % len(pcs)], operators[operator]
+    # Bij een herbewerkingsstart is de gekoppelde persoonlijke MES-bevoegdheid
+    # ook voor eigenaar-gegenereerde fixtures verplicht. Kies uitsluitend voor
+    # deze handeling de expliciet bevoegde fictieve uitvoerder.
+    if herbewerking or con.execute(
+        """SELECT EXISTS (SELECT 1 FROM herbewerking h JOIN processtap s ON s.id=h.processtap_id
+           WHERE h.status='open' AND s.code=%s AND h.batch_id IS NOT DISTINCT FROM %s
+             AND h.lot_id IS NOT DISTINCT FROM %s)""", (stapcode, batch_id, lot_id)
+    ).fetchone()[0]:
+        operator = "mes.operator"
+        oid = operators[operator]
     if herbewerking:
         # Kwaliteit besluit tot de herbewerking (#61); de operator start daarna gewoon de stap.
         lotnr = con.execute("SELECT lotnummer FROM lot WHERE id = %s", (lot_id,)).fetchone()[0]
