@@ -6537,14 +6537,14 @@ SET search_path = fabriek, public;
 -- Geen automatische vertaling van legacy-rollen en geen wijziging van historische accounts.
 CREATE FUNCTION authorization_bootstrap_existing(p_system uuid,p_system_password text,
     p_a uuid,p_a_password text,p_b uuid,p_b_password text,p_reason text)
-RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v record; v_login record;
 BEGIN
     IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.gebruiker'::regclass)) THEN
         RAISE EXCEPTION 'Overgang vereist database-eigenaar';
     END IF;
     LOCK TABLE gebruiker IN SHARE ROW EXCLUSIVE MODE;
-    LOCK TABLE authorization_grant, authorization_bootstrap IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE authorization_grant, authorization_bootstrap, authorization_request IN SHARE ROW EXCLUSIVE MODE;
     IF NOT EXISTS (SELECT 1 FROM gebruiker)
        OR EXISTS (SELECT 1 FROM authorization_bootstrap)
        OR EXISTS (SELECT 1 FROM authorization_grant)
@@ -6580,13 +6580,13 @@ BEGIN
     INSERT INTO authorization_bootstrap(system_user_id,security_user_a,security_user_b,database_actor,reason)
       VALUES(p_system,p_a,p_b,current_user,'Gecontroleerde overgang bestaande administratie: '||p_reason);
     RETURN 'initialized';
-END $;
+END $$;
 REVOKE ALL ON FUNCTION authorization_bootstrap_existing(uuid,text,uuid,text,uuid,text,text) FROM PUBLIC;
 
 -- De vertrouwde eigenaar mag expliciet exact één sessiegeneratie verhogen.
 -- Runtime kan deze kolom niet schrijven; gewone accountwijzigingen houden hun bestaande gedrag.
 CREATE OR REPLACE FUNCTION authorization_session_version() RETURNS trigger
-LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
 BEGIN
     IF TG_OP='INSERT' THEN
         NEW.session_version := 1;
@@ -6602,7 +6602,7 @@ BEGIN
         NEW.session_version := OLD.session_version;
     END IF;
     RETURN NEW;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION authorization_session_version() FROM PUBLIC;
 
 COMMIT;
