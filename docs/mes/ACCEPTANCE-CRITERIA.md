@@ -404,7 +404,7 @@ Gerichte fase 2.3-baseline [45687274731](https://github.com/Gertjun/Manufacturin
 
 ## Fase 3 — geplande acceptatie portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard (D105/D107)
 
-Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.
+Start na expliciete technische fase-2-acceptatie (D111); geen fase-3-uitvoeringsbewijs. D111: fase 2 sluit technisch af na integrale regressies, audit, correcties en afzonderlijke technische acceptatie. De handmatige Windows-praktijkacceptatie van fase 2 wordt gecombineerd met die van fase 3 na UI-harmonisatie; geen uitstel van automatische functionele, beveiligings-, migratie- of pakketregressies. Fase 3 mag starten na expliciete technische acceptatie van de vastgelegde fase-2-baseline. Voorstel voor één officiële release na gecombineerde praktijkacceptatie; merge-/release-strategie en toestemming blijven bij opdrachtgever. Geen fase 4 vóór gecombineerde acceptatie en officiële release. Fase 1 en pilotpoort ongewijzigd. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.
 
 | ID | Acceptatie-eis |
 |---|---|
