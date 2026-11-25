@@ -80,6 +80,7 @@ try {
       await page.evaluate((t) => localStorage.setItem("portaal.token", t), tokens[naam]);
       for (const r of routes) {
         await page.goto(`${BASIS}/portaal/${r}`);
+        await page.reload();
         await klaar(page);
         check(naam+" bereikt "+r, new URL(page.url()).hash===r && await page.locator("#scherm .foutmelding").count()===0, page.url());
         const b = await teBreed(page, f.width);
