@@ -74,14 +74,14 @@ Let op: deze skills willen vaak connectors (ERP, CMMS, Microsoft 365) of bedrijf
 ## Valkuilen voor de volgende sessie
 - `tools/pakket/testdata.sql` opnieuw maken: `schema_versie`, `onderhoud_log` en `inlogpoging` niet meenemen in de dump (zie README, "Testdata").
 - De schermtests in Chrome draaien op GitHub (`tests/test_schermen.sh`, ongeveer 4 minuten). Een losse portaaltest vraagt verse testdata; beheer, planning en sjabloon zetten zelf hun database klaar.
-- Na een wijziging aan schema of testdata maakt `demo/bouw.sh` de demodatabase vanzelf opnieuw.
-- Browserdemo op claude.ai: bestanden groter dan ongeveer 10 MB en ingepakte pakketten kwamen daar niet goed door ("File is corrupted"), lokaal wel. De demo laadt de database daarom in delen van 4 MB met controlesom; houd de eigen databestanden onder 4 MB en test na publiceren de echte link.
+- Historische browserdemo (D99): geen verplichte herbouw, publicatie of compatibiliteitscorrecties meer na wijzigingen.
+- Historische demo-instructies zijn geen actuele ontwikkel- of acceptatie-eisen.
 - Het gedeelde account `operator` pas laten uitzetten als de wachtrijen op de pc's leeg zijn: invoer op een naam zonder recente inlog op die pc weigert de server (D53).
-- Links tussen startpagina/portalen en invoerscherm zijn relatief (`../invoer/index.html`), anders werken ze niet in de browserdemo.
+- Links tussen startpagina/portalen en invoerscherm zijn relatief (`../invoer/index.html`). Behoud werkende navigatie in de ondersteunde omgevingen.
 - De klasse `bezig` hoort bij tegels op het invoerscherm (stap met werk dat loopt). Een knop die bezig is heet `knop-bezig`; klikken daarop worden tegengehouden. Niet door elkaar halen.
 - Een lot en een lotvoorstel bestaan uit batches van één product (D55). Testdata en tests die lots maken, moeten batches van hetzelfde product nemen.
 - Een account dat de beheerder (of een test via de API) aanmaakt of een nieuw wachtwoord geeft, heeft een tijdelijk wachtwoord (D61): inloggen geeft dan een token dat alleen `/auth/wachtwoord` mag. In tests eerst het wachtwoord wijzigen, of het account direct in de database zetten. Wandschermaccounts zijn uitgezonderd.
-- Nieuwe schermtests: geef de browsercontext `timezoneId: "Europe/Amsterdam"` mee (zoals de bestaande). Anders faalt een test rond middernacht op GitHub, waar Chrome in UTC draait. Uitzondering: `portaal/e2e/demo.mjs`, want de demodatabase krijgt "vandaag" uit de tijdzone van de machine waarop hij is gebouwd.
+- Nieuwe schermtests: geef de browsercontext `timezoneId: "Europe/Amsterdam"` mee (zoals de bestaande). Anders faalt een test rond middernacht op GitHub, waar Chrome in UTC draait.
 - "Naar Excel" komt uit `tabel()` en wordt door `portaal/src/excelplaats.ts` naar de kopregel van het blok of de pagina verplaatst (D63). Een schermtest zoekt de knop daarom binnen het blok, niet direct boven de tabel.
 - Regels voor schermformaten (D64) altijd als `@media screen and (...)`. Een A4 is bij afdrukken ongeveer 800 px breed, dus zonder `screen` gelden de telefoon- en tabletregels ook op papier (de hulp paste toen niet meer op één A4).
 - Nieuw scherm in de portalen of het invoerscherm: zet de route erbij in `portaal/e2e/formaten.mjs`, zodat hij in zes formaten wordt getest.
