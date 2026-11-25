@@ -51,6 +51,7 @@ export async function recepten() {
             h("label",{},"Naam",name),h("label",{},"Beschrijving",description),error,
             h("button",{class:"knop knop-hoofd",type:"submit"},"Opslaan")));
         }
+        const productVersions=recipes.flatMap(r=>r.versions.map(v=>({id:v.id,label:r.code+" · revisie "+v.revision+" — "+v.name+" · "+(status[v.lifecycle_status]??v.lifecycle_status)})));
         content.replaceChildren(
           h("section",{class:"blok"},h("h2",{},"Nieuwe Master Recipe"),
             editForm("Recept aanmaken","/recipes/","POST",(name,description,code)=>({product_id:id,code,name,description}),undefined,true)),
@@ -66,7 +67,7 @@ export async function recepten() {
                 v.lifecycle_status==="draft"?editForm("Conceptheader wijzigen","/recipes/versions/"+v.id,"PATCH",(name,description)=>({expected_change_no:v.change_no,name,description}),v)
                   :h("p",{class:"sub"},"Deze revisie is niet wijzigbaar."),
                 procedurePane(v,()=>active(id,g),load),
-                contentPane(v,id,()=>active(id,g),load),
+                contentPane(v,id,()=>active(id,g),load,productVersions),
               )));
           }),
           ...(recipes.length?[]:[h("p",{class:"leeg"},"Voor dit product zijn nog geen Master Recipes.")])

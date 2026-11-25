@@ -13,7 +13,9 @@ interface EquipmentRequirement {id:string;procedural_element_id:string;code:stri
 interface PersonnelRequirement {id:string;procedural_element_id:string;code:string;qualification_code:string;qualification_description:string;required_count:number}
 interface Instruction {id:string;procedural_element_id:string;code:string;position:number;instruction_text:string;confirmation_required:boolean}
 interface SpecificationLink {id:string;parameter_limit_id:string;code:string;description:string}
-interface Requirements {change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
+interface LotRule {id:string;nominal_batch_count:number;deviation_approval_required:boolean;deviation_reason_required:true}
+interface CompatibilityRule {id:string;other_recipe_version_id:string;reason:string}
+interface Requirements {lot_rules:LotRule[];compatibility_rules:CompatibilityRule[];change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
 interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
@@ -29,7 +31,7 @@ const exact=(v:string|null="",required=false)=>h("input",{type:"text",inputmode:
 const field=(name:string,control:Node)=>h("label",{},name,control);
 const decimalValue=(f:HTMLInputElement)=>f.value.trim()||null;
 
-export function contentPane(version:{id:string;lifecycle_status:string},productId:string,current:()=>boolean,refresh:()=>Promise<void>) {
+export function contentPane(version:{id:string;lifecycle_status:string},productId:string,current:()=>boolean,refresh:()=>Promise<void>,productVersions:Choice[]) {
   const prefix="/recipes/versions/"+encodeURIComponent(version.id);
   const base=prefix+"/content";
   const area=h("div",{});
@@ -228,6 +230,33 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           return {parameter_limit_id:limit.value,code:code.value.trim(),description:description.value.trim()};
         },r?.id,requirementsRoot);
       }
+      function lotForm(r?:LotRule) {
+        const count=h("input",{type:"number",min:1,max:50,step:1,required:true,value:r?String(r.nominal_batch_count):""});
+        const approval=h("input",{type:"checkbox",checked:r?.deviation_approval_required??false});
+        return save(r?"Lotnorm wijzigen":"Lotnorm vastleggen",[
+          field("Nominaal aantal batches per lot (1–50)",count),
+          h("p",{class:"sub"},"Bij afwijking is een reden altijd verplicht."),
+          field("Onafhankelijke goedkeuring bij afwijking vereist",approval)
+        ],"lot-rules",()=>{
+          const n=Number(count.value);
+          if(!Number.isInteger(n)||n<1||n>50)throw Error("Kies een geheel aantal batches van 1 tot 50.");
+          return {nominal_batch_count:n,deviation_approval_required:approval.checked};
+        },r?.id,requirementsRoot);
+      }
+      const otherVersions=productVersions.filter(v=>v.id!==version.id);
+      const availableVersions=(r?:CompatibilityRule)=>otherVersions.filter(v=>!requirements.compatibility_rules.some(x=>x.id!==r?.id&&x.other_recipe_version_id===v.id));
+      function compatibilityForm(r?:CompatibilityRule) {
+        const available=availableVersions(r);
+        const other=choice(available,r?.other_recipe_version_id??"");
+        const reason=h("textarea",{required:true,maxlength:10000,rows:3},r?.reason??"");
+        return save(r?"Incompatibiliteit wijzigen":"Incompatibiliteit vastleggen",[
+          field("Andere receptrevisie van hetzelfde product",other),field("Reden incompatibiliteit",reason)
+        ],"compatibility-rules",()=>{
+          if(!available.some(v=>v.id===other.value))throw Error("Kies een andere, nog niet uitgesloten revisie van hetzelfde product.");
+          if(!reason.value.trim())throw Error("Geef een reden voor incompatibiliteit op.");
+          return {other_recipe_version_id:other.value,reason:reason.value.trim()};
+        },r?.id,requirementsRoot);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -301,6 +330,21 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(requirements.specification_links.length?[]:[h("p",{class:"leeg"},"Nog geen specificatiekoppelingen.")]),
         ...(editable&&specificationLimits.some(l=>!requirements.specification_links.some(r=>r.parameter_limit_id===l.id))?[specificationForm()]:[]),
         ...(editable&&!specificationLimits.length?[h("p",{class:"sub"},"Maak eerst een specificatiegrens aan bij een numerieke procesparameter.")]:[]),
+        h("h4",{},"Lotnorm"),
+        h("p",{class:"sub"},"De norm hoort bij deze receptrevisie. Geen standaard vier batches en geen automatische lotvorming."),
+        ...requirements.lot_rules.map(r=>h("div",{},h("p",{},r.nominal_batch_count+" batches per lot"),
+          h("p",{class:"sub"},"Afwijkingsreden altijd verplicht · "+(r.deviation_approval_required?"Onafhankelijke goedkeuring verplicht":"Geen aanvullende goedkeuring vereist")),
+          editable?lotForm(r):null,editable?remove("lot-rules",r.id,"Lotnorm",requirementsRoot):null)),
+        ...(requirements.lot_rules.length?[]:[h("p",{class:"leeg"},"Nog geen lotnorm vastgelegd.")]),
+        ...(editable&&!requirements.lot_rules.length?[lotForm()]:[]),
+        h("h4",{},"Expliciete receptincompatibiliteit"),
+        h("p",{class:"sub"},"Een verbod geldt bij latere lotvorming in beide richtingen. Geen verbod betekent niet dat een lot automatisch wordt vrijgegeven. Verschillende lotnormen vereisen later een expliciete keuze."),
+        ...requirements.compatibility_rules.map(r=>h("details",{},h("summary",{},otherVersions.find(v=>v.id===r.other_recipe_version_id)?.label??r.other_recipe_version_id),
+          h("p",{},r.reason),editable&&availableVersions(r).length?compatibilityForm(r):null,
+          editable?remove("compatibility-rules",r.id,"Incompatibiliteitsregel",requirementsRoot):null)),
+        ...(requirements.compatibility_rules.length?[]:[h("p",{class:"leeg"},"Geen uitgaande incompatibiliteitsregels vastgelegd voor deze revisie.")]),
+        ...(editable&&availableVersions().length?[compatibilityForm()]:[]),
+        ...(editable&&!otherVersions.length?[h("p",{class:"sub"},"Er zijn nog geen andere receptrevisies van dit product.")]:[]),
         h("h4",{},"Procesparameters"),
         ...data.parameters.map(p=>{
           const limits=data.parameter_limits.filter(l=>l.parameter_id===p.id);
