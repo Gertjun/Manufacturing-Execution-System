@@ -151,6 +151,9 @@ try {
   // Staat er nog iets in de wachtrij, dan vraagt het invoerscherm eerst of je toch wilt afmelden.
   const nogEven = dialoog().getByRole("button", { name: "Afmelden" });
   if (await nogEven.waitFor({ timeout: 2000 }).then(() => true, () => false)) await nogEven.click();
+  await page.waitForURL(u => u.pathname.startsWith("/portaal/") && u.hash === "#/login");
+  await page.goto(`${BASIS}/invoer/#/pc`);
+  await page.getByRole("button", { name: /^PC-01/ }).click();
   await page.getByLabel("Gebruikersnaam").fill("operator.a");
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
@@ -158,7 +161,7 @@ try {
   await page.locator(".route .tegel").first().waitFor();
   check("Geen keuringstegels voor een operator", (await page.locator(".route.keuring").count()) === 0 && (await page.locator(".tegel").count()) === 18);
 } catch (e) {
-  console.log("  AFGEBROKEN", e.message.split("\n")[0]);
+  console.log("  AFGEBROKEN", e.message);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
