@@ -315,3 +315,17 @@ Draaiboek en praktijktests F1.1–F1.6 toegevoegd. TLS, persoonlijke provisionin
 D102/0094: goedgekeurde eenmalige initialisatie van bestaande persoonlijke identiteiten zonder MES-rechtenhistorie, via eigenaar en drie persoonlijke bevestigingen. Geen automatische legacy-grants; drie exact afgebakende grants, sessiegeneratie verhoogd, onveranderlijk bootstraprecord. Schone bootstrap blijft voorkeur voor fictieve pre-pilot. Gerichte DB- en toolregressies toegevoegd; uitvoeringsbewijs geslaagd in run #499.
 
 Run [45575488676 (#499)](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45575488676), job 139072267943, head de213112f706f7bbcbd07b4928c93e36e6d7ba02, base 31c86973bf13848cba44fc38785084953fe65e39: gerichte PostgreSQL-baseline geslaagd; schone installatie, schema-equivalentie 0001–0094, beperkte rechten, historische upgrade 0035–0094 met behoud van tien historische tabellen en zonder automatische legacy-grants, D102 eenmalige initialisatie, 14/14 security, 10/10 autorisatie, 117/117 API, back-up/herstel/rollback en Linux-laptoppakket. Documentatiecontrole 45575458558 geslaagd. Geen volledige Node 26-acceptatie of Windows-praktijkbewijs.
+
+### Afsluiting tussentijdse inhoudelijke audit D99–D102 (25 november 2026)
+De begrensde tussentijdse audit is inhoudelijk afgesloten op basis van de eerder vastgelegde interface-/rechteninventarisaties en gerichte baseline #499 (exacte head/base hierboven). Dit is geen integrale code- of faseacceptatie. Geen nieuwe concrete functionele fase-1-blokker vastgesteld binnen de beoordeelde scope; heropen bij aantoonbare bevinding in de verplichte vervolgreviews.
+
+| Onderdeel | Functionele beoordeling | Nog vereist |
+|---|---|---|
+| #106 | MES-naam, terminologie, autorisatiemodule als fundament | Integrale scherm- en testreview |
+| #107 | Persoonlijke permissions, scope, functiescheiding, historische upgrade en D102 gericht gevalideerd | Integrale acceptatie, praktische provisioning |
+| #108 | Kritische bevestiging, grants/intrekking, audit en kwalificaties gericht gevalideerd | Praktische bediening en herstelreconciliatie |
+| #136 | Verplichte demo-afhankelijkheden uitgefaseerd volgens eerdere inventarisatie | Integrale acceptatie en Windows-pakket |
+
+Opgelost: D100-installatiegrenzen en beperkte rechten, D101 zelfstandige legacy-rolmachtiging binnen geïnventariseerde interfaces, D102 eerste gecontroleerde grants zonder historie. De eerdere offline-run blijft afzonderlijk bewijs, niet integraal op huidige head. Schone bootstrap heeft voorkeur voor fictieve pre-pilot. Geen automatische omzetting van legacy-rollen en geen noodreset van bestaande MES-rechten.
+
+Verplichte fasepoorten blijven open: databaseplaatje genereren en verifiëren; integrale review van tests, fixtures, workflows en behouden interfaces; volledige acceptatie op actuele head/base; Windows-praktijkvalidatie en beoordeling door opdrachtgever. Praktische security F1.1–F1.6 blijft afzonderlijk te beoordelen: testbare lokale handelingen nu, productie-TLS, feitelijke persoonlijke provisioning, intrekking en herstelreconciliatie in de toekomstige fabrieksomgeving vóór pilot; geen operationele acceptatieclaim. Uitgestelde area/equipment-context (fase 3), werkvrijgave (4/5), definitieve domeinbesluiten, uitgebreide schermen/feedback (9) en analyses (10) blijven volgens roadmap. Geen formele ISA-conformiteitsclaim.
