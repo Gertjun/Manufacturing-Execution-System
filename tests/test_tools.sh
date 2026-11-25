@@ -61,8 +61,17 @@ grep -q "Onbekende schemaversie" "$T/toekomst.txt" || fout "onbekende schemavers
 [ "$(psql -At -d "$DB" -c "SELECT has_table_privilege('mes_app','fabriek.gebruiker','SELECT')")" = "t" ] || fout "rechten gewijzigd op nieuwere database"
 [ "$(psql -At -d "$DB" -c "SELECT max(nummer) FROM fabriek.schema_versie")" = "$TOEKOMST" ] || fout "schemaversie gewijzigd"
 [ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "historie gewijzigd op nieuwere database"
+# Maak een dump van de fictieve toekomstige database. Herstel daarna de
+# ondersteunde bron en controleer dat de onbekende dump niet actief blijft.
+pg_dump -h "$H" -p "$P" -U "$U" -d "$DB" -Fc -f "$T/toekomst.dump"
 # Uitsluitend de opzettelijke afwijkingen in deze fictieve test ongedaan maken.
 psql -q -d "$DB" -c "REVOKE SELECT ON fabriek.gebruiker FROM mes_app; DELETE FROM fabriek.schema_versie WHERE nummer=$TOEKOMST"
+node tools/herstel.mjs "$T/toekomst.dump" --ja > "$T/toekomst-herstel.txt" 2>&1 && fout "onbekende backup geaccepteerd"
+grep -q "Onbekende schemaversie in back-up" "$T/toekomst-herstel.txt" || fout "onbekend backupschema niet expliciet geweigerd"
+[ "$(psql -At -d "$DB" -c "SELECT max(nummer) FROM fabriek.schema_versie")" = "$((TOEKOMST-1))" ] || fout "actieve schemaversie niet hersteld"
+[ "$(psql -At -d "$DB" -c "SELECT has_table_privilege('mes_app','fabriek.gebruiker','SELECT')")" = "f" ] || fout "actieve ACL niet hersteld"
+[ "$(psql -At -d "$DB" -c "SELECT count(*) FROM fabriek.waarde")" = "$N" ] || fout "historie gewijzigd bij geweigerd herstel"
+
 
 # Database-update: eerst een back-up. Doe alsof de laatste migratie nog open staat; die mislukt dan
 # (de onderdelen bestaan al), maar de back-up ervoor moet er zijn en de database blijft ongewijzigd.
