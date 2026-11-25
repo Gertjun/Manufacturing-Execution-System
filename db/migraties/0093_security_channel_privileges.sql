@@ -34,4 +34,4 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $$
        OR (has_function_privilege(p_role,p.oid,'EXECUTE')
            AND NOT has_function_privilege('mes_security_channel',p.oid,'EXECUTE')))
  )
-$;
+$$;

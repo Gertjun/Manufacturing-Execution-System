@@ -67,6 +67,15 @@ def main():
         con.execute("ALTER ROLE mes_security_channel NOLOGIN")
     con.execute(rechten_sql)
     check("D100 beperkte technische rollen geaccepteerd", True)
+    print("\nD100 vertrouwd public-schema")
+    con.execute("GRANT CREATE ON SCHEMA public TO PUBLIC")
+    try:
+        faalt("D100 public CREATE voor iedereen geweigerd", rechten_sql,
+              bevat="Onvertrouwd public-schema")
+    finally:
+        con.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
+    con.execute(rechten_sql)
+    check("D100 vertrouwd public-schema geaccepteerd", True)
     print("\nD100 effectieve SECURITY DEFINER-eigenschappen")
     check("D100 alle definerfuncties hebben vertrouwd zoekpad",
           val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace

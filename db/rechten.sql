@@ -666,11 +666,51 @@ BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=93) THEN
    SELECT string_agg(r.rolname::text,', ' ORDER BY r.rolname) INTO v_bad
    FROM pg_catalog.pg_roles r
-   WHERE r.rolname<>'mes_security_channel'
-     AND pg_catalog.pg_has_role(r.oid,'mes_security_channel','MEMBER')
+   WHERE r.oid IN (
+     WITH RECURSIVE leden(oid) AS (
+       SELECT m.member FROM pg_catalog.pg_auth_members m
+       JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
+       WHERE g.rolname='mes_security_channel'
+       UNION
+       SELECT m.member FROM pg_catalog.pg_auth_members m JOIN leden l ON l.oid=m.roleid
+     ) SELECT oid FROM leden
+   )
      AND NOT fabriek.authorization_channel_role_safe(r.oid);
    IF v_bad IS NOT NULL THEN
      RAISE EXCEPTION 'Onveilige persoonlijke MES-databaserol: %',v_bad;
+   END IF;
+ END IF;
+END $$;
+
+-- D100: public staat in zoekpaden vanwege pgcrypto. Alleen vertrouwde
+-- installatie-eigenaren mogen daar objecten maken. Geen automatische ACL-wijziging.
+DO $$
+DECLARE v_bad boolean;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=93) THEN
+   WITH vertrouwd AS (
+     SELECT nspowner AS oid FROM pg_catalog.pg_namespace WHERE nspname='fabriek'
+     UNION SELECT datdba FROM pg_catalog.pg_database WHERE datname=current_database()
+     UNION SELECT oid FROM pg_catalog.pg_roles WHERE rolsuper OR rolname='pg_database_owner'
+   )
+   SELECT NOT EXISTS (
+     SELECT 1 FROM pg_catalog.pg_namespace n
+     WHERE n.nspname='public' AND n.nspowner IN (SELECT oid FROM vertrouwd)
+   ) OR EXISTS (
+     SELECT 1 FROM pg_catalog.pg_namespace n
+     CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a
+     WHERE n.nspname='public' AND a.privilege_type='CREATE'
+       AND a.grantee NOT IN (SELECT oid FROM vertrouwd)
+   ) OR NOT EXISTS (
+     SELECT 1 FROM pg_catalog.pg_extension e JOIN pg_catalog.pg_namespace n ON n.oid=e.extnamespace
+     WHERE e.extname='pgcrypto' AND n.nspname='public'
+       AND e.extowner IN (SELECT oid FROM vertrouwd)
+   ) OR EXISTS (
+     SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='public' AND p.proowner NOT IN (SELECT oid FROM vertrouwd)
+   ) INTO v_bad;
+   IF v_bad THEN
+     RAISE EXCEPTION 'Onvertrouwd public-schema of pgcrypto-eigendom';
    END IF;
  END IF;
 END $$;

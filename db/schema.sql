@@ -6494,7 +6494,7 @@ ALTER FUNCTION execution_step_complete(uuid,uuid,uuid) SET search_path=pg_catalo
 ALTER FUNCTION execution_step_rework(uuid,text,text,uuid,uuid,uuid) SET search_path=pg_catalog,fabriek,pg_temp;
 -- Migratie 0093: toets effectieve persoonlijke rechten in de MES-database (D100).
 CREATE OR REPLACE FUNCTION fabriek.authorization_channel_role_safe(p_role oid)
-RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $
+RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $$
  SELECT EXISTS (SELECT 1 FROM pg_roles r WHERE r.oid=p_role AND r.rolcanlogin
     AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
     AND NOT r.rolreplication AND NOT r.rolbypassrls)
@@ -6528,6 +6528,6 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $
        OR (has_function_privilege(p_role,p.oid,'EXECUTE')
            AND NOT has_function_privilege('mes_security_channel',p.oid,'EXECUTE')))
  )
-$;
+$$;
 
 COMMIT;
