@@ -67,10 +67,10 @@ function conflictBlok(reg: Registratie, c: Conflict, teken: (r: Registratie) => 
   const magKiezen = !reg.lokaal && rechtenOnline() && heeftProductRecht(reg.product, c.wie_kiest === "kwaliteit" ? "inspection.decide" : "execution.correct");
   const kies = (keuze: "bestaand" | "nieuw") => bezigBij(async () => {
     const tekst = keuze === "bestaand" ? `${c.bestaand} laten staan` : `${c.nieuw} nemen`;
-    const r = await vraag(`${c.code}: ${tekst}`, [{ naam: "reden", label: "Toelichting (niet verplicht)", optioneel: true }], tekst);
+    const r = await vraag(`${c.code}: ${tekst}`, [{ naam: "reden", label: "Reden van de keuze" }], tekst);
     if (!r) return;
     try {
-      teken(await losConflictOp(reg, c.id, keuze, r.reden || null));
+      teken(await losConflictOp(reg, c.id, keuze, r.reden.trim()));
       melding(`${c.code}: ${tekst}`, "ok");
     } catch (e) {
       melding(e instanceof GeenVerbinding ? "Kiezen kan alleen met verbinding" : (e as Error).message, "fout");
