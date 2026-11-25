@@ -310,3 +310,6 @@ Geen nieuwe functionele tekortkoming geclaimd op basis van uitsluitend deze docu
 ### Operationele securityreview
 D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
 Draaiboek en praktijktests F1.1–F1.6 toegevoegd. TLS, persoonlijke provisioning, transport, intrekking en reconciliatie na restore nog niet praktisch uitgevoerd. Geen formele auditafsluiting.
+
+
+D102/0094: goedgekeurde eenmalige initialisatie van bestaande persoonlijke identiteiten zonder MES-rechtenhistorie, via eigenaar en drie persoonlijke bevestigingen. Geen automatische legacy-grants; drie exact afgebakende grants, sessiegeneratie verhoogd, onveranderlijk bootstraprecord. Schone bootstrap blijft voorkeur voor fictieve pre-pilot. Gerichte DB- en toolregressies toegevoegd; uitvoeringsbewijs open.
