@@ -444,12 +444,12 @@ def main():
             con.execute(f"CREATE ROLE {role} LOGIN IN ROLE mes_security_channel")
             val("SELECT authorization_channel_bind(%s::name,%s,'Fictieve test')",(role,actor))
         # D100: directe rechten die na binding ontstaan mogen niet ongemerkt blijven.
-        for grant, revoke in (
+        for acl_grant_sql, acl_revoke_sql in (
             ("GRANT SELECT(wachtwoord_hash) ON fabriek.gebruiker TO", "REVOKE SELECT(wachtwoord_hash) ON fabriek.gebruiker FROM"),
             ("GRANT EXECUTE ON FUNCTION fabriek.execution_session_login(text,text,text) TO", "REVOKE EXECUTE ON FUNCTION fabriek.execution_session_login(text,text,text) FROM"),
             ("GRANT CREATE ON SCHEMA public TO", "REVOKE CREATE ON SCHEMA public FROM"),
         ):
-            con.execute(f"{grant} {role_a}")
+            con.execute(f"{acl_grant_sql} {role_a}")
             try:
                 faalt("D100 installatie weigert extra persoonlijk recht", rechten_sql,
                       bevat="Onveilige persoonlijke MES-databaserol")
@@ -460,7 +460,7 @@ def main():
                 finally:
                     con.execute("RESET SESSION AUTHORIZATION")
             finally:
-                con.execute(f"{revoke} {role_a}")
+                con.execute(f"{acl_revoke_sql} {role_a}")
         con.execute(rechten_sql)
         con.execute(f"SET SESSION AUTHORIZATION {role_a}")
         check("Onjuiste herbevestiging weigert aanvraag",one(channel_submit,(channel_target,'onjuist'))[0]=="denied")
