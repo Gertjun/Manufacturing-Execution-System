@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { securityActie } from "../tools/security.mjs";
-import { koppelPersoneel, herstelAccount, securityBinding, kwalificatieActie } from "../tools/beheerder.mjs";
+import { koppelPersoneel, herstelAccount, securityBinding, kwalificatieActie, initialiseerBestaandeAdministratie } from "../tools/beheerder.mjs";
 const id="11111111-1111-4111-8111-111111111111";
 const product="22222222-2222-4222-8222-222222222222";
 function io(answers, passwords=[]) {
@@ -94,4 +94,20 @@ test("kwalificatie: intrekking exacte registratie en status",async()=>{
     assert.equal(await kwalificatieActie(c,io([id,"manager","bewijs","BEVESTIG"],["demo"]),"intrekken",()=>{}),status==="revoked");
     assert.deepEqual(c.calls.at(-1).params,[id,"manager","bewijs","demo"]);
   }
+});
+
+test("overgang: exact drie gekozen identiteiten en persoonlijke bevestigingen",async()=>{
+  for(const status of ["initialized","denied","locked"]) {
+    const c=db((sql,p)=>sql.includes("authorization_bootstrap_existing")?[{status}]:people(sql,p));
+    assert.equal(await initialiseerBestaandeAdministratie(c,io(["systeem","security-a","security-b","referentie","OVERGANG"],["test-a","test-b","test-c"])),status==="initialized");
+    assert.deepEqual(c.calls.at(-1).params,["systeem","test-a","security-a","test-b","security-b","test-c","referentie"]);
+    assert.equal(c.calls.filter(x=>x.sql.includes("authorization_bootstrap_existing")).length,1);
+  }
+});
+test("overgang: dubbele identiteit, ontbrekende referentie en annulering zonder rechtentoekenning",async()=>{
+  const c=db(people);
+  await assert.rejects(initialiseerBestaandeAdministratie(c,io(["systeem","security-a","security-a"])),/Drie verschillende/);
+  await assert.rejects(initialiseerBestaandeAdministratie(c,io(["systeem","security-a","security-b",""])),/Goedkeuringsreferentie/);
+  assert.equal(await initialiseerBestaandeAdministratie(c,io(["systeem","security-a","security-b","referentie","STOP"])),false);
+  assert.ok(c.calls.every(x=>!x.sql.includes("authorization_bootstrap_existing")));
 });
