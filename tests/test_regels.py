@@ -2543,6 +2543,54 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+
+    print("\n#141 expliciete materiaaleenheidskoppeling")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('mapping.global','analist',wachtwoord_hash('test-mapping')),('mapping.scoped','analist',wachtwoord_hash('test-mapping'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mapping.global'")
+        scoped=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mapping.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',NULL),(%s,'process_engineer',%s)",(actor,scoped,pa))
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'MAP_MASS','Massa','ratio') RETURNING id",(dim,))
+        kg=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'MAP_KG','kg','Kilogram') RETURNING id",(kind,))
+        g=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'MAP_G','g','Gram') RETURNING id",(kind,))
+        con.execute("SET LOCAL ROLE mes_app")
+        def login(name):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-mapping',NULL)",(name,))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MES-materiaalbeheerbevoegdheid"):
+            con.execute("SAVEPOINT mapping_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT mapping_guard")
+            con.execute("RELEASE SAVEPOINT mapping_guard")
+        login("mapping.global")
+        legacy=val("SELECT material_create_definition('MAP-LEGACY','Fictief',NULL,'kg',NULL,NULL)")
+        v2=val("SELECT material_append_version_with_unit(%s,1,'Fictief',NULL,%s)",(legacy,kg))
+        new=val("SELECT material_create_definition_with_unit('MAP-NEW','Fictief',NULL,%s,NULL,NULL)",(kg,))
+        denied("#141 onbekende eenheid atomair","SELECT material_create_definition_with_unit('MAP-BAD','Fictief',NULL,NULL,NULL,NULL)",msg="Onbekende cataloguseenheid")
+        denied("#141 stale materiaaleenheidskoppeling","SELECT material_append_version_with_unit(%s,1,'Fictief',NULL,%s)",(legacy,g),"Materiaalrevisie is gewijzigd")
+        denied("#141 oude tekstinterface verliest koppeling niet","SELECT material_append_version(%s,2,'Fictief',NULL,'kg')",(legacy,),"Expliciete cataloguseenheid")
+        v3=val("SELECT material_append_version_with_unit(%s,2,'Fictief',NULL,%s)",(legacy,g))
+        data=val("SELECT material_list()")
+        versions=[x for x in data["versions"] if x["material_definition_id"]==str(legacy)]
+        check("#141 historische materiaalrevisies behouden",[(x["revision"],x["unit"],x["measurement_unit_id"]) for x in versions]==[(1,"kg",None),(2,"kg",str(kg)),(3,"g",str(g))])
+        check("#141 ongeldige materiaalidentiteit teruggerold",not any(x["code"]=="MAP-BAD" for x in data["definitions"]))
+        login("mapping.scoped")
+        check("#141 productgebonden catalogusselectie",any(x["id"]==str(kg) for x in val("SELECT recipe_unit_catalog_list(%s)",(pa,))["units"]))
+        denied("#141 vreemde productscope cataloguslezing","SELECT recipe_unit_catalog_list(%s)",(pb,),"MES-receptbevoegdheid")
+        denied("#141 productgebonden engineer geen materiaalmutatie","SELECT material_append_version_with_unit(%s,3,'Fictief',NULL,%s)",(legacy,kg))
+        denied("#141 productgebonden engineer geen catalogusmutatie","SELECT unit_catalog_create_unit(%s,'MAP-BAD','bad','bad')",(kind,))
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(scoped,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#141 ingetrokken productscope cataloguslezing","SELECT recipe_unit_catalog_list(%s)",(pa,),"MES-receptbevoegdheid")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
