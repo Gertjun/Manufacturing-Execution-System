@@ -1,6 +1,6 @@
 # MES
 
-> **MES-transitie (ontwerp):** de huidige software blijft versie 0.62.1. Goedgekeurde architectuur in [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), besluiten D89 en geïntegreerde [ROADMAP.md](ROADMAP.md). PR #1 wordt niet gemerged; de nieuwe implementatie vertrekt vanaf main. Geen MES-functionaliteit uit dit ontwerp is hiermee al gerealiseerd.
+> **MES-transitie (ontwerp):** de huidige software blijft versie 0.62.1. Goedgekeurde architectuur in [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), besluiten D89 en geïntegreerde [ROADMAP.md](ROADMAP.md). PR #1 wordt niet gemerged; de nieuwe implementatie vertrekt vanaf main. Op de ontwikkelbranch is het fase-1-fundament in uitvoering; geen uitgebrachte MES-versie.
 
 Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. Batches doorlopen 18 processtappen; in stap 16 worden 4 batches samengevoegd tot 1 lot. Alles werkt lokaal en offline. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
@@ -22,10 +22,10 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 Bijgewerkt: 25 november 2026 · versie **0.62.1** (ongewijzigd).
 
 - **Ontwikkeling:** MES-fase 1, concept-PR #6 op `feature/mes-phase-1`. Tussentijdse audit D100 nog open; databaseschema 0093. Scope en open punten in ROADMAP.md.
-- **Laatste geslaagde technische baseline:** Run [45567796663](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45567796663), job 139046752938, head 8fd03f7c8c3ff3831b1e2d0a106189d05335d564, base 31c86973bf13848cba44fc38785084953fe65e39: gehele gerichte PostgreSQL-baseline groen, historische upgrade 0035–0093 inclusief tien tabellen, legacy-snapshot, nul automatische grants, ACL en pre-upgradeback-up bevestigd in log; 117/117 API, 12/12 security, 10/10 autorisatie, beheertools en Linux-pakket geslaagd. Geen Windows- of integrale acceptatie.
+- **Laatste geslaagde technische baseline:** Run [45572488766](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45572488766), job 139062300483, head 6e332599aafc949b8cca94c401c4d0c21579d69c, base 31c86973bf13848cba44fc38785084953fe65e39: gehele gerichte PostgreSQL-baseline groen, inclusief startinventaris, mislukte herstelcontrole/cleanup, historische upgrade 0035–0093, 12/12 security, 10/10 autorisatie, 117/117 API en Linux-pakket; documentatie 45572480062 groen. Geen volledige acceptatie of Windows-bewijs.
 - **Afzonderlijk offline-testbewijs:** D101 offline-permissioncontrole en gezamenlijke IndexedDB-opslag geïmplementeerd. D101: [Node 22-compatibiliteitsrun 45558147763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45558147763), job 139015099770, head 6aaa391c1afa9e516d8d512573249feedb1a6d60, base 31c86973bf13848cba44fc38785084953fe65e39: 22/22 gerichte Chrome/IndexedDB-controles geslaagd, API-typecheck en beide applicatiebuilds groen; documentatiecontrole eveneens groen. Fictieve sessies en gesimuleerde serverweigering; geen integrale scherm-/netwerkacceptatie. Volledige Node 26-suite overgeslagen.
 - **Omgevingen:** Windows-laptoppakket verplicht voor PoC/acceptatie; actuele lokale installatie niet opnieuw vastgesteld. Fabrieksserver nog niet ingericht voor zover vastgesteld. Browserdemo volgens D99 buiten verplichte scope; verplichte demo-tests en versieafhankelijkheid uitgefaseerd, historische bron blijft behouden.
-- **Open:** resterende installatiegrenzen, D101-restcontrole, #106–#108 en #136, Windows-praktijkvalidatie, schema-diagram, integrale review en volledige Node 26-acceptatie. Zie docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Open:** eindreview #106–#108/#136, operationele security-inrichting, Windows-praktijkvalidatie, schema-diagram, integrale review en volledige Node 26-acceptatie. Zie docs/mes/ACCEPTANCE-CRITERIA.md.
 - **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd. Uitsluitend fictieve gegevens.
 
 **Links**
