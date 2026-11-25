@@ -786,6 +786,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0120: persoonlijke besluitgebonden reviewfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=120) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_submit_review_confirmed(uuid,integer,integer,text),
+     fabriek.recipe_decide_review_confirmed(uuid,integer,text,text,text,text) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
