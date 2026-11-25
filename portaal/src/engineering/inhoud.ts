@@ -7,7 +7,10 @@ type Category="target"|"operating_tolerance"|"process_limit"|"specification_limi
 interface Parameter {id:string;procedural_element_id:string;code:string;name:string;data_type:DataType;unit:string|null;frequency:string;required:boolean;responsible_activity:string;critical:boolean;measurement_unit_id:string|null}
 interface Limit {id:string;parameter_id:string;data_type:"decimal"|"integer";category:Category;target_value:string|null;lower_value:string|null;upper_value:string|null;scaling:"fixed"|"linear"}
 interface Formula {id:string;reference_quantity:string;reference_unit:string;reference_unit_id:string|null}
-interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[]}
+interface MaterialRequirement {id:string;formula_id:string;procedural_element_id:string|null;material_version_id:string;code:string;direction:"input"|"output";quantity:string;unit:string;scaling:"fixed"|"linear";measurement_unit_id:string|null}
+interface MaterialReference {id:string;material_code:string;revision:number;name:string;unit:string|null;measurement_unit_id:string|null}
+interface References {materials:MaterialReference[]}
+interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
 interface Catalog {units:{id:string;code:string;symbol:string;name:string}[]}
 const categories:Record<Category,string>={target:"Doelwaarde",operating_tolerance:"Bedrijfstolerantie",process_limit:"Procesgrens",specification_limit:"Specificatiegrens",statistical_control_limit:"Statistische beheersgrens"};
@@ -31,7 +34,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
     if(!active())return;
     area.replaceChildren(h("p",{class:"sub"},"Formule en parameters ophalen…"));
     try {
-      const [data,procedure,catalog]=await Promise.all([haal<Content>(base),haal<Procedure>(prefix+"/procedure"),haal<Catalog>("/units/for-product/"+encodeURIComponent(productId))]);
+      const [data,procedure,catalog,references]=await Promise.all([haal<Content>(base),haal<Procedure>(prefix+"/procedure"),haal<Catalog>("/units/for-product/"+encodeURIComponent(productId)),haal<References>("/recipes/references/"+encodeURIComponent(productId))]);
       if(!active())return;
       if(data.change_no!==procedure.change_no)throw Error("Recept is ondertussen gewijzigd. Vernieuw het onderdeel.");
       const editable=version.lifecycle_status==="draft"&&magReceptconcept();
@@ -111,6 +114,37 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           return {parameter_id:p.id,data_type:p.data_type,category:category.value,target_value:isTarget?decimalValue(target):null,lower_value:lo,upper_value:hi,scaling:scaling.value};
         },l?.id);
       }
+      const materialLabel=(m:MaterialReference)=>m.material_code+" — "+m.name+" · revisie "+m.revision+" ("+(m.unit??"geen eenheid")+")";
+      // Only explicitly mapped, internally consistent material revisions are selectable.
+      // Historical unmapped requirements remain visible, but can only be corrected
+      // by an explicit selection of a mapped revision (never a guessed conversion).
+      const usableMaterials=references.materials.filter(m=>m.measurement_unit_id!==null&&m.unit!==null&&unit(m.measurement_unit_id)?.symbol===m.unit);
+      function materialForm(m?:MaterialRequirement) {
+        const formula=choice(data.formulas.map(f=>({id:f.id,label:f.reference_quantity+" "+f.reference_unit})),m?.formula_id??data.formulas[0]?.id??"");
+        const element=choice(elementOptions,m?.procedural_element_id??"",false);
+        const material=choice(usableMaterials.map(r=>({id:r.id,label:materialLabel(r)})),m?.material_version_id??"");
+        const code=input(m?.code??"",100);
+        const direction=choice([{id:"input",label:"Input (benodigd materiaal)"},{id:"output",label:"Output (ontstaan materiaal)"}],m?.direction??"input");
+        const quantity=exact(m?.quantity??"",true);
+        const scaling=choice([{id:"fixed",label:"Vast"},{id:"linear",label:"Lineair"}],m?.scaling??"fixed");
+        const unitText=h("p",{class:"sub","aria-live":"polite"});
+        function sync(){
+          const selected=usableMaterials.find(r=>r.id===material.value);
+          unitText.textContent=selected?"Eenheid uit materiaalrevisie: "+selected.unit:"Kies een expliciet gekoppelde materiaalrevisie.";
+        }
+        material.addEventListener("change",sync);sync();
+        return save(m?"Materiaalvereiste wijzigen":"Materiaalvereiste toevoegen",[
+          field("Referentieformule",formula),field("Procedure-element (optioneel)",element),
+          field("Materiaalrevisie",material),unitText,field("Code vereiste",code),field("Richting",direction),
+          field("Hoeveelheid bij referentieformule",quantity),field("Schaling",scaling)
+        ],"material-requirements",()=>{
+          const selected=usableMaterials.find(r=>r.id===material.value);
+          if(!selected||selected.unit===null||selected.measurement_unit_id===null)throw Error("Kies een materiaalrevisie met expliciete cataloguseenheid.");
+          return {formula_id:formula.value,procedural_element_id:element.value||null,material_version_id:selected.id,
+            code:code.value.trim(),direction:direction.value,quantity:quantity.value.trim(),unit:selected.unit,
+            scaling:scaling.value,measurement_unit_id:selected.measurement_unit_id};
+        },m?.id);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -118,6 +152,22 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           editable&&unitOptions.length?formulaForm(f):null,editable?remove("formulas",f.id,"Referentieformule"):null)):[h("p",{class:"leeg"},"Nog geen referentieformule.")]),
         ...(editable&&!data.formulas.length&&unitOptions.length?[formulaForm()]:[]),
         ...(editable&&!unitOptions.length?[h("p",{class:"sub"},"Maak eerst een cataloguseenheid aan.")]:[]),
+        h("h4",{},"Materiaalvereisten"),
+        h("p",{class:"sub"},"Exacte materiaalrevisie en bijbehorende eenheid. Hoeveelheden horen bij de referentieformule; er wordt hier niet gerekend of geconverteerd."),
+        ...data.material_requirements.map(m=>{
+          const reference=references.materials.find(r=>r.id===m.material_version_id);
+          const element=procedure.elements.find(e=>e.id===m.procedural_element_id);
+          return h("details",{},h("summary",{},m.code+" · "+(m.direction==="input"?"Input":"Output")+" · "+m.quantity+" "+m.unit),
+            h("p",{},reference?materialLabel(reference):m.material_version_id),
+            h("p",{class:"sub"},"Procedure-element: "+(element?element.code+" — "+element.name:m.procedural_element_id??"Gehele formule")+" · "+(m.scaling==="linear"?"Lineair":"Vast")),
+            !m.measurement_unit_id?h("p",{class:"foutmelding"},"Nog geen expliciete cataloguseenheid gekoppeld; vrijgave geblokkeerd."):null,
+            editable&&data.formulas.length&&usableMaterials.length?materialForm(m):null,
+            editable?remove("material-requirements",m.id,"Materiaalvereiste "+m.code):null);
+        }),
+        ...(data.material_requirements.length?[]:[h("p",{class:"leeg"},"Nog geen materiaalvereisten.")]),
+        ...(editable&&data.formulas.length&&usableMaterials.length?[materialForm()]:[]),
+        ...(editable&&!data.formulas.length?[h("p",{class:"sub"},"Maak eerst de referentieformule aan.")]:[]),
+        ...(editable&&!usableMaterials.length?[h("p",{class:"sub"},"Geen materiaalrevisies met expliciet gekoppelde cataloguseenheid beschikbaar.")]:[]),
         h("h4",{},"Procesparameters"),
         ...data.parameters.map(p=>{
           const limits=data.parameter_limits.filter(l=>l.parameter_id===p.id);
@@ -136,5 +186,5 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
       );
     }catch(e){if(active())area.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
   }
-  return h("section",{},h("h3",{},"Formule en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Formule en parameters laden / vernieuwen"),area);
+  return h("section",{},h("h3",{},"Formule, materialen en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
 }
