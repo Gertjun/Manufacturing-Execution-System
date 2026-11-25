@@ -36,15 +36,15 @@ De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fa
 
 ### Afsluiting tussentijdse audit (D100)
 
-0087/D101: verplichte laatste legacy-beheerder vervalt; historische identiteiten blijven behouden, fictieve fixtures worden gecontroleerd vervangen. Resterende operationele rolchecks, effectieve privileges, UI en regressiebewijs open.
+0087/D101: verplichte laatste legacy-beheerder vervalt; historische identiteiten blijven behouden, fictieve fixtures worden gecontroleerd vervangen. Gebundelde DB/API-regressies en gerichte UI/offline-regressies geslaagd; integrale restinventarisatie van zelfstandige rolchecks, installatiegrenzen en schermacceptatie nog open.
 
-D24-runtimecorrectie geïmplementeerd; gerichte PostgreSQL- en Linux-pakketvalidatie open. Windows, volledige historische schema-upgrade, effectieve ACL-audit en D101-restcontrole blijven open.
+D24-runtimecorrectie en gebundelde ACL-correcties gevalideerd in PostgreSQL-run 45556530186 (schema 0093), inclusief Linux-pakket. Windows, representatieve historische schema-upgrade, resterende installatiegrenzen en D101-restcontrole blijven open.
  
 Werk in deze volgorde; dit is de afbakening van #106–#108 en #136, geen nieuwe zelfstandige takenlijst:
 
 D101: alle legacy-rollen verliezen binnen fase 1 hun zelfstandige autorisatiewerking; behoud historische gegevens en noodzakelijke compatibiliteitsvelden. Controleer API, database, UI en regressies. Geen automatische grants, geen nieuwe domeinfunctionaliteit.
  
-1. Gerichte baseline (concept-PR, label `database-baseline`, afzonderlijke PostgreSQL-job; ronde 8 volledig groen op da06084d, zie ACCEPTANCE-CRITERIA.md voor exact bewijs; inhoudelijke auditreview nog open): schone installatie, migraties vanaf main, beperkte DB-rechten, autorisatie-unit-tests en relevante API-regressies. Eerst uitvoeringsbewijs en oorzaken van fouten vaststellen; geen nieuwe reeks speculative hardening-migraties.
+1. Gerichte baseline (concept-PR, label `database-baseline`, afzonderlijke PostgreSQL-job; laatste gerichte DB-baseline groen op 82598c5, zie ACCEPTANCE-CRITERIA.md voor exact bewijs; inhoudelijke auditreview nog open): schone installatie, migraties vanaf main, beperkte DB-rechten, autorisatie-unit-tests en relevante API-regressies. Eerst uitvoeringsbewijs en oorzaken van fouten vaststellen; geen nieuwe reeks speculative hardening-migraties.
 2. Bundel alleen resterende blokkers: persoonlijk account-/sessiebeheer, rollen/permissions/scope/kwalificaties, onafhankelijke toekenning/intrekking, gecontroleerde personeelskoppeling, kritische herbevestiging en audit, effectieve DB-privileges en veilige tijdelijke interfaces. Zie acceptatiecriteria voor de bewijsgrens.
 3. Rond #106–#108 en #136 functioneel af; geen uitbreiding van legacy procesmodellen. Indien tijdelijk pad niet veilig kan blijven: blokkeren en expliciet vastleggen, met beoordeling van gevolgen voor behouden kernfuncties.
 4. Eindcontrole D99/ISA-mapping, integrale testreview, databaseplaatje genereren, volledige acceptatie op actuele head/base en beoordeling door Geert. Geen release of merge zonder toestemming.
@@ -243,3 +243,6 @@ D101: nieuwe offline acties vereisen de persoonlijke permissionprojectie van het
 
 
 D101: zelfstandige Chrome-regressie offline-rechten.mjs gebruikt echte IndexedDB en productiemodules via Vite, fictieve sessies en gemodelleerde serverweigering; controleert ontbrekende projectie, productscope, veldrechten, geheimen, sessiewisseling, gezamenlijke opslag, rollback en behoud bij weigering. Opgenomen in Node 22 en volledige acceptatie. Nog niet uitgevoerd.
+
+
+D101: [Node 22-compatibiliteitsrun 45558147763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45558147763), job 139015099770, head 6aaa391c1afa9e516d8d512573249feedb1a6d60, base 31c86973bf13848cba44fc38785084953fe65e39: 22/22 gerichte Chrome/IndexedDB-controles geslaagd, API-typecheck en beide applicatiebuilds groen; documentatiecontrole eveneens groen. Fictieve sessies en gesimuleerde serverweigering; geen integrale scherm-/netwerkacceptatie. Volledige Node 26-suite overgeslagen.
