@@ -109,9 +109,11 @@ try {
   await page.locator(".route.keuring .tegel").first().waitFor();
   const groep = [await page.getByRole("heading", { name: "Keuringsstappen", exact: true }).count(), await page.locator(".route.keuring .tegel").count()];
   check("Kwaliteit ziet de keuringsstappen als eigen groep", groep[0] === 1 && groep[1] === 3, JSON.stringify(groep));
-  check("Bij Nu te doen: de batch staat klaar voor TK1", (await page.locator(".keuring-blok").first().innerText()).includes(nr));
+  check("Nog niet gestarte keuring staat niet tussen openstaande besluiten", !(await page.locator(".keuring-blok").first().innerText()).includes(nr));
   await page.goto(`${BASIS}/invoer/#/stap/${stap}`);
   const rij = page.locator(".rij", { hasText: nr });
+  await rij.getByRole("button", { name: "Keuring starten" }).waitFor();
+  check("Batch staat klaar voor TK1 in de werkvoorraad",await rij.getByRole("button", { name: "Keuring starten" }).isVisible());
   await rij.getByRole("button", { name: "Keuring starten" }).click();
   // Zodra de start bij de server is, ververst het scherm: afgerond en de keuring staat open.
   await page.getByText("Wacht op Kwaliteit").first().waitFor({ timeout: 15000 });
