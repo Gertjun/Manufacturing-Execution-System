@@ -165,7 +165,7 @@ g.append(["S3.1", "PRD-A", 20, 120, "4", "absoluut"])`);
   await page.locator("#ww-nieuw").fill("12345678");
   await page.locator("#ww-nogmaals").fill("12345678");
   await page.getByRole("button", { name: "Opslaan en verder" }).click();
-  await page.getByText("Kies een ander wachtwoord dan het tijdelijke").waitFor();
+  await page.getByText("Kies een ander wachtwoord van minstens 8 tekens").waitFor();
   check("Hetzelfde als het tijdelijke wachtwoord mag niet", true);
   await page.locator("#ww-nieuw").fill("mijn-eigen-ww");
   await page.locator("#ww-nogmaals").fill("mijn-eigen-ww");
