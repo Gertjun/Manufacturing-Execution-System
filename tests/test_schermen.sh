@@ -1,6 +1,6 @@
 #!/bin/sh
 # Schermtests in Chrome: invoerscherm en alle portalen (PostgreSQL, D99).
-# Gebruik: DATABASE_URL=postgres://postgres@localhost:5432/batchgui tests/test_schermen.sh
+# Gebruik: DATABASE_URL=postgres://postgres@localhost:5432/batchgui TEST_APP_DATABASE_URL=postgres://mes_app@localhost:5432/batchgui tests/test_schermen.sh
 # LET OP: de database wordt meerdere keren leeggemaakt en opnieuw gevuld met fictieve gegevens.
 # Vooraf nodig: npm ci in api, invoer en portaal; invoer en portaal gebouwd (npm run build);
 # Google Chrome in /usr/bin/google-chrome; Python met psycopg.
@@ -11,12 +11,16 @@ cd "$(dirname "$0")/.."
 export DATABASE_URL
 : "${TEST_APP_DATABASE_URL:?Stel TEST_APP_DATABASE_URL in op de beperkte mes_app-testverbinding}"
 export TEST_APP_DATABASE_URL
+if [ "$DATABASE_URL" = "$TEST_APP_DATABASE_URL" ]; then
+  echo "Testvoorbereiding en applicatie moeten afzonderlijke databaseverbindingen hebben." >&2
+  exit 1
+fi
 PSQL="psql -q -v ON_ERROR_STOP=1 -d $DATABASE_URL"
 FOUT=0
 
 leeg() {
   $PSQL -c "DROP SCHEMA IF EXISTS fabriek CASCADE" >/dev/null 2>&1
-  $PSQL -f db/schema.sql >/dev/null 2>&1
+  $PSQL -f db/schema.sql >/dev/null
   $PSQL -f db/rechten.sql >/dev/null
   $PSQL -f db/seed_config.sql >/dev/null
   $PSQL -f db/seed_accounts_demo.sql >/dev/null
@@ -46,7 +50,7 @@ testdata
 for t in formaten portaal productie wandscherm grondstoffen meldingen certificaat regelkaarten excel hulp nalevering specificaties; do
   draai portaal "$t.mjs"
 done
-# Beheer en planning zetten zelf hun database klaar.
+# Beheer gebruikt de voorgaande fictieve dataset; planning en sjabloon initialiseren zelf.
 draai portaal beheer.mjs
 draai portaal planning.mjs
 draai portaal sjabloon.mjs
