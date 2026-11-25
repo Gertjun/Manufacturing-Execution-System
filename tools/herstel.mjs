@@ -12,12 +12,19 @@ import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from
 import { basename, join, resolve } from "node:path";
 import readline from "node:readline/promises";
 import { randomBytes } from "node:crypto";
-import { argumenten, controleerPgVersie, leesInstellingen, logOnderhoud, pg, pgProgramma, ROOT, sqlBestand, stop, tijdstempel, verbind, verbindingArgs, voerUit } from "./lib.mjs";
+import { argumenten, controleerPgVersie, leesInstellingen, logOnderhoud, pg, pgProgramma, ROOT, sqlBestand, stop, tijdstempel, verbindingArgs, voerUit } from "./lib.mjs";
 
 const { opties, los } = argumenten();
 const inst = leesInstellingen(opties);
 const DB = inst.beheerDb;
 const start = new Date();
+
+// Herstel moet verbindingsfouten kunnen afhandelen zonder process.exit vóór cleanup.
+async function verbind(conf, database = conf.database) {
+  const c = new pg.Client({ ...conf, database });
+  try { await c.connect(); return c; }
+  catch (e) { await c.end().catch(() => {}); throw e; }
+}
 
 function nieuwsteBackup() {
   if (!inst.backupMap) stop("Geef een back-upbestand op, of zet backupMap in de instellingen.");
@@ -55,12 +62,12 @@ async function zetTerug(database, aangemaakt = () => {}) {
 async function tel(database) {
   const c = await verbind(DB, database);
   try {
-  const { rows } = await c.query(`SELECT (SELECT count(*) FROM fabriek.batch)::int AS batches,
+    const { rows } = await c.query(`SELECT (SELECT count(*) FROM fabriek.batch)::int AS batches,
                                          (SELECT count(*) FROM fabriek.waarde)::int AS waarden,
                                          (SELECT count(*) FROM fabriek.lot)::int AS lots,
                                          (SELECT count(*) FROM fabriek.processtap)::int AS stappen,
                                          (SELECT max(nummer) FROM fabriek.schema_versie)::int AS schema`);
-  return rows[0];
+    return rows[0];
   } finally { await c.end(); }
 }
 
