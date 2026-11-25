@@ -10,8 +10,9 @@ interface Formula {id:string;reference_quantity:string;reference_unit:string;ref
 interface MaterialRequirement {id:string;formula_id:string;procedural_element_id:string|null;material_version_id:string;code:string;direction:"input"|"output";quantity:string;unit:string;scaling:"fixed"|"linear";measurement_unit_id:string|null}
 interface MaterialReference {id:string;material_code:string;revision:number;name:string;unit:string|null;measurement_unit_id:string|null}
 interface EquipmentRequirement {id:string;procedural_element_id:string;code:string;equipment_class_code:string;description:string;required_count:number;minimum_capacity:string|null;capacity_unit_id:string|null}
-interface Requirements {change_no:number;equipment_requirements:EquipmentRequirement[]}
-interface References {materials:MaterialReference[]}
+interface PersonnelRequirement {id:string;procedural_element_id:string;code:string;qualification_code:string;qualification_description:string;required_count:number}
+interface Requirements {change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[]}
+interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
 interface Catalog {units:{id:string;code:string;symbol:string;name:string}[]}
@@ -173,6 +174,23 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
             description:description.value.trim(),required_count:n,minimum_capacity:value,capacity_unit_id:value===null?null:capacityUnit.value};
         },r?.id,requirementsRoot);
       }
+      function personnelForm(r?:PersonnelRequirement) {
+        const element=choice(elementOptions,r?.procedural_element_id??"");
+        const code=input(r?.code??"",100);
+        const qualification=choice(references.qualifications.map(q=>({id:q.code,label:q.code+" — "+q.description})),r?.qualification_code??"");
+        const count=h("input",{type:"number",min:1,max:2147483647,step:1,required:true,value:String(r?.required_count??1)});
+        return save(r?"Personeelsvereiste wijzigen":"Personeelsvereiste toevoegen",[
+          field("Procedure-element",element),field("Code vereiste",code),
+          field("Vereiste kwalificatie",qualification),field("Vereist aantal gekwalificeerde personen",count)
+        ],"personnel-requirements",()=>{
+          const n=Number(count.value);
+          if(!Number.isInteger(n)||n<1||n>2147483647)throw Error("Geef een geldig positief geheel aantal op.");
+          if(!references.qualifications.some(q=>q.code===qualification.value))throw Error("Kies een bekende kwalificatie.");
+          if(!elementOptions.some(e=>e.id===element.value))throw Error("Kies een procedure-element uit deze receptversie.");
+          if(requirements.personnel_requirements.some(x=>x.id!==r?.id&&x.procedural_element_id===element.value&&x.qualification_code===qualification.value))throw Error("Deze kwalificatie is al vereist voor dit procedure-element.");
+          return {procedural_element_id:element.value,code:code.value.trim(),qualification_code:qualification.value,required_count:n};
+        },r?.id,requirementsRoot);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -210,6 +228,19 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         }),
         ...(requirements.equipment_requirements.length?[]:[h("p",{class:"leeg"},"Nog geen equipmentvereisten.")]),
         ...(editable&&elementOptions.length?[equipmentForm()]:[]),
+        h("h4",{},"Personeelsvereisten"),
+        h("p",{class:"sub"},"Kwalificatie-eisen per procedure-element. Dit kent geen kwalificaties, bevoegdheden of medewerkers toe."),
+        ...requirements.personnel_requirements.map(r=>{
+          const element=procedure.elements.find(e=>e.id===r.procedural_element_id);
+          return h("details",{},h("summary",{},r.code+" — "+r.qualification_code),
+            h("p",{},r.qualification_description),
+            h("p",{class:"sub"},"Procedure-element: "+(element?element.code+" — "+element.name:r.procedural_element_id)+" · Aantal: "+r.required_count),
+            editable&&elementOptions.length&&references.qualifications.length?personnelForm(r):null,
+            editable?remove("personnel-requirements",r.id,"Personeelsvereiste "+r.code,requirementsRoot):null);
+        }),
+        ...(requirements.personnel_requirements.length?[]:[h("p",{class:"leeg"},"Nog geen personeelsvereisten.")]),
+        ...(editable&&elementOptions.length&&references.qualifications.length?[personnelForm()]:[]),
+        ...(editable&&!references.qualifications.length?[h("p",{class:"sub"},"Geen kwalificaties in de referentiecatalogus beschikbaar.")]:[]),
         h("h4",{},"Procesparameters"),
         ...data.parameters.map(p=>{
           const limits=data.parameter_limits.filter(l=>l.parameter_id===p.id);
@@ -228,5 +259,5 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
       );
     }catch(e){if(active())area.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
   }
-  return h("section",{},h("h3",{},"Formule, materialen, equipment en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
+  return h("section",{},h("h3",{},"Formule, middelenvereisten en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
 }
