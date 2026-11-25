@@ -746,7 +746,7 @@ export async function bedrijf() {
 // ---------- Pc's ----------
 interface Pc { naam: string; locatie: string | null; actief: boolean; stappen: string[] }
 
-function kiesStappen(pc: Pc, alle: Stap[]): Promise<string[] | null> {
+function kiesStappen(pc: Pc, alle: Pick<Stap, "code" | "naam">[]): Promise<string[] | null> {
   return new Promise((ok) => {
     const vinken = alle.map((s) => h("input", { type: "checkbox", value: s.code, checked: pc.stappen.includes(s.code) }) as HTMLInputElement);
     const d = h("dialog", { class: "venster" },
@@ -768,8 +768,8 @@ function kiesStappen(pc: Pc, alle: Stap[]): Promise<string[] | null> {
 export async function pcs() {
   const actueel = vastHouden();
   toon(kop("Pc's"), laden());
-  let lijst: Pc[], alle: Stap[];
-  try { [lijst, alle] = await Promise.all([haal<Pc[]>("/beheer/pcs"), haal<Stap[]>("/config/stappen")]); } catch (e) { return fout(e); }
+  let lijst: Pc[], alle: Pick<Stap, "code" | "naam">[];
+  try { [lijst, alle] = await Promise.all([haal<Pc[]>("/beheer/pcs"), haal<Pick<Stap, "code" | "naam">[]>("/beheer/pc-stappen")]); } catch (e) { return fout(e); }
   if (!actueel()) return;
   const opnieuw = () => pcs();
   toon(
