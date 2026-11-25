@@ -287,3 +287,6 @@ De statische D101-inventarisatie van 21 geregistreerde API-routebestanden, centr
 
 Run [45567796663](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45567796663), job 139046752938, head 8fd03f7c8c3ff3831b1e2d0a106189d05335d564, base 31c86973bf13848cba44fc38785084953fe65e39: gehele gerichte PostgreSQL-baseline groen, historische upgrade 0035–0093 inclusief tien tabellen, legacy-snapshot, nul automatische grants, ACL en pre-upgradeback-up bevestigd in log; 117/117 API, 12/12 security, 10/10 autorisatie, beheertools en Linux-pakket geslaagd. Geen Windows- of integrale acceptatie.
 D99/#136: verplichte CI beperkt tot ondersteunde PostgreSQL-/laptopomgeving; demo-specifieke stappen en versieafhankelijkheid uitgefaseerd. Geen reguliere schermscenario's verwijderd. Historische demo niet ondersteund; verdere afhankelijkhedenreview en integrale validatie open.
+
+
+D99/#136: directe afhankelijkhedenreview van package.json (api/invoer/portaal), pakketbouw, acceptatieverificatie, test-/releaseworkflow en documentatie afgerond voor de geïnspecteerde bestanden. Geen verplichte PGlite-afhankelijkheid aangetroffen; historische demo-bron behouden. Integrale acceptatie op actuele tree blijft vereist.
