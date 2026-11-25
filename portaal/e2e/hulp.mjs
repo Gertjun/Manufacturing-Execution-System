@@ -1,4 +1,4 @@
-// Test van de hulp per rol (D59) in Chrome: in de portalen en in het invoerscherm, en afgedrukt één A4 per rol.
+// Regressie bestaande hulpweergave (D59); inhoudelijke MES-rolhandleidingen uitgesteld naar fase 9 (D99).
 // Gebruik: node e2e/hulp.mjs   (start zelf de API op poort 3470; vraagt de testaccounts van seed_accounts_demo.sql)
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
