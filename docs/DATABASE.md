@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 51 tabellen en 104 verbanden.
+Schema `fabriek`: 62 tabellen en 132 verbanden.
 
 ## Overzicht
 
@@ -14,9 +14,17 @@ Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijz
 ```mermaid
 erDiagram
     activity_qualification
+    authorization_bootstrap
+    authorization_channel_identity
+    authorization_channel_identity_revocation
+    authorization_decision
     authorization_grant
     authorization_legacy_snapshot
     authorization_permission
+    authorization_personnel_link
+    authorization_recovery
+    authorization_request
+    authorization_revocation
     authorization_role
     authorization_role_permission
     batch
@@ -25,6 +33,7 @@ erDiagram
     capaciteit_stap
     certificaat
     config_log
+    execution_session
     gebruiker
     geweigerde_invoer
     grondstof
@@ -50,6 +59,8 @@ erDiagram
     product
     product_stap
     qualification
+    qualification_issue
+    qualification_revocation
     rooster
     rooster_ploeg
     schema_versie
@@ -64,9 +75,14 @@ erDiagram
     veld
     veld_product
     waarde
+    authorization_channel_identity ||--o| authorization_channel_identity_revocation : "database_role_oid"
+    authorization_grant |o--o| authorization_decision : "grant_id"
+    authorization_grant ||--o| authorization_revocation : "grant_id"
     authorization_permission ||--o{ activity_qualification : "permission_code"
     authorization_permission ||--o{ authorization_role_permission : "permission_code"
+    authorization_request ||--o| authorization_decision : "request_id"
     authorization_role ||--o{ authorization_grant : "role_code"
+    authorization_role ||--o{ authorization_request : "role_code"
     authorization_role ||--o{ authorization_role_permission : "role_code"
     batch ||--o{ batch_besluit : "batch_id"
     batch |o--o{ herbewerking : "batch_id"
@@ -89,6 +105,8 @@ erDiagram
     lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
     lot_voorstel |o--o{ stapplanning : "voorstel_id"
     melding ||--o{ melding_gelezen : "melding_id"
+    personnel_qualification ||--o| qualification_issue : "qualification_id"
+    personnel_qualification ||--o| qualification_revocation : "qualification_id"
     ploeg ||--o{ overdracht : "ploeg_id"
     processtap |o--o{ capaciteit_afwijking : "processtap_id"
     processtap ||--o{ capaciteit_stap : "processtap_id"
@@ -102,6 +120,7 @@ erDiagram
     processtap ||--o{ stilstand : "processtap_id"
     processtap ||--o{ veld : "processtap_id"
     product |o--o{ authorization_grant : "product_id"
+    product |o--o{ authorization_request : "product_id"
     product |o--o{ batch : "product_id"
     product |o--o{ capaciteit_afwijking : "product_id"
     product ||--o{ capaciteit_stap : "product_id"
@@ -133,9 +152,17 @@ erDiagram
 | Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |
 | --- | ---: | --- | --- |
 | [`activity_qualification`](#activity_qualification) | 2 | `authorization_permission`, `qualification` | Verplichte kwalificatie voor een concrete activiteit. |
+| [`authorization_bootstrap`](#authorization_bootstrap) | 7 | `gebruiker` |  |
+| [`authorization_channel_identity`](#authorization_channel_identity) | 6 | `gebruiker` |  |
+| [`authorization_channel_identity_revocation`](#authorization_channel_identity_revocation) | 4 | `authorization_channel_identity` |  |
+| [`authorization_decision`](#authorization_decision) | 6 | `authorization_grant`, `authorization_request`, `gebruiker` | Een besluit per aanvraag; inhoud blijft in de oorspronkelijke aanvraag. |
 | [`authorization_grant`](#authorization_grant) | 9 | `authorization_role`, `gebruiker`, `product` | Persoonlijke roltoekenning met geldigheid en begrensde scope. |
 | [`authorization_legacy_snapshot`](#authorization_legacy_snapshot) | 3 | `gebruiker` | Momentopname van de oude rol bij migratie, zonder extra rechten. |
 | [`authorization_permission`](#authorization_permission) | 2 |  | Concrete bevoegdheden binnen een domein. |
+| [`authorization_personnel_link`](#authorization_personnel_link) | 6 | `gebruiker`, `operator` |  |
+| [`authorization_recovery`](#authorization_recovery) | 6 | `gebruiker` |  |
+| [`authorization_request`](#authorization_request) | 11 | `authorization_role`, `gebruiker`, `product` | Vastgelegde aanvraag met exacte inhoud en onafhankelijke beoordelaar. |
+| [`authorization_revocation`](#authorization_revocation) | 4 | `authorization_grant`, `gebruiker` | Een intrekking bewaart de grant en de identiteit en motivatie van de beslisser. |
 | [`authorization_role`](#authorization_role) | 2 |  | MES-rollen met gescheiden verantwoordelijkheidsdomeinen. |
 | [`authorization_role_permission`](#authorization_role_permission) | 2 | `authorization_permission`, `authorization_role` | Koppeling tussen rollen en concrete bevoegdheden. |
 | [`batch`](#batch) | 14 | `gebruiker`, `lot`, `operator`, `product` |  |
@@ -143,8 +170,9 @@ erDiagram
 | [`capaciteit_afwijking`](#capaciteit_afwijking) | 8 | `processtap`, `product` | Afwijkende capaciteit (sinds 0.48.0, D69): in een periode kan een stap en/of product minder aan. |
 | [`capaciteit_stap`](#capaciteit_stap) | 5 | `processtap`, `product` | Capaciteit per stap en product (sinds migratie 0020, D55): hoeveel items een stap per dag aankan. |
 | [`certificaat`](#certificaat) | 6 | `gebruiker`, `lot` |  |
-| [`config_log`](#config_log) | 8 |  | Wijzigingslogboek voor configuratie. |
-| [`gebruiker`](#gebruiker) | 7 |  | Persoonlijke accounts (ploegleider, beheerder, analist, planner) en het ene gedeelde operator-account. |
+| [`config_log`](#config_log) | 10 | `gebruiker` | Wijzigingslogboek voor configuratie. |
+| [`execution_session`](#execution_session) | 5 | `gebruiker` |  |
+| [`gebruiker`](#gebruiker) | 8 |  | Persoonlijke accounts (ploegleider, beheerder, analist, planner) en het ene gedeelde operator-account. |
 | [`geweigerde_invoer`](#geweigerde_invoer) | 10 | `gebruiker`, `operator`, `pc` | Geweigerde invoer van een pc (#77, D66): de server legt vast wat hij weigerde, zodat het pilotoverzicht kan laten zien wat er misging. |
 | [`grondstof`](#grondstof) | 5 |  | Grondstoffen per batch (sinds migratie 0005, versie 0.11.0) Grondstoffen (configuratie, door de beheerder beheerd). |
 | [`grondstof_gebruik`](#grondstof_gebruik) | 11 | `gebruiker`, `grondstof`, `operator`, `stapregistratie` | Gebruik: per registratie en grondstof één oorspronkelijke regel; correcties vervangen hem (zoals bij waarden). |
@@ -169,6 +197,8 @@ erDiagram
 | [`product`](#product) | 5 |  | Producten (configuratie, door de planner beheerd; sinds migratie 0003) |
 | [`product_stap`](#product_stap) | 3 | `processtap`, `product` | Route per product (sinds migratie 0018, D55): welke stappen een product doorloopt, in welke volgorde. |
 | [`qualification`](#qualification) | 2 |  | Definitie van een personeelskwalificatie. |
+| [`qualification_issue`](#qualification_issue) | 5 | `gebruiker`, `personnel_qualification` |  |
+| [`qualification_revocation`](#qualification_revocation) | 4 | `gebruiker`, `personnel_qualification` |  |
 | [`rooster`](#rooster) | 3 |  | Ploegen en rooster (sinds 0033, #86, D76). |
 | [`rooster_ploeg`](#rooster_ploeg) | 6 |  |  |
 | [`schema_versie`](#schema_versie) | 3 |  |  |
@@ -194,6 +224,49 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | --- | --- | --- | --- |
 | `permission_code` | text | PK FK | `authorization_permission` |
 | `qualification_code` | text | PK FK | `qualification` |
+
+### authorization_bootstrap
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `singleton` | bool | PK |  |
+| `system_user_id` | uuid | FK | `gebruiker` |
+| `security_user_a` | uuid | FK | `gebruiker` |
+| `security_user_b` | uuid | FK | `gebruiker` |
+| `created_at` | timestamptz |  |  |
+| `database_actor` | text |  |  |
+| `reason` | text |  |  |
+
+### authorization_channel_identity
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `database_role_oid` | oid | PK |  |
+| `database_role_name` | name | UK |  |
+| `user_id` | uuid | FK | `gebruiker` |
+| `registered_at` | timestamptz |  |  |
+| `registered_by` | name |  |  |
+| `reason` | text |  |  |
+
+### authorization_channel_identity_revocation
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `database_role_oid` | oid | PK FK | `authorization_channel_identity` |
+| `revoked_at` | timestamptz |  |  |
+| `revoked_by` | name |  |  |
+| `reason` | text |  |  |
+
+### authorization_decision
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `request_id` | uuid | PK FK | `authorization_request` |
+| `decided_by` | uuid | FK | `gebruiker` |
+| `approved` | bool |  |  |
+| `reason` | text |  |  |
+| `decided_at` | timestamptz |  |  |
+| `grant_id` | uuid | FK UK leeg | `authorization_grant` |
 
 ### authorization_grant
 
@@ -223,6 +296,53 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | --- | --- | --- | --- |
 | `code` | text | PK |  |
 | `domain` | text |  |  |
+
+### authorization_personnel_link
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `personnel_id` | uuid | PK FK | `operator` |
+| `user_id` | uuid | FK UK | `gebruiker` |
+| `requested_by` | uuid | FK | `gebruiker` |
+| `approved_by` | uuid | FK | `gebruiker` |
+| `reason` | text |  |  |
+| `linked_at` | timestamptz |  |  |
+
+### authorization_recovery
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `user_id` | uuid | FK | `gebruiker` |
+| `requested_by` | uuid | FK | `gebruiker` |
+| `approved_by` | uuid | FK | `gebruiker` |
+| `reason` | text |  |  |
+| `recovered_at` | timestamptz |  |  |
+
+### authorization_request
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `requested_by` | uuid | FK | `gebruiker` |
+| `user_id` | uuid | FK | `gebruiker` |
+| `role_code` | text | FK | `authorization_role` |
+| `area_code` | text | leeg |  |
+| `product_id` | uuid | FK leeg | `product` |
+| `equipment_code` | text | leeg |  |
+| `valid_from` | timestamptz |  |  |
+| `valid_until` | timestamptz | leeg |  |
+| `reason` | text |  |  |
+| `requested_at` | timestamptz |  |  |
+
+### authorization_revocation
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `grant_id` | uuid | PK FK | `authorization_grant` |
+| `revoked_by` | uuid | FK | `gebruiker` |
+| `reason` | text |  |  |
+| `revoked_at` | timestamptz |  |  |
 
 ### authorization_role
 
@@ -314,6 +434,18 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `nieuw` | jsonb | leeg |  |
 | `gewijzigd_door` | text |  |  |
 | `gewijzigd_op` | timestamptz |  |  |
+| `actor_user_id` | uuid | FK leeg | `gebruiker` |
+| `actor_origin` | text |  |  |
+
+### execution_session
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `proof_hash` | bytea | PK |  |
+| `user_id` | uuid | FK | `gebruiker` |
+| `session_version` | bigint |  |  |
+| `issued_at` | timestamptz |  |  |
+| `expires_at` | timestamptz |  |  |
 
 ### gebruiker
 
@@ -326,6 +458,7 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `actief` | bool |  |  |
 | `gedeeld` | bool |  |  |
 | `wachtwoord_wijzigen` | bool |  |  |
+| `session_version` | bigint |  |  |
 
 ### geweigerde_invoer
 
@@ -607,6 +740,25 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | --- | --- | --- | --- |
 | `code` | text | PK |  |
 | `description` | text |  |  |
+
+### qualification_issue
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `qualification_id` | uuid | PK FK | `personnel_qualification` |
+| `requested_by` | uuid | FK | `gebruiker` |
+| `approved_by` | uuid | FK | `gebruiker` |
+| `evidence` | text |  |  |
+| `issued_at` | timestamptz |  |  |
+
+### qualification_revocation
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `qualification_id` | uuid | PK FK | `personnel_qualification` |
+| `revoked_by` | uuid | FK | `gebruiker` |
+| `reason` | text |  |  |
+| `revoked_at` | timestamptz |  |  |
 
 ### rooster
 
