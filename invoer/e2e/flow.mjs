@@ -48,17 +48,16 @@ try {
   await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
   await shot("01-pc-kiezen");
   await page.getByRole("button", { name: /^PC-01/ }).click();
-  // Het oude gedeelde account kiest nog een naam (D6); namen met een eigen account staan er niet tussen (D53).
+  // D93: gedeelde identiteit krijgt geen sessie, ook niet op een gekoppelde pc.
   await page.getByLabel("Gebruikersnaam").fill("operator");
   await page.getByLabel("Wachtwoord").fill("demo");
   await shot("02-inloggen");
+  const geweigerd = page.waitForResponse(r => r.url().endsWith("/auth/login") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  await page.getByRole("heading", { name: "Wie ben je?" }).waitFor();
-  await shot("03-naam-kiezen");
-  check("Gedeeld account: Operator A (eigen account) staat niet in de namenlijst", (await page.getByRole("button", { name: "Operator A" }).count()) === 0);
-  check("Gedeeld account: uitleg om een eigen account te vragen", (await page.getByText("gedeelde account").count()) === 1);
-  await page.getByRole("button", { name: "Afmelden" }).click();
-  await page.getByLabel("Gebruikersnaam").waitFor();
+  check("Gedeeld account: login geweigerd", (await geweigerd).status() === 401);
+  await page.getByRole("alert").filter({ hasText: "Onjuiste gebruikersnaam of wachtwoord" }).waitFor();
+  check("Gedeeld account: geen invoertoken", await page.evaluate(() => localStorage.getItem("invoer.token") === null));
+  await page.getByRole("heading", { name: "Inloggen" }).waitFor();
   // Eigen account (D53): meteen naar de stappen, naam vast in de balk.
   await page.getByLabel("Gebruikersnaam").fill("operator.a");
   await page.getByLabel("Wachtwoord").fill("demo");
@@ -134,7 +133,7 @@ try {
   const pmLogin = await (await fetch(`${BASIS}/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ gebruikersnaam: "productiemanager1", wachtwoord: "demo" }) })).json();
   const pm = { "content-type": "application/json", authorization: `Bearer ${pmLogin.token}` };
-  const aanmaak = await fetch(`${BASIS}/herbewerkingen`, { method: "POST", headers: pm, body: JSON.stringify({ nummer: "B-2026-0004", stapcode: "PS15", reden: "test: opnieuw" }) });
+  const aanmaak = await fetch(`${BASIS}/herbewerkingen`, { method: "POST", headers: pm, body: JSON.stringify({ nummer: "B-2026-0004", stapcode: "PS15", reden: "test: opnieuw", wachtwoord: "demo" }) });
   const hb = await aanmaak.json();
   check("Productiemanager maakt een herbewerking aan", aanmaak.status === 201, `${aanmaak.status} ${JSON.stringify(hb)}`);
   await page.goto(`${BASIS}/invoer/#/stap/PS15`);
@@ -146,7 +145,7 @@ try {
   await page.goto(`${BASIS}/invoer/#/stap/PS16`);
   await page.getByRole("heading", { name: "Process Step 16" }).waitFor();
   check("... en zolang hij niet gedaan is, niet klaar voor een lot", !(await page.locator("main").innerText()).includes("B-2026-0004"));
-  const intrek = await fetch(`${BASIS}/herbewerkingen/${hb.id}/intrekken`, { method: "POST", headers: pm, body: JSON.stringify({ reden: "test klaar" }) });
+  const intrek = await fetch(`${BASIS}/herbewerkingen/${hb.id}/intrekken`, { method: "POST", headers: pm, body: JSON.stringify({ reden: "test klaar", wachtwoord: "demo" }) });
   check("Herbewerking ingetrokken", intrek.status === 200);
   await page.goto(`${BASIS}/invoer/#/stap/PS1`);
   await page.getByRole("heading", { name: "Gepland voor vandaag" }).waitFor();
