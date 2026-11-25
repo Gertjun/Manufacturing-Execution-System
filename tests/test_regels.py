@@ -2690,6 +2690,42 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\nD108 beoordelingsmatrix v1")
+    for area,expected in [
+        ("header",["engineering"]),
+        ("personnel",["engineering","production"]),
+        ("quality",["engineering","quality"]),
+        *[(a,["engineering","production","quality"]) for a in
+          ("procedure","parameters","formula","materials","equipment","instructions","lot","scaling","other","unknown")]
+    ]:
+        check("D108 matrix "+area,val("SELECT recipe_review_matrix_v1(false,%s::text[])",([area],))==expected)
+    check("D108 initiële definitie alle domeinen",val("SELECT recipe_review_matrix_v1(true,ARRAY[]::text[])")==["engineering","production","quality"])
+    check("D108 combinatie personeel en kwaliteit",val("SELECT recipe_review_matrix_v1(false,ARRAY['personnel','quality'])")==["engineering","production","quality"])
+    check("D108 onbekende gebieden fail closed",val("SELECT recipe_review_matrix_v1(false,NULL)")==["engineering","production","quality"])
+    check("D108 interne actorfunctie afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_actor(uuid,text)','EXECUTE')"))
+    check("D108 preview beschikbaar",val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_requirements(uuid)','EXECUTE')"))
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'REVIEW-MATRIX-TEST',%s) RETURNING id",(pa,actor))
+        a=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        b=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,2,'Fictief',%s) RETURNING id",(rid,actor))
+        con.execute("INSERT INTO recipe_change_request(recipe_version_id,baseline_version_id,change_kind,reason,impact_description,created_by) VALUES (%s,%s,'revision','Fictief','Fictief',%s)",(b,a,actor))
+        req=val("SELECT id FROM recipe_change_request WHERE recipe_version_id=%s",(b,))
+        con.execute("INSERT INTO recipe_change_impact(recipe_version_id,request_id,area,explanation) VALUES (%s,%s,'header','Fictief')",(b,req))
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,4,true),(%s,6,true)",(a,b))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        data=val("SELECT recipe_review_requirements(%s)",(b,))
+        check("D108 automatische impact voegt verplichte beoordelingen toe",data["impact_areas"]==["header","lot"] and data["required_reviews"]==["engineering","production","quality"])
+        check("D108 preview versiegebonden",data["matrix_version"]==1 and data["change_no"]==0 and data["baseline_version_id"]==str(a))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

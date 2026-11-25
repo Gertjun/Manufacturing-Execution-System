@@ -645,3 +645,27 @@ Diagramregels: zelfde entiteit consistent gekleurd in dezelfde semantische conte
 Scope: alle portalen, navigatie, pagina's, knoppen, formulieren, tabellen, dashboards, statussen, dialogen, fouten, typografie, witruimte, iconen, selectie; architectuur-, workflow-, proces- en datamodeldiagrammen, ERD's, roadmaps/Gantt, technische documentatie, presentaties, managementrapportages, opleiding en handleidingen. Centrale tokens/gedeelde componenten waar passend, vermijd CSS-duplicatie. Leg standaard in fase 3 vast in docs/mes/VISUAL-STYLE.md inclusief correcte/ongewenste voorbeelden en pijltypen. Onderzoek generator voor DATABASE.md; SQL-bron, reproduceerbaarheid en integriteitscontroles behouden. Geen handmatige afwijking van gegenereerd model. Bestaand PDF-naslagwerk MES – Van fabriek tot digitale productieomgeving is momentopname; later afzonderlijk actualiseren en harmoniseren.
 
 Werkpakketten en volgorde in ROADMAP, acceptatie in docs/mes/ACCEPTANCE-CRITERIA.md. D105 #138–#140 blijven open en volledig van kracht. Fasen 4–12 gebruiken de standaard voor nieuwe UI/documentatie, geen vooruitbouw. Eerdere duurindicatie fase 3 herijken na inventarisatie, geen nieuwe deadline of pilotdatum. Behoud alle bestaande beveiliging, functionele eisen en acceptatiepoorten.
+
+
+## D108 – MBR-beoordelingsmatrix en functiescheiding (25 nov 2026)
+
+Opdrachtgever akkoord met voorgestelde matrix voor #112, aanvullend op D89 R02/R05/P04/P08/P11. Dit is projectbeleid, geen letterlijke ISA-normclausule. Matrixversie 1:
+
+| Impactgebied | Engineering | Productie | Kwaliteit |
+|---|---|---|---|
+| Initieel recept | Ja | Ja | Ja |
+| Administratieve header | Ja | Nee | Nee |
+| Procedure en route | Ja | Ja | Ja |
+| Parameters | Ja | Ja | Ja |
+| Formule en materialen | Ja | Ja | Ja |
+| Equipment | Ja | Ja | Ja |
+| Personeelsvereisten | Ja | Ja | Nee |
+| Instructies | Ja | Ja | Ja |
+| Kwaliteitsspecificaties | Ja | Nee | Ja |
+| Lotregels | Ja | Ja | Ja |
+| Schaalregels | Ja | Ja | Ja |
+| Overig/onbekend | Ja | Ja | Ja |
+
+Engineering Approver, Manufacturing Manager en Quality Approver krijgen elk hun eigen concrete productspecifieke reviewpermission; geen nieuwe persoonlijke grants. Engineering altijd verplicht. Unie van handmatige en automatisch afgeleide impact; geen wegfilteren van vereisten door gebruiker. Onbekende impact conservatief alle drie domeinen. Geen zelfgoedkeuring (inclusief inhoudelijke bijdragers), één persoon per verplicht beoordelingsdomein per ronde, wijzigingen invalideren eerdere goedkeuringen. Besluit op exacte vastgezette inhoud, actuele autorisatie en herbevestigde identiteit. Goedkeuring is geen vrijgave. Technisch beheer geen automatische inhoudelijke bevoegdheid.
+
+0118 implementeert matrix en persoonlijke preview; exacte rondes, bijdragerscontrole, unieke beoordelaars, herbevestiging, beslisregistratie en vrijgavepoort volgen. Geen goedkeurings- of statusmutaties beschikbaar totdat deze beveiligingen zijn geïmplementeerd en getest.
