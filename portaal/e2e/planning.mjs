@@ -23,7 +23,7 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 await db.query("DROP SCHEMA IF EXISTS fabriek CASCADE");
-for (const f of ["schema.sql", "rechten.sql", "seed_config.sql", "seed_accounts_demo.sql"]) await db.query(readFileSync(new URL(`../../db/${f}`, import.meta.url), "utf8"));
+for (const f of ["schema.sql", "rechten.sql", "seed_config.sql", "seed_accounts_demo.sql"]) execFileSync("psql",["-q","-v","ON_ERROR_STOP=1","-d",DB,"-f",new URL(`../../db/${f}`,import.meta.url).pathname],{stdio:"inherit"});
 
 await db.query(readFileSync(new URL("../../tests/fixtures/scherm_grants.sql", import.meta.url), "utf8"));
 
