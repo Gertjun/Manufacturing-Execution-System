@@ -15,9 +15,11 @@ gantt
     Ontwerp :done, a, 2026-11-24, 1d
     section Fundament
     Fundament :done, b, after a, 1d
-    MBR en resources :c, after b, 1d
+    Master Data en Recipe Management :c, after b, 1d
+    Portalstructuur en UI-harmonisatie :ui, after c, 1d
+    Middelenbeheer en stilstand :res, after ui, 1d
     section Kern
-    Planning en execution :d, after c, 1d
+    Planning en execution :d, after res, 1d
     EBR genealogie en quality :e, after d, 1d
     section Pilot
     Pilotpoort :milestone, f, after e, 0d
@@ -25,7 +27,7 @@ gantt
     Intelligence en integraties :g, after f, 1d
 ```
 
-De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fase 0: ontwerpbesluiten vastgelegd in D89 en docs/mes; acceptatie van documentatie nog vereist. Fasen 1–8 vormen de betrouwbare kern voor pilot 1.0.0. Minimale materiaalidentiteit, middelenvereisten en blokkades worden vóór afhankelijke functies ingevoerd; geen onbewezen productieomschakeling. Praktijkvoorbereiding parallel mogelijk. D99: de goedgekeurde legacy-review bepaalt de overgang per fase. Geen verdere investering in achterhaalde procesmodellen of uitgestelde uitbreidingen; alleen noodzakelijke beveiliging van tijdelijke interfaces.
+De eerdere pilotdatum 22 februari 2027 is niet meer bindend. #70 blijft open. Fase 0: ontwerpbesluiten vastgelegd in D89 en docs/mes; acceptatie van documentatie nog vereist. Fasen 1–9 vormen de betrouwbare kern voor pilot 1.0.0. Minimale materiaalidentiteit, middelenvereisten en blokkades worden vóór afhankelijke functies ingevoerd; geen onbewezen productieomschakeling. Praktijkvoorbereiding parallel mogelijk. D99: de goedgekeurde legacy-review bepaalt de overgang per fase. Geen verdere investering in achterhaalde procesmodellen of uitgestelde uitbreidingen; alleen noodzakelijke beveiliging van tijdelijke interfaces.
 
 ## Fase 1 — Projectfundament en autorisaties (functioneel geaccepteerd)
 
@@ -76,28 +78,36 @@ D101: alle legacy-rollen verliezen binnen fase 1 hun zelfstandige autorisatiewer
 
 Startbaseline: v0.63.0, main `ea3b78bc938647140b4e228e9382761504518906`, tree `344837981b9921dd0052ce2580a8c786a783f6e5`, schema 0095. PR #6 gemerged; [main-verificatie](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45680256072) en [releaseworkflow](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45680409404) geslaagd. Alle onderstaande punten blijven open. Eén concept-PR, geen versieverhoging tot releasevoorbereiding.
 
-Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen (#109–110); procedurehiërarchie en routeafhankelijkheden (#103/110); receptinhoud (#111); MOC en vrijgave (#112); Process Engineering, Excel en migratie (#113); audit/testreview; integrale acceptatie; Windows-praktijkacceptatie en afzonderlijke toestemming voor merge/release. Per werkpakket eerst concrete cardinaliteiten, rechten, transacties en regressies toetsen aan D89/D99. Product/grondstof-ID's en historische feiten behouden; oude uitvoering blijft tijdelijk beschermd tot fase 4/5. Geen volledige resource- of executionfunctionaliteit vooruitbouwen.
+Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen (#109–110); procedurehiërarchie en routeafhankelijkheden (#103/110); receptinhoud (#111); MOC en vrijgave (#112); Process Engineering, Excel en migratie (#113); audit/testreview; integrale acceptatie; Windows-praktijkacceptatie en afzonderlijke toestemming voor merge/release. Per werkpakket eerst concrete cardinaliteiten, rechten, transacties en regressies toetsen aan D89/D99. Product/grondstof-ID's en historische feiten behouden; oude uitvoering blijft tijdelijk beschermd tot fase 5/6. Geen volledige resource- of executionfunctionaliteit vooruitbouwen. D105: fase 2 behoudt alle scope inclusief Process Engineering-portaal en eigen volledige acceptatie/merge/release; generieke portalharmonisatie pas fase 3. Volgende werkpakket: procedurehiërarchie en afhankelijkheden.
 
-- #109 **Materiaaldefinities en MBR-identiteiten; meerdere recepten per product** — Migratie 0096: afgeschermd relationeel materiaalstamdatafundament; 0097 gecontroleerde materiaalfuncties toegevoegd; materiaal-API toegevoegd; gerichte DB/API-baseline geslaagd op a28cd0e (run 45682177664); gegenereerd diagram en OpenAPI opgenomen. 0098–0099 MBR-identiteiten, conceptversies, wijzigingsteller, audit en API toegevoegd, nog niet getest; portaal, bronmigratie en integrale acceptatie open.
+- #109 **Materiaaldefinities en MBR-identiteiten; meerdere recepten per product** — Migratie 0096: afgeschermd relationeel materiaalstamdatafundament; 0097 gecontroleerde materiaalfuncties toegevoegd; materiaal-API toegevoegd; gerichte DB/API-baseline geslaagd op a28cd0e (run 45682177664); gegenereerd diagram en OpenAPI opgenomen. 0098–0099 MBR-identiteiten, conceptversies, wijzigingsteller, audit en API gericht gevalideerd op d1815d3 (run 45684478100); portaal, bronmigratie en integrale acceptatie open.
 - #110 **Onveranderlijke receptversies, procedurehiërarchie en afhankelijkheden** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #111 **Parameters, vijf voorwaarden, formule, schaalbaarheid, lotregels, instructies en specificaties** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #112 **MOC, vierogenprincipe, vergelijking, geldigheid en vrijgave** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #113 **Process Engineering-portaal, Excel en migratie naar concepten** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #103 **Routeversie-fundament** — Opnieuw implementeren binnen MBR; prototype PR #1 is niet gemerged.
 
-## Fase 3 — Resource Management
+## Fase 3 — Portalstructuur, navigatie en UI-harmonisatie
+
+D105: start uitsluitend na volledige acceptatie, merge en officiële release van fase 2. Indicatief één tot twee ontwikkelingsdagen, geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.
+
+- #138 **Centrale portalregistratie en navigatie** — Eén uitbreidbare definitie van portalen, namen, iconen, routes, volgorde en vereiste bevoegdheden; dezelfde actuele autorisatielogica voor portalenscherm en linkerbalk, ook bij meerdere rollen en relevante combinaties/scopes. Alle bevoegde portalen op beide plaatsen, onbevoegde onzichtbaar én technisch ontoegankelijk bij directe URL. Onafhankelijke API/database-autorisatie blijft leidend; geen extra grants voor cosmetische consistentie.
+- #139 **UI-harmonisatie en herbruikbare componenten** — Uniforme schermopbouw, hoofdbalk, linkernavigatie, namen, iconen, kleuren, typografie, tabellen, formulieren, knoppen, filters, status- en foutmeldingen, bevestigingsdialogen en lege toestanden. Herbruikbare componenten en ontwerpprincipes; praktisch bruikbaar in industriële productieomgeving. Geen nieuwe domeinfuncties vooruitbouwen.
+- #140 **Portalregressies, audit en faseacceptatie** — Alle bestaande rollen en relevante bevoegdheidscombinaties; expliciet mes.quality met Kwaliteit en Production Execution, overeenstemming portalenscherm/linkerbalk, directe onbevoegde URL en onafhankelijke backendweigering; bestaande functionaliteit en beveiliging behouden. Tussentijdse audit, testreview, integrale CI, Windows-praktijktest en formele faseacceptatie, merge en release volgens D88/D90. Zie acceptatiecriteria.
+
+## Fase 4 — Middelenbeheer en stilstand (Resource Management)
 
 - #114 **Enterprise/site/area/cell/unit, equipment classes en fysieke assets** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #115 **Geschiktheid, capaciteit, status, werkstations en stilstand** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #116 **Maintenance-portaal en middelenvereisten** — Zie ontwerpdocumenten en acceptatiecriteria. D99: storingsnotities herbeoordelen binnen de middelen- en stilstandscope.
 
-## Fase 4 — Planning & Dispatching
+## Fase 5 — Productieplanning en werkvrijgave (Planning & Dispatching)
 
 - #117 **Productieorders, work schedules/requests, job orders** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #118 **Batch- en lotplanning, middelen en personeel, capaciteit** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #119 **Werkvrijgave, intrekking, job responses en orderhistorie** — Zie ontwerpdocumenten en acceptatiecriteria. D98: geen zelfstandige ongeplande batchcreatie door operators; ook spoedwerk vereist vrijgave.
 
-## Fase 5 — Control Recipes & Production Execution
+## Fase 6 — Control Recipes en productie-uitvoering
 
 - #120 **Control Recipes, revisies, batchstart en geautoriseerde wijzigingen** — Zie ontwerpdocumenten en acceptatiecriteria. D98: systeem geeft batchidentiteit uit vanuit vrijgegeven werk; sluit legacy ongeplande creatieroute bij omschakeling.
 - #121 **Procedure-uitvoering, instructies, kwalificaties, middelen en ISA-88-statussen** — Zie ontwerpdocumenten en acceptatiecriteria.
@@ -105,25 +115,25 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 - #104 **Routeversies en lotvorming door de hele keten** — Expliciete productrecepten, Control Recipes, historische voorwaarden, gemengde receptversies van hetzelfde product tenzij expliciet incompatibel, offline overgang.
 - #105 **Productafhankelijke lotgrootte** — Norm 1–50, werkelijk aantal en afwijkingsreden, eventuele goedkeuring; capaciteit, lotvoorstellen en uitvoering aansluiten. Prototype PR #1 is niet gemerged.
 
-## Fase 6 — Electronic Batch Records
+## Fase 7 — Elektronische batchdossiers (EBR)
 
 - #123 **Uitvoeringsidentiteit, EBR-standen, aanvullingen, export en Traceerbaarheid** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #69 **Volledig digitaal productiedossier** (middel) — Lotpaspoort en certificaat bestaan al; erbij: één dossier per lot met alle metingen, grondstoffen, wie wat deed, stilstand, beoordelingen en herbewerkingen, om te bewaren of te versturen.
 - #102 **Doorlooptijden in het lotpaspoort** (klein) — De doorlooptijden van het lot en zijn batches, vergeleken met de rest. Hoort eigenlijk niet bij Kwaliteit: past bij het productiedossier per lot (#69), dat het overzicht over alle afdelingen wordt.
 - #101 **Meetwaarde als gekleurde balk** (klein) — In Lotpaspoort en Afwijkingen de kolommen Gemeten en Grenzen als balk met de grenzen en tolerantie in kleur en een punt voor de gemeten waarde. Met echte data is beter te zien hoe die balk moet werken.
 
-## Fase 7 — Quality Management
+## Fase 8 — Kwaliteit, vrijgave en herbewerking
 
 - #124 **Onafhankelijke productie- en kwaliteitsstatus, holds en afwijkingen** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #125 **Herbewerking als job order, Review by Exception, vrijgave en intrekking, CoA** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #30 **Afkeur met omvang, herhaling en maatregel** (middel) — Bij afkeur de geschonden grens tonen, verdachte batches (zelfde grondstofpartij, dag of lot) en eerdere afwijkingen van hetzelfde veld. Daarna een eenvoudige maatregel: wat, wie, wanneer klaar, na 30 dagen controleren of het hielp.
 
-## Fase 8 — Material Tracking & Genealogy
+## Fase 9 — Materiaalgenealogie en traceerbaarheid
 
 - #126 **Materiaalpartijen, status, verbruik, transformaties en genealogie** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #127 **Impactanalyse, visualisatie en basis massabalans** — Zie ontwerpdocumenten en acceptatiecriteria.
 
-## Fase 9 — Fabrieksimplementatie en pilot
+## Fase 10 — Pilotvoorbereiding en integrale validatie
 
 - #92 **Wandscherm instellen in Beheer** (klein) — Per wandschermaccount in Beheer kiezen wat het toont (hal, stappen of Kwaliteit); de tv toont na het inloggen wat daar staat en hoeft er niemand meer heen (D74; uitgesteld volgens D99).
 - #134 **Herinrichting rolhulp, pilotfeedback en pilotrapportage** — D99: actualiseren na stabiele kernschermen; uitgebreide wandschermen herbeoordelen op betrouwbare middelen- en statusgegevens.
@@ -138,7 +148,7 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 - #79 **Ondernemingsraad en privacy** (klein, *Geert*) — Het systeem legt per persoon vast wie wat invoert (nodig om terug te zoeken). Vóór de pilot met de ondernemingsraad bespreken wat er wordt vastgelegd, wie het mag zien en hoe lang het bewaard blijft; raakt ook #8 en #63 (D12).
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0 in één hal: de eerste twee weken met de papieren registratie ernaast, dan alleen het systeem.
 
-## Fase 10 — Manufacturing Intelligence
+## Fase 11 — Manufacturing Intelligence
 
 - #135 **Herbeoordeling geavanceerde SPC, Cpk en trends** — D99: pas na betrouwbare data, recept-/specificatieversies en KPI-definities; generieke grafiekcomponenten behouden.
 
@@ -154,7 +164,7 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 - #68 **Kwaliteitsanalyse: verbanden** (groot) — Verbanden tussen grondstofpartijen, procesparameters, ploegen en afwijkingen. Per operator alleen na besluit #8 (D12).
 - #84 **Specificatie per klant** (middel) — Naast de specificatie per product (#80, D73) een afwijkende specificatie voor een klant, en een lot toetsen aan de specificatie van de klant voor wie het is. Geert: later.
 
-## Fase 11 — Integraties en uitrol
+## Fase 12 — Integraties en uitrol
 
 - #132 **ISA-95 interfaces, meetapparatuur, LIMS, DCS/SCADA en onderhoudssysteem** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #133 **Gefaseerde uitrol overige hallen** — Zie ontwerpdocumenten en acceptatiecriteria.
@@ -175,8 +185,7 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 
 ## Werkafspraken
 
-- Volgende vrije nummer (nu #137) wordt toegekend aan nieuwe taken.
-- Nieuwe taken met het volgende vrije nummer (nu #138); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
+- Nieuwe taken met het volgende vrije nummer (nu #141); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
 - Faseacceptatie volgens docs/mes/ACCEPTANCE-CRITERIA.md en D88; eigenaar merget. Geen automatische release.
 
 Fase 1 (0058): personeelsrechten en koppeling afgeschermd; gecontroleerde identiteitsoverdracht, kwalificaties, UI en testbewijs nog open.
@@ -187,7 +196,7 @@ Fase 1 (0060–0061): persoonlijke securitybinding, leesfuncties en eigenaar-onl
 
 Fase 1 (0062): bevestigde tijdelijke kwaliteitsbesluiten; dossierstand, overige statuswrites, UI en acceptatie nog open.
 
-Fase 1 (0063): opdrachtloze herbewerking geweigerd; directe opdrachtwrites, statusovergangen en acceptatie nog open; definitieve Job Order fase 7.
+Fase 1 (0063): opdrachtloze herbewerking geweigerd; directe opdrachtwrites, statusovergangen en acceptatie nog open; definitieve Job Order fase 8.
 
 Fase 1 (0064): opdrachtcreatie/intrekking via bevestigde databasefuncties; uitvoeringsscope, UI en acceptatie nog open.
 

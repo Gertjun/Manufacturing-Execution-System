@@ -385,3 +385,20 @@ Gerichte fase 2.1-baseline: [run 45682177664](https://github.com/Gertjun/Manufac
 0098 (#109–110): MBR-identiteit per product, meerdere MBR's, afzonderlijke conceptrevisies, atomaire creatie, vaste product/identiteitskoppeling, stale revisie, productscope en beperkte ACL. Nieuwe permission recipe.draft.manage voor bestaande Process Engineer-rol, geen persoonlijke grants. Conceptheaders zijn nog geen volledige recepten; geen statusvrijgave, kopiëren van kinderen of CR. Regressies toegevoegd, geen uitvoeringsbewijs; diagram opnieuw genereren na bundeling.
 
 0099 (#110): persoonlijke conceptheaderwijziging met verwachte change_no, exact één increment, behoud oorspronkelijke revisie en auteur, config_log oud/nieuw met bewezen actor. API GET/POST/PATCH, afwijzing buiten productscope, ingetrokken grant, stale versie/wijziging, directe writes en onbekende bodyvelden. Nog geen uitvoeringsbewijs; statusbeveiliging en gezamenlijke inhoudsteller voor kinderen vóór beoordeling/vrijgave. Diagram en OpenAPI opnieuw genereren bij gerichte baseline.
+
+Gerichte fase 2.2-baseline: [run 45684478100](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45684478100), head `d1815d3ffa7dcf06204a0974e260e794dca3b348`, base `ea3b78bc938647140b4e228e9382761504518906`, job 139453323328: alle stappen success; 744/744 DB, 14/14 security/beheertools, 10/10 autorisatie, 120/120 API, schema-equivalentie, historische upgrade 0035→0099, back-up/herstel en Linux-laptoppakket. Documentatie gegenereerd uit dezelfde job. Geen integrale acceptatie; volgende werkpakket procedurehiërarchie.
+
+## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
+
+Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.
+
+| ID | Acceptatie-eis |
+|---|---|
+| UI3.1 | Eén uitbreidbare registratie van portalen met naam, icoon, route, volgorde en permissions; geen dubbele navigatiebeslissingen. |
+| UI3.2 | Alle bestaande rollen en relevante combinaties van grants/scopes: identieke set beschikbare portalen op portalenscherm en linkerbalk; mes.quality expliciet Kwaliteit én Production Execution. |
+| UI3.3 | Onbevoegde portalen onzichtbaar én directe URL geweigerd; onafhankelijk API/DB-negatief bewijs, ingetrokken grants en functiescheiding blijven gelden. |
+| UI3.4 | Uniforme hoofdbalk, navigatie, schermopbouw, typografie, kleuren, iconen, tabellen, formulieren, knoppen, filters, status/foutmeldingen, bevestiging en lege toestanden; herbruikbare componenten, industriële bruikbaarheid. |
+| UI3.5 | Bestaande domeinfuncties, offline werking en beveiliging zonder regressie; geen voortijdige nieuwe productiefuncties. |
+| UI3.6 | Tussentijdse audit, testreview, volledige Node 22/26 op actuele head/base, Windows-praktijktest, formele faseacceptatie, afzonderlijke merge/release. |
+
+Bevinding uit v0.63.0 is een navigatie-inconsistentie, geen bewezen securitylek; als werkelijke omzeiling blijkt, afzonderlijk melden en noodzakelijke beveiligingscorrectie niet uitstellen. Indicatie 1–2 ontwikkelingsdagen zonder deadline.

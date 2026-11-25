@@ -7,6 +7,9 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- D105: nieuwe fase 3 Portalstructuur, navigatie en UI-harmonisatie ingepland; bestaande fasen 3–11 hernummerd naar 4–12, geen functionele wijziging. Fase 2 ongewijzigd.
+- #109–110 (deel): gerichte PostgreSQL-baseline 0099 geslaagd (run 45684478100, d1815d3): 744 DB-controles en 120 API-tests; databaseplaatje en OpenAPI uit dezelfde run opgenomen. Geen integrale acceptatie.
+
 - #110 (deel): 0099 gecontroleerde MBR-conceptheaderwijzigingen met wijzigingsteller en persoonlijke config_log-audit; productgebonden MBR-API en regressies toegevoegd. Nog niet getest.
 
 - #109–110 (deel): 0098 stabiele MBR-identiteiten per product, afzonderlijke conceptversies, persoonlijke productgebonden receptbevoegdheid en regressies. Geen beoordeling/vrijgave of uitvoering; nog niet getest.

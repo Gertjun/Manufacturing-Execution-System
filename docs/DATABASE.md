@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 65 tabellen en 137 verbanden.
+Schema `fabriek`: 67 tabellen en 141 verbanden.
 
 ## Overzicht
 
@@ -46,6 +46,8 @@ erDiagram
     lot
     lot_voorstel
     lot_voorstel_batch
+    master_recipe
+    master_recipe_version
     material_class
     material_definition
     material_definition_version
@@ -108,6 +110,7 @@ erDiagram
     lot |o--o{ stapregistratie : "lot_id"
     lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
     lot_voorstel |o--o{ stapplanning : "voorstel_id"
+    master_recipe ||--o{ master_recipe_version : "master_recipe_id"
     material_class |o--o{ material_definition_version : "material_class_id"
     material_definition ||--o{ material_definition_version : "material_definition_id"
     melding ||--o{ melding_gelezen : "melding_id"
@@ -130,6 +133,7 @@ erDiagram
     product |o--o{ batch : "product_id"
     product |o--o{ capaciteit_afwijking : "product_id"
     product ||--o{ capaciteit_stap : "product_id"
+    product ||--o{ master_recipe : "product_id"
     product |o--o| material_definition : "product_id"
     product ||--o{ product_stap : "product_id"
     product ||--o{ specificatie : "product_id"
@@ -191,6 +195,8 @@ erDiagram
 | [`lot`](#lot) | 4 |  |  |
 | [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
+| [`master_recipe`](#master_recipe) | 5 | `gebruiker`, `product` | Eén product kan meerdere stabiele receptidentiteiten hebben. |
+| [`master_recipe_version`](#master_recipe_version) | 8 | `gebruiker`, `master_recipe` | Conceptversie; inhoud en gecontroleerde statusovergangen volgen in fase 2. |
 | [`material_class`](#material_class) | 3 |  | Stabiele materiaalclassificatie; geen automatisch afgeleide classificaties. |
 | [`material_definition`](#material_definition) | 4 | `grondstof`, `product` | Materiaalidentiteit met expliciete koppelingen naar behouden PoC-identiteiten. |
 | [`material_definition_version`](#material_definition_version) | 8 | `gebruiker`, `material_class`, `material_definition` | Onveranderlijke materiaalversie; ontbrekende classificatie of eenheid blijft onbekend. |
@@ -612,6 +618,29 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | --- | --- | --- | --- |
 | `voorstel_id` | uuid | PK FK | `lot_voorstel` |
 | `batch_id` | uuid | PK FK | `batch` |
+
+### master_recipe
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `product_id` | uuid | FK | `product` |
+| `code` | text |  |  |
+| `created_at` | timestamptz |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+
+### master_recipe_version
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `master_recipe_id` | uuid | FK | `master_recipe` |
+| `revision` | int |  |  |
+| `name` | text |  |  |
+| `description` | text |  |  |
+| `created_at` | timestamptz |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+| `change_no` | int |  |  |
 
 ### material_class
 
