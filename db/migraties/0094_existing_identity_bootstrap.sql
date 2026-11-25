@@ -12,7 +12,7 @@ BEGIN
         RAISE EXCEPTION 'Overgang vereist database-eigenaar';
     END IF;
     LOCK TABLE gebruiker IN SHARE ROW EXCLUSIVE MODE;
-    LOCK TABLE authorization_grant, authorization_bootstrap IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE authorization_grant, authorization_bootstrap, authorization_request IN SHARE ROW EXCLUSIVE MODE;
     IF NOT EXISTS (SELECT 1 FROM gebruiker)
        OR EXISTS (SELECT 1 FROM authorization_bootstrap)
        OR EXISTS (SELECT 1 FROM authorization_grant)
