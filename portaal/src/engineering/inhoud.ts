@@ -11,7 +11,9 @@ interface MaterialRequirement {id:string;formula_id:string;procedural_element_id
 interface MaterialReference {id:string;material_code:string;revision:number;name:string;unit:string|null;measurement_unit_id:string|null}
 interface EquipmentRequirement {id:string;procedural_element_id:string;code:string;equipment_class_code:string;description:string;required_count:number;minimum_capacity:string|null;capacity_unit_id:string|null}
 interface PersonnelRequirement {id:string;procedural_element_id:string;code:string;qualification_code:string;qualification_description:string;required_count:number}
-interface Requirements {change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[]}
+interface Instruction {id:string;procedural_element_id:string;code:string;position:number;instruction_text:string;confirmation_required:boolean}
+interface SpecificationLink {id:string;parameter_limit_id:string;code:string;description:string}
+interface Requirements {change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
 interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
@@ -191,6 +193,41 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           return {procedural_element_id:element.value,code:code.value.trim(),qualification_code:qualification.value,required_count:n};
         },r?.id,requirementsRoot);
       }
+      function instructionForm(r?:Instruction) {
+        const element=choice(elementOptions,r?.procedural_element_id??"");
+        const code=input(r?.code??"",100);
+        const position=h("input",{type:"number",min:1,max:2147483647,step:1,required:true,value:String(r?.position??1)});
+        const instruction=h("textarea",{required:true,maxlength:10000,rows:4},r?.instruction_text??"");
+        const confirmation=h("input",{type:"checkbox",checked:r?.confirmation_required??false});
+        return save(r?"Instructie wijzigen":"Instructie toevoegen",[
+          field("Procedure-element",element),field("Code instructie",code),field("Positie binnen element",position),
+          field("Instructietekst",instruction),field("Bevestiging verplicht",confirmation)
+        ],"instructions",()=>{
+          const n=Number(position.value);
+          if(!Number.isInteger(n)||n<1||n>2147483647)throw Error("Geef een geldige positieve positie op.");
+          if(!elementOptions.some(e=>e.id===element.value))throw Error("Kies een procedure-element uit deze versie.");
+          if(!instruction.value.trim())throw Error("Geef een instructietekst op.");
+          if(requirements.instructions.some(x=>x.id!==r?.id&&x.procedural_element_id===element.value&&x.position===n))throw Error("Deze positie is al in gebruik binnen dit procedure-element.");
+          return {procedural_element_id:element.value,code:code.value.trim(),position:n,instruction_text:instruction.value.trim(),confirmation_required:confirmation.checked};
+        },r?.id,requirementsRoot);
+      }
+      const specificationLimits=data.parameter_limits.filter(l=>l.category==="specification_limit");
+      function specificationLabel(l:Limit) {
+        const p=data.parameters.find(p=>p.id===l.parameter_id);
+        const e=procedure.elements.find(e=>e.id===p?.procedural_element_id);
+        return (e?e.code+" · ":"")+(p?p.code+" — "+p.name:l.parameter_id)+" · "+(l.lower_value??"—")+" tot "+(l.upper_value??"—")+(p?.unit?" "+p.unit:"");
+      }
+      function specificationForm(r?:SpecificationLink) {
+        const available=specificationLimits.filter(l=>!requirements.specification_links.some(x=>x.id!==r?.id&&x.parameter_limit_id===l.id));
+        const limit=choice(available.map(l=>({id:l.id,label:specificationLabel(l)})),r?.parameter_limit_id??"");
+        const code=input(r?.code??"",100),description=input(r?.description??"",10000);
+        return save(r?"Specificatiekoppeling wijzigen":"Specificatiekoppeling toevoegen",[
+          field("Exacte specificatiegrens binnen deze revisie",limit),field("Code koppeling",code),field("Omschrijving",description)
+        ],"specification-links",()=>{
+          if(!available.some(l=>l.id===limit.value))throw Error("Kies een nog niet gekoppelde specificatiegrens uit deze revisie.");
+          return {parameter_limit_id:limit.value,code:code.value.trim(),description:description.value.trim()};
+        },r?.id,requirementsRoot);
+      }
       area.replaceChildren(
         h("p",{class:"sub"},"Wijzigingsteller: "+data.change_no+(editable?" · Concept":" · Alleen lezen")),
         h("h4",{},"Referentieformule"),
@@ -241,6 +278,29 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(requirements.personnel_requirements.length?[]:[h("p",{class:"leeg"},"Nog geen personeelsvereisten.")]),
         ...(editable&&elementOptions.length&&references.qualifications.length?[personnelForm()]:[]),
         ...(editable&&!references.qualifications.length?[h("p",{class:"sub"},"Geen kwalificaties in de referentiecatalogus beschikbaar.")]:[]),
+        h("h4",{},"Werkinstructies"),
+        h("p",{class:"sub"},"Versiegebonden instructies per procedure-element, met expliciete volgorde en bevestigingsplicht. Geen uitvoeringsregistratie."),
+        ...[...requirements.instructions].sort((a,b)=>a.procedural_element_id.localeCompare(b.procedural_element_id)||a.position-b.position).map(r=>{
+          const e=procedure.elements.find(e=>e.id===r.procedural_element_id);
+          return h("details",{},h("summary",{},(e?.code??r.procedural_element_id)+" · "+r.position+" · "+r.code),
+            h("p",{},r.instruction_text),h("p",{class:"sub"},r.confirmation_required?"Bevestiging verplicht":"Geen bevestiging vereist"),
+            editable&&elementOptions.length?instructionForm(r):null,
+            editable?remove("instructions",r.id,"Instructie "+r.code,requirementsRoot):null);
+        }),
+        ...(requirements.instructions.length?[]:[h("p",{class:"leeg"},"Nog geen werkinstructies.")]),
+        ...(editable&&elementOptions.length?[instructionForm()]:[]),
+        h("h4",{},"Specificatiekoppelingen"),
+        h("p",{class:"sub"},"Verwijzingen naar exacte specificatiegrenzen in deze receptrevisie, niet naar dynamische legacy-specificaties. Geen kwaliteitsvrijgave."),
+        ...requirements.specification_links.map(r=>{
+          const l=specificationLimits.find(l=>l.id===r.parameter_limit_id);
+          return h("details",{},h("summary",{},r.code+" — "+r.description),
+            h("p",{},l?specificationLabel(l):"Onbekende specificatiegrens: "+r.parameter_limit_id),
+            editable&&specificationLimits.length?specificationForm(r):null,
+            editable?remove("specification-links",r.id,"Specificatiekoppeling "+r.code,requirementsRoot):null);
+        }),
+        ...(requirements.specification_links.length?[]:[h("p",{class:"leeg"},"Nog geen specificatiekoppelingen.")]),
+        ...(editable&&specificationLimits.some(l=>!requirements.specification_links.some(r=>r.parameter_limit_id===l.id))?[specificationForm()]:[]),
+        ...(editable&&!specificationLimits.length?[h("p",{class:"sub"},"Maak eerst een specificatiegrens aan bij een numerieke procesparameter.")]:[]),
         h("h4",{},"Procesparameters"),
         ...data.parameters.map(p=>{
           const limits=data.parameter_limits.filter(l=>l.parameter_id===p.id);
@@ -259,5 +319,5 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
       );
     }catch(e){if(active())area.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
   }
-  return h("section",{},h("h3",{},"Formule, middelenvereisten en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
+  return h("section",{},h("h3",{},"Formule, vereisten, instructies en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
 }
