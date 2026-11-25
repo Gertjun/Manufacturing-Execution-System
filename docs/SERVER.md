@@ -1,4 +1,4 @@
-# Draaiboek fabrieksserver – Batch input GUI
+# Draaiboek fabrieksserver – MES
 
 Voor IT: installeren, back-ups, updates en herstel. Het advies waarom het zo is ingericht staat in het document "Advies fabrieksserver – Batch input GUI". Dit draaiboek is bijgewerkt tot versie 0.21.0. In de voorbeelden staat `0.21.0`; gebruik het versienummer van het pakket dat je installeert.
 
@@ -60,7 +60,7 @@ Alleen de beheerders en het serviceaccount mogen `C:\batchgui\instellingen.json`
    ```
    node tools\beheerder.mjs
    ```
-   vraagt om een gebruikersnaam en wachtwoord voor de eerste beheerder; die richt in Portaal Beheer de accounts, operators, pc's, stappen en velden in. Voor een test kan `db\seed_config.sql` (fictieve stappen, velden, operators en pc's, geen accounts). Laad `db\seed_accounts_demo.sql` (wachtwoord `demo`) nooit op een database met echte gegevens.
+   vraagt bij een lege identiteitsadministratie om drie afzonderlijke persoonlijke identiteiten (System Administrator en twee Security Administrators), eigen wachtwoorden en goedkeuringsreferentie. Technisch beheer en inhoudelijk beheer blijven gescheiden. Bij bestaande accounts biedt deze opdracht uitsluitend hersteldiagnose. Voor een test kan `db\seed_config.sql` (fictieve stappen, velden, operators en pc's, geen accounts). Laad `db\seed_accounts_demo.sql` (wachtwoord `demo`) nooit op een database met echte gegevens.
 7. **Proefstart:** `node tools\start-server.mjs` en open `https://<servernaam>/gezondheid` op een pc. Verwacht: `{"status":"ok", ...}`. Stop met Ctrl+C.
 8. **Windows-service:** zet `WinSW-x64.exe` als `C:\batchgui\batchgui-service.exe` neer en kopieer `C:\batchgui\huidig\service\batchgui-service.xml` naar `C:\batchgui\`. Controleer de paden (Node.js, PostgreSQL-servicenaam bij `depend`). Dan als beheerder:
    ```
@@ -74,9 +74,9 @@ Alleen de beheerders en het serviceaccount mogen `C:\batchgui\instellingen.json`
    schtasks /Create /TN "Batch input GUI\Hersteltest" /SC MONTHLY /D 1 /ST 03:30 /RU SYSTEM /TR "\"C:\Program Files\nodejs\node.exe\" C:\batchgui\huidig\tools\herstel.mjs --controle"
    ```
    Laat de NAS of de back-upsoftware van IT de map `D:\batchgui-backup` elk uur ophalen, en neem hem op in de nachtelijke kopie buiten het gebouw.
-10. **Firewall:** poort 443 open vanaf het fabrieksnetwerk. PostgreSQL (5432) niet openzetten.
+10. **Firewall:** poort 443 open vanaf het fabrieksnetwerk. PostgreSQL (5432) niet openzetten voor het fabrieksnetwerk; alleen afzonderlijk goedgekeurde persoonlijke securitybediening via een afgeschermd IT-beheerpunt.
     **Klok:** laat de server en de pc's hun tijd van dezelfde tijdserver halen (domeincontroller of NTP). De tijdzone van de server zelf maakt niet uit: `migreer.mjs` zet de database op de tijdzone van de fabriek (Europe/Amsterdam) en de applicatie rekent daarin. Dat lukt alleen als de gebruiker in `beheerDb` eigenaar van de database is (zoals `postgres`); anders zet de applicatie de tijdzone per verbinding.
-11. **Controle:** log in als beheerder op `https://<servernaam>/portaal/` en open **Beheer → Server**. Na het eerste uur staat er een back-up; draai de hersteltest één keer met de hand (`node tools\herstel.mjs --controle`) zodat ook die er staat.
+11. **Controle:** log in met een persoonlijk account met system.read op `https://<servernaam>/portaal/` en open **Beheer → Server**. Na het eerste uur staat er een back-up; draai de hersteltest één keer met de hand (`node tools\herstel.mjs --controle`) zodat ook die er staat.
 
 ## Ubuntu Server (in het kort)
 
@@ -134,7 +134,7 @@ C:\batchgui\batchgui-service.exe start
 | `node tools/backup.mjs` | back-up maken en oude opruimen (48 uur, 30 dagen, 12 maanden) | taakplanner, elk uur |
 | `node tools/herstel.mjs --controle` | hersteltest in een tijdelijke database | taakplanner, elke maand |
 | `node tools/herstel.mjs <bestand>` | echte herstel | IT, bij een storing |
-| `node tools/beheerder.mjs` | eerste beheerder aanmaken, of een beheerder een nieuw wachtwoord geven (noodsleutel) | IT of applicatiebeheerder, op de server zelf |
+| `node tools/beheerder.mjs` | bootstrap op lege administratie of alleen-lezen hersteldiagnose | IT of applicatiebeheerder, op de server zelf |
 
 De back-up- en hersteltools moeten dezelfde PostgreSQL-versie gebruiken als de server; `herstel.mjs` controleert dat en stopt met uitleg als `pg_restore` nieuwer is.
 
@@ -150,3 +150,15 @@ Alle tools lezen `instellingen.json` (of het bestand in `BATCHGUI_INSTELLINGEN`,
 ### Overgang databaseaccount naar MES
 
 Nieuwe installaties gebruiken `mes_app`. Bij bestaande installaties blijft `batchgui_app` tijdelijk bruikbaar via de rechten van `mes_app`; het bestaande wachtwoord blijft ongewijzigd. IT stelt een eigen wachtwoord voor `mes_app` in, wijzigt alleen de databasegebruikersnaam en het bijbehorende wachtwoord in de serverinstellingen en verifieert de verbinding. Pas na gecontroleerde omschakeling mag IT de oude login buiten gebruik stellen; controleer eerst andere databases in hetzelfde PostgreSQL-cluster. Databasenaam en schema blijven ongewijzigd. Beide accounts blijven tijdens de overgang beperkt; bij nieuwe beschermde tabellen worden eventuele directe oude grants eveneens ingetrokken.
+
+
+## Persoonlijke securitybediening (D100/D101, fase 1)
+
+D100/D101: upgrade van bestaande identiteitsadministratie zonder MES-grants behoudt historie maar heeft geen geautoriseerd eerste beheerpad: bootstrap vereist lege administratie, securitykanaal vereist bestaande grant. Geen automatische legacy-grants, geen herbootstrap of ad-hoc SQL-toekenning. Expliciet besluit vereist over gecontroleerde initiële toekenning voor bestaande database; fictieve lege PoC kan normale bootstrap gebruiken.
+
+- IT richt per bevoegde persoon een afzonderlijke PostgreSQL-login in, zonder beheerattributen of andere groepsrollen, uitsluitend met lidmaatschap van `mes_security_channel`. Geen rechtstreeks toegekende objectrechten of delegatie. Controleer ook andere databases in het cluster.
+- Beperk toegang tot een beheerpunt; gebruik PostgreSQL-TLS met vertrouwde certificaatketen en passende hostnaam, SCRAM en passende pg_hba-regels. Geen trust of uitgeschakelde certificaatcontrole. `tools/security.mjs` vereist TLS-verificatie en interactieve persoonlijke credentials. Gebruik voor securitybediening een afzonderlijk instellingenbestand met uitsluitend host, port en database in `db`, zonder eigenaar-/runtimegeheimen.
+- Database-eigenaar registreert de vooraf goedgekeurde login met `node tools/beheerder.mjs --security-binden`. Securitypersoon gebruikt `node tools/security.mjs aanvragen`, `grants`, `aanvragen-indienen`, `goedkeuren`, `afwijzen` of `intrekken`. Onafhankelijke beslisser en persoonlijke MES-herbevestiging verplicht voor toekenning.
+- Bij incident: trek binding in via `--security-intrekken`, blokkeer de database-login en beëindig bestaande sessies; vervang met nieuwe naam/OID na goedkeuring. Na restore securitytoegang blokkeren totdat actuele rollen, bindingen, privileges en intrekkingen met de externe administratie zijn vergeleken. Geen automatische herbinding; oude snapshot kan ingetrokken rechten opnieuw bevatten.
+- Personeelskoppeling: `--personeel-koppelen`; kwalificaties: `--kwalificatie-overzicht`, `--kwalificatie-toekennen`, `--kwalificatie-intrekken`; regulier herstel: `--herstel-account`. Eigenaar faciliteert; persoonlijke bevestigingen en onafhankelijke actoren volgens databaseprocedure. Bewaar geen wachtwoorden in bewijsstukken.
+- Werkelijke TLS/terminalbediening en organisatorische verificatie zijn nog niet op de fabrieksserver getest. Zie PRAKTIJKTESTS.md. Geen productieomschakeling op basis van alleen CI.
