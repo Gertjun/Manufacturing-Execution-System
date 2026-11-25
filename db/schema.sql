@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -6529,5 +6529,80 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog,pg_temp AS $$
            AND NOT has_function_privilege('mes_security_channel',p.oid,'EXECUTE')))
  )
 $$;
+
+-- Migratie 0094: eenmalige gecontroleerde eerste MES-rechten op bestaande administratie.
+SET search_path = fabriek, public;
+
+-- Hergebruik het onveranderlijke singleton-bootstraprecord als permanente blokkade.
+-- Geen automatische vertaling van legacy-rollen en geen wijziging van historische accounts.
+CREATE FUNCTION authorization_bootstrap_existing(p_system uuid,p_system_password text,
+    p_a uuid,p_a_password text,p_b uuid,p_b_password text,p_reason text)
+RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+DECLARE v record; v_login record;
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='fabriek.gebruiker'::regclass)) THEN
+        RAISE EXCEPTION 'Overgang vereist database-eigenaar';
+    END IF;
+    LOCK TABLE gebruiker IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE authorization_grant, authorization_bootstrap IN SHARE ROW EXCLUSIVE MODE;
+    IF NOT EXISTS (SELECT 1 FROM gebruiker)
+       OR EXISTS (SELECT 1 FROM authorization_bootstrap)
+       OR EXISTS (SELECT 1 FROM authorization_grant)
+       OR EXISTS (SELECT 1 FROM authorization_request) THEN
+        RAISE EXCEPTION 'Overgang uitsluitend op bestaande administratie zonder MES-rechtenhistorie';
+    END IF;
+    IF p_system IS NULL OR p_a IS NULL OR p_b IS NULL
+       OR p_system=p_a OR p_system=p_b OR p_a=p_b
+       OR btrim(coalesce(p_reason,''))=''
+       OR length(coalesce(p_system_password,''))=0 OR length(coalesce(p_a_password,''))=0
+       OR length(coalesce(p_b_password,''))=0
+       OR p_system_password=p_a_password OR p_system_password=p_b_password OR p_a_password=p_b_password THEN
+        RAISE EXCEPTION 'Drie afzonderlijke persoonlijke identiteiten, bevestigingen en referentie vereist';
+    END IF;
+    IF (SELECT count(*) FROM gebruiker WHERE id IN (p_system,p_a,p_b)
+        AND actief AND NOT gedeeld AND NOT wachtwoord_wijzigen AND rol<>'scherm'
+        AND wachtwoord_hash IS NOT NULL) <> 3 THEN
+        RAISE EXCEPTION 'Ongeschikte persoonlijke overgangsidentiteit';
+    END IF;
+    FOR v IN SELECT g.id,g.gebruikersnaam,CASE g.id WHEN p_system THEN p_system_password
+        WHEN p_a THEN p_a_password ELSE p_b_password END AS wachtwoord
+        FROM gebruiker g WHERE g.id IN (p_system,p_a,p_b) ORDER BY g.id
+    LOOP
+        SELECT * INTO v_login FROM inloggen(v.gebruikersnaam,v.wachtwoord,NULL);
+        IF v_login.id IS DISTINCT FROM v.id THEN
+            RETURN CASE WHEN coalesce(v_login.wacht_seconden,0)>0 THEN 'locked' ELSE 'denied' END;
+        END IF;
+    END LOOP;
+    -- Bestaande sessies mogen de nieuwe bevoegdheden niet ongemerkt verkrijgen.
+    UPDATE gebruiker SET session_version=session_version+1 WHERE id IN (p_system,p_a,p_b);
+    INSERT INTO authorization_grant(user_id,role_code) VALUES
+      (p_system,'system_administrator'),(p_a,'security_administrator'),(p_b,'security_administrator');
+    INSERT INTO authorization_bootstrap(system_user_id,security_user_a,security_user_b,database_actor,reason)
+      VALUES(p_system,p_a,p_b,current_user,'Gecontroleerde overgang bestaande administratie: '||p_reason);
+    RETURN 'initialized';
+END $;
+REVOKE ALL ON FUNCTION authorization_bootstrap_existing(uuid,text,uuid,text,uuid,text,text) FROM PUBLIC;
+
+-- De vertrouwde eigenaar mag expliciet exact één sessiegeneratie verhogen.
+-- Runtime kan deze kolom niet schrijven; gewone accountwijzigingen houden hun bestaande gedrag.
+CREATE OR REPLACE FUNCTION authorization_session_version() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $
+BEGIN
+    IF TG_OP='INSERT' THEN
+        NEW.session_version := 1;
+    ELSIF NEW.wachtwoord_hash IS DISTINCT FROM OLD.wachtwoord_hash
+       OR NEW.wachtwoord_wijzigen IS DISTINCT FROM OLD.wachtwoord_wijzigen
+       OR NEW.actief IS DISTINCT FROM OLD.actief OR NEW.rol IS DISTINCT FROM OLD.rol
+       OR NEW.gedeeld IS DISTINCT FROM OLD.gedeeld
+       OR NEW.gebruikersnaam IS DISTINCT FROM OLD.gebruikersnaam
+       OR (current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID))
+           AND NEW.session_version=OLD.session_version+1) THEN
+        NEW.session_version := OLD.session_version + 1;
+    ELSE
+        NEW.session_version := OLD.session_version;
+    END IF;
+    RETURN NEW;
+END $;
+REVOKE ALL ON FUNCTION authorization_session_version() FROM PUBLIC;
 
 COMMIT;
