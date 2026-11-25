@@ -820,12 +820,21 @@ BEGIN
  END IF;
 END $$;
 
-DO $
+-- 0126: persoonlijke productkeuze.
+DO $$
 BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=126) THEN
    GRANT EXECUTE ON FUNCTION fabriek.recipe_products() TO mes_app;
  END IF;
-END $;
+END $$;
+
+-- 0127: uitsluitend beperkte referentielezing via productbevoegdheid.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=127) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_reference_catalog(uuid) TO mes_app;
+ END IF;
+END $$;
 
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.

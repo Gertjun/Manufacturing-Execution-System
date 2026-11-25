@@ -2565,3 +2565,28 @@ describe("#113 persoonlijke receptproductkeuze", () => {
     assert.equal((await verzoek("GET","/recipes/products")).status,401);
   });
 });
+
+describe("#113.4c.1 beperkte referentiecatalogus", () => {
+  test("persoonlijke productscope geeft uitsluitend referentielezing, geen globaal materiaalbeheer", async () => {
+    const {rows:products}=await beheerDb.query("SELECT id,code FROM fabriek.product WHERE code IN ('PRD-A','PRD-B')");
+    const pa=products.find(p=>p.code==="PRD-A").id;
+    const pb=products.find(p=>p.code==="PRD-B").id;
+    const naam="mes.recipe.references.scope";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]}=await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,pa]);
+    const token=await login(naam);
+    const pad="/recipes/references/"+pa;
+    const result=await verzoek("GET",pad,token);
+    assert.equal(result.status,200,JSON.stringify(result.body));
+    assert.ok(Array.isArray(result.body.materials));
+    assert.ok(Array.isArray(result.body.qualifications));
+    assert.ok(result.body.materials.every((m:any)=>Object.keys(m).sort().join(",")==="id,material_code,measurement_unit_id,name,revision,unit"));
+    assert.ok(result.body.qualifications.every((q:any)=>Object.keys(q).sort().join(",")==="code,description"));
+    assert.equal((await verzoek("GET","/recipes/references/"+pb,token)).status,403);
+    assert.equal((await verzoek("GET","/materials/",token)).status,403);
+    assert.equal((await verzoek("POST","/materials/classes",token,{code:"DENIED-127",name:"Niet toegestaan"})).status,403);
+    assert.equal((await verzoek("GET",pad)).status,401);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("GET",pad,token)).status,403);
+  });
+});

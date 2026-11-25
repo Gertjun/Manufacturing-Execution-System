@@ -196,6 +196,18 @@ const ReleaseResult = Type.Object({ status: Type.Literal("released"), release_id
 const WithdrawResult = Type.Object({ status: Type.Literal("withdrawn"), withdrawal_id: Id });
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
+  app.get("/references/:productId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ productId: Id }),
+      response: { 200: Type.Object({
+        materials: Type.Array(Type.Object({ id: Id, material_code: Type.String(),
+          revision: Type.Integer({minimum:1}), name: Type.String(),
+          unit: Type.Union([Type.String(),Type.Null()]), measurement_unit_id: Type.Union([Id,Type.Null()]) })),
+        qualifications: Type.Array(Type.Object({ code: Type.String(), description: Type.String() }))
+      }) } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_reference_catalog($1) AS data",[req.params.productId])).rows[0].data));
+
   app.get("/products", {
     preHandler: personalSession,
     schema: { tags: ["recepten"], response: { 200: Type.Array(Type.Object({
