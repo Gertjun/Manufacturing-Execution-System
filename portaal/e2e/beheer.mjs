@@ -2,7 +2,7 @@
 // Verwacht: database met schema.sql + seed_config.sql + seed_accounts_demo.sql (+ eventueel seed_demo.sql),
 // en een gebouwd invoerscherm. Gebruik: node e2e/beheer.mjs (API op poort 3461).
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import pg from "pg";
 
@@ -263,7 +263,14 @@ try {
   await shot("06-server");
   const srv = await page.locator("main, body").first().innerText();
   check("Server: in orde na recente back-up en hersteltest", srv.includes("In orde") && srv.includes("1 min geleden"));
-  check("Server: versie en schemaversie zichtbaar", /schemaversie 94\b/.test(srv));
+  // Vergelijk de UI met de nieuwste aanwezige migratie én de applicatieversie.
+  const schemaVersie = Math.max(...readdirSync(new URL("../../db/migraties/", import.meta.url))
+    .map(naam => /^(\d{4})_.+\.sql$/.exec(naam)).filter(Boolean).map(m => Number(m[1])));
+  const appVersie = readFileSync(new URL("../../VERSIE", import.meta.url), "utf8").trim();
+  const schemaPatroon = new RegExp(`schemaversie ${schemaVersie}\\b`);
+  check("Server: versie en schemaversie zichtbaar",
+    Number.isFinite(schemaVersie) && schemaPatroon.test(srv) && srv.includes(appVersie),
+    `verwacht ${appVersie}, schema ${schemaVersie}`);
   check("Server: onderhoudstabel met hersteltest", srv.includes("Hersteltest") && srv.includes("543 batches"));
 
   console.log("\nDoorwerking op het invoerscherm");
