@@ -12,7 +12,7 @@ const Klasse = Type.Object({ id: Id, code: Code, name: Naam });
 const Definitie = Type.Object({ id: Id, code: Code, product_id: OptId, raw_material_id: OptId });
 const Versie = Type.Object({
   id: Id, material_definition_id: Id, revision: Type.Integer({ minimum: 1 }),
-  name: Naam, material_class_id: OptId, unit: Eenheid,
+  name: Naam, material_class_id: OptId, unit: Eenheid, measurement_unit_id: OptId,
   created_at: Type.String(), created_by: Id,
 });
 
@@ -65,6 +65,34 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         [req.params.id,b.expected_revision,b.name,b.material_class_id,b.unit])).rows[0]);
     return reply.code(201).send(result as { id: string });
   });
+  app.post("/definitions/with-unit", {
+    preHandler: personalSession,
+    schema: { tags: ["materialen"], body: Type.Object({
+      code: Code, name: Naam, material_class_id: OptId, measurement_unit_id: Id,
+      product_id: OptId, raw_material_id: OptId,
+    }, { additionalProperties: false }), response: { 201: Uitkomst } },
+  }, async (req, reply) => {
+    const b = req.body;
+    const result = await persoonlijkeTransactie(app.db, req, async tx =>
+      (await tx.query("SELECT material_create_definition_with_unit($1,$2,$3,$4,$5,$6) AS id",
+        [b.code,b.name,b.material_class_id,b.measurement_unit_id,b.product_id,b.raw_material_id])).rows[0]);
+    return reply.code(201).send(result as { id: string });
+  });
+
+  app.post("/definitions/:id/versions/with-unit", {
+    preHandler: personalSession,
+    schema: { tags: ["materialen"], params: Type.Object({ id: Id }), body: Type.Object({
+      expected_revision: Type.Integer({ minimum: 1, maximum: 2147483646 }),
+      name: Naam, material_class_id: OptId, measurement_unit_id: Id,
+    }, { additionalProperties: false }), response: { 201: Uitkomst } },
+  }, async (req, reply) => {
+    const b = req.body;
+    const result = await persoonlijkeTransactie(app.db, req, async tx =>
+      (await tx.query("SELECT material_append_version_with_unit($1,$2,$3,$4,$5) AS id",
+        [req.params.id,b.expected_revision,b.name,b.material_class_id,b.measurement_unit_id])).rows[0]);
+    return reply.code(201).send(result as { id: string });
+  });
+
 };
 
 export default routes;

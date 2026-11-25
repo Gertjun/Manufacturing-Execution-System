@@ -2191,3 +2191,50 @@ describe("#103/110 procedure-API", () => {
     assert.equal((await verzoek("DELETE",base+"/elements/"+first+"?expected_change_no=9",scoped)).status,403);
   });
 });
+
+describe("#141 eenhedencatalogus en materiaal-eenheidsAPI", () => {
+  test("exacte conversierevisies, persoonlijke scope en onveranderlijke materiaalversies", async () => {
+    const engineer=await login("mes.engineer");
+    const operator=await login("mes.operator");
+    const {rows:products}=await beheerDb.query("SELECT id,code FROM fabriek.product WHERE code IN ('PRD-A','PRD-B')");
+    const pa=products.find(p=>p.code==="PRD-A").id;
+    const pb=products.find(p=>p.code==="PRD-B").id;
+    const naam="mes.units.scoped";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]}=await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'process_engineer',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,pa]);
+    const scoped=await login(naam);
+    const dim={length_exp:0,mass_exp:1,time_exp:0,current_exp:0,temperature_exp:0,amount_exp:0,luminous_exp:0};
+    assert.equal((await verzoek("GET","/units/")).status,401);
+    assert.equal((await verzoek("GET","/units/",operator)).status,403);
+    assert.equal((await verzoek("POST","/units/dimensions",scoped,dim)).status,403);
+    const post=async (path:string,body:object) => {
+      const res=await verzoek("POST",path,engineer,body);
+      assert.equal(res.status,201,JSON.stringify(res.body));
+      return res.body.id as string;
+    };
+    const d=await post("/units/dimensions",dim);
+    const k=await post("/units/quantity-kinds",{dimension_id:d,code:"API-MASS",name:"Massa",value_semantics:"ratio"});
+    const kg=await post("/units/units",{quantity_kind_id:k,code:"API-KG",symbol:"kg",name:"Kilogram"});
+    const g=await post("/units/units",{quantity_kind_id:k,code:"API-G",symbol:"g",name:"Gram"});
+    const factors={factor_numerator:"1000",factor_denominator:"1",additive_offset:"0",source_reference:"Fictieve bron"};
+    const c=await post("/units/conversions",{from_unit_id:kg,to_unit_id:g,...factors});
+    const revision="/units/conversions/"+c+"/versions";
+    const precise="9007199254740993";
+    await post(revision,{expected_revision:1,...factors,factor_numerator:precise});
+    assert.equal((await verzoek("POST",revision,engineer,{expected_revision:1,...factors})).status,409);
+    assert.equal((await verzoek("POST",revision,engineer,{expected_revision:2,...factors,factor_denominator:"0"})).status,422);
+    assert.equal((await verzoek("GET","/units/",scoped)).status,403);
+    assert.equal((await verzoek("GET","/units/for-product/"+pb,scoped)).status,403);
+    const data=await verzoek("GET","/units/for-product/"+pa,scoped);
+    assert.equal(data.status,200,JSON.stringify(data.body));
+    assert.deepEqual(data.body.versions.filter((v:any)=>v.conversion_id===c).map((v:any)=>v.factor_numerator),["1000",precise]);
+    const mat=await post("/materials/definitions/with-unit",{code:"API-MAT-UNIT",name:"Fictief",material_class_id:null,measurement_unit_id:kg,product_id:null,raw_material_id:null});
+    await post("/materials/definitions/"+mat+"/versions/with-unit",{expected_revision:1,name:"Fictief 2",material_class_id:null,measurement_unit_id:g});
+    assert.equal((await verzoek("POST","/materials/definitions/"+mat+"/versions",engineer,{expected_revision:2,name:"Fictief 3",material_class_id:null,unit:"kg"})).status,422);
+    const mats=await verzoek("GET","/materials/",engineer);
+    assert.equal(mats.status,200,JSON.stringify(mats.body));
+    assert.deepEqual(mats.body.versions.filter((v:any)=>v.material_definition_id===mat).map((v:any)=>[v.revision,v.unit,v.measurement_unit_id]),[[1,"kg",kg],[2,"g",g]]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    assert.equal((await verzoek("GET","/units/for-product/"+pa,scoped)).status,403);
+  });
+});
