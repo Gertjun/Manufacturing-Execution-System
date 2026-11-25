@@ -216,7 +216,7 @@ try {
   const tegelGetal = async (t) => Number(await page.locator(".tegel", { hasText: t }).locator(".tegel-getal").innerText());
   check("Tegels: nog te plannen en gepland zoals in de database", (await tegelGetal("nog te plannen")) === hs.t && (await tegelGetal("herbewerkingen gepland")) === hs.g && hs.t >= 1 && hs.g >= 1, JSON.stringify(hs));
   check("Lopende herbewerking met stand en wie hem aanmaakte",
-    (await page.locator("section", { hasText: "Lopende herbewerkingen" }).innerText()).includes("productiemanager1")
+    (await page.locator("section", { hasText: "Lopende herbewerkingen" }).innerText()).includes("mes.manager")
     && (await page.locator(".label-stand-te_plannen").count()) >= 1);
   await shot("11b-herbewerkingen");
   // Kwaliteit maakt een herbewerking aan bij een batch in productie.
