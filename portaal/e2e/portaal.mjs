@@ -46,21 +46,20 @@ async function login(naam) {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", productiemanager: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+
 }
 
 try {
   console.log("\nInloggen");
   await login("operator.a");
+  await page.locator(".starttegel-invoer").waitFor();
+  check("Operator heeft productie-invoer, geen kwaliteitsportaal", await page.locator(".starttegel-kwaliteit").count() === 0);
+  await page.locator(".starttegel-invoer").click();
   await page.getByRole("heading", { name: "Welke pc is dit?" }).waitFor();
-  check("Operator met alleen het invoerscherm gaat daar meteen heen", page.url().includes("/invoer/"));
   await page.evaluate(() => localStorage.clear());
 
   await login("kwaliteit1");
+  await page.locator(".starttegel-kwaliteit").click();
   await page.getByRole("heading", { name: "Kwaliteit", exact: true }).waitFor();
   await page.locator(".tegel").first().waitFor();
   await page.locator(".grafiek > svg").first().waitFor();
@@ -193,10 +192,12 @@ try {
   const tweede = (await page.locator(".tabel tbody tr").nth(1).locator("a").innerText()).trim();
   await page.locator(".tabel tbody tr").first().getByRole("button", { name: "OK", exact: true }).click();
   await page.getByLabel("Toelichting").fill("binnen specificatie na hermeting");
+  await page.getByLabel("Bevestig met je eigen wachtwoord").fill("demo");
   await page.getByRole("button", { name: "OK: vrijgeven" }).click();
   await page.waitForFunction((n) => document.querySelector("main .tabel")?.querySelectorAll("tbody tr").length === n, inBeoordeling - 1);
   await page.locator(".tabel tbody tr").first().getByRole("button", { name: "NOK", exact: true }).click();
   await page.getByLabel("Reden van afkeur").fill("kleur buiten specificatie");
+  await page.getByLabel("Bevestig met je eigen wachtwoord").fill("demo");
   await page.getByRole("button", { name: "NOK: afkeuren" }).click();
   if (inBeoordeling === 2) await page.getByText("Er staan geen batches in beoordeling.").waitFor();
   else await page.waitForFunction((n) => document.querySelector("main .tabel")?.querySelectorAll("tbody tr").length === n, inBeoordeling - 2);
@@ -226,6 +227,7 @@ try {
   await page.getByRole("button", { name: "Herbewerking", exact: true }).click();
   await page.locator("#v-stap").selectOption({ index: 0 });
   await page.locator("#v-reden").fill("test: opnieuw mengen");
+  await page.getByLabel("Bevestig met je eigen wachtwoord").fill("demo");
   await shot("11c-herbewerking-aanmaken");
   await page.getByRole("button", { name: "Herbewerking aanmaken" }).click();
   await page.getByRole("heading", { name: "Herbewerkingen" }).waitFor();
@@ -234,6 +236,7 @@ try {
   check("Knop Herbewerking weg zolang er een open herbewerking is", (await page.getByRole("button", { name: "Herbewerking", exact: true }).count()) === 0);
   await page.getByRole("button", { name: "Intrekken" }).click();
   await page.locator("#v-reden").fill("test klaar");
+  await page.getByLabel("Bevestig met je eigen wachtwoord").fill("demo");
   await page.getByRole("dialog").getByRole("button", { name: "Intrekken" }).click();
   await page.locator(".label-stand-ingetrokken").waitFor();
   check("Intrekken: stand ingetrokken", true);
@@ -319,24 +322,32 @@ try {
   console.log("\nPloegleider");
   await page.getByRole("button", { name: "Afmelden" }).click();
   await login("ploegleider1");
-  await page.getByRole("heading", { name: "Productie", exact: true }).waitFor();
-  check("Ploegleider start in Productie en ziet ook Kwaliteit", (await page.locator(".menu-portaal", { hasText: "Kwaliteit" }).count()) === 1);
-  await page.goto(`${BASIS}/portaal/#/kwaliteit/batch/${eerste}`);
+  await page.locator(".starttegel-productie").waitFor();
+  check("Ploegleider heeft Manufacturing Operations, geen kwaliteitsportaal", await page.locator(".starttegel-kwaliteit").count() === 0);
+  await page.goto(BASIS+"/portaal/#/kwaliteit/batch/"+eerste);
+  await page.waitForFunction(() => location.hash === "#/");
+  await page.locator(".starttegel-productie").click();
+  await page.goto(BASIS+"/portaal/#/productie/batch/"+eerste);
   await page.getByRole("button", { name: "In beoordeling zetten" }).waitFor();
-  check("Ploegleider kan in beoordeling zetten maar niet keuren", (await page.getByRole("button", { name: "NOK", exact: true }).count()) === 0);
-  check("Ploegleider maakt geen herbewerking aan (#61)", (await page.getByRole("button", { name: "Herbewerking", exact: true }).count()) === 0);
+  check("Ploegleider kan in beoordeling zetten maar niet keuren", await page.getByRole("button", { name: "NOK", exact: true }).count() === 0);
+  check("Ploegleider maakt geen herbewerking aan", await page.getByRole("button", { name: "Herbewerking", exact: true }).count() === 0);
 
-  console.log("\nProductiemanager (#61)");
+  console.log("\nProductiemanager");
   await page.getByRole("button", { name: "Afmelden" }).click();
   await login("productiemanager1");
-  await page.getByRole("heading", { name: "Productie", exact: true }).waitFor();
-  check("Productiemanager start in Productieanalyse en ziet Kwaliteit en Planning",
-    (await page.locator(".menu-portaal", { hasText: "Kwaliteit" }).count()) === 1 && (await page.locator(".menu-portaal", { hasText: "Planning" }).count()) === 1);
-  await page.goto(`${BASIS}/portaal/#/kwaliteit/batch/${hbatch.batchnummer}`);
+  await page.locator(".starttegel-productie").waitFor();
+  check("Productiemanager heeft productie en planning, geen kwaliteitsportaal", await page.locator(".starttegel-planning").count() === 1 && await page.locator(".starttegel-kwaliteit").count() === 0);
+  await page.goto(BASIS+"/portaal/#/kwaliteit/batch/"+hbatch.batchnummer);
+  await page.waitForFunction(() => location.hash === "#/");
+  await page.locator(".starttegel-productie").click();
+  await page.goto(BASIS+"/portaal/#/productie/batch/"+hbatch.batchnummer);
   await page.getByRole("button", { name: "Herbewerking", exact: true }).waitFor();
-  check("Productiemanager kan een herbewerking aanmaken en in beoordeling zetten, niet keuren",
-    (await page.getByRole("button", { name: "In beoordeling zetten" }).count()) === 1 && (await page.getByRole("button", { name: "NOK", exact: true }).count()) === 0);
+  check("Productiemanager kan herbewerking aanmaken en in beoordeling zetten, niet keuren",
+    await page.getByRole("button", { name: "In beoordeling zetten" }).count() === 1 && await page.getByRole("button", { name: "NOK", exact: true }).count() === 0);
 
+  await page.getByRole("button", { name: "Afmelden" }).click();
+  await login("kwaliteit1");
+  await page.locator(".starttegel-kwaliteit").click();
   await page.setViewportSize({ width: 820, height: 1000 });
   await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
   await page.locator(".grafiek > svg").waitFor();
