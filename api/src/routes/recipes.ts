@@ -196,6 +196,14 @@ const ReleaseResult = Type.Object({ status: Type.Literal("released"), release_id
 const WithdrawResult = Type.Object({ status: Type.Literal("withdrawn"), withdrawal_id: Id });
 
 const routes: FastifyPluginAsyncTypebox = async (app) => {
+  app.get("/products", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], response: { 200: Type.Array(Type.Object({
+      id: Id, code: Type.String(), name: Type.String(), can_edit: Type.Boolean(), can_review: Type.Boolean()
+    })) } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_products() AS data")).rows[0].data));
+
   app.get("/", {
     preHandler: personalSession,
     schema: { tags: ["recepten"], querystring: Type.Object({ product_id: Id }, { additionalProperties: false }),

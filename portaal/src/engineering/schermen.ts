@@ -3,6 +3,7 @@
 import { h, toon } from "../../../gedeeld/ui";
 import { PORTALEN, zichtbareOnderdelen, rechten } from "../basis";
 import { materialen, eenheden } from "./stamdata";
+import { recepten } from "./recepten";
 
 const uitleg: Record<string,string> = {
   materialen: "Versiebeheer van materiaaldefinities en materiaalklassen.",
@@ -27,6 +28,7 @@ export function scherm(deel: string) {
   }
   if (deel === "materialen") return materialen();
   if (deel === "eenheden") return eenheden();
+  if (deel === "recepten") return recepten();
   // Tijdelijke, expliciete plaatsaanduiding. De verdere #113-pakketten
   // vervangen deze door echte persoonlijke API-schermen.
   const item = onderdelen.find(x => x.pad === deel)!;

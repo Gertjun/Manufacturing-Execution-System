@@ -2547,3 +2547,21 @@ describe("#112 MOC- en beoordelings-API", () => {
     assert.equal((await verzoek("PATCH",base+"/moc/"+moc.body.id,engineer,{expected_change_no:2,reason:"Bevroren",impact_description:"Fictief"})).status,409);
   });
 });
+
+describe("#113 persoonlijke receptproductkeuze", () => {
+  test("uitsluitend actuele productscope, geen impliciet conceptrecht", async () => {
+    const {rows:[p]}=await beheerDb.query("SELECT id FROM fabriek.product WHERE code='PRD-A'");
+    const naam="mes.recipe.product.scope";
+    await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'analist',fabriek.wachtwoord_hash('demo'))",[naam]);
+    const {rows:[grant]}=await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,product_id) SELECT id,'quality_approver',$2 FROM fabriek.gebruiker WHERE gebruikersnaam=$1 RETURNING id",[naam,p.id]);
+    const token=await login(naam);
+    const result=await verzoek("GET","/recipes/products",token);
+    assert.equal(result.status,200,JSON.stringify(result.body));
+    assert.deepEqual(result.body.map((x:any)=>[x.id,x.can_edit,x.can_review]),[[p.id,false,true]]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
+    const empty=await verzoek("GET","/recipes/products",token);
+    assert.equal(empty.status,200);
+    assert.deepEqual(empty.body,[]);
+    assert.equal((await verzoek("GET","/recipes/products")).status,401);
+  });
+});
