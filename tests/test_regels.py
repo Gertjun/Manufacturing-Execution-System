@@ -2021,6 +2021,59 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+    print("\n#141 eenheden, dimensies en onveranderlijke conversieversies")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        mass = val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        temp = val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,0,0,0,1,0,0) RETURNING id")
+        def qkind(dim,code,sem):
+            return val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,%s,%s,%s) RETURNING id",(dim,code,code,sem))
+        qm=qkind(mass,"MASS","ratio")
+        qt=qkind(temp,"TEMP_ABS","absolute")
+        qd=qkind(temp,"TEMP_DELTA","difference")
+        def unit(q,code,symbol):
+            return val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,%s,%s,%s) RETURNING id",(q,code,symbol,code))
+        kg,g=unit(qm,"KG","kg"),unit(qm,"G","g")
+        c,k=unit(qt,"CELSIUS_ABS","degC"),unit(qt,"KELVIN_ABS","K")
+        dc,dk=unit(qd,"CELSIUS_DELTA","delta_degC"),unit(qd,"KELVIN_DELTA","delta_K")
+        def conversion(q,a,b):
+            return val("INSERT INTO unit_conversion(quantity_kind_id,from_unit_id,to_unit_id) VALUES (%s,%s,%s) RETURNING id",(q,a,b))
+        cm,ct,cd=conversion(qm,kg,g),conversion(qt,c,k),conversion(qd,dc,dk)
+        version_sql="INSERT INTO unit_conversion_version(conversion_id,quantity_kind_id,value_semantics,revision,factor_numerator,factor_denominator,additive_offset,source_reference,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,'fictieve testdefinitie',%s)"
+        con.execute(version_sql,(cm,qm,"ratio",1,1000,1,0,actor))
+        con.execute(version_sql,(ct,qt,"absolute",1,1,1,273.15,actor))
+        con.execute(version_sql,(cd,qd,"difference",1,1,1,0,actor))
+        con.execute(version_sql,(cm,qm,"ratio",2,1000,1,0,actor))
+        check("#141 revisies naast elkaar behouden",val("SELECT count(*) FROM unit_conversion_version WHERE conversion_id=%s",(cm,))==2)
+        check("#141 absolute en verschiltemperatuur zelfde dimensie, aparte grootheid",val("SELECT count(*) FROM quantity_kind WHERE dimension_id=%s",(temp,))==2)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT unit_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT unit_guard")
+            con.execute("RELEASE SAVEPOINT unit_guard")
+        conv_sql="INSERT INTO unit_conversion(quantity_kind_id,from_unit_id,to_unit_id) VALUES (%s,%s,%s)"
+        denied("#141 verschillende dimensies niet direct converteren",conv_sql,(qm,kg,k),"foreign key")
+        denied("#141 absolute en verschiltemperatuur niet direct converteren",conv_sql,(qt,c,dk),"foreign key")
+        denied("#141 offset bij verschiltemperatuur geweigerd",version_sql,(cd,qd,"difference",2,1,1,273.15,actor))
+        denied("#141 offset bij ratio geweigerd",version_sql,(cm,qm,"ratio",3,1,1,1,actor))
+        denied("#141 nulnoemer geweigerd",version_sql,(cm,qm,"ratio",3,1,0,0,actor))
+        denied("#141 niet-eindige factor geweigerd",version_sql,(cm,qm,"ratio",3,"Infinity",1,0,actor))
+        denied("#141 verkeerde semantiek geweigerd",version_sql,(cm,qm,"absolute",3,1,1,0,actor),"foreign key")
+        denied("#141 dubbele revisie geweigerd",version_sql,(cm,qm,"ratio",1,1000,1,0,actor),"duplicate")
+        denied("#141 conversieversie niet aanpassen","UPDATE unit_conversion_version SET factor_numerator=2 WHERE conversion_id=%s AND revision=1",(cm,),"onveranderlijk")
+        denied("#141 eenheid niet aanpassen","UPDATE measurement_unit SET symbol='wrong' WHERE id=%s",(kg,),"onveranderlijk")
+        denied("#141 grootheid niet verwijderen","DELETE FROM quantity_kind WHERE id=%s",(qt,),"onveranderlijk")
+        mid=val("INSERT INTO material_definition(code) VALUES ('UNIT-MAT-TEST') RETURNING id")
+        mv=val("INSERT INTO material_definition_version(material_definition_id,revision,name,unit,measurement_unit_id,created_by) VALUES (%s,1,'Fictief','kg',%s,%s) RETURNING id",(mid,kg,actor))
+        denied("#141 afwijkende eenheidstekst","INSERT INTO material_definition_version(material_definition_id,revision,name,unit,measurement_unit_id,created_by) VALUES (%s,2,'Fictief','g',%s,%s)",(mid,kg,actor),"Eenheidstekst")
+        check("#141 materiaalversie expliciet gekoppeld",val("SELECT measurement_unit_id FROM material_definition_version WHERE id=%s",(mv,))==kg)
+        for tabel in ("quantity_dimension","quantity_kind","measurement_unit","unit_conversion","unit_conversion_version"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#141 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

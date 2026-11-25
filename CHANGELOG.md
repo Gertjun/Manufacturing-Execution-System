@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #141 (deel): 0104 relationeel eenhedenfundament met SI-dimensies, fysische grootheden, onveranderlijke catalogus en conversieversies (rationale factor en offset), absolute versus verschilwaarde en expliciete materiaal-/parameter-/formulekoppelingen. Geen automatische mapping, runtimewrites of conversie-uitvoering; regressies nog niet uitgevoerd.
+
 - D106: roadmap en ontwerp uitgebreid met #141 eenheden-/schaalregelmodel (fase 2), #142 gecontroleerde CR-berekeningen (fase 6), #143 operationele massabalans (fase 9) en #144 historische analyse (fase 11); acceptatiecriteria en normmapping toegevoegd. Alleen documentatie, geen implementatie.
 
 - #111 (deel): 0103 versiegebonden referentieformule, materiaalvereisten met exacte materiaalversie, input/output, vaste/lineaire hoeveelheden en expliciete parameterschaling (standaard vast). Geen impliciete eenheidsconversie of uitvoering; regressies nog niet uitgevoerd.

@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -7340,5 +7340,163 @@ REVOKE ALL ON FUNCTION recipe_formula_guard(),recipe_limit_scaling_guard() FROM 
 REVOKE ALL ON recipe_formula,recipe_material_requirement FROM PUBLIC;
 -- Geen automatisch schalen tijdens uitvoering, geen eenhedenconverter,
 -- geen veronderstelde massabalans of verplichte opbrengst. Conceptbeheer volgt.
+
+COMMIT;
+
+BEGIN;
+-- Migratie 0104: fysische dimensies, grootheden, eenheden en conversieversies (D106/#141).
+SET search_path = fabriek, public;
+
+-- SI-basisdimensies: lengte, massa, tijd, stroom, temperatuur,
+-- hoeveelheid stof en lichtsterkte. Dimensionele gelijkheid alleen is
+-- onvoldoende voor conversie (bv. energie/koppel of absolute/delta-temperatuur).
+CREATE TABLE quantity_dimension (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    length_exp smallint NOT NULL,
+    mass_exp smallint NOT NULL,
+    time_exp smallint NOT NULL,
+    current_exp smallint NOT NULL,
+    temperature_exp smallint NOT NULL,
+    amount_exp smallint NOT NULL,
+    luminous_exp smallint NOT NULL,
+    UNIQUE (length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)
+);
+CREATE TABLE quantity_kind (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    dimension_id uuid NOT NULL REFERENCES quantity_dimension(id),
+    code text NOT NULL UNIQUE CHECK (code ~ '[^[:space:]]' AND length(code)<=100),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]'),
+    value_semantics text NOT NULL CHECK (value_semantics IN ('ratio','absolute','difference')),
+    UNIQUE (id,value_semantics)
+);
+CREATE TABLE measurement_unit (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    quantity_kind_id uuid NOT NULL REFERENCES quantity_kind(id),
+    code text NOT NULL UNIQUE CHECK (code ~ '[^[:space:]]' AND length(code)<=100),
+    symbol text NOT NULL CHECK (symbol ~ '[^[:space:]]' AND length(symbol)<=40),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]'),
+    UNIQUE (quantity_kind_id,id)
+);
+CREATE TABLE unit_conversion (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    quantity_kind_id uuid NOT NULL REFERENCES quantity_kind(id),
+    from_unit_id uuid NOT NULL,
+    to_unit_id uuid NOT NULL,
+    UNIQUE (from_unit_id,to_unit_id),
+    UNIQUE (id,quantity_kind_id),
+    FOREIGN KEY (quantity_kind_id,from_unit_id) REFERENCES measurement_unit(quantity_kind_id,id),
+    FOREIGN KEY (quantity_kind_id,to_unit_id) REFERENCES measurement_unit(quantity_kind_id,id),
+    CHECK (from_unit_id<>to_unit_id)
+);
+CREATE TABLE unit_conversion_version (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversion_id uuid NOT NULL,
+    quantity_kind_id uuid NOT NULL,
+    value_semantics text NOT NULL,
+    revision integer NOT NULL CHECK (revision>0),
+    factor_numerator numeric NOT NULL CHECK (factor_numerator>0 AND factor_numerator NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
+    factor_denominator numeric NOT NULL CHECK (factor_denominator>0 AND factor_denominator NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
+    additive_offset numeric NOT NULL CHECK (additive_offset NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
+    source_reference text NOT NULL CHECK (source_reference ~ '[^[:space:]]'),
+    created_by uuid NOT NULL REFERENCES gebruiker(id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (conversion_id,quantity_kind_id) REFERENCES unit_conversion(id,quantity_kind_id),
+    FOREIGN KEY (quantity_kind_id,value_semantics) REFERENCES quantity_kind(id,value_semantics),
+    UNIQUE (conversion_id,revision),
+    CHECK (value_semantics='absolute' OR additive_offset=0)
+);
+
+-- Catalogusidentiteiten zijn onveranderlijk; correctie vereist nieuwe
+-- definitie of conversierevisie, nooit wijziging van een historisch record.
+CREATE FUNCTION unit_catalog_immutable() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ RAISE EXCEPTION 'Eenhedencatalogus en conversieversies zijn onveranderlijk' USING ERRCODE='55000';
+END $$;
+CREATE TRIGGER quantity_dimension_immutable BEFORE UPDATE OR DELETE ON quantity_dimension
+ FOR EACH ROW EXECUTE FUNCTION unit_catalog_immutable();
+CREATE TRIGGER quantity_kind_immutable BEFORE UPDATE OR DELETE ON quantity_kind
+ FOR EACH ROW EXECUTE FUNCTION unit_catalog_immutable();
+CREATE TRIGGER measurement_unit_immutable BEFORE UPDATE OR DELETE ON measurement_unit
+ FOR EACH ROW EXECUTE FUNCTION unit_catalog_immutable();
+CREATE TRIGGER unit_conversion_immutable BEFORE UPDATE OR DELETE ON unit_conversion
+ FOR EACH ROW EXECUTE FUNCTION unit_catalog_immutable();
+CREATE TRIGGER unit_conversion_version_immutable BEFORE UPDATE OR DELETE ON unit_conversion_version
+ FOR EACH ROW EXECUTE FUNCTION unit_catalog_immutable();
+
+CREATE TRIGGER quantity_dimension_audit AFTER INSERT ON quantity_dimension FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER quantity_kind_audit AFTER INSERT ON quantity_kind FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER measurement_unit_audit AFTER INSERT ON measurement_unit FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER unit_conversion_audit AFTER INSERT ON unit_conversion FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+CREATE TRIGGER unit_conversion_version_audit AFTER INSERT ON unit_conversion_version FOR EACH ROW EXECUTE FUNCTION recipe_procedure_audit();
+
+-- Verbind de nieuwe catalogus expliciet met de bestaande conceptdefinities.
+-- Onbekende legacy-eenheden worden niet automatisch op basis van tekst gekoppeld.
+-- Tekst blijft tijdelijk behouden voor migratie en bestaande interfaces.
+ALTER TABLE material_definition_version ADD COLUMN measurement_unit_id uuid REFERENCES measurement_unit(id);
+ALTER TABLE recipe_parameter ADD COLUMN measurement_unit_id uuid REFERENCES measurement_unit(id);
+ALTER TABLE recipe_parameter ADD CONSTRAINT recipe_parameter_numeric_unit
+ CHECK (measurement_unit_id IS NULL OR data_type IN ('decimal','integer'));
+ALTER TABLE recipe_formula ADD COLUMN reference_unit_id uuid REFERENCES measurement_unit(id);
+ALTER TABLE recipe_material_requirement ADD COLUMN measurement_unit_id uuid REFERENCES measurement_unit(id);
+
+-- Voorkom tegenstrijdige tekst en cataloguskoppeling. Bij materialen blijft
+-- de exacte materiaalversie leidend; andere eenheid vereist later een
+-- expliciete conversiedefinitie, niet een stilzwijgende aanpassing.
+CREATE FUNCTION measurement_unit_link_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE uid uuid; label text; canonical text; material_uid uuid;
+BEGIN
+ IF TG_TABLE_NAME='recipe_formula' THEN
+   uid:=NEW.reference_unit_id;
+   label:=NEW.reference_unit;
+   IF TG_OP='UPDATE' THEN
+     IF NEW.reference_unit_id IS DISTINCT FROM OLD.reference_unit_id AND
+        (EXISTS (SELECT 1 FROM recipe_material_requirement WHERE formula_id=OLD.id)
+         OR EXISTS (SELECT 1 FROM recipe_parameter_limit WHERE recipe_version_id=OLD.recipe_version_id AND scaling='linear')) THEN
+       RAISE EXCEPTION 'Herdefinieer eerst afhankelijke formulewaarden bij eenheidskoppeling' USING ERRCODE='23514';
+     END IF;
+   END IF;
+ ELSE
+   uid:=NEW.measurement_unit_id;
+   label:=NEW.unit;
+   IF TG_TABLE_NAME='recipe_parameter' AND TG_OP='UPDATE' THEN
+     IF NEW.measurement_unit_id IS DISTINCT FROM OLD.measurement_unit_id AND
+        EXISTS (SELECT 1 FROM recipe_parameter_limit WHERE recipe_version_id=OLD.recipe_version_id AND parameter_id=OLD.id) THEN
+       RAISE EXCEPTION 'Herdefinieer eerst voorwaarden bij eenheidskoppeling' USING ERRCODE='23514';
+     END IF;
+   END IF;
+ END IF;
+ IF uid IS NOT NULL THEN
+   SELECT symbol INTO canonical FROM measurement_unit WHERE id=uid;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende eenheid' USING ERRCODE='23503'; END IF;
+   IF canonical IS DISTINCT FROM label THEN
+     RAISE EXCEPTION 'Eenheidstekst wijkt af van catalogusdefinitie' USING ERRCODE='23514';
+   END IF;
+ END IF;
+ IF TG_TABLE_NAME='recipe_material_requirement' THEN
+   SELECT measurement_unit_id INTO material_uid FROM material_definition_version WHERE id=NEW.material_version_id;
+   IF material_uid IS DISTINCT FROM uid THEN
+     RAISE EXCEPTION 'Materiaaleenheid vereist dezelfde cataloguskoppeling' USING ERRCODE='23514';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER measurement_unit_link_guard BEFORE INSERT ON material_definition_version
+ FOR EACH ROW EXECUTE FUNCTION measurement_unit_link_guard();
+CREATE TRIGGER measurement_unit_link_guard BEFORE INSERT OR UPDATE ON recipe_parameter
+ FOR EACH ROW EXECUTE FUNCTION measurement_unit_link_guard();
+CREATE TRIGGER measurement_unit_link_guard BEFORE INSERT OR UPDATE ON recipe_formula
+ FOR EACH ROW EXECUTE FUNCTION measurement_unit_link_guard();
+CREATE TRIGGER measurement_unit_link_guard BEFORE INSERT OR UPDATE ON recipe_material_requirement
+ FOR EACH ROW EXECUTE FUNCTION measurement_unit_link_guard();
+
+REVOKE ALL ON FUNCTION unit_catalog_immutable(),measurement_unit_link_guard() FROM PUBLIC;
+REVOKE ALL ON quantity_dimension,quantity_kind,measurement_unit,unit_conversion,unit_conversion_version FROM PUBLIC;
+
+-- Geen standaardcatalogus, conversie-uitvoering of directe runtimewrites.
+-- Persoonlijk beheer, versiecreatie, selectie van exacte conversieversies,
+-- vrijgavecontrole en gecontroleerde bronmapping volgen binnen fase 2.
+-- Contextafhankelijke conversies en de uitvoeringsengine volgen fase 6.
 
 COMMIT;
