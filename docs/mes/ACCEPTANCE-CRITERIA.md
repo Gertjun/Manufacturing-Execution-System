@@ -400,6 +400,8 @@ Gerichte fase 2.3-baseline [45687274731](https://github.com/Gertjun/Manufacturin
 
 0102 (#111): regressies op parameter-versie/procedure-FK, unieke code per versie, vijf onafhankelijke categorieën, target versus een-/tweezijdige grenzen, eindige numerieke waarden, integer- en typegrenzen, eenheidswijziging zonder stilzwijgende herinterpretatie, geen cascade of directe ACL. Frequentie en verantwoordelijke zijn conceptlabels, geen uitvoeringsregels; niet-numerieke voorwaarden en schaalregels volgen. Nog geen runtimewrites/API of uitvoeringsbewijs.
 
+0103 (#111): referentieformule per MBR-revisie, positieve eindige hoeveelheden, exacte materiaalversie en eenheid, input/output, optionele procedurekoppeling binnen dezelfde versie, fixed/linear, standaard vaste parametergrenzen, expliciete schaalkeuze alleen met referentieformule. Referentiewijziging bij bestaande afhankelijke inhoud geweigerd; geen automatische conversie of massabalans. Negatieve FK/check/ACL-regressies toegevoegd; nog geen uitvoeringsbewijs. Beheer/API, afronding en berekening bij Control Recipe volgen; geen uitvoering in fase 2.
+
 ## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.

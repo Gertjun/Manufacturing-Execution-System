@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #111 (deel): 0103 versiegebonden referentieformule, materiaalvereisten met exacte materiaalversie, input/output, vaste/lineaire hoeveelheden en expliciete parameterschaling (standaard vast). Geen impliciete eenheidsconversie of uitvoering; regressies nog niet uitgevoerd.
+
 - #103/110: hertest 45687274731 op 593d495 volledig geslaagd (782 DB, 121 API); gegenereerd databaseplaatje 0101 en OpenAPI opgenomen. Geen integrale acceptatie.
 - #111 (deel): 0102 versiegebonden parameterdefinities en vijf afzonderlijke numerieke voorwaardencategorieën, type-/eenheids-/versiegrenzen en ACL-regressies. Nog niet getest; geen runtimewrites.
 

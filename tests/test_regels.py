@@ -1967,6 +1967,60 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+    print("\n#111 referentieformule en expliciete schaalregels")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product = val("SELECT id FROM product WHERE code='PRD-A'")
+        recipe = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'FORMULA-TEST',%s) RETURNING id",(product,actor))
+        def fv(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Formula test',%s) RETURNING id",(recipe,n,actor))
+        v1,v2 = fv(1),fv(2)
+        def fe(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2=fe(v1),fe(v2)
+        mid=val("INSERT INTO material_definition(code) VALUES ('FORMULA-MAT') RETURNING id")
+        mv=val("INSERT INTO material_definition_version(material_definition_id,revision,name,unit,created_by) VALUES (%s,1,'Fictief','kg',%s) RETURNING id",(mid,actor))
+        unknown=val("INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,2,'Onbekend',%s) RETURNING id",(mid,actor))
+        form=val("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,1000,'kg') RETURNING id",(v1,))
+        form2=val("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,2000,'kg') RETURNING id",(v2,))
+        req_sql="INSERT INTO recipe_material_requirement(recipe_version_id,formula_id,procedural_element_id,material_version_id,code,direction,quantity,unit,scaling) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        con.execute(req_sql,(v1,form,e1,mv,"INPUT","input",600,"kg","linear"))
+        con.execute(req_sql,(v1,form,None,mv,"OUTPUT","output",500,"kg","fixed"))
+        check("#111 vaste en lineaire hoeveelheden afzonderlijk",val("SELECT count(DISTINCT scaling) FROM recipe_material_requirement WHERE formula_id=%s",(form,))==2)
+        check("#111 verwijzing naar exacte materiaalversie",val("SELECT count(*) FROM recipe_material_requirement WHERE formula_id=%s AND material_version_id=%s",(form,mv))==2)
+        def fp(v,e):
+            return val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'TEMP','Temp','decimal','degC','per batch',true,'productie',true) RETURNING id",(v,e))
+        p1,p2=fp(v1,e1),fp(v2,e2)
+        target=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value) VALUES (%s,%s,'decimal','target',90) RETURNING id",(v1,p1))
+        check("#111 standaard vaste parameterwaarde",val("SELECT scaling FROM recipe_parameter_limit WHERE id=%s",(target,))=="fixed")
+        con.execute("UPDATE recipe_parameter_limit SET scaling='linear' WHERE id=%s",(target,))
+        check("#111 expliciete schaalkeuze",val("SELECT scaling FROM recipe_parameter_limit WHERE id=%s",(target,))=="linear")
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT formula_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT formula_guard")
+            con.execute("RELEASE SAVEPOINT formula_guard")
+        denied("#111 verkeerde formuleversie",req_sql,(v1,form2,e1,mv,"BAD1","input",1,"kg","fixed"),"foreign key")
+        denied("#111 verkeerde procedureversie",req_sql,(v1,form,e2,mv,"BAD2","input",1,"kg","fixed"),"foreign key")
+        denied("#111 verkeerde materiaaleenheid",req_sql,(v1,form,e1,mv,"BAD3","input",1,"g","fixed"),"Materiaaleenheid")
+        denied("#111 onbekende materiaaleenheid",req_sql,(v1,form,e1,unknown,"BAD4","input",1,"kg","fixed"),"Materiaaleenheid")
+        denied("#111 negatieve hoeveelheid",req_sql,(v1,form,e1,mv,"BAD5","input",-1,"kg","fixed"))
+        denied("#111 niet-eindige hoeveelheid",req_sql,(v1,form,e1,mv,"BAD6","input","Infinity","kg","fixed"))
+        denied("#111 onbekende schaalregel",req_sql,(v1,form,e1,mv,"BAD7","input",1,"kg","auto"))
+        denied("#111 referentie niet stilzwijgend wijzigen","UPDATE recipe_formula SET reference_quantity=500 WHERE id=%s",(form,),"Herdefinieer eerst")
+        denied("#111 referentie niet stilzwijgend hernoemen","UPDATE recipe_formula SET reference_unit='g' WHERE id=%s",(form,),"Herdefinieer eerst")
+        denied("#111 dubbele formule","INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,100,'kg')",(v1,),"duplicate")
+        denied("#111 negatieve referentie","UPDATE recipe_formula SET reference_quantity=-1 WHERE id=%s",(form2,))
+        con.execute("DELETE FROM recipe_formula WHERE id=%s",(form2,))
+        denied("#111 schalen zonder referentie","INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value,scaling) VALUES (%s,%s,'decimal','target',90,'linear')",(v2,p2),"referentieformule")
+        denied("#111 formule met schaalvoorwaarde niet verwijderen","DELETE FROM recipe_formula WHERE id=%s",(form,),"referentieformule")
+        for tabel in ("recipe_formula","recipe_material_requirement"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
