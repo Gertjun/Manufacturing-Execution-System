@@ -43,15 +43,11 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+
 };
 
 try {
-  console.log("\nKwaliteit geeft een certificaat uit");
+  console.log("\nKwaliteit raadpleegt een certificaatconcept");
   // Een lot dat gereed is en waarvan alle kenmerken binnen de specificatie vallen.
   const goedLot = `SELECT l.lotnummer FROM fabriek.lot l WHERE l.status = 'gereed'
       AND NOT EXISTS (SELECT 1 FROM fabriek.batch b WHERE b.lot_id = l.id AND b.status = 'afgekeurd')
@@ -62,18 +58,33 @@ try {
       ORDER BY l.lotnummer DESC LIMIT 1`;
   const [lot] = await q(goedLot, ["PRD-A"]);
   await inloggen("kwaliteit1");
-  await page.getByRole("heading", { name: "Kwaliteit", exact: true }).waitFor();
+  await page.locator(".starttegel-kwaliteit").click();
   await page.goto(`${BASIS}/portaal/#/kwaliteit/lotpaspoort/${lot.lotnummer}`);
   await page.getByRole("link", { name: "Certificaat" }).click();
   await page.getByRole("heading", { name: `Certificaat ${lot.lotnummer} (concept)` }).waitFor();
   check("Concept met 5 kenmerken", (await page.locator(".cert-tabel tbody tr").count()) === 5);
   check("Alle kenmerken voldoen", (await page.locator(".cert-tabel td", { hasText: "✓ Ja" }).count()) === 5);
   check("Concept-watermerk", await page.locator(".certificaat.concept").isVisible());
-  await page.getByRole("button", { name: "Uitgeven" }).click();
-  await page.getByRole("heading", { name: /^Certificaat nr\. \d+$/ }).waitFor();
-  const [c] = await q("SELECT nummer, (inhoud->>'lotnummer') AS lot FROM fabriek.certificaat ORDER BY nummer DESC LIMIT 1");
-  check("Uitgegeven en bewaard in de database", c.lot === lot.lotnummer);
-  check("Uitgegeven certificaat zonder watermerk, met nummer", !(await page.locator(".certificaat.concept").count()) && (await page.locator(".cert-nummer").innerText()) === `Nr. ${c.nummer}`);
+  check("Geen uitgifteknop in fase 1", await page.getByRole("button", { name: "Uitgeven", exact: true }).count() === 0);
+  await page.getByText("Nieuwe certificaatuitgifte wacht op de MES-kwaliteitsvrijgave in fase 7.", { exact: false }).waitFor();
+  const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const headers = { authorization: "Bearer "+token, "content-type": "application/json" };
+  const pad = "/certificaten/lots/"+lot.lotnummer;
+  const response = await fetch(BASIS+pad,{headers});
+  if (!response.ok) throw new Error("Concept ophalen mislukt: "+response.status);
+  const concept = (await response.json()).concept;
+  const [voor] = await q("SELECT count(*)::int AS n FROM fabriek.certificaat");
+  check("Nieuwe uitgifte via API geweigerd", (await fetch(BASIS+pad,{method:"POST",headers})).status === 403);
+  check("Geen certificaat toegevoegd", (await q("SELECT count(*)::int AS n FROM fabriek.certificaat"))[0].n === voor.n);
+  // Historische fictieve fixture via database-eigenaar, geen nieuwe applicatie-uitgifte.
+  const [c] = await q(`INSERT INTO fabriek.certificaat(lot_id,inhoud,uitgegeven_door)
+    SELECT l.id,$2::jsonb,g.id FROM fabriek.lot l CROSS JOIN fabriek.gebruiker g
+    WHERE l.lotnummer=$1 AND g.gebruikersnaam='kwaliteit1' RETURNING nummer`,[lot.lotnummer,JSON.stringify(concept)]);
+  await page.goto(BASIS+"/portaal/#/kwaliteit/certificaat/"+lot.lotnummer+"/"+c.nummer);
+  await page.getByRole("heading", { name: "Certificaat nr. "+c.nummer }).waitFor();
+  check("Historische herdruk met oorspronkelijk nummer en zonder conceptwatermerk", await page.locator(".certificaat.concept").count() === 0 && await page.locator(".cert-nummer").innerText() === "Nr. "+c.nummer);
+  const herdruk = await fetch(BASIS+"/certificaten/"+c.nummer,{headers});
+  check("Historische inhoud ongewijzigd", herdruk.ok && (await q("SELECT $1::jsonb = $2::jsonb AS gelijk",[JSON.stringify((await herdruk.json()).inhoud),JSON.stringify(concept)]))[0].gelijk === true);
   await page.emulateMedia({ media: "print" });
   await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
   check("Bij afdrukken alleen het certificaat (geen menu of knoppen)", !(await page.locator("#menu").isVisible()) && !(await page.getByRole("button", { name: "Afdrukken of pdf" }).isVisible()));
@@ -97,23 +108,23 @@ try {
   if (open) {
     await page.goto(`${BASIS}/portaal/#/kwaliteit/certificaat/${open.lotnummer}`);
     await page.getByRole("heading", { name: `Certificaat ${open.lotnummer} (concept)` }).waitFor();
-    check("Uitgeven kan niet als het lot niet gereed is", await page.getByRole("button", { name: "Uitgeven" }).isDisabled());
+    check("Uitgeven kan niet als het lot niet gereed is", await page.getByRole("button", { name: "Uitgeven", exact: true }).count() === 0);
   }
 
-  console.log("\nBeheer");
+  console.log("\nCertificaatinstellingen en historische bescherming");
+  const instellingen = { bedrijfsnaam:"Testfabriek (fictief)", bedrijfsadres:"Testweg 1", certificaat_verklaring:"Test." };
+  check("Kwaliteit kan bedrijfsgegevens niet wijzigen", (await fetch(BASIS+"/certificaten/instellingen",{method:"PUT",headers,body:JSON.stringify(instellingen)})).status === 403);
   await page.evaluate(() => localStorage.clear());
   await inloggen("beheerder1");
-  await page.getByRole("heading", { name: "Stappen en velden" }).waitFor();
-  await page.getByRole("link", { name: "Bedrijfsgegevens" }).click();
-  await page.getByLabel("Bedrijfsnaam").fill("Testfabriek (fictief)");
-  await page.getByRole("button", { name: "Opslaan" }).click();
-  await page.locator("#melding", { hasText: "Opgeslagen" }).waitFor();
-  await page.goto(`${BASIS}/portaal/#/kwaliteit/certificaat/${lot.lotnummer}`);
-  await page.locator(".cert-bedrijf", { hasText: "Testfabriek (fictief)" }).waitFor();
-  check("Nieuwe bedrijfsnaam op het concept", true);
-  await page.goto(`${BASIS}/portaal/#/kwaliteit/certificaat/${lot.lotnummer}/${c.nummer}`);
-  await page.locator(".cert-bedrijf").waitFor();
-  check("Uitgegeven certificaat blijft zoals het was", (await page.locator(".cert-bedrijf").innerText()) === "Voorbeeldfabriek B.V. (fictief)");
+  await page.locator(".starttegel-beheer").click();
+  await page.getByRole("heading",{name:"Accounts",exact:true}).waitFor();
+  check("Technisch beheer heeft geen bedrijfsgegevensmenu", await page.getByRole("link",{name:"Bedrijfsgegevens"}).count() === 0);
+  const beheerToken = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const beheerHeaders = {...headers,authorization:"Bearer "+beheerToken};
+  check("Technisch beheer mag certificaatinstellingen niet wijzigen", (await fetch(BASIS+"/certificaten/instellingen",{method:"PUT",headers:beheerHeaders,body:JSON.stringify(instellingen)})).status === 403);
+  check("Technisch beheer heeft geen historische lotscope", (await fetch(BASIS+"/certificaten/"+c.nummer,{headers:beheerHeaders})).status === 404);
+  const [historie] = await q("SELECT inhoud = $2::jsonb AS gelijk FROM fabriek.certificaat WHERE nummer=$1",[c.nummer,JSON.stringify(concept)]);
+  check("Historische inhoud ongewijzigd na geweigerde handelingen", historie.gelijk === true);
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});
