@@ -1,4 +1,4 @@
-// 113.5a: version-bound Management of Change. No review or release action.
+// 113.5a–c: MOC, comparison and confirmed review submission. No release action.
 import { h, melding } from "../../../gedeeld/ui";
 import { haal, stuur, magReceptconcept } from "../basis";
 
@@ -69,6 +69,27 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
           await mutate(i?"PATCH":"POST",base+"/impacts"+(i?"/"+encodeURIComponent(i.id):""),{expected_change_no:data.change_no,request_id:r.id,area:area.value,explanation:explanation.value.trim()});
         });
       }
+      function submissionForm(matrix:ReviewRequirements){
+        const password=h("input",{type:"password",required:true,maxlength:1024,autocomplete:"current-password"});
+        const confirmation=h("input",{type:"checkbox",required:true});
+        const button=h("button",{class:"knop knop-hoofd",type:"submit"},"Formeel indienen");
+        const localError=h("p",{class:"foutmelding",role:"alert"});
+        return h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
+          e.preventDefault();
+          if(!active()||busy||!editable||!magReceptconcept()||!confirmation.checked)return;
+          const secret=password.value;password.value="";
+          if(!secret)return;
+          busy=true;button.disabled=true;localError.textContent="";
+          try{
+            await stuur("POST",base.replace(/\/moc$/,"")+"/reviews",{expected_change_no:matrix.change_no,expected_baseline_change_no:matrix.baseline_change_no,password:secret});
+          }catch(e){if(active())localError.textContent=(e as Error).message;return;}
+          finally{busy=false;button.disabled=false;password.value="";}
+          if(active()){melding("Recept formeel ingediend ter beoordeling","ok");await refresh();}
+        }},h("h5",{},"Formeel indienen ter beoordeling"),
+          h("p",{class:"sub"},"Hiermee wordt de exacte receptinhoud bevroren voor een nieuwe beoordelingsronde. Een afwijzing brengt de revisie terug naar concept; goedkeuring is nog geen vrijgave."),
+          field("Ik heb de vergelijking en beoordelingsvereisten gecontroleerd",confirmation),
+          field("Persoonlijk wachtwoord",password),localError,button);
+      }
       function comparisonPane(r:Request){
         const result=h("div",{});
         let reading=false;
@@ -103,7 +124,7 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
               index.differences.length?null:h("p",{class:"leeg"},"Geen inhoudelijke verschillen."),
               h("details",{},h("summary",{},"Exacte voor-/na-gegevens (server-JSON)"),
                 h("p",{class:"sub"},"Originele servertekst, zonder numerieke herinterpretatie of afronding. Bevat alle voor-/na-waarden en sleutels."),
-                h("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},raw.comparison_text)));
+                h("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},raw.comparison_text)),editable?submissionForm(matrix):null);
           }catch(e){if(active())result.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
           finally{reading=false;}
         }
