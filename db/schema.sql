@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -8618,5 +8618,104 @@ REVOKE ALL ON FUNCTION recipe_scaling_expression_guard(),recipe_scaling_expressi
  recipe_scaling_list(uuid) FROM PUBLIC;
 -- Alleen structurele validatie. Dimensionele/semantische formulevalidatie
 -- en expliciete vrijgaveblokkade voor complexe regels blijven verplicht.
+
+-- Migratie 0113: statische fysische validatie van schaalformules (D106/#141).
+SET search_path = fabriek, public;
+
+-- Dimensies worden afgeleid, niet door de client aangeleverd. Exacte
+-- eenheidsidentiteit blijft behouden voor add/subtract. Afgeleide
+-- producten/quotiënten/machten zijn uitsluitend dimensioneel bewezen;
+-- eenhedenfactoren en afgeleide grootheidsemantiek vergen een aparte
+-- vrijgavepoort. Geen numerieke evaluatie of impliciete conversie.
+CREATE FUNCTION recipe_scaling_expression_physical_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE
+ token jsonb; op text; inp record; outp record;
+ stack jsonb[]:=ARRAY[]::jsonb[]; n integer:=0;
+ a jsonb; b jsonb; result jsonb; dims integer[]; exponent numeric;
+ j integer; da integer; db integer;
+BEGIN
+ -- De eerdere structuurtrigger draait alfabetisch vóór deze trigger.
+ FOR token IN SELECT value FROM jsonb_array_elements(NEW.tokens) LOOP
+   op:=token->>'op';
+   IF op='input' THEN
+     SELECT u.id AS unit_id,u.symbol,k.value_semantics,
+       ARRAY[d.length_exp,d.mass_exp,d.time_exp,d.current_exp,d.temperature_exp,d.amount_exp,d.luminous_exp]::integer[] AS dims,
+       i.source_kind,i.constant_value
+     INTO STRICT inp FROM recipe_scaling_input i
+     JOIN measurement_unit u ON u.id=i.unit_id
+     JOIN quantity_kind k ON k.id=u.quantity_kind_id
+     JOIN quantity_dimension d ON d.id=k.dimension_id
+     WHERE i.id=(token->>'id')::uuid AND i.recipe_version_id=NEW.recipe_version_id AND i.rule_id=NEW.rule_id;
+     n:=n+1;
+     stack[n]:=jsonb_build_object('dims',inp.dims,'unit',inp.unit_id,'semantics',inp.value_semantics,
+       'exponent',CASE WHEN inp.source_kind='constant' AND inp.value_semantics='ratio'
+         AND inp.dims=ARRAY[0,0,0,0,0,0,0] AND inp.symbol='1' THEN inp.constant_value END);
+   ELSE
+     a:=stack[n-1]; b:=stack[n]; dims:=ARRAY[]::integer[];
+     IF a->>'semantics'='absolute' OR b->>'semantics'='absolute' THEN
+       RAISE EXCEPTION 'Absolute grootheden vereisen expliciete rekenregels' USING ERRCODE='23514';
+     END IF;
+     IF op IN ('add','subtract') THEN
+       IF a->'dims' IS DISTINCT FROM b->'dims' OR a->>'unit' IS NULL
+          OR a->>'unit' IS DISTINCT FROM b->>'unit' OR a->>'semantics' IS DISTINCT FROM b->>'semantics' THEN
+         RAISE EXCEPTION 'Optellen/aftrekken vereist dezelfde bewezen eenheid en grootheid' USING ERRCODE='23514';
+       END IF;
+       result:=a-'exponent';
+     ELSE
+       IF a->>'semantics' <> 'ratio' OR b->>'semantics' <> 'ratio' THEN
+         RAISE EXCEPTION 'Product, quotient of macht vereist ratio-grootheden' USING ERRCODE='23514';
+       END IF;
+       IF op='power' THEN
+         exponent:=(b->>'exponent')::numeric;
+         IF exponent IS NULL OR exponent<>trunc(exponent) OR exponent NOT BETWEEN -16 AND 16 THEN
+           RAISE EXCEPTION 'Macht vereist een expliciete dimensieloze gehele constante in eenheid 1 (-16..16)' USING ERRCODE='23514';
+         END IF;
+       END IF;
+       FOR j IN 0..6 LOOP
+         da:=(a->'dims'->>j)::integer; db:=(b->'dims'->>j)::integer;
+         IF op='multiply' THEN dims:=array_append(dims,da+db);
+         ELSIF op='divide' THEN dims:=array_append(dims,da-db);
+         ELSIF op='power' THEN dims:=array_append(dims,da*exponent::integer);
+         ELSE RAISE EXCEPTION 'Onbekende fysische operator' USING ERRCODE='23514';
+         END IF;
+         IF dims[j+1] NOT BETWEEN -32768 AND 32767 THEN
+           RAISE EXCEPTION 'Afgeleide dimensie buiten catalogusbereik' USING ERRCODE='23514';
+         END IF;
+       END LOOP;
+       result:=jsonb_build_object('dims',dims,'unit',NULL::uuid,'semantics','ratio');
+     END IF;
+     n:=n-1;
+     stack[n]:=result;
+   END IF;
+ END LOOP;
+ SELECT u.id AS unit_id,k.value_semantics,
+   ARRAY[d.length_exp,d.mass_exp,d.time_exp,d.current_exp,d.temperature_exp,d.amount_exp,d.luminous_exp]::integer[] AS dims
+ INTO STRICT outp FROM recipe_scaling_rule r
+ JOIN measurement_unit u ON u.id=r.output_unit_id
+ JOIN quantity_kind k ON k.id=u.quantity_kind_id
+ JOIN quantity_dimension d ON d.id=k.dimension_id
+ WHERE r.recipe_version_id=NEW.recipe_version_id AND r.id=NEW.rule_id;
+ result:=stack[1];
+ IF result->'dims' IS DISTINCT FROM to_jsonb(outp.dims)
+   OR result->>'semantics' IS DISTINCT FROM outp.value_semantics
+   OR (result->>'unit' IS NOT NULL AND (result->>'unit')::uuid IS DISTINCT FROM outp.unit_id) THEN
+   RAISE EXCEPTION 'Schaalformule past niet bij dimensie, semantiek of exacte uitvoereenheid' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER recipe_scaling_expression_physical_guard BEFORE INSERT OR UPDATE ON recipe_scaling_expression
+ FOR EACH ROW EXECUTE FUNCTION recipe_scaling_expression_physical_guard();
+
+-- Bestaande concepten worden niet stilzwijgend als fysisch gevalideerd beschouwd.
+-- Vóór pilot is geen migratie van formuleconcepten voorzien; blokkeer
+-- een niet-lege installatie voor gecontroleerde herbeoordeling.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM recipe_scaling_expression) THEN
+   RAISE EXCEPTION 'Bestaande schaalformules vereisen gecontroleerde herbeoordeling vóór 0113' USING ERRCODE='55000';
+ END IF;
+END $$;
+REVOKE ALL ON FUNCTION recipe_scaling_expression_physical_guard() FROM PUBLIC;
 
 COMMIT;

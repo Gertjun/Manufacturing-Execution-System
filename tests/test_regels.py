@@ -2496,6 +2496,53 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#141 statische fysische schaalformulevalidatie")
+    con.execute("BEGIN")
+    try:
+        from psycopg.types.json import Jsonb
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PHYSICAL-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        def unit(code,symbol,dims,sem="ratio"):
+            con.execute("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",dims)
+            dim=val("SELECT id FROM quantity_dimension WHERE (length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)=(%s,%s,%s,%s,%s,%s,%s)",dims)
+            kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,%s,%s,%s) RETURNING id",(dim,code,code,sem))
+            return val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,%s,%s,%s) RETURNING id",(kind,code,symbol,code))
+        kg=unit("PHYS_KG","kg",(0,1,0,0,0,0,0))
+        volume=unit("PHYS_VOLUME","m3",(3,0,0,0,0,0,0))
+        density=unit("PHYS_DENSITY","kg/m3",(-3,1,0,0,0,0,0))
+        kelvin=unit("PHYS_K","K",(0,0,0,0,1,0,0),"absolute")
+        one_unit=unit("PHYS_ONE","1",(0,0,0,0,0,0,0))
+        square=unit("PHYS_SQUARE","kg2",(0,2,0,0,0,0,0))
+        def rule(code,output):
+            return val("INSERT INTO recipe_scaling_rule(recipe_version_id,code,description,rule_kind,output_unit_id,source_reference,applicability) VALUES (%s,%s,'Fictief','nonlinear',%s,'Bron','Test') RETURNING id",(v,code,output))
+        def inp(r,code,u,value):
+            i=val("INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,constant_value,unit_id) VALUES (%s,%s,%s,'constant',%s,%s) RETURNING id",(v,r,code,value,u))
+            return {"op":"input","id":str(i)}
+        sql="INSERT INTO recipe_scaling_expression(recipe_version_id,rule_id,tokens) VALUES (%s,%s,%s)"
+        def denied(label,r,tokens,msg):
+            con.execute("SAVEPOINT physical_guard")
+            faalt(label,sql,(v,r,Jsonb(tokens)),msg)
+            con.execute("ROLLBACK TO SAVEPOINT physical_guard")
+            con.execute("RELEASE SAVEPOINT physical_guard")
+        r=rule("ADD",kg); a=inp(r,"A",kg,2); b=inp(r,"B",volume,3)
+        denied("#141 massa en volume optellen",r,[a,b,{"op":"add"}],"dezelfde bewezen eenheid")
+        con.execute(sql,(v,r,Jsonb([a,a,{"op":"add"}])))
+        r=rule("DENSITY",density); a=inp(r,"M",kg,2); b=inp(r,"V",volume,3)
+        con.execute(sql,(v,r,Jsonb([a,b,{"op":"divide"}])))
+        r=rule("BAD_OUTPUT",kg); a=inp(r,"M",kg,2); b=inp(r,"V",volume,3)
+        denied("#141 verkeerde uitvoerdimensie",r,[a,b,{"op":"divide"}],"past niet bij dimensie")
+        r=rule("ABS",kelvin); a=inp(r,"T",kelvin,300)
+        denied("#141 absolute temperatuur niet als ratio",r,[a,a,{"op":"multiply"}],"Absolute grootheden")
+        r=rule("POWER",square); a=inp(r,"M",kg,2); b=inp(r,"EXP",one_unit,2); c=inp(r,"BAD_EXP",one_unit,1.5)
+        denied("#141 fractionele exponent nog niet ondersteund",r,[a,c,{"op":"power"}],"gehele constante")
+        con.execute(sql,(v,r,Jsonb([a,b,{"op":"power"}])))
+        check("#141 drie geldige dimensieconcepten",val("SELECT count(*) FROM recipe_scaling_expression WHERE recipe_version_id=%s",(v,))==3)
+    finally:
+        con.execute("ROLLBACK")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
