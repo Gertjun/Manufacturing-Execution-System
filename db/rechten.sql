@@ -743,3 +743,14 @@ BEGIN
    GRANT EXECUTE ON FUNCTION fabriek.recipe_update_draft(uuid,integer,text,text) TO mes_app;
  END IF;
 END $$;
+
+-- 0101: uitsluitend persoonlijke procedureinterface, interne lock/audit niet toegankelijk.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=101) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_procedure_list(uuid),
+     fabriek.recipe_save_element(uuid,integer,uuid,uuid,text,text,text,integer,boolean),
+     fabriek.recipe_delete_element(uuid,integer,uuid),fabriek.recipe_add_dependency(uuid,integer,uuid,uuid),
+     fabriek.recipe_delete_dependency(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;

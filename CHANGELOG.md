@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #103/110 (deel): 0101 persoonlijke procedurebewerkingen en afhankelijkheden, gezamenlijke MBR-wijzigingsteller, atomaire wijzigingen en config_log-audit inclusief conceptverwijderingen. Regressies toegevoegd, nog niet uitgevoerd.
+
 - #103/110 (deel): 0100 relationeel procedurefundament met vier niveaus, verplichte/optionele elementen, versiegebonden parent-FK en voorwaartse afhankelijkheden binnen dezelfde groep; regressies toegevoegd, nog niet uitgevoerd. Geen runtimewrites of uitvoering.
 
 - D105: nieuwe fase 3 Portalstructuur, navigatie en UI-harmonisatie ingepland; bestaande fasen 3–11 hernummerd naar 4–12, geen functionele wijziging. Fase 2 ongewijzigd.

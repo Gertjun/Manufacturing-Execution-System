@@ -390,6 +390,8 @@ Gerichte fase 2.2-baseline: [run 45684478100](https://github.com/Gertjun/Manufac
 
 0100 (#103/110): regressies op procedure/unit procedure/operation/phase, optionele handeling, één root per versie, parenttype, versiegrens, voorwaartse edge binnen siblinggroep, cyclus/zelfverwijzing, ongeldige herordening, identiteit en beperkte ACL. Onvolledige conceptboom toegestaan; volledigheid vóór vrijgave. Geen uitvoeringsbewijs, persoonlijke mutaties/API en gezamenlijk change_no volgen. Diagram regenereren na bundeling.
 
+0101 (#103/110): persoonlijke procedurelees-/schrijffuncties, vertrouwde parenttype/productcontext, gedeelde recipe_lock_draft voor header en kinderen, exacte teller, audit van insert/update/delete, geen cascadeverwijdering, atomaire foutafhandeling, negatieve scope/ACL/stale/edge-regressies. Afzonderlijke beperkte audittrigger schrijft bestaand config_log omdat log_config conceptdeletes niet toestaat. Geen vrijgavestatus of API in deze migratie; uitvoeringsbewijs open.
+
 ## Fase 3 — geplande acceptatie portalstructuur en UI-harmonisatie (D105)
 
 Start na volledige fase-2-acceptatie, merge en release; geen fase-3-uitvoeringsbewijs. Historische faseverwijzingen in bovenstaande fase-1-bewijsstukken blijven ongewijzigd; oud 3–11 = nieuw 4–12. Fase 2 behoudt alle bestaande eisen.
