@@ -80,6 +80,16 @@ export async function overdrachtScherm() {
   if (!heeftRecht("handover.read")) return toon(h("h1", {}, "Geen bevoegdheid voor ploegoverdracht"));
   const actueel = vastHouden();
   toon(h("h1", {}, "Overdracht"), laden());
+  const token = sessie.token;
+  // Lees de eigen wachtrij vóór de server: een actie die tijdens het ophalen
+  // wordt verzonden kan anders tussen beide momentopnamen verdwijnen.
+  const wachtend: Notitie[] = (await acties())
+    .filter((a) => a.pad === "/overdracht" && a.methode === "POST")
+    .map((a) => {
+      const b = a.body as { id: string; bijzonderheden: string | null; aandachtspunten: string | null; moment: string };
+      return { id: b.id, hal: null, bijzonderheden: b.bijzonderheden, aandachtspunten: b.aandachtspunten, door: sessie.operatornaam ?? "", pc: sessie.pc, geschreven_op: b.moment, wacht: true };
+    });
+  if (!actueel() || token !== sessie.token) return;
   let s: Samenvatting | null = null;
   let vers = true;
   try {
@@ -87,15 +97,9 @@ export async function overdrachtScherm() {
     s = r.data;
     vers = r.vers;
   } catch { vers = false; }
-  // Wat deze pc al schreef maar nog niet is verstuurd.
-  const wachtend: Notitie[] = (await acties())
-    .filter((a) => a.pad === "/overdracht" && a.methode === "POST")
-    .map((a) => {
-      const b = a.body as { id: string; bijzonderheden: string | null; aandachtspunten: string | null; moment: string };
-      return { id: b.id, hal: null, bijzonderheden: b.bijzonderheden, aandachtspunten: b.aandachtspunten, door: sessie.operatornaam ?? "", pc: sessie.pc, geschreven_op: b.moment, wacht: true };
-    });
-  if (!actueel()) return;
-  const notities = [...(s?.notities ?? []).filter((n) => !wachtend.some((w) => w.id === n.id)), ...wachtend];
+  if (!actueel() || token !== sessie.token) return;
+  // Een serverbevestigde notitie heeft voorrang boven de lokale momentopname.
+  const notities = [...(s?.notities ?? []), ...wachtend.filter(w => !s?.notities.some(n => n.id === w.id))];
 
   const bijz = h("textarea", { id: "bijzonderheden", rows: 4, maxlength: 2000 }) as HTMLTextAreaElement;
   const aand = h("textarea", { id: "aandachtspunten", rows: 3, maxlength: 2000 }) as HTMLTextAreaElement;
