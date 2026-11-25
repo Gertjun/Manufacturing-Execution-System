@@ -21,7 +21,7 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 Bijgewerkt: 25 november 2026 · versie **0.63.0** (officieel uitgebracht).
 
-- **Ontwikkeling:** fase 1 gemerged (PR #6) en [v0.63.0 gepubliceerd](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.63.0). Main `ea3b78bc938647140b4e228e9382761504518906`, schema 0095. Fase 2 op `feature/mes-phase-2`: materiaalstamdatafundament 0096 in ontwikkeling; nog geen runtime-interface, bronmigratie of acceptatie. Fase-1-bewijs: zie D104 en acceptatiecriteria.
+- **Ontwikkeling:** fase 1 gemerged (PR #6) en [v0.63.0 gepubliceerd](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.63.0). Main `ea3b78bc938647140b4e228e9382761504518906`, schema 0095. Fase 2 op `feature/mes-phase-2`: materiaalstamdatafundament 0096–0097 in ontwikkeling; gecontroleerde databasefuncties toegevoegd, nog geen API, bronmigratie of acceptatie. Fase-1-bewijs: zie D104 en acceptatiecriteria.
 - **Databaseplaatje:** 62 tabellen en 132 relaties; schema 0095 wijzigt alleen de demo-indicatiefunctie; diagramcontrole geslaagd in integrale CI voor 0095; 0096-diagram nog te genereren.
 - **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
 - **Open:** fase 2, operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.

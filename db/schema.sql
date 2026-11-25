@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -6668,5 +6668,85 @@ REVOKE ALL ON FUNCTION material_version_immutable() FROM PUBLIC;
 -- rechten aan deze tabellen. Gecontroleerde persoonlijke functies volgen
 -- vóór de eerste API; migratie van brongegevens volgt onder #113.
 REVOKE ALL ON material_class, material_definition, material_definition_version FROM PUBLIC;
+
+COMMIT;
+
+BEGIN;
+-- Migratie 0097: persoonlijk geautoriseerde materiaalstamdata (#109).
+SET search_path = fabriek, public;
+
+-- Classificatie en bronkoppeling mogen een bestaande versie niet indirect wijzigen.
+-- Correcties aan materiaalinhoud gebeuren met een nieuwe versie.
+CREATE TRIGGER material_class_immutable BEFORE UPDATE OR DELETE ON material_class
+ FOR EACH ROW EXECUTE FUNCTION material_version_immutable();
+CREATE TRIGGER material_definition_immutable BEFORE UPDATE OR DELETE ON material_definition
+ FOR EACH ROW EXECUTE FUNCTION material_version_immutable();
+
+-- Een materiaal kan in meerdere producten gebruikt worden. Tot expliciete
+-- materiaal-scope bestaat, vereist beheer een globale engineeringgrant.
+CREATE FUNCTION material_manage_actor() RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+ actor:=execution_transaction_actor();
+ IF NOT authorization_permits(actor,'material.definition.manage',NULL,NULL,NULL) THEN
+   RAISE EXCEPTION 'Geen actuele MES-materiaalbeheerbevoegdheid' USING ERRCODE='42501';
+ END IF;
+ RETURN actor;
+END $$;
+
+CREATE FUNCTION material_create_class(p_code text,p_name text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+ PERFORM material_manage_actor();
+ INSERT INTO material_class(code,name) VALUES(p_code,p_name) RETURNING id INTO target;
+ RETURN target;
+END $$;
+
+CREATE FUNCTION material_create_definition(p_code text,p_name text,p_class uuid,p_unit text,p_product uuid,p_raw_material uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid;
+BEGIN
+ actor:=material_manage_actor();
+ INSERT INTO material_definition(code,product_id,raw_material_id)
+ VALUES(p_code,p_product,p_raw_material) RETURNING id INTO target;
+ INSERT INTO material_definition_version(material_definition_id,revision,name,material_class_id,unit,created_by)
+ VALUES(target,1,p_name,p_class,p_unit,actor);
+ RETURN target;
+END $$;
+
+-- Vergrendel de identiteit vóór de revisiebepaling; twee schrijvers kunnen
+-- niet hetzelfde revisienummer krijgen. Verwachte revisie voorkomt verloren edits.
+CREATE FUNCTION material_append_version(p_id uuid,p_expected_revision integer,p_name text,p_class uuid,p_unit text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid; current_revision integer;
+BEGIN
+ actor:=material_manage_actor();
+ PERFORM 1 FROM material_definition WHERE id=p_id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende materiaalidentiteit'; END IF;
+ SELECT max(revision) INTO current_revision FROM material_definition_version WHERE material_definition_id=p_id;
+ IF current_revision IS NULL OR current_revision IS DISTINCT FROM p_expected_revision THEN
+   RAISE EXCEPTION 'Materiaalrevisie is gewijzigd' USING ERRCODE='40001';
+ END IF;
+ INSERT INTO material_definition_version(material_definition_id,revision,name,material_class_id,unit,created_by)
+ VALUES(p_id,current_revision+1,p_name,p_class,p_unit,actor) RETURNING id INTO target;
+ RETURN target;
+END $$;
+
+CREATE FUNCTION material_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ PERFORM material_manage_actor();
+ RETURN jsonb_build_object(
+   'classes',COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.code) FROM material_class c),'[]'::jsonb),
+   'definitions',COALESCE((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.code) FROM material_definition d),'[]'::jsonb),
+   'versions',COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.material_definition_id,v.revision) FROM material_definition_version v),'[]'::jsonb)
+ );
+END $$;
+
+REVOKE ALL ON FUNCTION material_manage_actor(),material_create_class(text,text),
+ material_create_definition(text,text,uuid,text,uuid,uuid),
+ material_append_version(uuid,integer,text,uuid,text),material_list() FROM PUBLIC;
 
 COMMIT;

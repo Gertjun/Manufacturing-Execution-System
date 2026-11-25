@@ -1723,6 +1723,52 @@ def main():
     finally:
         con.execute("ROLLBACK")
 
+    print("\\n#109 persoonlijk materiaalbeheer")
+    con.execute("BEGIN")
+    try:
+        # Afzonderlijke fictieve accounts; geen invloed van eerdere fixtures.
+        for naam in ("mat.engineer","mat.operator","mat.system","mat.legacy","mat.scoped","mat.expired"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('test-materiaal'))",(naam,))
+        for naam, rol in (("mat.engineer","process_engineer"),("mat.operator","operator"),("mat.system","system_administrator")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) SELECT id,%s FROM gebruiker WHERE gebruikersnaam=%s",(rol,naam))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) SELECT g.id,'process_engineer',p.id FROM gebruiker g CROSS JOIN (SELECT id FROM product ORDER BY id LIMIT 1) p WHERE g.gebruikersnaam='mat.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,valid_from,valid_until) SELECT id,'process_engineer',now()-interval '2 days',now()-interval '1 day' FROM gebruiker WHERE gebruikersnaam='mat.expired'")
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mat.engineer'")
+        con.execute("SET LOCAL ROLE mes_app")
+        def mat_denied(label, sql, params=(), msg="MES-materiaalbeheerbevoegdheid"):
+            con.execute("SAVEPOINT mat_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT mat_guard")
+            con.execute("RELEASE SAVEPOINT mat_guard")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        mat_denied("#109 geen sessiebewijs","SELECT material_list()",msg="Geldig persoonlijk")
+        for naam in ("mat.operator","mat.system","mat.legacy","mat.scoped","mat.expired"):
+            proof = val("SELECT session_proof FROM execution_session_login(%s,'test-materiaal',NULL)",(naam,))
+            check("#109 persoonlijk bewijs "+naam,bool(proof))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+            mat_denied("#109 lezen geweigerd "+naam,"SELECT material_list()")
+            mat_denied("#109 schrijven geweigerd "+naam,"SELECT material_create_class('NO','Geen')")
+        proof = val("SELECT session_proof FROM execution_session_login('mat.engineer','test-materiaal',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        cid = val("SELECT material_create_class('MAT-C','Fictief')")
+        mid = val("SELECT material_create_definition('MAT-D','Fictief',%s,'kg',NULL,NULL)",(cid,))
+        vid = val("SELECT material_append_version(%s,1,'Fictief 2',%s,'kg')",(mid,cid))
+        check("#109 persoonlijke versiecreatie",bool(vid))
+        data = val("SELECT material_list()")
+        versions = [v for v in data["versions"] if v["material_definition_id"] == str(mid)]
+        check("#109 versiehistorie en persoonlijke actor",len(versions)==2 and all(v["created_by"]==str(actor) for v in versions))
+        mat_denied("#109 oude verwachte revisie geweigerd","SELECT material_append_version(%s,1,'Oud',%s,'kg')",(mid,cid),"revisie is gewijzigd")
+        mat_denied("#109 ongeldige eerste versie atomair","SELECT material_create_definition('MAT-BAD','',NULL,NULL,NULL,NULL)",msg="check")
+        check("#109 geen halve identiteit",not any(d["code"]=="MAT-BAD" for d in val("SELECT material_list()")["definitions"]))
+        mat_denied("#109 directe tabelwrite geweigerd","INSERT INTO material_class(code,name) VALUES ('DIRECT','Direct')",msg="permission denied")
+        mat_denied("#109 interne helper geweigerd","SELECT material_manage_actor()",msg="permission denied")
+        con.execute("RESET ROLE")
+        mat_denied("#109 klasse onveranderlijk","UPDATE material_class SET name='Anders' WHERE id=%s",(cid,),"onveranderlijk")
+        mat_denied("#109 identiteit onveranderlijk","UPDATE material_definition SET code='ANDERS' WHERE id=%s",(mid,),"onveranderlijk")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

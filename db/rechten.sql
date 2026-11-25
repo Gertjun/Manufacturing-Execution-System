@@ -714,3 +714,15 @@ BEGIN
    END IF;
  END IF;
 END $$;
+
+-- 0097: uitsluitend de persoonlijk gecontroleerde materiaalinterface.
+-- De tabellen en interne autorisatiehelper blijven ontoegankelijk.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=97) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.material_create_class(text,text),
+     fabriek.material_create_definition(text,text,uuid,text,uuid,uuid),
+     fabriek.material_append_version(uuid,integer,text,uuid,text),
+     fabriek.material_list() TO mes_app;
+ END IF;
+END $$;
