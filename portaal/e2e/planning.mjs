@@ -51,11 +51,7 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-planning").click();
 };
 
 try {
@@ -272,7 +268,28 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   check("Voorstel 1 met 4 batches", (await page.locator(".voorstel-batches li").count()) === 4);
   await shot("03-lotvoorstellen");
 
-  console.log("\nProducten");
+  console.log("\nProducten: planner leest, engineer beheert");
+  await page.getByRole("link", { name: "Producten" }).click();
+  await page.getByRole("heading", { name: "Producten", exact: true }).waitFor();
+  await page.locator("tr", { hasText: "PRD-A" }).waitFor();
+  check("Planner heeft geen productbeheerknoppen", await page.getByRole("button", { name: "Product toevoegen" }).count() === 0 && await page.getByRole("button", { name: "Naam wijzigen" }).count() === 0);
+  const plannerToken = await page.evaluate(() => localStorage.getItem("portaal.token"));
+  const [prodA] = await q("SELECT id FROM fabriek.product WHERE code = 'PRD-A'");
+  const write = (method,pad,token,body) => fetch(BASIS+pad,{method,headers:{authorization:"Bearer "+token,"content-type":"application/json"},body:JSON.stringify(body)});
+  check("Planner mag geen product toevoegen via API",(await write("POST","/planning/producten",plannerToken,{code:"PRD-D",naam:"Niet toegestaan"})).status===403);
+  check("Planner mag geen route wijzigen via API",(await write("PUT","/planning/producten/"+prodA.id+"/route",plannerToken,{stappen:null})).status===403);
+  await page.locator("tr",{hasText:"PRD-A"}).getByRole("link",{name:"Route bekijken"}).click();
+  await page.getByRole("heading",{name:"Route van PRD-A"}).waitFor();
+  await page.locator(".route-stap").first().waitFor();
+  check("Planner ziet route zonder wijzigingsknoppen",await page.getByRole("button",{name:/Route opslaan|weghalen uit de route|eerder|later/}).count()===0);
+  await page.getByRole("button",{name:"Afmelden"}).click();
+  await inloggen("mes.engineer");
+  await page.getByRole("heading",{name:/^Week van/}).waitFor();
+  await page.locator(".dagkaart").first().waitFor();
+  check("Engineer ziet planning zonder planningsknop",await page.getByRole("button",{name:"Batches plannen"}).count()===0);
+  const engineerToken = await page.evaluate(()=>localStorage.getItem("portaal.token"));
+  const [dag] = await q("SELECT current_date::text AS vandaag");
+  check("Engineer mag geen batches plannen via API",(await write("POST","/planning/batches",engineerToken,{dag:dag.vandaag,aantal:1})).status===403);
   await page.getByRole("link", { name: "Producten" }).click();
   await page.getByRole("button", { name: "Product toevoegen" }).click();
   await dialoog().getByLabel("Code").fill("PRD-D");
@@ -314,7 +331,6 @@ print(",".join(d.data.decode() for d in decode(img)))`, `${SHOTS}/04-etiket.png`
   console.log("\nPloegleider kijkt mee");
   await page.evaluate(() => localStorage.clear());
   await inloggen("ploegleider1");
-  await page.getByRole("heading", { name: "Productie" }).first().waitFor();
   await page.goto(`${BASIS}/portaal/#/planning/week`);
   await page.getByRole("heading", { name: /^Week van/ }).waitFor();
   check("Ploegleider ziet de planning zonder knoppen om te plannen",
