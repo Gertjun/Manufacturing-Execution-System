@@ -21,11 +21,11 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 Bijgewerkt: 25 november 2026 · versie **0.62.1** (ongewijzigd).
 
-- **Ontwikkeling:** MES-fase 1, concept-PR #6 op `feature/mes-phase-1`. Tussentijdse audit D100 nog open; databaseschema 0094. Scope en open punten in ROADMAP.md.
+- **Ontwikkeling:** MES-fase 1, concept-PR #6 op `feature/mes-phase-1`. Tussentijdse inhoudelijke audit D100 afgesloten; faseacceptatie open; databaseschema 0094. Scope en open punten in ROADMAP.md.
 - **Laatste geslaagde technische baseline:** Run [45575488676 (#499)](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45575488676), job 139072267943, head de213112f706f7bbcbd07b4928c93e36e6d7ba02, base 31c86973bf13848cba44fc38785084953fe65e39: gerichte PostgreSQL-baseline geslaagd; schone installatie, schema-equivalentie 0001–0094, beperkte rechten, historische upgrade 0035–0094 met behoud van tien historische tabellen en zonder automatische legacy-grants, D102 eenmalige initialisatie, 14/14 security, 10/10 autorisatie, 117/117 API, back-up/herstel/rollback en Linux-laptoppakket. Documentatiecontrole 45575458558 geslaagd. Geen volledige Node 26-acceptatie of Windows-praktijkbewijs.
 - **Afzonderlijk offline-testbewijs:** D101 offline-permissioncontrole en gezamenlijke IndexedDB-opslag geïmplementeerd. D101: [Node 22-compatibiliteitsrun 45558147763](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45558147763), job 139015099770, head 6aaa391c1afa9e516d8d512573249feedb1a6d60, base 31c86973bf13848cba44fc38785084953fe65e39: 22/22 gerichte Chrome/IndexedDB-controles geslaagd, API-typecheck en beide applicatiebuilds groen; documentatiecontrole eveneens groen. Fictieve sessies en gesimuleerde serverweigering; geen integrale scherm-/netwerkacceptatie. Volledige Node 26-suite overgeslagen.
 - **Omgevingen:** Windows-laptoppakket verplicht voor PoC/acceptatie; actuele lokale installatie niet opnieuw vastgesteld. Fabrieksserver nog niet ingericht voor zover vastgesteld. Browserdemo volgens D99 buiten verplichte scope; verplichte demo-tests en versieafhankelijkheid uitgefaseerd, historische bron blijft behouden.
-- **Open:** eindreview #106–#108/#136, operationele security-inrichting, Windows-praktijkvalidatie, schema-diagram, integrale review en volledige Node 26-acceptatie. Zie docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Open:** operationele security-inrichting, Windows-praktijkvalidatie, schema-diagram, integrale review en volledige Node 26-acceptatie. Zie docs/mes/ACCEPTANCE-CRITERIA.md.
 - **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd. Uitsluitend fictieve gegevens.
 
 **Links**
