@@ -246,3 +246,8 @@ D100: rechteninstallatie valideert alle geïnstalleerde SECURITY DEFINER-functie
 
 
 D100: run 45512256648 op ab91c41: schema-equivalentie, schone installatie, security 12/12, autorisatie 10/10, API 117/117 en Linux-laptoppakket geslaagd. Databasetest stopt bij sequence-catalogusquery: PostgreSQL kan WHERE-predicaten herordenen en has_sequence_privilege op niet-sequence pg_statistic evalueren. CASE begrenst de functieaanroep tot relkind S, zonder wijziging van de getoetste rechten of productiecode. Hertest open.
+
+
+D100: gerichte PostgreSQL-baseline [45512808472](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45512808472), job 138864559805, head b06ec8b274326a40a90a54eb65b22c8e6214ca35, base 31c86973bf13848cba44fc38785084953fe65e39: alle stappen geslaagd, inclusief databaseregels, security, autorisatie, API en Linux-pakket; Node 26 overgeslagen. Geen integrale faseacceptatie.
+
+D100: rechteninstallatie vanaf 0092 weigert technische rollen met beheerattributen, ongewenste transitieve lidmaatschappen of delegatie; securitykanaal moet NOLOGIN zijn. Historische batchgui_app → mes_app blijft toegestaan. Regressies simuleren extra lidmaatschap en LOGIN; geen automatische verwijdering van afwijkende rechten. Nieuwe validatie open.

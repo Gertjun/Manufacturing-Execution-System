@@ -47,6 +47,26 @@ def main():
         check(naam, False, "geen foutmelding")
 
     con.execute((ROOT / "db/rechten.sql").read_text())
+    print("\nD100 technische rollidmaatschappen")
+    rechten_sql = (ROOT / "db/rechten.sql").read_text()
+    # Gebruik de bestaande voorgedefinieerde rol zonder objecten of gegevens te wijzigen.
+    for login in ("mes_app", "mes_security_channel"):
+        con.execute(f"GRANT pg_read_all_data TO {login}")
+        try:
+            faalt(f"D100 {login}: ongewenst rollidmaatschap geweigerd",
+                  rechten_sql, bevat="Onveilige technische MES-databaserol")
+            check(f"D100 {login}: afwijking niet stilzwijgend verwijderd",
+                  val("SELECT pg_has_role(%s,'pg_read_all_data','MEMBER')", (login,)))
+        finally:
+            con.execute(f"REVOKE pg_read_all_data FROM {login}")
+    con.execute("ALTER ROLE mes_security_channel LOGIN")
+    try:
+        faalt("D100 securitykanaal mag geen login zijn", rechten_sql,
+              bevat="Onveilige technische MES-databaserol")
+    finally:
+        con.execute("ALTER ROLE mes_security_channel NOLOGIN")
+    con.execute(rechten_sql)
+    check("D100 beperkte technische rollen geaccepteerd", True)
     print("\nD100 effectieve SECURITY DEFINER-eigenschappen")
     check("D100 alle definerfuncties hebben vertrouwd zoekpad",
           val("""SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace

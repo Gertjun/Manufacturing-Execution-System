@@ -12,6 +12,34 @@ BEGIN
   EXECUTE format('GRANT CONNECT ON DATABASE %I TO mes_app', current_database());
 END $$;
 
+-- D100: weiger afwijkende technische rollen vóór het opnieuw toekennen van ACLs.
+-- Alleen de historische batchgui_app -> mes_app relatie is toegestaan.
+-- Wijzig geen onbekende rollidmaatschappen of beheerdersinstellingen automatisch.
+DO $
+DECLARE v_bad text;
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=92) THEN
+   SELECT string_agg(r.rolname::text, ', ' ORDER BY r.rolname) INTO v_bad
+   FROM pg_catalog.pg_roles r
+   WHERE r.rolname IN ('mes_app','batchgui_app','mes_security_channel')
+     AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+       OR (r.rolname='mes_security_channel' AND r.rolcanlogin)
+       OR EXISTS (
+         SELECT 1 FROM pg_catalog.pg_roles parent
+         WHERE parent.oid<>r.oid
+           AND NOT (r.rolname='batchgui_app' AND parent.rolname='mes_app')
+           AND pg_catalog.pg_has_role(r.oid,parent.oid,'MEMBER')
+       )
+       OR EXISTS (
+         SELECT 1 FROM pg_catalog.pg_auth_members m
+         WHERE m.member=r.oid AND m.admin_option
+       ));
+   IF v_bad IS NOT NULL THEN
+     RAISE EXCEPTION 'Onveilige technische MES-databaserol: %',v_bad;
+   END IF;
+ END IF;
+END $;
+
 -- D100: herstel de expliciete ACL vanaf een schoon uitgangspunt, ook bij upgrades.
 -- Tabel-REVOKE alleen verwijdert niet alle afzonderlijke kolomgrants.
 -- CASCADE trekt ook rechten in die via een oude grant-optie zijn doorgegeven.
