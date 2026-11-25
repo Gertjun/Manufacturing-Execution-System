@@ -198,13 +198,13 @@ try {
   check("Manager mag geen account aanmaken",(await verzoek("POST","/beheer/gebruikers",manager,{gebruikersnaam:"onbevoegd.test",wachtwoord:"geheim-123"})).status===403);
   await page.getByRole("button",{name:"Persoon toevoegen"}).click();
   await dialoog().getByLabel("Naam", {exact:true}).fill("Operator I");
-  await dialoog().getByLabel("Ploeg", {exact:true}).selectOption("B1");
+  await dialoog().getByLabel("Ploeg (mag leeg)", {exact:true}).selectOption("B1");
   await dialoog().getByRole("button",{name:"Opslaan"}).click();
   await page.locator("tr",{hasText:"Operator I"}).waitFor();
   const [persoon]=await q("SELECT id,gebruiker_id FROM fabriek.operator WHERE naam='Operator I'");
   check("Personeelsidentiteit zonder account",persoon.gebruiker_id===null);
   await page.locator("tr",{hasText:"Operator I"}).getByRole("button",{name:"Wijzigen"}).click();
-  await dialoog().getByLabel("Ploeg",{exact:true}).selectOption("D2");
+  await dialoog().getByLabel("Ploeg (mag leeg)",{exact:true}).selectOption("D2");
   await dialoog().getByRole("button",{name:"Opslaan"}).click();
   await page.locator("tr",{hasText:"Operator I"}).getByText("D2",{exact:true}).waitFor();
   const [ploeg]=await q("SELECT p.code FROM fabriek.operator o JOIN fabriek.rooster_ploeg p ON p.id=o.ploeg_id WHERE o.id=$1",[persoon.id]);
@@ -301,7 +301,7 @@ try {
   const na = await komend.locator("tbody td:not(:first-child)").allInnerTexts();
   check("A2 een dag later: nu draaien er diensten met één ploeg", na.some((c) => c.split(",").length === 1), na.slice(0, 6).join(" | "));
 } catch (e) {
-  console.log("  AFGEBROKEN", e.message.split("\n")[0]);
+  console.log("  AFGEBROKEN", e.message);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
