@@ -43,16 +43,12 @@ const inloggen = async (naam) => {
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
   await page.getByRole("button", { name: "Inloggen" }).click();
-  // Na het inloggen de startpagina (D54); de test gaat verder in het portaal van de rol.
-  if (await page.locator(".startpagina").waitFor({ timeout: 8000 }).then(() => true, () => false)) await page.locator(`.starttegel-${await page.evaluate(() => {
-    const rol = JSON.parse(atob(localStorage.getItem("portaal.token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).rol;
-    return { ploegleider: "productie", beheerder: "beheer", planner: "planning" }[rol] ?? "kwaliteit";
-  })}`).click();
+  await page.locator(".starttegel-"+(naam === "mes.engineer" ? "beheer" : "kwaliteit")).click();
 };
 
 try {
   console.log("\nBeheer");
-  await inloggen("beheerder1");
+  await inloggen("mes.engineer");
   await page.getByRole("link", { name: "Grondstoffen" }).click();
   await page.getByRole("heading", { name: "Grondstoffen" }).waitFor();
   await page.locator("tbody tr").first().waitFor();
@@ -73,7 +69,7 @@ try {
   await page.screenshot({ path: `${SHOTS}/01-beheer.png`, fullPage: true });
   const [cfg] = await q("SELECT count(*)::int AS n FROM fabriek.stap_grondstof x JOIN fabriek.grondstof g ON g.id = x.grondstof_id WHERE g.code = 'GS-D' AND x.actief");
   check("Koppeling in de database", cfg.n === 2);
-  const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel IN ('grondstof', 'stap_grondstof') AND gewijzigd_door = 'beheerder1'");
+  const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel IN ('grondstof', 'stap_grondstof') AND gewijzigd_door = 'mes.engineer'");
   check("Wijzigingen staan in het logboek", log.n >= 3);
 
   console.log("\nKwaliteit");
