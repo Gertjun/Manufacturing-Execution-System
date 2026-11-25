@@ -55,6 +55,10 @@ draai portaal beheer.mjs
 draai portaal planning.mjs
 draai portaal sjabloon.mjs
 
+# Process Engineering gebruikt een eigen schone fictieve dataset.
+leeg
+draai portaal engineering.mjs
+
 # De historische browserdemo valt buiten de verplichte acceptatie (D99).
 
 if [ "$FOUT" -gt 0 ]; then

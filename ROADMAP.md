@@ -94,6 +94,8 @@ Uitvoeringsvolgorde: materiaalidentiteit (#109); MBR-identiteit en versiegrenzen
 
 113.6: broninventarisatie op schema 0128, expliciete mapping-/validatieprocedure, stopcriteria en 16 fictieve beoordelingsfixtures vastgelegd in docs/mes/MIGRATION-STRATEGY.md. Geen importer, echte migratie of automatisch vrijgegeven recept. Uitvoering van fixture-/integrale validatie volgt 113.7; echte bronvalidatie vóór relevante pilot.
 
+113.7b: functionele Chrome-regressie toegevoegd voor persoonlijke Engineering-toegang, conceptaanmaak/headerwijziging, bevroren revisie, historische rondes, onafhankelijke beoordeling en directe route na sessiewissel. Echte beperkte API en fictieve schone database; overige scenario's en integrale uitvoering nog open. Geen visuele harmonisatie.
+
 ## Fase 3 — Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard
 
 D105 zoals gewijzigd door D111: start uitsluitend na expliciete technische acceptatie van fase 2; handmatige Windows-praktijkacceptatie van beide fasen volgt na fase 3. D107 breidt de scope uit; de eerdere indicatie van één tot twee ontwikkelingsdagen vervalt. Nieuwe inschatting na inventarisatie; geen deadline. Aanleiding: praktijktest v0.63.0, portalenscherm toont juiste beschikbare portalen maar linkernavigatie niet altijd; `mes.quality` mist Production Execution naast Kwaliteit. Geen vastgestelde autorisatie-omzeiling; afzonderlijk melden en niet uitstellen als een daadwerkelijke kwetsbaarheid blijkt. Geen fase-3-implementatie binnen fase 2.
