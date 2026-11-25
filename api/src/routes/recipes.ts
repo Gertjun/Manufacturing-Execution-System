@@ -1,5 +1,6 @@
 import { Type, type FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { persoonlijkeTransactie } from "../auth.js";
+import { ApiFout } from "../fouten.js";
 import { personalSession } from "../modules/authorization/access.js";
 
 const Id = Type.String({ format: "uuid" });
@@ -11,6 +12,7 @@ const Versie = Type.Object({
   id: Id, master_recipe_id: Id, revision: Type.Integer({ minimum: 1 }),
   name: Naam, description: Beschrijving, created_at: Type.String(), created_by: Id,
   change_no: Type.Integer({ minimum: 0 }),
+  lifecycle_status: Type.Union([Type.Literal("draft"),Type.Literal("in_review"),Type.Literal("approved"),Type.Literal("released"),Type.Literal("superseded"),Type.Literal("withdrawn")]),
 });
 const Recept = Type.Object({
   id: Id, product_id: Id, code: Code, created_at: Type.String(), created_by: Id,
@@ -137,6 +139,52 @@ const scalingSql = `WITH c AS (SELECT recipe_scaling_list($1) AS data)
  SELECT data || jsonb_build_object('inputs',
  COALESCE((SELECT jsonb_agg(x || jsonb_build_object('constant_value',x->>'constant_value') ORDER BY x->>'id')
  FROM jsonb_array_elements(data->'inputs') x),'[]'::jsonb)) AS data FROM c`;
+
+const Lifecycle = Type.Union([Type.Literal("draft"),Type.Literal("in_review"),Type.Literal("approved"),Type.Literal("released"),Type.Literal("superseded"),Type.Literal("withdrawn")]);
+const ImpactArea = Type.Union([Type.Literal("header"),Type.Literal("procedure"),Type.Literal("parameters"),Type.Literal("formula"),Type.Literal("materials"),Type.Literal("equipment"),Type.Literal("personnel"),Type.Literal("instructions"),Type.Literal("quality"),Type.Literal("lot"),Type.Literal("scaling"),Type.Literal("other")]);
+const ReviewDomain = Type.Union([Type.Literal("engineering"),Type.Literal("production"),Type.Literal("quality")]);
+const ReviewDecision = Type.Union([Type.Literal("approve"),Type.Literal("reject")]);
+const MOCFields = { reason: Nonblank, impact_description: Nonblank };
+const MOCRecord = Type.Object({ id: Id, recipe_version_id: Id, baseline_version_id: OptId,
+  change_kind: Type.Union([Type.Literal("initial"),Type.Literal("revision")]), ...MOCFields,
+  created_by: Id, created_at: Type.String() });
+const ImpactFields = { area: ImpactArea, explanation: Nonblank };
+const ImpactRecord = Type.Object({ id: Id, recipe_version_id: Id, request_id: Id, ...ImpactFields });
+const MOCContent = Type.Object({ change_no: Expected, lifecycle_status: Lifecycle,
+  request: Type.Union([MOCRecord,Type.Null()]), impacts: Type.Array(ImpactRecord) });
+const MOCBody = Type.Object({ expected_change_no: Expected, baseline_version_id: OptId, ...MOCFields }, { additionalProperties: false });
+const MOCUpdate = Type.Object({ expected_change_no: Expected, ...MOCFields }, { additionalProperties: false });
+const ImpactBody = Type.Object({ expected_change_no: Expected, request_id: Id, ...ImpactFields }, { additionalProperties: false });
+const ReviewRequirements = Type.Object({ matrix_version: Type.Literal(1), recipe_version_id: Id, change_no: Expected,
+  baseline_version_id: OptId, baseline_change_no: Type.Union([Expected,Type.Null()]),
+  impact_areas: Type.Array(Type.String()), required_reviews: Type.Array(ReviewDomain) });
+const Comparison = Type.Object({ comparison_text: Type.String({ description: "Exacte JSON-tekst; gebruik verliesvrije numerieke verwerking." }) });
+const Inbox = Type.Array(Type.Object({ master_recipe_id: Id, recipe_code: Code, recipe_version_id: Id,
+  revision: PositiveCount, lifecycle_status: Lifecycle, round_id: Id, round_no: PositiveCount,
+  change_no: Expected, name: Naam, required_reviews: Type.Array(ReviewDomain),
+  approved_domains: Type.Array(ReviewDomain), my_pending_domains: Type.Array(ReviewDomain) }));
+const ReleaseRecord = Type.Object({ id: Id, master_recipe_id: Id, recipe_version_id: Id, round_id: Id,
+  effective_from: Type.String(), released_at: Type.String(), released_by: Id, reason: Nonblank });
+const WithdrawalRecord = Type.Object({ id: Id, release_id: Id, withdrawn_at: Type.String(), withdrawn_by: Id, reason: Nonblank });
+const Dossier = Type.Object({ round: Type.Object({ id: Id, recipe_version_id: Id, round_no: PositiveCount, change_no: Expected,
+  baseline_version_id: OptId, baseline_change_no: Type.Union([Expected,Type.Null()]), matrix_version: Type.Literal(1),
+  required_reviews: Type.Array(ReviewDomain), contributors: Type.Array(Id), created_by: Id, created_at: Type.String(), snapshot_text: Type.String() }),
+  lifecycle_status: Lifecycle, is_current: Type.Boolean(),
+  decisions: Type.Array(Type.Object({ id: Id, round_id: Id, domain: ReviewDomain, decision: ReviewDecision, reason: Nonblank, reviewer_id: Id, decided_at: Type.String() })),
+  release: Type.Union([ReleaseRecord,Type.Null()]), withdrawal: Type.Union([WithdrawalRecord,Type.Null()]) });
+const ConfirmationPassword = Type.String({ minLength: 1, maxLength: 1024 });
+const SubmitReview = Type.Object({ expected_change_no: Expected, expected_baseline_change_no: Type.Union([Expected,Type.Null()]), password: ConfirmationPassword }, { additionalProperties: false });
+const DecideReview = Type.Object({ expected_change_no: Expected, domain: ReviewDomain, decision: ReviewDecision, reason: Nonblank, password: ConfirmationPassword }, { additionalProperties: false });
+const SubmitResult = Type.Object({ status: Type.Literal("submitted"), round_id: Id });
+const DecideResult = Type.Object({ status: Type.Literal("decided"), decision_id: Id, lifecycle_status: Lifecycle });
+
+// Called only AFTER persoonlijkeTransactie has committed. Otherwise a
+// failed password attempt would be rolled back with the HTTP error.
+function confirmedReviewResult(result: { status: string }) {
+  if (result.status === "locked") throw new ApiFout(429,"Wachtwoordbevestiging tijdelijk geblokkeerd");
+  if (result.status === "denied") throw new ApiFout(403,"Wachtwoordbevestiging geweigerd");
+}
+
 const routes: FastifyPluginAsyncTypebox = async (app) => {
   app.get("/", {
     preHandler: personalSession,
@@ -656,6 +704,106 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   }, async req => persoonlijkeTransactie(app.db,req,async tx =>
     (await tx.query("SELECT recipe_delete_scaling_expression($1,$2,$3) AS change_no",
       [req.params.id,req.query.expected_change_no,req.params.ruleId])).rows[0]));
+
+
+  // MOC concept and exact comparison.
+  app.get("/versions/:id/moc", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), response: { 200: MOCContent } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_change_list($1) AS data",[req.params.id])).rows[0].data));
+
+  app.post("/versions/:id/moc", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: MOCBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_create_change_request($1,$2,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,b.baseline_version_id,b.reason,b.impact_description])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/moc/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: MOCUpdate, response: { 200: ChangedId } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_update_change_request($1,$2,$3,$4,$5) AS data",
+      [req.params.id,req.body.expected_change_no,req.params.recordId,req.body.reason,req.body.impact_description])).rows[0].data));
+
+  app.post("/versions/:id/moc/impacts", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: ImpactBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_change_impact($1,$2,NULL,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,b.request_id,b.area,b.explanation])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/moc/impacts/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: ImpactBody, response: { 200: ChangedId } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_save_change_impact($1,$2,$3,$4,$5,$6) AS data",
+      [req.params.id,req.body.expected_change_no,req.params.recordId,req.body.request_id,req.body.area,req.body.explanation])).rows[0].data));
+
+  app.delete("/versions/:id/moc/impacts/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }),
+      querystring: Type.Object({ expected_change_no: Expected }, { additionalProperties: false }), response: { 200: Change } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_delete_change_impact($1,$2,$3) AS change_no",
+      [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.get("/versions/:id/moc/comparison", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), response: { 200: Comparison } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_compare_change($1)::text AS comparison_text",[req.params.id])).rows[0]));
+
+  app.get("/versions/:id/review-requirements", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), response: { 200: ReviewRequirements } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_review_requirements($1) AS data",[req.params.id])).rows[0].data));
+
+  app.get("/reviews", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], querystring: Type.Object({ product_id: Id }, { additionalProperties: false }), response: { 200: Inbox } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_review_inbox($1) AS data",[req.query.product_id])).rows[0].data));
+
+  app.get("/reviews/:roundId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ roundId: Id }), response: { 200: Dossier } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx =>
+    (await tx.query("SELECT recipe_review_dossier($1) AS data",[req.params.roundId])).rows[0].data));
+
+  app.post("/versions/:id/reviews", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: SubmitReview, response: { 201: SubmitResult } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_submit_review_confirmed($1,$2,$3,$4) AS data",
+        [req.params.id,b.expected_change_no,b.expected_baseline_change_no,b.password])).rows[0].data);
+    confirmedReviewResult(result);
+    return reply.code(201).send(result);
+  });
+
+  app.post("/reviews/:roundId/decisions", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ roundId: Id }), body: DecideReview, response: { 201: DecideResult } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_decide_review_confirmed($1,$2,$3,$4,$5,$6) AS data",
+        [req.params.roundId,b.expected_change_no,b.domain,b.decision,b.reason,b.password])).rows[0].data);
+    confirmedReviewResult(result);
+    return reply.code(201).send(result);
+  });
 
 };
 export default routes;

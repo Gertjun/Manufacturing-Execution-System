@@ -50,6 +50,8 @@ export function foutAfhandeling(err: FastifyError | ApiFout | PgFout, req: Fasti
       const c = (err as PgFout).constraint ?? "";
       return reply.status(409).send({ fout: UNIEK[c] ?? `Bestaat al (${c || "uniek"})` });
     }
+    case "55000": // Handeling niet toegestaan in huidige objectstatus
+      return reply.status(409).send({ fout: "Handeling niet toegestaan in de huidige status" });
     case "40001": // Verouderde revisie of serialisatieconflict
       return reply.status(409).send({ fout: "Gegevens zijn ondertussen gewijzigd; laad opnieuw" });
     case "23503": // FOREIGN KEY
