@@ -107,7 +107,9 @@ jobs:
       - name: Roadmap controleren
         run: tests/test_roadmap.sh
       - name: B+ contrastcontract
-        run: python3 tests/test_visual_style.py
+        run: |
+          python3 tests/test_visual_style.py
+          python3 tests/test_left_accents.py
       - name: API typecheck op Node.js 22
         working-directory: api
         run: |
@@ -173,7 +175,9 @@ jobs:
       - name: Roadmap bij met de laatste versie
         run: tests/test_roadmap.sh
       - name: B+ contrastcontract
-        run: python3 tests/test_visual_style.py
+        run: |
+          python3 tests/test_visual_style.py
+          python3 tests/test_left_accents.py
       - name: PostgreSQL-client en Python voorbereiden
         run: |
           python3 -m pip install --quiet "psycopg[binary]"

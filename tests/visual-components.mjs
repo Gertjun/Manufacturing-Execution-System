@@ -48,10 +48,10 @@ try {
           await eq(".operations-kaart", "borderTopColor", "rgb(242, 140, 40)");
           await eq(".operations-cijfer", "borderTopWidth", "3px");
           await eq(".operations-cijfer .tegel-getal", "color", "rgb(11, 46, 89)");
-          await eq(".staptegel.open-acties:not(.knelpunt)", "borderLeftWidth", "3px");
+          await eq(".staptegel.open-acties:not(.knelpunt)", "borderLeftWidth", "6px");
           await eq(".staptegel.open-acties:not(.knelpunt)", "borderLeftColor", "rgb(31, 95, 191)");
           await eq(".staptegel.knelpunt", "borderTopColor", "rgb(242, 140, 40)");
-          assert.ok((await style(".staptegel.knelpunt","boxShadow")).includes("rgb(242, 194, 0)"));
+          assert.match(await style(".staptegel.knelpunt","boxShadow"), /rgb\(242, 194, 0\) 6px 0px 0px 0px inset/);
           await eq(".staptegel.leeg-stap", "backgroundColor", "rgba(0, 0, 0, 0)");
           console.log("OK 139.3e: operationele kaarten en knelpunten", width);
         }
@@ -60,7 +60,7 @@ try {
           await page.locator("#scherm").evaluate(el => { el.innerHTML = '<a class="tegel bezig">Stap 1 · bezig</a><a class="tegel leeg">Stap 2 · niets klaar</a><div class="veld" data-markering="buiten_tolerantie"><div class="veld-code">Temperatuur</div><div class="veld-invoer"><label>Gemeten<input type="text"></label></div><span class="label label-buiten_tolerantie">Buiten tolerantie</span></div><div class="veld" data-markering="buiten_grens">Buiten grens</div><div class="rij wachtrij-fout">Geweigerd</div>'; });
           await eq(".tegel.bezig", "borderTopColor", "rgb(242, 140, 40)");
           await eq(".tegel.bezig", "borderLeftColor", "rgb(31, 95, 191)");
-          await eq(".tegel.bezig", "borderLeftWidth", "3px");
+          await eq(".tegel.bezig", "borderLeftWidth", "6px");
           await eq(".tegel.bezig", "borderTopWidth", "3px");
           await eq(".tegel.bezig", "borderTopLeftRadius", "8px");
           await eq('.veld[data-markering="buiten_tolerantie"]', "borderTopStyle", "dashed");
@@ -69,6 +69,7 @@ try {
           await eq(".veld-invoer input", "borderTopLeftRadius", "4px");
           assert.ok(await page.locator(".veld-invoer input").evaluate(e => e.getBoundingClientRect().height >= 52));
           await eq(".rij.wachtrij-fout", "borderLeftColor", "rgb(179, 38, 30)");
+          await eq(".rij.wachtrij-fout", "borderLeftWidth", "6px");
           console.log("OK 139.3d: uitvoering, meetstatus en wachtrij", width);
         }
         console.log("OK B+ componenten", frontend, width);

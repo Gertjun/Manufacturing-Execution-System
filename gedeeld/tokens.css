@@ -44,7 +44,7 @@
   --mes-tabel-rij: #f8fafb;
   --mes-focus-donker: #ffffff;
   --mes-kaart-radius: 8px;
-  --mes-open-acties-accent: 3px;
+  --mes-linkeraccent: 6px;
   /* Basis */
   --staal: var(--mes-achtergrond);          /* achtergrond van het scherm */
   --vlak: #ffffff;           /* kaarten, velden */
