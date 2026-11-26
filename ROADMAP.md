@@ -339,3 +339,5 @@ Nieuwe legacywensen zonder aangetoonde noodzaak en architectuurfit komen eerst h
 139.4c vervolg: documentatiecontrole 417 op 427a1e8 groen; fysieke ERD 94 nodes/132 getekende edges (203 FK in schema, bestaande actorfilter), conceptueel 20/17, architectuur 8/7, receptlevenscyclus 11/11, migratie 7/7, procesketen 10/9. Chrome-tekstcontrole in beide thema's en reviewartifact met zes SVG's toegevoegd; publicatie in Markdown en beoordeling van relatielabels/layout nog open.
 
 139.4c vervolg: documentatieworkflow 418 op 7d2c2b9 faalde bij YAML-validatie vóór uitvoering; bestaande versienummercontrole stond onbedoeld onder artifact-inputs. Shellcommando's teruggezet in de roadmap-teststap, geen test verwijderd. Nieuwe CI volgt.
+
+139.4c vervolg: CI 419 op 62022ae groen; reviewartifact 15105383022 visueel beoordeeld. Automatische Graphviz-layout oogt onrustig; vier procesdiagrammen krijgen expliciete posities, gelijke blokafmetingen en rijafstand, hoofdassen en zijtakken. Browserregressie borgt geometrie. Conceptuele ERD en fysieke domeinopdeling nog open; SVG-insluiting volgt na visuele acceptatie.

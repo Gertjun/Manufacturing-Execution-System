@@ -22,6 +22,15 @@ PALETTE = {
 }
 CARDINALITY = {"||": "teetee", "|o": "teeodot", "o|": "odottee", "o{": "crowodot"}
 
+
+# Layout metadata only: the Mermaid source remains authoritative for nodes/edges.
+FLOW_LAYOUTS = {
+    "architecture": {"M": (-200, 0), "O": (200, 0), "J": (0, 1), "C": (0, 2), "E": (0, 3), "B": (0, 4), "G": (400, 4), "Q": (0, 5)},
+    "migration": {"A": (0, 0), "B": (0, 1), "C": (0, 2), "D": (0, 3), "E": (420, 4), "F": (0, 4), "G": (0, 5)},
+    "recipe-lifecycle": {"A": (0, 0), "B": (0, 1), "C": (0, 2), "D": (0, 3), "E": (0, 4), "F": (420, 4), "G": (0, 5), "H": (0, 6), "I": (0, 7), "J": (0, 8), "K": (0, 9)},
+    "process-chain": {"A": (0, 0), "B": (0, 1), "C": (0, 2), "D": (0, 3), "E": (0, 4), "F": (420, 4), "G": (420, 3), "H": (420, 2), "I": (420, 1), "J": (420, 0)},
+}
+
 def quote(s):
     return json.dumps(s, ensure_ascii=False)
 
@@ -78,7 +87,10 @@ def parse(source):
         raise ValueError("Unknown semantic class")
     return kind, nodes, edges, classes
 
-def dot_source(kind, nodes, edges, classes):
+def dot_source(kind, nodes, edges, classes, name):
+    layout = FLOW_LAYOUTS.get(name)
+    if layout is not None and set(layout) != set(nodes):
+        raise ValueError(f'{name}: layout must cover exactly all source nodes')
     er = kind == "erDiagram"
     lines = [
         "digraph MES {",
@@ -86,13 +98,24 @@ def dot_source(kind, nodes, edges, classes):
         'node [shape=box, style="rounded,filled", fontname="Arial", fontsize=14, margin="0.18,0.13", penwidth=1.5];',
         'edge [fontname="Arial", fontsize=11, fontcolor="#1B2430", penwidth=1.4, color=' + quote("#6B7785" if er else "#B45309") + "];",
     ]
-    for name, label in nodes.items():
-        fill, stroke, ink = PALETTE[classes[name]]
-        lines.append(f'{quote(name)} [label={quote(label)}, fillcolor="{fill}", color="{stroke}", fontcolor="{ink}"];')
+    if layout is not None:
+        lines.append('graph [splines=true, overlap=true];')
+        lines.append('node [fixedsize=true, width=4.6, height=0.65];')
+    for node, label in nodes.items():
+        fill, stroke, ink = PALETTE[classes[node]]
+        position = ""
+        if layout is not None:
+            x, row = layout[node]
+            position = f', pos="{x},{-row * 105}!"'
+        lines.append(f'{quote(node)} [label={quote(label)}, fillcolor="{fill}", color="{stroke}", fontcolor="{ink}"{position}];')
     for a, b, label, left, right in edges:
         attrs = [f"label={quote(label)}"]
         if er:
             attrs.extend(["dir=both", f"arrowtail={CARDINALITY[left]}", f"arrowhead={CARDINALITY[right]}"])
+        if name == "recipe-lifecycle" and (a, b) == ("B", "A"):
+            attrs.extend(["tailport=e", "headport=e"])
+        if name == "migration" and (a, b) == ("E", "C"):
+            attrs.extend(["tailport=n", "headport=e"])
         lines.append(f"{quote(a)} -> {quote(b)} [{', '.join(attrs)}];")
     return "\n".join(lines + ["}"]) + "\n"
 
@@ -105,8 +128,9 @@ def render_all(output):
         if len(sources) != 1:
             raise ValueError(f"{path}: expected one Mermaid source")
         kind, nodes, edges, classes = parse(sources[0])
-        dot = dot_source(kind, nodes, edges, classes)
-        svg = subprocess.run(["dot", "-Tsvg"], input=dot, text=True, capture_output=True, check=True).stdout
+        dot = dot_source(kind, nodes, edges, classes, name)
+        command = ["neato", "-n2", "-Tsvg"] if name in FLOW_LAYOUTS else ["dot", "-Tsvg"]
+        svg = subprocess.run(command, input=dot, text=True, capture_output=True, check=True).stdout
         root = ET.fromstring(svg)
         ns = {"s": "http://www.w3.org/2000/svg"}
         groups = root.findall(".//s:g", ns)
