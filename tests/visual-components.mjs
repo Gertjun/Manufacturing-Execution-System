@@ -47,6 +47,9 @@ try {
           await page.locator("#scherm").evaluate(el => { el.innerHTML = '<a class="tegel bezig">Stap 1 · bezig</a><a class="tegel leeg">Stap 2 · niets klaar</a><div class="veld" data-markering="buiten_tolerantie"><div class="veld-code">Temperatuur</div><div class="veld-invoer"><label>Gemeten<input type="text"></label></div><span class="label label-buiten_tolerantie">Buiten tolerantie</span></div><div class="veld" data-markering="buiten_grens">Buiten grens</div><div class="rij wachtrij-fout">Geweigerd</div>'; });
           await eq(".tegel.bezig", "borderTopColor", "rgb(242, 140, 40)");
           await eq(".tegel.bezig", "borderLeftColor", "rgb(31, 95, 191)");
+          await eq(".tegel.bezig", "borderLeftWidth", "3px");
+          await eq(".tegel.bezig", "borderTopWidth", "3px");
+          await eq(".tegel.bezig", "borderTopLeftRadius", "8px");
           await eq('.veld[data-markering="buiten_tolerantie"]', "borderTopStyle", "dashed");
           await eq('.veld[data-markering="buiten_grens"]', "borderTopStyle", "solid");
           await eq('.veld[data-markering="buiten_grens"]', "borderTopColor", "rgb(179, 38, 30)");

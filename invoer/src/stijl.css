@@ -94,7 +94,7 @@ a { color: var(--actie); }
 .tegel-nr { font-size: var(--text-2xl); font-weight: 700; line-height: 1.05; }
 .tegel-naam { font-weight: 700; line-height: 1.25; }
 .tegel-werk { font-size: var(--text-sm); color: var(--inkt-zacht); }
-.tegel.bezig { border-left: 8px solid var(--actie); }
+.tegel.bezig { border-left: var(--mes-open-acties-accent) solid var(--actie); }
 @media screen {
   .tegel, .rij, .veld { border-radius: var(--mes-kaart-radius); }
 }
