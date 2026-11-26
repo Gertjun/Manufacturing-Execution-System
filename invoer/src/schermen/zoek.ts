@@ -180,13 +180,16 @@ export async function wachtrijScherm() {
   const token = sessie.token;
   const [lijst, afgeschermd] = await Promise.all([acties(), afgeschermdeActies()]);
   if (!actueel() || token !== sessie.token) return;
-  const rij = (a: Actie) =>
-    h(
+  const beoordelingNodig = (a: Actie) =>
+    a.status === "beoordeling" || (a.status === "fout" && (!a.userId || a.fout?.startsWith("Persoonlijke herkomst")));
+  const rij = (a: Actie) => {
+    const voorBeoordeling = beoordelingNodig(a);
+    return h(
       "li",
-      { class: `rij wachtrij-${a.status}` },
+      { class: `rij wachtrij-${voorBeoordeling ? "beoordeling" : a.status}` },
       h("div", {}, h("div", { class: "rij-hoofd" }, a.omschrijving), h("div", { class: "rij-info" }, tijd(a.aangemaakt), a.operatornaam ? ` · ${a.operatornaam}` : ""),
         a.fout ? h("div", { class: "label-buiten_grens", style: "font-weight:700" }, a.fout) : null),
-      a.status === "beoordeling" || !a.userId || a.fout?.startsWith("Persoonlijke herkomst")
+      voorBeoordeling
         ? h("span", { class: "label label-wacht" }, "Beoordeling nodig")
         : a.status === "fout"
         ? h("button", {
@@ -198,8 +201,9 @@ export async function wachtrijScherm() {
           }, "Verwijderen")
         : h("span", { class: "label label-wacht" }, "Wacht"),
     );
-  const beoordeling = lijst.filter((a) => a.status === "beoordeling" || (a.status === "fout" && (!a.userId || a.fout?.startsWith("Persoonlijke herkomst"))));
-  const fouten = lijst.filter((a) => a.status === "fout" && !beoordeling.includes(a));
+  };
+  const beoordeling = lijst.filter(beoordelingNodig);
+  const fouten = lijst.filter((a) => a.status === "fout" && !beoordelingNodig(a));
   const wacht = lijst.filter((a) => a.status === "wacht");
   toon(
     h("div", { class: "kop" }, h("h1", {}, "Verzenden"),
