@@ -226,8 +226,12 @@ try {
   await page.locator(".verbinding.uit").waitFor();
   // D99: pilotfeedback is uitgesteld; uitsluitend de drie productieacties mogen in de wachtrij.
   check("Geen pilotfeedbackknop", await page.getByRole("button", { name: "Iets melden" }).count() === 0);
+  // Wacht op de asynchrone opslag én statuspublicatie; screenshot is geen synchronisatie.
+  const offlineStatus = page.locator(".verbinding.uit");
+  await page.waitForFunction(() => document.querySelector(".verbinding.uit")?.textContent?.trim() === "Geen verbinding, 3 wachten", null, {timeout: 10000}).catch(() => {});
+  const statusTekst = await offlineStatus.innerText();
+  check("Statusbalk meldt drie wachtende productieacties", statusTekst.trim() === "Geen verbinding, 3 wachten", statusTekst);
   await shot("08-offline-wachtrij");
-  check("Statusbalk meldt drie wachtende productieacties", /Geen verbinding, 3 wachten/.test(await page.locator(".verbinding").innerText()));
   const [voor] = await q("SELECT count(*) AS n FROM fabriek.stapregistratie r JOIN fabriek.processtap s ON s.id = r.processtap_id JOIN fabriek.batch b ON b.id = r.batch_id WHERE b.batchnummer = 'B-2026-0100' AND s.code = 'PS2'");
   check("Zonder verbinding nog niets in de database", Number(voor.n) === 0);
 

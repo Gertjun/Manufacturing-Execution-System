@@ -246,13 +246,21 @@ try {
   check("Geen pilotfeedbackknop of opmerkingenmenu",await page.getByRole("button",{name:"Iets melden"}).count()===0 && await page.getByRole("link",{name:/Opmerkingen/}).count()===0);
   check("Feedbackinzage geweigerd",(await verzoek("GET","/terugmeldingen",await token())).status===403);
   console.log("\nLogboek");
+  // Wacht op de echte logboekrespons en de specifieke logboekweergave, niet op een oude tabel.
+  const logRespons = page.waitForResponse(r => new URL(r.url()).pathname === "/beheer/logboek" && r.request().method() === "GET");
   await page.getByRole("link", { name: "Logboek" }).click();
-  await page.locator(".tabel tbody tr").first().waitFor();
+  const logRes = await logRespons;
+  if (!logRes.ok()) throw new Error("Logboek HTTP "+logRes.status());
+  await page.getByRole("heading", { name: "Logboek", exact: true }).waitFor();
+  await page.locator("#f-onderdeel").waitFor();
+  const logTabel = page.locator("main .tabel");
+  await logTabel.getByRole("columnheader", { name: "Wijziging", exact: true }).waitFor();
+  await logTabel.locator("tbody tr").first().waitFor();
+  const log = await logTabel.innerText();
   await shot("04-logboek");
-  const log = await page.locator(".tabel").innerText();
-  check("Logboek: naamwijziging stap", log.includes("naam: Process Step 3 naar Mengen"));
-  check("Logboek: tolerantie 5 naar 8", log.includes("tolerantie: 5 naar 8"));
-  check("Logboek: pc-koppeling", log.includes("PC-01: PS3") && log.includes("Stap toegevoegd aan de pc"));
+  check("Logboek: naamwijziging stap", log.includes("naam: Process Step 3 naar Mengen"), log.slice(0,1200));
+  check("Logboek: tolerantie 5 naar 8", log.includes("tolerantie: 5 naar 8"), log.slice(0,1200));
+  check("Logboek: pc-koppeling", log.includes("PC-01: PS3") && log.includes("Stap toegevoegd aan de pc"), log.slice(0,1200));
   check("Logboek toont geen wachtwoord-hash", !log.includes("$2a$") && !log.includes("hash"));
 
   console.log("\nServer");

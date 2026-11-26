@@ -351,7 +351,7 @@ jobs:
 
   individual-screen:
     name: Individuele Chrome-regressie (${{ github.event.label.name }})
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test')
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -391,7 +391,7 @@ jobs:
           LABEL: ${{ github.event.label.name }}
         run: |
           case "$LABEL" in
-            scherm-flow-test|scherm-formaten-test|scherm-formaten-uitgebreid-test|scherm-meldingen-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test) ;;
+            scherm-flow-test|scherm-formaten-test|scherm-formaten-uitgebreid-test|scherm-meldingen-test|scherm-beheer-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test) ;;
             *) exit 2 ;;
           esac
           selectie="${LABEL#scherm-}"
