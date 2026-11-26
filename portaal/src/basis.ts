@@ -102,7 +102,22 @@ export const zichtbareOnderdelen = (p: Portaal) => p.onderdelen.filter(o => !!re
 const lees = () => heeftRecht(...LEES);
 const kwaliteitLees = () => heeftRecht("inspection.read","analysis.execution.read");
 const planningLees = () => lees() && heeftRecht("planning.manage","engineering.product.manage","handover.read");
+
+// #113: afzonderlijke capabilities voor het native Process Engineering-portaal.
+// Globaal materiaalbeheer nooit afleiden uit een productspecifieke grant.
+export const RECEPT_REVIEW_RECHTEN = ["recipe.review.engineering","recipe.review.production","recipe.review.quality","recipe.release","recipe.withdraw.engineering","recipe.withdraw.quality"];
+export const magMateriaalstamdata = () => heeftRecht("material.definition.manage");
+export const magReceptconcept = () => heeftProductRecht("recipe.draft.manage");
+export const magReceptbeoordeling = () => heeftProductRecht("recipe.draft.manage",...RECEPT_REVIEW_RECHTEN);
+
 export const PORTALEN: Portaal[] = [
+  { id: "engineering", naam: "Process Engineering", klaar: true, onderdelen: [
+    { pad: "overzicht", naam: "Overzicht", toegestaan: () => magMateriaalstamdata() || magReceptconcept() || magReceptbeoordeling() },
+    { pad: "materialen", naam: "Materiaalstamgegevens", toegestaan: magMateriaalstamdata },
+    { pad: "eenheden", naam: "Eenhedencatalogus", toegestaan: magMateriaalstamdata },
+    { pad: "recepten", naam: "Master Recipes", toegestaan: magReceptconcept },
+    { pad: "beoordelingen", naam: "Receptbeoordelingen", toegestaan: magReceptbeoordeling },
+  ]},
   { id: "kwaliteit", naam: "Kwaliteit", klaar: true, onderdelen: [
     { pad: "overzicht", naam: "Overzicht", toegestaan: kwaliteitLees },
     { pad: "beoordelen", naam: "Te beoordelen", toegestaan: () => heeftRecht("inspection.read"), teller: async () => {

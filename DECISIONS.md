@@ -605,3 +605,83 @@ W1 geslaagd op Windows 0.62.1; W2 geblokkeerd: de historische fictieve dump plus
 Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
 
 De opdrachtgever accepteert de fictieve PoC-scope; geen toestemming voor merge of publicatie in dit besluit. D88/D90 blijven leidend; nieuwe releasetree moet beide suites doorstaan. W7 onderbroken redeninvoer: hervatting via START.bat gelukt, oorzaak niet gereproduceerd; geen bewijs van drie werkelijk onafhankelijke accounthouders. W8 oude noodsleutel functioneel geblokkeerd; verouderde aankondiging corrigeren. Operationele TLS, persoonlijke provisioning en intrekking, herstelreconciliatie, uitzonderingsherstel, hardware en fabrieksnetwerk vóór pilot. Uitgestelde domeinfuncties volgens D99 en ROADMAP. Geen automatische legacy-grants en geen echte gegevens.
+
+## D105 – Portalstructuur, navigatie en UI-harmonisatie als afzonderlijke fase 3 (25 nov 2026)
+
+Besluit opdrachtgever na praktijktest van officiële v0.63.0: het portalenscherm toont de juiste beschikbare portalen, maar de linkerbalk niet altijd; bijvoorbeeld mes.quality toont alleen Kwaliteit terwijl ook Production Execution beschikbaar hoort te zijn. Dit is een gemelde navigatie-inconsistentie, geen bewezen beveiligingslek. Centrale portalregistratie, gedeelde actuele permissionprojectie en uniforme UI worden structureel aangepakt vóór verdere productiefunctionaliteit. Zichtbaarheid is nooit de beveiligingsgrens; directe URL en API/database moeten onbevoegde toegang zelfstandig weigeren. Ondersteun meerdere rollen en relevante grant-/scopecombinaties zonder rechten te verruimen of functiescheiding te verzwakken. Uniforme schermopbouw, hoofdbalk, navigatie, namen, iconen, kleuren, typografie, tabellen, formulieren, knoppen, filters, statussen, fouten, dialogen, lege toestanden en herbruikbare componenten voor industrieel gebruik. Alle rollen, combinaties, mes.quality, overeenstemming navigatie, directe toegang en regressiebehoud testen; audit, integrale CI, Windows en formele acceptatie verplicht.
+
+Fase 1 historisch ongewijzigd; fase 2 volledig afronden inclusief Process Engineering, regressies, audit, Windows, formele acceptatie, merge en release vóór fase 3. Nieuwe fase 3 #138–#140; alle oude fasen vanaf 3 schuiven één positie op: oud 3→4 middelen/stilstand, 4→5 planning, 5→6 CR/uitvoering, 6→7 EBR, 7→8 kwaliteit, 8→9 genealogie, 9→10 pilot, 10→11 Intelligence, 11→12 integraties/uitrol. De laatste twee worden behouden omdat zij al in de roadmap stonden; geen werkzaamheden vervallen. Historische fasenummers in D89–D104, oude matrices en fase-1-bewijs zijn te lezen volgens deze vertaalsleutel; actuele planning uitsluitend ROADMAP. D99-uitstel van niet-kernfunctionaliteit blijft gelden, behalve de expliciet goedgekeurde structurele UI-harmonisatie in nieuwe fase 3. Geen vervroegde domeinuitbreiding of wijziging van fase-1-acceptatie. Indicatief 1–2 ontwikkelingsdagen, geen deadline. Bij aanwijzingen voor echte autorisatie-omzeiling: afzonderlijk melden, impact bepalen en noodzakelijke beveiligingscorrectie niet uitstellen. Nu alleen planning/documentatie, geen implementatie fase 3.
+
+
+### D106 – Uitbreidbare receptschaling, eenhedenmodel en massabalansen (25 nov 2026)
+
+Opdrachtgever akkoord met opname in roadmap. ISA-88 en ISA-95 blijven leidende architectuurkaders (D89); formuleparameters, materiaalvereisten en werkelijk verbruik/productie zijn de aanknopingspunten. Niet-lineaire berekeningen, eenhedenengine, specifieke massabalansalgoritmen en KPI's zijn projectmatige technische invullingen, geen bewezen afzonderlijke ISA-verplichtingen. SI/ISO 80000 als aanvullend uitgangspunt voor grootheden/eenheden; ISO 22400 voor toepasselijke productie-KPI's. Exacte edities/clausules en formele normtoets blijven open.
+
+- Fase 2 #141: centraal fysisch eenhedenmodel, gecontroleerde versiegebonden conversiedefinities en uitbreidbare, versiegebonden schaalregels, inclusief voorbereiding op niet-lineaire relaties, andere parameters en equipment. Integreer met MBR-conceptbeheer en vrijgave; behoud bestaande fixed/linear-definities en historische feiten. Geen rekenengine vooruitbouwen.
+- Fase 6 #142: bereken en valideer bij Control Recipe met exact vastgelegde regelversies, context, input, eenheden en resultaten; geen impliciete conversies, lineaire fallback, onveilige scriptuitvoering of retroactieve wijziging. Massa/volume of massa/mol uitsluitend met toepasselijke bekende stofeigenschappen en condities. Onderscheid absolute en verschiltemperaturen, afronding, dimensies, bereik en cycli; ontbrekende gegevens blokkeren ongeldige berekening/vrijgave.
+- Fase 9 #143: operationele massabalans per batch, lot, processtap/transformatie, theoretisch versus werkelijk verbruik/opbrengst, voorraadverandering, afval, bijproducten, bekende en onbekende verliezen, expliciete systeemgrens en volledigheid. Geen onbekende waarde als nul, geen dubbeltelling interne bewegingen.
+- Fase 11 #144: historische vergelijkingen, rendement, structurele verliezen en procesoptimalisatie; traceerbare KPI-grondslag en datakwaliteit, geen automatische receptwijziging.
+
+Fasering ongewijzigd; #141 is uitbreiding van werkpakket 2.4 en vereist eigen regressies vóór fase-2-acceptatie; #142 en #143 onderdeel van de kern vóór pilot, #144 na pilotpoort volgens bestaande planning. D105 blijft gelden. Precieze formulegrammatica, afrondingsbeleid en catalogus van eenheden/conversies worden bij implementatie ontworpen; geen willekeurige code of onbewezen conversies. Geen nieuwe implementatie of testbewijs in dit besluit.
+
+
+## D107 – Uniforme huisstijl en visuele ontwerpstandaard binnen fase 3 (25 nov 2026)
+
+Opdrachtgever breidt D105 uit: fase 3 heet **Portalstructuur, navigatie, UI-harmonisatie en visuele ontwerpstandaard**. Fase 2 eerst volledig afronden inclusief acceptatie, merge en release. Nu uitsluitend planning en besluit; geen technische implementatie. ISA-88/95, D89/D99/D101 en bestaande MES-besluiten blijven leidend voor inhoud, rechten en functiescheiding; actueel SQL-schema blijft bron voor fysieke relaties. Vormgeving verandert nooit architectuur of gegevensrelaties. Geen afzonderlijke ISA-conformiteitsclaim voor huisstijl.
+
+| Kleur | Hex | Betekenis |
+|---|---|---|
+| Donkerblauw | #0B2E59 | Structuur, definitie en titels |
+| Oranje | #F28C28 | Actie, uitvoering en accenten |
+| Lichtblauw | #E7EEF6 | Structurele blokken |
+| Lichtoranje | #FDEBD9 | Uitvoeringsblokken |
+| Gebroken wit | #F4F7F9 | Algemene achtergrond |
+| Tekstgrijs | #526578 | Ondersteunende tekst |
+
+Donkerblauw bepaalt hoe het moet: architectuur, masterdata, producten, recepten/revisies, specificaties, configuratie, rollen/rechten en equipmentdefinities. Oranje laat zien wat er gebeurt: uitvoering, processtromen, batches/lots, stapregistraties, meetwaarden, besluiten, kwaliteitscontroles/vrijgave, wijzigingen en actieve werkzaamheden. Grijs voor ondersteuning en structurele relaties; groen/rood uitsluitend expliciete status (positief, fout, waarschuwing of blokkade); waarschuwingen onderscheidbaar van regulier oranje. Kleur nooit enige informatiedrager. In planning aparte semantiek: donkerblauw afgerond, oranje in uitvoering, lichtgrijs toekomstig, steeds tekststatus. Interactieve UI onderscheidt actie, focus, selectie en status van diagramsemantiek; contrast toetsen aan relevante toegankelijkheidseisen (voorgesteld WCAG 2.2 AA als toetskader; definitieve toepasselijkheid tijdens fase 3 vastleggen), niet blind alle paletcombinaties toepassen.
+
+Diagramregels: zelfde entiteit consistent gekleurd in dezelfde semantische context; masterdata blauw/lichtblauw, transacties oranje/lichtoranje; oranje proces-/actiepijlen versus neutraal grijze databaserelaties. Pijlen aan blokranden, niet door tekst/blokken, consistente blokmaten, legenda waar nodig, korte Nederlandstalige functionele omschrijvingen van technische entiteiten; leesbaarheid boven paginatal. Geen verwarring tussen FK-relaties en procesvolgorde.
+
+Scope: alle portalen, navigatie, pagina's, knoppen, formulieren, tabellen, dashboards, statussen, dialogen, fouten, typografie, witruimte, iconen, selectie; architectuur-, workflow-, proces- en datamodeldiagrammen, ERD's, roadmaps/Gantt, technische documentatie, presentaties, managementrapportages, opleiding en handleidingen. Centrale tokens/gedeelde componenten waar passend, vermijd CSS-duplicatie. Leg standaard in fase 3 vast in docs/mes/VISUAL-STYLE.md inclusief correcte/ongewenste voorbeelden en pijltypen. Onderzoek generator voor DATABASE.md; SQL-bron, reproduceerbaarheid en integriteitscontroles behouden. Geen handmatige afwijking van gegenereerd model. Bestaand PDF-naslagwerk MES – Van fabriek tot digitale productieomgeving is momentopname; later afzonderlijk actualiseren en harmoniseren.
+
+Werkpakketten en volgorde in ROADMAP, acceptatie in docs/mes/ACCEPTANCE-CRITERIA.md. D105 #138–#140 blijven open en volledig van kracht. Fasen 4–12 gebruiken de standaard voor nieuwe UI/documentatie, geen vooruitbouw. Eerdere duurindicatie fase 3 herijken na inventarisatie, geen nieuwe deadline of pilotdatum. Behoud alle bestaande beveiliging, functionele eisen en acceptatiepoorten.
+
+
+## D108 – MBR-beoordelingsmatrix en functiescheiding (25 nov 2026)
+
+Opdrachtgever akkoord met voorgestelde matrix voor #112, aanvullend op D89 R02/R05/P04/P08/P11. Dit is projectbeleid, geen letterlijke ISA-normclausule. Matrixversie 1:
+
+| Impactgebied | Engineering | Productie | Kwaliteit |
+|---|---|---|---|
+| Initieel recept | Ja | Ja | Ja |
+| Administratieve header | Ja | Nee | Nee |
+| Procedure en route | Ja | Ja | Ja |
+| Parameters | Ja | Ja | Ja |
+| Formule en materialen | Ja | Ja | Ja |
+| Equipment | Ja | Ja | Ja |
+| Personeelsvereisten | Ja | Ja | Nee |
+| Instructies | Ja | Ja | Ja |
+| Kwaliteitsspecificaties | Ja | Nee | Ja |
+| Lotregels | Ja | Ja | Ja |
+| Schaalregels | Ja | Ja | Ja |
+| Overig/onbekend | Ja | Ja | Ja |
+
+Engineering Approver, Manufacturing Manager en Quality Approver krijgen elk hun eigen concrete productspecifieke reviewpermission; geen nieuwe persoonlijke grants. Engineering altijd verplicht. Unie van handmatige en automatisch afgeleide impact; geen wegfilteren van vereisten door gebruiker. Onbekende impact conservatief alle drie domeinen. Geen zelfgoedkeuring (inclusief inhoudelijke bijdragers), één persoon per verplicht beoordelingsdomein per ronde, wijzigingen invalideren eerdere goedkeuringen. Besluit op exacte vastgezette inhoud, actuele autorisatie en herbevestigde identiteit. Goedkeuring is geen vrijgave. Technisch beheer geen automatische inhoudelijke bevoegdheid.
+
+0118 implementeert matrix en persoonlijke preview; exacte rondes, bijdragerscontrole, unieke beoordelaars, herbevestiging, beslisregistratie en vrijgavepoort volgen. Geen goedkeurings- of statusmutaties beschikbaar totdat deze beveiligingen zijn geïmplementeerd en getest.
+
+## D109 – Formele MBR-vrijgave en intrekking (25 nov 2026)
+
+Opdrachtgever akkoord: Engineering Approver mag formeel vrijgeven en intrekken; Quality Approver mag eveneens intrekken. Process Engineer stelt op, D108 bepaalt beoordelingen. Vrijgever mag de onafhankelijke technische beoordelaar zijn, maar geen inhoudelijke bijdrager. Afzonderlijke productspecifieke permissions, geen automatische persoonlijke grants of technisch beheerrecht. Alle verplichte goedkeuringen, exacte actuele ronde, succesvolle inhoudelijke validatie, persoonlijke wachtwoordbevestiging en reden vereist. Intrekking afzonderlijk persoonlijk bevestigd besluit met reden. Vrijgave is geen batch-/kwaliteitsvrijgave.
+
+0123 ontwerpuitwerking: released betekent formeel vrijgegeven, eventueel toekomstig; effectieve selectie en vervanging volgen uit ingangsdatum en historisch bewijs, niet uit timer of mutatie van oude records. Geen terugdatering of automatische terugval. Conservatief oplopende revisie en ingangsdatum, laatste vrijgegeven referentie (ook na intrekking); wijzigingen in dit planningsbeleid en herstel na ingetrokken geplande versie afzonderlijk toetsen. Geen CR-koppeling in fase 2. API, review-leestoegang en integrale regressies volgen.
+
+## D110 – ISA leidend; legacywensen afzonderlijk beoordelen (25 november 2026)
+
+Opdrachtgever akkoord: voor alle verdere MES-fasen ISA-88/95 en goedgekeurde MES-architectuur leidend, niet de featurelijst van de legacy-PoC. ISA is geen uitputtende checklist; noodzakelijke bedrijfs-/procesvereisten, veiligheid, wetgeving, kwaliteit, data-integriteit en gecontroleerde migratie blijven verplicht waar relevant en worden passend ontworpen. Een legacywens zonder aangetoonde noodzaak/architectuurfit gaat eerst naar het wishlist-/beoordelingsregister in ROADMAP.md; beoordeling van gebruikstaak, noodzaak, ISA-relatie, native alternatief, waarde, risico, beheer-/testlast en expliciet besluit vóór opname in fasescope. Strijdige vormen niet kopiëren. Behoud historische besluiten/bewijs en beveilig tijdelijke bestaande interfaces volgens D99; geen ongecontroleerde verwijdering of uitstel van noodzakelijke beveiliging.
+
+Concrete wijziging #113: Process Engineering-portaal en gecontroleerde bronmigratie blijven fase 2; structurele MBR Excel-import/export vervallen als verplichte implementatie/acceptatie en gaan naar W01/W02. D46/D82 gelden niet als opdracht om nieuwe Excel-interfaces voor MBR te bouwen; D39 geen generieke exportverplichting (D99 blijft gelden). Bestaande legacy-export/sjablonen afzonderlijk inventariseren en beoordelen bij uitfasering (W03/W04), niet in deze wijziging verwijderen. Fictieve data vóór pilot: voorbereiden van broninventarisatie, mapping, validatie en representatieve tests; geen specifieke importer of feitelijke productiedatamigratie zonder echte bronbestanden. Historische ID's/feiten en veilige upgrade blijven beschermd. Werkelijke bronmigratie vóór relevante pilotinzet valideren. Geen extra fase; fase 3 en latere fasevolgorde ongewijzigd. Dit besluit wijzigt de toekomstige scope, niet historische releaseacceptatie.
+
+## D111 – Gecombineerde Windows-praktijkacceptatie fase 2 en 3 (25 november 2026)
+
+Opdrachtgever verplaatst de handmatige Windows-praktijktest van fase 2 naar na fase 3, omdat de interface daar nog wordt geharmoniseerd. Dit vervangt uitsluitend de betreffende acceptatievolgorde in D105/D107; historische besluiten blijven behouden. D111: fase 2 sluit technisch af na integrale regressies, audit, correcties en afzonderlijke technische acceptatie. De handmatige Windows-praktijkacceptatie van fase 2 wordt gecombineerd met die van fase 3 na UI-harmonisatie; geen uitstel van automatische functionele, beveiligings-, migratie- of pakketregressies. Fase 3 mag starten na expliciete technische acceptatie van de vastgelegde fase-2-baseline. Voorstel voor één officiële release na gecombineerde praktijkacceptatie; merge-/release-strategie en toestemming blijven bij opdrachtgever. Geen fase 4 vóór gecombineerde acceptatie en officiële release. Fase 1 en pilotpoort ongewijzigd.

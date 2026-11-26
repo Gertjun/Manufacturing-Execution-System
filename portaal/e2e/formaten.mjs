@@ -128,6 +128,9 @@ try {
     const boven = await page.locator(".balk-nav").isVisible();
     if (f.width < 600) {
       check("Navigatie onderaan, niet bovenaan", onder && !boven);
+      // Wacht op de definitieve PS16-weergave, niet op de vorige route of laadkop.
+      await page.locator("#scherm .kop h1").waitFor();
+      await page.waitForFunction(() => location.hash === "#/stap/PS16" && document.querySelector("#scherm .kop h1")?.textContent !== "PS16" && !!document.querySelector("#scherm .kop h1") && !document.querySelector("#scherm .laden"));
       await page.getByRole("button", { name: "Meer" }).click();
       check("Meer toont Hulp en Afmelden",
         await page.locator(".meer-paneel").getByRole("button", { name: "Afmelden" }).isVisible()
@@ -135,6 +138,7 @@ try {
       // D103: lok echte statuscallbacks uit zonder op toevallige polltiming te vertrouwen.
       const hulp = page.locator(".meer-paneel").getByRole("link", { name: "Hulp" });
       await hulp.focus();
+      check("Hulp heeft focus vóór statusverversing", await hulp.evaluate(el => document.activeElement === el));
       const oorspronkelijk = await hulp.elementHandle();
       if (!oorspronkelijk) throw new Error("Hulp-link ontbreekt");
       await page.evaluate(() => window.dispatchEvent(new Event("offline")));
@@ -151,9 +155,12 @@ try {
         const el = document.querySelector(".verbinding");
         return !!el && !el.classList.contains("uit");
       });
+      // De terug-online-handler start ook een asynchrone routeverversing.
+      // Controleer focus pas nadat die werkelijk de werkvoorraad heeft gerenderd.
+      await page.waitForFunction(() => !!document.querySelector("#scherm .kop h1") && !document.querySelector("#scherm .laden"));
       check("Meer blijft open na herstel van verbinding",
         await oorspronkelijk.evaluate(el => el.isConnected && document.activeElement === el)
-        && await hulp.isVisible());
+        && await hulp.isVisible(), JSON.stringify(await oorspronkelijk.evaluate(el => ({ verbonden:el.isConnected, focus:document.activeElement?.tagName, focusTekst:document.activeElement?.textContent?.slice(0,50), open:!document.querySelector(".meer-paneel")?.hidden }))));
       await oorspronkelijk.dispose();
       await hulp.click();
       await page.waitForURL(/#\/hulp$/);

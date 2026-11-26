@@ -46,9 +46,9 @@ Migratie 0039: kritische security-identiteiten worden beschermd tegen directe ac
 
 0049: batch-, lot- en herbewerkingsroutes gebruiken actuele MES-bevoegdheden. Lotleesrecht vereist dekking van alle leden en lotregistraties; lotvorming toetst elk lid. Blokkade gescheiden van kwaliteitsbesluit; herbewerkingsopdracht gescheiden van uitvoering. Bestaande vaste vier-batchesregel en oude databasecontroles blijven tot respectieve omschakeling; herbevestiging en job-order-model nog open.
 
-D98: zelfstandige ongeplande batchcreatie door operators vervalt bij fase 4/5. Operator start vrijgegeven werk, identiteit wordt vanuit de opdracht uitgegeven; oude execution.batch.create is tijdelijk en geen definitief MES-recht. Geen verdere investering in die legacy-route.
+D98: zelfstandige ongeplande batchcreatie door operators vervalt bij fase 5/6. Operator start vrijgegeven werk, identiteit wordt vanuit de opdracht uitgegeven; oude execution.batch.create is tijdelijk en geen definitief MES-recht. Geen verdere investering in die legacy-route.
 
-D99: de volledige legacy-review is goedgekeurd. Beveilig behouden/tijdelijke interfaces, investeer niet in oude procesmodellen die bij fase 2–8 vervangen worden; autorisatiefundament blijft leidend. Basis display-identiteit blijft fase 1, uitgebreide schermconfiguratie fase 9. Zie DECISIONS.md en ROADMAP.md.
+D99: de volledige legacy-review is goedgekeurd. Beveilig behouden/tijdelijke interfaces, investeer niet in oude procesmodellen die bij fase 2–9 vervangen worden; autorisatiefundament blijft leidend. Basis display-identiteit blijft fase 1, uitgebreide schermconfiguratie fase 10. Zie DECISIONS.md en ROADMAP.md.
 
 0051: technische en security-identiteiten afzonderlijk; overlappende grants worden geweigerd bij roltoekenning en conflicterende actieve grants geven geen bevoegdheid. Geen automatische wijziging van bestaande grants. Gecontroleerd accountbeheer en recovery blijven open.
 
@@ -69,3 +69,5 @@ Bij verlies van voldoende onafhankelijke security-identiteiten: stop reguliere h
 0060: securitykanaal bepaalt de actor via SESSION_USER en geregistreerde PostgreSQL-rol-OID/naam; SET ROLE kan niet als andere MES-actor fungeren. Aanvraag, besluit en intrekking hebben geen actorparameter meer. Leesfuncties tonen exacte aanvragen, besluiten en grants inclusief intrekkingen, uitsluitend bij authorization.read. Bindingen eigenaar-only; provisioning, intrekking/herbinding en restoreprocedure nog open. Geen automatische database-logins.
 
 0061: registratie door database-eigenaar van een reeds door IT ingerichte persoonlijke login, met reden/goedkeuringsreferentie. Intrekking is afzonderlijk onveranderlijk record; vervanging vereist nieuwe rolnaam/OID en intrekking oude binding. Andere groepslidmaatschappen en beheeropties worden geweigerd. IT controleert ook rechtstreeks verleende objectrechten en beëindigt bestaande verbindingen bij incidenten. Na restore kanaal geblokkeerd houden tot gecontroleerde herbinding; geen automatische OID-conversie. Operationele provisioning/transport en acceptatie nog open.
+
+D105: nieuwe fase 3 centraliseert portalregistratie en zichtbaarheid op actuele permissionprojectie, inclusief meervoudige rollen/scopes; onafhankelijke route-/API-/DB-handhaving blijft verplicht. Geen automatische of ruimere grants. Fase 2 behoudt Process Engineering; middelenbeheer volgt fase 4.

@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")/.."
 P="${1:-}"
-if [ -z "$P" ]; then T=$(mktemp -d); tools/maak_laptoppakket.sh "$T/pakket" linux >/dev/null; P="$T/pakket"; fi
+if [ -z "$P" ]; then T=$(mktemp -d); tools/maak_laptoppakket.sh "$T/pakket" linux; P="$T/pakket"; fi
 cd "$P"; rm -rf data instellingen.json
 fout() { echo "FOUT: $1"; cat /tmp/laptoptest.log 2>/dev/null | tail -20; pkill -INT -f "node opstarten.mjs" 2>/dev/null; exit 1; }
 start() { node opstarten.mjs --geen-browser "$@" > /tmp/laptoptest.log 2>&1 & for i in $(seq 1 90); do curl -sf localhost:3000/gezondheid >/dev/null && return 0; sleep 1; done; fout "applicatie start niet"; }

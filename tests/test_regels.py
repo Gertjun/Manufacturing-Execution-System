@@ -37,12 +37,12 @@ def main():
     def val(sql, p=()):
         return one(sql, p)[0]
 
-    def faalt(naam, sql, p=(), bevat=""):
+    def faalt(naam, sql, p=(), bevat="", sqlstate=None):
         try:
             con.execute(sql, p) if p else con.execute(sql)
         except psycopg.Error as e:
             msg = str(e).splitlines()[0]
-            check(naam, bevat.lower() in msg.lower(), msg)
+            check(naam, bevat.lower() in msg.lower() and (sqlstate is None or e.sqlstate == sqlstate), msg)
             return
         check(naam, False, "geen foutmelding")
 
@@ -1693,6 +1693,1204 @@ def main():
           (sidk["PS9"], prdk["PRD-A"]), "capaciteit_stap_ingevuld")
     faalt("Een gewicht per batch van 0 kan niet", "UPDATE product SET batchgewicht_kg = 0 WHERE code = 'PRD-A'", (), "check")
     check("Productie-uren per dag: de drie diensten samen = 24", float(val("SELECT productie_uren_per_dag()")) == 24)
+
+    print("\nFase 2: materiaalstamdatafundament (#109)")
+    for tabel in ("material_class", "material_definition", "material_definition_version"):
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+            check(f"#109 {tabel}: geen directe app-{privilege}",
+                  not val("SELECT has_table_privilege('mes_app',%s,%s)", ("fabriek."+tabel, privilege)))
+    con.execute("BEGIN")
+    try:
+        mid = val("INSERT INTO material_definition(code,product_id) SELECT 'TEST-MAT',id FROM product ORDER BY id LIMIT 1 RETURNING id")
+        cid = val("INSERT INTO material_class(code,name) VALUES ('TEST-CLASS','Fictieve klasse') RETURNING id")
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        vid = val("INSERT INTO material_definition_version(material_definition_id,revision,name,material_class_id,created_by) VALUES (%s,1,'Fictief',%s,%s) RETURNING id", (mid,cid,actor))
+        con.execute("INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,2,'Fictief revisie 2',%s)", (mid,actor))
+        check("#109 twee versies naast elkaar", val("SELECT count(*) FROM material_definition_version WHERE material_definition_id=%s",(mid,)) == 2)
+        for label, sql, params, msg in (
+            ("dubbele identiteit","INSERT INTO material_definition(code) VALUES ('TEST-MAT')",(),"duplicate"),
+            ("dubbele bronkoppeling","INSERT INTO material_definition(code,product_id) SELECT 'TEST-DUP',product_id FROM material_definition WHERE id=%s",(mid,),"duplicate"),
+            ("dubbele revisie","INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,1,'Dubbel',%s)",(mid,actor),"duplicate"),
+            ("ongeldige revisie","INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,0,'Ongeldig',%s)",(mid,actor),"check"),
+            ("onbekende materiaalidentiteit","INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (gen_random_uuid(),1,'Onbekend',%s)",(actor,),"foreign key"),
+            ("versie wijzigen","UPDATE material_definition_version SET name='Gewijzigd' WHERE id=%s",(vid,),"onveranderlijk"),
+            ("versie verwijderen","DELETE FROM material_definition_version WHERE id=%s",(vid,),"onveranderlijk"),
+        ):
+            con.execute("SAVEPOINT material_test")
+            faalt("#109 "+label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT material_test")
+            con.execute("RELEASE SAVEPOINT material_test")
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#109 persoonlijk materiaalbeheer")
+    con.execute("BEGIN")
+    try:
+        # Afzonderlijke fictieve accounts; geen invloed van eerdere fixtures.
+        for naam in ("mat.engineer","mat.operator","mat.system","mat.legacy","mat.scoped","mat.expired"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('test-materiaal'))",(naam,))
+        for naam, rol in (("mat.engineer","process_engineer"),("mat.operator","operator"),("mat.system","system_administrator")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) SELECT id,%s FROM gebruiker WHERE gebruikersnaam=%s",(rol,naam))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) SELECT g.id,'process_engineer',p.id FROM gebruiker g CROSS JOIN (SELECT id FROM product ORDER BY id LIMIT 1) p WHERE g.gebruikersnaam='mat.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,valid_from,valid_until) SELECT id,'process_engineer',now()-interval '2 days',now()-interval '1 day' FROM gebruiker WHERE gebruikersnaam='mat.expired'")
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mat.engineer'")
+        con.execute("SET LOCAL ROLE mes_app")
+        def mat_denied(label, sql, params=(), msg="MES-materiaalbeheerbevoegdheid"):
+            con.execute("SAVEPOINT mat_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT mat_guard")
+            con.execute("RELEASE SAVEPOINT mat_guard")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        mat_denied("#109 geen sessiebewijs","SELECT material_list()",msg="Geldig persoonlijk")
+        for naam in ("mat.operator","mat.system","mat.legacy","mat.scoped","mat.expired"):
+            proof = val("SELECT session_proof FROM execution_session_login(%s,'test-materiaal',NULL)",(naam,))
+            check("#109 persoonlijk bewijs "+naam,bool(proof))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+            mat_denied("#109 lezen geweigerd "+naam,"SELECT material_list()")
+            mat_denied("#109 schrijven geweigerd "+naam,"SELECT material_create_class('NO','Geen')")
+        proof = val("SELECT session_proof FROM execution_session_login('mat.engineer','test-materiaal',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        cid = val("SELECT material_create_class('MAT-C','Fictief')")
+        mid = val("SELECT material_create_definition('MAT-D','Fictief',%s,'kg',NULL,NULL)",(cid,))
+        vid = val("SELECT material_append_version(%s,1,'Fictief 2',%s,'kg')",(mid,cid))
+        check("#109 persoonlijke versiecreatie",bool(vid))
+        data = val("SELECT material_list()")
+        versions = [v for v in data["versions"] if v["material_definition_id"] == str(mid)]
+        check("#109 versiehistorie en persoonlijke actor",len(versions)==2 and all(v["created_by"]==str(actor) for v in versions))
+        mat_denied("#109 oude verwachte revisie geweigerd","SELECT material_append_version(%s,1,'Oud',%s,'kg')",(mid,cid),"revisie is gewijzigd")
+        mat_denied("#109 ongeldige eerste versie atomair","SELECT material_create_definition('MAT-BAD','',NULL,NULL,NULL,NULL)",msg="check")
+        check("#109 geen halve identiteit",not any(d["code"]=="MAT-BAD" for d in val("SELECT material_list()")["definitions"]))
+        mat_denied("#109 directe tabelwrite geweigerd","INSERT INTO material_class(code,name) VALUES ('DIRECT','Direct')",msg="permission denied")
+        mat_denied("#109 interne helper geweigerd","SELECT material_manage_actor()",msg="permission denied")
+        con.execute("RESET ROLE")
+        mat_denied("#109 klasse onveranderlijk","UPDATE material_class SET name='Anders' WHERE id=%s",(cid,),"onveranderlijk")
+        mat_denied("#109 identiteit onveranderlijk","UPDATE material_definition SET code='ANDERS' WHERE id=%s",(mid,),"onveranderlijk")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    print("\n#109-110 MBR-identiteit en conceptversies")
+    con.execute("BEGIN")
+    try:
+        pa = val("SELECT id FROM product WHERE code='PRD-A'")
+        pb = val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('mbr.scoped','analist',wachtwoord_hash('test-recept'))")
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mbr.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        con.execute("SET LOCAL ROLE mes_app")
+        def mbr_denied(label, sql, params=(), msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT mbr_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT mbr_guard")
+            con.execute("RELEASE SAVEPOINT mbr_guard")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        mbr_denied("#110 recept zonder bewijs geweigerd","SELECT recipe_list(%s)",(pa,),"Geldig persoonlijk")
+        proof = val("SELECT session_proof FROM execution_session_login('mbr.scoped','test-recept',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        ra = val("SELECT recipe_create(%s,'MBR-A','Fictief A','')",(pa,))
+        rb = val("SELECT recipe_create(%s,'MBR-B','Fictief B','')",(pa,))
+        v = val("SELECT recipe_create_next_version(%s,1,'Fictief A2','')",(ra,))
+        data = val("SELECT recipe_list(%s)",(pa,))
+        check("#110 meerdere MBR's per product",len(data)==2 and ra!=rb)
+        versions = next(r["versions"] for r in data if r["id"]==str(ra))
+        check("#110 gescheiden revisiehistorie en actor",[x["revision"] for x in versions]==[1,2] and all(x["created_by"]==str(actor) for x in versions) and versions[1]["id"]==str(v))
+        mbr_denied("#110 andere productscope lezen","SELECT recipe_list(%s)",(pb,))
+        mbr_denied("#110 andere productscope schrijven","SELECT recipe_create(%s,'NO','Geen','')",(pb,))
+        mbr_denied("#110 dubbele receptcode","SELECT recipe_create(%s,'MBR-A','Dubbel','')",(pa,),"duplicate")
+        mbr_denied("#110 stale revisie","SELECT recipe_create_next_version(%s,1,'Oud','')",(ra,),"revisie is gewijzigd")
+        mbr_denied("#110 atomaire eerste versie","SELECT recipe_create(%s,'BAD','','')",(pa,),"check")
+        check("#110 geen halve MBR",len(val("SELECT recipe_list(%s)",(pa,)))==2)
+        check("#110 conceptwijziging telt op",val("SELECT recipe_update_draft(%s,0,'Fictief gewijzigd','Nieuwe inhoud')",(v,))==1)
+        mbr_denied("#110 stale conceptwijziging","SELECT recipe_update_draft(%s,0,'Oud','')",(v,),"ondertussen gewijzigd")
+        mbr_denied("#110 ongeldige conceptnaam","SELECT recipe_update_draft(%s,1,'','')",(v,),"check")
+        versions = next(r["versions"] for r in val("SELECT recipe_list(%s)",(pa,)) if r["id"]==str(ra))
+        check("#110 conceptinhoud en eerdere revisie behouden",versions[0]["name"]=="Fictief A" and versions[1]["name"]=="Fictief gewijzigd" and versions[1]["change_no"]==1)
+        check("#110 persoonlijke audit voor conceptwijziging",val("SELECT count(*) FROM config_log WHERE tabel='master_recipe_version' AND record_id=%s AND actie='UPDATE' AND actor_origin='personal' AND actor_user_id=%s AND oud->>'name'='Fictief A2' AND nieuw->>'name'='Fictief gewijzigd'",(v,actor))==1)
+        mbr_denied("#110 directe conceptwrite","UPDATE master_recipe_version SET name='Direct' WHERE false",msg="permission denied")
+        mbr_denied("#110 directe tabelwrite","INSERT INTO master_recipe DEFAULT VALUES",msg="permission denied")
+        mbr_denied("#110 interne helper","SELECT recipe_draft_actor(%s)",(pa,),"permission denied")
+        con.execute("RESET ROLE")
+        mbr_denied("#110 onveranderlijke productkoppeling","UPDATE master_recipe SET product_id=%s WHERE id=%s",(pb,ra),"onveranderlijk")
+        mbr_denied("#110 onveranderlijke versie-identiteit","UPDATE master_recipe_version SET revision=5 WHERE id=%s",(v,),"onveranderlijk")
+        mbr_denied("#110 versie verwijderen","DELETE FROM master_recipe_version WHERE id=%s",(v,),"niet worden verwijderd")
+        for tabel in ("master_recipe","master_recipe_version"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#110 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    print("\n#103/110 procedurehiërarchie en afhankelijkheden")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        pa = val("SELECT id FROM product WHERE code='PRD-A'")
+        rid = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PROC-TEST',%s) RETURNING id",(pa,actor))
+        v1 = val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Procedure test',%s) RETURNING id",(rid,actor))
+        v2 = val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,2,'Procedure test 2',%s) RETURNING id",(rid,actor))
+        def elem(v, parent, pk, kind, code, pos, required=True):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,parent_id,parent_kind,kind,code,name,position,required) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",(v,parent,pk,kind,code,code,pos,required))
+        root = elem(v1,None,None,"procedure","ROOT",1)
+        unit = elem(v1,root,"procedure","unit_procedure","UP",1)
+        op = elem(v1,unit,"unit_procedure","operation","OP",1)
+        p1 = elem(v1,op,"operation","phase","P1",1)
+        p2 = elem(v1,op,"operation","phase","P2",2,False)
+        root2 = elem(v2,None,None,"procedure","ROOT",1)
+        dep = val("INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s) RETURNING id",(v1,p1,p2))
+        check("#110 geldige vierlaagse boom en optionele handeling",bool(dep) and val("SELECT required FROM recipe_procedural_element WHERE id=%s",(p2,)) is False)
+        def proc_denied(label, sql, params=(), msg="check"):
+            con.execute("SAVEPOINT proc_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT proc_guard")
+            con.execute("RELEASE SAVEPOINT proc_guard")
+        proc_denied("#110 terugwaartse edge/cyclus geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p2,p1),"voorwaarts")
+        proc_denied("#110 edge over versiegrens geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p1,root2),"voorwaarts")
+        proc_denied("#110 edge over hiërarchiegroep geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,unit,p2),"voorwaarts")
+        proc_denied("#110 zelfverwijzing geweigerd","INSERT INTO recipe_dependency(recipe_version_id,predecessor_id,successor_id) VALUES (%s,%s,%s)",(v1,p1,p1),"voorwaarts")
+        proc_denied("#110 positie maakt edge ongeldig","UPDATE recipe_procedural_element SET position=3 WHERE id=%s",(p1,),"afhankelijkheid ongeldig")
+        proc_denied("#110 parent in andere versie","UPDATE recipe_procedural_element SET parent_id=%s WHERE id=%s",(root2,unit),"foreign key")
+        # Isoleer de parenttypeconstraint: geen bestaande edge op deze fixture.
+        standalone = elem(v1,op,"operation","phase","P3-PARENT-TEST",3)
+        proc_denied("#110 verkeerde parentsoort","UPDATE recipe_procedural_element SET parent_id=%s,parent_kind='procedure' WHERE id=%s",(root,standalone),"check")
+        check("#110 geweigerde parentwijziging behoudt oorspronkelijke relatie",val("SELECT parent_id FROM recipe_procedural_element WHERE id=%s",(standalone,))==op)
+        proc_denied("#110 dubbele root","INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT2','Dubbel',2)",(v1,),"duplicate")
+        proc_denied("#110 dubbele positie","UPDATE recipe_procedural_element SET position=1 WHERE id=%s",(p2,),"afhankelijkheid ongeldig")
+        proc_denied("#110 versie van element onveranderlijk","UPDATE recipe_procedural_element SET recipe_version_id=%s WHERE id=%s",(v2,p1),"onveranderlijk")
+        for tabel in ("recipe_procedural_element","recipe_dependency"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#110 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#110 persoonlijk procedurebeheer en gezamenlijke teller")
+    con.execute("BEGIN")
+    try:
+        pa = val("SELECT id FROM product WHERE code='PRD-A'")
+        pb = val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('proc.scoped','analist',wachtwoord_hash('test-proc'))")
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='proc.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        other = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PROC-OTHER',%s) RETURNING id",(pb,actor))
+        other_version = val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Other',%s) RETURNING id",(other,actor))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof = val("SELECT session_proof FROM execution_session_login('proc.scoped','test-proc',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        rid = val("SELECT recipe_create(%s,'PROC-MANAGE','Fictief','')",(pa,))
+        version = next(r["versions"][0]["id"] for r in val("SELECT recipe_list(%s)",(pa,)) if r["id"]==str(rid))
+        def denied(label,sql,params=(),msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT proc_manage")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT proc_manage")
+            con.execute("RELEASE SAVEPOINT proc_manage")
+        def save(n,parent,kind,code,pos,required=True,element=None):
+            return val("SELECT recipe_save_element(%s,%s,%s,%s,%s,%s,%s,%s,%s)",(version,n,element,parent,kind,code,code,pos,required))
+        denied("#110 procedure andere productscope","SELECT recipe_procedure_list(%s)",(other_version,))
+        denied("#110 procedurewrite andere productscope","SELECT recipe_save_element(%s,0,NULL,NULL,'procedure','NO','NO',1,true)",(other_version,))
+        root = save(0,None,"procedure","ROOT",1)
+        unit = save(1,root["id"],"unit_procedure","UP",1)
+        op = save(2,unit["id"],"operation","OP",1)
+        first = save(3,op["id"],"phase","P1",1)
+        second = save(4,op["id"],"phase","P2",2,False)
+        check("#110 procedurewijzigingen tellen gezamenlijk",second["change_no"]==5)
+        denied("#110 stale header na kindwijziging","SELECT recipe_update_draft(%s,0,'Oud','')",(version,),"ondertussen gewijzigd")
+        denied("#110 stale procedurewijziging","SELECT recipe_save_element(%s,4,NULL,NULL,'procedure','OLD','OLD',1,true)",(version,),"ondertussen gewijzigd")
+        dep = val("SELECT recipe_add_dependency(%s,5,%s,%s)",(version,first["id"],second["id"]))
+        check("#110 edge verhoogt teller",dep["change_no"]==6)
+        denied("#110 ongeldige edge zonder tellerwijziging","SELECT recipe_add_dependency(%s,6,%s,%s)",(version,second["id"],first["id"]),"voorwaarts")
+        denied("#110 element met edge niet verwijderen","SELECT recipe_delete_element(%s,6,%s)",(version,first["id"]),"foreign key")
+        check("#110 mislukte operatie atomair",val("SELECT recipe_procedure_list(%s)",(version,))["change_no"]==6)
+        changed = save(6,op["id"],"phase","P2-EDIT",2,False,second["id"])
+        check("#110 stabiele identiteit bij edit",changed["id"]==second["id"] and changed["change_no"]==7)
+        check("#110 edge verwijderen",val("SELECT recipe_delete_dependency(%s,7,%s)",(version,dep["id"]))==8)
+        check("#110 element verwijderen",val("SELECT recipe_delete_element(%s,8,%s)",(version,second["id"]))==9)
+        data=val("SELECT recipe_procedure_list(%s)",(version,))
+        check("#110 consistente boom en teller",data["change_no"]==9 and len(data["elements"])==4 and not data["dependencies"])
+        check("#110 persoonlijke delete-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_procedural_element' AND record_id=%s AND actie='DELETE' AND actor_user_id=%s AND actor_origin='personal' AND oud->>'code'='P2-EDIT' AND nieuw IS NULL",(second["id"],actor))==1)
+        denied("#110 interne lock niet uitvoerbaar","SELECT recipe_lock_draft(%s,9)",(version,),"permission denied")
+        denied("#110 directe procedurewrite geweigerd","DELETE FROM recipe_procedural_element WHERE false",msg="permission denied")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    print("\n#111 versiegebonden parameters en vijf voorwaarden")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product = val("SELECT id FROM product WHERE code='PRD-A'")
+        recipe = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PARAM-TEST',%s) RETURNING id",(product,actor))
+        def version(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Param test',%s) RETURNING id",(recipe,n,actor))
+        v1,v2 = version(1),version(2)
+        def root(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2 = root(v1),root(v2)
+        def param(v,e,code,typ,unit=None):
+            return val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,%s,%s,%s,%s,'per batch',true,'productie',true) RETURNING id",(v,e,code,code,typ,unit))
+        p1=param(v1,e1,"TEMP","decimal","degC")
+        p2=param(v2,e2,"TEMP","decimal","degC")
+        pi=param(v1,e1,"COUNT","integer","count")
+        pt=param(v1,e1,"NOTE","text")
+        def limit(v,p,typ,cat,target=None,lo=None,hi=None):
+            return val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value,lower_value,upper_value) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",(v,p,typ,cat,target,lo,hi))
+        limit(v1,p1,"decimal","target",90)
+        limit(v1,p1,"decimal","operating_tolerance",None,88,92)
+        limit(v1,p1,"decimal","process_limit",None,85,95)
+        limit(v1,p1,"decimal","specification_limit",None,82,98)
+        limit(v1,p1,"decimal","statistical_control_limit",None,87,93)
+        limit(v2,p2,"decimal","target",92)
+        limit(v1,pi,"integer","process_limit",None,0,None)
+        check("#111 vijf onafhankelijke categorieën",val("SELECT count(*) FROM recipe_parameter_limit WHERE parameter_id=%s",(p1,))==5)
+        check("#111 zelfde parametercode afzonderlijk per revisie",val("SELECT target_value FROM recipe_parameter_limit WHERE parameter_id=%s AND category='target'",(p2,))==92)
+        check("#111 eenzijdige limiet",val("SELECT upper_value IS NULL FROM recipe_parameter_limit WHERE parameter_id=%s",(pi,)))
+        def rejected(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT parameter_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT parameter_guard")
+            con.execute("RELEASE SAVEPOINT parameter_guard")
+        insert_limit="INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value,lower_value,upper_value) VALUES (%s,%s,%s,%s,%s,%s,%s)"
+        rejected("#111 verkeerde versiegrens",insert_limit,(v2,p1,"decimal","target",1,None,None),"foreign key")
+        rejected("#111 tekstparameter geen numerieke grenzen",insert_limit,(v1,pt,"decimal","target",1,None,None),"foreign key")
+        rejected("#111 integer geen fractioneel doel",insert_limit,(v1,pi,"integer","target",1.5,None,None))
+        rejected("#111 doel vereist afzonderlijke waarde",insert_limit,(v1,pi,"integer","target",None,1,2))
+        rejected("#111 lege grens",insert_limit,(v1,pi,"integer","specification_limit",None,None,None))
+        rejected("#111 omgekeerde grenzen",insert_limit,(v1,pi,"integer","specification_limit",None,5,2))
+        rejected("#111 niet-eindig getal",insert_limit,(v1,pi,"integer","target","NaN",None,None))
+        rejected("#111 dubbele categorie",insert_limit,(v1,p1,"decimal","target",90,None,None),"duplicate")
+        rejected("#111 procedure uit andere revisie","UPDATE recipe_parameter SET procedural_element_id=%s WHERE id=%s",(e2,p1),"foreign key")
+        rejected("#111 eenheid niet stilzwijgend wijzigen","UPDATE recipe_parameter SET unit='K' WHERE id=%s",(p1,),"eenheidswijziging")
+        rejected("#111 datatype niet stilzwijgend wijzigen","UPDATE recipe_parameter SET data_type='integer' WHERE id=%s",(p1,),"foreign key")
+        rejected("#111 procedure met parameter niet verwijderen","DELETE FROM recipe_procedural_element WHERE id=%s",(e1,),"foreign key")
+        rejected("#111 parameter met voorwaarden niet verwijderen","DELETE FROM recipe_parameter WHERE id=%s",(p1,),"foreign key")
+        for tabel in ("recipe_parameter","recipe_parameter_limit"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#111 referentieformule en expliciete schaalregels")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product = val("SELECT id FROM product WHERE code='PRD-A'")
+        recipe = val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'FORMULA-TEST',%s) RETURNING id",(product,actor))
+        def fv(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Formula test',%s) RETURNING id",(recipe,n,actor))
+        v1,v2 = fv(1),fv(2)
+        def fe(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2=fe(v1),fe(v2)
+        mid=val("INSERT INTO material_definition(code) VALUES ('FORMULA-MAT') RETURNING id")
+        mv=val("INSERT INTO material_definition_version(material_definition_id,revision,name,unit,created_by) VALUES (%s,1,'Fictief','kg',%s) RETURNING id",(mid,actor))
+        unknown=val("INSERT INTO material_definition_version(material_definition_id,revision,name,created_by) VALUES (%s,2,'Onbekend',%s) RETURNING id",(mid,actor))
+        form=val("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,1000,'kg') RETURNING id",(v1,))
+        form2=val("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,2000,'kg') RETURNING id",(v2,))
+        req_sql="INSERT INTO recipe_material_requirement(recipe_version_id,formula_id,procedural_element_id,material_version_id,code,direction,quantity,unit,scaling) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        con.execute(req_sql,(v1,form,e1,mv,"INPUT","input",600,"kg","linear"))
+        con.execute(req_sql,(v1,form,None,mv,"OUTPUT","output",500,"kg","fixed"))
+        check("#111 vaste en lineaire hoeveelheden afzonderlijk",val("SELECT count(DISTINCT scaling) FROM recipe_material_requirement WHERE formula_id=%s",(form,))==2)
+        check("#111 verwijzing naar exacte materiaalversie",val("SELECT count(*) FROM recipe_material_requirement WHERE formula_id=%s AND material_version_id=%s",(form,mv))==2)
+        def fp(v,e):
+            return val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'TEMP','Temp','decimal','degC','per batch',true,'productie',true) RETURNING id",(v,e))
+        p1,p2=fp(v1,e1),fp(v2,e2)
+        target=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value) VALUES (%s,%s,'decimal','target',90) RETURNING id",(v1,p1))
+        check("#111 standaard vaste parameterwaarde",val("SELECT scaling FROM recipe_parameter_limit WHERE id=%s",(target,))=="fixed")
+        con.execute("UPDATE recipe_parameter_limit SET scaling='linear' WHERE id=%s",(target,))
+        check("#111 expliciete schaalkeuze",val("SELECT scaling FROM recipe_parameter_limit WHERE id=%s",(target,))=="linear")
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT formula_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT formula_guard")
+            con.execute("RELEASE SAVEPOINT formula_guard")
+        denied("#111 verkeerde formuleversie",req_sql,(v1,form2,e1,mv,"BAD1","input",1,"kg","fixed"),"foreign key")
+        denied("#111 verkeerde procedureversie",req_sql,(v1,form,e2,mv,"BAD2","input",1,"kg","fixed"),"foreign key")
+        denied("#111 verkeerde materiaaleenheid",req_sql,(v1,form,e1,mv,"BAD3","input",1,"g","fixed"),"Materiaaleenheid")
+        denied("#111 onbekende materiaaleenheid",req_sql,(v1,form,e1,unknown,"BAD4","input",1,"kg","fixed"),"Materiaaleenheid")
+        denied("#111 negatieve hoeveelheid",req_sql,(v1,form,e1,mv,"BAD5","input",-1,"kg","fixed"))
+        denied("#111 niet-eindige hoeveelheid",req_sql,(v1,form,e1,mv,"BAD6","input","Infinity","kg","fixed"))
+        denied("#111 onbekende schaalregel",req_sql,(v1,form,e1,mv,"BAD7","input",1,"kg","auto"))
+        denied("#111 referentie niet stilzwijgend wijzigen","UPDATE recipe_formula SET reference_quantity=500 WHERE id=%s",(form,),"Herdefinieer eerst")
+        denied("#111 referentie niet stilzwijgend hernoemen","UPDATE recipe_formula SET reference_unit='g' WHERE id=%s",(form,),"Herdefinieer eerst")
+        denied("#111 dubbele formule","INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,100,'kg')",(v1,),"duplicate")
+        denied("#111 negatieve referentie","UPDATE recipe_formula SET reference_quantity=-1 WHERE id=%s",(form2,))
+        con.execute("DELETE FROM recipe_formula WHERE id=%s",(form2,))
+        denied("#111 schalen zonder referentie","INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value,scaling) VALUES (%s,%s,'decimal','target',90,'linear')",(v2,p2),"referentieformule")
+        denied("#111 formule met schaalvoorwaarde niet verwijderen","DELETE FROM recipe_formula WHERE id=%s",(form,),"referentieformule")
+        for tabel in ("recipe_formula","recipe_material_requirement"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#141 eenheden, dimensies en onveranderlijke conversieversies")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        mass = val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        temp = val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,0,0,0,1,0,0) RETURNING id")
+        def qkind(dim,code,sem):
+            return val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,%s,%s,%s) RETURNING id",(dim,code,code,sem))
+        qm=qkind(mass,"MASS","ratio")
+        qt=qkind(temp,"TEMP_ABS","absolute")
+        qd=qkind(temp,"TEMP_DELTA","difference")
+        def unit(q,code,symbol):
+            return val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,%s,%s,%s) RETURNING id",(q,code,symbol,code))
+        kg,g=unit(qm,"KG","kg"),unit(qm,"G","g")
+        c,k=unit(qt,"CELSIUS_ABS","degC"),unit(qt,"KELVIN_ABS","K")
+        dc,dk=unit(qd,"CELSIUS_DELTA","delta_degC"),unit(qd,"KELVIN_DELTA","delta_K")
+        def conversion(q,a,b):
+            return val("INSERT INTO unit_conversion(quantity_kind_id,from_unit_id,to_unit_id) VALUES (%s,%s,%s) RETURNING id",(q,a,b))
+        cm,ct,cd=conversion(qm,kg,g),conversion(qt,c,k),conversion(qd,dc,dk)
+        version_sql="INSERT INTO unit_conversion_version(conversion_id,quantity_kind_id,value_semantics,revision,factor_numerator,factor_denominator,additive_offset,source_reference,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,'fictieve testdefinitie',%s)"
+        con.execute(version_sql,(cm,qm,"ratio",1,1000,1,0,actor))
+        con.execute(version_sql,(ct,qt,"absolute",1,1,1,273.15,actor))
+        con.execute(version_sql,(cd,qd,"difference",1,1,1,0,actor))
+        con.execute(version_sql,(cm,qm,"ratio",2,1000,1,0,actor))
+        check("#141 revisies naast elkaar behouden",val("SELECT count(*) FROM unit_conversion_version WHERE conversion_id=%s",(cm,))==2)
+        check("#141 absolute en verschiltemperatuur zelfde dimensie, aparte grootheid",val("SELECT count(*) FROM quantity_kind WHERE dimension_id=%s",(temp,))==2)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT unit_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT unit_guard")
+            con.execute("RELEASE SAVEPOINT unit_guard")
+        conv_sql="INSERT INTO unit_conversion(quantity_kind_id,from_unit_id,to_unit_id) VALUES (%s,%s,%s)"
+        denied("#141 verschillende dimensies niet direct converteren",conv_sql,(qm,kg,k),"foreign key")
+        denied("#141 absolute en verschiltemperatuur niet direct converteren",conv_sql,(qt,c,dk),"foreign key")
+        denied("#141 offset bij verschiltemperatuur geweigerd",version_sql,(cd,qd,"difference",2,1,1,273.15,actor))
+        denied("#141 offset bij ratio geweigerd",version_sql,(cm,qm,"ratio",3,1,1,1,actor))
+        denied("#141 nulnoemer geweigerd",version_sql,(cm,qm,"ratio",3,1,0,0,actor))
+        denied("#141 niet-eindige factor geweigerd",version_sql,(cm,qm,"ratio",3,"Infinity",1,0,actor))
+        denied("#141 verkeerde semantiek geweigerd",version_sql,(cm,qm,"absolute",3,1,1,0,actor),"foreign key")
+        denied("#141 dubbele revisie geweigerd",version_sql,(cm,qm,"ratio",1,1000,1,0,actor),"duplicate")
+        denied("#141 conversieversie niet aanpassen","UPDATE unit_conversion_version SET factor_numerator=2 WHERE conversion_id=%s AND revision=1",(cm,),"onveranderlijk")
+        denied("#141 eenheid niet aanpassen","UPDATE measurement_unit SET symbol='wrong' WHERE id=%s",(kg,),"onveranderlijk")
+        denied("#141 grootheid niet verwijderen","DELETE FROM quantity_kind WHERE id=%s",(qt,),"onveranderlijk")
+        mid=val("INSERT INTO material_definition(code) VALUES ('UNIT-MAT-TEST') RETURNING id")
+        mv=val("INSERT INTO material_definition_version(material_definition_id,revision,name,unit,measurement_unit_id,created_by) VALUES (%s,1,'Fictief','kg',%s,%s) RETURNING id",(mid,kg,actor))
+        denied("#141 afwijkende eenheidstekst","INSERT INTO material_definition_version(material_definition_id,revision,name,unit,measurement_unit_id,created_by) VALUES (%s,2,'Fictief','g',%s,%s)",(mid,kg,actor),"Eenheidstekst")
+        check("#141 materiaalversie expliciet gekoppeld",val("SELECT measurement_unit_id FROM material_definition_version WHERE id=%s",(mv,))==kg)
+        for tabel in ("quantity_dimension","quantity_kind","measurement_unit","unit_conversion","unit_conversion_version"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#141 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#141 getypeerde schaalregelgrafiek")
+    con.execute("BEGIN")
+    try:
+        actor = val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product = val("SELECT id FROM product WHERE code='PRD-A'")
+        dim = val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        q = val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'SCALE-MASS','Testmassa','ratio') RETURNING id",(dim,))
+        def su(code,symbol):
+            return val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,%s,%s,%s) RETURNING id",(q,code,symbol,code))
+        kg,g=su("SCALE-KG","kg"),su("SCALE-G","g")
+        cv=val("INSERT INTO unit_conversion(quantity_kind_id,from_unit_id,to_unit_id) VALUES (%s,%s,%s) RETURNING id",(q,kg,g))
+        cvv=val("INSERT INTO unit_conversion_version(conversion_id,quantity_kind_id,value_semantics,revision,factor_numerator,factor_denominator,additive_offset,source_reference,created_by) VALUES (%s,%s,'ratio',1,1000,1,0,'test',%s) RETURNING id",(cv,q,actor))
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'SCALING-TEST',%s) RETURNING id",(product,actor))
+        def sv(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Scale test',%s) RETURNING id",(rid,n,actor))
+        v1,v2=sv(1),sv(2)
+        def se(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2=se(v1),se(v2)
+        form=val("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit,reference_unit_id) VALUES (%s,1000,'kg',%s) RETURNING id",(v1,kg))
+        def sp(v,e,code):
+            p=val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical,measurement_unit_id) VALUES (%s,%s,%s,%s,'decimal','kg','per batch',true,'productie',true,%s) RETURNING id",(v,e,code,code,kg))
+            l=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,target_value) VALUES (%s,%s,'decimal','target',10) RETURNING id",(v,p))
+            return p,l
+        pa,la=sp(v1,e1,"A")
+        pb,lb=sp(v1,e1,"B")
+        pc,lc=sp(v2,e2,"C")
+        def sr(v,code,unit=kg):
+            return val("INSERT INTO recipe_scaling_rule(recipe_version_id,code,description,rule_kind,output_unit_id,source_reference,applicability) VALUES (%s,%s,'Fictieve definitie','parameter_dependent',%s,'test','testbereik') RETURNING id",(v,code,unit))
+        ra,rb=sr(v1,"RA"),sr(v1,"RB")
+        wrong=sr(v1,"WRONG",g)
+        bind_sql="INSERT INTO recipe_scaling_binding(recipe_version_id,rule_id,parameter_limit_id) VALUES (%s,%s,%s)"
+        con.execute(bind_sql,(v1,ra,la))
+        con.execute(bind_sql,(v1,rb,lb))
+        input_sql="INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,parameter_id,unit_id,conversion_version_id) VALUES (%s,%s,%s,%s,%s,%s,%s)"
+        con.execute(input_sql,(v1,ra,"BATCH","batch_quantity",None,g,cvv))
+        con.execute(input_sql,(v1,rb,"SOURCE-A","parameter",pa,kg,None))
+        check("#141 expliciete conversieversie en invoer behouden",val("SELECT count(*) FROM recipe_scaling_input WHERE rule_id=%s AND conversion_version_id=%s",(ra,cvv))==1)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT scale_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT scale_guard")
+            con.execute("RELEASE SAVEPOINT scale_guard")
+        denied("#141 cyclus tussen regels",input_sql,(v1,ra,"SOURCE-B","parameter",pb,kg,None),"Circulaire")
+        denied("#141 zelfafhankelijkheid",input_sql,(v1,ra,"SELF","parameter",pa,kg,None),"Circulaire")
+        denied("#141 invoer andere versie",input_sql,(v1,ra,"OTHER","parameter",pc,kg,None),"bekende numerieke bron")
+        denied("#141 conversie niet impliciet",input_sql,(v1,ra,"NO-CONV","batch_quantity",None,g,None),"Expliciete conversieversie")
+        denied("#141 conversie verkeerde richting",input_sql,(v1,ra,"BAD-CONV","batch_quantity",None,kg,cvv),"past niet")
+        denied("#141 doel andere versie",bind_sql,(v1,wrong,lc),"dezelfde bekende cataloguseenheid")
+        denied("#141 uitvoereenheid wijzigen","UPDATE recipe_scaling_rule SET output_unit_id=%s WHERE id=%s",(g,ra),"uitvoerkoppelingen")
+        denied("#141 referentiebron niet stilzwijgend aanpassen","UPDATE recipe_formula SET reference_quantity=2000 WHERE id=%s",(form,),"schaalinvoer")
+        denied("#141 gebruikte parameter niet verwijderen","DELETE FROM recipe_parameter WHERE id=%s",(pa,),"foreign key")
+        check("#141 geweigerde cycli wijzigen grafiek niet",val("SELECT count(*) FROM recipe_scaling_input WHERE recipe_version_id=%s",(v1,))==2)
+        for tabel in ("recipe_scaling_rule","recipe_scaling_input","recipe_scaling_binding"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#141 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#111 middelenvereisten, instructies en specificaties")
+    con.execute("BEGIN")
+    try:
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product=val("SELECT id FROM product WHERE code='PRD-A'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'REQUIREMENTS-TEST',%s) RETURNING id",(product,actor))
+        def rv(n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Requirements test',%s) RETURNING id",(rid,n,actor))
+        v1,v2=rv(1),rv(2)
+        def re(v):
+            return val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        e1,e2=re(v1),re(v2)
+        con.execute("INSERT INTO qualification(code,description) VALUES ('recipe_test_training','Fictieve recepttraining')")
+        eqsql="INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,description,required_count) VALUES (%s,%s,%s,'MIXER','Fictief mengvat',%s)"
+        con.execute(eqsql,(v1,e1,"EQ",1))
+        persql="INSERT INTO recipe_personnel_requirement(recipe_version_id,procedural_element_id,code,qualification_code,qualification_description,required_count) VALUES (%s,%s,%s,%s,%s,%s)"
+        con.execute(persql,(v1,e1,"PERSON","recipe_test_training","Fictieve recepttraining",2))
+        insql="INSERT INTO recipe_instruction(recipe_version_id,procedural_element_id,code,position,instruction_text,confirmation_required) VALUES (%s,%s,%s,%s,%s,%s)"
+        con.execute(insql,(v1,e1,"I1",1,"Controleer fictieve werkopdracht",True))
+        con.execute(insql,(v1,e1,"I2",2,"Lees fictieve toelichting",False))
+        def rp(v,e):
+            p=val("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'Q','Quality','decimal','kg','per batch',true,'kwaliteit',true) RETURNING id",(v,e))
+            spec=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,lower_value,upper_value) VALUES (%s,%s,'decimal','specification_limit',1,2) RETURNING id",(v,p))
+            proc=val("INSERT INTO recipe_parameter_limit(recipe_version_id,parameter_id,data_type,category,lower_value,upper_value) VALUES (%s,%s,'decimal','process_limit',0,3) RETURNING id",(v,p))
+            return spec,proc
+        s1,p1=rp(v1,e1)
+        s2,p2=rp(v2,e2)
+        specsql="INSERT INTO recipe_specification_link(recipe_version_id,parameter_limit_id,code,description) VALUES (%s,%s,%s,'Fictieve kwaliteitseis')"
+        con.execute(specsql,(v1,s1,"SPEC"))
+        check("#111 equipmentvereiste vastgelegd",val("SELECT required_count FROM recipe_equipment_requirement WHERE recipe_version_id=%s",(v1,))==1)
+        check("#111 kwalificatievereiste zonder toekenning",val("SELECT count(*) FROM personnel_qualification WHERE qualification_code='recipe_test_training'")==0)
+        check("#111 instructies aparte bevestigingsplicht",val("SELECT count(*) FROM recipe_instruction WHERE recipe_version_id=%s AND confirmation_required",(v1,))==1)
+        def denied(label,sql,params=(),msg="check"):
+            con.execute("SAVEPOINT requirement_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT requirement_guard")
+            con.execute("RELEASE SAVEPOINT requirement_guard")
+        denied("#111 equipmentvereiste verkeerde versie",eqsql,(v1,e2,"BAD",1),"foreign key")
+        denied("#111 nul middelen",eqsql,(v1,e1,"BAD",0))
+        denied("#111 capaciteit zonder eenheid","UPDATE recipe_equipment_requirement SET minimum_capacity=100 WHERE recipe_version_id=%s",(v1,))
+        denied("#111 onbekende kwalificatie",persql,(v1,e1,"BAD","unknown_recipe_training","Onbekend",1),"exacte bekende")
+        denied("#111 afwijkende kwalificatieomschrijving",persql,(v1,e1,"BAD","recipe_test_training","Onjuist",1),"exacte bekende")
+        denied("#111 dubbele instructiepositie",insql,(v1,e1,"BAD",1,"Fictief",True),"duplicate")
+        denied("#111 lege instructie",insql,(v1,e1,"BAD",3,"  ",True))
+        denied("#111 andere versie specificatie",specsql,(v1,s2,"BAD"),"dezelfde receptversie")
+        denied("#111 procesgrens geen specificatie",specsql,(v1,p1,"BAD"),"specificatiegrens")
+        denied("#111 gekoppelde categorie niet wijzigen","UPDATE recipe_parameter_limit SET category='operating_tolerance' WHERE id=%s",(s1,),"specificatiegrens")
+        denied("#111 gekoppelde specificatie niet verwijderen","DELETE FROM recipe_parameter_limit WHERE id=%s",(s1,),"foreign key")
+        for tabel in ("recipe_equipment_requirement","recipe_personnel_requirement","recipe_instruction","recipe_specification_link"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#111 lotnorm en expliciete receptincompatibiliteit")
+    con.execute("BEGIN")
+    try:
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        product=val("SELECT id FROM product WHERE code='PRD-A'")
+        other_product=val("SELECT id FROM product WHERE id<>%s ORDER BY id LIMIT 1",(product,))
+        def lr(p,code):
+            return val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(p,code,actor))
+        r1,r2,r3=lr(product,"LOT-RULE-A"),lr(product,"LOT-RULE-B"),lr(other_product,"LOT-RULE-C")
+        def lv(r,n):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Lot rule test',%s) RETURNING id",(r,n,actor))
+        v1,v2,v3,v4,v5=lv(r1,1),lv(r1,2),lv(r2,1),lv(r3,1),lv(r1,3)
+        lsql="INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,%s,%s)"
+        con.execute(lsql,(v1,4,True))
+        con.execute(lsql,(v2,6,False))
+        con.execute(lsql,(v3,1,True))
+        con.execute(lsql,(v5,50,True))
+        check("#111 verschillende lotnormen binnen product",val("SELECT count(DISTINCT nominal_batch_count) FROM recipe_lot_rule WHERE recipe_version_id IN (%s,%s)",(v1,v2))==2)
+        check("#111 reden altijd vereist",val("SELECT bool_and(deviation_reason_required) FROM recipe_lot_rule WHERE recipe_version_id IN (%s,%s)",(v1,v2)))
+        check("#111 goedkeuring per recept",val("SELECT deviation_approval_required FROM recipe_lot_rule WHERE recipe_version_id=%s",(v1,)) and not val("SELECT deviation_approval_required FROM recipe_lot_rule WHERE recipe_version_id=%s",(v2,)))
+        csql="INSERT INTO recipe_compatibility_rule(recipe_version_id,other_recipe_version_id,reason) VALUES (%s,%s,%s)"
+        con.execute(csql,(v2,v1,"Fictief verschil in materiaalvereiste"))
+        con.execute(csql,(v3,v2,"Fictief verschil tussen receptidentiteiten"))
+        check("#111 oudere revisie niet gemuteerd",val("SELECT count(*) FROM recipe_compatibility_rule WHERE recipe_version_id=%s",(v1,))==0)
+        check("#111 expliciet verbod tussen receptidentiteiten van hetzelfde product",val("SELECT count(*) FROM recipe_compatibility_rule WHERE recipe_version_id=%s AND other_recipe_version_id=%s",(v3,v2))==1)
+        check("#111 geen impliciet verbod tussen overige revisies",val("SELECT count(*) FROM recipe_compatibility_rule WHERE (recipe_version_id=%s AND other_recipe_version_id=%s) OR (recipe_version_id=%s AND other_recipe_version_id=%s)",(v1,v3,v3,v1))==0)
+        def denied(label,sql,params=(),msg="check",sqlstate=None):
+            con.execute("SAVEPOINT lot_rule_guard")
+            faalt(label,sql,params,msg,sqlstate)
+            con.execute("ROLLBACK TO SAVEPOINT lot_rule_guard")
+            con.execute("RELEASE SAVEPOINT lot_rule_guard")
+        denied("#111 nul batches",lsql,(v4,0,True))
+        denied("#111 norm groter dan 50",lsql,(v4,51,True))
+        denied("#111 dubbele lotnorm",lsql,(v1,5,True),"duplicate")
+        denied("#111 afwijkingsreden niet uitzetten","UPDATE recipe_lot_rule SET deviation_reason_required=false WHERE recipe_version_id=%s",(v1,))
+        denied("#111 lotregel niet verplaatsen","UPDATE recipe_lot_rule SET recipe_version_id=%s WHERE recipe_version_id=%s",(v4,v1),"MBR-inhoud kan niet naar een andere versie worden verplaatst","55000")
+        check("#111 lotregel blijft bij oorspronkelijke versie",val("SELECT count(*) FROM recipe_lot_rule WHERE recipe_version_id=%s",(v1,))==1 and val("SELECT count(*) FROM recipe_lot_rule WHERE recipe_version_id=%s",(v4,))==0)
+        denied("#111 zelfincompatibiliteit",csql,(v1,v1,"Fictief"))
+        denied("#111 incompatibiliteit andere producten",csql,(v1,v4,"Fictief"),"hetzelfde product")
+        denied("#111 lege incompatibiliteitsreden",csql,(v1,v3," "))
+        denied("#111 dubbele incompatibiliteit",csql,(v2,v1,"Fictief"),"duplicate")
+        for tabel in ("recipe_lot_rule","recipe_compatibility_rule"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                check(f"#111 {tabel}: geen directe app-{privilege}",not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+tabel,privilege)))
+    finally:
+        con.execute("ROLLBACK")
+
+    print("\n#111 persoonlijk parameter- en formulebeheer")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('content.scoped','analist',wachtwoord_hash('test-content'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='content.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        other=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'CONTENT-OTHER',%s) RETURNING id",(pb,actor))
+        ov=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Other',%s) RETURNING id",(other,actor))
+        mid=val("INSERT INTO material_definition(code) VALUES ('CONTENT-MATERIAL') RETURNING id")
+        mv=val("INSERT INTO material_definition_version(material_definition_id,revision,name,unit,created_by) VALUES (%s,1,'Fictief','kg',%s) RETURNING id",(mid,actor))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('content.scoped','test-content',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        rid=val("SELECT recipe_create(%s,'CONTENT-MANAGE','Fictief','')",(pa,))
+        v=next(r["versions"][0]["id"] for r in val("SELECT recipe_list(%s)",(pa,)) if r["id"]==str(rid))
+        root=val("SELECT recipe_save_element(%s,0,NULL,NULL,'procedure','ROOT','Root',1,true)",(v,))["id"]
+        def denied(label,sql,params=(),msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT content_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT content_guard")
+            con.execute("RELEASE SAVEPOINT content_guard")
+        denied("#111 andere productscope lezen","SELECT recipe_content_list(%s)",(ov,))
+        denied("#111 andere productscope schrijven","SELECT recipe_save_formula(%s,0,NULL,1000,'kg',NULL)",(ov,))
+        p=val("SELECT recipe_save_parameter(%s,1,NULL,%s,'TEMP','Temperatuur','decimal','degC','per batch',true,'productie',true,NULL)",(v,root))
+        l=val("SELECT recipe_save_parameter_limit(%s,2,NULL,%s,'decimal','target',90,NULL,NULL,'fixed')",(v,p["id"]))
+        form=val("SELECT recipe_save_formula(%s,3,NULL,1000,'kg',NULL)",(v,))
+        mat=val("SELECT recipe_save_material_requirement(%s,4,NULL,%s,%s,%s,'INPUT','input',600,'kg','linear',NULL)",(v,form["id"],root,mv))
+        data=val("SELECT recipe_content_list(%s)",(v,))
+        check("#111 gezamenlijke teller en consistente inhoud",data["change_no"]==5 and len(data["parameters"])==1 and len(data["parameter_limits"])==1 and len(data["formulas"])==1 and len(data["material_requirements"])==1)
+        denied("#111 stale conceptheader","SELECT recipe_update_draft(%s,4,'Oud','')",(v,),"ondertussen gewijzigd")
+        denied("#111 foutieve parametergrens atomair","SELECT recipe_save_parameter_limit(%s,5,NULL,%s,'decimal','process_limit',NULL,99,80,'fixed')",(v,p["id"]),"check")
+        denied("#111 parameter met grens niet verwijderen","SELECT recipe_delete_parameter(%s,5,%s)",(v,p["id"]),"foreign key")
+        denied("#111 formule met materiaal niet verwijderen","SELECT recipe_delete_formula(%s,5,%s)",(v,form["id"]),"foreign key")
+        denied("#111 directe parameterwrite","DELETE FROM recipe_parameter WHERE false",msg="permission denied")
+        check("#111 afgewezen wijzigingen behouden teller",val("SELECT recipe_content_list(%s)",(v,))["change_no"]==5)
+        changed=val("SELECT recipe_save_parameter_limit(%s,5,%s,%s,'decimal','target',91,NULL,NULL,'fixed')",(v,l["id"],p["id"]))
+        check("#111 stabiele grensidentiteit",changed["id"]==l["id"] and changed["change_no"]==6)
+        check("#111 materiaal verwijderen",val("SELECT recipe_delete_material_requirement(%s,6,%s)",(v,mat["id"]))==7)
+        check("#111 formule verwijderen",val("SELECT recipe_delete_formula(%s,7,%s)",(v,form["id"]))==8)
+        check("#111 grens verwijderen",val("SELECT recipe_delete_parameter_limit(%s,8,%s)",(v,l["id"]))==9)
+        check("#111 parameter verwijderen",val("SELECT recipe_delete_parameter(%s,9,%s)",(v,p["id"]))==10)
+        check("#111 persoonlijke delete-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_parameter' AND record_id=%s AND actie='DELETE' AND actor_user_id=%s AND actor_origin='personal'",(p["id"],actor))==1)
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#111 ingetrokken receptbevoegdheid","SELECT recipe_content_list(%s)",(v,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    print("\n#111 persoonlijk beheer van receptvereisten en lotregels")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('requirements.scoped','analist',wachtwoord_hash('test-requirements'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='requirements.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        con.execute("INSERT INTO qualification(code,description) VALUES ('requirements_manage_training','Fictieve training')")
+        def version(product,code):
+            rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(product,code,actor))
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        v,compatible,other=version(pa,"REQ-MANAGE"),version(pa,"REQ-COMPARE"),version(pb,"REQ-OTHER")
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('requirements.scoped','test-requirements',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        root=val("SELECT recipe_save_element(%s,0,NULL,NULL,'procedure','ROOT','Root',1,true)",(v,))["id"]
+        p=val("SELECT recipe_save_parameter(%s,1,NULL,%s,'Q','Quality','decimal','kg','per batch',true,'kwaliteit',true,NULL)",(v,root))["id"]
+        limit=val("SELECT recipe_save_parameter_limit(%s,2,NULL,%s,'decimal','specification_limit',NULL,1,2,'fixed')",(v,p))["id"]
+        def denied(label,sql,params=(),msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT req_manage")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT req_manage")
+            con.execute("RELEASE SAVEPOINT req_manage")
+        denied("#111 vereisten lezen andere productscope","SELECT recipe_requirements_list(%s)",(other,))
+        denied("#111 lotregel andere productscope","SELECT recipe_save_lot_rule(%s,0,NULL,4,true)",(other,))
+        eq=val("SELECT recipe_save_equipment_requirement(%s,3,NULL,%s,'EQ','MIXER','Fictief',1,NULL,NULL)",(v,root))
+        per=val("SELECT recipe_save_personnel_requirement(%s,4,NULL,%s,'PERSON','requirements_manage_training',2)",(v,root))
+        ins=val("SELECT recipe_save_instruction(%s,5,NULL,%s,'I',1,'Fictieve instructie',true)",(v,root))
+        spec=val("SELECT recipe_save_specification_link(%s,6,NULL,%s,'S','Fictieve eis')",(v,limit))
+        lot=val("SELECT recipe_save_lot_rule(%s,7,NULL,6,true)",(v,))
+        comp=val("SELECT recipe_save_compatibility_rule(%s,8,NULL,%s,'Fictieve incompatibiliteit')",(v,compatible))
+        data=val("SELECT recipe_requirements_list(%s)",(v,))
+        check("#111 alle vereisten en gezamenlijke teller",data["change_no"]==9 and all(len(data[k])==1 for k in ("equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules")))
+        check("#111 kwalificatieomschrijving uit vertrouwde catalogus",data["personnel_requirements"][0]["qualification_description"]=="Fictieve training")
+        check("#111 redenplicht niet door client instelbaar",data["lot_rules"][0]["deviation_reason_required"] is True)
+        denied("#111 stale lotnorm","SELECT recipe_save_lot_rule(%s,8,%s,4,false)",(v,lot["id"]),"ondertussen gewijzigd")
+        denied("#111 ongeldige lotnorm","SELECT recipe_save_lot_rule(%s,9,%s,51,false)",(v,lot["id"]),"check")
+        denied("#111 andere productversie incompatibiliteit","SELECT recipe_save_compatibility_rule(%s,9,NULL,%s,'Fictief')",(v,other),"hetzelfde product")
+        denied("#111 onbekende kwalificatie","SELECT recipe_save_personnel_requirement(%s,9,NULL,%s,'BAD','missing_training',1)",(v,root),"Onbekende kwalificatie")
+        denied("#111 specificatiegrens met link niet verwijderen","SELECT recipe_delete_parameter_limit(%s,9,%s)",(v,limit),"foreign key")
+        denied("#111 directe lotwrite","DELETE FROM recipe_lot_rule WHERE false",msg="permission denied")
+        denied("#111 vreemd record niet verwijderen","SELECT recipe_delete_lot_rule(%s,0,%s)",(compatible,lot["id"]),"Onbekende receptinhoud")
+        check("#111 afgewezen vereistenmutaties atomair",val("SELECT recipe_requirements_list(%s)",(v,))["change_no"]==9)
+        changed=val("SELECT recipe_save_lot_rule(%s,9,%s,8,false)",(v,lot["id"]))
+        check("#111 lotregel stabiele identiteit",changed["id"]==lot["id"] and changed["change_no"]==10)
+        n=10
+        for kind,item in (("compatibility_rule",comp),("lot_rule",lot),("specification_link",spec),("instruction",ins),("personnel_requirement",per),("equipment_requirement",eq)):
+            n+=1
+            check("#111 verwijderen "+kind,val("SELECT recipe_delete_"+kind+"(%s,%s,%s)",(v,n-1,item["id"]))==n)
+        data=val("SELECT recipe_requirements_list(%s)",(v,))
+        check("#111 vereisten leeg na gecontroleerd verwijderen",data["change_no"]==16 and all(not data[k] for k in ("equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules")))
+        check("#111 persoonlijke lotregel-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_lot_rule' AND record_id=%s AND actie='DELETE' AND actor_user_id=%s AND actor_origin='personal'",(lot["id"],actor))==1)
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#111 ingetrokken bevoegdheid vereisten","SELECT recipe_requirements_list(%s)",(v,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#141 persoonlijk eenhedencatalogusbeheer")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('catalog.global','analist',wachtwoord_hash('test-catalog')),('catalog.scoped','analist',wachtwoord_hash('test-catalog'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='catalog.global'")
+        scoped=val("SELECT id FROM gebruiker WHERE gebruikersnaam='catalog.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',NULL),(%s,'process_engineer',%s)",(actor,scoped,pa))
+        con.execute("SET LOCAL ROLE mes_app")
+        def login(name):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-catalog',NULL)",(name,))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MES-materiaalbeheerbevoegdheid"):
+            con.execute("SAVEPOINT catalog_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT catalog_guard")
+            con.execute("RELEASE SAVEPOINT catalog_guard")
+        login("catalog.scoped")
+        denied("#141 productscope geen globaal catalogusbeheer","SELECT unit_catalog_list()")
+        denied("#141 productscope geen dimensiecreatie","SELECT unit_catalog_create_dimension(0::smallint,1::smallint,0::smallint,0::smallint,0::smallint,0::smallint,0::smallint)")
+        login("catalog.global")
+        dim=val("SELECT unit_catalog_create_dimension(0::smallint,1::smallint,0::smallint,0::smallint,0::smallint,0::smallint,0::smallint)")
+        kind=val("SELECT unit_catalog_create_kind(%s,'CAT_MASS','Massa','ratio')",(dim,))
+        kg=val("SELECT unit_catalog_create_unit(%s,'CAT_KG','kg','Kilogram')",(kind,))
+        g=val("SELECT unit_catalog_create_unit(%s,'CAT_G','g','Gram')",(kind,))
+        mg=val("SELECT unit_catalog_create_unit(%s,'CAT_MG','mg','Milligram')",(kind,))
+        c=val("SELECT unit_catalog_create_conversion(%s,%s,1000,1,0,'Fictieve bron')",(kg,g))
+        denied("#141 ongeldige conversie atomair","SELECT unit_catalog_create_conversion(%s,%s,1000,0,0,'Fictieve bron')",(g,mg),"check")
+        denied("#141 stale conversierevisie","SELECT unit_catalog_append_conversion(%s,0,1000,1,0,'Fictieve bron')",(c,),"revisie is gewijzigd")
+        denied("#141 ratio-offset geweigerd","SELECT unit_catalog_append_conversion(%s,1,1000,1,1,'Fictieve bron')",(c,),"check")
+        v2=val("SELECT unit_catalog_append_conversion(%s,1,1000,1,0,'Fictieve bron tweede versie')",(c,))
+        data=val("SELECT unit_catalog_list()")
+        versions=[x for x in data["versions"] if x["conversion_id"]==str(c)]
+        check("#141 exacte revisies en persoonlijke actor",[x["revision"] for x in versions]==[1,2] and all(x["created_by"]==str(actor) for x in versions))
+        check("#141 ongeldige identiteit niet opgeslagen",not any(x["from_unit_id"]==str(g) and x["to_unit_id"]==str(mg) for x in data["conversions"]))
+        denied("#141 directe catalogusmutatie","DELETE FROM measurement_unit WHERE false",msg="permission denied")
+        con.execute("RESET ROLE")
+        check("#141 persoonlijke conversie-audit",val("SELECT count(*) FROM config_log WHERE tabel='unit_conversion_version' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='INSERT'",(v2,actor))==1)
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#141 ingetrokken catalogusbevoegdheid","SELECT unit_catalog_list()")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#141 persoonlijk schaalregelconceptbeheer")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('scaling.scoped','analist',wachtwoord_hash('test-scaling'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='scaling.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        def version(product,code):
+            rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(product,code,actor))
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        v,other=version(pa,"SCALE-MANAGE"),version(pb,"SCALE-OTHER")
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'SCALE_MASS','Massa','ratio') RETURNING id",(dim,))
+        kg=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'SCALE_KG','kg','Kilogram') RETURNING id",(kind,))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('scaling.scoped','test-scaling',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MES-receptbevoegdheid"):
+            con.execute("SAVEPOINT scaling_manage")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT scaling_manage")
+            con.execute("RELEASE SAVEPOINT scaling_manage")
+        denied("#141 schaalregels andere productscope lezen","SELECT recipe_scaling_list(%s)",(other,))
+        denied("#141 schaalregels andere productscope schrijven","SELECT recipe_save_scaling_rule(%s,0,NULL,'R','Fictief','nonlinear',%s,'Bron','Test')",(other,kg))
+        root=val("SELECT recipe_save_element(%s,0,NULL,NULL,'procedure','ROOT','Root',1,true)",(v,))["id"]
+        p=val("SELECT recipe_save_parameter(%s,1,NULL,%s,'Q','Massa','decimal','kg','per batch',true,'productie',true,%s)",(v,root,kg))["id"]
+        limit=val("SELECT recipe_save_parameter_limit(%s,2,NULL,%s,'decimal','target',2,NULL,NULL,'fixed')",(v,p))["id"]
+        r=val("SELECT recipe_save_scaling_rule(%s,3,NULL,'R','Fictief','nonlinear',%s,'Bron','Test')",(v,kg))
+        i=val("SELECT recipe_save_scaling_input(%s,4,NULL,%s,'I','constant',NULL,NULL,2,%s,NULL)",(v,r["id"],kg))
+        b=val("SELECT recipe_save_scaling_binding(%s,5,NULL,%s,%s,NULL)",(v,r["id"],limit))
+        data=val("SELECT recipe_scaling_list(%s)",(v,))
+        check("#141 schaalregels en gedeelde teller",data["change_no"]==6 and all(len(data[k])==1 for k in ("rules","inputs","bindings")))
+        denied("#141 stale schaalregel","SELECT recipe_delete_scaling_binding(%s,5,%s)",(v,b["id"]),"ondertussen gewijzigd")
+        denied("#141 zelfafhankelijkheid via persoonlijke functie","SELECT recipe_save_scaling_input(%s,6,NULL,%s,'CYCLE','parameter',%s,NULL,NULL,%s,NULL)",(v,r["id"],p,kg),"Circulaire afhankelijkheid")
+        denied("#141 gebonden schaalregel niet verwijderen","SELECT recipe_delete_scaling_rule(%s,6,%s)",(v,r["id"]),"foreign key")
+        denied("#141 directe schaalregelmutatie","DELETE FROM recipe_scaling_rule WHERE false",msg="permission denied")
+        check("#141 afgewezen schaalmutaties atomair",val("SELECT recipe_scaling_list(%s)",(v,))["change_no"]==6)
+        changed=val("SELECT recipe_save_scaling_rule(%s,6,%s,'R','Gewijzigd','nonlinear',%s,'Bron','Test')",(v,r["id"],kg))
+        check("#141 stabiele schaalregelidentiteit",changed["id"]==r["id"] and changed["change_no"]==7)
+        check("#141 gecontroleerde uitvoerkoppeling verwijderen",val("SELECT recipe_delete_scaling_binding(%s,7,%s)",(v,b["id"]))==8)
+        check("#141 gecontroleerde invoer verwijderen",val("SELECT recipe_delete_scaling_input(%s,8,%s)",(v,i["id"]))==9)
+        check("#141 gecontroleerde regel verwijderen",val("SELECT recipe_delete_scaling_rule(%s,9,%s)",(v,r["id"]))==10)
+        data=val("SELECT recipe_scaling_list(%s)",(v,))
+        check("#141 lege schaalgrafiek na verwijderen",data["change_no"]==10 and all(not data[k] for k in ("rules","inputs","bindings")))
+        con.execute("RESET ROLE")
+        check("#141 persoonlijke schaalregel-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_scaling_rule' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='DELETE'",(r["id"],actor))==1)
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#141 ingetrokken schaalregelbevoegdheid","SELECT recipe_scaling_list(%s)",(v,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#141 begrensde schaalformuledefinitie")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'EXPRESSION-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'EXPR_MASS','Massa','ratio') RETURNING id",(dim,))
+        kg=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'EXPR_KG','kg','Kilogram') RETURNING id",(kind,))
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('expression.scoped','analist',wachtwoord_hash('test-expression'))")
+        user=val("SELECT id FROM gebruiker WHERE gebruikersnaam='expression.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(user,pa))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('expression.scoped','test-expression',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        r=val("SELECT recipe_save_scaling_rule(%s,0,NULL,'R','Fictief','nonlinear',%s,'Bron','Test')",(v,kg))["id"]
+        i=val("SELECT recipe_save_scaling_input(%s,1,NULL,%s,'I','constant',NULL,NULL,2,%s,NULL)",(v,r,kg))["id"]
+        from psycopg.types.json import Jsonb
+        token={"op":"input","id":str(i)}
+        valid=Jsonb([token,token,{"op":"add"}])
+        sql="SELECT recipe_save_scaling_expression(%s,%s,%s,%s)"
+        def denied(label,query,params=(),msg="schaalformule"):
+            con.execute("SAVEPOINT expression_guard")
+            faalt(label,query,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT expression_guard")
+            con.execute("RELEASE SAVEPOINT expression_guard")
+        denied("#141 script geweigerd",sql,(v,2,r,Jsonb([{"op":"eval","script":"1+1"}])),"schaalformuletoken")
+        denied("#141 ontbrekende operand",sql,(v,2,r,Jsonb([token,{"op":"add"}])),"Onvoldoende operanden")
+        denied("#141 meerdere resultaten",sql,(v,2,r,Jsonb([token,token])),"precies één resultaat")
+        denied("#141 onbekende input",sql,(v,2,r,Jsonb([{"op":"input","id":"00000000-0000-0000-0000-000000000000"}])),"dezelfde regel")
+        expression=val(sql,(v,2,r,valid))
+        data=val("SELECT recipe_scaling_list(%s)",(v,))
+        check("#141 formule en teller",data["change_no"]==3 and len(data["expressions"])==1 and data["expressions"][0]["tokens"]==[token,token,{"op":"add"}])
+        denied("#141 stale formule",sql,(v,2,r,valid),"ondertussen gewijzigd")
+        denied("#141 invoer beschermd","SELECT recipe_delete_scaling_input(%s,3,%s)",(v,i),"Verwijder eerst de schaalformule")
+        denied("#141 directe formulewrite","DELETE FROM recipe_scaling_expression WHERE false",msg="permission denied")
+        check("#141 afwijzingen behouden teller",val("SELECT recipe_scaling_list(%s)",(v,))["change_no"]==3)
+        changed=val(sql,(v,3,r,Jsonb([token])))
+        check("#141 stabiele formule-identiteit",changed["id"]==expression["id"] and changed["change_no"]==4)
+        check("#141 formule verwijderen",val("SELECT recipe_delete_scaling_expression(%s,4,%s)",(v,r))==5)
+        check("#141 invoer daarna verwijderen",val("SELECT recipe_delete_scaling_input(%s,5,%s)",(v,i))==6)
+        con.execute("RESET ROLE")
+        check("#141 persoonlijke formule-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_scaling_expression' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='DELETE'",(expression["id"],user))==1)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#141 statische fysische schaalformulevalidatie")
+    con.execute("BEGIN")
+    try:
+        from psycopg.types.json import Jsonb
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'PHYSICAL-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        def unit(code,symbol,dims,sem="ratio"):
+            con.execute("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",dims)
+            dim=val("SELECT id FROM quantity_dimension WHERE (length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)=(%s,%s,%s,%s,%s,%s,%s)",dims)
+            kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,%s,%s,%s) RETURNING id",(dim,code,code,sem))
+            return val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,%s,%s,%s) RETURNING id",(kind,code,symbol,code))
+        kg=unit("PHYS_KG","kg",(0,1,0,0,0,0,0))
+        volume=unit("PHYS_VOLUME","m3",(3,0,0,0,0,0,0))
+        density=unit("PHYS_DENSITY","kg/m3",(-3,1,0,0,0,0,0))
+        kelvin=unit("PHYS_K","K",(0,0,0,0,1,0,0),"absolute")
+        one_unit=unit("PHYS_ONE","1",(0,0,0,0,0,0,0))
+        square=unit("PHYS_SQUARE","kg2",(0,2,0,0,0,0,0))
+        def rule(code,output):
+            return val("INSERT INTO recipe_scaling_rule(recipe_version_id,code,description,rule_kind,output_unit_id,source_reference,applicability) VALUES (%s,%s,'Fictief','nonlinear',%s,'Bron','Test') RETURNING id",(v,code,output))
+        def inp(r,code,u,value):
+            i=val("INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,constant_value,unit_id) VALUES (%s,%s,%s,'constant',%s,%s) RETURNING id",(v,r,code,value,u))
+            return {"op":"input","id":str(i)}
+        sql="INSERT INTO recipe_scaling_expression(recipe_version_id,rule_id,tokens) VALUES (%s,%s,%s)"
+        def denied(label,r,tokens,msg):
+            con.execute("SAVEPOINT physical_guard")
+            faalt(label,sql,(v,r,Jsonb(tokens)),msg)
+            con.execute("ROLLBACK TO SAVEPOINT physical_guard")
+            con.execute("RELEASE SAVEPOINT physical_guard")
+        r=rule("ADD",kg); a=inp(r,"A",kg,2); b=inp(r,"B",volume,3)
+        denied("#141 massa en volume optellen",r,[a,b,{"op":"add"}],"dezelfde bewezen eenheid")
+        con.execute(sql,(v,r,Jsonb([a,a,{"op":"add"}])))
+        r=rule("DENSITY",density); a=inp(r,"M",kg,2); b=inp(r,"V",volume,3)
+        con.execute(sql,(v,r,Jsonb([a,b,{"op":"divide"}])))
+        r=rule("BAD_OUTPUT",kg); a=inp(r,"M",kg,2); b=inp(r,"V",volume,3)
+        denied("#141 verkeerde uitvoerdimensie",r,[a,b,{"op":"divide"}],"past niet bij dimensie")
+        r=rule("ABS",kelvin); a=inp(r,"T",kelvin,300)
+        denied("#141 absolute temperatuur niet als ratio",r,[a,a,{"op":"multiply"}],"Absolute grootheden")
+        r=rule("POWER",square); a=inp(r,"M",kg,2); b=inp(r,"EXP",one_unit,2); c=inp(r,"BAD_EXP",one_unit,1.5)
+        denied("#141 fractionele exponent nog niet ondersteund",r,[a,c,{"op":"power"}],"gehele constante")
+        con.execute(sql,(v,r,Jsonb([a,b,{"op":"power"}])))
+        check("#141 drie geldige dimensieconcepten",val("SELECT count(*) FROM recipe_scaling_expression WHERE recipe_version_id=%s",(v,))==3)
+    finally:
+        con.execute("ROLLBACK")
+
+
+    print("\n#141 expliciete materiaaleenheidskoppeling")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('mapping.global','analist',wachtwoord_hash('test-mapping')),('mapping.scoped','analist',wachtwoord_hash('test-mapping'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mapping.global'")
+        scoped=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mapping.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',NULL),(%s,'process_engineer',%s)",(actor,scoped,pa))
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,1,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'MAP_MASS','Massa','ratio') RETURNING id",(dim,))
+        kg=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'MAP_KG','kg','Kilogram') RETURNING id",(kind,))
+        g=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'MAP_G','g','Gram') RETURNING id",(kind,))
+        con.execute("SET LOCAL ROLE mes_app")
+        def login(name):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-mapping',NULL)",(name,))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MES-materiaalbeheerbevoegdheid"):
+            con.execute("SAVEPOINT mapping_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT mapping_guard")
+            con.execute("RELEASE SAVEPOINT mapping_guard")
+        login("mapping.global")
+        legacy=val("SELECT material_create_definition('MAP-LEGACY','Fictief',NULL,'kg',NULL,NULL)")
+        v2=val("SELECT material_append_version_with_unit(%s,1,'Fictief',NULL,%s)",(legacy,kg))
+        new=val("SELECT material_create_definition_with_unit('MAP-NEW','Fictief',NULL,%s,NULL,NULL)",(kg,))
+        denied("#141 onbekende eenheid atomair","SELECT material_create_definition_with_unit('MAP-BAD','Fictief',NULL,NULL,NULL,NULL)",msg="Onbekende cataloguseenheid")
+        denied("#141 stale materiaaleenheidskoppeling","SELECT material_append_version_with_unit(%s,1,'Fictief',NULL,%s)",(legacy,g),"Materiaalrevisie is gewijzigd")
+        denied("#141 oude tekstinterface verliest koppeling niet","SELECT material_append_version(%s,2,'Fictief',NULL,'kg')",(legacy,),"Expliciete cataloguseenheid")
+        v3=val("SELECT material_append_version_with_unit(%s,2,'Fictief',NULL,%s)",(legacy,g))
+        data=val("SELECT material_list()")
+        versions=[x for x in data["versions"] if x["material_definition_id"]==str(legacy)]
+        check("#141 historische materiaalrevisies behouden",[(x["revision"],x["unit"],x["measurement_unit_id"]) for x in versions]==[(1,"kg",None),(2,"kg",str(kg)),(3,"g",str(g))])
+        check("#141 ongeldige materiaalidentiteit teruggerold",not any(x["code"]=="MAP-BAD" for x in data["definitions"]))
+        login("mapping.scoped")
+        check("#141 productgebonden catalogusselectie",any(x["id"]==str(kg) for x in val("SELECT recipe_unit_catalog_list(%s)",(pa,))["units"]))
+        denied("#141 vreemde productscope cataloguslezing","SELECT recipe_unit_catalog_list(%s)",(pb,),"MES-receptbevoegdheid")
+        denied("#141 productgebonden engineer geen materiaalmutatie","SELECT material_append_version_with_unit(%s,3,'Fictief',NULL,%s)",(legacy,kg))
+        denied("#141 productgebonden engineer geen catalogusmutatie","SELECT unit_catalog_create_unit(%s,'MAP-BAD','bad','bad')",(kind,))
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(scoped,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#141 ingetrokken productscope cataloguslezing","SELECT recipe_unit_catalog_list(%s)",(pa,),"MES-receptbevoegdheid")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#112 MBR-levenscyclusfundament")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'LIFECYCLE-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        check("#112 nieuwe versie uitsluitend concept",val("SELECT lifecycle_status FROM master_recipe_version WHERE id=%s",(v,))=="draft")
+        def denied(label,sql,params=(),msg="MBR"):
+            con.execute("SAVEPOINT lifecycle_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT lifecycle_guard")
+            con.execute("RELEASE SAVEPOINT lifecycle_guard")
+        denied("#112 geen directe statusovergang","UPDATE master_recipe_version SET lifecycle_status='released',change_no=change_no+1 WHERE id=%s",(v,),"statusovergang")
+        denied("#112 geen vrijgegeven versie bij creatie","INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by,lifecycle_status) VALUES (%s,2,'Fictief',%s,'released')",(rid,actor),"moet een concept zijn")
+        check("#112 statusafwijzing laat teller intact",val("SELECT change_no FROM master_recipe_version WHERE id=%s",(v,))==0)
+        tables=["recipe_procedural_element","recipe_dependency","recipe_parameter","recipe_parameter_limit","recipe_formula","recipe_material_requirement","recipe_equipment_requirement","recipe_personnel_requirement","recipe_instruction","recipe_specification_link","recipe_lot_rule","recipe_compatibility_rule","recipe_scaling_rule","recipe_scaling_input","recipe_scaling_binding","recipe_scaling_expression"]
+        for table in tables:
+            check("#112 lifecycleguard "+table,val("SELECT count(*) FROM pg_trigger WHERE tgrelid=%s::regclass AND tgname=%s AND tgenabled='O' AND NOT tgisinternal",("fabriek."+table,table+"_00_lifecycle"))==1)
+        check("#112 geen directe app-statusmutatie",not val("SELECT has_column_privilege('mes_app','fabriek.master_recipe_version','lifecycle_status','UPDATE')"))
+    finally:
+        con.execute("ROLLBACK")
+
+
+    print("\n#112 versiegebonden MOC-concept")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('moc.scoped','analist',wachtwoord_hash('test-moc'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='moc.scoped'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'process_engineer',%s)",(actor,pa))
+        def version(product,code):
+            rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,%s,%s) RETURNING id",(product,code,actor))
+            first=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+            second=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,2,'Fictief',%s) RETURNING id",(rid,actor))
+            return first,second
+        first,v=version(pa,"MOC-A")
+        foreign,_=version(pb,"MOC-B")
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('moc.scoped','test-moc',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        def denied(label,sql,params=(),msg="MOC"):
+            con.execute("SAVEPOINT moc_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT moc_guard")
+            con.execute("RELEASE SAVEPOINT moc_guard")
+        denied("#112 MOC vreemde productscope","SELECT recipe_change_list(%s)",(foreign,),"MES-receptbevoegdheid")
+        denied("#112 MOC verkeerde referentie","SELECT recipe_create_change_request(%s,0,%s,'Reden','Impact')",(v,foreign),"eerdere revisie")
+        denied("#112 MOC revisie zonder referentie","SELECT recipe_create_change_request(%s,0,NULL,'Reden','Impact')",(v,),"eerste receptrevisie")
+        initial=val("SELECT recipe_create_change_request(%s,0,NULL,'Initiële invoer','Fictief')",(first,))
+        req=val("SELECT recipe_create_change_request(%s,0,%s,'Wijziging','Fictief')",(v,first))
+        check("#112 MOC initiële en revisieclassificatie",val("SELECT recipe_change_list(%s)",(first,))["request"]["change_kind"]=="initial" and val("SELECT recipe_change_list(%s)",(v,))["request"]["change_kind"]=="revision")
+        denied("#112 MOC stale","SELECT recipe_update_change_request(%s,0,%s,'Oud','Oud')",(v,req["id"]),"ondertussen gewijzigd")
+        impact=val("SELECT recipe_save_change_impact(%s,1,NULL,%s,'formula','Fictief')",(v,req["id"]))
+        denied("#112 MOC impact vreemd dossier","SELECT recipe_save_change_impact(%s,2,NULL,%s,'quality','Fictief')",(v,initial["id"]),"foreign key")
+        denied("#112 MOC impact onbekend","SELECT recipe_save_change_impact(%s,2,NULL,%s,'unknown','Fictief')",(v,req["id"]),"check constraint")
+        data=val("SELECT recipe_change_list(%s)",(v,))
+        check("#112 MOC dossier en teller",data["change_no"]==2 and data["request"]["baseline_version_id"]==str(first) and data["impacts"][0]["area"]=="formula")
+        denied("#112 MOC directe tabelmutatie","DELETE FROM recipe_change_request WHERE false",msg="permission denied")
+        check("#112 MOC impact verwijderen",val("SELECT recipe_delete_change_impact(%s,2,%s)",(v,impact["id"]))==3)
+        updated=val("SELECT recipe_update_change_request(%s,3,%s,'Nieuwe reden','Nieuwe impact')",(v,req["id"]))
+        check("#112 MOC stabiele identiteit",updated["id"]==req["id"] and updated["change_no"]==4)
+        con.execute("RESET ROLE")
+        check("#112 MOC persoonlijke audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_change_request' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='UPDATE'",(req["id"],actor))==1)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#112 inhoudelijke MBR-versievergelijking")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'COMPARE-TEST',%s) RETURNING id",(pa,actor))
+        def version(rev):
+            return val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,%s,'Fictief',%s) RETURNING id",(rid,rev,actor))
+        a,b=version(1),version(2)
+        for v in (a,b):
+            root=val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+            con.execute("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'P','Fictief','decimal','kg','per batch',true,'productie',false)",(v,root))
+        con.execute("INSERT INTO recipe_change_request(recipe_version_id,baseline_version_id,change_kind,reason,impact_description,created_by) VALUES (%s,%s,'revision','Fictief','Fictief',%s)",(b,a,actor))
+        check("#112 vergelijking negeert lokale record-ID's",val("SELECT count(*) FROM (SELECT * FROM recipe_comparison_rows(%s) EXCEPT SELECT * FROM recipe_comparison_rows(%s)) q",(a,b))==0)
+        con.execute("UPDATE recipe_parameter SET name='Gewijzigd' WHERE recipe_version_id=%s",(b,))
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,6,true)",(b,))
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,4,true)",(a,))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        data=val("SELECT recipe_compare_change(%s)",(b,))
+        check("#112 gewijzigde inhoud onafhankelijk van impactlabels",data["baseline_version_id"]==str(a) and {(x["area"],x["change"]) for x in data["differences"]}=={("parameters","changed"),("lot","changed")})
+        check("#112 vergelijking behoudt tellers",data["change_no"]==0 and data["baseline_change_no"]==0)
+        check("#112 geen directe projectiefunctie",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_comparison_rows(uuid)','EXECUTE')"))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\nD108 beoordelingsmatrix v1")
+    for area,expected in [
+        ("header",["engineering"]),
+        ("personnel",["engineering","production"]),
+        ("quality",["engineering","quality"]),
+        *[(a,["engineering","production","quality"]) for a in
+          ("procedure","parameters","formula","materials","equipment","instructions","lot","scaling","other","unknown")]
+    ]:
+        check("D108 matrix "+area,val("SELECT recipe_review_matrix_v1(false,%s::text[])",([area],))==expected)
+    check("D108 initiële definitie alle domeinen",val("SELECT recipe_review_matrix_v1(true,ARRAY[]::text[])")==["engineering","production","quality"])
+    check("D108 combinatie personeel en kwaliteit",val("SELECT recipe_review_matrix_v1(false,ARRAY['personnel','quality'])")==["engineering","production","quality"])
+    check("D108 onbekende gebieden fail closed",val("SELECT recipe_review_matrix_v1(false,NULL)")==["engineering","production","quality"])
+    check("D108 interne actorfunctie afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_actor(uuid,text)','EXECUTE')"))
+    check("D108 preview beschikbaar",val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_requirements(uuid)','EXECUTE')"))
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'REVIEW-MATRIX-TEST',%s) RETURNING id",(pa,actor))
+        a=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        b=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,2,'Fictief',%s) RETURNING id",(rid,actor))
+        con.execute("INSERT INTO recipe_change_request(recipe_version_id,baseline_version_id,change_kind,reason,impact_description,created_by) VALUES (%s,%s,'revision','Fictief','Fictief',%s)",(b,a,actor))
+        req=val("SELECT id FROM recipe_change_request WHERE recipe_version_id=%s",(b,))
+        con.execute("INSERT INTO recipe_change_impact(recipe_version_id,request_id,area,explanation) VALUES (%s,%s,'header','Fictief')",(b,req))
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,4,true),(%s,6,true)",(a,b))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        data=val("SELECT recipe_review_requirements(%s)",(b,))
+        check("D108 automatische impact voegt verplichte beoordelingen toe",data["impact_areas"]==["header","lot"] and data["required_reviews"]==["engineering","production","quality"])
+        check("D108 preview versiegebonden",data["matrix_version"]==1 and data["change_no"]==0 and data["baseline_version_id"]==str(a))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\nD108 beoordelingsbewijs afgeschermd")
+    for sig in ("recipe_review_snapshot(uuid)","recipe_review_contributors(uuid)","recipe_prepare_review_round(uuid,integer,integer)"):
+        check("D108 interne functie afgeschermd "+sig,not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
+    for table in ("recipe_review_round","recipe_review_decision"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+            check("D108 geen directe "+privilege+" "+table,not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('mes.engineer','demo',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        rid=val("SELECT recipe_create(%s,'ROUND-TEST','Fictief','')",(pa,))
+        v=val("SELECT (x->'versions'->0->>'id')::uuid FROM jsonb_array_elements(recipe_list(%s)) x WHERE x->>'id'=%s",(pa,str(rid)))
+        req=val("SELECT recipe_create_change_request(%s,0,NULL,'Reden','Impact')",(v,))
+        con.execute("RESET ROLE")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        r=val("SELECT recipe_prepare_review_round(%s,1,NULL)",(v,))
+        check("D108 exacte ronde en auteurs",val("SELECT change_no=1 AND contributors=ARRAY[%s]::uuid[] AND required_reviews=ARRAY['engineering','production','quality'] FROM recipe_review_round WHERE id=%s",(actor,r)))
+        check("D108 ronde legt volledige MOC vast",val("SELECT snapshot->'current'->'recipe_change_request'->0->>'id' FROM recipe_review_round WHERE id=%s",(r,))==req["id"])
+        def denied(label,sql,params=(),msg=""):
+            con.execute("SAVEPOINT review_round_guard")
+            faalt(label,sql,params,msg)
+            con.execute("ROLLBACK TO SAVEPOINT review_round_guard")
+            con.execute("RELEASE SAVEPOINT review_round_guard")
+        denied("D108 bijdrager mag niet beoordelen","INSERT INTO recipe_review_decision(round_id,domain,decision,reason,reviewer_id) VALUES (%s,'engineering','approve','Fictief',%s)",(r,actor),"Zelfgoedkeuring")
+        other=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.eng.approver'")
+        denied("D108 besluiten buiten actuele ronde gesloten","INSERT INTO recipe_review_decision(round_id,domain,decision,reason,reviewer_id) VALUES (%s,'engineering','approve','Fictief',%s)",(r,other),"niet actueel")
+        denied("D108 ronde onveranderlijk","UPDATE recipe_review_round SET change_no=2 WHERE id=%s",(r,),"onveranderlijk")
+        denied("D108 ronde niet verwijderbaar","DELETE FROM recipe_review_round WHERE id=%s",(r,),"onveranderlijk")
+        check("D108 voorbereiding opent geen statusovergang",val("SELECT lifecycle_status FROM master_recipe_version WHERE id=%s",(v,))=="draft")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\nD108 persoonlijke beoordelingsworkflow")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        con.execute("SET LOCAL ROLE mes_app")
+        def review_login(name):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'demo',NULL)",(name,))
+            con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        review_login("mes.engineer")
+        rid=val("SELECT recipe_create(%s,'REVIEW-WORKFLOW-TEST','Fictief','')",(pa,))
+        v=val("SELECT (x->'versions'->0->>'id')::uuid FROM jsonb_array_elements(recipe_list(%s)) x WHERE x->>'id'=%s",(pa,str(rid)))
+        val("SELECT recipe_create_change_request(%s,0,NULL,'Reden','Impact')",(v,))
+        check("D108 verkeerde indienersbevestiging",val("SELECT recipe_submit_review_confirmed(%s,1,NULL,'onjuist')",(v,))["status"]=="denied")
+        submitted=val("SELECT recipe_submit_review_confirmed(%s,1,NULL,'demo')",(v,))
+        r=submitted["round_id"]
+        check("D108 indiening met herbevestiging",submitted["status"]=="submitted")
+        con.execute("RESET ROLE")
+        check("D108 review bevriest inhoud zonder tellerwijziging",val("SELECT lifecycle_status='in_review' AND change_no=1 FROM master_recipe_version WHERE id=%s",(v,)))
+        check("D108 onjuist wachtwoord geregistreerd",val("SELECT count(*) FROM inlogpoging WHERE gebruikersnaam='mes.engineer' AND uitkomst='mislukt'")>0)
+        con.execute("SET LOCAL ROLE mes_app")
+        review_login("mes.eng.approver")
+        check("D108 onjuist beoordelaarswachtwoord",val("SELECT recipe_decide_review_confirmed(%s,1,'engineering','approve','Fictief','onjuist')",(r,))["status"]=="denied")
+        con.execute("RESET ROLE")
+        check("D108 geen besluit bij onjuist wachtwoord",val("SELECT count(*) FROM recipe_review_decision WHERE round_id=%s",(r,))==0)
+        con.execute("SET LOCAL ROLE mes_app")
+        review_login("mes.eng.approver")
+        a=val("SELECT recipe_decide_review_confirmed(%s,1,'engineering','approve','Fictief','demo')",(r,))
+        check("D108 engineering alleen onvoldoende",a["status"]=="decided" and a["lifecycle_status"]=="in_review")
+        review_login("mes.manager")
+        b=val("SELECT recipe_decide_review_confirmed(%s,1,'production','approve','Fictief','demo')",(r,))
+        check("D108 productie alleen onvoldoende",b["lifecycle_status"]=="in_review")
+        review_login("mes.quality.approver")
+        c=val("SELECT recipe_decide_review_confirmed(%s,1,'quality','approve','Fictief','demo')",(r,))
+        check("D108 alle drie besluiten vereist",c["lifecycle_status"]=="approved")
+        con.execute("RESET ROLE")
+        check("D108 goedkeuring is geen vrijgave",val("SELECT lifecycle_status='approved' AND change_no=1 FROM master_recipe_version WHERE id=%s",(v,)))
+        check("D108 drie onafhankelijke historische besluiten",val("SELECT count(DISTINCT reviewer_id) FROM recipe_review_decision WHERE round_id=%s",(r,))==3)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#112 inhoudelijke vrijgavevalidatie")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+        rid=val("INSERT INTO master_recipe(product_id,code,created_by) VALUES (%s,'RELEASE-VALIDATION-TEST',%s) RETURNING id",(pa,actor))
+        v=val("INSERT INTO master_recipe_version(master_recipe_id,revision,name,created_by) VALUES (%s,1,'Fictief',%s) RETURNING id",(rid,actor))
+        def codes():
+            return set(val("SELECT array_agg(DISTINCT code) FROM recipe_release_blockers(%s)",(v,)) or [])
+        check("#112 onvolledig recept geblokkeerd",codes()=={"missing_moc","missing_root","missing_formula","missing_lot_rule"})
+        root=val("INSERT INTO recipe_procedural_element(recipe_version_id,kind,code,name,position) VALUES (%s,'procedure','ROOT','Root',1) RETURNING id",(v,))
+        check("#112 lege proceduretak geblokkeerd","empty_procedure_branch" in codes())
+        con.execute("INSERT INTO recipe_formula(recipe_version_id,reference_quantity,reference_unit) VALUES (%s,100,'kg')",(v,))
+        check("#112 onbekende referentie-eenheid geblokkeerd","unmapped_formula_unit" in codes())
+        con.execute("INSERT INTO recipe_parameter(recipe_version_id,procedural_element_id,code,name,data_type,unit,frequency,required,responsible_activity,critical) VALUES (%s,%s,'P','Fictief','decimal','kg','per batch',true,'productie',false)",(v,root))
+        check("#112 onbekende parametereenheid geblokkeerd","unmapped_parameter_unit" in codes())
+        con.execute("INSERT INTO recipe_lot_rule(recipe_version_id,nominal_batch_count,deviation_approval_required) VALUES (%s,6,true)",(v,))
+        check("#112 expliciete variabele lotnorm","missing_lot_rule" not in codes())
+        con.execute("SAVEPOINT release_guard")
+        faalt("#112 assert blokkeert onvolledig recept","SELECT recipe_assert_release_content(%s)",(v,),"vrijgave geblokkeerd")
+        con.execute("ROLLBACK TO SAVEPOINT release_guard")
+        con.execute("RELEASE SAVEPOINT release_guard")
+        check("#112 interne poort afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_assert_release_content(uuid)','EXECUTE')"))
+        check("#112 validatie verandert geen inhoud",val("SELECT lifecycle_status='draft' AND change_no=0 FROM master_recipe_version WHERE id=%s",(v,)))
+    finally:
+        con.execute("ROLLBACK")
+
+
+    print("\n#112 vrijgavebewijs en geldigheid")
+    for table in ("recipe_release","recipe_release_withdrawal"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+            check("#112 geen directe "+privilege+" "+table,not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+    for sig in ("recipe_effective_release(uuid,timestamptz,timestamptz)","recipe_release_intervals(uuid,timestamptz)"):
+        check("#112 interne geldigheidsfunctie "+sig,not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
+    con.execute("BEGIN")
+    try:
+        check("#112 geen impliciet geldig recept",val("SELECT recipe_effective_release(gen_random_uuid(),now(),now())") is None)
+    finally:
+        con.execute("ROLLBACK")
+
+
+    print("\nD109 persoonlijke vrijgavebevoegdheden")
+    for role,permission in [
+        ("engineering_approver","recipe.release"),
+        ("engineering_approver","recipe.withdraw.engineering"),
+        ("quality_approver","recipe.withdraw.quality")
+    ]:
+        check("D109 "+role+" "+permission,val("SELECT EXISTS(SELECT 1 FROM authorization_role_permission WHERE role_code=%s AND permission_code=%s)",(role,permission)))
+    check("D109 geen vrijgaverecht auteur of beheer",not val("SELECT EXISTS(SELECT 1 FROM authorization_role_permission WHERE permission_code='recipe.release' AND role_code<>'engineering_approver')"))
+    for sig in ("recipe_release_confirmed(uuid,uuid,integer,timestamptz,text,text)","recipe_withdraw_confirmed(uuid,text,text)"):
+        check("D109 persoonlijke interface "+sig,val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+sig,)))
+    check("D109 interne actor afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_release_actor(uuid,boolean)','EXECUTE')"))
+
+
+    print("\n#112 persoonlijke beoordelingsleestoegang")
+    con.execute("BEGIN")
+    try:
+        pa=val("SELECT id FROM product WHERE code='PRD-A'")
+        pb=val("SELECT id FROM product WHERE code='PRD-B'")
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('review.read.scoped','analist',wachtwoord_hash('test-review-read'))")
+        actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='review.read.scoped'")
+        grant_id=val("INSERT INTO authorization_grant(user_id,role_code,product_id) VALUES (%s,'quality_approver',%s) RETURNING id",(actor,pa))
+        check("#112 review read scope positief",val("SELECT recipe_review_read_permitted(%s,%s)",(actor,pa)))
+        check("#112 review read scope negatief",not val("SELECT recipe_review_read_permitted(%s,%s)",(actor,pb)))
+        check("#112 review read geen conceptrecht",not val("SELECT authorization_permits(%s,'recipe.draft.manage',NULL,%s,NULL)",(actor,pa)))
+        con.execute("SET LOCAL ROLE mes_app")
+        proof=val("SELECT session_proof FROM execution_session_login('review.read.scoped','test-review-read',NULL)")
+        con.execute("SELECT set_config('fabriek.execution_proof',%s,true)",(proof,))
+        check("#112 lege review inbox toegestaan",isinstance(val("SELECT recipe_review_inbox(%s)",(pa,)),list))
+        def denied(label,sql,params=()):
+            con.execute("SAVEPOINT review_read_guard")
+            faalt(label,sql,params,"Geen actuele MES-beoordelingsleestoegang")
+            con.execute("ROLLBACK TO SAVEPOINT review_read_guard")
+            con.execute("RELEASE SAVEPOINT review_read_guard")
+        denied("#112 vreemde review scope","SELECT recipe_review_inbox(%s)",(pb,))
+        denied("#112 onbekend dossier niet lekken","SELECT recipe_review_dossier(gen_random_uuid())")
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE id=%s",(grant_id,))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("#112 ingetrokken reviewrecht","SELECT recipe_review_inbox(%s)",(pa,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    check("#112 interne leeshelper afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_read_permitted(uuid,uuid)','EXECUTE')"))
+    check("#112 geen directe snapshottoegang",not val("SELECT has_table_privilege('mes_app','fabriek.recipe_review_round','SELECT')"))
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

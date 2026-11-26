@@ -5,7 +5,7 @@
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
 
-Schema `fabriek`: 62 tabellen en 132 verbanden.
+Schema `fabriek`: 94 tabellen en 203 verbanden.
 
 ## Overzicht
 
@@ -46,6 +46,12 @@ erDiagram
     lot
     lot_voorstel
     lot_voorstel_batch
+    master_recipe
+    master_recipe_version
+    material_class
+    material_definition
+    material_definition_version
+    measurement_unit
     melding
     melding_gelezen
     onderhoud_log
@@ -61,6 +67,30 @@ erDiagram
     qualification
     qualification_issue
     qualification_revocation
+    quantity_dimension
+    quantity_kind
+    recipe_change_impact
+    recipe_change_request
+    recipe_compatibility_rule
+    recipe_dependency
+    recipe_equipment_requirement
+    recipe_formula
+    recipe_instruction
+    recipe_lot_rule
+    recipe_material_requirement
+    recipe_parameter
+    recipe_parameter_limit
+    recipe_personnel_requirement
+    recipe_procedural_element
+    recipe_release
+    recipe_release_withdrawal
+    recipe_review_decision
+    recipe_review_round
+    recipe_scaling_binding
+    recipe_scaling_expression
+    recipe_scaling_input
+    recipe_scaling_rule
+    recipe_specification_link
     rooster
     rooster_ploeg
     schema_versie
@@ -72,6 +102,8 @@ erDiagram
     stilstand
     stilstand_oorzaak
     terugmelding
+    unit_conversion
+    unit_conversion_version
     veld
     veld_product
     waarde
@@ -92,6 +124,7 @@ erDiagram
     gebruiker |o--o| operator : "gebruiker_id"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
+    grondstof |o--o| material_definition : "raw_material_id"
     grondstof ||--o{ stap_grondstof : "grondstof_id"
     grondstof_gebruik |o--o| grondstof_gebruik : "vervangt_id"
     grondstof_gebruik |o--o{ invoerconflict : "bestaand_gebruik_id"
@@ -104,6 +137,37 @@ erDiagram
     lot |o--o{ stapregistratie : "lot_id"
     lot_voorstel ||--o{ lot_voorstel_batch : "voorstel_id"
     lot_voorstel |o--o{ stapplanning : "voorstel_id"
+    master_recipe ||--o{ master_recipe_version : "master_recipe_id"
+    master_recipe ||--o{ recipe_release : "master_recipe_id"
+    master_recipe_version |o--o{ recipe_change_request : "baseline_version_id"
+    master_recipe_version ||--o| recipe_change_request : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_compatibility_rule : "other_recipe_version_id"
+    master_recipe_version ||--o{ recipe_compatibility_rule : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_dependency : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_equipment_requirement : "recipe_version_id"
+    master_recipe_version ||--o| recipe_formula : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_instruction : "recipe_version_id"
+    master_recipe_version ||--o| recipe_lot_rule : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_parameter : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_personnel_requirement : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_procedural_element : "recipe_version_id"
+    master_recipe_version ||--o| recipe_release : "recipe_version_id"
+    master_recipe_version |o--o{ recipe_review_round : "baseline_version_id"
+    master_recipe_version ||--o{ recipe_review_round : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_scaling_rule : "recipe_version_id"
+    master_recipe_version ||--o{ recipe_specification_link : "recipe_version_id"
+    material_class |o--o{ material_definition_version : "material_class_id"
+    material_definition ||--o{ material_definition_version : "material_definition_id"
+    material_definition_version ||--o{ recipe_material_requirement : "material_version_id"
+    measurement_unit |o--o{ material_definition_version : "measurement_unit_id"
+    measurement_unit |o--o{ recipe_equipment_requirement : "capacity_unit_id"
+    measurement_unit |o--o{ recipe_formula : "reference_unit_id"
+    measurement_unit |o--o{ recipe_material_requirement : "measurement_unit_id"
+    measurement_unit |o--o{ recipe_parameter : "measurement_unit_id"
+    measurement_unit ||--o{ recipe_scaling_input : "unit_id"
+    measurement_unit ||--o{ recipe_scaling_rule : "output_unit_id"
+    measurement_unit ||--o{ unit_conversion : "quantity_kind_id, from_unit_id"
+    measurement_unit ||--o{ unit_conversion : "quantity_kind_id, to_unit_id"
     melding ||--o{ melding_gelezen : "melding_id"
     personnel_qualification ||--o| qualification_issue : "qualification_id"
     personnel_qualification ||--o| qualification_revocation : "qualification_id"
@@ -124,12 +188,40 @@ erDiagram
     product |o--o{ batch : "product_id"
     product |o--o{ capaciteit_afwijking : "product_id"
     product ||--o{ capaciteit_stap : "product_id"
+    product ||--o{ master_recipe : "product_id"
+    product |o--o| material_definition : "product_id"
     product ||--o{ product_stap : "product_id"
     product ||--o{ specificatie : "product_id"
     product |o--o{ stapregistratie : "product_id"
     product ||--o{ veld_product : "product_id"
     qualification ||--o{ activity_qualification : "qualification_code"
     qualification ||--o{ personnel_qualification : "qualification_code"
+    qualification ||--o{ recipe_personnel_requirement : "qualification_code"
+    quantity_dimension ||--o{ quantity_kind : "dimension_id"
+    quantity_kind ||--o{ measurement_unit : "quantity_kind_id"
+    quantity_kind ||--o{ unit_conversion : "quantity_kind_id"
+    quantity_kind ||--o{ unit_conversion_version : "quantity_kind_id, value_semantics"
+    recipe_change_request ||--o{ recipe_change_impact : "recipe_version_id, request_id"
+    recipe_formula ||--o{ recipe_material_requirement : "recipe_version_id, formula_id"
+    recipe_material_requirement |o--o| recipe_scaling_binding : "recipe_version_id, material_requirement_id"
+    recipe_parameter ||--o{ recipe_parameter_limit : "recipe_version_id, parameter_id, data_type"
+    recipe_parameter |o--o{ recipe_scaling_input : "recipe_version_id, parameter_id"
+    recipe_parameter_limit |o--o| recipe_scaling_binding : "recipe_version_id, parameter_limit_id"
+    recipe_parameter_limit ||--o| recipe_specification_link : "recipe_version_id, parameter_limit_id"
+    recipe_procedural_element ||--o{ recipe_dependency : "recipe_version_id, predecessor_id"
+    recipe_procedural_element ||--o{ recipe_dependency : "recipe_version_id, successor_id"
+    recipe_procedural_element ||--o{ recipe_equipment_requirement : "recipe_version_id, procedural_element_id"
+    recipe_procedural_element ||--o{ recipe_instruction : "recipe_version_id, procedural_element_id"
+    recipe_procedural_element |o--o{ recipe_material_requirement : "recipe_version_id, procedural_element_id"
+    recipe_procedural_element ||--o{ recipe_parameter : "recipe_version_id, procedural_element_id"
+    recipe_procedural_element ||--o{ recipe_personnel_requirement : "recipe_version_id, procedural_element_id"
+    recipe_procedural_element |o--o{ recipe_procedural_element : "recipe_version_id, parent_id, parent_kind"
+    recipe_release ||--o| recipe_release_withdrawal : "release_id"
+    recipe_review_round ||--o{ recipe_release : "recipe_version_id, round_id"
+    recipe_review_round ||--o{ recipe_review_decision : "round_id"
+    recipe_scaling_rule ||--o{ recipe_scaling_binding : "recipe_version_id, rule_id"
+    recipe_scaling_rule ||--o| recipe_scaling_expression : "recipe_version_id, rule_id"
+    recipe_scaling_rule ||--o{ recipe_scaling_input : "recipe_version_id, rule_id"
     rooster_ploeg |o--o{ operator : "ploeg_id"
     specificatie ||--o{ specificatie_regel : "specificatie_id"
     specificatie |o--o{ waarde : "specificatie_id"
@@ -139,6 +231,8 @@ erDiagram
     stapregistratie ||--o| keuring : "stapregistratie_id"
     stapregistratie ||--o{ waarde : "stapregistratie_id"
     stilstand_oorzaak ||--o{ stilstand : "oorzaak_id"
+    unit_conversion ||--o{ unit_conversion_version : "conversion_id, quantity_kind_id"
+    unit_conversion_version |o--o{ recipe_scaling_input : "conversion_version_id"
     veld |o--o{ invoerconflict : "veld_id"
     veld ||--o{ specificatie_regel : "veld_id"
     veld ||--o{ veld_product : "veld_id"
@@ -184,6 +278,12 @@ erDiagram
 | [`lot`](#lot) | 4 |  |  |
 | [`lot_voorstel`](#lot_voorstel) | 9 | `gebruiker`, `lot` |  |
 | [`lot_voorstel_batch`](#lot_voorstel_batch) | 2 | `batch`, `lot_voorstel` |  |
+| [`master_recipe`](#master_recipe) | 5 | `gebruiker`, `product` | Eén product kan meerdere stabiele receptidentiteiten hebben. |
+| [`master_recipe_version`](#master_recipe_version) | 9 | `gebruiker`, `master_recipe` | Conceptversie; inhoud en gecontroleerde statusovergangen volgen in fase 2. |
+| [`material_class`](#material_class) | 3 |  | Stabiele materiaalclassificatie; geen automatisch afgeleide classificaties. |
+| [`material_definition`](#material_definition) | 4 | `grondstof`, `product` | Materiaalidentiteit met expliciete koppelingen naar behouden PoC-identiteiten. |
+| [`material_definition_version`](#material_definition_version) | 9 | `gebruiker`, `material_class`, `material_definition`, `measurement_unit` | Onveranderlijke materiaalversie; ontbrekende classificatie of eenheid blijft onbekend. |
+| [`measurement_unit`](#measurement_unit) | 5 | `quantity_kind` |  |
 | [`melding`](#melding) | 10 |  | Meldingen (sinds migratie 0007, versie 0.13.0) |
 | [`melding_gelezen`](#melding_gelezen) | 3 | `gebruiker`, `melding` |  |
 | [`onderhoud_log`](#onderhoud_log) | 9 |  |  |
@@ -199,6 +299,30 @@ erDiagram
 | [`qualification`](#qualification) | 2 |  | Definitie van een personeelskwalificatie. |
 | [`qualification_issue`](#qualification_issue) | 5 | `gebruiker`, `personnel_qualification` |  |
 | [`qualification_revocation`](#qualification_revocation) | 4 | `gebruiker`, `personnel_qualification` |  |
+| [`quantity_dimension`](#quantity_dimension) | 8 |  | SI-basisdimensies: lengte, massa, tijd, stroom, temperatuur, hoeveelheid stof en lichtsterkte. |
+| [`quantity_kind`](#quantity_kind) | 5 | `quantity_dimension` |  |
+| [`recipe_change_impact`](#recipe_change_impact) | 5 | `recipe_change_request` |  |
+| [`recipe_change_request`](#recipe_change_request) | 8 | `gebruiker`, `master_recipe_version` | Eén wijzigingsdossier per versie. |
+| [`recipe_compatibility_rule`](#recipe_compatibility_rule) | 4 | `master_recipe_version` | Incompatibiliteit is een verbod vanuit één exacte MBR-revisie naar een andere. |
+| [`recipe_dependency`](#recipe_dependency) | 4 | `master_recipe_version`, `recipe_procedural_element` | Expliciete voorganger/opvolger; voorlopig alleen binnen dezelfde siblinggroep. |
+| [`recipe_equipment_requirement`](#recipe_equipment_requirement) | 9 | `master_recipe_version`, `measurement_unit`, `recipe_procedural_element` | Voorlopig expliciete equipmentklasse-eis; definitieve resourcecatalogus en fysieke toewijzing volgen fase 4. |
+| [`recipe_formula`](#recipe_formula) | 5 | `master_recipe_version`, `measurement_unit` |  |
+| [`recipe_instruction`](#recipe_instruction) | 7 | `master_recipe_version`, `recipe_procedural_element` |  |
+| [`recipe_lot_rule`](#recipe_lot_rule) | 5 | `master_recipe_version` | Geen standaard vier batches. |
+| [`recipe_material_requirement`](#recipe_material_requirement) | 11 | `material_definition_version`, `measurement_unit`, `recipe_formula`, `recipe_procedural_element` |  |
+| [`recipe_parameter`](#recipe_parameter) | 12 | `master_recipe_version`, `measurement_unit`, `recipe_procedural_element` |  |
+| [`recipe_parameter_limit`](#recipe_parameter_limit) | 9 | `recipe_parameter` | Doelwaarde is een afzonderlijk getal, niet een impliciete onder-/bovengrens. |
+| [`recipe_personnel_requirement`](#recipe_personnel_requirement) | 7 | `master_recipe_version`, `qualification`, `recipe_procedural_element` | Een kwalificatie-eis is geen toekenning van een kwalificatie of permission. |
+| [`recipe_procedural_element`](#recipe_procedural_element) | 9 | `master_recipe_version` | Een concept mag nog onvolledig zijn; volledigheid is een latere vrijgave-eis. |
+| [`recipe_release`](#recipe_release) | 8 | `gebruiker`, `master_recipe`, `master_recipe_version`, `recipe_review_round` | Formele vrijgave en ingangsdatum zijn afzonderlijke feiten. |
+| [`recipe_release_withdrawal`](#recipe_release_withdrawal) | 5 | `gebruiker`, `recipe_release` |  |
+| [`recipe_review_decision`](#recipe_review_decision) | 7 | `gebruiker`, `recipe_review_round` | Een besluit kan later uitsluitend aan een exacte ronde worden gekoppeld. |
+| [`recipe_review_round`](#recipe_review_round) | 12 | `gebruiker`, `master_recipe_version` | Ronde is historisch bewijs; nog geen statusovergang of beslisfunctie. |
+| [`recipe_scaling_binding`](#recipe_scaling_binding) | 5 | `recipe_material_requirement`, `recipe_parameter_limit`, `recipe_scaling_rule` | Voorbereide uitgaande koppeling. |
+| [`recipe_scaling_expression`](#recipe_scaling_expression) | 5 | `recipe_scaling_rule` | Postfix-notatie (RPN), grammatica v1. |
+| [`recipe_scaling_input`](#recipe_scaling_input) | 10 | `measurement_unit`, `recipe_parameter`, `recipe_scaling_rule`, `unit_conversion_version` | Getypeerde invoerbronnen. |
+| [`recipe_scaling_rule`](#recipe_scaling_rule) | 8 | `master_recipe_version`, `measurement_unit` | Een regel is een conceptdefinitie binnen één MBR-revisie. |
+| [`recipe_specification_link`](#recipe_specification_link) | 5 | `master_recipe_version`, `recipe_parameter_limit` | Kwaliteitseis verwijst naar de exacte versiegebonden specificatiegrens binnen het MBR, niet naar een dynamische 'laatste' PoC-specificatie. |
 | [`rooster`](#rooster) | 3 |  | Ploegen en rooster (sinds 0033, #86, D76). |
 | [`rooster_ploeg`](#rooster_ploeg) | 6 |  |  |
 | [`schema_versie`](#schema_versie) | 3 |  |  |
@@ -210,6 +334,8 @@ erDiagram
 | [`stilstand`](#stilstand) | 11 | `gebruiker`, `operator`, `pc`, `processtap`, `stilstand_oorzaak` |  |
 | [`stilstand_oorzaak`](#stilstand_oorzaak) | 5 |  | Storingen en stilstand (sinds migratie 0008, versie 0.14.0) |
 | [`terugmelding`](#terugmelding) | 12 | `gebruiker`, `operator`, `pc` | "Iets melden" (sinds migratie 0026, #78, D62): gebruikers typen kort wat misgaat of beter kan. |
+| [`unit_conversion`](#unit_conversion) | 4 | `measurement_unit`, `quantity_kind` |  |
+| [`unit_conversion_version`](#unit_conversion_version) | 11 | `gebruiker`, `quantity_kind`, `unit_conversion` |  |
 | [`veld`](#veld) | 16 | `processtap` |  |
 | [`veld_product`](#veld_product) | 6 | `product`, `veld` | Grenzen en tolerantie per product (sinds migratie 0019, D55). |
 | [`waarde`](#waarde) | 17 | `gebruiker`, `operator`, `specificatie`, `stapregistratie`, `veld` |  |
@@ -603,6 +729,71 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `voorstel_id` | uuid | PK FK | `lot_voorstel` |
 | `batch_id` | uuid | PK FK | `batch` |
 
+### master_recipe
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `product_id` | uuid | FK | `product` |
+| `code` | text |  |  |
+| `created_at` | timestamptz |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+
+### master_recipe_version
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `master_recipe_id` | uuid | FK | `master_recipe` |
+| `revision` | int |  |  |
+| `name` | text |  |  |
+| `description` | text |  |  |
+| `created_at` | timestamptz |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+| `change_no` | int |  |  |
+| `lifecycle_status` | text |  |  |
+
+### material_class
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `code` | text | UK |  |
+| `name` | text |  |  |
+
+### material_definition
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `code` | text | UK |  |
+| `product_id` | uuid | FK UK leeg | `product` |
+| `raw_material_id` | uuid | FK UK leeg | `grondstof` |
+
+### material_definition_version
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `material_definition_id` | uuid | FK | `material_definition` |
+| `revision` | int |  |  |
+| `name` | text |  |  |
+| `material_class_id` | uuid | FK leeg | `material_class` |
+| `unit` | text | leeg |  |
+| `created_at` | timestamptz |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+| `measurement_unit_id` | uuid | FK leeg | `measurement_unit` |
+
+### measurement_unit
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `quantity_kind_id` | uuid | FK | `quantity_kind` |
+| `code` | text | UK |  |
+| `symbol` | text |  |  |
+| `name` | text |  |  |
+
 ### melding
 
 | Kolom | Type | | Verwijst naar |
@@ -760,6 +951,299 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `reason` | text |  |  |
 | `revoked_at` | timestamptz |  |  |
 
+### quantity_dimension
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `length_exp` | smallint |  |  |
+| `mass_exp` | smallint |  |  |
+| `time_exp` | smallint |  |  |
+| `current_exp` | smallint |  |  |
+| `temperature_exp` | smallint |  |  |
+| `amount_exp` | smallint |  |  |
+| `luminous_exp` | smallint |  |  |
+
+### quantity_kind
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `dimension_id` | uuid | FK | `quantity_dimension` |
+| `code` | text | UK |  |
+| `name` | text |  |  |
+| `value_semantics` | text |  |  |
+
+### recipe_change_impact
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_change_request` |
+| `request_id` | uuid | FK | `recipe_change_request` |
+| `area` | text |  |  |
+| `explanation` | text |  |  |
+
+### recipe_change_request
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK UK | `master_recipe_version` |
+| `baseline_version_id` | uuid | FK leeg | `master_recipe_version` |
+| `change_kind` | text |  |  |
+| `reason` | text |  |  |
+| `impact_description` | text |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+| `created_at` | timestamptz |  |  |
+
+### recipe_compatibility_rule
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `master_recipe_version` |
+| `other_recipe_version_id` | uuid | FK | `master_recipe_version` |
+| `reason` | text |  |  |
+
+### recipe_dependency
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `predecessor_id` | uuid | FK | `recipe_procedural_element` |
+| `successor_id` | uuid | FK | `recipe_procedural_element` |
+
+### recipe_equipment_requirement
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `procedural_element_id` | uuid | FK | `recipe_procedural_element` |
+| `code` | text |  |  |
+| `equipment_class_code` | text |  |  |
+| `description` | text |  |  |
+| `required_count` | int |  |  |
+| `minimum_capacity` | numeric | leeg |  |
+| `capacity_unit_id` | uuid | FK leeg | `measurement_unit` |
+
+### recipe_formula
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK UK | `master_recipe_version` |
+| `reference_quantity` | numeric |  |  |
+| `reference_unit` | text |  |  |
+| `reference_unit_id` | uuid | FK leeg | `measurement_unit` |
+
+### recipe_instruction
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `procedural_element_id` | uuid | FK | `recipe_procedural_element` |
+| `code` | text |  |  |
+| `position` | int |  |  |
+| `instruction_text` | text |  |  |
+| `confirmation_required` | bool |  |  |
+
+### recipe_lot_rule
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK UK | `master_recipe_version` |
+| `nominal_batch_count` | int |  |  |
+| `deviation_approval_required` | bool |  |  |
+| `deviation_reason_required` | bool |  |  |
+
+### recipe_material_requirement
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `formula_id` | uuid | FK | `recipe_formula` |
+| `procedural_element_id` | uuid | FK leeg | `recipe_procedural_element` |
+| `material_version_id` | uuid | FK | `material_definition_version` |
+| `code` | text |  |  |
+| `direction` | text |  |  |
+| `quantity` | numeric |  |  |
+| `unit` | text |  |  |
+| `scaling` | text |  |  |
+| `measurement_unit_id` | uuid | FK leeg | `measurement_unit` |
+
+### recipe_parameter
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `procedural_element_id` | uuid | FK | `recipe_procedural_element` |
+| `code` | text |  |  |
+| `name` | text |  |  |
+| `data_type` | text |  |  |
+| `unit` | text | leeg |  |
+| `frequency` | text |  |  |
+| `required` | bool |  |  |
+| `responsible_activity` | text |  |  |
+| `critical` | bool |  |  |
+| `measurement_unit_id` | uuid | FK leeg | `measurement_unit` |
+
+### recipe_parameter_limit
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_parameter` |
+| `parameter_id` | uuid | FK | `recipe_parameter` |
+| `data_type` | text | FK | `recipe_parameter` |
+| `category` | text |  |  |
+| `target_value` | numeric | leeg |  |
+| `lower_value` | numeric | leeg |  |
+| `upper_value` | numeric | leeg |  |
+| `scaling` | text |  |  |
+
+### recipe_personnel_requirement
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `procedural_element_id` | uuid | FK | `recipe_procedural_element` |
+| `code` | text |  |  |
+| `qualification_code` | text | FK | `qualification` |
+| `qualification_description` | text |  |  |
+| `required_count` | int |  |  |
+
+### recipe_procedural_element
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_procedural_element` |
+| `parent_id` | uuid | FK leeg | `recipe_procedural_element` |
+| `parent_kind` | text | FK leeg | `recipe_procedural_element` |
+| `kind` | text |  |  |
+| `code` | text |  |  |
+| `name` | text |  |  |
+| `position` | int |  |  |
+| `required` | bool |  |  |
+
+### recipe_release
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `master_recipe_id` | uuid | FK | `master_recipe` |
+| `recipe_version_id` | uuid | FK UK | `recipe_review_round` |
+| `round_id` | uuid | FK UK | `recipe_review_round` |
+| `effective_from` | timestamptz |  |  |
+| `released_at` | timestamptz |  |  |
+| `released_by` | uuid | FK | `gebruiker` |
+| `reason` | text |  |  |
+
+### recipe_release_withdrawal
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `release_id` | uuid | FK UK | `recipe_release` |
+| `withdrawn_at` | timestamptz |  |  |
+| `withdrawn_by` | uuid | FK | `gebruiker` |
+| `reason` | text |  |  |
+
+### recipe_review_decision
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `round_id` | uuid | FK | `recipe_review_round` |
+| `domain` | text |  |  |
+| `decision` | text |  |  |
+| `reason` | text |  |  |
+| `reviewer_id` | uuid | FK | `gebruiker` |
+| `decided_at` | timestamptz |  |  |
+
+### recipe_review_round
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `master_recipe_version` |
+| `round_no` | int |  |  |
+| `change_no` | int |  |  |
+| `baseline_version_id` | uuid | FK leeg | `master_recipe_version` |
+| `baseline_change_no` | int | leeg |  |
+| `matrix_version` | int |  |  |
+| `snapshot` | jsonb |  |  |
+| `required_reviews` | text[] |  |  |
+| `contributors` | uuid[] |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+| `created_at` | timestamptz |  |  |
+
+### recipe_scaling_binding
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_scaling_rule` |
+| `rule_id` | uuid | FK | `recipe_scaling_rule` |
+| `parameter_limit_id` | uuid | FK leeg | `recipe_parameter_limit` |
+| `material_requirement_id` | uuid | FK leeg | `recipe_material_requirement` |
+
+### recipe_scaling_expression
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_scaling_rule` |
+| `rule_id` | uuid | FK | `recipe_scaling_rule` |
+| `grammar_version` | int |  |  |
+| `tokens` | jsonb |  |  |
+
+### recipe_scaling_input
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_scaling_rule` |
+| `rule_id` | uuid | FK | `recipe_scaling_rule` |
+| `code` | text |  |  |
+| `source_kind` | text |  |  |
+| `parameter_id` | uuid | FK leeg | `recipe_parameter` |
+| `equipment_property` | text | leeg |  |
+| `constant_value` | numeric | leeg |  |
+| `unit_id` | uuid | FK | `measurement_unit` |
+| `conversion_version_id` | uuid | FK leeg | `unit_conversion_version` |
+
+### recipe_scaling_rule
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `master_recipe_version` |
+| `code` | text |  |  |
+| `description` | text |  |  |
+| `rule_kind` | text |  |  |
+| `output_unit_id` | uuid | FK | `measurement_unit` |
+| `source_reference` | text |  |  |
+| `applicability` | text |  |  |
+
+### recipe_specification_link
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `recipe_version_id` | uuid | FK | `recipe_parameter_limit` |
+| `parameter_limit_id` | uuid | FK | `recipe_parameter_limit` |
+| `code` | text |  |  |
+| `description` | text |  |  |
+
 ### rooster
 
 | Kolom | Type | | Verwijst naar |
@@ -904,6 +1388,31 @@ PK = sleutel, FK = verwijst naar een andere tabel, UK = uniek. Zonder "leeg" is 
 | `afgehandeld_door` | uuid | FK leeg | `gebruiker` |
 | `afgehandeld_op` | timestamptz | leeg |  |
 | `notitie` | text | leeg |  |
+
+### unit_conversion
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `quantity_kind_id` | uuid | FK | `quantity_kind` |
+| `from_unit_id` | uuid | FK | `measurement_unit` |
+| `to_unit_id` | uuid | FK | `measurement_unit` |
+
+### unit_conversion_version
+
+| Kolom | Type | | Verwijst naar |
+| --- | --- | --- | --- |
+| `id` | uuid | PK |  |
+| `conversion_id` | uuid | FK | `unit_conversion` |
+| `quantity_kind_id` | uuid | FK | `unit_conversion` |
+| `value_semantics` | text | FK | `quantity_kind` |
+| `revision` | int |  |  |
+| `factor_numerator` | numeric |  |  |
+| `factor_denominator` | numeric |  |  |
+| `additive_offset` | numeric |  |  |
+| `source_reference` | text |  |  |
+| `created_by` | uuid | FK | `gebruiker` |
+| `created_at` | timestamptz |  |  |
 
 ### veld
 

@@ -1,6 +1,6 @@
 # MES
 
-> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 in voorbereiding. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D104 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
+> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 gestart. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D106 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
 
 Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. De huidige fictieve PoC gebruikt 18 processtappen en een lot van vier batches in PS16; dit is een tijdelijk model, geen definitief MES-recept. Lokale registratie ondersteunt offline werken. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
@@ -19,13 +19,13 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 ## Stand
 
-Bijgewerkt: 25 november 2026 · versie **0.63.0** (releasevoorbereiding).
+Bijgewerkt: 25 november 2026 · versie **0.63.0** (officieel uitgebracht).
 
-- **Ontwikkeling:** fase 1 functioneel geaccepteerd; PR #6 op `feature/mes-phase-1`, releasevoorbereiding. Databaseschema 0095. Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
-- **Databaseplaatje:** 62 tabellen en 132 relaties; schema 0095 wijzigt alleen de demo-indicatiefunctie; diagramcontrole geslaagd in integrale CI.
+- **Ontwikkeling:** fase 1 gemerged (PR #6) en [v0.63.0 gepubliceerd](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.63.0). Main `ea3b78bc938647140b4e228e9382761504518906`, schema 0095. Fase 2 op `feature/mes-phase-2`: materiaalstamdatafundament 0096–0097 in ontwikkeling; gecontroleerde databasefuncties en materiaal-API toegevoegd; gerichte PostgreSQL-baseline geslaagd (run 45682177664); 0098–0099 MBR-conceptfundament, persoonlijke conceptwijzigingen en API gericht gevalideerd (run 45684478100). 0100–0101 procedurefundament, gecontroleerde mutaties en procedure-API: gerichte baseline 45687274731 geslaagd; 0102–0107 relationeel receptinhoudfundament; 0108–0109 persoonlijke parameter-/formule- en vereisten-/lotregelfuncties toegevoegd, nog niet getest. Native Process Engineering-portaal, MOC/vrijgave, historische rondes (0128) en bronvoorbereiding geïmplementeerd/uitgewerkt; integrale technische acceptatie open. D111: gecombineerde handmatige Windows-praktijkacceptatie na fase 3. D110: structurele MBR Excel-import/export geparkeerd; ISA-gebaseerd model leidend, nieuwe legacywensen eerst in ROADMAP-wishlist. Bestaande legacyinterfaces hieronder beschrijven huidige werking, geen opdracht tot overname in het nieuwe MES. Fase-1-bewijs: zie D104 en acceptatiecriteria.
+- **Databaseplaatje:** 69 tabellen en 146 relaties op geteste schema 0101; gegenereerd in run 45687274731. Schema 0109 in ontwikkeling; regeneratie en gelijkheidscontrole volgen.
 - **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
-- **Open:** definitieve CI op releasetree, toestemming merge/publicatie, operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
-- **Releases:** uitsluitend op aanvraag na acceptatie. Geen merge of release uitgevoerd voor fase 1.
+- **Open:** fase 2 (uitgebreid met #141 volgens D106), daarna fase 3 Portalstructuur, navigatie en UI-harmonisatie (D105; nog niet gestart), vervolgens middelenbeheer en overige domeinen; operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Releases:** uitsluitend op aanvraag na acceptatie. Fase 1 is uitgebracht; fase 2 vereist afzonderlijke technische acceptatie; gecombineerde Windows-praktijkacceptatie na fase 3 (D111).
 
 **Links**
 - Code: https://github.com/Gertjun/Manufacturing-Execution-System (privé)

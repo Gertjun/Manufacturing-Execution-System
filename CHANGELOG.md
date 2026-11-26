@@ -7,6 +7,52 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #112/#113 (113.5d): formele vrijgave en intrekking via bestaande persoonlijke API; 0128 ontsluit historische beoordelingsrondes zonder nieuwe bevoegdheden. API-regressie toegevoegd; nog niet uitgevoerd.
+
+- #111 (deel): 0109 persoonlijke productgebonden lees-/schrijf-/verwijderfuncties voor middelen, personeelskwalificaties, instructies, specificaties, lotnorm en incompatibiliteit. Kwalificatieomschrijving uit vertrouwde catalogus, redenplicht niet instelbaar, gezamenlijke change_no, audit en beperkte ACL. Regressies toegevoegd, nog niet uitgevoerd.
+
+- #111/#141 (deel): 0108 persoonlijke productgebonden lees-/schrijf-/verwijderfuncties voor parameters, grenzen, formule en materiaalvereisten met gezamenlijke change_no; fail-closed receptautorisatie en fase-2-ACL-grants vóór geïnstalleerde interfacecontrole. Regressies toegevoegd, nog niet uitgevoerd; API en overige beheerfuncties volgen.
+
+- #111 (deel): 0107 versiegebonden lotnorm (1–50), verplichte afwijkingsreden, receptafhankelijk goedkeuringsvereiste en expliciete incompatibiliteit tussen MBR-revisies van hetzelfde product. Audit, beperkte ACL en regressies toegevoegd. Geen lotvorming of uitvoering; nog niet getest.
+
+- #111 (deel): 0106 versiegebonden equipment- en kwalificatievereisten, instructies met bevestigingsplicht en links naar exacte specificatiegrenzen; audit, beperkte ACL en regressies toegevoegd. Geen fysieke toewijzing, kwalificatietoekenning of uitvoering; nog niet getest.
+
+- #141 (deel): 0105 relationele schaalregelgrafiek binnen MBR-versie, getypeerde batch-/parameter-/equipment-/constante invoer, expliciete conversieversie, uitvoerkoppeling, cycluspreventie en audit. Geen uitvoerbare formules of runtimewrites; regressies nog niet uitgevoerd.
+
+- #141 (deel): 0104 relationeel eenhedenfundament met SI-dimensies, fysische grootheden, onveranderlijke catalogus en conversieversies (rationale factor en offset), absolute versus verschilwaarde en expliciete materiaal-/parameter-/formulekoppelingen. Geen automatische mapping, runtimewrites of conversie-uitvoering; regressies nog niet uitgevoerd.
+
+- D106: roadmap en ontwerp uitgebreid met #141 eenheden-/schaalregelmodel (fase 2), #142 gecontroleerde CR-berekeningen (fase 6), #143 operationele massabalans (fase 9) en #144 historische analyse (fase 11); acceptatiecriteria en normmapping toegevoegd. Alleen documentatie, geen implementatie.
+
+- #111 (deel): 0103 versiegebonden referentieformule, materiaalvereisten met exacte materiaalversie, input/output, vaste/lineaire hoeveelheden en expliciete parameterschaling (standaard vast). Geen impliciete eenheidsconversie of uitvoering; regressies nog niet uitgevoerd.
+
+- #103/110: hertest 45687274731 op 593d495 volledig geslaagd (782 DB, 121 API); gegenereerd databaseplaatje 0101 en OpenAPI opgenomen. Geen integrale acceptatie.
+- #111 (deel): 0102 versiegebonden parameterdefinities en vijf afzonderlijke numerieke voorwaardencategorieën, type-/eenheids-/versiegrenzen en ACL-regressies. Nog niet getest; geen runtimewrites.
+
+- #103/110: gerichte baseline 45686412128 faalde uitsluitend op parenttype-testfixture (edgeguard eerder dan CHECK). Onafhankelijk element zonder edges en behoudsassertie toegevoegd; productiecode en oorspronkelijke CHECK-verwachting ongewijzigd. Hertest open.
+
+- #103/110 (deel): procedure-API voor lezen, aanmaken, wijzigen en verwijderen van elementen/afhankelijkheden met gezamenlijke change_no; API-regressies toegevoegd. Nog niet getest.
+
+- #103/110 (deel): 0101 persoonlijke procedurebewerkingen en afhankelijkheden, gezamenlijke MBR-wijzigingsteller, atomaire wijzigingen en config_log-audit inclusief conceptverwijderingen. Regressies toegevoegd, nog niet uitgevoerd.
+
+- #103/110 (deel): 0100 relationeel procedurefundament met vier niveaus, verplichte/optionele elementen, versiegebonden parent-FK en voorwaartse afhankelijkheden binnen dezelfde groep; regressies toegevoegd, nog niet uitgevoerd. Geen runtimewrites of uitvoering.
+
+- D105: nieuwe fase 3 Portalstructuur, navigatie en UI-harmonisatie ingepland; bestaande fasen 3–11 hernummerd naar 4–12, geen functionele wijziging. Fase 2 ongewijzigd.
+- #109–110 (deel): gerichte PostgreSQL-baseline 0099 geslaagd (run 45684478100, d1815d3): 744 DB-controles en 120 API-tests; databaseplaatje en OpenAPI uit dezelfde run opgenomen. Geen integrale acceptatie.
+
+- #110 (deel): 0099 gecontroleerde MBR-conceptheaderwijzigingen met wijzigingsteller en persoonlijke config_log-audit; productgebonden MBR-API en regressies toegevoegd. Nog niet getest.
+
+- #109–110 (deel): 0098 stabiele MBR-identiteiten per product, afzonderlijke conceptversies, persoonlijke productgebonden receptbevoegdheid en regressies. Geen beoordeling/vrijgave of uitvoering; nog niet getest.
+
+- #109 (deel): gerichte PostgreSQL/Node 22-baseline geslaagd op a28cd0e (run 45682177664): 714 DB-controles, 119 API-tests, historische upgrade en laptoppakket; databaseplaatje en OpenAPI uit dezelfde run opgenomen. Geen integrale acceptatie.
+
+- #109 (deel): materiaal-API met persoonlijk gebonden transacties, invoervalidatie, revisieconflict (409) en positieve/negatieve API-regressies; nog niet uitgevoerd.
+
+- #109 (deel): 0097 persoonlijk materiaalbeheer met afgeschermde lees-/creatiefuncties, revisiecontrole en onveranderlijke identiteit/classificatie. Negatieve autorisatieregressies toegevoegd; nog niet uitgevoerd.
+
+- #109 (deel): migratie 0096 introduceert materiaalclassificatie, stabiele identiteit, expliciete bronkoppelingen en onveranderlijke materiaalversies. Geen automatische bronmigratie of runtime-toegang; regressies toegevoegd, nog niet uitgevoerd.
+
+- Start fase 2: releasebaseline geverifieerd en implementatievolgorde, scopegrenzen en testplan vastgelegd. Geen functionele of schemawijziging.
+
 ## 0.63.0 (25 nov 2026) · #106 #107 #108 #136
 - Fase 1: MES-fundament, persoonlijke autorisatie, functiescheiding, audit en begrensde PoC. Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-scope ([goedkeuring opdrachtgever](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171313853)). Geteste broncommit `582cf3c11308db77684d3062fed2fc1c2743bf80`, base `31c86973bf13848cba44fc38785084953fe65e39`, versie 0.62.1, schema 0095. [integrale CI 45645684067](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45645684067): Node 26 en Node 22 geslaagd; documentatiecontrole 45645661536 geslaagd. [Windows-build 45665375598](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45665375598): artifact MES-fase1-Windows-582cf3c, herkomst en SHA256 bevestigd. W1–W8: 107 controles, 106 rechtstreeks geslaagd en één als verwacht gedrag beoordeeld (werkplek blijft behouden). Zie [acceptatiebewijs PR #6](https://github.com/Gertjun/Manufacturing-Execution-System/pull/6#issuecomment-7171286531). Releasevoorbereiding 0.63.0 verandert de tree; nieuwe volledige CI vereist. Geen productieacceptatie of formele ISA-conformiteitsclaim.
 - D103/schema 0095: veertien actuele MES-demoaccounts bij schone fictieve Windows-initialisatie; historische gegevens blijven intact; gewone upgrades voegen geen accounts of grants toe. Mobiel menu en focus blijven behouden bij statusupdates; directe navigatie sluit menu. 

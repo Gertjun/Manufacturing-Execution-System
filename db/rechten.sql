@@ -636,6 +636,206 @@ BEGIN
  END IF;
 END $$;
 
+-- 0097: uitsluitend de persoonlijk gecontroleerde materiaalinterface.
+-- De tabellen en interne autorisatiehelper blijven ontoegankelijk.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=97) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.material_create_class(text,text),
+     fabriek.material_create_definition(text,text,uuid,text,uuid,uuid),
+     fabriek.material_append_version(uuid,integer,text,uuid,text),
+     fabriek.material_list() TO mes_app;
+ END IF;
+END $$;
+
+-- 0098: alleen productgebonden, persoonlijk gecontroleerde MBR-conceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=98) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_create(uuid,text,text,text),
+     fabriek.recipe_create_next_version(uuid,integer,text,text),fabriek.recipe_list(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0099: gecontroleerde conceptheaderwijziging; geen directe tabelwrites.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=99) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_update_draft(uuid,integer,text,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0101: uitsluitend persoonlijke procedureinterface, interne lock/audit niet toegankelijk.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=101) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_procedure_list(uuid),
+     fabriek.recipe_save_element(uuid,integer,uuid,uuid,text,text,text,integer,boolean),
+     fabriek.recipe_delete_element(uuid,integer,uuid),fabriek.recipe_add_dependency(uuid,integer,uuid,uuid),
+     fabriek.recipe_delete_dependency(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0108: alleen de expliciete persoonlijke parameter-/formulefuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=108) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_content_list(uuid),
+     fabriek.recipe_save_parameter(uuid,integer,uuid,uuid,text,text,text,text,text,boolean,text,boolean,uuid),
+     fabriek.recipe_delete_parameter(uuid,integer,uuid),
+     fabriek.recipe_save_parameter_limit(uuid,integer,uuid,uuid,text,text,numeric,numeric,numeric,text),
+     fabriek.recipe_delete_parameter_limit(uuid,integer,uuid),
+     fabriek.recipe_save_formula(uuid,integer,uuid,numeric,text,uuid),
+     fabriek.recipe_delete_formula(uuid,integer,uuid),
+     fabriek.recipe_save_material_requirement(uuid,integer,uuid,uuid,uuid,uuid,text,text,numeric,text,text,uuid),
+     fabriek.recipe_delete_material_requirement(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0109: expliciete persoonlijke receptvereisten-/lotregelfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=109) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_requirements_list(uuid),
+     fabriek.recipe_save_equipment_requirement(uuid,integer,uuid,uuid,text,text,text,integer,numeric,uuid),
+     fabriek.recipe_delete_equipment_requirement(uuid,integer,uuid),
+     fabriek.recipe_save_personnel_requirement(uuid,integer,uuid,uuid,text,text,integer),
+     fabriek.recipe_delete_personnel_requirement(uuid,integer,uuid),
+     fabriek.recipe_save_instruction(uuid,integer,uuid,uuid,text,integer,text,boolean),
+     fabriek.recipe_delete_instruction(uuid,integer,uuid),
+     fabriek.recipe_save_specification_link(uuid,integer,uuid,uuid,text,text),
+     fabriek.recipe_delete_specification_link(uuid,integer,uuid),
+     fabriek.recipe_save_lot_rule(uuid,integer,uuid,integer,boolean),
+     fabriek.recipe_delete_lot_rule(uuid,integer,uuid),
+     fabriek.recipe_save_compatibility_rule(uuid,integer,uuid,uuid,text),
+     fabriek.recipe_delete_compatibility_rule(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0110: expliciete persoonlijke catalogusfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=110) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.unit_catalog_list(),
+     fabriek.unit_catalog_create_dimension(smallint,smallint,smallint,smallint,smallint,smallint,smallint),
+     fabriek.unit_catalog_create_kind(uuid,text,text,text),
+     fabriek.unit_catalog_create_unit(uuid,text,text,text),
+     fabriek.unit_catalog_create_conversion(uuid,uuid,numeric,numeric,numeric,text),
+     fabriek.unit_catalog_append_conversion(uuid,integer,numeric,numeric,numeric,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0111: uitsluitend de expliciete persoonlijke schaalregelconceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=111) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_scaling_list(uuid),
+     fabriek.recipe_save_scaling_rule(uuid,integer,uuid,text,text,text,uuid,text,text),
+     fabriek.recipe_delete_scaling_rule(uuid,integer,uuid),
+     fabriek.recipe_save_scaling_input(uuid,integer,uuid,uuid,text,text,uuid,text,numeric,uuid,uuid),
+     fabriek.recipe_delete_scaling_input(uuid,integer,uuid),
+     fabriek.recipe_save_scaling_binding(uuid,integer,uuid,uuid,uuid,uuid),
+     fabriek.recipe_delete_scaling_binding(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0112: expliciete persoonlijke formuleconceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=112) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_save_scaling_expression(uuid,integer,uuid,jsonb),
+     fabriek.recipe_delete_scaling_expression(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0114: expliciete materiaal-eenheidsselectie en productgebonden cataloguslezing.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=114) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.material_create_definition_with_unit(text,text,uuid,uuid,uuid,uuid),
+     fabriek.material_append_version_with_unit(uuid,integer,text,uuid,uuid),
+     fabriek.recipe_unit_catalog_list(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0116: persoonlijke MOC-conceptfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=116) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_change_list(uuid),
+     fabriek.recipe_create_change_request(uuid,integer,uuid,text,text),
+     fabriek.recipe_update_change_request(uuid,integer,uuid,text,text),
+     fabriek.recipe_save_change_impact(uuid,integer,uuid,uuid,text,text),
+     fabriek.recipe_delete_change_impact(uuid,integer,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0117: persoonlijke MOC-versievergelijking, geen directe projectietoegang.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=117) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_compare_change(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0118: uitsluitend persoonlijke preview van beoordelingsvereisten.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=118) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_review_requirements(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0120: persoonlijke besluitgebonden reviewfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=120) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_submit_review_confirmed(uuid,integer,integer,text),
+     fabriek.recipe_decide_review_confirmed(uuid,integer,text,text,text,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0121: persoonlijke preview van inhoudelijke vrijgaveblokkades.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=121) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_release_validation(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0123: D109 persoonlijke vrijgave en intrekking.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=123) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_release_confirmed(uuid,uuid,integer,timestamptz,text,text),
+     fabriek.recipe_withdraw_confirmed(uuid,text,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0124: persoonlijke read-only beoordelingsinterface.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=124) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_review_inbox(uuid),fabriek.recipe_review_dossier(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0126: persoonlijke productkeuze.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=126) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_products() TO mes_app;
+ END IF;
+END $$;
+
+-- 0127: uitsluitend beperkte referentielezing via productbevoegdheid.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=127) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_reference_catalog(uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
@@ -714,3 +914,4 @@ BEGIN
    END IF;
  END IF;
 END $$;
+
