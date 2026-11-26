@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- Documentatie-CI voert gewone bron-, link- en versiecontroles zonder browser uit. Volledige diagramgeneratie en Chrome draaien bij het label `acceptatie-test` of bij een gerichte diagramcontrole. De PostgreSQL-controle blijft actief bij wijzigingen aan het schema, de SQL-diagramgenerator of de schemaregressie.
+
 - #139 (139.4c): twaalf geverifieerde SVG’s uit documentatiecontrole 422 opgenomen in de technische Markdown. Mermaid-bronnen blijven uitklapbaar. CI vergelijkt de gepubliceerde bestanden met de hergeneratie.
 
 - #139 (139.4c): de vier procesdiagrammen uit documentatiecontrole 421 visueel beoordeeld op pijlen, teruglussen, labels en uitlijning. Het conceptuele datamodel groepeert de 20 entiteiten met 17 bestaande relaties in gelijkvormige blokken. Zes fysieke domeinweergaven tonen samen alle 203 foreign keys, met gestippelde verwijzingen naar tabellen in andere domeinen. De bestaande fysieke overzichtsweergave blijft beschikbaar. Publicatie in de technische documentatie volgt na beoordeling van de nieuwe uitvoer.

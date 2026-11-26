@@ -3,10 +3,48 @@ name: Documentatiecontrole
 on:
   push:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs, tools/render_diagrams.py, tests/technical-diagrams-render.mjs, 'docs/mes/**']
+    paths:
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DECISIONS.md'
+      - 'ROADMAP.md'
+      - 'CHANGELOG.md'
+      - 'docs/DATABASE.md'
+      - 'db/schema.sql'
+      - 'tests/test_schema_plaatje.sh'
+      - 'tests/test_roadmap.sh'
+      - 'tests/test_diagram_style.py'
+      - '.github/workflows/documentatie.yml'
+      - '.github/workflows/diagrammen.yml'
+      - 'tools/schema_plaatje.py'
+      - 'docs/diagrams/**'
+      - 'tools/roadmap_diagram.py'
+      - 'tests/roadmap-render.mjs'
+      - 'tools/render_diagrams.py'
+      - 'tests/technical-diagrams-render.mjs'
+      - 'docs/mes/**'
   pull_request:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs, tools/render_diagrams.py, tests/technical-diagrams-render.mjs, 'docs/mes/**']
+    paths:
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DECISIONS.md'
+      - 'ROADMAP.md'
+      - 'CHANGELOG.md'
+      - 'docs/DATABASE.md'
+      - 'db/schema.sql'
+      - 'tests/test_schema_plaatje.sh'
+      - 'tests/test_roadmap.sh'
+      - 'tests/test_diagram_style.py'
+      - '.github/workflows/documentatie.yml'
+      - '.github/workflows/diagrammen.yml'
+      - 'tools/schema_plaatje.py'
+      - 'docs/diagrams/**'
+      - 'tools/roadmap_diagram.py'
+      - 'tests/roadmap-render.mjs'
+      - 'tools/render_diagrams.py'
+      - 'tests/technical-diagrams-render.mjs'
+      - 'docs/mes/**'
 
 permissions:
   contents: read
@@ -16,12 +54,13 @@ jobs:
     name: Documentatieconsistentie
     runs-on: ubuntu-latest
     outputs:
-      diagram: ${{ steps.wijzigingen.outputs.diagram }}
+      schema: ${{ steps.wijzigingen.outputs.schema }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - name: Bepaal of alleen documentatie gewijzigd is
+      - name: Bepaal gewijzigde bronnen en controleer versiebeleid
         id: wijzigingen
         env:
           EVENT: ${{ github.event_name }}
@@ -37,19 +76,45 @@ jobs:
             begin="$BEFORE"
             eind="$GITHUB_SHA"
           fi
-          git diff --name-only --no-renames -z "$begin" "$eind" > /tmp/docs-wijzigingen
           BEGIN="$begin" END="$eind" python3 - <<'PY'
-          import os, pathlib, subprocess
-          toegelaten = set(["README.md","CLAUDE.md","DECISIONS.md","ROADMAP.md","CHANGELOG.md","docs/DATABASE.md","docs/PRAKTIJKTESTS.md","docs/SERVER.md","tools/pakket/README.md","docs/mes/ACCEPTANCE-CRITERIA.md","docs/mes/BLUEPRINT.md","docs/mes/DATA-MODEL.md","docs/mes/ISA-CONFORMANCE.md","docs/mes/MBR-EBR-DESIGN.md","docs/mes/MIGRATION-STRATEGY.md","docs/mes/ROLES-AND-PROCESSES.md","docs/mes/TERMINOLOGY.md","docs/mes/VISUAL-STYLE.md"])
-          bestanden = set(pathlib.Path("/tmp/docs-wijzigingen").read_bytes().decode().split("\0")) - {""}
+          import os, re, subprocess
+          from tools.render_diagrams import SOURCES
+
+          begin, eind = os.environ["BEGIN"], os.environ["END"]
+          toegelaten = {"README.md","CLAUDE.md","DECISIONS.md","ROADMAP.md","CHANGELOG.md","docs/DATABASE.md","docs/PRAKTIJKTESTS.md","docs/SERVER.md","tools/pakket/README.md","docs/mes/ACCEPTANCE-CRITERIA.md","docs/mes/BLUEPRINT.md","docs/mes/DATA-MODEL.md","docs/mes/ISA-CONFORMANCE.md","docs/mes/MBR-EBR-DESIGN.md","docs/mes/MIGRATION-STRATEGY.md","docs/mes/ROLES-AND-PROCESSES.md","docs/mes/TERMINOLOGY.md","docs/mes/VISUAL-STYLE.md"}
+          def wijzigingen(vanaf):
+              return set(subprocess.check_output(
+                  ["git", "diff", "--name-only", "--no-renames", "-z", vanaf, eind],
+                  text=True,
+              ).split("\0")) - {""}
+
+          bestanden = wijzigingen(begin)
           alleen_docs = bool(bestanden) and bestanden <= toegelaten
-          roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md", "tools/roadmap_diagram.py", "docs/diagrams/roadmap.mmd", "docs/diagrams/roadmap.svg", "tests/roadmap-render.mjs", "tools/render_diagrams.py", "tests/technical-diagrams-render.mjs", "docs/DATABASE.md", "tools/schema_plaatje.py"}) or any(p.startswith(("docs/mes/", "docs/diagrams/rendered/")) for p in bestanden)
-          diagram = bool(bestanden & {"docs/DATABASE.md", "tools/schema_plaatje.py"})
+          vorige = os.environ.get("BEFORE", "")
+          bekend = vorige and subprocess.run(
+              ["git", "cat-file", "-e", vorige + "^{commit}"], capture_output=True,
+          ).returncode == 0
+          deze_wijziging = wijzigingen(vorige) if bekend else bestanden
+          schema = bool(deze_wijziging & {"db/schema.sql", "tools/schema_plaatje.py", "tests/test_schema_plaatje.sh"})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              print(f"roadmap={str(roadmap).lower()}", file=f)
-              print(f"diagram={str(diagram).lower()}", file=f)
+              print(f"schema={str(schema).lower()}", file=f)
+
+          diagraminputs = {
+              "db/schema.sql", "tools/schema_plaatje.py", "tools/render_diagrams.py",
+              "docs/diagrams/roadmap.mmd", "tools/roadmap_diagram.py",
+          }
+          def mermaid(ref, path):
+              inhoud = subprocess.run(
+                  ["git", "show", f"{ref}:{path}"], capture_output=True, text=True,
+              ).stdout
+              return re.findall(r"```mermaid\n(.*?)```", inhoud, re.S)
+
+          if bestanden & diagraminputs or any(
+              mermaid(begin, pad) != mermaid(eind, pad)
+              for pad in SOURCES.values() if pad in bestanden
+          ):
+              print("::notice::Diagrambron gewijzigd. Controleer de SVG’s bij technische acceptatie.")
           if alleen_docs and "CHANGELOG.md" in bestanden:
-              import re
               def versies(ref):
                   inhoud = subprocess.check_output(["git", "show", ref + ":CHANGELOG.md"], text=True)
                   return re.findall(r"^## (\d+\.\d+\.\d+)\b", inhoud, re.M)
@@ -57,39 +122,16 @@ jobs:
                   raise SystemExit("Nieuwe, verwijderde of herschikte versies horen in een software-PR.")
           PY
       - name: Roadmap en changelog controleren
-        if: steps.wijzigingen.outputs.roadmap == 'true'
         run: |
           tests/test_roadmap.sh
           python3 tests/test_diagram_style.py
           python3 tools/roadmap_diagram.py --check
           V="$(cat VERSIE)"
           grep -q "^## $V " CHANGELOG.md
-      - name: Roadmap SVG in Chrome (licht en donker)
-        if: steps.wijzigingen.outputs.roadmap == 'true'
-        run: |
-          npm ci --prefix portaal --ignore-scripts
-          node tests/roadmap-render.mjs
-      - name: Genereer technische diagrammen en controleer gepubliceerde SVG’s
-        if: steps.wijzigingen.outputs.roadmap == 'true'
-        run: |
-          command -v dot || { sudo apt-get update && sudo apt-get install -y graphviz; }
-          python3 tools/render_diagrams.py /tmp/mes-diagrams
-          python3 tools/render_diagrams.py /tmp/mes-diagrams-repeat
-          diff -r /tmp/mes-diagrams /tmp/mes-diagrams-repeat
-          diff -r docs/diagrams/rendered /tmp/mes-diagrams
-          node tests/technical-diagrams-render.mjs /tmp/mes-diagrams
-      - name: Bewaar technische SVG-diagrammen voor review
-        if: steps.wijzigingen.outputs.roadmap == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mes-technical-diagrams
-          path: /tmp/mes-diagrams/*.svg
-          if-no-files-found: error
-          retention-days: 7
-  diagram:
+  schema:
     name: Databasediagram controleren
     needs: documentatie
-    if: needs.documentatie.outputs.diagram == 'true'
+    if: needs.documentatie.outputs.schema == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -102,6 +144,8 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Databasediagram vergelijken met schema
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: |

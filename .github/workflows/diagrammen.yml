@@ -1,0 +1,67 @@
+name: Diagramcontrole
+
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagrammen:
+    name: Diagrammen voor technische acceptatie
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'acceptatie-test' || github.event.label.name == 'diagramcontrole'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Geteste commit en roadmap-SVG vastleggen
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          python3 tools/roadmap_diagram.py --check
+      - name: Roadmap SVG in Chrome (licht en donker)
+        run: |
+          npm ci --prefix portaal --ignore-scripts
+          node tests/roadmap-render.mjs
+      - name: Genereer technische diagrammen en controleer gepubliceerde SVG’s
+        run: |
+          command -v dot || { sudo apt-get update && sudo apt-get install -y graphviz; }
+          python3 tools/render_diagrams.py /tmp/mes-diagrams
+          python3 tools/render_diagrams.py /tmp/mes-diagrams-repeat
+          diff -r /tmp/mes-diagrams /tmp/mes-diagrams-repeat
+          diff -r docs/diagrams/rendered /tmp/mes-diagrams
+          node tests/technical-diagrams-render.mjs /tmp/mes-diagrams
+      - name: Bewaar technische SVG-diagrammen voor review
+        uses: actions/upload-artifact@v4
+        with:
+          name: mes-technical-diagrams
+          path: /tmp/mes-diagrams/*.svg
+          if-no-files-found: error
+          retention-days: 7
+  schema:
+    name: Databasediagram bij gerichte diagramcontrole
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'diagramcontrole'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Databasediagram vergelijken met schema
+        env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          tests/test_schema_plaatje.sh
