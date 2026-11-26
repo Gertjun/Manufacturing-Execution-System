@@ -43,12 +43,21 @@ page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; 
 const shot = (naam, fullPage = true) => page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage });
 const dialoog = () => page.getByRole("dialog");
 const inloggen = async naam => {
-  await page.goto(BASIS+"/portaal/#/login");
-  await page.evaluate(()=>localStorage.clear());
-  await page.reload();
+  if (page.url().startsWith(BASIS)) {
+    await page.getByRole("button",{name:"Afmelden",exact:true}).click();
+  } else {
+    await page.goto(BASIS+"/portaal/#/login");
+  }
+  await page.getByRole("heading",{name:"Inloggen",exact:true}).waitFor();
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
-  await page.getByRole("button",{name:"Inloggen"}).click();
+  const login = page.waitForResponse(r=>new URL(r.url()).pathname==="/auth/login" && r.request().method()==="POST");
+  await page.getByRole("button",{name:"Inloggen",exact:true}).click();
+  const response = await login;
+  if (!response.ok()) throw new Error("Aanmelding "+naam+": HTTP "+response.status());
+  const result = await response.json();
+  if (result.wachtwoordWijzigen) throw new Error("Onverwacht tijdelijk wachtwoord: "+naam);
+  await page.getByRole("heading",{name:"Welkom, "+naam,exact:true}).waitFor();
   await page.locator(".starttegel-beheer").click();
 };
 const token = () => page.evaluate(()=>localStorage.getItem("portaal.token"));
@@ -164,12 +173,12 @@ try {
   const engineer = await token();
   check("Engineer heeft geen account- of personeelsmenu",await page.getByRole("link",{name:"Accounts",exact:true}).count()===0 && await page.getByRole("link",{name:"Personeel",exact:true}).count()===0);
   check("Engineer mag geen accounts lezen",(await verzoek("GET","/beheer/gebruikers",engineer)).status===403);
-  await inloggen("beheerder1");
+  await inloggen("mes.system");
   await page.getByRole("heading",{name:"Accounts",exact:true}).waitFor();
-  await page.locator("tr",{hasText:"beheerder1"}).waitFor();
+  await page.locator("tr",{hasText:"mes.system"}).waitFor();
   const system=await token();
   check("System Administrator heeft geen personeels- of engineeringmenu",await page.getByRole("link",{name:"Personeel",exact:true}).count()===0 && await page.getByRole("link",{name:"Stappen en velden",exact:true}).count()===0);
-  check("Eigen account heeft geen uitzetknop",await page.locator("tr",{hasText:"beheerder1"}).getByRole("button",{name:"Uitzetten"}).count()===0);
+  check("Eigen account heeft geen uitzetknop",await page.locator("tr",{hasText:"mes.system"}).getByRole("button",{name:"Uitzetten"}).count()===0);
   check("Historisch gedeeld account is als geblokkeerd gemarkeerd",await page.locator("tr",{hasText:"Historisch gedeeld (login geblokkeerd)"}).count()>=1);
   await page.getByRole("button",{name:"Account aanmaken"}).click();
   await dialoog().getByLabel("Gebruikersnaam").fill("Kwaliteit 2");
@@ -189,7 +198,7 @@ try {
   await page.locator("tr",{hasText:"kwaliteit2"}).getByRole("button",{name:"Activeren"}).waitFor();
   check("Account uitgezet",(await q("SELECT actief FROM fabriek.gebruiker WHERE id=$1",[account.id]))[0].actief===false);
   await shot("02-accounts");
-  await inloggen("productiemanager1");
+  await inloggen("mes.manager");
   await page.getByRole("link",{name:"Personeel",exact:true}).click();
   await page.locator("tr",{hasText:"Operator A"}).waitFor();
   const manager=await token();
@@ -223,7 +232,7 @@ try {
   await page.locator("tr",{hasText:"Operator I"}).getByRole("button",{name:"Activeren"}).waitFor();
   check("Personeelsidentiteit uitgezet zonder accountwijziging",(await q("SELECT actief FROM fabriek.operator WHERE id=$1",[persoon.id]))[0].actief===false);
   await shot("02-personeel");
-  await inloggen("beheerder1");
+  await inloggen("mes.system");
   await page.getByRole("link", { name: "Pc's" }).click();
   await page.locator("tr", { hasText: "PC-01" }).getByRole("button", { name: "Stappen kiezen" }).click();
   await dialoog().getByLabel(/PS3 Mengen/).check();
@@ -293,7 +302,7 @@ try {
   await invoer.close();
 
   console.log("\nDiensten en ploegen (#86)");
-  await inloggen("productiemanager1");
+  await inloggen("mes.manager");
   await page.goto(`${BASIS}/portaal/#/beheer/ploegen`);
   await page.getByRole("heading", { name: "Diensten en ploegen", level: 1 }).waitFor();
   const komend = page.locator("section", { has: page.getByRole("heading", { name: "Komende 14 dagen" }) });

@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #140.1: Beheer-regressie gebruikt actuele fictieve MES-identiteiten voor systeembeheer en personeelsbeheer, expliciete centrale afmelding en controle op succesvolle HTTP-aanmelding en verwachte persoonlijke startpagina. Historische fixturecontroles en autorisatieverwachtingen behouden. Gerichte Chrome-verificatie volgt; oorzaak eerdere timeout nog niet definitief bewezen.
+
 - D115: CI-optimalisatie met npm-lockbestandcache, annuleren van verouderde documentatieruns en afzonderlijk label `scherm-test` voor bestaande Chrome-regressies met echte fictieve PostgreSQL-backend. Volledige acceptatiesuite en acceptatiebewijs blijven ongewijzigd. Verificatie volgt.
 
 - #140 (140.1): de groepering, het accent en het label van offline-acties gebruiken dezelfde beoordelingsvoorwaarde. Browserregressie dekt de oudere herkomstfout, gewone serverweigering en afgeschermde herkomst. Process Engineering test een compleet fictief recept via persoonlijke API’s, drie onafhankelijke beoordelingen, formele vrijgave en intrekking via de interface, exacte revisie- en rondegegevens, historisch bewijs en alleen-lezen gedrag. Gericht lokaal geslaagd.
