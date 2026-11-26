@@ -43,7 +43,7 @@ jobs:
           toegelaten = set(["README.md","CLAUDE.md","DECISIONS.md","ROADMAP.md","CHANGELOG.md","docs/DATABASE.md","docs/PRAKTIJKTESTS.md","docs/SERVER.md","tools/pakket/README.md","docs/mes/ACCEPTANCE-CRITERIA.md","docs/mes/BLUEPRINT.md","docs/mes/DATA-MODEL.md","docs/mes/ISA-CONFORMANCE.md","docs/mes/MBR-EBR-DESIGN.md","docs/mes/MIGRATION-STRATEGY.md","docs/mes/ROLES-AND-PROCESSES.md","docs/mes/TERMINOLOGY.md","docs/mes/VISUAL-STYLE.md"])
           bestanden = set(pathlib.Path("/tmp/docs-wijzigingen").read_bytes().decode().split("\0")) - {""}
           alleen_docs = bool(bestanden) and bestanden <= toegelaten
-          roadmap = alleen_docs and bool(bestanden & {"ROADMAP.md", "CHANGELOG.md"})
+          roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md"})
           diagram = alleen_docs and "docs/DATABASE.md" in bestanden
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print(f"roadmap={str(roadmap).lower()}", file=f)

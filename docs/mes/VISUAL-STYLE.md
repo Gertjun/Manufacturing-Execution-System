@@ -20,3 +20,6 @@ Masterdata blauw/lichtblauw; transacties oranje/lichtoranje. Oranje procespijlen
 
 ## Borging
 Inventariseer bestaande schermen, CSS, documenten en afwijkingen. Test contrast, focus, zes formaten, visuele regressies en consistente componenten. Geen nieuwe domeinfunctionaliteit. Dit document is ontwerpstart, geen bewijs van implementatie of acceptatie.
+
+## Inventarisatie als ontwerpinput
+Beide applicaties importeren gedeeld/tokens.css en knoppen.css. Bestaande donkere en printvarianten expliciet beoordelen; responsive afwijkingen (600/840/900) toetsen in plaats van willekeurig gelijkmaken. Behoud invoer-offline, afdrukken en bestaande statussemantiek. Zie 145.1 in ACCEPTANCE-CRITERIA.md. Visuele nulmeting en contrastmatrix volgen in 139.1–4.

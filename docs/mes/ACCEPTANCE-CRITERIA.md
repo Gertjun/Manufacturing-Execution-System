@@ -571,3 +571,22 @@ Technisch geaccepteerd op 26 november 2026: head `8987ea70e70aa079d77e71af2ef934
 ### Mergeverificatie fase 2 (D112)
 
 Op 26 november 2026 heeft de opdrachtgever de branchstrategie gewijzigd: technisch geaccepteerde fase 2 is via PR 7 gemerged naar main (`411a9d30aa09edb43121108b631bbe6f112ce5e9`), met exact dezelfde tree als 8987ea7 (`4fca93c0701d4f0cd50048368afeb419835686fc`). [Mergecontrole workflow 678](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45776097688) groen via hergebruik van eerder integraal testbewijs; [documentatiecontrole 388](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45776097577) groen. PR 8 vergelijkt voortaan met main; fase 3 blijft afzonderlijk technisch te accepteren. Technische acceptatie kan na expliciete toestemming tot merge leiden; praktijkacceptatie en afzonderlijke releasetoestemming blijven vereist voor publicatie. D111 en gecombineerde Windows-praktijkacceptatie blijven ongewijzigd; geen fase 4 vóór officiële publicatie. Officiële release blijft v0.63.0.
+
+### 145.1 — Technische inventarisatie (26 november 2026)
+
+Volledige Git-tree geïnventariseerd (niet afgekapt). Broncode-inspectie van portalregistratie, beide sessie-/navigatie-ingangen, rechtenprojecties, gedeelde UI/CSS en representatieve regressies. Nog geen runtime-/visuele nulmeting; die volgt per implementatiewerkpakket.
+
+| Gebied | Bestanden / afhankelijkheden | Uitwerking |
+|---|---|---|
+| Start, login, portalen | portaal/src/main.ts, basis.ts; engineering, kwaliteit, productie, planning, beheer | 138.1: één registratie voor reguliere portalen en aparte tegels (invoer, nalevering, display); behoud directe routeguards. Meldingen, hulp, wachtwoord en etiketten afzonderlijk als hulpfuncties classificeren. |
+| Production Execution | invoer/src/main.ts, rechten.ts, sessie.ts, api.ts, schermen/, wachtrij.ts, opslag.ts, service worker | 139.2–3: gedeelde stijl, eigen sessie en offline gedrag behouden; geen wijziging van offline bevoegdheden. |
+| Engineering | schermen.ts, stamdata.ts, recepten.ts, procedure.ts, inhoud.ts, moc.ts, beoordelingen.ts | 139.3: concept, historie, MOC, review, vrijgave en intrekking herkenbaar; datum- en statussemantiek. |
+| Overige schermen | portaal/src/{kwaliteit,productie,planning,beheer}/, meldingen.ts, nalevering.ts, etiketten.ts, wandscherm.ts | 139.3: bestaande functies, geen vooruitbouw; print/certificaten/etiketten en display behouden. |
+| Gedeelde basis | gedeeld/tokens.css, knoppen.css, ui.ts, hulp.css, wachtwoord.ts; portaal/src/stijl.css, invoer/src/stijl.css, invoer/src/ui.ts | 139.1–2: kleursemantiek D107 versus bestaande actie-/statuskleuren, donker-/printvarianten, afwijkende responsive breekpunten (600/840/900), focus en reduced motion; geen blinde vervanging. |
+| Documenten | docs/DATABASE.md, docs/mes/*.md, README, ROADMAP, docs/PRAKTIJKTESTS.md, docs/SERVER.md, tools/pakket/README.md; tools/schema_plaatje.py | 139.4: onderscheid procespijl/FK, generator behouden; naslagwerk buiten repo afzonderlijk. |
+| Tests | portaal/e2e/ (16 scripts), invoer/e2e/flow.mjs en offline-rechten.mjs | 140.1: bestaande zes formaten, navigatiepariteit, actuele rechten, volledige positieve MBR-vrijgave en visuele nulmeting; bestaande regressies behouden. |
+| Legacy | demo/ en Excel-hulpfuncties | D99/D110: geen nieuwe compatibiliteitsinvestering of ongevraagde verwijdering; bestaande beschermde functionaliteit behouden. |
+
+Bevinding: portal- en invoerprojectie gebruiken dezelfde lees-/uitvoercapabilities voor magInvoer, maar verschillende online/offline levenscycli. Niet samenvoegen zonder bewijs van behoud. Production Execution ontbreekt in de menu-registratie, geen bewezen backendlek. De inventarisatie is afgerond op architectuur-/bestandsniveau; individuele schermmetingen, contrastwaarden en visuele afwijkingen worden tijdens 139.1–4 vastgesteld.
+
+CI-bevinding: workflow 389 was groen maar de roadmapstap overgeslagen wegens gemengde PR (workflowbestanden). Roadmapcontrole voortaan uitvoeren bij wijziging van ROADMAP of CHANGELOG ongeacht overige bestanden; documentatie-only releaseversieguard en diagrambeleid blijven ongewijzigd.
