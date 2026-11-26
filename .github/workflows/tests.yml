@@ -20,9 +20,10 @@ on:
       - 'docs/mes/MIGRATION-STRATEGY.md'
       - 'docs/mes/ROLES-AND-PROCESSES.md'
       - 'docs/mes/TERMINOLOGY.md'
+      - 'docs/mes/VISUAL-STYLE.md'
       - 'tools/pakket/README.md'
   pull_request:
-    branches: [main]
+    branches: [main, feature/mes-phase-2]
     paths-ignore:
       - 'README.md'
       - 'CLAUDE.md'
@@ -40,6 +41,7 @@ on:
       - 'docs/mes/MIGRATION-STRATEGY.md'
       - 'docs/mes/ROLES-AND-PROCESSES.md'
       - 'docs/mes/TERMINOLOGY.md'
+      - 'docs/mes/VISUAL-STYLE.md'
       - 'tools/pakket/README.md'
     types: [opened, synchronize, reopened, labeled, ready_for_review]
 

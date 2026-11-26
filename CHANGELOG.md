@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #145 (voorbereiding): fase-2-acceptatiebewijs en fase-3-planning vastgelegd, ontwerpstandaard v0 en beperkte CI-uitbreiding voor gestapelde concept-PR. Geen functionele UI-wijzigingen of release.
+
 - #112/#113 (113.5d): formele vrijgave en intrekking via bestaande persoonlijke API; 0128 ontsluit historische beoordelingsrondes zonder nieuwe bevoegdheden. API-regressie toegevoegd; nog niet uitgevoerd.
 
 - #111 (deel): 0109 persoonlijke productgebonden lees-/schrijf-/verwijderfuncties voor middelen, personeelskwalificaties, instructies, specificaties, lotnorm en incompatibiliteit. Kwalificatieomschrijving uit vertrouwde catalogus, redenplicht niet instelbaar, gezamenlijke change_no, audit en beperkte ACL. Regressies toegevoegd, nog niet uitgevoerd.

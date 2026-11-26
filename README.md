@@ -1,6 +1,6 @@
 # MES
 
-> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 gestart. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D106 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
+> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 technisch geaccepteerd op 8987ea7; fase 3 gestart op afzonderlijke branch. Windows-praktijkacceptatie van beide fasen en publicatie volgen conform D111. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D106 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
 
 Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. De huidige fictieve PoC gebruikt 18 processtappen en een lot van vier batches in PS16; dit is een tijdelijk model, geen definitief MES-recept. Lokale registratie ondersteunt offline werken. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
