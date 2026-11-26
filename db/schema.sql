@@ -10043,10 +10043,10 @@ SET search_path = fabriek, public;
 -- Alleen gebonden transacties per account worden geserialiseerd; de losse
 -- sessiecontrole execution_session_actor blijft een gedeelde read-lock.
 CREATE OR REPLACE FUNCTION execution_bind_transaction(p_proof text,p_expected uuid)
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
 DECLARE v_actor uuid;
 BEGIN
-    IF p_proof IS NULL OR length(p_proof)<>64 OR p_proof !~ '^[0-9a-f]{64} THEN
+    IF p_proof IS NULL OR length(p_proof)<>64 OR p_proof !~ '^[0-9a-f]{64}$' THEN
         RAISE EXCEPTION 'Persoonlijke uitvoeringssessie ongeldig' USING ERRCODE='42501';
     END IF;
     SELECT g.id INTO v_actor FROM execution_session s JOIN gebruiker g ON g.id=s.user_id
@@ -10061,7 +10061,7 @@ BEGIN
     END IF;
     PERFORM set_config('fabriek.execution_proof',p_proof,true);
     RETURN v_actor;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION execution_bind_transaction(text,uuid) FROM PUBLIC;
 
 COMMIT;
