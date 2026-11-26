@@ -13,5 +13,6 @@
   .venster { border-radius: var(--mes-kaart-radius); box-shadow: var(--schaduw); }
   .venster h2 { color: var(--mes-structuur); }
   .vraag label { color: var(--inkt); }
-  .vraag :is(input, select, textarea) { border-radius: var(--radius-xs); }
+  /* Meer specifiek dan de lokale input[type] basisregels; behoud lokale maatvoering. */
+  .venster .vraag :is(input, select, textarea) { border-radius: var(--radius-xs); }
 }
