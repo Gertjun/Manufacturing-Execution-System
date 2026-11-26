@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #138 (138.1b/c): één bestemmingsregister voor startpagina en linkernavigatie, inclusief Production Execution en Nainvoeren; bestaande toegangsvoorwaarden en interne router behouden. Gerichte verificatie volgt.
+
 - #139 (139.2b): gedeelde componentbasis en gerichte Chrome-regressie op gebouwde CSS; bestaande meetstatus en kritieke kleurvlakken behouden. CI nog open.
 
 - #139 (139.2a): gedeelde B+ tokens en omlijnde knoppen, basisnavigatie, titels en tabelkoppen; behoud bestaande statuskleuren en operatorafmetingen. Contrastregressie toegevoegd; CI nog open.

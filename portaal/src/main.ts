@@ -2,7 +2,7 @@ import { VERSIE } from "../../gedeeld/versie";
 import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
-import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor, vernieuwRechten, rechten, magDisplay, magEtiketten, magNalevering } from "./basis";
+import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor, vernieuwRechten, rechten, magDisplay, magEtiketten, magNalevering, bestemmingenVoor, markeerPortalkeuze } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
@@ -28,7 +28,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
     menu.replaceChildren(h("div", { class: "merk" }, "MES"));
     return;
   }
-  const portalen = portalenVoor(sessie.rol);
+  const portalen = bestemmingenVoor();
   // Op een smal scherm (tablet) staat het menu dicht achter een knop, zodat de inhoud meteen zichtbaar is (#44).
   const huidig = portalen.find((p) => p.id === actiefPortaal);
   const onderdeel = huidig?.onderdelen.find((o) => o.pad === actiefOnderdeel);
@@ -52,7 +52,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   inhoud.replaceChildren(
     ...portalen.map((p) =>
       h("div", { class: "menu-groep" },
-        h("a", { class: "menu-portaal", href: `#/${p.id}`, "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,
+        h("a", { class: "menu-portaal", href: p.href, "data-portaal": p.id, onclick: () => markeerPortalkeuze(p.id), "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,
           p.klaar ? null : h("span", { class: "binnenkort" }, "volgt")),
         p.id === actiefPortaal && zichtbareOnderdelen(p).length
           ? h("ul", {}, zichtbareOnderdelen(p).map((o) => {
@@ -80,7 +80,7 @@ function loginScherm() {
   toon(
     h("div", { class: "inlog" },
       h("h1", {}, "Inloggen"),
-      h("p", { class: "sub" }, "Met je eigen account. Daarna kies je het invoerscherm of een portaal."),
+      h("p", { class: "sub" }, "Met je eigen account. Daarna kies je een MES-portaal."),
       h("form", {
         onsubmit: async (e: Event) => {
           e.preventDefault();
@@ -140,7 +140,7 @@ function startScherm() {
   const tegels = tegelsVoor(sessie.rol);
   // Maar één bestemming (bijvoorbeeld een operator: alleen het invoerscherm): meteen daarheen.
   if (tegels.length === 1 && tegels[0].id === "invoer") {
-    try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ }
+    markeerPortalkeuze("invoer");
     return void location.assign(tegels[0].href);
   }
   toon(
@@ -148,9 +148,9 @@ function startScherm() {
     tegels.length
       ? h("ul", { class: "startpagina" }, tegels.map((t) =>
           h("li", {}, h("a", {
-            class: `starttegel starttegel-${t.id}`, href: t.href,
+            class: `starttegel starttegel-${t.id}`, href: t.href, "data-portaal": t.id,
             // Kwaliteit neemt de inlog alleen mee als ze zelf voor het invoerscherm kiest (lab-pc, D58); zie invoer/src/sessie.ts.
-            onclick: t.id === "invoer" ? () => { try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ } } : undefined,
+            onclick: () => markeerPortalkeuze(t.id),
           }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
       : h("p", { class: "leeg" }, "Er is geen portaal beschikbaar met je actuele MES-bevoegdheden. Neem contact op met de bevoegde autorisatiebeheerder."),
     h("p", { class: "sub", style: "margin-top:24px" }, h("a", { href: "#/hulp" }, "Hulp voor jouw rol"), ", ook om af te drukken."),
@@ -222,7 +222,7 @@ async function route() {
       return toon(h("p", { class: "leeg" }, "Geen actuele displaybevoegdheid."));
     }
     if (portaal !== "wandscherm" || onderdeel) return void (location.hash = "#/wandscherm");
-    await tekenMenu("", "");
+    await tekenMenu("wandscherm", "");
     return beperktDisplay();
   }
   if (portaal === "wandscherm") return void (location.hash = "#/");
@@ -236,7 +236,7 @@ async function route() {
   }
   // Nainvoeren na papier en lege formulieren (#75, D60): ploegleider en beheerder.
   if (portaal === "nainvoeren" && magNalevering()) {
-    await tekenMenu("", "");
+    await tekenMenu("nainvoeren", "");
     return onderdeel === "formulier" ? formulieren(arg) : nalevering();
   }
   if (portaal === "wachtwoord") {
