@@ -841,3 +841,18 @@ a.merk:hover { text-decoration: underline; }
   .bezetbalk span, .dagkaart.te-vol .startrij:not(.te-vol) .bezetbalk span { background: var(--mes-grafiek-reeks); }
   .dagkaart.te-vol .bezetbalk span, .startrij.te-vol .bezetbalk span { background: var(--mes-grafiek-tol); box-shadow: inset 0 0 0 1px var(--tol); }
 }
+
+/* 139.3h: beheerdefinities, technische gebeurtenissen en bestaande statussemantiek. */
+@media screen {
+  .beheer-definitie, .beheer-gebeurtenis, .stappenlijst, .serverstatus li { border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
+  .beheer-definitie { border-top: 3px solid var(--mes-structuur); }
+  .beheer-gebeurtenis { border-top: 3px solid var(--mes-uitvoering); }
+  .beheer-definitie .tegel-getal, .beheer-gebeurtenis .tegel-getal { color: var(--mes-structuur); }
+  .beheer-gebeurtenis.let-op .tegel-getal { color: var(--tol); }
+  .beheer-indeling .stappenlijst { border-top: 3px solid var(--mes-structuur); }
+  .stappenlijst a { min-height: var(--doel-min); align-items: center; }
+  .stappenlijst a[aria-current="page"] { background: var(--mes-menu-actief); box-shadow: inset var(--mes-linkeraccent) 0 var(--mes-uitvoering); padding-inline-start: calc(var(--space-2) + var(--mes-linkeraccent)); }
+  .beheer-definitie.formulier-blok :is(input,textarea,select) { min-width: 0; max-width: 100%; min-height: var(--doel-min); border-radius: var(--radius-xs); }
+  .serverstatus li { flex-wrap: wrap; }
+  .server-tegels .tegel { margin-top: 0; }
+}

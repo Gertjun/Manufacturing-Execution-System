@@ -75,6 +75,16 @@ try {
           await eq(".reeks-1", "fill", "rgb(101, 136, 178)");
           await eq(".tolerantielijn", "stroke", "rgb(163, 95, 0)");
           console.log("OK 139.3g: planning en grafiekpalet C", width);
+          await page.locator("#scherm").evaluate(el => { el.innerHTML = '<div class="beheer-indeling"><nav class="stappenlijst"><a aria-current="page">Stap</a></nav><section class="blok formulier-blok beheer-definitie"><label>Naam<input type="text"></label></section></div><div class="tegel beheer-gebeurtenis nadruk"><span class="tegel-getal">Back-up</span></div><ul class="serverstatus"><li class="status-fout">Actie nodig</li><li class="status-let_op">Let op</li></ul>'; });
+          await eq(".beheer-definitie", "borderTopColor", "rgb(11, 46, 89)");
+          await eq(".beheer-gebeurtenis", "borderTopColor", "rgb(242, 140, 40)");
+          await eq(".beheer-definitie input", "borderTopLeftRadius", "4px");
+          assert.ok(await page.locator(".beheer-definitie input").evaluate(e => e.getBoundingClientRect().height >= 44));
+          await eq(".serverstatus .status-fout", "borderLeftWidth", "6px");
+          await eq(".serverstatus .status-let_op", "borderLeftWidth", "6px");
+          await eq(".serverstatus .status-fout", "borderTopLeftRadius", "8px");
+          assert.match(await style(".stappenlijst a","boxShadow"), /rgb\(242, 140, 40\) 6px 0px 0px 0px inset/);
+          console.log("OK 139.3h: beheerdefinities, serverstatus en navigatie", width);
         }
         if (frontend === "invoer") {
           await page.locator("dialog").evaluate(e => e.close());

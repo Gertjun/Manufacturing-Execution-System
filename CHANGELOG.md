@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.3h): Beheer B+ met definitie- en gebeurteniskaarten, uniforme serverstatus, stapnavigatie en rode omlijnde deactivatieknoppen; bestaande bevestigingen en autorisaties ongewijzigd. Componentregressies toegevoegd.
+
 - #139 (139.3g): Planning B+ en centraal grafiekpalet C; zachte sigma-/trendzones, krachtige contouren, bestaande arcering en statuslogica behouden. Gerichte contrast- en componentregressies uitgebreid.
 
 - #139 (139.3f): kwaliteitskaarten en KPI's B+, open meetacties via centraal linkeraccent, specificatiedefinities blauw, intrekking als gevaaractie; regelkaartberekeningen en certificaatafdruk ongewijzigd. Gerichte regressies toegevoegd.
