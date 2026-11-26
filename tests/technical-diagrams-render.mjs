@@ -7,7 +7,12 @@ const {chromium}=require("playwright-core");
 const folder=process.argv[2];
 assert.ok(folder);
 const files=(await readdir(folder)).filter(f=>f.endsWith(".svg")).sort();
-assert.equal(files.length,6);
+assert.deepEqual(files, [
+  "architecture.svg", "conceptual-erd.svg", "migration.svg", "physical-erd.svg",
+  "physical-execution.svg", "physical-identity.svg", "physical-master-data.svg",
+  "physical-planning.svg", "physical-quality.svg", "physical-support.svg",
+  "process-chain.svg", "recipe-lifecycle.svg"
+]);
 const axes={
   "architecture.svg":[["J","C","E","B","Q"]],
   "migration.svg":[["A","B","C","D","F","G"]],
@@ -57,11 +62,30 @@ try {
           const all=[...svg.querySelectorAll("text")].map(n=>n.getBBox());
           allTextOverlap=all.flatMap((a,i)=>all.slice(i+1).filter(b=>hit(a,b))).length;
         }
-        return {fixed,textInside,edgeHits,allTextOverlap,geometry,background:getComputedStyle(background).fill,labels:labels.length,overlap,ink:labels.every(t=>["rgb(11, 46, 89)","rgb(27, 36, 48)"].includes(getComputedStyle(t).fill)),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height};
+        const clusters=[...svg.querySelectorAll("g.cluster text")].map(n=>n.textContent);
+        return {clusters,fixed,textInside,edgeHits,allTextOverlap,geometry,background:getComputedStyle(background).fill,labels:labels.length,overlap,ink:labels.every(t=>["rgb(11, 46, 89)","rgb(27, 36, 48)"].includes(getComputedStyle(t).fill)),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height};
       });
       assert.equal(result.background,"rgb(255, 255, 255)",file);
       assert.ok(result.labels>0&&result.ink&&result.width>0&&result.height>0,file);
       assert.deepEqual(result.overlap,[],file+" "+scheme);
+      if (file === "conceptual-erd.svg") {
+        assert.equal(result.labels, 20, file);
+        assert.deepEqual(result.clusters.sort(), [
+          "Materiaal en partijen", "Middelen en fysieke assets", "Recept, planning en productie-uitvoering"
+        ], file);
+        const g = result.geometry;
+        const first = g.PRODUCT;
+        for (const b of Object.values(g)) {
+          assert.ok(Math.abs(b.w - first.w) < 1 && Math.abs(b.h - first.h) < 1, file + " uniform blocks");
+        }
+        for (const [a, b] of [["PRODUCT", "PRODUCTION_ORDER"], ["MASTER_RECIPE", "JOB_ORDER"],
+                              ["WAARDE", "QUALITY_RELEASE"], ["EQUIPMENT", "PHYSICAL_ASSET"]]) {
+          assert.ok(Math.abs(g[a].y - g[b].y) < 1, file + " parallel row " + a + " " + b);
+        }
+      }
+      if (file.startsWith("physical-") && file !== "physical-erd.svg") {
+        assert.ok(result.width < 4000, file + " domain diagram is narrower than the schema overview");
+      }
       if(axes[file]){
         assert.ok(result.fixed&&result.textInside,file+" text fits blocks");
         assert.equal(result.edgeHits,0,file+" edge label hits block");

@@ -1,10 +1,10 @@
 """Render the supported Mermaid subset as SVG; Graphviz for ERDs only."""
 from pathlib import Path
+import json
+import math
 import re
 import subprocess
 import sys
-import json
-import math
 from xml.sax.saxutils import escape
 import xml.etree.ElementTree as ET
 
@@ -167,7 +167,65 @@ def parse(source):
         raise ValueError("Unknown semantic class")
     return kind, nodes, edges, classes
 
-def dot_source(kind, nodes, edges, classes):
+CONCEPTUAL_GROUPS = (
+    ("productie", "Recept, planning en productie-uitvoering", (
+        ("PRODUCT", "PRODUCTION_ORDER"),
+        ("MASTER_RECIPE", "JOB_ORDER"),
+        ("MASTER_RECIPE_VERSION",),
+        ("RECIPE_PROCEDURAL_ELEMENT", "RECIPE_APPROVAL", "CONTROL_RECIPE"),
+        ("CONTROL_RECIPE_REVISION", "EXECUTION"),
+        ("STAPREGISTRATIE", "EBR_REVISION", "MATERIAL_TRANSFORMATION"),
+        ("WAARDE", "QUALITY_RELEASE"),
+    )),
+    ("middelen", "Middelen en fysieke assets", (
+        ("EQUIPMENT", "PHYSICAL_ASSET"),
+        ("EQUIPMENT_ASSET_ASSIGNMENT",),
+    )),
+    ("materiaal", "Materiaal en partijen", (
+        ("MATERIAL_DEFINITION",),
+        ("MATERIAL_LOT",),
+    )),
+)
+
+
+# Each FK belongs to the domain of the table that declares it. External
+# referenced tables are repeated as dashed context nodes in that diagram.
+PHYSICAL_DOMAINS = {
+    "identity": """
+        activity_qualification authorization_bootstrap authorization_channel_identity
+        authorization_channel_identity_revocation authorization_decision authorization_grant
+        authorization_legacy_snapshot authorization_permission authorization_personnel_link
+        authorization_recovery authorization_request authorization_revocation authorization_role
+        authorization_role_permission gebruiker inlogpoging operator personnel_qualification
+        qualification qualification_issue qualification_revocation
+    """.split(),
+    "master-data": """
+        grondstof master_recipe master_recipe_version material_class material_definition
+        material_definition_version measurement_unit processtap product product_stap
+        quantity_dimension quantity_kind recipe_change_impact recipe_change_request
+        recipe_compatibility_rule recipe_dependency recipe_equipment_requirement recipe_formula
+        recipe_instruction recipe_lot_rule recipe_material_requirement recipe_parameter
+        recipe_parameter_limit recipe_personnel_requirement recipe_procedural_element recipe_release
+        recipe_release_withdrawal recipe_review_decision recipe_review_round recipe_scaling_binding
+        recipe_scaling_expression recipe_scaling_input recipe_scaling_rule recipe_specification_link
+        stap_grondstof unit_conversion unit_conversion_version veld veld_product
+    """.split(),
+    "execution": """
+        batch batch_besluit execution_session geweigerde_invoer grondstof_gebruik
+        herbewerking invoerconflict overdracht stapregistratie stilstand stilstand_oorzaak
+        terugmelding
+    """.split(),
+    "planning": """
+        capaciteit_afwijking capaciteit_stap lot lot_voorstel lot_voorstel_batch
+        ploeg rooster rooster_ploeg stapplanning
+    """.split(),
+    "quality": "certificaat keuring specificatie specificatie_regel waarde".split(),
+    "support": "config_log instelling melding melding_gelezen onderhoud_log pc pc_stap schema_versie".split(),
+}
+ACTOR_TABLES = {"gebruiker", "operator", "pc"}
+
+
+def dot_source(kind, nodes, edges, classes, *, conceptual=False, external=None):
     if kind != "erDiagram":
         raise ValueError("Graphviz renderer is reserved for ERDs")
     lines = [
@@ -176,13 +234,81 @@ def dot_source(kind, nodes, edges, classes):
         'node [shape=box, style="rounded,filled", fontname="Arial", fontsize=14, margin="0.18,0.13", penwidth=1.5];',
         'edge [fontname="Arial", fontsize=11, fontcolor="#1B2430", penwidth=1.4, color="#6B7785"];',
     ]
+    if external is not None:
+        lines.append('graph [rankdir=LR];')
+    if conceptual:
+        grouped = [node for _, _, rows in CONCEPTUAL_GROUPS for row in rows for node in row]
+        if set(grouped) != set(nodes) or len(grouped) != len(nodes):
+            raise ValueError("Conceptual ERD groups must cover each source entity once")
+        lines.append('node [width=3.6, height=0.56, fixedsize=true];')
+        for group, heading, rows in CONCEPTUAL_GROUPS:
+            if group == "middelen":
+                lines.append('subgraph cluster_referenties { color="transparent"; margin=0;')
+            lines.extend([
+                f'subgraph cluster_{group} {{',
+                f'label={quote(heading)}; color="#B8C4D0"; fontcolor="#0B2E59"; margin=16;',
+            ])
+            for row in rows:
+                lines.append("{ rank=same; " + "; ".join(map(quote, row)) + "; }")
+                if len(row) > 1:
+                    lines.append(" -> ".join(map(quote, row)) + " [style=invis];")
+            lines.append("}")
+        lines.extend([
+            '"EQUIPMENT_ASSET_ASSIGNMENT" -> "MATERIAL_DEFINITION" [style=invis];',
+            "}",
+        ])
     for node, label in nodes.items():
         fill, stroke, ink = PALETTE[classes[node]]
-        lines.append(f'{quote(node)} [label={quote(label)}, fillcolor="{fill}", color="{stroke}", fontcolor="{ink}"];')
+        context = ', style="rounded,filled,dashed"' if external and node in external else ""
+        lines.append(f'{quote(node)} [label={quote(label)}, fillcolor="{fill}", color="{stroke}", fontcolor="{ink}"{context}];')
     for a, b, label, left, right in edges:
         attrs = [f"label={quote(label)}", "dir=both", f"arrowtail={CARDINALITY[left]}", f"arrowhead={CARDINALITY[right]}"]
+        if external and a in external:
+            attrs.append("style=dashed")
         lines.append(f"{quote(a)} -> {quote(b)} [{', '.join(attrs)}];")
     return "\n".join(lines + ["}"]) + "\n"
+
+
+def write_diagram(output, name, nodes, edges, svg):
+    root = ET.fromstring(svg)
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    groups = root.findall(".//s:g", ns)
+    titles = [g.findtext("s:title", namespaces=ns) for g in groups if g.get("class") == "node"]
+    rendered_edges = [
+        (g.findtext("s:title", namespaces=ns), g.findtext("s:text", default="", namespaces=ns))
+        for g in groups if g.get("class") == "edge"
+    ]
+    assert sorted(titles) == sorted(nodes), name
+    assert sorted(rendered_edges) == sorted((a + "->" + b, label) for a, b, label, _, _ in edges), name
+    graph = next(g for g in groups if g.get("class") == "graph")
+    assert graph.find("s:polygon", ns).get("fill") in ("white", "#ffffff", "#FFFFFF"), name
+    (output / (name + ".svg")).write_text(svg, encoding="utf-8")
+    print(f"{name}: {len(nodes)} nodes, {len(edges)} edges")
+
+
+def render_erd(output, name, kind, nodes, edges, classes, **layout):
+    dot = dot_source(kind, nodes, edges, classes, **layout)
+    result = subprocess.run(["dot", "-Tsvg"], input=dot, text=True, capture_output=True)
+    if result.stderr:
+        print(f"{name}: {result.stderr}", file=sys.stderr)
+    result.check_returncode()
+    write_diagram(output, name, nodes, edges, result.stdout)
+
+
+def render_physical(output, kind, nodes, edges, classes, markdown):
+    assigned = [name for members in PHYSICAL_DOMAINS.values() for name in members]
+    if set(assigned) != set(nodes) or len(assigned) != len(nodes):
+        raise ValueError(f"Physical ERD domains must cover each table once: {sorted(set(assigned) ^ set(nodes))}")
+    expected = re.search(r"Schema `fabriek`: (\d+) tabellen en (\d+) verbanden\.", markdown)
+    if expected is None or tuple(map(int, expected.groups())) != (len(nodes), len(edges)):
+        raise ValueError("Physical ERD source must include all schema tables and foreign keys")
+    overview = [edge for edge in edges if edge[0] not in ACTOR_TABLES or edge[1] in ACTOR_TABLES]
+    render_erd(output, "physical-erd", kind, nodes, overview, classes)
+    for domain, members in PHYSICAL_DOMAINS.items():
+        domain_edges = [edge for edge in edges if edge[1] in members]
+        external = {edge[0] for edge in domain_edges} - set(members)
+        domain_nodes = {node: label for node, label in nodes.items() if node in members or node in external}
+        render_erd(output, f"physical-{domain}", kind, domain_nodes, domain_edges, classes, external=external)
 
 
 def render_all(output):
@@ -197,23 +323,12 @@ def render_all(output):
         if name in FLOW_LAYOUTS:
             if kind != "flowchart TD":
                 raise ValueError(f"{name}: expected flowchart")
-            svg = flow_svg(name, nodes, edges, classes, PALETTE)
+            write_diagram(output, name, nodes, edges, flow_svg(name, nodes, edges, classes, PALETTE))
+        elif name == "physical-erd":
+            render_physical(output, kind, nodes, edges, classes, md)
         else:
-            dot = dot_source(kind, nodes, edges, classes)
-            result = subprocess.run(["dot", "-Tsvg"], input=dot, text=True, capture_output=True)
-            if result.stderr:
-                print(f"{name}: {result.stderr}", file=sys.stderr)
-            result.check_returncode()
-            svg = result.stdout
-        root = ET.fromstring(svg)
-        ns = {"s": "http://www.w3.org/2000/svg"}
-        groups = root.findall(".//s:g", ns)
-        assert sum(g.get("class") == "node" for g in groups) == len(nodes), name
-        assert sum(g.get("class") == "edge" for g in groups) == len(edges), name
-        graph = next(g for g in groups if g.get("class") == "graph")
-        assert graph.find("s:polygon", ns).get("fill") in ("white", "#ffffff", "#FFFFFF"), name
-        (output / (name + ".svg")).write_text(svg, encoding="utf-8")
-        print(f"{name}: {len(nodes)} nodes, {len(edges)} edges")
+            render_erd(output, name, kind, nodes, edges, classes, conceptual=True)
+
 
 if __name__ == "__main__":
     render_all(Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "docs/diagrams/rendered")

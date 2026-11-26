@@ -112,9 +112,6 @@ def main() -> None:
     for rel, kol, typ, _, pk, fk, uk in kolommen:
         per_tabel[rel].append((kol, typ, pk, fk, uk))
 
-    # Wie iets deed (gebruiker, operator, pc) staat in bijna elke tabel; die lijnen maken het plaatje onleesbaar.
-    wie = {"gebruiker", "operator", "pc"}
-    lijnen = [v for v in verbanden if v[1] not in wie or v[0] in wie]
     r = ["# Database – tabellen en verbanden", "",
          "> **Dit bestand:** een plaatje van de database, **automatisch gemaakt** uit `db/schema.sql` met",
          "> `tools/schema_plaatje.py` (#100, D84). Niet met de hand wijzigen: `tests/test_schema_plaatje.sh` faalt als het niet bij is.",
@@ -124,10 +121,10 @@ def main() -> None:
          "## Overzicht", "",
          "Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. "
          "`||` = altijd ingevuld, `|o` = mag leeg zijn, `o{` = nul of meer, `o|` = hoogstens één. "
-         "Niet getekend, wel in de lijst hieronder: verwijzingen naar `gebruiker`, `operator` en `pc` (wie iets deed of waar).", "",
+         "De Mermaid-bron hieronder bevat alle foreign keys, inclusief verwijzingen naar `gebruiker`, `operator` en `pc`.", "",
          DIAGRAM_LEGENDA, "", "```mermaid", DIAGRAM_INIT, "erDiagram"]
     r += [f"    {t}" for t in tabellen]
-    for kind, ouder, kols, verplicht, uniek in lijnen:
+    for kind, ouder, kols, verplicht, uniek in verbanden:
         links = "||" if verplicht else "|o"
         rechts = "o|" if uniek else "o{"
         r.append(f'    {ouder} {links}--{rechts} {kind} : "{kols}"')

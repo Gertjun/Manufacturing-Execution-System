@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.4c): de vier procesdiagrammen uit documentatiecontrole 421 visueel beoordeeld op pijlen, teruglussen, labels en uitlijning. Het conceptuele datamodel groepeert de 20 entiteiten met 17 bestaande relaties in gelijkvormige blokken. Zes fysieke domeinweergaven tonen samen alle 203 foreign keys, met gestippelde verwijzingen naar tabellen in andere domeinen. De bestaande fysieke overzichtsweergave blijft beschikbaar. Publicatie in de technische documentatie volgt na beoordeling van de nieuwe uitvoer.
+
 - #139 (139.4c): gedeelde documentatierenderer voor fysieke/conceptuele ERD en vier procesdiagrammen; strikte bronverwerking, vaste witte achtergrond en Graphviz-herhaalbaarheidscontrole.
 
 - #139 (139.4c): roadmapdiagram als reproduceerbare SVG met vaste lichte achtergrond en aparte labels; Gantt-bron behouden voor onderhoud.
