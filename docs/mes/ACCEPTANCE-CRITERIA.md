@@ -662,3 +662,6 @@ F3-A01–03: aanvullende echte backendregressies in productie.mjs voor mes.quali
 
 
 140.2 vervolg: integrale run 45820963850 op f6e9538 faalde in Chrome (Node26 683 s, Chrome 433 s); Node22 37 s groen; diagramcontrole 45820964158 groen. D115 aanvullende optimalisatie goedgekeurd: individuele schermtest vooraf; geen volledige acceptatie vóór aantoonbaar groene gewijzigde regressies. Individuele selectie en fixtures nog runtime te verifiëren; huidige fout niet opgelost.
+
+
+140.2 D115: opdrachtgever akkoord met A/B/C-verdeling. Standaard ontwikkelmatrix 3, uitgebreide 8, fase 3 en integrale acceptatie voorlopig 8; display Full HD/4K behouden. Reviewshots optioneel; barcode-decodebeeld, PDF/Excel-asserties en foutdiagnose behouden. Browserklok versnelt meldingspoll met echte API/database. Nieuwe individuele meldingentest en Windows-basisprotocol; geen functionele assertions verwijderd, verificatie en besparing nog open. F3-A01–03 en eerdere integrale fout blijven open.

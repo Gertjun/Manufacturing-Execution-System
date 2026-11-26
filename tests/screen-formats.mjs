@@ -9,3 +9,6 @@ export const FORMATEN = [
   { naam: "Full HD", width: 1920, height: 1080, mobiel: false },
   { naam: "4K UHD", width: 3840, height: 2160, mobiel: false },
 ];
+
+// D115: standaard ontwikkelmatrix; volledige matrix en displaytests blijven beschikbaar.
+export const BASISFORMATEN = FORMATEN.filter(f => ["telefoon staand", "tablet staand", "laptop"].includes(f.naam));

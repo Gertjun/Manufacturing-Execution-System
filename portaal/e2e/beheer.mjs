@@ -40,7 +40,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam, fullPage = true) => page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage });
+const shot = (naam, fullPage = true) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage }) : Promise.resolve();
 const dialoog = () => page.getByRole("dialog");
 const inloggen = async naam => {
   if (page.url().startsWith(BASIS)) {
@@ -298,7 +298,7 @@ try {
   await invoer.locator(".tegel").first().waitFor();
   const tegels = await invoer.locator(".tegel").allInnerTexts();
   check("PC-01 toont alleen PS3 (Mengen) en PS4", tegels.length === 2 && tegels[0].includes("Mengen"), tegels.join(" | "));
-  await invoer.screenshot({ path: `${SHOTS}/05-invoer-pc01.png` });
+  if (process.env.MES_SCREENSHOTS === "review") await invoer.screenshot({ path: `${SHOTS}/05-invoer-pc01.png` });
   await invoer.close();
 
   console.log("\nDiensten en ploegen (#86)");
@@ -329,6 +329,7 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
   stopApi();

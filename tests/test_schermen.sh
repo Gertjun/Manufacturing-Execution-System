@@ -8,10 +8,10 @@ set -e
 set -f  # geen bestandsnamen uitbreiden (de verbindingstekst bevat een ?)
 cd "$(dirname "$0")/.."
 # Selectie vóór databaseverbinding of destructieve fixturevoorbereiding.
-if [ "$#" -gt 1 ]; then echo "Gebruik: $0 [flow|formaten|productie|planning|sjabloon|engineering]" >&2; exit 2; fi
+if [ "$#" -gt 1 ]; then echo "Gebruik: $0 [flow|formaten|formaten-uitgebreid|productie|meldingen|planning|sjabloon|engineering]" >&2; exit 2; fi
 SELECTIE=${1:-}
 case "$SELECTIE" in
-  ""|flow|formaten|productie|planning|sjabloon|engineering) ;;
+  ""|flow|formaten|formaten-uitgebreid|productie|meldingen|planning|sjabloon|engineering) ;;
   *) echo "Onbekende of nog niet geïsoleerd beoordeelde schermtest: $SELECTIE" >&2; exit 2 ;;
 esac
 : "${DATABASE_URL:=postgres://postgres@localhost/batchgui?host=/tmp&port=5433}"
@@ -52,7 +52,9 @@ if [ -n "$SELECTIE" ]; then
   echo "Individuele schermtest: $SELECTIE (geen integraal acceptatiebewijs)"
   case "$SELECTIE" in
     flow) leeg; $PSQL -f db/seed_demo.sql >/dev/null; draai invoer flow.mjs ;;
-    formaten|productie) testdata; draai portaal "$SELECTIE.mjs" ;;
+    formaten) export MES_SCREEN_FORMATS=basis; testdata; draai portaal formaten.mjs ;;
+    formaten-uitgebreid) export MES_SCREEN_FORMATS=uitgebreid; testdata; draai portaal formaten.mjs ;;
+    productie|meldingen) testdata; draai portaal "$SELECTIE.mjs" ;;
     planning|sjabloon) draai portaal "$SELECTIE.mjs" ;;
     engineering) leeg; draai portaal engineering.mjs ;;
   esac

@@ -59,7 +59,7 @@ try {
     const n = paginas(pdf);
     check(`Afgedrukt: hulp voor ${rol} past op één A4`, n === 1, `${n} pagina's`);
   }
-  await page.screenshot({ path: `${SHOTS}/portaal-hulp.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/portaal-hulp.png`, fullPage: true });
 
   console.log("\nInvoerscherm: hulp, ook zonder inlog");
   await page.goto(`${BASIS}/portaal/#/start`);
@@ -82,7 +82,7 @@ try {
   await page.locator(".balk-nav").getByRole("link", { name: "Hulp" }).click();
   await page.locator(".hulp h1").waitFor();
   check("Ingelogd als ploegleider: hulp voor ploegleiders", (await page.locator(".hulp h1").innerText()) === "Hulp voor ploegleiders");
-  await page.screenshot({ path: `${SHOTS}/invoer-hulp.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/invoer-hulp.png`, fullPage: true });
   await page.emulateMedia({ media: "print" });
   check("Bij afdrukken staan balk en knoppen er niet op", !(await page.locator("#balk").isVisible()) && !(await page.locator(".hulp-keuze").isVisible()));
   await page.emulateMedia({ media: "screen" });
@@ -100,6 +100,7 @@ try {
   await page.screenshot({ path: `${SHOTS}/fout.png` }).catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   stopApi();
 }

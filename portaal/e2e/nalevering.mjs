@@ -73,7 +73,7 @@ try {
   const begin = lokaal(nu - 3 * 3600_000), eind = lokaal(nu - 2 * 3600_000);
   await page.locator("#na-begin").fill(begin);
   await page.locator("#na-eind").fill(eind);
-  await page.screenshot({ path: `${SHOTS}/nainvoeren.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/nainvoeren.png`, fullPage: true });
   await page.getByRole("button", { name: "Nainvoeren" }).click();
   await page.getByText("Geef een reden").waitFor();
   check("Zonder reden: melding, niets opgeslagen", true);
@@ -115,7 +115,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll(".papier").length === 1);
   check("Formulier van de lot-stap vraagt lotnummer en 4 batches",
     (await page.locator(".papier").innerText()).includes("Nieuw lotnummer") && (await page.locator(".papier-vier .invul").count()) === 4);
-  await page.screenshot({ path: `${SHOTS}/formulier-ps16.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/formulier-ps16.png`, fullPage: true });
   await page.emulateMedia({ media: "print" });
   pdf = await page.pdf({ format: "A4", preferCSSPageSize: true });
   writeFileSync(`${SHOTS}/formulier-ps16.pdf`, pdf);
@@ -138,6 +138,7 @@ try {
   await page.screenshot({ path: `${SHOTS}/fout.png` }).catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
   stopApi();

@@ -37,7 +37,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam", acceptDownloads: true });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam, portaal) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -88,12 +88,13 @@ try {
   const y = leesXlsx(pad2);
   check("Alle zichtbare regels in Excel", y.rijen.length - 1 === zichtbaar, `${y.rijen.length - 1} / ${zichtbaar}`);
   check("Geen knoppen in de export", !JSON.stringify(y.rijen).includes("Naar Excel"));
-  await page.screenshot({ path: `${SHOTS}/01-afwijkingen.png` });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/01-afwijkingen.png` });
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
   stopApi();

@@ -51,7 +51,7 @@ permissions:
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
-  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || github.event.label.name == 'scherm-test' && 'schermen' || 'ontwikkeling' }}
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test') && 'schermen' || 'ontwikkeling' }}
   cancel-in-progress: true
 
 jobs:
@@ -287,7 +287,7 @@ jobs:
 
   screen-regression:
     name: Gerichte Chrome-schermregressies (Node.js 26)
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'scherm-test'
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -330,6 +330,8 @@ jobs:
           npm run build --prefix portaal
       - name: Schermtests in Chrome (invoerscherm, portalen)
         env:
+          MES_SCREEN_FORMATS: ${{ github.event.label.name == 'scherm-review-test' && 'uitgebreid' || 'basis' }}
+          MES_SCREENSHOTS: ${{ github.event.label.name == 'scherm-review-test' && 'review' || 'failure' }}
           DATABASE_URL: postgres://postgres@localhost:5432/batchgui
           TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
         run: |
@@ -349,7 +351,7 @@ jobs:
 
   individual-screen:
     name: Individuele Chrome-regressie (${{ github.event.label.name }})
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test')
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -389,12 +391,13 @@ jobs:
           LABEL: ${{ github.event.label.name }}
         run: |
           case "$LABEL" in
-            scherm-flow-test|scherm-formaten-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test) ;;
+            scherm-flow-test|scherm-formaten-test|scherm-formaten-uitgebreid-test|scherm-meldingen-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test) ;;
             *) exit 2 ;;
           esac
           selectie="${LABEL#scherm-}"
           echo "SCHERM_SELECTIE=${selectie%-test}" >> "$GITHUB_ENV"
           sh -n tests/test_schermen.sh
+          for script in invoer/e2e/*.mjs portaal/e2e/*.mjs tests/screen-formats.mjs; do node --check "$script"; done
       - name: Afhankelijkheden en builds voorbereiden
         run: |
           python3 -m pip install --quiet "psycopg[binary]"

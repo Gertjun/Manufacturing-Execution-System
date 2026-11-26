@@ -37,7 +37,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -86,7 +86,7 @@ try {
   const herdruk = await fetch(BASIS+"/certificaten/"+c.nummer,{headers});
   check("Historische inhoud ongewijzigd", herdruk.ok && (await q("SELECT $1::jsonb = $2::jsonb AS gelijk",[JSON.stringify((await herdruk.json()).inhoud),JSON.stringify(concept)]))[0].gelijk === true);
   await page.emulateMedia({ media: "print" });
-  await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
   check("Bij afdrukken alleen het certificaat (geen menu of knoppen)", !(await page.locator("#menu").isVisible()) && !(await page.getByRole("button", { name: "Afdrukken of pdf" }).isVisible()));
   check("Historische afdruk behoudt tabel, nummer en printstijl", await page.locator(".certificaat").evaluate(el=>getComputedStyle(el).boxShadow==="none" && getComputedStyle(el).borderTopWidth==="0px" && el.querySelectorAll(".cert-tabel tbody tr").length===5 && !!el.querySelector(".cert-nummer")?.textContent?.trim()));
   const pdf = await page.pdf({path:`${SHOTS}/01-certificaat.pdf`,preferCSSPageSize:true,printBackground:true});
@@ -133,6 +133,7 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
   stopApi();

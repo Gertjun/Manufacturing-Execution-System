@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- D115: risicogestuurde CI/Windows-verdeling, standaard drie versus uitgebreide acht CSS-viewports, optionele reviewshots (functionele barcodeafbeelding en foutdiagnose behouden), versnelde browserklok voor meldingen en Windows-basisprotocol. Integrale acceptatie voorlopig acht viewports; nieuwe testmodi nog te verifiëren.
+
 - D115: individuele Chrome-regressies via expliciete labels met scriptgebonden fictieve fixtures; integrale schermsuite ongewijzigd. Verplichte groene ontwikkelregressies vóór acceptatie; actuele integrale fout blijft open.
 
 - #140.2: aanvullende echte backendregressies voor de 14 fictieve MES-identiteiten, portalsets, werkstationbinding van mes.quality, centrale afmelding vanuit invoer en onafhankelijke route-/API-weigering. Auditbewijs en CI-nulmeting vastgelegd; uitvoering volgt.

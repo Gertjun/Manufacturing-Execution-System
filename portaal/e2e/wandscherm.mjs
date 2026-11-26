@@ -39,7 +39,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -110,6 +110,7 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
   stopApi();

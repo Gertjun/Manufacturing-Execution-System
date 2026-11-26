@@ -37,7 +37,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -58,12 +58,14 @@ try {
   await page.getByRole("heading", { name: "Meldingen" }).waitFor();
   await page.locator(".melding-rij").first().waitFor();
   check("Lijst met ongelezen meldingen", (await page.locator(".melding-rij").count()) === Math.min(n, 200));
-  await page.screenshot({ path: `${SHOTS}/01-meldingen.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/01-meldingen.png`, fullPage: true });
   await page.locator(".melding-rij").first().getByRole("button", { name: "Gelezen" }).click();
   await page.waitForFunction((x) => document.querySelector(".menu-meldingen .teller")?.textContent === String(x - 1) || (x === 1 && document.querySelector(".menu-meldingen .teller")?.textContent === ""), n);
   check("Gelezen: teller één lager", true);
 
   console.log("\nNieuwe melding");
+  // Versnel uitsluitend de browserklok; echte API en database blijven in gebruik.
+  await page.clock.install();
   const initTeller = page.waitForResponse(r=>new URL(r.url()).pathname==="/meldingen" && r.ok());
   await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
   await initTeller;
@@ -72,7 +74,10 @@ try {
   await q(`INSERT INTO fabriek.batch_besluit (batch_id, besluit, reden, besloten_door)
            SELECT b.id, 'in_beoordeling', 'e2e: kleur wijkt af', g.id FROM fabriek.batch b, fabriek.gebruiker g
             WHERE b.batchnummer = $1 AND g.gebruikersnaam = 'ploegleider1'`, [b.batchnummer]);
-  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 75000 });
+  const poll = page.waitForResponse(r => new URL(r.url()).pathname === "/meldingen" && new URL(r.url()).searchParams.get("limiet") === "20" && r.ok());
+  await page.clock.fastForward(60_000);
+  await poll;
+  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 15000 });
   check("Nieuwe melding verschijnt onderin beeld", (await page.locator("#melding").innerText()).includes(b.batchnummer));
   await page.locator(".menu-meldingen").click();
   await page.locator(".melding-rij", { hasText: "e2e: kleur wijkt af" }).getByRole("link", { name: "Bekijken" }).click();
@@ -93,6 +98,7 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
   stopApi();

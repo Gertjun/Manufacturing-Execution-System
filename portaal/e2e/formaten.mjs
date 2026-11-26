@@ -4,7 +4,11 @@
 // Gebruik: node e2e/formaten.mjs   (start zelf de API op poort 3472; vraagt testdata uit tools/genereer_testdata.py)
 import { spawn } from "node:child_process";
 import { chromium } from "playwright-core";
-import { FORMATEN } from "../../tests/screen-formats.mjs";
+import { FORMATEN, BASISFORMATEN } from "../../tests/screen-formats.mjs";
+
+const formaatModus = process.env.MES_SCREEN_FORMATS ?? "uitgebreid";
+if (!["basis","uitgebreid"].includes(formaatModus)) throw new Error("Onbekende formaatmodus: "+formaatModus);
+const geselecteerd = formaatModus === "basis" ? BASISFORMATEN : FORMATEN;
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
 const APP_DB = process.env.TEST_APP_DATABASE_URL;
@@ -59,7 +63,8 @@ const teBreed = (page, w) => page.evaluate((w) => {
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 try {
   const tokens = Object.fromEntries(await Promise.all(Object.keys(ROUTES).map(async (n) => [n, await token(n)])));
-  for (const f of FORMATEN) {
+  console.log(`Formaatmatrix: ${formaatModus} (${geselecteerd.length})`);
+  for (const f of geselecteerd) {
     console.log(`\n${f.naam} (${f.width} × ${f.height})`);
     const context = await browser.newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobiel, hasTouch: f.mobiel, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
     const page = await context.newPage();
