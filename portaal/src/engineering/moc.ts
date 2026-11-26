@@ -41,7 +41,7 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
         await refresh();
       }
       function form(title:string,fields:Node[],submit:()=>Promise<void>){
-        return h("details",{},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
+        return h("details",{class:"engineering-details"},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
           e.preventDefault();if(!active()||busy||!editable)return;
           try{await submit();}catch(e){if(active())error.textContent=(e as Error).message;}
         }},fields,h("button",{class:"knop knop-hoofd",type:"submit"},"Opslaan")));
@@ -151,5 +151,5 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
         error);
     }catch(e){if(active())pane.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
   }
-  return h("section",{},h("h3",{},"Management of Change"),h("button",{type:"button",class:"knop",onclick:load},"MOC laden / vernieuwen"),pane);
+  return h("section",{class:"engineering-paneel engineering-besluit"},h("h3",{},"Management of Change"),h("button",{type:"button",class:"knop",onclick:load},"MOC laden / vernieuwen"),pane);
 }

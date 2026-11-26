@@ -87,6 +87,11 @@ try {
   await landing(["engineering"]);
   assert.equal(await page.locator("#menu [data-portaal=beheer]").count(), 0);
   console.log("OK P03/P04: beperkte rechten, gekoppelde persoon, geen globaal materiaalbeheer");
+  // Geïsoleerd schermbewijs voor Process Engineering, zonder mutaties of database.
+  await page.goto(origin + "/portaal/#/engineering/recepten");
+  await page.getByRole("heading",{name:"Master Recipes",exact:true}).waitFor();
+  await page.getByText("Geen producten met actuele receptbeheerbevoegdheid.",{exact:true}).waitFor();
+  console.log("OK 139.3c: receptscherm met beperkte productscope en lege API-respons");
   projection = quality;
   await landing(["invoer", "kwaliteit"]);
   await set(page, { "invoer.token": OLD, "invoer.operatornaam": "ander" });

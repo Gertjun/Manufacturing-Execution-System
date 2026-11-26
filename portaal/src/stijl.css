@@ -756,3 +756,24 @@ a.merk:hover { text-decoration: underline; }
 .tabel-filters { background: var(--vlak-2); border: 1px solid var(--lijn-zacht); border-radius: var(--radius-sm); padding: var(--space-3); margin: 0 0 var(--space-2); }
 .tabel-filters input[type="search"] { font: inherit; color: var(--inkt); background: var(--vlak); border: 1.5px solid var(--inkt-zacht); border-radius: var(--radius-sm); padding: var(--space-2); min-height: var(--doel-min); width: 12em; }
 .filter-teller { align-self: center; }
+
+/* 139.3c: Process Engineering; structuur blauw, formele handelingen herkenbaar. */
+@media screen {
+  #scherm .engineering-kaart { border-top: 3px solid var(--mes-structuur); min-width: 0; overflow-wrap: anywhere; }
+  .engineering-paneel { margin-block: var(--space-4); padding: var(--space-4); border: 1px solid var(--lijn); border-top: 3px solid var(--mes-structuur); border-radius: var(--mes-kaart-radius); min-width: 0; }
+  .engineering-paneel.engineering-besluit { border-top-color: var(--mes-uitvoering); }
+  .engineering-kaart :is(h3,h4,h5) { color: var(--mes-structuur); margin-block: var(--space-4) var(--space-2); }
+  .engineering-details { border: 1px solid var(--lijn); border-radius: var(--radius-xs); margin-block: var(--space-2); padding: var(--space-2); min-width: 0; }
+  .engineering-details > summary { color: var(--mes-structuur); font-weight: 700; cursor: pointer; min-height: var(--doel-min); padding: var(--space-2); overflow-wrap: anywhere; }
+  .engineering-details[open] > summary { background: var(--mes-structuur-vlak); margin-bottom: var(--space-3); border-radius: var(--radius-xs); }
+  .engineering-kaart .formulier-blok { margin-block: var(--space-3); min-width: 0; }
+  .engineering-kaart .formulier-blok :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { min-width: 0; max-width: 100%; min-height: var(--doel-min); border-radius: var(--radius-xs); font: inherit; }
+  .engineering-kaart .formulier-blok label:has(input[type=checkbox]) { display: flex; align-items: center; gap: var(--space-2); min-height: var(--doel-min); }
+  .engineering-kaart .formulier-blok input[type=checkbox] { flex: none; width: 20px; height: 20px; accent-color: var(--actie); }
+  .engineering-kaart .formulier-blok button { white-space: normal; max-width: 100%; }
+  .engineering-revisiestatus { background: var(--mes-structuur-vlak); border-radius: var(--radius-xs); padding: var(--space-2); color: var(--mes-structuur); }
+  .engineering-boom { padding-inline-start: var(--space-4); }
+  .engineering-boom > li { margin-block: var(--space-2); }
+  .engineering-kaart pre { max-width: 100%; overflow-wrap: anywhere; }
+  @media (max-width: 599px) { .engineering-paneel { padding: var(--space-2); } .engineering-boom { padding-inline-start: var(--space-2); } }
+}

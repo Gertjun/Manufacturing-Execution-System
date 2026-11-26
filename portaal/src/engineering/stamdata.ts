@@ -33,7 +33,7 @@ function table(headers:string[],rows:Cell[][]) {
   return rows.length?h("div",{class:"tabel-kader"},h("table",{class:"tabel compact"},h("thead",{},h("tr",{},headers.map(x=>h("th",{scope:"col"},x)))),h("tbody",{},rows.map(row=>h("tr",{},row.map(x=>h("td",{},x??"—")))))))
     :h("p",{class:"leeg"},"Nog geen definities.");
 }
-function block(title:string,...nodes:Node[]) { return h("section",{class:"blok"},h("h2",{},title),nodes); }
+function block(title:string,...nodes:Node[]) { return h("section",{class:"blok mes-kaart-structuur engineering-kaart"},h("h2",{},title),nodes); }
 function form(title:string,fields:Field[],path:string,body:()=>object,current:()=>boolean,reload:()=>Promise<void>,button="Opslaan") {
   const error=h("p",{class:"foutmelding",role:"alert"});
   const submit=h("button",{class:"knop knop-hoofd",type:"submit"},button);
@@ -51,7 +51,7 @@ function form(title:string,fields:Field[],path:string,body:()=>object,current:()
     melding("Definitie opgeslagen","ok");
     await reload();
   }},fields.map(x=>h("label",{},x.label,x.input)),error,submit);
-  return h("details",{},h("summary",{},title),f);
+  return h("details",{class:"engineering-details"},h("summary",{},title),f);
 }
 function context() {
   const route=vastHouden(), token=sessie.token, hash=location.hash;
