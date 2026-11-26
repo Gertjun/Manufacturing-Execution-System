@@ -677,3 +677,12 @@ D115 verificatie 26 november 2026, head 85f7ea3 tegen main 411a9d3: documentatie
 
 
 140.2 vervolg: gezamenlijke schermrun 45836383841 op 7e62716 (277 s) stopte na Sjabloon vóór Engineering. PostgreSQL-log: DROP SCHEMA botste met execution_session_change_password, deadlock, exit 1. Individuele flow 45834850677 (92 s) en beheer 45835486061 (137 s) groen. Alle 17 verplichte schermscripts gebruikten een detached npm/tsx-procesgroep met niet-afgewachte stop. Centrale testhelper start nu rechtstreeks Node met tsx-import en wacht op API-exit; timeout is een expliciete fout, geen stille retry. Harness vereist exclusieve fictieve database en wacht begrensd op afwezigheid van andere client-backends vóór reset en na elk script; beëindigt geen DB-clients, toont veilige sessiediagnostiek bij timeout. Scherm-overgang-test: Sjabloon → reset → Engineering; daarna gezamenlijke schermsuite, pas daarna integrale acceptatie beoordelen. Geen applicatiecode gewijzigd of assertions verwijderd. Runtimebewijs open.
+
+
+## Actueel bewijs 140.2 en 140.3
+
+Technische acceptatie fase 3 op 26 november 2026: [opdrachtgever PR #8](https://github.com/Gertjun/Manufacturing-Execution-System/pull/8#issuecomment-7195834987), head `c91791eefbccd9cefca161fc8a270903fe845f0e`, base `411a9d30aa09edb43121108b631bbe6f112ce5e9`, main na merge `33b7a91fd6dcfd323148bd1505fb34c7bdc11f37`, identieke tree `911b9ceb52659b84d6b805ee18b842b5ec8db740`, schema 0129. [Integrale tests 45842215303](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45842215303), diagramcontrole 45842215320, documentatiecontrole 45838559603 en compatibiliteit 45846031472 groen; mergecontroles 45846545270 en 45846545348 groen. Alle eerder vastgelegde beperkingen blijven gelden. Geen Windows-, pilot- of productieacceptatie.
+
+Windows-kandidaat: [build 45847472975](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45847472975) groen, buildcommit `ce71ca6534160798c9cb1948d08db097ccf80fdf`; bron exact `33b7a91fd6dcfd323148bd1505fb34c7bdc11f37` met bovenstaande tree. Artifact [MES-fase2-3-Windows-33b7a91](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45847472975/artifacts/15130988657), ID 15130988657, vervalt 10 december 2026. ZIP-test, verplichte bestanden, SHA256-bestand en herkomstbestand geslaagd in build; fysieke uitvoering en lokale checksumcontrole nog open. Interne versie 0.63.0, schema 0129, uitsluitend fictief, geen release.
+
+Uitvoeringsprotocol: [PRAKTIJKTESTS.md](../PRAKTIJKTESTS.md). Alle bestaande criteria blijven gelden.
