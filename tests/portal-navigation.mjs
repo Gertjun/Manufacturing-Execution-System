@@ -18,8 +18,10 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const origin = "http://127.0.0.1:" + server.address().port;
-const token = (sub, pc = false) => "test." + Buffer.from(JSON.stringify({ sub, naam: sub, rol: "operator", exp: Math.floor(Date.now()/1000)+3600, ...(pc ? { pcId: "pc1", operatorId: "persoon-"+sub } : {}) })).toString("base64url") + ".signature-" + sub + (pc ? "-pc" : "");
+const token = (sub, pc = false) => "test." + Buffer.from(JSON.stringify({ sub, naam: sub, rol: "operator", exp: Math.floor(Date.now()/1000)+3600, ...(pc ? { pcId: "pc1", operatorId: "persoon-"+sub } : {}) })).toString("base64url") + "." + Buffer.from("signature-" + sub + (pc ? "-pc" : "")).toString("base64url");
 const A = token("mes.quality"), B = token("ander"), OLD = token("ander", true), BOUND = token("mes.quality", true);
+// Fictieve JWT's moeten precies drie base64url-segmenten hebben, ook bij een gebruikersnaam met punt.
+for (const t of [A, B, OLD, BOUND]) assert.match(t, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
 const personal = (global = [], products = [], linkedPerson = true) => ({ personal: true, linkedPerson, global, products });
 const quality = personal(["inspection.read"], [{ product: "P1", permission: "inspection.record" }]);
 let projection = quality, binding = "ok", exchanges = 0, pending = null;
