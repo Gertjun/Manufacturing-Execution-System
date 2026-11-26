@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van het Portaal Beheer in Chrome, plus de doorwerking op het invoerscherm.
 // Verwacht: database met schema.sql + seed_config.sql + seed_accounts_demo.sql (+ eventueel seed_demo.sql),
 // en een gebouwd invoerscherm. Gebruik: node e2e/beheer.mjs (API op poort 3461).
@@ -19,14 +20,14 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3461",
     PORTAAL_MAP: new URL("../dist", import.meta.url).pathname, INVOER_MAP: new URL("../../invoer/dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
@@ -340,7 +341,7 @@ try {
   if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // #113.7b: functionele Process Engineering-regressie; uitsluitend fictieve database.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -7,7 +8,7 @@ const DB=process.env.DATABASE_URL, APP_DB=process.env.TEST_APP_DATABASE_URL;
 assert.ok(DB && APP_DB && DB!==APP_DB,"Afzonderlijke test- en applicatieverbinding vereist");
 const BASIS="http://localhost:3479";
 const db=new pg.Client({connectionString:DB});
-const api=spawn("npx",["tsx","src/index.ts"],{
+const api=spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd:new URL("../../api/",import.meta.url).pathname,
   env:{...process.env,DATABASE_URL:APP_DB,JWT_GEHEIM:"e2e-".repeat(10),POORT:"3479",
     PORTAAL_MAP:new URL("../dist",import.meta.url).pathname,INVOER_MAP:new URL("../../invoer/dist",import.meta.url).pathname},
@@ -301,5 +302,5 @@ try {
 } finally {
   if(browser)await browser.close();
   await db.end().catch(()=>{});
-  try{process.kill(-api.pid);}catch{}
+  await stopTestApi(api);
 }

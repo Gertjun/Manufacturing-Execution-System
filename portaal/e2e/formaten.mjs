@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Alle schermen in acht CSS-viewports (D64): telefoon, tablet, laptop, pc, Full HD en 4K UHD.
 // Controleert dat geen pagina breder is dan het scherm, dat tabellen op een telefoon kaartjes zijn,
 // en dat het invoerscherm op een staande telefoon de navigatie onderaan heeft.
@@ -35,13 +36,13 @@ const ROUTES = {
 };
 const INVOER = ["#/stappen", "#/stap/PS3", "#/zoek", "#/zoek/B-2026-0235", "#/overdracht", "#/wachtrij", "#/hulp", "#/stap/PS16"];
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3472", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -207,7 +208,7 @@ try {
   fouten++;
 } finally {
   await browser.close();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

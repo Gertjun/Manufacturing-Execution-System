@@ -138,3 +138,5 @@ Volg A/B/C-verdeling in DECISIONS.md en het faseprotocol in docs/PRAKTIJKTESTS.m
 D115 meetresultaat: basisformaten 171 s versus uitgebreid 285 s (40% minder); individuele productie 146 s, meldingen 134 s. Bewaar volledige acceptatie op exact head/base. Herbruikbare fictieve fixturebaseline is uitsluitend een toekomstige onderzoekskandidaat; niet invoeren tijdens lopende acceptatie zonder akkoord.
 
 D115: screenshots zijn nooit synchronisatiebewijs; wacht op specifieke route-inhoud, API-respons en exacte asynchrone status, behoud assertions. Individueel beheer: scherm-beheer-test (verse fictieve historische fixture, isolatie te verifiëren).
+
+D115: alle verplichte Chrome-tests gebruiken de gedeelde API-lifecyclehelper; wacht op proces-exit en databasequiescentie, geen vaste wachttijd of stille retry. Gebruik scherm-overgang-test voor Sjabloon → reset → Engineering. Alleen exclusieve fictieve testdatabase.

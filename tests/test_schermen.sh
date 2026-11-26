@@ -8,10 +8,10 @@ set -e
 set -f  # geen bestandsnamen uitbreiden (de verbindingstekst bevat een ?)
 cd "$(dirname "$0")/.."
 # Selectie vóór databaseverbinding of destructieve fixturevoorbereiding.
-if [ "$#" -gt 1 ]; then echo "Gebruik: $0 [flow|formaten|formaten-uitgebreid|productie|meldingen|beheer|planning|sjabloon|engineering]" >&2; exit 2; fi
+if [ "$#" -gt 1 ]; then echo "Gebruik: $0 [flow|formaten|formaten-uitgebreid|productie|meldingen|beheer|planning|sjabloon|engineering|overgang]" >&2; exit 2; fi
 SELECTIE=${1:-}
 case "$SELECTIE" in
-  ""|flow|formaten|formaten-uitgebreid|productie|meldingen|beheer|planning|sjabloon|engineering) ;;
+  ""|flow|formaten|formaten-uitgebreid|productie|meldingen|beheer|planning|sjabloon|engineering|overgang) ;;
   *) echo "Onbekende of nog niet geïsoleerd beoordeelde schermtest: $SELECTIE" >&2; exit 2 ;;
 esac
 : "${DATABASE_URL:=postgres://postgres@localhost/batchgui?host=/tmp&port=5433}"
@@ -25,8 +25,24 @@ fi
 PSQL="psql -q -v ON_ERROR_STOP=1 -d $DATABASE_URL"
 FOUT=0
 
+# Deze suite gebruikt een exclusieve fictieve testdatabase. Nooit clients beëindigen.
+# Controleer ook transacties die nog server-side afronden na procesbeëindiging.
+wachtOpDatabaseRust() {
+  poging=0
+  while [ "$poging" -lt 50 ]; do
+    aantal=$($PSQL -At -c "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND backend_type='client backend' AND pid<>pg_backend_pid()") || return 1
+    if [ "$aantal" = 0 ]; then return 0; fi
+    poging=$((poging + 1))
+    sleep 0.2
+  done
+  echo "Testdatabase niet vrij na circa 10 seconden: $aantal andere clients; reset geweigerd." >&2
+  $PSQL -c "SELECT pid,usename,application_name,state,wait_event_type FROM pg_stat_activity WHERE datname=current_database() AND backend_type='client backend' AND pid<>pg_backend_pid()" >&2
+  return 1
+}
+
 leeg() {
-  $PSQL -c "DROP SCHEMA IF EXISTS fabriek CASCADE" >/dev/null 2>&1
+  wachtOpDatabaseRust
+  $PSQL -c "DROP SCHEMA IF EXISTS fabriek CASCADE" >/dev/null
   $PSQL -f db/schema.sql >/dev/null
   $PSQL -f db/rechten.sql >/dev/null
   $PSQL -f db/seed_config.sql >/dev/null
@@ -45,9 +61,12 @@ draai() { # map, script
     cat "/tmp/schermtest-$2.log"
     FOUT=$((FOUT + 1))
   fi
+  # Ook bij een mislukte test nooit de volgende fixture starten zolang clients actief zijn.
+  wachtOpDatabaseRust
 }
 
-# Individuele ontwikkelregressie; volledige suite hieronder blijft ongewijzigd.
+# Individuele ontwikkelregressie of gerichte overgang; volledige suite hieronder behoudt alle scripts.
+wachtOpDatabaseRust
 if [ -n "$SELECTIE" ]; then
   echo "Individuele schermtest: $SELECTIE (geen integraal acceptatiebewijs)"
   case "$SELECTIE" in
@@ -57,6 +76,7 @@ if [ -n "$SELECTIE" ]; then
     productie|meldingen|beheer) testdata; draai portaal "$SELECTIE.mjs" ;;
     planning|sjabloon) draai portaal "$SELECTIE.mjs" ;;
     engineering) leeg; draai portaal engineering.mjs ;;
+    overgang) wachtOpDatabaseRust; draai portaal sjabloon.mjs; leeg; draai portaal engineering.mjs ;;
   esac
   if [ "$FOUT" -gt 0 ]; then
     echo "Individuele schermtest mislukt: $SELECTIE" >&2

@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van Nainvoeren na papier (#75, D60) in Chrome: een stap van papier invoeren en de lege formulieren afdrukken.
 // Gebruik: node e2e/nalevering.mjs   (start zelf de API op poort 3471; vraagt de testaccounts van seed_accounts_demo.sql)
 import { spawn } from "node:child_process";
@@ -18,13 +19,13 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3471", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -141,7 +142,7 @@ try {
   if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);
