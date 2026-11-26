@@ -793,3 +793,19 @@ a.merk:hover { text-decoration: underline; }
   .operations-kaart .tabel-kader { max-width: 100%; }
   .operations-kaart .meer > summary { min-height: var(--doel-min); cursor: pointer; }
 }
+
+/* 139.3f: kwaliteitsgegevens versus specificatiedefinities; D114 accentbreedte. */
+@media screen {
+  .kwaliteit-kaart, .kwaliteit-cijfer, .kwaliteit-definitie { border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
+  .kwaliteit-kaart, .kwaliteit-cijfer { border-top: 3px solid var(--mes-uitvoering); }
+  .kwaliteit-definitie { border-top: 3px solid var(--mes-structuur); }
+  .kwaliteit-cijfer .tegel-getal { color: var(--mes-structuur); }
+  .kwaliteit-cijfer.let-op .tegel-getal { color: var(--tol); }
+  .kwaliteit-kaart.kwaliteit-open { border-left: var(--mes-linkeraccent) solid var(--actie); }
+  .kwaliteit-kaart .meer > summary { min-height: var(--doel-min); }
+  .kwaliteit-kaart .feiten > div { min-width: 0; }
+  .kwaliteit-kaart .feiten a { white-space: normal; overflow-wrap: anywhere; }
+  .meting-vak h3 { color: var(--mes-structuur); }
+  .label-knop { border-radius: var(--radius-xs); }
+  .kwaliteit-definitie .spec-concept { color: var(--mes-structuur); }
+}

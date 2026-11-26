@@ -200,7 +200,7 @@ function herbewerkingTabel(lijst: Herbewerking[], daarna: () => void, metNummer 
       h("span", {}, datum(x.aangemaakt_op), h("br"), h("small", { class: "noot" }, x.door ?? "zonder opdracht gestart")),
       standLabel(x),
       magHerbewerkingProduct(x.product) && (x.stand === "te_plannen" || x.stand === "gepland")
-        ? h("button", { class: "knop knop-klein knop-stil", type: "button", onclick: () => intrekken(x) }, "Intrekken") : "",
+        ? h("button", { class: "knop knop-klein knop-gevaar", type: "button", onclick: () => intrekken(x) }, "Intrekken") : "",
     ]), "compact");
 }
 
@@ -241,7 +241,7 @@ export async function overzicht() {
     ] as (Node | null)[]).filter((x): x is Node => x !== null));
   };
   const tegel = (getal: number | string, tekst: string, link?: string, nadruk = false) =>
-    h(link ? "a" : "div", { class: nadruk ? "tegel nadruk" : "tegel", href: link }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst));
+    h(link ? "a" : "div", { class: nadruk ? "tegel kwaliteit-cijfer nadruk" : "tegel kwaliteit-cijfer", href: link }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst));
   toon(
     kop("Kwaliteit", `Afwijkingen, beoordelingen en herbewerkingen, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}.`, periodeKeuze(overzicht, true, true)),
     h("div", { class: "tegels" },
@@ -251,12 +251,12 @@ export async function overzicht() {
       tegel(d.afgekeurd, "batches afgekeurd", "#/kwaliteit/herbewerkingen"),
       tegel(d.lots, "lots gemaakt", "#/kwaliteit/lotpaspoort"),
     ),
-    h("section", { class: "blok" },
+    h("section", { class: "blok kwaliteit-kaart" },
       h("h2", {}, `Afwijkingen ${perWoord(per)}`),
       groepen.some((w) => w.buiten_grens + w.buiten_tolerantie > 0)
         ? [h("p", { class: "sub" }, `Klik op een staaf voor de afwijkingen van die ${per}.`), afwijkingenPerWeek(groepen, (week) => void toonWeek(week), per), weekLijst]
         : h("p", { class: "leeg" }, "Geen afwijkingen in deze periode.")),
-    h("section", { class: "blok" },
+    h("section", { class: "blok kwaliteit-kaart" },
       h("h2", {}, "Velden met de meeste afwijkingen"),
       d.top_velden.length
         ? tabel(["Veld", "Stap", "Afwijkend", "Van metingen", ""], d.top_velden.map((v) => [
@@ -279,7 +279,7 @@ export async function beoordelen() {
   try { [rijen, keuringen] = await Promise.all([haal<TeBeoordelen[]>("/analyse/te-beoordelen"), haal<KeuringRij[]>("/keuringen")]); } catch (e) { return fout(e); }
   if (!actueel()) return;
   // #64: stappen die op de metingen en de vrijgave van Kwaliteit wachten. Meten en beslissen gebeurt in het invoerscherm (lab-pc).
-  const wachtOpKwaliteit = h("section", { class: "blok" }, h("h2", {}, `Wacht op meting van Kwaliteit (${keuringen.length})`),
+  const wachtOpKwaliteit = h("section", { class: `blok kwaliteit-kaart${keuringen.length ? " kwaliteit-open" : ""}` }, h("h2", {}, `Wacht op meting van Kwaliteit (${keuringen.length})`),
     keuringen.length
       ? [h("p", { class: "sub" }, "Deze batches en lots zijn afgerond maar gaan pas verder na de vrijgave. Meten en vrijgeven doe je in het invoerscherm, op de lab-pc."),
          tabel(["Batch of lot", "Product", "Stap", "Afgerond", "Nog te meten", "Afwijkend"], keuringen.map((k) => [
@@ -450,18 +450,18 @@ async function toonLotpaspoort(nummer: string) {
       h("div", {}, h("dt", {}, "Herbewerkingen"), h("dd", {}, herb.length ? herb.map((r) => `${r.stap}: ${r.reden} (${STAND[r.stand].toLowerCase()})`).join("; ") : "Geen")),
       h("div", {}, h("dt", {}, "Metingen"), h("dd", {}, String(pas.regels.length))),
     ),
-    h("section", { class: "blok" }, h("h2", {}, "Afwijkingen"),
+    h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Afwijkingen"),
       afw.length ? [h("p", { class: "sub" }, "Klik op een resultaat voor de meting, correcties en het keurresultaat."), regelsTabel(afw, true, lot.lotnummer)]
         : h("p", { class: "leeg goed" }, "Geen afwijkingen in dit lot en zijn batches.")),
-    herb.length ? h("section", { class: "blok geen-print" }, h("h2", {}, "Herbewerkingen"), herbewerkingTabel(herb, opnieuw, false)) : null,
+    herb.length ? h("section", { class: "blok kwaliteit-kaart geen-print" }, h("h2", {}, "Herbewerkingen"), herbewerkingTabel(herb, opnieuw, false)) : null,
     pas.grondstoffen?.length
-      ? h("section", { class: "blok" }, h("h2", {}, "Grondstoffen"),
+      ? h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Grondstoffen"),
           tabel(["Stap", "Batch of lot", "Grondstof", "Partij", "Hoeveelheid"], pas.grondstoffen.map((g) => [
             g.stap, g.batch_of_lot, `${g.grondstof} ${g.grondstofnaam}`,
             h("span", {}, h("a", { href: `#/kwaliteit/grondstoffen/${encodeURIComponent(g.partij)}`, class: "sterk" }, g.partij), g.gecorrigeerd ? " (gecorrigeerd)" : ""),
             g.hoeveelheid !== null ? `${toonGetal(g.hoeveelheid)}${g.eenheid ? ` ${g.eenheid}` : ""}` : ""]), "compact"))
       : null,
-    h("section", { class: "blok" }, h("h2", {}, "Metingen binnen grenzen"),
+    h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Metingen binnen grenzen"),
       h("details", { class: "meer" }, h("summary", {}, `Alle ${pas.regels.length - afw.length} metingen binnen grenzen tonen`),
         regelsTabel(pas.regels.filter((r) => r.markering === "ok").sort((a, b) => a.stap.localeCompare(b.stap, "nl", { numeric: true }) || a.batch_of_lot.localeCompare(b.batch_of_lot)), true))),
     h("p", { class: "afdruk-voet" }, `Afgedrukt ${new Date().toLocaleString("nl-NL")} door ${sessie.naam}. Fictieve gegevens.`),
@@ -500,12 +500,12 @@ export async function batch(nummer: string) {
             catch (e) { melding((e as Error).message, "fout"); }
           } }, "In beoordeling zetten")
         : null)),
-    herb.length ? h("section", { class: "blok" }, h("h2", {}, "Herbewerkingen"), herbewerkingTabel(herb, opnieuw, false)) : null,
+    herb.length ? h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Herbewerkingen"), herbewerkingTabel(herb, opnieuw, false)) : null,
     b.besluiten.length
-      ? h("section", { class: "blok" }, h("h2", {}, "Besluiten"),
+      ? h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Besluiten"),
           h("ol", { class: "tijdlijn" }, b.besluiten.map((d) => h("li", {}, h("strong", {}, besluitTekst[d.besluit] ?? d.besluit), h("span", {}, `${d.reden}, ${d.besloten_door}, ${datum(d.besloten_op)}`)))))
       : null,
-    h("section", { class: "blok" }, h("h2", {}, b.aantal_afwijkingen ? `Metingen (${b.aantal_afwijkingen} afwijkend, bovenaan)` : "Metingen"),
+    h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, b.aantal_afwijkingen ? `Metingen (${b.aantal_afwijkingen} afwijkend, bovenaan)` : "Metingen"),
       b.regels.length ? regelsTabel(b.regels, false) : h("p", { class: "leeg" }, "Nog geen metingen.")),
   );
 }
@@ -586,7 +586,7 @@ export async function trendScherm(veldcode?: string) {
     afgekapt(n, 5000, "metingen", "Kies een kortere periode om alles te zien."),
     n === 0
       ? h("p", { class: "leeg" }, "Geen metingen van dit veld in deze periode.")
-      : h("section", { class: "blok" },
+      : h("section", { class: "blok kwaliteit-kaart" },
           h("dl", { class: "feiten" },
             h("div", {}, h("dt", {}, "Metingen"), h("dd", {}, String(n))),
             h("div", {}, h("dt", {}, "Afwijkend"), h("dd", {}, `${afw} (${((afw / n) * 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%)`)),
@@ -626,13 +626,13 @@ export async function herbewerkingen() {
       periodeKeuze(herbewerkingen)),
     h("div", { class: "tegels" },
       ...([["te_plannen", "nog te plannen"], ["gepland", "gepland"], ["bezig", "bezig"]] as [Herbewerking["stand"], string][])
-        .map(([st, t]) => h("div", { class: `tegel${st === "te_plannen" && telStand(st) ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, telStand(st)), h("span", { class: "tegel-tekst" }, `herbewerkingen ${t}`)))),
-    h("section", { class: "blok" }, h("h2", {}, `Lopende herbewerkingen (${lopend.length})`),
+        .map(([st, t]) => h("div", { class: `tegel kwaliteit-cijfer${st === "te_plannen" && telStand(st) ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, telStand(st)), h("span", { class: "tegel-tekst" }, `herbewerkingen ${t}`)))),
+    h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, `Lopende herbewerkingen (${lopend.length})`),
       lopend.length ? herbewerkingTabel(lopend, herbewerkingen) : h("p", { class: "leeg goed" }, "Er loopt geen herbewerking.")),
-    h("section", { class: "blok" }, h("h2", {}, `Afgeronde en ingetrokken herbewerkingen (${afgerond.length})`),
+    h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, `Afgeronde en ingetrokken herbewerkingen (${afgerond.length})`),
       afgerond.length ? [h("p", { class: "sub" }, `Redenen: ${perReden(afgerond)}`), herbewerkingTabel(afgerond, herbewerkingen)]
         : h("p", { class: "leeg goed" }, "Geen afgeronde herbewerkingen in deze periode.")),
-    h("section", { class: "blok" }, h("h2", {}, `Afgekeurde batches (${afk.length})`),
+    h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, `Afgekeurde batches (${afk.length})`),
       afk.length ? [h("p", { class: "sub" }, `Redenen: ${perReden(afk)}`),
         tabel(["Afgekeurd", "Batch", "Reden", "Door", "In beoordeling gezet om", "Laatst afgeronde stap"], afk.map((r) => [datum(r.afgekeurd_op),
           h("a", { href: `#/kwaliteit/batch/${r.batchnummer}`, class: "sterk" }, r.batchnummer), r.reden, r.door, r.in_beoordeling_reden ?? "", r.laatst_afgeronde_stap ?? ""]))]
@@ -677,9 +677,9 @@ export async function grondstoffen(partij?: string) {
           ? h("div", {},
               teVeel,
               h("div", { class: "tegels" },
-                h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, batches.length), h("span", { class: "tegel-tekst" }, batches.length === 1 ? "batch" : "batches")),
-                h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, lots.length), h("span", { class: "tegel-tekst" }, lots.length === 1 ? "lot" : "lots")),
-                h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, new Set(r.map((x) => x.partij)).size), h("span", { class: "tegel-tekst" }, "partijen gevonden"))),
+                h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, batches.length), h("span", { class: "tegel-tekst" }, batches.length === 1 ? "batch" : "batches")),
+                h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, lots.length), h("span", { class: "tegel-tekst" }, lots.length === 1 ? "lot" : "lots")),
+                h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, new Set(r.map((x) => x.partij)).size), h("span", { class: "tegel-tekst" }, "partijen gevonden"))),
               lots.length ? h("p", { class: "sub", style: "margin-top:12px" }, "Lots: ", lots.flatMap((l, i) => [i ? ", " : "", h("a", { href: `#/kwaliteit/lotpaspoort/${l}` }, l)])) : null,
               tabel(["Partij", "Grondstof", "Batch", "Stap", "Lot", "Ingevoerd", "Hoeveelheid"], r.map((x) => [
                 h("span", { class: "sterk" }, x.partij, x.gecorrigeerd ? h("span", { class: "noot" }, " (gecorrigeerd)") : null), `${x.grondstof} ${x.grondstofnaam}`,
@@ -748,8 +748,8 @@ export async function regelkaarten(veld?: string) {
   toon(
     kop("Regelkaarten", "Een regelkaart laat zien of een proces verandert, ook als de waarden nog binnen de grenzen vallen. Een signaal is een reden om te kijken, nog vóórdat er een afwijking is.", periodeKeuze(() => regelkaarten())),
     h("div", { class: "tegels" },
-      h("div", { class: `tegel${met.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, met.length), h("span", { class: "tegel-tekst" }, met.length === 1 ? "veld met signalen" : "velden met signalen")),
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, o.filter((x) => x.cpk !== null && x.cpk < 1).length), h("span", { class: "tegel-tekst" }, "velden met Cpk onder 1 (te krap)"))),
+      h("div", { class: `tegel kwaliteit-cijfer${met.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, met.length), h("span", { class: "tegel-tekst" }, met.length === 1 ? "veld met signalen" : "velden met signalen")),
+      h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, o.filter((x) => x.cpk !== null && x.cpk < 1).length), h("span", { class: "tegel-tekst" }, "velden met Cpk onder 1 (te krap)"))),
     tabel(["Veld", "Stap", "Metingen", "Signalen", "Laatste signaal", "Procesvermogen (Cpk)"], o.map((x) => [
       h("a", { class: "sterk", href: `#/kwaliteit/regelkaarten/${x.veld}` }, `${x.veld} ${x.naam}`), x.stap,
       h("span", { class: "getal" }, x.n), h("span", { class: x.signalen ? "getal let-op" : "getal" }, x.signalen),
@@ -782,21 +782,21 @@ async function regelkaartDetail(code: string) {
       ? h("p", { class: "leeg" }, "Te weinig metingen in deze periode voor een regelkaart.")
       : h("div", {},
           h("div", { class: "tegels" },
-            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, r.punten.length), h("span", { class: "tegel-tekst" }, "metingen")),
-            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.gemiddelde!, statD)), h("span", { class: "tegel-tekst" }, `gemiddelde${e}`)),
-            h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.sigma ?? 0, statD)), h("span", { class: "tegel-tekst" }, `spreiding (sigma)${e}`)),
-            h("div", { class: `tegel${signalen.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, signalen.length), h("span", { class: "tegel-tekst" }, "signalen")),
-            r.cpk !== null ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, toonGetal(r.cpk)), h("span", { class: "tegel-tekst" }, "Cpk")) : null),
+            h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, r.punten.length), h("span", { class: "tegel-tekst" }, "metingen")),
+            h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, toonGetal(r.gemiddelde!, statD)), h("span", { class: "tegel-tekst" }, `gemiddelde${e}`)),
+            h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, toonGetal(r.sigma ?? 0, statD)), h("span", { class: "tegel-tekst" }, `spreiding (sigma)${e}`)),
+            h("div", { class: `tegel kwaliteit-cijfer${signalen.length ? " let-op" : ""}` }, h("span", { class: "tegel-getal" }, signalen.length), h("span", { class: "tegel-tekst" }, "signalen")),
+            r.cpk !== null ? h("div", { class: "tegel kwaliteit-cijfer" }, h("span", { class: "tegel-getal" }, toonGetal(r.cpk)), h("span", { class: "tegel-tekst" }, "Cpk")) : null),
           r.voorlopig
             ? h("p", { class: "blok let-op-blok voorlopig" }, `Voorlopig: nog maar ${r.punten.length} metingen in deze periode. Vanaf ${r.min_metingen} zijn de grenzen betrouwbaar; tot die tijd zijn signalen een eerste indruk en staat er geen Cpk. Kies eventueel een langere periode.`)
             : null,
-          h("section", { class: "blok" }, h("h2", {}, "Metingen"),
+          h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Metingen"),
             regelkaartGrafiek(r.punten, r, e, r.getekend === "gemeten" && !(v.grenzen_per_product && !gekozenProduct.code) ? { min: v.grens_min, max: v.grens_max } : undefined, `Regelkaart ${v.code}`),
             v.grenzen_per_product && !gekozenProduct.code && r.getekend === "gemeten"
               ? h("p", { class: "sub" }, "Dit veld heeft eigen grenzen per product: kies bovenin een product voor de specificatie en de Cpk.")
               : null),
           signalen.length
-            ? h("section", { class: "blok" }, h("h2", {}, "Signalen"),
+            ? h("section", { class: "blok kwaliteit-kaart" }, h("h2", {}, "Signalen"),
                 tabel(["Wanneer", "Batch of lot", "Waarde", "Regel"], signalen.slice(-50).reverse().map((p) => [
                   kort(p.tijd), p.nummer, `${toonGetal(p.waarde, v.decimalen)}${e}`, `${p.signaal}: ${r.regels[String(p.signaal)]}`]), "compact"))
             : h("p", { class: r.voorlopig ? "leeg" : "leeg goed" }, r.voorlopig ? "Geen signalen in deze metingen; met zo weinig metingen zegt dat nog niet veel." : "Geen signalen: het proces is stabiel in deze periode."),

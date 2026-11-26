@@ -54,6 +54,15 @@ try {
           assert.match(await style(".staptegel.knelpunt","boxShadow"), /rgb\(242, 194, 0\) 6px 0px 0px 0px inset/);
           await eq(".staptegel.leeg-stap", "backgroundColor", "rgba(0, 0, 0, 0)");
           console.log("OK 139.3e: operationele kaarten en knelpunten", width);
+          await page.locator("#scherm").evaluate(el => { el.innerHTML = '<section class="blok kwaliteit-kaart kwaliteit-open">Wacht op meting</section><section class="blok kwaliteit-definitie">Specificatie</section><div class="tegel kwaliteit-cijfer let-op"><span class="tegel-getal">2</span></div><div class="regelkaart"><svg xmlns="http://www.w3.org/2000/svg"><line class="rk-spec"/><line class="rk-grens"/></svg></div>'; });
+          await eq(".kwaliteit-open", "borderTopColor", "rgb(242, 140, 40)");
+          await eq(".kwaliteit-open", "borderLeftWidth", "6px");
+          await eq(".kwaliteit-open", "borderLeftColor", "rgb(31, 95, 191)");
+          await eq(".kwaliteit-definitie", "borderTopColor", "rgb(11, 46, 89)");
+          await eq(".kwaliteit-cijfer .tegel-getal", "color", "rgb(163, 95, 0)");
+          await eq(".rk-spec", "stroke", "rgb(208, 59, 59)");
+          await eq(".rk-grens", "strokeDasharray", "6px, 4px");
+          console.log("OK 139.3f: kwaliteitskaarten, specificaties en regelgrenzen", width);
         }
         if (frontend === "invoer") {
           await page.locator("dialog").evaluate(e => e.close());
