@@ -646,3 +646,5 @@ Documentatiecontrole workflow 391 op 9b4cb1e geslaagd inclusief roadmapstap. D11
 139.4c: CI 416 (45795962235) groen op 4993bba. Gedeelde Graphviz-renderer toegevoegd, controle van node/edge-aantallen, vaste witte achtergrond en dubbele rendervergelijking; CI volgt. Geen gepubliceerde technische SVG's of visuele acceptatie geclaimd zolang uitvoer niet gecontroleerd is.
 
 139.4c vervolg: CI 417 (45797149834) op 427a1e8 groen; zes SVG's tweemaal gelijk gegenereerd. Chrome controleert nu node-tekstoverlap, vaste achtergrond, inktkleur en positieve viewBox in beide kleurmodi; reviewartifact voor handmatige beoordeling toegevoegd. Geen claim dat alle relatielabels overlapvrij zijn of GitHub-weergave al aangepast is.
+
+139.4c: workflow 418 (45797707331) op 7d2c2b9 niet uitgevoerd door ongeldige YAML bij artifact-upload. Versiecontrole hersteld binnen run-blok; technische SVG-browsercontrole en reviewartifact blijven vereist. Geen nieuw testbewijs tot geslaagde CI.

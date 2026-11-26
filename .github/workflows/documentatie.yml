@@ -62,6 +62,8 @@ jobs:
           tests/test_roadmap.sh
           python3 tests/test_diagram_style.py
           python3 tools/roadmap_diagram.py --check
+          V="$(cat VERSIE)"
+          grep -q "^## $V " CHANGELOG.md
       - name: Roadmap SVG in Chrome (licht en donker)
         if: steps.wijzigingen.outputs.roadmap == 'true'
         run: |
@@ -83,8 +85,6 @@ jobs:
           path: /tmp/mes-diagrams/*.svg
           if-no-files-found: error
           retention-days: 7
-          V="$(cat VERSIE)"
-          grep -q "^## $V " CHANGELOG.md
   diagram:
     name: Databasediagram controleren
     needs: documentatie
