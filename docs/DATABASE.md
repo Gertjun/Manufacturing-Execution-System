@@ -11,7 +11,10 @@ Schema `fabriek`: 94 tabellen en 203 verbanden.
 
 Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. `||` = altijd ingevuld, `|o` = mag leeg zijn, `o{` = nul of meer, `o|` = hoogstens één. Niet getekend, wel in de lijst hieronder: verwijzingen naar `gebruiker`, `operator` en `pc` (wie iets deed of waar).
 
+Legenda B+: structuur (blauw), uitvoering en besluiten (oranje), technische ondersteuning (grijs). Alle relaties zijn fysieke FK-verwijzingen, geen procespijlen. Kleur is aanvullend; de tabelnamen en relatiekolommen blijven bepalend.
+
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 erDiagram
     activity_qualification
     authorization_bootstrap
@@ -239,6 +242,12 @@ erDiagram
     veld ||--o{ waarde : "veld_id"
     waarde |o--o{ invoerconflict : "bestaand_waarde_id"
     waarde |o--o| waarde : "vervangt_waarde_id"
+    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59
+    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430
+    classDef ondersteuning fill:#F4F7F9,stroke:#6B7785,color:#1B2430
+    class activity_qualification,authorization_permission,authorization_role,authorization_role_permission,capaciteit_stap,gebruiker,grondstof,instelling,master_recipe,master_recipe_version,material_class,material_definition,material_definition_version,measurement_unit,operator,pc,pc_stap,ploeg,processtap,product,product_stap,qualification,quantity_dimension,quantity_kind,recipe_compatibility_rule,recipe_dependency,recipe_equipment_requirement,recipe_formula,recipe_instruction,recipe_lot_rule,recipe_material_requirement,recipe_parameter,recipe_parameter_limit,recipe_personnel_requirement,recipe_procedural_element,recipe_scaling_binding,recipe_scaling_expression,recipe_scaling_input,recipe_scaling_rule,recipe_specification_link,rooster,rooster_ploeg,specificatie,specificatie_regel,stap_grondstof,stilstand_oorzaak,unit_conversion,unit_conversion_version,veld,veld_product structuur
+    class authorization_decision,authorization_grant,authorization_personnel_link,authorization_request,authorization_revocation,batch,batch_besluit,capaciteit_afwijking,certificaat,execution_session,geweigerde_invoer,grondstof_gebruik,herbewerking,invoerconflict,keuring,lot,lot_voorstel,lot_voorstel_batch,melding,melding_gelezen,overdracht,personnel_qualification,qualification_issue,qualification_revocation,recipe_change_impact,recipe_change_request,recipe_release,recipe_release_withdrawal,recipe_review_decision,recipe_review_round,stapplanning,stapregistratie,stilstand,terugmelding,waarde uitvoering
+    class authorization_bootstrap,authorization_channel_identity,authorization_channel_identity_revocation,authorization_legacy_snapshot,authorization_recovery,config_log,inlogpoging,onderhoud_log,schema_versie ondersteuning
 ```
 
 ## Tabellen

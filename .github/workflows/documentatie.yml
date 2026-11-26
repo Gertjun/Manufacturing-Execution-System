@@ -3,10 +3,10 @@ name: Documentatiecontrole
 on:
   push:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md]
+    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py]
   pull_request:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md]
+    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py]
 
 permissions:
   contents: read
@@ -44,7 +44,7 @@ jobs:
           bestanden = set(pathlib.Path("/tmp/docs-wijzigingen").read_bytes().decode().split("\0")) - {""}
           alleen_docs = bool(bestanden) and bestanden <= toegelaten
           roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md"})
-          diagram = alleen_docs and "docs/DATABASE.md" in bestanden
+          diagram = bool(bestanden & {"docs/DATABASE.md", "tools/schema_plaatje.py"})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print(f"roadmap={str(roadmap).lower()}", file=f)
               print(f"diagram={str(diagram).lower()}", file=f)

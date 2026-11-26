@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.4a): B+-semantiek in fysieke ERD-generator, conceptueel datamodel en procesketen; neutrale FK-relaties en oranje procespijlen; expliciete tabelclassificatie, geen schemawijziging.
+
 - #139 (139.3i-c): regressies voor werkelijk gerenderde historische trendzones, statistische regelkaartzones en certificaat-PDF; geen achtergrondzones bij ontbrekende historische grensgegevens. Integrale verificatie volgt.
 
 - #139 (139.3i-b): herstel beheerbovenaccent na CI 710; gedeelde schermmatrix uitgebreid naar acht formaten inclusief Full HD en 4K, beperkte displaytest en Windows-praktijkacceptatie aangevuld. Bestaande regressies behouden.

@@ -71,3 +71,26 @@ Bij verlies van voldoende onafhankelijke security-identiteiten: stop reguliere h
 0061: registratie door database-eigenaar van een reeds door IT ingerichte persoonlijke login, met reden/goedkeuringsreferentie. Intrekking is afzonderlijk onveranderlijk record; vervanging vereist nieuwe rolnaam/OID en intrekking oude binding. Andere groepslidmaatschappen en beheeropties worden geweigerd. IT controleert ook rechtstreeks verleende objectrechten en beëindigt bestaande verbindingen bij incidenten. Na restore kanaal geblokkeerd houden tot gecontroleerde herbinding; geen automatische OID-conversie. Operationele provisioning/transport en acceptatie nog open.
 
 D105: nieuwe fase 3 centraliseert portalregistratie en zichtbaarheid op actuele permissionprojectie, inclusief meervoudige rollen/scopes; onafhankelijke route-/API-/DB-handhaving blijft verplicht. Geen automatische of ruimere grants. Fase 2 behoudt Process Engineering; middelenbeheer volgt fase 4.
+
+## Procesketen — conceptueel, niet volledig geïmplementeerd
+
+Blauw = receptdefinitie; oranje = operationele handeling of besluit. Pijlen geven procesvolgorde, geen database-FK of automatische bevoegdheid. Latere fasen blijven gepland.
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
+flowchart TD
+    A[MBR opstellen] --> B[MOC en impactanalyse]
+    B --> C[Onafhankelijk beoordelen en vrijgeven]
+    C --> D[Productieorder en planning]
+    D --> E[Dispatch en Control Recipe]
+    E --> F[Uitvoering en tussenkeuring]
+    F --> G[Batch afronden en lotvorming]
+    G --> H[Eindkeuring en EBR review]
+    H --> I[Quality release]
+    I --> J[CoA en orderafsluiting]
+    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59
+    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430
+    class A structuur
+    class B,C,D,E,F,G,H,I,J uitvoering
+    linkStyle default stroke:#B45309,stroke-width:2px
+```
