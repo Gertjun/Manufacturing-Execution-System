@@ -3,10 +3,10 @@ name: Documentatiecontrole
 on:
   push:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py]
+    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs]
   pull_request:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py]
+    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs]
 
 permissions:
   contents: read
@@ -43,7 +43,7 @@ jobs:
           toegelaten = set(["README.md","CLAUDE.md","DECISIONS.md","ROADMAP.md","CHANGELOG.md","docs/DATABASE.md","docs/PRAKTIJKTESTS.md","docs/SERVER.md","tools/pakket/README.md","docs/mes/ACCEPTANCE-CRITERIA.md","docs/mes/BLUEPRINT.md","docs/mes/DATA-MODEL.md","docs/mes/ISA-CONFORMANCE.md","docs/mes/MBR-EBR-DESIGN.md","docs/mes/MIGRATION-STRATEGY.md","docs/mes/ROLES-AND-PROCESSES.md","docs/mes/TERMINOLOGY.md","docs/mes/VISUAL-STYLE.md"])
           bestanden = set(pathlib.Path("/tmp/docs-wijzigingen").read_bytes().decode().split("\0")) - {""}
           alleen_docs = bool(bestanden) and bestanden <= toegelaten
-          roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md", "tools/roadmap_diagram.py", "docs/diagrams/roadmap.mmd", "docs/diagrams/roadmap.svg"})
+          roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md", "tools/roadmap_diagram.py", "docs/diagrams/roadmap.mmd", "docs/diagrams/roadmap.svg", "tests/roadmap-render.mjs"})
           diagram = bool(bestanden & {"docs/DATABASE.md", "tools/schema_plaatje.py"})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print(f"roadmap={str(roadmap).lower()}", file=f)
@@ -62,6 +62,11 @@ jobs:
           tests/test_roadmap.sh
           python3 tests/test_diagram_style.py
           python3 tools/roadmap_diagram.py --check
+      - name: Roadmap SVG in Chrome (licht en donker)
+        if: steps.wijzigingen.outputs.roadmap == 'true'
+        run: |
+          npm ci --prefix portaal --ignore-scripts
+          node tests/roadmap-render.mjs
           V="$(cat VERSIE)"
           grep -q "^## $V " CHANGELOG.md
   diagram:

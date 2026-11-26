@@ -87,3 +87,5 @@ Acht centrale CSS-viewports in `tests/screen-formats.mjs`: 390×844, 844×390, 8
 139.4b: Gantt toont alle fasen 0–12, technische afronding afzonderlijk van praktijkacceptatie, en de gecombineerde fase-2/3-poort vóór middelenbeheer. Architectuur, MBR/EBR- en migratieproces gebruiken B+-klassen; conceptuele pijlen zijn oranje en fysieke FK grijs. Brontekstcontract bewaakt kleursemantiek en fasevolgorde; daadwerkelijke Mermaid-layout, overlap en contrast in renderomgeving afzonderlijk beoordelen. PDF-naslagwerk en presentaties blijven afzonderlijke momentopnamen.
 
 139.4c: GitHub dark mode toont inline Mermaid Gantt onvoldoende leesbaar. Roadmap gebruikt daarom een reproduceerbare SVG met expliciete witte achtergrond, aparte donkere labels en behouden Gantt-bron; geen kalenderplanning. Overige Mermaid-diagrammen afzonderlijk op beide thema's beoordelen. Geen renderacceptatie op basis van broncontrole alleen.
+
+139.4c vervolg: browsercontrole roadmap-SVG in beide kleurmodi, vaste achtergrond, tekstkleur, overlap en tekstgrenzen. Dit is een lokale Chrome-render, niet de daadwerkelijke GitHub-UI. Overige Mermaid-diagrammen blijven apart open.
