@@ -43,12 +43,29 @@ try {
           if(a.x<b.right&&b.x<a.right&&a.y<b.bottom&&b.y<a.bottom)overlap.push([labels[i].textContent,labels[j].textContent]);
         }
         const geometry=Object.fromEntries([...svg.querySelectorAll("g.node")].map(g=>{const shape=g.querySelector("path, polygon, rect, ellipse");const b=shape.getBBox();return [g.querySelector("title").textContent,{x:b.x+b.width/2,y:b.y+b.height/2,w:b.width,h:b.height}];}));
-        return {geometry,background:getComputedStyle(background).fill,labels:labels.length,overlap,ink:labels.every(t=>["rgb(11, 46, 89)","rgb(27, 36, 48)"].includes(getComputedStyle(t).fill)),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height};
+        const flowNodes=[...svg.querySelectorAll("g.node")];
+        const fixed=flowNodes.every(n=>n.querySelector("rect"));
+        let textInside=true, edgeHits=0, allTextOverlap=0;
+        if(fixed){
+          const rects=flowNodes.map(n=>n.querySelector("rect").getBBox());
+          const hit=(a,b)=>a.x<b.x+b.width&&b.x<a.x+a.width&&a.y<b.y+b.height&&b.y<a.y+a.height;
+          textInside=flowNodes.every((n,i)=>{
+            const t=n.querySelector("text").getBBox(),r=rects[i];
+            return t.x>=r.x+4&&t.y>=r.y+3&&t.x+t.width<=r.x+r.width-4&&t.y+t.height<=r.y+r.height-3;
+          });
+          edgeHits=[...svg.querySelectorAll("g.edge text")].flatMap(e=>rects.filter(r=>hit(e.getBBox(),r))).length;
+          const all=[...svg.querySelectorAll("text")].map(n=>n.getBBox());
+          allTextOverlap=all.flatMap((a,i)=>all.slice(i+1).filter(b=>hit(a,b))).length;
+        }
+        return {fixed,textInside,edgeHits,allTextOverlap,geometry,background:getComputedStyle(background).fill,labels:labels.length,overlap,ink:labels.every(t=>["rgb(11, 46, 89)","rgb(27, 36, 48)"].includes(getComputedStyle(t).fill)),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height};
       });
       assert.equal(result.background,"rgb(255, 255, 255)",file);
       assert.ok(result.labels>0&&result.ink&&result.width>0&&result.height>0,file);
       assert.deepEqual(result.overlap,[],file+" "+scheme);
       if(axes[file]){
+        assert.ok(result.fixed&&result.textInside,file+" text fits blocks");
+        assert.equal(result.edgeHits,0,file+" edge label hits block");
+        assert.equal(result.allTextOverlap,0,file+" all text overlap");
         const g=result.geometry;
         const near=(a,b)=>Math.abs(a-b)<1;
         const first=Object.values(g)[0];

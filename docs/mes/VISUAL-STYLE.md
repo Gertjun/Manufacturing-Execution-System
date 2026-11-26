@@ -94,4 +94,6 @@ Acht centrale CSS-viewports in `tests/screen-formats.mjs`: 390×844, 844×390, 8
 
 139.4c: succesvolle eerste render in CI 417. Reviewartifact `mes-technical-diagrams` bevat zes SVG's; Chrome controleert node-labels en achtergrond in beide kleurmodi. Relatielabels, grote ERD en GitHub-insluiting afzonderlijk beoordelen. Graphviz-versie kan layout tussen verschillende omgevingen beïnvloeden; dubbele generatie bewijst herhaalbaarheid binnen dezelfde omgeving.
 
-139.4c: vier procesdiagrammen gebruiken vaste posities via neato -n2; blokken 4,6 × 0,65 inch, verticale stap 105 pt, hoofdas en zijtakken per bron-ID. Procesketen in twee kolommen met doorlopende richting. Bron blijft gezaghebbend voor inhoud en relaties; ontbrekende of extra nodes maken de layouttest rood. ERD blijft voorlopig automatisch.
+139.4c: vier procesdiagrammen gebruiken vaste posities via directe SVG-rendering (neato -n2 vervangen na CI 420); blokken 332 × 47 pt, verticale stap 105 pt, hoofdas en zijtakken per bron-ID. Procesketen in twee kolommen met doorlopende richting. Bron blijft gezaghebbend voor inhoud en relaties; ontbrekende of extra nodes maken de layouttest rood. ERD blijft voorlopig automatisch.
+
+139.4c: vaste flowchartgeometrie rechtstreeks in SVG, met expliciete paden voor uitzonderingslussen, pijlrichting en labelpositie; B+-palette gedeeld met Graphviz-ERD. Tekst moet met marge in het eigen blok passen, relatielabels mogen geen blokken of andere teksten raken. Graphviz-foutuitvoer wordt gelogd. Nieuwe relaties zonder ondersteunde route worden geweigerd.
