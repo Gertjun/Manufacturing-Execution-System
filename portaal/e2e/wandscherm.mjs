@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 // Test van het wandscherm in Chrome, op data van tools/genereer_testdata.py.
 // Gebruik: node e2e/wandscherm.mjs   (start zelf de API op poort 3463)
 import { spawn } from "node:child_process";
@@ -59,13 +60,15 @@ try {
   const regels = await page.locator("#scherm ul li").allInnerTexts();
   check("Actieve stilstanden komen overeen met database", regels.length === verwacht.length &&
     verwacht.every((r,i) => regels[i].startsWith([r.stap,r.stapnaam,r.oorzaaknaam].join(" · ")+" · ")), JSON.stringify(regels));
-  check("Geen bedrijfsportalen voor display", await page.locator("#menu .menu-groep").count() === 0);
+  const bestemmingen = () => page.locator("#menu .menu-groep > a").evaluateAll(links =>
+    links.map(link => link.getAttribute("href")));
+  assert.deepEqual(await bestemmingen(), ["#/wandscherm"], "Menu toont alleen Stilstanddisplay");
   await shot("01-beperkt-display");
   for (const pad of ["kwaliteit","productie","planning","beheer","wandscherm/stappen/PS3,PS7","wandscherm/kwaliteit","wandscherm/alle"]) {
     await page.goto(BASIS+"/portaal/#/"+pad);
     await page.waitForFunction(() => location.hash === "#/wandscherm");
     await page.getByRole("heading", { name: "Actieve stilstand" }).waitFor();
-    check("Displayroute afgeschermd: "+pad, await page.locator("#menu .menu-groep").count() === 0);
+    assert.deepEqual(await bestemmingen(), ["#/wandscherm"], "Menu blijft beperkt na route "+pad);
   }
   const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
   const headers = { authorization: "Bearer "+token, "content-type": "application/json" };
