@@ -57,3 +57,31 @@ D106: #141 breidt het 0102/0103-fundament binnen fase 2 uit met centraal eenhede
 0124 (#112): afzonderlijke persoonlijke read-only review-inbox per product en dossier per exacte ronde. Alleen versies met beoordelingsbewijs; geen conceptbevoegdheid voor beoordelaars. Historische snapshots, besluiten, release/intrekking; inbox laatste ronde en eigen open domeinen. Snapshot als ongewijzigde JSON-tekst om numerieke precisie op HTTP-grens te bewaren; UI moet verliesvrije parsing gebruiken. Actuele productscope en revocatie leidend. Geen nieuwe persoonlijke grants of mutatierechten.
 
 D110 (#113): MES-native Process Engineering is de gezaghebbende interface voor receptconcepten en MOC. Structurele Excel-import/export optioneel en geparkeerd; geen parallel receptbeheersysteem. Bronmigratie voorbereiden met inventarisatie, expliciete mapping, eenheden, versiegrenzen, herkomst en afwijkingsrapportage; uitsluitend fictieve fixtures zolang echte bronnen ontbreken. Geen automatische vrijgave, historische herinterpretatie of specifieke legacy-importinterface als fase-2-eis. Werkelijke bronmigratie vóór relevante pilotinzet valideren. Bestaande legacyfunctionaliteit volgens D99 veilig beoordelen/uitfaseren.
+
+## Receptlevenscyclus en dossierketen — ontwerpvisualisatie
+
+Blauw = versiegebonden definitie; oranje = besluit of uitvoeringsrecord; grijs = ondersteuning. Pijlen beschrijven het conceptuele proces, niet een automatische statusovergang of autorisatie. Exacte vrijgave, ingangsdatum, intrekking, herbeoordeling en scope blijven onder D108/D109 en latere EBR/quality-fasen vallen.
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#B45309","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
+flowchart TD
+    A[MBR-concept] --> B[Onafhankelijke beoordeling]
+    B -->|Afwijzing| A
+    B -->|Alle vereiste goedkeuringen| C[Goedgekeurde revisie]
+    C --> D[Expliciete vrijgave]
+    D --> E[Effectieve MBR op peilmoment]
+    D --> F[Intrekkingsbewijs]
+    E --> G[Control Recipe bij werkvrijgave]
+    G --> H[Execution en feitelijke registraties]
+    H --> I[EBR-dossierstand]
+    I --> J[Onafhankelijke kwaliteitsvrijgave]
+    J --> K[CoA op exacte stand]
+    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59
+    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430
+    classDef ondersteuning fill:#F4F7F9,stroke:#6B7785,color:#1B2430
+    class A,C,E structuur
+    class B,D,F,G,H,I,J,K uitvoering
+    linkStyle default stroke:#B45309,stroke-width:2px
+```
+
+De fase-2-baseline bevat MBR-beoordeling en formele release; CR, uitvoering op CR, EBR en definitieve kwaliteitsvrijgave volgen in de toegewezen fasen. Geen claim dat de hele keten al operationeel is.

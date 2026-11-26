@@ -60,6 +60,7 @@ jobs:
         if: steps.wijzigingen.outputs.roadmap == 'true'
         run: |
           tests/test_roadmap.sh
+          python3 tests/test_diagram_style.py
           V="$(cat VERSIE)"
           grep -q "^## $V " CHANGELOG.md
   diagram:

@@ -50,3 +50,28 @@ Representatieve fictieve gevallen: [fixtures/phase2-source-cases.json](fixtures/
 Bewijs 26 november 2026: integrale CI [#665](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45765379770), head `2ebc36e0e0316c3edb34535fbc9aefe97c5fc12d`, schema 0128, beide Node-suites en Chrome groen. Gerichte baseline [#671](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45770644723), head `c7dce4f789acf84926a4f2e4a68f3bd669432fd9`, schema 0129, job 139742179386, base voor beide `ea3b78bc938647140b4e228e9382761504518906`: 1174/1174 DB, 16/16 security/beheertools inclusief bronmanifest, 10/10 autorisatiemodule, 129/129 API, schone installatie, migratiegelijkheid, historische upgrade 0035→0129 (tien historische tabellen, geen automatische grants), herstel en Linux-pakket groen. Geen integrale CI op 0129 of Windows-praktijkacceptatie geclaimd.
 
 De fictieve bronmanifestregressie is geslaagd; dit bewijst de structuur en verwachte beoordelingsuitkomsten, niet uitvoering van een importer of werkelijke bronmigratie. Historische upgrade 0035→0129 is bewezen; dit is niet hetzelfde als een afzonderlijke praktijktest van het uitgebrachte Windows-pakket v0.63.0. De inventarisatie op schema 0128 blijft geldig voor het bronmodel: 0129 wijzigt alleen de persoonlijke transactiebinding, geen materiaal- of recepttabellen. D111 vervangt de oude releasevolgorde uit D105; gecombineerde Windows-praktijkacceptatie na fase 3.
+
+## Migratiepoorten — conceptueel
+
+Blauw = ontwerp en mapping; oranje = uitvoering en besluit; grijs = herstelondersteuning. Pijlen beschrijven de bestaande Expand/Migrate/Validate/Switch/Contract-strategie. Geen automatische productieomschakeling.
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#B45309","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
+flowchart TD
+    A[Expand - ontwerp en compatibiliteit] --> B[Back-up en hersteltest]
+    B --> C[Migrate - gecontroleerde mapping]
+    C --> D[Validate - vergelijk bron en doel]
+    D -->|Afwijking| E[Stop en beoordeel]
+    E --> C
+    D -->|Expliciete acceptatie| F[Switch - gezaghebbende schrijfbron]
+    F --> G[Contract - pas na bewezen vervanging]
+    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59
+    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430
+    classDef ondersteuning fill:#F4F7F9,stroke:#6B7785,color:#1B2430
+    class A,C structuur
+    class D,E,F,G uitvoering
+    class B ondersteuning
+    linkStyle default stroke:#B45309,stroke-width:2px
+```
+
+Bij herstel nieuwe feiten en historische identiteit behouden. Werkelijke bronmigratie blijft vóór relevante pilotinzet te valideren; fictieve fixtures zijn geen bewijs van uitgevoerde productiemigratie.
