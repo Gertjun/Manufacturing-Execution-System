@@ -60,9 +60,21 @@ try {
           await eq(".kwaliteit-open", "borderLeftColor", "rgb(31, 95, 191)");
           await eq(".kwaliteit-definitie", "borderTopColor", "rgb(11, 46, 89)");
           await eq(".kwaliteit-cijfer .tegel-getal", "color", "rgb(163, 95, 0)");
-          await eq(".rk-spec", "stroke", "rgb(208, 59, 59)");
+          await eq(".rk-spec", "stroke", "rgb(179, 38, 30)");
           await eq(".rk-grens", "strokeDasharray", "6px, 4px");
           console.log("OK 139.3f: kwaliteitskaarten, specificaties en regelgrenzen", width);
+          await page.locator("#scherm").evaluate(el => { el.innerHTML = '<section class="blok planning-kaart planning-open">Lotvoorstel</section><section class="blok planning-definitie">Capaciteit</section><section class="dagkaart te-vol">Te vol</section><div class="legenda"><i class="blokje reeks-tol"></i></div><svg class="regelkaart" xmlns="http://www.w3.org/2000/svg"><rect class="rk-zone-1"/><rect class="rk-zone-2"/><rect class="rk-zone-3"/><path class="reeks-1"/><path class="tolerantielijn"/></svg>'; });
+          await eq(".planning-open", "borderLeftWidth", "6px");
+          await eq(".planning-open", "borderTopColor", "rgb(242, 140, 40)");
+          await eq(".planning-definitie", "borderTopColor", "rgb(11, 46, 89)");
+          await eq(".dagkaart.te-vol", "borderLeftWidth", "6px");
+          await eq(".blokje.reeks-tol", "backgroundColor", "rgb(212, 154, 69)");
+          await eq(".rk-zone-1", "fill", "rgb(241, 248, 244)");
+          await eq(".rk-zone-2", "fill", "rgb(252, 241, 223)");
+          await eq(".rk-zone-3", "fill", "rgb(251, 236, 236)");
+          await eq(".reeks-1", "fill", "rgb(101, 136, 178)");
+          await eq(".tolerantielijn", "stroke", "rgb(163, 95, 0)");
+          console.log("OK 139.3g: planning en grafiekpalet C", width);
         }
         if (frontend === "invoer") {
           await page.locator("dialog").evaluate(e => e.close());

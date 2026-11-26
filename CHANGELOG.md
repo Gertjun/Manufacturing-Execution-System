@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.3g): Planning B+ en centraal grafiekpalet C; zachte sigma-/trendzones, krachtige contouren, bestaande arcering en statuslogica behouden. Gerichte contrast- en componentregressies uitgebreid.
+
 - #139 (139.3f): kwaliteitskaarten en KPI's B+, open meetacties via centraal linkeraccent, specificatiedefinities blauw, intrekking als gevaaractie; regelkaartberekeningen en certificaatafdruk ongewijzigd. Gerichte regressies toegevoegd.
 
 - #139: herziene D114, alle verticale linkeraccenten 6 px via centrale CSS-token; bestaande kaart-, navigatie-, waarschuwing-, alarm- en wachtrijaccenten gemigreerd. Horizontale accenten blijven 3 px. Broncontrole en browserregressies toegevoegd.

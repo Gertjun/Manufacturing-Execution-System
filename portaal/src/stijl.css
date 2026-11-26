@@ -809,3 +809,35 @@ a.merk:hover { text-decoration: underline; }
   .label-knop { border-radius: var(--radius-xs); }
   .kwaliteit-definitie .spec-concept { color: var(--mes-structuur); }
 }
+
+/* D114 grafiekpalet C: vulling, contour en status gescheiden. */
+.reeks-1, .deel-bewerking { fill: var(--mes-grafiek-reeks); stroke: var(--mes-structuur); stroke-width: 1; }
+.blokje.deel-bewerking { background: var(--mes-grafiek-reeks); border: 1px solid var(--mes-structuur); }
+.deel-wacht { fill: var(--mes-grafiek-tol); stroke: var(--tol); stroke-width: 1; }
+.deel-storing { stroke: var(--grens); stroke-width: 1; }
+.blokje.deel-wacht, .blokje.reeks-tol { background: var(--mes-grafiek-tol); border: 1px solid var(--tol); }
+.blokje.deel-storing, .blokje.arcering-kritiek { background: repeating-linear-gradient(-45deg, var(--mes-grafiek-grens) 0 3px, var(--op-kleur) 3px 4.5px); border: 1px solid var(--grens); }
+.regelkaart .rk-zone-1, .trend-zone-1 { fill: var(--mes-zone-1); }
+.regelkaart .rk-zone-2, .trend-zone-2 { fill: var(--mes-zone-2); }
+.regelkaart .rk-zone-3, .trend-zone-3 { fill: var(--mes-zone-3); }
+.regelkaart .rk-lijn { stroke: var(--mes-structuur); opacity: 1; }
+.regelkaart .rk-punt { fill: var(--mes-structuur); }
+.regelkaart .rk-signaal { fill: var(--grens); }
+.regelkaart .rk-spec, .grenslijn { stroke: var(--grens); fill: none; }
+.tolerantielijn { stroke: var(--tol); }
+.setting { stroke: var(--mes-grafiek-setting); }
+.rk-leg-punt { background: var(--mes-structuur); }
+.rk-leg-signaal { background: var(--grens); }
+.rk-leg-spec, .leg-lijn { border-top-color: var(--grens); }
+.leg-lijn.tolerantielijn { border-top-color: var(--tol); }
+.leg-lijn.setting { border-top-color: var(--mes-grafiek-setting); }
+@media screen {
+  .planning-kaart, .planning-definitie, .dagkaart { border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
+  .planning-kaart, .dagkaart { border-top: 3px solid var(--mes-uitvoering); }
+  .planning-definitie { border-top: 3px solid var(--mes-structuur); }
+  .dagkaart.te-vol { border-left: var(--mes-linkeraccent) solid var(--status-waarschuwing); border-top: 3px solid var(--mes-uitvoering); }
+  .planning-kaart.planning-open { border-left: var(--mes-linkeraccent) solid var(--actie); }
+  .planrij { border-radius: var(--radius-xs); }
+  .bezetbalk span, .dagkaart.te-vol .startrij:not(.te-vol) .bezetbalk span { background: var(--mes-grafiek-reeks); }
+  .dagkaart.te-vol .bezetbalk span, .startrij.te-vol .bezetbalk span { background: var(--mes-grafiek-tol); box-shadow: inset 0 0 0 1px var(--tol); }
+}

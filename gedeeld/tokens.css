@@ -88,6 +88,15 @@
 
   /* Grafieken */
   --reeks-1: #2a78d6;
+  /* D114 grafiekpalet C: vulling los van contrastdragende lijn/contour. */
+  --mes-grafiek-ok: #70ac8c;
+  --mes-grafiek-tol: #d49a45;
+  --mes-grafiek-grens: #c76565;
+  --mes-grafiek-reeks: #6588b2;
+  --mes-zone-1: #f1f8f4;
+  --mes-zone-2: #fcf1df;
+  --mes-zone-3: #fbecec;
+  --mes-grafiek-setting: #6b7785;
   --grafiek-grijs: #7d8a99;
   --grafiek-grijs-donker: #5f6b7a;
   --band-2: #f6f8fb;

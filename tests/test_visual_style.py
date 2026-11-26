@@ -28,6 +28,11 @@ pairs = [
     ("--grens-donker", "--grens-vlak", 4.5),
     ("--ok", "--vlak", 4.5),
     ("--tol", "--vlak", 4.5),
+    ("--mes-structuur", "--mes-zone-1", 3),
+    ("--tol", "--mes-zone-2", 3),
+    ("--grens", "--mes-zone-3", 3),
+    ("--mes-grafiek-setting", "--mes-zone-1", 3),
+    ("--grens", "--vlak", 3),
 ]
 for a, b, minimum in pairs:
     actual = contrast(a, b)

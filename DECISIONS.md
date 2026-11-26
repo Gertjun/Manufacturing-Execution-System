@@ -705,3 +705,5 @@ Opdrachtgever keurt variant B+ goed. Donkerblauwe hoofd-/linkernavigatie, actiev
 **Aanvulling D114 (26 november 2026):** opdrachtgever kiest variant B voor kaarten met openstaande acties: doorlopende blauwe linkerrand van 3 px, geen inspringing, gecombineerd met bestaande semantische bovenrand van 3 px en hoekradius 8 px. Alarm- en waarschuwingsaccenten behouden hun eigen breedte en betekenis.
 
 **Herziening D114 (26 november 2026):** opdrachtgever kiest één breedte van 6 px voor alle verticale linkeraccenten; ook waarschuwingen, alarmen en actieve linkernavigatie. Dit vervangt de eerdere 3 px voor open acties en afwijkende alarmbreedtes. Horizontale accenten blijven 3 px; gewone randen en grafieklijnen zijn geen accent. Centrale CSS-token en regressieborging verplicht.
+
+**Aanvulling D114 (26 november 2026):** opdrachtgever keurt grafiekpalet C en zachte regelkaartzones goed; centrale tokens maken latere finetuning mogelijk zonder roadmap te blokkeren. Vullingen, signaleringskleuren en statistische regelgrenzen blijven onderscheiden. D70 en bestaande berekeningen behouden.
