@@ -106,6 +106,8 @@ jobs:
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap controleren
         run: tests/test_roadmap.sh
+      - name: B+ contrastcontract
+        run: python3 tests/test_visual_style.py
       - name: API typecheck op Node.js 22
         working-directory: api
         run: |
@@ -166,6 +168,8 @@ jobs:
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap bij met de laatste versie
         run: tests/test_roadmap.sh
+      - name: B+ contrastcontract
+        run: python3 tests/test_visual_style.py
       - name: PostgreSQL-client en Python voorbereiden
         run: |
           python3 -m pip install --quiet "psycopg[binary]"

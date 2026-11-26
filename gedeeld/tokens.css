@@ -2,7 +2,7 @@
    Componenten gebruiken alleen deze waarden; geen losse kleuren, afstanden of lettergroottes.
    Kleuren zijn genoemd naar hun functie. Bij een vlakkleur hoort een "op"-kleur voor tekst erop.
    Contrast op wit: tekst minstens 4,5 : 1, randen, lijnen en grafieken minstens 3 : 1.
-   Groen, oranje en rood betekenen altijd: binnen grenzen, buiten tolerantie (of: let op), buiten grens (of: storing). */
+   D114: huisstijl en status hebben afzonderlijke tokens; geen betekenis uitsluitend via kleur. */
 :root {
   /* Afstanden: 4/8-puntsraster */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
@@ -32,8 +32,20 @@
   --marge-middel: var(--space-5);  /* zijmarge op een tablet */
   --onderbalk-hoogte: 56px;        /* navigatie onderaan op een staande telefoon */
 
+  /* Huisstijl B+ (D107/D114); actie, selectie en status blijven afzonderlijk. */
+  --mes-structuur: #0b2e59;
+  --mes-uitvoering: #f28c28;
+  --mes-structuur-vlak: #e7eef6;
+  --mes-uitvoering-vlak: #fdebd9;
+  --mes-achtergrond: #f4f7f9;
+  --mes-actie-tekst: #b45309;
+  --mes-actie-hover-tekst: #93410b;
+  --mes-menu-actief: #1c416c;
+  --mes-tabel-rij: #f8fafb;
+  --mes-focus-donker: #ffffff;
+  --mes-kaart-radius: 8px;
   /* Basis */
-  --staal: #e6e9ec;          /* achtergrond van het scherm */
+  --staal: var(--mes-achtergrond);          /* achtergrond van het scherm */
   --vlak: #ffffff;           /* kaarten, velden */
   --vlak-2: #f3f5f7;         /* hover, rustig vlak */
   --vlak-3: #eef1f4;         /* voorbij, niet actief */
@@ -56,7 +68,7 @@
   --actie: #1f5fbf;
   --actie-donker: #174a95;
   --actie-vlak: #eef4fc;     /* gekozen rij, zachte band */
-  --focus: #1f5fbf;
+  --focus: #174a95;
 
   /* Status */
   --ok: #2e7d4f;

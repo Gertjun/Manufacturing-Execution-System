@@ -1,9 +1,7 @@
 @import "@fontsource/atkinson-hyperlegible/400.css";
 @import "@fontsource/atkinson-hyperlegible/700.css";
 
-/* Zelfde familie als het invoerscherm, maar voor een bureau: dichter, met een
-   vast menu links. Groen, oranje en rood betekenen altijd: binnen grenzen,
-   buiten tolerantie, buiten grens. */
+/* MES B+: gedeelde huisstijl, afzonderlijke statussemantiek. */
 @import "../../gedeeld/tokens.css";
 @import "../../gedeeld/knoppen.css";
 
@@ -20,17 +18,17 @@ h1 { font-size: var(--text-xl); line-height: 1.2; margin: 0 0 var(--space-1); }
 h2 { font-size: var(--text-lg); margin: 0 0 var(--space-3); }
 p { margin: 0 0 var(--space-2); max-width: 75ch; }
 a { color: var(--actie); }
-:focus-visible { outline: 3px solid var(--actie); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .getal { font-variant-numeric: tabular-nums; }
 .nummer { white-space: nowrap; }
 .sub { color: var(--inkt-zacht); }
 .sterk { font-weight: 700; }
 .noot { color: var(--inkt-zacht); font-size: .85em; }
 
-.indeling { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--inkt) 240px, var(--staal) 240px); }
+.indeling { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--mes-structuur) 240px, var(--staal) 240px); }
 
 /* ---------- Menu ---------- */
-#menu { background: var(--inkt); color: var(--op-kleur); padding: var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+#menu { background: var(--mes-structuur); color: var(--op-kleur); padding: var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 #menu a { color: var(--op-kleur); text-decoration: none; }
 .merk { font-weight: 700; font-size: var(--text-md); padding: 0 var(--space-2) var(--space-3); border-bottom: 1px solid var(--lijn-op-donker); margin-bottom: var(--space-2); }
 #menu-inhoud { display: flex; flex-direction: column; gap: var(--space-2); flex: 1; }
@@ -42,7 +40,8 @@ a { color: var(--actie); }
 .menu-groep ul { list-style: none; margin: var(--space-1) 0 var(--space-2); padding: 0; }
 .menu-groep li a { min-height: var(--doel-min); display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5); border-radius: var(--radius-sm); color: var(--menu-tekst); }
 #menu a:hover { background: var(--menu-hover); }
-#menu a[aria-current="page"] { background: var(--menu-actief); color: var(--op-kleur); }
+#menu a[aria-current="page"] { background: var(--mes-menu-actief); color: var(--op-kleur); box-shadow: inset 3px 0 var(--mes-uitvoering); }
+#menu :focus-visible { outline-color: var(--mes-focus-donker); }
 .teller:not(:empty) { background: var(--signaal); color: var(--inkt); font-weight: 700; border-radius: var(--radius-full); padding: 0 var(--space-2); font-size: var(--text-sm); }
 .binnenkort { font-weight: 400; font-size: var(--text-xs); color: var(--menu-zacht); }
 .menu-voet { margin-top: auto; border-top: 1px solid var(--lijn-op-donker); padding: var(--space-3) var(--space-2) 0; display: grid; gap: var(--space-1); font-size: var(--text-sm); }
@@ -51,6 +50,8 @@ a { color: var(--actie); }
 
 /* ---------- Inhoud ---------- */
 /* Geen maximale breedte (#95): tekst blijft smal via p { max-width: 75ch }, tabellen en grafieken vullen de breedte. */
+#scherm h1, #scherm h2 { color: var(--mes-structuur); }
+body.wand #scherm h1, body.wand #scherm h2 { color: var(--wand-tekst); }
 #scherm { padding: var(--space-5) var(--space-6) var(--space-8); outline: none; }
 .kop { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
 /* De titel krijgt de ruimte; knoppen en filters rechts blijven op één regel naast de titel staan (0.42.1). */
@@ -85,9 +86,13 @@ select, textarea, input[type="text"], input[type="password"], input[type="number
 .tabel-kader { position: relative; overflow-x: auto; background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--radius-md); }
 .blok .tabel-kader { border: none; border-radius: 0; }
 .tabel { width: 100%; border-collapse: collapse; }
-.tabel th { text-align: left; font-size: var(--text-sm); color: var(--inkt-zacht); font-weight: 700; padding: var(--space-2) var(--space-2); border-bottom: 1.5px solid var(--lijn); white-space: nowrap; }
+.tabel th { text-align: left; font-size: var(--text-sm); color: var(--mes-structuur); font-weight: 700; padding: var(--space-2) var(--space-2); border-bottom: 1.5px solid var(--lijn); white-space: nowrap; }
 .tabel td { padding: var(--space-2) var(--space-2); border-bottom: 1px solid var(--lijn-zacht); vertical-align: middle; }
 .tabel.compact td { padding: var(--space-2) var(--space-2); font-size: var(--text-md); }
+@media screen {
+  .tabel thead th { background: var(--mes-structuur-vlak); }
+  .tabel tbody tr:nth-child(even):not([class]) { background: var(--mes-tabel-rij); }
+}
 .tabel tbody tr:hover { background: var(--vlak-2); }
 .tabel td .getal { display: block; text-align: right; }
 .tabel th.rechts, .tabel td.rechts { text-align: right; }
@@ -110,13 +115,7 @@ select, textarea, input[type="text"], input[type="password"], input[type="number
 .label-buiten_grens { color: var(--grens); background: var(--grens-vlak); }
 
 /* ---------- Knoppen ---------- */
-.knop { font: inherit; font-weight: 700; white-space: nowrap; min-height: var(--doel-min); padding: 0 var(--space-4); border-radius: var(--radius-sm); border: 1.5px solid var(--lijn-sterk); background: var(--vlak); color: var(--inkt); cursor: pointer; }
-.knop:hover { background: var(--vlak-2); }
-.knop-hoofd { background: var(--actie); border-color: var(--actie); color: var(--op-kleur); }
-.knop-hoofd:hover { background: var(--actie-donker); }
-.knop-gevaar { background: var(--grens); border-color: var(--grens); color: var(--op-kleur); }
-.knop-gevaar:hover { background: var(--grens-donker); }
-.knop-stil { border-color: var(--lijn-sterk); }
+.knop { font: inherit; font-weight: 700; white-space: nowrap; min-height: var(--doel-min); padding: 0 var(--space-4); cursor: pointer; }
 .knop-klein { padding: 0 var(--space-3); font-size: var(--text-sm); }
 .knoppen { display: flex; gap: var(--space-3); justify-content: flex-end; margin-top: var(--space-4); }
 .knoppen-links { justify-content: flex-start; }
@@ -227,7 +226,7 @@ details.meer > summary { cursor: pointer; font-weight: 700; color: var(--actie);
 .vinklijst { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-4); max-height: 50vh; overflow-y: auto; margin-bottom: var(--space-2); }
 .vinklijst input { width: 18px; height: 18px; vertical-align: -3px; accent-color: var(--actie); }
 .vraag small { display: block; margin-top: var(--space-1); }
-.knop:disabled { opacity: .45; cursor: not-allowed; }
+/* Disabled-stijl in gedeeld/knoppen.css. */
 @media (max-width: 900px) { .beheer-indeling { grid-template-columns: minmax(0, 1fr); } .stappenlijst { position: static; } }
 
 /* Server (Portaal Beheer) */
@@ -505,7 +504,7 @@ label.knop:has(+ .verborgen:focus-visible) { outline: 3px solid var(--focus, var
 .startpagina > li { display: flex; }
 .startpagina > li > .starttegel { flex: 1; }
 .starttegel { display: grid; gap: var(--space-2); min-height: 120px; padding: var(--space-5); background: var(--vlak); border: 1.5px solid var(--lijn-sterk); border-radius: var(--radius-md); color: var(--inkt); text-decoration: none; align-content: start; }
-.starttegel strong { font-size: var(--text-lg); color: var(--actie); }
+.starttegel strong { font-size: var(--text-lg); color: var(--mes-structuur); }
 .starttegel span { color: var(--inkt-zacht); }
 .starttegel:hover { border-color: var(--actie); background: var(--actie-vlak); }
 .starttegel:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

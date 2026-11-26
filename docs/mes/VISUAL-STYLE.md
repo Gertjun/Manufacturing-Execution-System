@@ -50,7 +50,7 @@ Berekend met sRGB relatieve luminantie en (Lmax + 0,05)/(Lmin + 0,05). Normale t
 | donkerdisplay #10161F | tekst #F3F5F7 | 16,61 | bestaande displayvariant |
 | amber #FFB547 | donkerdisplay #10161F | 10,33 | waarschuwing op donker |
 
-Tokencontract voor 139.2: aparte structuur-, uitvoerings-, actie-, actie-tekst-, focus-, selectie-, status- en printtokens. Primaire actie wit met #B45309 tekst en rand, hover lichtoranje #FDEBD9; secundaire actie wit met donkerblauwe tekst en rand; destructieve actie wit met rode tekst en rand en bevestiging waar bestaande bedrijfsregel dat vereist. Geen oranje focusring op wit. Focus op donkere navigatie afzonderlijk contrasterend ontwerpen. Niet één globale op-kleur gebruiken voor alle actievlakken. Status amber/groen/rood blijft onderscheiden van reguliere actie, altijd label/symbool; geel voor wacht/knelpunt blijft als bestaande aparte betekenis te toetsen. Geen statusverandering door stijlaanpassing.
+Tokencontract voor 139.2: aparte structuur-, uitvoerings-, actie-, actie-tekst-, focus-, selectie-, status- en printtokens. Primaire actie wit met #B45309 tekst en rand, hover lichtoranje #FDEBD9 met donkerdere tekst #93410B; secundaire actie wit met donkerblauwe tekst en rand; destructieve actie wit met rode tekst en rand en bevestiging waar bestaande bedrijfsregel dat vereist. Geen oranje focusring op wit. Focus op donkere navigatie afzonderlijk contrasterend ontwerpen. Niet één globale op-kleur gebruiken voor alle actievlakken. Status amber/groen/rood blijft onderscheiden van reguliere actie, altijd label/symbool; geel voor wacht/knelpunt blijft als bestaande aparte betekenis te toetsen. Geen statusverandering door stijlaanpassing.
 
 ## Variant B+ (D114, goedgekeurd)
 - Donkerblauwe hoofd- en linkernavigatie; actieve route wit tekstlabel op #1C416C met 3 px oranje zijaccent en aria-current. Geen volledig oranje of wit actief menu-item.
@@ -72,3 +72,5 @@ Aanvullende berekende contrastwaarden (sRGB): interactief oranje #B45309 op wit 
 
 ## Verificatiepoorten
 139.2: tokens en componenten, contrastmatrix en gerichte bouw/schermregressies; 138.1: gelijke portalsets en veilige route-/sessieafhandeling; 139.3: schermen per portaal, nulmeting en afwijkingen, zes schermformaten, toetsenbord/print/offline; 139.4: documenten en generator; 140.1–4: integrale regressies, positieve MBR-vrijgave, audit, Windows-praktijkacceptatie en publicatie. Bestaande functionele tests niet verwijderen om stijltests groen te krijgen. Bij contrast- of toegankelijkheidsafwijking documenteren en herstellen. Geen nieuwe productiedata of domeinfunctie.
+
+139.2a: hovertekst #93410B op #FDEBD9 = 6,02:1. Basis- en hovercontrast afzonderlijk toetsen. Gedeelde knopkleuren; maatvoering blijft werkcontextafhankelijk. Eerste basisimplementatie, nog geen volledige schermharmonisatie.

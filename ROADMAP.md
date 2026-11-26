@@ -126,8 +126,8 @@ D107 — volgorde binnen fase 3 (geen extra fase):
 | Werkpakket | Resultaat |
 |---|---|
 | 145.1 Inventarisatie | Alle bestaande portalen, UI, schema's, documenttypen en afwijkingen inventariseren; omvang en afhankelijkheden bepalen. |
-| 139.1 Ontwerpstandaard | Ontwerpbaseline v1 CI workflow 391 groen inclusief roadmapcontrole. Opdrachtgever keurt zakelijke variant B+ goed (D114); VISUAL-STYLE.md v2 vastgelegd, CI voor v2 nog te verifiëren. |
-| 139.2 UI-fundament | Centrale tokens en herbruikbare componenten volgens goedgekeurde B+ (D114); dubbele CSS beperken, gerichte bouw-/contrast-/schermregressies. |
+| 139.1 Ontwerpstandaard | Ontwerpbaseline v1 CI workflow 391 groen inclusief roadmapcontrole. Opdrachtgever keurt zakelijke variant B+ goed (D114); VISUAL-STYLE.md v2 vastgelegd, CI voor v2 workflow 392 groen inclusief roadmapcontrole. |
+| 139.2 UI-fundament | 139.2a: centrale B+ tokens, gedeelde knopvarianten, basisnavigatie, schermtitels en tabelbasis geïmplementeerd; gerichte regressies nog uit te voeren. 139.2b: componenten en schermcontrole verder uitwerken. |
 | 138.1 Portalharmonisatie | #138 en D113: gedeelde registratie, permissionprojectie, één MES-gebruikersomgeving; technische frontendgrens beoordelen met offline-/securityregressies. |
 | 139.3 UI-harmonisatie | #139 uitbreiden met formulieren, tabellen, dashboards, dialogen, focus, selectie, foutmeldingen, marges en iconen. |
 | 139.4 Documentatieharmonisatie | Architectuur, processen, workflows, conceptuele modellen, fysieke ERD, roadmap/Gantt, technische docs, presentaties, management- en opleidingsmateriaal; generator en integriteitscontroles behouden. |

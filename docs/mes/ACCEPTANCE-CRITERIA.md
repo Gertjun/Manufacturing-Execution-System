@@ -598,3 +598,5 @@ Documentatiecontrole workflow 390 op 4869f70 geslaagd, inclusief roadmapstap; ar
 ### 139.1 — goedgekeurde variant B+
 
 Documentatiecontrole workflow 391 op 9b4cb1e geslaagd inclusief roadmapstap. D114: B+ door opdrachtgever goedgekeurd; VISUAL-STYLE.md v2 is de ontwerpbaseline. Toets in 139.2–4 omlijnde knoppen, hover/focus, actieve navigatie, witte kaarten en subtiele accenten, rustige tabellen, compacte statuslabels en opvallende kritieke meldingen, 4–8 px radius, print en zes formaten. Behoud werkelijke statussemantiek en autorisaties; geen contrast- of WCAG-conformiteitsclaim op basis van kleurmatrix alleen. CI op v2 nog open.
+
+139.1: workflow 392 op 11da217 groen inclusief roadmapcontrole. 139.2a: centrale tokens en knopvarianten, gescheiden focus op donker/licht, basisnavigatie en tabellen; contrasttest voor afgesproken kleurparen. Nog geen runtimebewijs of volledige UI-harmonisatie; geen rechten-/DB-wijziging. 139.2b: gerichte schermregressies en gedeelde componenten.
