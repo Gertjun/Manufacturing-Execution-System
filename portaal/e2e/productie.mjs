@@ -291,7 +291,7 @@ try {
   const matrix = {
     "mes.operator":["invoer","productie","planning"],
     "mes.supervisor":["invoer","productie","planning","nainvoeren"],
-    "mes.manager":["engineering","productie","planning","beheer"],
+    "mes.manager":["engineering","kwaliteit","productie","planning","beheer"],
     "mes.planner":["productie","planning"],
     "mes.engineer":["engineering","planning","beheer"],
     "mes.eng.approver":["engineering"],

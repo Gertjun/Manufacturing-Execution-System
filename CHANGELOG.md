@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #140.2: corrigeer verwachte beperkte Kwaliteit-toegang van Manufacturing Manager; formaatregressie wacht op de daadwerkelijke nieuwe scherminhoud met foutdiagnose. Individuele hercontrole volgt.
+
 - D115: risicogestuurde CI/Windows-verdeling, standaard drie versus uitgebreide acht CSS-viewports, optionele reviewshots (functionele barcodeafbeelding en foutdiagnose behouden), versnelde browserklok voor meldingen en Windows-basisprotocol. Integrale acceptatie voorlopig acht viewports; nieuwe testmodi nog te verifiëren.
 
 - D115: individuele Chrome-regressies via expliciete labels met scriptgebonden fictieve fixtures; integrale schermsuite ongewijzigd. Verplichte groene ontwikkelregressies vóór acceptatie; actuele integrale fout blijft open.

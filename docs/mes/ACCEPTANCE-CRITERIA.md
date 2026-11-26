@@ -665,3 +665,6 @@ F3-A01–03: aanvullende echte backendregressies in productie.mjs voor mes.quali
 
 
 140.2 D115: opdrachtgever akkoord met A/B/C-verdeling. Standaard ontwikkelmatrix 3, uitgebreide 8, fase 3 en integrale acceptatie voorlopig 8; display Full HD/4K behouden. Reviewshots optioneel; barcode-decodebeeld, PDF/Excel-asserties en foutdiagnose behouden. Browserklok versnelt meldingspoll met echte API/database. Nieuwe individuele meldingentest en Windows-basisprotocol; geen functionele assertions verwijderd, verificatie en besparing nog open. F3-A01–03 en eerdere integrale fout blijven open.
+
+
+140.2 vervolg: logreview 45820963850: formatentest vijf fouten in staande telefoon, URL correct maar inhoudsassertie faalde; mogelijke oude login-DOM tijdens asynchrone routewisseling. Wacht op daadwerkelijk stappenoverzicht en verwachte routekop plus bestaande laad-/foutcontrole; diagnose bij timeout. Oorzaak nog niet bewezen. Productie: 13/14 identiteiten groen, mes.manager had bedoelde beperkte Kwaliteit-toegang via operations.rework.order; verwachte matrix gecorrigeerd, geen rechten gewijzigd. mes.quality binding, centrale afmelding en API-weigering groen op f6e9538. Individuele hercontrole vereist; geen integrale run aangevraagd.

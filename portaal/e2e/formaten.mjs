@@ -114,10 +114,29 @@ try {
     await page.getByLabel("Wachtwoord").fill("demo");
     await page.getByRole("button", { name: "Inloggen" }).click();
     await page.waitForURL(/#\/stappen/);
+    await page.locator("#scherm .tegel").first().waitFor();
+    // Hashwijziging alleen bewijst geen nieuwe render: wacht op de inhoud van de bedoelde route.
+    const invoerKoppen = {
+      "#/stappen": /^Kies een stap$/,
+      "#/stap/PS3": /^Process Step 3$/,
+      "#/zoek": /^Zoeken$/,
+      "#/zoek/B-2026-0235": /^B-2026-0235$/,
+      "#/overdracht": /^Overdracht(?: .+)?$/,
+      "#/wachtrij": /^Verzenden$/,
+      "#/hulp": /^Hulp voor operators$/,
+      "#/stap/PS16": /^Process Step 16$/,
+    };
     for (const r of INVOER) {
       await page.goto(`${BASIS}/invoer/${r}`);
-      await klaar(page);
-      check("Invoer bereikt "+r,new URL(page.url()).hash===r && await page.locator("#scherm .foutmelding").count()===0,page.url());
+      try {
+        await page.locator("#scherm").getByRole("heading", { level: 1, name: invoerKoppen[r] }).waitFor({timeout:15000});
+        await klaar(page);
+      } catch(e) {
+        const inhoud = await page.locator("#scherm").innerText({timeout:2000}).catch(()=>"(niet beschikbaar)");
+        throw new Error("Invoer "+f.naam+" "+r+": "+inhoud.slice(0,600),{cause:e});
+      }
+      check("Invoer bereikt "+r,new URL(page.url()).hash===r && await page.locator("#scherm .foutmelding").count()===0,
+        page.url()+" | "+(await page.locator("#scherm h1").allInnerTexts()).join(", ")+" | "+(await page.locator("#scherm .foutmelding").allInnerTexts()).join(", "));
       const b = await teBreed(page, f.width);
       if (b) invoerBreed.push(`${r} ${b}`);
     }
