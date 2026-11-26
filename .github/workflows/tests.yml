@@ -124,6 +124,8 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: B+ componenten in Chrome
+        run: node tests/visual-components.mjs
 
   full-tests:
     name: Volledige testsuite (Node.js 26)
@@ -242,6 +244,8 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: B+ componenten in Chrome
+        run: node tests/visual-components.mjs
       - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
         run: tests/test_laptoppakket.sh
       - name: Schermtests in Chrome (invoerscherm, portalen)

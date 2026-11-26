@@ -1,0 +1,17 @@
+/* Gedeeld MES-fundament B+ (D114). Geen wijziging van statusbetekenis of bediening. */
+@media screen {
+  .mes-kaart, .tegel, .starttegel { border-radius: var(--mes-kaart-radius); }
+  .mes-kaart { background: var(--vlak); border: 1px solid var(--lijn); padding: var(--space-4); }
+  .mes-kaart-structuur { border-top: 3px solid var(--mes-structuur); }
+  .mes-kaart-uitvoering { border-top: 3px solid var(--mes-uitvoering); }
+  .label { border-radius: var(--radius-xs); }
+  /* Meetstatus: tekst blijft aanwezig; alleen bekende semantische labels krijgen een teken. */
+  .label.label-ok, .label.label-buiten_tolerantie { border-color: transparent; }
+  .label.label-ok::before { content: "✓" / ""; margin-inline-end: var(--space-1); }
+  .label.label-buiten_tolerantie::before { content: "⚠" / ""; margin-inline-end: var(--space-1); }
+  .label.label-buiten_grens::before { content: "×" / ""; margin-inline-end: var(--space-1); }
+  .venster { border-radius: var(--mes-kaart-radius); box-shadow: var(--schaduw); }
+  .venster h2 { color: var(--mes-structuur); }
+  .vraag label { color: var(--inkt); }
+  .vraag :is(input, select, textarea) { border-radius: var(--radius-xs); }
+}

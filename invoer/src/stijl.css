@@ -4,6 +4,7 @@
 /* MES B+: gedeelde huisstijl, behoud specifieke fabrieksvloerbediening. */
 @import "../../gedeeld/tokens.css";
 @import "../../gedeeld/knoppen.css";
+@import "../../gedeeld/componenten.css";
 
 :root {
   --ruimte: var(--space-4);
@@ -89,7 +90,10 @@ a { color: var(--actie); }
 .tegel-nr { font-size: var(--text-2xl); font-weight: 700; line-height: 1.05; }
 .tegel-naam { font-weight: 700; line-height: 1.25; }
 .tegel-werk { font-size: var(--text-sm); color: var(--inkt-zacht); }
-.tegel.bezig { border-left: 8px solid var(--actie); }
+.tegel.bezig { border-left: 8px solid var(--mes-actie-tekst); }
+@media screen {
+  .tegel, .rij, .veld { border-radius: var(--mes-kaart-radius); }
+}
 .tegel-werk b { color: var(--inkt); }
 /* Stappen zonder werk zijn rustig, zodat stappen met werk opvallen (richtlijnen §0). */
 .tegel.leeg { background: transparent; border-color: var(--lijn); }
@@ -111,7 +115,7 @@ label.rij input[type="checkbox"] { width: 28px; height: 28px; accent-color: var(
 .rij.gekozen { border-color: var(--actie); background: var(--actie-vlak); }
 
 /* ---------- Labels voor status en markering ---------- */
-.label { display: inline-block; font-size: var(--text-sm); font-weight: 700; padding: var(--space-1) var(--space-2); border-radius: var(--radius-full); border: 2px solid currentColor; white-space: nowrap; }
+.label { display: inline-block; font-size: var(--text-sm); font-weight: 700; padding: var(--space-1) var(--space-2); border: 2px solid currentColor; white-space: nowrap; }
 .label-ok { color: var(--ok); }
 .label-buiten_tolerantie { color: var(--tol); }
 .label-buiten_grens { color: var(--grens); background: var(--grens-vlak); }
@@ -168,7 +172,7 @@ input[aria-invalid="true"] { border-color: var(--grens); border-width: 3px; }
 .nieuw label { display: grid; gap: var(--space-1); }
 
 /* ---------- Vensters en meldingen ---------- */
-.venster { border: none; border-radius: var(--radius-md); padding: var(--space-5); width: min(620px, 92vw); color: var(--inkt); }
+.venster { border: none; padding: var(--space-5); width: min(620px, 92vw); color: var(--inkt); }
 .venster::backdrop { background: var(--backdrop); }
 .venster h2 { margin-top: 0; }
 .vraag { display: grid; gap: var(--space-3); }

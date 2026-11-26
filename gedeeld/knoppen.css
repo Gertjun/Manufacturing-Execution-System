@@ -29,7 +29,7 @@ body:has(dialog[open]) .knop.knop-bezig::after { visibility: hidden; }
   background: var(--vlak); color: var(--mes-structuur);
   border-radius: var(--radius-xs);
 }
-.knop:hover { background: var(--vlak-2); }
+.knop:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--vlak-2); }
 .knop-stil { border-color: var(--lijn-sterk); }
 .knop-hoofd { background: var(--vlak); color: var(--mes-actie-tekst); border-color: var(--mes-actie-tekst); }
 .knop-hoofd:hover:not(:disabled):not([aria-disabled="true"]) {

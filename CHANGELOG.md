@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.2b): gedeelde componentbasis en gerichte Chrome-regressie op gebouwde CSS; bestaande meetstatus en kritieke kleurvlakken behouden. CI nog open.
+
 - #139 (139.2a): gedeelde B+ tokens en omlijnde knoppen, basisnavigatie, titels en tabelkoppen; behoud bestaande statuskleuren en operatorafmetingen. Contrastregressie toegevoegd; CI nog open.
 
 - #139 (139.1): goedgekeurde zakelijke variant B+ (D114) vastgelegd in VISUAL-STYLE.md v2; aanvullende contrastwaarden. Implementatie volgt in 139.2; CI nog te verifiëren.
