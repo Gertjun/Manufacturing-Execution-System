@@ -31,7 +31,7 @@ for n in sorted(int(x) for x in re.findall(r"^- #(\d+) \*\*", roadmap, re.M)):
         fouten.append(f"#{n} is gebouwd (changelog) maar staat nog als open punt")
 
 # 3. Tijdlijn: één dubbele punt per taak, geen gebouwd nummer in een open balk.
-blok = re.search(r"```mermaid\n(.*?)```", roadmap, re.S)
+blok = re.search(r"(.*)", open("docs/diagrams/roadmap.mmd", encoding="utf-8").read(), re.S)
 if not blok:
     fouten.append("tijdlijn (```mermaid) ontbreekt")
 else:

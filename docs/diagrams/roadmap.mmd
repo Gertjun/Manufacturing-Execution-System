@@ -1,0 +1,25 @@
+%%{init: {"theme":"base","themeVariables":{"doneTaskBkgColor":"#0B2E59","doneTaskBorderColor":"#0B2E59","activeTaskBkgColor":"#F28C28","activeTaskBorderColor":"#B45309","taskBkgColor":"#DCE2E8","taskBorderColor":"#6B7785","taskTextColor":"#FFFFFF","taskTextDarkColor":"#1B2430","taskTextOutsideColor":"#1B2430","gridColor":"#DCE2E8","fontFamily":"Arial, sans-serif"}}}%%
+gantt
+    title Volgorde MES (schematisch, geen kalenderbelofte)
+    dateFormat YYYY-MM-DD
+    axisFormat %d
+    todayMarker off
+    section Fundament
+    0 Architectuur :done, a, 2026-11-24, 1d
+    1 Fundament en autorisaties :done, b, after a, 1d
+    2 Master Data technisch geaccepteerd :done, c, after b, 1d
+    3 Portalstructuur en UI actief :active, ui, after c, 1d
+    Praktijkacceptatie 2 en 3 en release :milestone, gate, after ui, 0d
+    section Kern
+    4 Middelenbeheer en stilstand :res, after gate, 1d
+    5 Planning en Dispatching :d, after res, 1d
+    6 Control Recipes en Execution :cr, after d, 1d
+    7 Elektronische batchdossiers :ebr, after cr, 1d
+    8 Kwaliteit en vrijgave :qa, after ebr, 1d
+    9 Genealogie en traceerbaarheid :gen, after qa, 1d
+    section Pilot
+    10 Pilotvoorbereiding en validatie :pilot, after gen, 1d
+    Pilotpoort :milestone, f, after pilot, 0d
+    section Uitbreiding
+    11 Manufacturing Intelligence :g, after f, 1d
+    12 Integraties en uitrol :h, after g, 1d

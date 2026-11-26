@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.4c): roadmapdiagram als reproduceerbare SVG met vaste lichte achtergrond en aparte labels; Gantt-bron behouden voor onderhoud.
+
 - #139 (139.4b): Gantt met alle fasen en expliciete acceptatiepoort, B+-architectuur-, recept- en migratiediagrammen, broncontractcontrole; geen domeinwijziging.
 
 - #139 (139.4a): B+-semantiek in fysieke ERD-generator, conceptueel datamodel en procesketen; neutrale FK-relaties en oranje procespijlen; expliciete tabelclassificatie, geen schemawijziging.

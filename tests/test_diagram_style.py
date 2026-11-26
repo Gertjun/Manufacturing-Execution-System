@@ -4,7 +4,8 @@ import re
 
 root = Path(__file__).resolve().parents[1]
 roadmap = (root / "ROADMAP.md").read_text(encoding="utf-8")
-gantt = re.search(r"```mermaid\n(.*?)```", roadmap, re.S).group(1)
+gantt = (root / "docs/diagrams/roadmap.mmd").read_text(encoding="utf-8")
+assert "docs/diagrams/roadmap.svg" in roadmap
 assert re.findall(r"^\s+(\d+) [^\n]+:", gantt, re.M) == [str(i) for i in range(13)]
 assert "2 Master Data technisch geaccepteerd :done" in gantt
 assert "3 Portalstructuur en UI actief :active" in gantt
