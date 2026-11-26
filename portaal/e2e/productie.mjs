@@ -262,6 +262,74 @@ try {
   await page.locator(".balk-eigen-naam").waitFor();
   check("Via linkernavigatie: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
 
+  console.log("\nMES-identiteiten: portalsets en centrale afmelding (D113)");
+  await page.locator("button:visible").filter({hasText:/^Afmelden$/}).click();
+  await page.getByRole("heading", { name: "Inloggen", exact: true }).waitFor();
+  await page.goto(BASIS+"/portaal/#/login");
+  await page.getByLabel("Gebruikersnaam").fill("mes.quality");
+  await page.getByLabel("Wachtwoord").fill("demo");
+  const qualityLogin = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/login" && r.request().method() === "POST");
+  await page.getByRole("button",{name:"Inloggen",exact:true}).click();
+  check("mes.quality persoonlijke aanmelding", (await qualityLogin).status() === 200);
+  await page.getByRole("heading",{name:"Welkom, mes.quality",exact:true}).waitFor();
+  check("mes.quality exacte portalsets", JSON.stringify(await portalIds(".starttegel[data-portaal]")) === JSON.stringify(["invoer","kwaliteit"]) &&
+    JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]")) === JSON.stringify(["invoer","kwaliteit"]));
+  const qualityBinding = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/pc" && r.request().method() === "POST");
+  await page.locator("#menu [data-portaal=invoer]").click();
+  check("mes.quality werkstationbinding", (await qualityBinding).status() === 200);
+  await page.locator(".balk-eigen-naam").waitFor();
+  check("mes.quality persoonlijke invoeridentiteit", (await page.locator(".balk-eigen-naam").innerText()) === "mes.quality");
+  await page.locator("button:visible").filter({hasText:/^Afmelden$/}).click();
+  await page.getByRole("heading",{name:"Inloggen",exact:true}).waitFor();
+  check("Afmelden vanuit invoer wist beide tokens en behoudt werkstation", await page.evaluate(() =>
+    !localStorage.getItem("portaal.token") && !localStorage.getItem("invoer.token") &&
+    !localStorage.getItem("invoer.operatornaam") && localStorage.getItem("invoer.pc")==="PC-03"));
+  await page.goto(BASIS+"/portaal/#/");
+  await page.getByRole("heading",{name:"Inloggen",exact:true}).waitFor();
+
+  // Verwachte bestemmingen uit de goedgekeurde rolgrants, niet uit het UI-register.
+  const matrix = {
+    "mes.operator":["invoer","productie","planning"],
+    "mes.supervisor":["invoer","productie","planning","nainvoeren"],
+    "mes.manager":["engineering","productie","planning","beheer"],
+    "mes.planner":["productie","planning"],
+    "mes.engineer":["engineering","planning","beheer"],
+    "mes.eng.approver":["engineering"],
+    "mes.quality":["invoer","kwaliteit"],
+    "mes.quality.approver":["invoer","engineering","kwaliteit"],
+    "mes.maintenance":[],
+    "mes.system":["beheer"],
+    "mes.security.a":[],
+    "mes.security.b":[],
+    "mes.analyst":["kwaliteit","productie"],
+    "mes.display":["wandscherm"],
+  };
+  for (const [naam, verwacht] of Object.entries(matrix)) {
+    const r = await fetch(BASIS+"/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gebruikersnaam:naam,wachtwoord:"demo"})});
+    if (!r.ok) throw new Error("MES-matrix aanmelding "+naam+": "+r.status);
+    const {token} = await r.json();
+    await page.evaluate(t=>{localStorage.removeItem("invoer.token");localStorage.setItem("portaal.token",t);},token);
+    await page.goto(BASIS+"/portaal/#/");
+    await page.reload();
+    if (naam === "mes.display") {
+      await page.getByRole("heading",{name:"Actieve stilstand",exact:true}).waitFor();
+      check(naam+" alleen display",new URL(page.url()).hash==="#/wandscherm" &&
+        JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]"))===JSON.stringify(verwacht));
+    } else {
+      await page.getByRole("heading",{name:"Welkom, "+naam,exact:true}).waitFor();
+      check(naam+" exacte portalsets",JSON.stringify(await portalIds(".starttegel[data-portaal]"))===JSON.stringify(verwacht) &&
+        JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]"))===JSON.stringify(verwacht),JSON.stringify(await portalIds(".starttegel[data-portaal]")));
+    }
+    if (naam==="mes.quality") {
+      await page.goto(BASIS+"/portaal/#/beheer/accounts");
+      await page.reload();
+      await page.waitForFunction(()=>location.hash==="#/");
+      await page.getByRole("heading",{name:"Welkom, mes.quality",exact:true}).waitFor();
+      check("mes.quality directe beheerroute geweigerd",new URL(page.url()).hash==="#/");
+      check("mes.quality onafhankelijke account-API geweigerd",(await fetch(BASIS+"/beheer/gebruikers",{headers:{authorization:"Bearer "+token}})).status===403);
+    }
+  }
+
   console.log("\nPilotrapportage uitgesteld (D99)");
   const tokenVan = async (naam) => {
     const r = await fetch(BASIS+"/auth/login", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gebruikersnaam:naam,wachtwoord:"demo"})});
