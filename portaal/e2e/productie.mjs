@@ -219,6 +219,8 @@ try {
   await page.goto(`${BASIS}/`);
   await page.locator(".startpagina").waitFor();
   const tegels = await page.locator(".starttegel strong").allInnerTexts();
+  const portalIds = selector => page.locator(selector).evaluateAll(nodes => nodes.map(n => n.getAttribute("data-portaal")));
+  check("Ploegleider: gelijke portalsets", JSON.stringify(await portalIds(".starttegel[data-portaal]")) === JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]")));
   check("Ploegleider: invoer, productie en planning; geen display of technisch beheer",
     tegels[0] === "Production Execution" && tegels.includes("Manufacturing Operations") && tegels.includes("Planning") && !tegels.includes("Beheer") && !tegels.includes("Kwaliteit") && await page.locator(".starttegel-wandscherm").count() === 0, tegels.join(", "));
   await shot("09-startpagina");
@@ -251,12 +253,14 @@ try {
   await page.getByLabel("Gebruikersnaam").waitFor();
   check("Zonder de tegel neemt het invoerscherm de inlog van Kwaliteit niet over", true);
   await page.goto(`${BASIS}/`);
-  await page.locator(".starttegel-invoer").click();
+  await page.locator(".startpagina").waitFor();
+  check("Kwaliteit: gelijke portalsets", JSON.stringify(await portalIds(".starttegel[data-portaal]")) === JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]")));
+  await page.locator("#menu [data-portaal=invoer]").click();
   const pcKeuze = page.getByRole("button", { name: /^PC-03/ });
   await Promise.race([pcKeuze.waitFor(), page.locator(".balk-eigen-naam").waitFor()]);
   if (await pcKeuze.isVisible()) await pcKeuze.click();
   await page.locator(".balk-eigen-naam").waitFor();
-  check("Via de tegel: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
+  check("Via linkernavigatie: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
 
   console.log("\nPilotrapportage uitgesteld (D99)");
   const tokenVan = async (naam) => {

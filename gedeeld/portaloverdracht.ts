@@ -22,7 +22,10 @@ export function kiesPortaloverdracht(token: string | null): boolean {
 }
 export function neemPortaloverdracht(token: string | null): boolean {
   let keuze: { binding: string; tijd: number } | null = null;
-  try { keuze = JSON.parse(sessionStorage.getItem(SLEUTEL) ?? "null"); } catch { /* geen geldige keuze */ }
+  try {
+    keuze = JSON.parse(sessionStorage.getItem(SLEUTEL) ?? "null");
+    sessionStorage.removeItem(SLEUTEL);
+  } catch { return false; }
   wisPortaloverdracht();
   const binding = handtekening(token);
   return !!binding && !!keuze && keuze.binding === binding && Number.isFinite(keuze.tijd) &&

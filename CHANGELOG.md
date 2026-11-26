@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #138 (138.1e): geïsoleerde Chrome-regressie voor portalsets, oude sessie, geweigerde/verlopen binding, vertraagd antwoord en intrekking; bestaande backend-schermtest uitgebreid. Onleesbare/niet-verwijderbare overdrachtskeuze geweigerd. CI nog open.
+
 - #138 (138.1d): expliciete portalovergang wist oude invoersessie vóór wachtrijstart, eenmalige tabgebonden keuze en controle op verouderde /auth/pc-antwoorden; geen verwijdering van registraties. CI nog open.
 
 - #138 (138.1b/c): één bestemmingsregister voor startpagina en linkernavigatie, inclusief Production Execution en Nainvoeren; bestaande toegangsvoorwaarden en interne router behouden. Gerichte verificatie volgt.

@@ -126,6 +126,8 @@ jobs:
           npm run build
       - name: B+ componenten in Chrome
         run: node tests/visual-components.mjs
+      - name: Portalnavigatie en sessieoverdracht in Chrome
+        run: node tests/portal-navigation.mjs
 
   full-tests:
     name: Volledige testsuite (Node.js 26)
@@ -246,6 +248,8 @@ jobs:
           npm run build
       - name: B+ componenten in Chrome
         run: node tests/visual-components.mjs
+      - name: Portalnavigatie en sessieoverdracht in Chrome
+        run: node tests/portal-navigation.mjs
       - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
         run: tests/test_laptoppakket.sh
       - name: Schermtests in Chrome (invoerscherm, portalen)
