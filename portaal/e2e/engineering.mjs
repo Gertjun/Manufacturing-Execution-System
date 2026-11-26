@@ -13,7 +13,7 @@ const api=spawn("npx",["tsx","src/index.ts"],{
     PORTAAL_MAP:new URL("../dist",import.meta.url).pathname,INVOER_MAP:new URL("../../invoer/dist",import.meta.url).pathname},
   stdio:["ignore","ignore","inherit"],detached:true
 });
-let browser;
+let browser,pageForDiagnostics;
 const errors=[];
 try {
   await db.connect();
@@ -42,6 +42,7 @@ try {
   browser=await chromium.launch({executablePath:"/usr/bin/google-chrome",args:["--no-sandbox"]});
   const context=await browser.newContext({viewport:{width:1440,height:900},locale:"nl-NL",timezoneId:"Europe/Amsterdam"});
   const page=await context.newPage();
+  pageForDiagnostics=page;
   page.on("pageerror",e=>errors.push(e.message));
   page.setDefaultTimeout(15000);
   async function login(naam){
@@ -55,9 +56,13 @@ try {
     await page.waitForFunction(()=>location.pathname.startsWith("/invoer/") || !!document.querySelector("main h1")?.textContent?.startsWith("Welkom,"));
   }
   async function route(path,heading){
-    await page.goto(BASIS+"/portaal/#/engineering/"+path);
+    const target=BASIS+"/portaal/#/engineering/"+path;
+    if(page.url()===target) await page.reload();
+    else await page.goto(target);
     await page.getByRole("heading",{name:heading,exact:true}).waitFor();
   }
+  const available=await request("GET","/recipes/products",engineer,null,200);
+  assert.ok(available.some(p=>p.id===product.id&&p.can_edit),"PRD-A moet beschikbaar zijn voor de persoonlijke engineering-identiteit");
   await login("mes.engineer");
   await page.locator(".starttegel-engineering").waitFor();
   await route("materialen","Materiaalstamgegevens");
@@ -142,6 +147,13 @@ try {
   }
   assert.deepEqual(errors,[],"Browserfouten");
   console.log("Process Engineering: functionele schermregressies geslaagd.");
+} catch(e) {
+  console.error("Process Engineering schermtest:",e.message);
+  if(browser) {
+    console.error("Actuele route:",pageForDiagnostics?.url());
+    console.error("Schermtekst:",await pageForDiagnostics?.locator("main").innerText({timeout:2000}).catch(()=>"(niet beschikbaar)"));
+  }
+  throw e;
 } finally {
   if(browser)await browser.close();
   await db.end().catch(()=>{});

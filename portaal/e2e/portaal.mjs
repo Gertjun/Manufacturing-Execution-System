@@ -242,7 +242,13 @@ try {
   check("Intrekken: stand ingetrokken", true);
 
   console.log("\nLotpaspoort");
-  const [herb] = await q("SELECT l.lotnummer FROM fabriek.lot l JOIN fabriek.stapregistratie r ON r.lot_id = l.id WHERE r.herbewerking_start ORDER BY l.aangemaakt_op DESC LIMIT 1");
+  // Selecteer een lot met beide vereiste eigenschappen, onafhankelijk van de
+  // kalenderdatum en volgorde van de gegenereerde fictieve productie.
+  const [herb] = await q(`SELECT l.lotnummer FROM fabriek.lot l
+    WHERE EXISTS (SELECT 1 FROM fabriek.stapregistratie r WHERE r.lot_id=l.id AND r.herbewerking_start AND r.reden='te nat na verpakken')
+      AND EXISTS (SELECT 1 FROM fabriek.lotpaspoort p WHERE p.lotnummer=l.lotnummer AND p.veld='S18.3' AND p.markering<>'ok')
+    ORDER BY l.aangemaakt_op DESC,l.lotnummer DESC LIMIT 1`);
+  if (!herb) throw new Error("Fictieve dataset bevat geen lot met vochtgehalteafwijking S18.3 én herbewerking te nat na verpakken");
   await page.getByRole("link", { name: "Lotpaspoort" }).click();
   await page.getByRole("heading", { name: "Lotpaspoort", exact: true }).waitFor();
   await page.getByLabel("Zoeken").fill(herb.lotnummer.slice(-4));
@@ -252,7 +258,9 @@ try {
   await page.getByRole("heading", { name: `Lotpaspoort ${herb.lotnummer}` }).waitFor();
   await shot("08-lotpaspoort");
   check("Lotpaspoort toont de herbewerking", (await page.locator(".feiten").innerText()).includes("te nat na verpakken"));
-  check("Afwijking (vochtgehalte) bovenaan", (await page.locator(".blok").first().innerText()).includes("S18.3"));
+  const afwijkingenBlok = page.locator("main .blok").first();
+  check("Afwijkingen bovenaan het lotpaspoort", await afwijkingenBlok.getByRole("heading", {name:"Afwijkingen",exact:true}).count() === 1);
+  check("Afwijking (vochtgehalte) bovenaan", (await afwijkingenBlok.innerText()).includes("S18.3"));
   // #56: klik op een resultaat voor de meting, correcties en het keurresultaat.
   const knopMeting = page.locator(".blok").first().locator("button.label-knop").first();
   await knopMeting.click();

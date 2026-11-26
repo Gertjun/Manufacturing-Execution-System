@@ -19,7 +19,7 @@ export async function recepten() {
   try {
     const products=(await haal<Product[]>("/recipes/products")).filter(p=>p.can_edit);
     if(!current())return;
-    const picker=h("select",{required:true},h("option",{value:""},"Kies een product"),products.map(p=>h("option",{value:p.id},p.code+" — "+p.name)));
+    const picker=h("select",{required:true,"aria-label":"Product"},h("option",{value:""},"Kies een product"),products.map(p=>h("option",{value:p.id},p.code+" — "+p.name)));
     const content=h("div",{});
     let generation=0;
     const active=(id:string,g:number)=>current()&&picker.value===id&&generation===g;

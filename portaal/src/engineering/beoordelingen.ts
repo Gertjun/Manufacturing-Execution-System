@@ -21,7 +21,7 @@ export async function beoordelingen(){
   try{
     const products=(await haal<Product[]>("/recipes/products")).filter(p=>p.can_review);
     if(!current())return;
-    const picker=h("select",{},h("option",{value:""},"Kies een product"),products.map(p=>h("option",{value:p.id},p.code+" — "+p.name)));
+    const picker=h("select",{"aria-label":"Product"},h("option",{value:""},"Kies een product"),products.map(p=>h("option",{value:p.id},p.code+" — "+p.name)));
     const area=h("div",{});
     let generation=0,busy=false;
     async function load(){
@@ -47,8 +47,8 @@ export async function beoordelingen(){
               if(round.id!==row.round_id||round.recipe_version_id!==row.recipe_version_id||round.change_no!==row.change_no||dossier.lifecycle_status!==row.lifecycle_status)throw Error("Beoordelingsronde gewijzigd. Vernieuw het productoverzicht.");
               const pending=dossier.is_current&&dossier.lifecycle_status==="in_review"?row.my_pending_domains.filter(d=>round.required_reviews.includes(d)&&!dossier.decisions.some(x=>x.domain===d)):[];
               function decisionForm(){
-                const domain=h("select",{required:true},h("option",{value:""},"Kies bevoegd domein"),pending.map(d=>h("option",{value:d},name(d))));
-                const decision=h("select",{required:true},h("option",{value:""},"Kies besluit"),h("option",{value:"approve"},"Goedkeuren"),h("option",{value:"reject"},"Afwijzen"));
+                const domain=h("select",{required:true,"aria-label":"Beoordelingsdomein"},h("option",{value:""},"Kies bevoegd domein"),pending.map(d=>h("option",{value:d},name(d))));
+                const decision=h("select",{required:true,"aria-label":"Besluit"},h("option",{value:""},"Kies besluit"),h("option",{value:"approve"},"Goedkeuren"),h("option",{value:"reject"},"Afwijzen"));
                 const reason=h("textarea",{required:true,maxlength:10000,rows:4});
                 const password=h("input",{type:"password",required:true,maxlength:1024,autocomplete:"current-password"});
                 const checked=h("input",{type:"checkbox",required:true});
