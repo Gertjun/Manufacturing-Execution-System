@@ -1,0 +1,52 @@
+name: Windows fase 2 en 3 praktijktestpakket
+on:
+  push:
+    branches: [test/windows-phase-2-3-33b7a91]
+    paths: ['.github/workflows/windows-praktijkpakket.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  pakket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 33b7a91fd6dcfd323148bd1505fb34c7bdc11f37
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Geaccepteerde bron verifiëren
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD)" = "33b7a91fd6dcfd323148bd1505fb34c7bdc11f37"
+          test "$(node tools/verifieer_acceptatie.mjs '33b7a91fd6dcfd323148bd1505fb34c7bdc11f37')" = true
+          test "$(git rev-parse 'HEAD^{tree}')" = "911b9ceb52659b84d6b805ee18b842b5ec8db740"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - name: Windows-pakket bouwen
+        run: |
+          for m in api invoer portaal; do (cd "$m" && npm ci --no-audit --no-fund); done
+          tools/maak_laptoppakket.sh "$RUNNER_TEMP/batch-gui-laptop" windows
+      - name: Pakket controleren en herkomst vastleggen
+        run: |
+          mkdir -p "$RUNNER_TEMP/praktijk"
+          V="$(cat VERSIE)"
+          ZIP="$RUNNER_TEMP/batch-gui-laptop-$V-windows.zip"
+          unzip -tq "$ZIP"
+          for f in START.bat runtime/node.exe postgres/bin/postgres.exe db/schema.sql db/seed_accounts_demo.sql db/migraties/0129_personal_transaction_lock.sql db/testdata.sql postgres/bin/vcruntime140.dll postgres/bin/vcruntime140_1.dll postgres/bin/msvcp140.dll README.md VERSIE; do
+            test -s "$RUNNER_TEMP/batch-gui-laptop/$f"
+          done
+          cp "$ZIP" "$RUNNER_TEMP/praktijk/"
+          cd "$RUNNER_TEMP/praktijk"
+          sha256sum "batch-gui-laptop-$V-windows.zip" > SHA256SUMS.txt
+          printf 'Broncommit: %s\nVersie: %s\nGit-tree: 911b9ceb52659b84d6b805ee18b842b5ec8db740\nSchema: 0129\nAcceptatierun: 45842215303\nMergecontrole: 45846545270\nDocumentatiecontrole: 45846545348\nUitsluitend fictieve data; geen release.\n' '33b7a91fd6dcfd323148bd1505fb34c7bdc11f37' "$V" > HERKOMST.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: MES-fase2-3-Windows-33b7a91
+          path: ${{ runner.temp }}/praktijk/
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
