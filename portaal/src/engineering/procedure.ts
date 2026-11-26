@@ -11,7 +11,7 @@ const child:Partial<Record<Kind,Kind>>={procedure:"unit_procedure",unit_procedur
 
 export function procedurePane(version:{id:string;lifecycle_status:string},current:()=>boolean,refresh:()=>Promise<void>) {
   const base="/recipes/versions/"+encodeURIComponent(version.id)+"/procedure";
-  const pane=h("section",{},h("h3",{},"Procedure en afhankelijkheden"));
+  const pane=h("section",{class:"engineering-paneel"},h("h3",{},"Procedure en afhankelijkheden"));
   const area=h("div",{});
   let generation=0;
   let busy=false;

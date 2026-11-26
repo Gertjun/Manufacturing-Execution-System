@@ -94,7 +94,7 @@ a { color: var(--actie); }
 .tegel-nr { font-size: var(--text-2xl); font-weight: 700; line-height: 1.05; }
 .tegel-naam { font-weight: 700; line-height: 1.25; }
 .tegel-werk { font-size: var(--text-sm); color: var(--inkt-zacht); }
-.tegel.bezig { border-left: 8px solid var(--mes-actie-tekst); }
+.tegel.bezig { border-left: 8px solid var(--actie); }
 @media screen {
   .tegel, .rij, .veld { border-radius: var(--mes-kaart-radius); }
 }
@@ -331,4 +331,32 @@ a.balk-wie { text-decoration: none; display: inline-flex; align-items: center; }
   #scherm { padding-top: var(--space-3); }
   .balk-onder { padding-block: var(--space-1); }
   .balk-onder .hint { font-size: var(--text-sm); }
+}
+
+/* 139.3d: B+ voor uitvoering. Actieve selectie, meetstatus en alarmen behouden hun eigen betekenis. */
+@media screen {
+  .tegel:not(.leeg) { border-top: 3px solid var(--mes-uitvoering); }
+  .tegel:not(.leeg):hover { border-top-color: var(--mes-uitvoering); }
+  .tegel-nr, .rij-hoofd, .veld-code { color: var(--mes-structuur); }
+  .tegel.leeg .tegel-nr { color: var(--inkt-zacht); }
+  .plan, .nieuw, .overdracht-cijfers { border-radius: var(--mes-kaart-radius); border-top: 3px solid var(--mes-uitvoering); }
+  .veld-invoer :is(input[type="text"],select,textarea) { border-radius: var(--radius-xs); max-width: 100%; }
+  .veld-invoer > label { min-width: 0; max-width: 100%; font-weight: 700; }
+  .veld-invoer label input { font-weight: 400; }
+  .veld-invoer, .veld > div, .rij > div { min-width: 0; overflow-wrap: anywhere; }
+  .veld[data-markering="buiten_tolerantie"] { border-style: dashed; }
+  .veld[data-markering="buiten_grens"] { border-style: solid; }
+  .veld-waarde { font-weight: 700; }
+  .veld-waarde .eenheid { font-weight: 400; }
+  .balk-onder { border-top: 1px solid var(--lijn-sterk); }
+  .overdracht-blok, .stilstand-blok { border-radius: var(--mes-kaart-radius); }
+  .rij.wachtrij-beoordeling { border-left: 6px solid var(--signaal); }
+  .rij.wachtrij-fout { border-left: 6px solid var(--grens); }
+  .rij.wachtrij-wacht { border-left: 6px solid var(--lijn-sterk); }
+  @media (max-width: 599px) {
+    .veld-grondstof .veld-invoer input[id^="p-"] { min-width: 0; }
+    .veld-invoer > label, .veld-invoer > label input, .veld-invoer > label select { max-width: 100%; }
+    .rij .knoppen-rij { flex-wrap: wrap; }
+    .rij.wachtrij-beoordeling, .rij.wachtrij-fout, .rij.wachtrij-wacht { flex-wrap: wrap; }
+  }
 }

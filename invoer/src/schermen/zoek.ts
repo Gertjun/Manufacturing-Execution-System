@@ -183,7 +183,7 @@ export async function wachtrijScherm() {
   const rij = (a: Actie) =>
     h(
       "li",
-      { class: "rij" },
+      { class: `rij wachtrij-${a.status}` },
       h("div", {}, h("div", { class: "rij-hoofd" }, a.omschrijving), h("div", { class: "rij-info" }, tijd(a.aangemaakt), a.operatornaam ? ` · ${a.operatornaam}` : ""),
         a.fout ? h("div", { class: "label-buiten_grens", style: "font-weight:700" }, a.fout) : null),
       a.status === "beoordeling" || !a.userId || a.fout?.startsWith("Persoonlijke herkomst")
