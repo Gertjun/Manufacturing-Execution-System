@@ -14,6 +14,7 @@ import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./sc
 import { startScanner, wisScanActie } from "./scan";
 import { hulpScherm, wachtwoordWijzigen } from "./schermen/hulp";
 import { volgNummers } from "../../gedeeld/nummers";
+import { mesMerk, mesVersie, mesGebruiker } from "../../gedeeld/mes-identiteit";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -39,7 +40,7 @@ function tekenBalk() {
 
   const actief = (r: string) => (route === r || (r === "stappen" && route === "stap") ? "page" : undefined);
   const naam = () => ingelogd && sessie.operatornaam
-    ? h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
+    ? mesGebruiker(sessie.operatornaam, "balk-wie balk-eigen-naam")
     : null;
   const meldingenLink = (klasse?: string) => heeftMeldingen()
     ? h("a", { href: "#/meldingen", class: klasse, "aria-current": actief("meldingen") },
@@ -49,7 +50,7 @@ function tekenBalk() {
   // Breed scherm (pc, tablet, liggende telefoon): alles in de balk bovenaan. Telefoon staand (D64): bovenaan
   // alleen pc, naam en verbinding; de navigatie staat onderaan binnen duimbereik, de rest onder "Meer".
   const delen: (Node | null)[] = [
-    h("div", { class: "balk-naam" }, h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Production Execution"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
+    h("div", { class: "balk-naam" }, mesMerk(), h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Production Execution"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
     ingelogd
       ? h("nav", { class: "balk-nav alleen-breed", "aria-label": "Hoofdmenu" },
           h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),
@@ -67,6 +68,7 @@ function tekenBalk() {
       ? h("button", { class: "balk-wie alleen-breed", onclick: () => void afmelden() }, "Afmelden")
       : null,
     verbinding,
+    h("span", { class: "balk-versie alleen-breed" }, mesVersie()),
   ];
   balk.replaceChildren(...(delen.filter(Boolean) as Node[]));
   tekenOnderbalk(ingelogd ? [
@@ -78,6 +80,7 @@ function tekenBalk() {
     h("a", { href: "#/hulp" }, "Hulp"),
     h("a", { href: "../portaal/index.html#/" }, "Portalen"),
     h("button", { type: "button", onclick: () => void afmelden() }, "Afmelden"),
+    mesVersie(),
   ]);
 }
 

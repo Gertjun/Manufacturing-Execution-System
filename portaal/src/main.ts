@@ -1,4 +1,5 @@
 import { VERSIE } from "../../gedeeld/versie";
+import { mesMerk, mesVersie, mesGebruiker } from "../../gedeeld/mes-identiteit";
 import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
@@ -25,7 +26,7 @@ import type { Rol } from "../../gedeeld/types";
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   const menu = document.getElementById("menu")!;
   if (!sessie.geldig()) {
-    menu.replaceChildren(h("div", { class: "merk" }, "MES"));
+    menu.replaceChildren(h("div", { class: "merk" }, mesMerk()));
     return;
   }
   const portalen = bestemmingenVoor();
@@ -44,7 +45,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   }, "Menu", h("span", { class: "menu-knop-waar" }, [huidig?.naam, onderdeel?.naam].filter(Boolean).join(" · ") || (actiefPortaal === "meldingen" ? "Meldingen" : "")));
   // Meldingen staan buiten het inklapbare deel: de teller blijft ook op een smal scherm zichtbaar.
   menu.replaceChildren(
-    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, "MES"), knop),
+    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, mesMerk()), knop),
     ...(heeftMeldingen()
       ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
       : []),
@@ -62,12 +63,12 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
             }))
           : null)),
     h("div", { class: "menu-voet" },
-      h("div", {}, sessie.naam),
+      mesGebruiker(sessie.naam),
       h("button", { class: "knop-link", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden"),
       h("a", { href: "#/" }, "Startpagina"),
       h("a", { href: "#/hulp" }, "Hulp"),
       h("a", { href: "#/wachtwoord" }, "Wachtwoord wijzigen"),
-      h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
+      h("div", { class: "sub versie" }, mesVersie())),
   );
 }
 
@@ -207,7 +208,7 @@ async function route() {
   const routeHash = location.hash;
   const routeToken = sessie.token;
   const actueel = () => location.hash === routeHash && sessie.token === routeToken;
-  document.getElementById("menu")!.replaceChildren(h("div", { class: "merk" }, "MES"));
+  document.getElementById("menu")!.replaceChildren(h("div", { class: "merk" }, mesMerk()));
   toon(h("p", { class: "sub" }, "Bevoegdheden ophalen…"));
   try {
     if (!(await vernieuwRechten()) || !actueel()) return;

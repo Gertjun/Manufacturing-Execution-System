@@ -43,3 +43,10 @@
     #scherm .mes-aanmeldkaart { margin: var(--space-3) auto; padding: var(--space-4); }
   }
 }
+
+/* 139.3b: gedeelde identiteit op donkere navigatievlakken. */
+@media screen {
+  .mes-merk { font-weight: 700; color: var(--op-kleur); letter-spacing: .04em; white-space: nowrap; }
+  .mes-gebruiker { color: var(--op-kleur); font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+  .mes-versie { color: var(--op-donker-zacht); font-size: var(--text-xs); white-space: nowrap; }
+}

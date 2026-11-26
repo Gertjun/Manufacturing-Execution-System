@@ -36,7 +36,11 @@ a { color: var(--actie); }
   padding: max(var(--space-2), env(safe-area-inset-top)) max(var(--ruimte), env(safe-area-inset-right)) var(--space-2) max(var(--ruimte), env(safe-area-inset-left));
 }
 #balk a { color: var(--op-kleur); }
-.balk-naam { font-weight: 700; margin-right: auto; display: flex; gap: var(--space-3); align-items: baseline; }
+.balk-naam { font-weight: 700; margin-right: auto; display: flex; gap: var(--space-2); align-items: baseline; min-width: 0; flex-wrap: wrap; }
+.balk-naam .mes-merk { border-right: 1px solid var(--lijn-op-donker); padding-right: var(--space-2); }
+.balk-versie { align-self: center; }
+#balk .balk-nav { flex-wrap: wrap; }
+#balk .balk-eigen-naam { max-width: 100%; }
 .balk-pc { font-weight: 400; color: var(--op-donker-zacht); }
 .balk-nav { display: flex; gap: var(--space-1); }
 .balk-nav a { text-decoration: none; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); }

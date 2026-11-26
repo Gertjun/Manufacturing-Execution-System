@@ -58,6 +58,9 @@ try {
     await page.getByRole("heading", { name: /^Welkom/ }).waitFor();
     assert.deepEqual(await ids(".starttegel[data-portaal]"), expected);
     assert.deepEqual(await ids("#menu .menu-portaal[data-portaal]"), expected);
+    assert.equal(await page.locator("#menu .mes-merk").innerText(), "MES");
+    assert.ok((await page.locator("#menu .mes-versie").innerText()).startsWith("Versie "));
+    assert.ok((await page.locator("#menu .mes-gebruiker").innerText()).length > 0);
   };
   const checkAanmeldkaart = async () => {
     const card = page.locator(".mes-aanmeldkaart");
@@ -95,6 +98,9 @@ try {
   assert.equal(await stored(page,"invoer.token"), null);
   assert.equal(await stored(page,"invoer.operatornaam"), null);
   await checkAanmeldkaart();
+  assert.equal(await page.locator("#balk .mes-merk").innerText(), "MES");
+  assert.ok((await page.locator("#balk .mes-versie").textContent()).startsWith("Versie "));
+  assert.equal(await page.locator("#balk .mes-gebruiker").count(), 0);
   assert.ok((await page.locator(".mes-aanmeldcontext").innerText()).includes("PC-01"));
   console.log("OK 139.3a: gedeelde aanmeldkaart op beide frontends");
   console.log("OK P05: oude invoersessie gewist; geweigerde binding geen terugval");
