@@ -163,12 +163,17 @@ function naarStartpagina() {
 }
 
 /** Overstap van de startpagina: vraag een token met deze pc erbij (/auth/pc). Lukt dat niet, dan gewoon inloggen. */
-async function vanStartpagina(): Promise<boolean> {
+async function vanStartpagina(actueel: () => boolean): Promise<boolean> {
   const t = sessie.portaalToken();
-  if (!t || !sessie.pc) return false;
+  const pc = sessie.pc;
+  const invoerToken = sessie.token;
+  const hash = location.hash;
+  if (!t || !pc) return false;
   try {
     const r = await stuur<{ token: string; naamKiezen: boolean; operator?: { id: string; naam: string } | null }>(
-      "POST", "/auth/pc", { pc: sessie.pc }, { authorization: `Bearer ${t}` });
+      "POST", "/auth/pc", { pc }, { authorization: `Bearer ${t}` });
+    if (!actueel() || location.hash !== hash || sessie.actueelPortaalToken() !== t ||
+        sessie.pc !== pc || sessie.token !== invoerToken) return false;
     sessie.token = r.token;
     sessie.operatornaam = r.operator?.naam ?? null;
     vergeetConfig();
@@ -185,6 +190,13 @@ async function route() {
   nieuweRoute();
   wisScanActie();
   const [, scherm, arg] = location.hash.split("/");
+  // Expliciete overstap: nooit op een oude invoersessie terugvallen, ook zonder geldige marker.
+  if (scherm === "overstap") {
+    sessie.wisInvoersessie();
+    vergeetConfig();
+    tekenBalk();
+    return void (location.hash = sessie.pc ? "#/login" : "#/pc");
+  }
   tekenBalk();
 
   // Hulp kan altijd, ook vóór het inloggen en zonder verbinding (zit in het pakket, D59).
@@ -193,7 +205,10 @@ async function route() {
   if (scherm === "pc") return pcScherm();
   if (scherm === "login" || !sessie.geldig()) {
     // Al ingelogd op de startpagina (D54)? Dan hetzelfde account op deze pc, zonder opnieuw in te loggen.
-    if (await vanStartpagina()) return;
+    const nogActueel = vastHouden();
+    const hash = location.hash;
+    if (await vanStartpagina(nogActueel)) return;
+    if (!nogActueel() || location.hash !== hash) return;
     if (scherm !== "login") return void (location.hash = "#/login");
     return loginScherm();
   }
@@ -244,10 +259,11 @@ opStatus((s) => {
   // Terug online op het stappenoverzicht: verversen.
   if (wasUit && s.verbonden && (location.hash === "#/stappen" || location.hash.startsWith("#/stap/"))) void route();
 });
+// Bij een expliciete overstap wist route() de oude sessie synchroon vóór achtergrondverwerking.
+void route();
 startWachtrij();
 startMeldingen(tekenBalk);
 startScanner();
-void route();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   navigator.serviceWorker.register("/invoer/sw.js", { scope: "/invoer/" }).catch(() => {});
