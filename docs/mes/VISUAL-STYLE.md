@@ -1,4 +1,4 @@
-# MES visuele ontwerpstandaard — v0 (voorstel ter uitwerking)
+# MES visuele ontwerpstandaard — v1 (ontwerpbaseline)
  
 Bron: D107, D50, D63, D64, D70 en D105/D111. ISA-88/95 en goedgekeurde architectuur blijven leidend; vormgeving wijzigt geen rechten, processen of fysieke relaties.
 
@@ -13,13 +13,51 @@ Bron: D107, D50, D63, D64, D70 en D105/D111. ISA-88/95 en goedgekeurde architect
 Grijs voor ondersteuning en databaserelaties; groen/rood uitsluitend expliciete status. Waarschuwingen onderscheiden van regulier oranje met tekst, symbool en eigen token. Planning: donkerblauw afgerond, oranje actief, lichtgrijs toekomstig, altijd tekststatus.
 
 ## UI
-Uitgangspunt bestaande Atkinson Hyperlegible, 4/8-puntsraster, 44 px aanraakdoelen, bestaande D64-breekpunten. Centrale tokens in gedeeld/tokens.css; gedeelde helpers in gedeeld/ui.ts, knoppen en portaalstijl. Titel links, acties/filters rechts waar ruimte; op smalle schermen logisch stapelen. Tabellen behouden koppen, betekenis, leesvolgorde en eigen scrollvak waar nodig. Eén herkenbaar patroon voor formulieren, labels, foutmelding, bevestiging, leeg/laden, focus, selectie en status. Bekijken, wijzigen, beoordelen en vrijgeven duidelijk onderscheiden; historische revisies herkenbaar en niet stilzwijgend wijzigbaar. Datum, tijdzone, ingangsdatum en besluitmoment expliciet onderscheiden. Behoud toetsenbordbediening en veilige foutafhandeling. Contrast per combinatie toetsen; WCAG 2.2 AA voorgesteld als toetskader, toepasselijkheid nog vastleggen. Geen witte tekst op oranje zonder contrastbewijs; geen status alleen via kleur.
+Uitgangspunt bestaande Atkinson Hyperlegible, 4/8-puntsraster, 44 px aanraakdoelen, bestaande D64-breekpunten. Centrale tokens in gedeeld/tokens.css; gedeelde helpers in gedeeld/ui.ts, knoppen en portaalstijl. Titel links, acties/filters rechts waar ruimte; op smalle schermen logisch stapelen. Tabellen behouden koppen, betekenis, leesvolgorde en eigen scrollvak waar nodig. Eén herkenbaar patroon voor formulieren, labels, foutmelding, bevestiging, leeg/laden, focus, selectie en status. Bekijken, wijzigen, beoordelen en vrijgeven duidelijk onderscheiden; historische revisies herkenbaar en niet stilzwijgend wijzigbaar. Datum, tijdzone, ingangsdatum en besluitmoment expliciet onderscheiden. Behoud toetsenbordbediening en veilige foutafhandeling. Contrast per combinatie toetsen; WCAG 2.2 AA als technisch ontwerp- en toetskader; wettelijke toepasselijkheid en formele conformiteit worden hiermee niet vastgesteld. Geen witte tekst op oranje zonder contrastbewijs; geen status alleen via kleur.
 
 ## Diagrammen en documenten
 Masterdata blauw/lichtblauw; transacties oranje/lichtoranje. Oranje procespijlen, neutraal grijze FK-relaties; pijlen aan randen, geen overlap met tekst, legenda en korte Nederlandstalige functieomschrijving. SQL blijft bron voor fysieke ERD; generator en integriteitscontroles behouden. Voorbeeld goed: blauwe receptdefinitie naast oranje vrijgavebesluit, grijze FK en afzonderlijke procespijl. Ongewenst: willekeurig wisselende kleuren of FK als procesvolgorde. Naslagwerk afzonderlijk actualiseren na vaststelling.
 
 ## Borging
-Inventariseer bestaande schermen, CSS, documenten en afwijkingen. Test contrast, focus, zes formaten, visuele regressies en consistente componenten. Geen nieuwe domeinfunctionaliteit. Dit document is ontwerpstart, geen bewijs van implementatie of acceptatie.
+Inventariseer bestaande schermen, CSS, documenten en afwijkingen. Test contrast, focus, zes formaten, visuele regressies en consistente componenten. Geen nieuwe domeinfunctionaliteit. Dit document is ontwerpbaseline; implementatie, schermmetingen en acceptatie volgen.
 
 ## Inventarisatie als ontwerpinput
-Beide applicaties importeren gedeeld/tokens.css en knoppen.css. Bestaande donkere en printvarianten expliciet beoordelen; responsive afwijkingen (600/840/900) toetsen in plaats van willekeurig gelijkmaken. Behoud invoer-offline, afdrukken en bestaande statussemantiek. Zie 145.1 in ACCEPTANCE-CRITERIA.md. Visuele nulmeting en contrastmatrix volgen in 139.1–4.
+Beide frontendonderdelen van hetzelfde MES importeren gedeeld/tokens.css en knoppen.css. Bestaande donkere en printvarianten expliciet beoordelen; responsive afwijkingen (600/840/900) toetsen in plaats van willekeurig gelijkmaken. Behoud invoer-offline, afdrukken en bestaande statussemantiek. Zie 145.1 in ACCEPTANCE-CRITERIA.md. Visuele nulmeting volgt per implementatiewerkpakket 139.2–4; onderstaande contrastmatrix is berekend voor effen sRGB-kleuren.
+
+## Eén MES, meerdere portalen (D113)
+Vanuit de gebruiker één MES-applicatie, met Production Execution als gelijkwaardig portaal naast Process Engineering, Manufacturing Operations, Kwaliteit, Planning en Beheer. Eén herkenbare aanmelding, portalkeuze, navigatie, identiteit en bedieningsprincipes. Geen extra login puur vanwege de frontendgrens; noodzakelijke werkstationbinding, herbevestiging, persoonlijke autorisatie en offline beveiliging blijven intact. De huidige portaal/ en invoer/ zijn technische frontendonderdelen, geen afzonderlijke MES-applicaties. Werkpakket 138.1 beoordeelt behoud of gecontroleerde integratie op basis van service worker, opslag/wachtrij, sessie, scanners, routing, beveiliging, testbaarheid en migratierisico; geen vooraf gekozen samenvoeging. Geen nieuwe grants of offline beslisrechten.
+
+## Contrastmatrix en semantische tokens
+Berekend met sRGB relatieve luminantie en (Lmax + 0,05)/(Lmin + 0,05). Normale tekst minimaal 4,5:1; grote tekst en betekenisvolle niet-tekstuele componentgrenzen minimaal 3:1. Toets daadwerkelijke aangrenzende kleuren, hover/focus/selected/disabled en samengestelde vlakken tijdens implementatie. Geen conformiteitsclaim op basis van deze tabel alleen.
+
+| Voorgrond | Achtergrond | Ratio | Gebruik |
+|---|---|---:|---|
+| wit #FFFFFF | structuur #0B2E59 | 13,55 | navigatie/titel |
+| structuur #0B2E59 | lichtblauw #E7EEF6 | 11,59 | structuurkaart |
+| structuur #0B2E59 | achtergrond #F4F7F9 | 12,60 | titel |
+| inkt #1B2430 | actie #F28C28 | 6,38 | primaire actie |
+| wit #FFFFFF | actie #F28C28 | 2,45 | verboden voor normale tekst |
+| inkt #1B2430 | lichtoranje #FDEBD9 | 13,46 | uitvoeringskaart |
+| amber #A35F00 | wit #FFFFFF | 5,01 | waarschuwingstekst |
+| amberlijn #C27803 | wit #FFFFFF | 3,51 | waarschuwingslijn, niet normale tekst |
+| positief #2E7D4F | wit #FFFFFF | 5,05 | positief label |
+| kritiek #B3261E | wit #FFFFFF | 6,54 | foutlabel |
+| grijs #6B7785 | wit #FFFFFF | 4,56 | rand; niet generiek op alle vlakken |
+| grijs #6B7785 | #F4F7F9 | 4,24 | alleen rand, geen normale tekst |
+| oranje #F28C28 | wit #FFFFFF | 2,45 | niet als enige betekenisvolle grens of icoon |
+| focus #174A95 | wit #FFFFFF | 8,57 | focus op lichte achtergrond |
+| donkerdisplay #10161F | tekst #F3F5F7 | 16,61 | bestaande displayvariant |
+| amber #FFB547 | donkerdisplay #10161F | 10,33 | waarschuwing op donker |
+
+Tokencontract voor 139.2: aparte structuur-, uitvoerings-, actie-, actie-tekst-, focus-, selectie-, status- en printtokens. Primaire actie oranje met donkere tekst en voldoende donkere rand waar de grens noodzakelijk is; secundaire actie neutraal met donkere tekst/rand; destructieve actie rood met tekst en bevestiging waar bestaande bedrijfsregel dat vereist. Geen oranje focusring op wit. Focus op donkere navigatie afzonderlijk contrasterend ontwerpen. Niet één globale op-kleur gebruiken voor alle actievlakken. Status amber/groen/rood blijft onderscheiden van reguliere actie, altijd label/symbool; geel voor wacht/knelpunt blijft als bestaande aparte betekenis te toetsen. Geen statusverandering door stijlaanpassing.
+
+## Componentcontract
+- Schermkop: herkenbare portaalnaam, paginatitel links, context (product/revisie/batch) en acties rechts; op smal scherm stapelen. Navigatie toont actieve route ook tekstueel en met aria-current. Geen verborgen bevoegde portalen door legacy-rolnaam.
+- Formulier: zichtbaar label, eenheid en verplichte velden; veldfout bij veld en samenvatting waar nuttig; behoud invoer bij herstelbare fout. Leesmodus duidelijk onderscheiden van conceptbewerking; historie read-only. Knop bezig blokkeert dubbele actie; succes pas na bevestigd resultaat.
+- Tabel: betekenisvolle koppen, numerieke kolommen rechts, tekst links, consistente sortering/filter, lege toestand en eigen scrollvak. Geen verlies van koprelaties op mobiel; geen pagina-overloop. Historische gegevens en onbekend versus nul niet verwarren.
+- Review/vrijgave: exacte revisie, ronde, beslissing, reden, persoonlijke herbevestiging en ingangsdatum zichtbaar volgens bestaande API; geen hergebruik van knopstatus als bewijs. Waarschuwing en blokkade expliciet onderscheiden. Lokale wachtrij, offline en serverbevestiging apart labelen.
+- Typografie: Atkinson Hyperlegible, bestaande rem-schaal 0,75/0,875/1/1,25/1,5/2; gewone tekst 1 rem, secundair 0,875 rem, kleine labels alleen aanvullend. 4/8-puntsraster, bestaande 44 px aanraakdoelen, zichtbare focus, logische tabvolgorde, reduced motion. D64 als uitgangspunt, afwijkende 900/800/600-regels per inhoud toetsen; printregels niet door schermmedia laten beïnvloeden.
+- Wandscherm: aparte donkere leesvariant binnen dezelfde semantiek, geen nieuwe displayfunctionaliteit. Afdruk: hoog contrast, betekenis in tekst/patroon, behoud paginering, certificaat-/etiketgegevens en bestaande afdruktests. Geen nieuwe algemene donkeremodus als extra scope.
+
+## Verificatiepoorten
+139.2: tokens en componenten, contrastmatrix en gerichte bouw/schermregressies; 138.1: gelijke portalsets en veilige route-/sessieafhandeling; 139.3: schermen per portaal, nulmeting en afwijkingen, zes schermformaten, toetsenbord/print/offline; 139.4: documenten en generator; 140.1–4: integrale regressies, positieve MBR-vrijgave, audit, Windows-praktijkacceptatie en publicatie. Bestaande functionele tests niet verwijderen om stijltests groen te krijgen. Bij contrast- of toegankelijkheidsafwijking documenteren en herstellen. Geen nieuwe productiedata of domeinfunctie.

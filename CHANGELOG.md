@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.1): ontwerpbaseline v1 met berekende contrastmatrix, componentcontract en één MES-gebruikersomgeving (D113); geen UI-implementatie, CI nog te verifiëren.
+
 - #145: technische bestands-/architectuurinventarisatie afgerond; roadmapcontrole ook bij gemengde PR's, uitvoering nog te verifiëren.
 
 - #145 (voorbereiding): fase-2-acceptatiebewijs en fase-3-planning vastgelegd, ontwerpstandaard v0 en CI-inrichting voor concept-PR; tijdelijke gestapelde triggers na merge fase 2 teruggedraaid conform D112. Geen functionele UI-wijzigingen of release.

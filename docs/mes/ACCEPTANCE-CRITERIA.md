@@ -590,3 +590,7 @@ Volledige Git-tree geïnventariseerd (niet afgekapt). Broncode-inspectie van por
 Bevinding: portal- en invoerprojectie gebruiken dezelfde lees-/uitvoercapabilities voor magInvoer, maar verschillende online/offline levenscycli. Niet samenvoegen zonder bewijs van behoud. Production Execution ontbreekt in de menu-registratie, geen bewezen backendlek. De inventarisatie is afgerond op architectuur-/bestandsniveau; individuele schermmetingen, contrastwaarden en visuele afwijkingen worden tijdens 139.1–4 vastgesteld.
 
 CI-bevinding: workflow 389 was groen maar de roadmapstap overgeslagen wegens gemengde PR (workflowbestanden). Roadmapcontrole voortaan uitvoeren bij wijziging van ROADMAP of CHANGELOG ongeacht overige bestanden; documentatie-only releaseversieguard en diagrambeleid blijven ongewijzigd.
+
+### 145.1 afsluiting en 139.1 ontwerpbaseline
+
+Documentatiecontrole workflow 390 op 4869f70 geslaagd, inclusief roadmapstap; architectuur-/bestandsinventarisatie afgerond. D113: Production Execution gelijkwaardig portaal binnen één MES. VISUAL-STYLE.md v1 bevat berekende sRGB-contrastmatrix, token-/componentcontract en ontwerpcriteria; geen schermmeting of WCAG-conformiteitsbewijs. 138.1 moet technische frontendgrens beoordelen zonder offline/securityregressie. CI voor deze documentatiestap nog open.
