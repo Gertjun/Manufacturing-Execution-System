@@ -16,3 +16,30 @@
   /* Meer specifiek dan de lokale input[type] basisregels; behoud lokale maatvoering. */
   .venster .vraag :is(input, select, textarea) { border-radius: var(--radius-xs); }
 }
+
+/* 139.3a: herkenbare persoonlijke MES-aanmelding, ook bij werkstationherstel. */
+@media screen {
+  #scherm .mes-aanmeldkaart {
+    max-width: 440px; width: 100%; margin: var(--space-6) auto;
+    padding: var(--space-5); background: var(--vlak);
+    border: 1px solid var(--lijn); border-top: 3px solid var(--mes-structuur);
+    border-radius: var(--mes-kaart-radius); overflow-wrap: anywhere;
+  }
+  .mes-aanmeldkaart .mes-aanmeldmerk { color: var(--mes-structuur); font-weight: 700; font-size: var(--text-sm); margin-bottom: var(--space-3); }
+  #scherm .mes-aanmeldkaart h1 { font-size: var(--text-xl); line-height: 1.2; }
+  #scherm .mes-aanmeldkaart form { display: grid; gap: var(--space-3); margin-top: var(--space-4); max-width: none; }
+  #scherm .mes-aanmeldkaart form label { display: grid; gap: var(--space-1); font-weight: 700; }
+  #scherm .mes-aanmeldkaart form :is(input[type="text"], input[type="password"]) {
+    width: 100%; min-width: 0; max-width: 100%; min-height: var(--doel-min);
+    border-radius: var(--radius-xs); border: 1.5px solid var(--inkt-zacht);
+    padding: var(--space-2) var(--space-3); background: var(--vlak); color: var(--inkt); font: inherit;
+  }
+  #scherm .mes-aanmeldkaart form .knop-hoofd { width: 100%; }
+  .mes-aanmeldkaart .mes-aanmeldcontext { background: var(--mes-structuur-vlak); padding: var(--space-2) var(--space-3); border-radius: var(--radius-xs); }
+  .mes-aanmeldkaart .foutmelding { color: var(--grens); font-weight: 700; }
+  .mes-aanmeldkaart .foutmelding:empty { display: none; }
+  .mes-aanmeldkaart .mes-aanmeldvoet { margin-top: var(--space-4); font-size: var(--text-sm); }
+  @media (max-width: 599px), (max-height: 500px) {
+    #scherm .mes-aanmeldkaart { margin: var(--space-3) auto; padding: var(--space-4); }
+  }
+}

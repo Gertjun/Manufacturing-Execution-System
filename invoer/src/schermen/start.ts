@@ -46,7 +46,7 @@ export async function pcScherm() {
 export function loginScherm() {
   const naam = h("input", { id: "gebruikersnaam", type: "text", autocomplete: "username", required: true, class: "breed" }) as HTMLInputElement;
   const ww = h("input", { id: "wachtwoord", type: "password", autocomplete: "current-password", required: true, class: "breed" }) as HTMLInputElement;
-  const fout = h("p", { class: "label-buiten_grens", role: "alert" });
+  const fout = h("p", { class: "foutmelding", role: "alert" });
   const vorm = h(
     "form",
     {
@@ -81,13 +81,14 @@ export function loginScherm() {
     fout,
     h("button", { class: "knop knop-hoofd", type: "submit" }, "Inloggen"),
   );
-  toon(
+  toon(h("div", { class: "mes-aanmeldkaart" },
+    h("p", { class: "mes-aanmeldmerk" }, "MES · Manufacturing Execution System"),
     h("h1", {}, "Inloggen"),
     h("p", { class: "sub" }, "Log in met je eigen gebruikersnaam en wachtwoord. Alles wat je invoert, komt op jouw naam."),
-    h("p", { class: "sub" }, `Deze pc: ${sessie.pc}. `, h("a", { href: "#/pc" }, "Andere pc kiezen")),
+    h("p", { class: "mes-aanmeldcontext" }, `Deze pc: ${sessie.pc}. `, h("a", { href: "#/pc" }, "Andere pc kiezen")),
     vorm,
-    h("p", { class: "sub", style: "margin-top:16px" }, h("a", { href: "#/hulp" }, "Hulp")),
-  );
+    h("p", { class: "sub mes-aanmeldvoet" }, h("a", { href: "#/hulp" }, "Hulp")),
+  ));
   naam.focus();
 }
 

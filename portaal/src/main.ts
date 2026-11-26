@@ -78,7 +78,8 @@ function loginScherm() {
   const fout = h("p", { class: "foutmelding", role: "alert" });
   const testaccounts = h("div", { class: "testaccounts" });
   toon(
-    h("div", { class: "inlog" },
+    h("div", { class: "inlog mes-aanmeldkaart" },
+      h("p", { class: "mes-aanmeldmerk" }, "MES · Manufacturing Execution System"),
       h("h1", {}, "Inloggen"),
       h("p", { class: "sub" }, "Met je eigen account. Daarna kies je een MES-portaal."),
       h("form", {
@@ -117,7 +118,8 @@ function loginScherm() {
 function wachtwoordScherm(tijdelijk?: { token: string; wachtwoord: string }) {
   // Vanuit het menu een gewone pagina met kop; na een tijdelijk wachtwoord de smalle kolom van het inlogscherm.
   toon(
-    h("div", { class: tijdelijk ? "inlog" : "wachtwoord-pagina" },
+    h("div", { class: tijdelijk ? "inlog mes-aanmeldkaart" : "wachtwoord-pagina" },
+      tijdelijk ? h("p", { class: "mes-aanmeldmerk" }, "MES · Manufacturing Execution System") : null,
       h("h1", {}, tijdelijk ? "Kies een eigen wachtwoord" : "Wachtwoord wijzigen"),
       h("p", { class: "sub" }, tijdelijk
         ? "Je hebt een tijdelijk wachtwoord van de beheerder gekregen. Kies nu een wachtwoord dat alleen jij weet; daarna ga je verder."

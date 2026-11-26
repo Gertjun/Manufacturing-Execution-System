@@ -507,12 +507,15 @@ label.knop:has(+ .verborgen:focus-visible) { outline: 3px solid var(--focus, var
 .starttegel { display: grid; gap: var(--space-2); min-height: 120px; padding: var(--space-5); background: var(--vlak); border: 1.5px solid var(--lijn-sterk); border-radius: var(--radius-md); color: var(--inkt); text-decoration: none; align-content: start; }
 .starttegel strong { font-size: var(--text-lg); color: var(--mes-structuur); }
 .starttegel span { color: var(--inkt-zacht); }
-.starttegel:hover { border-color: var(--actie); background: var(--actie-vlak); }
+.starttegel:hover { border-color: var(--mes-structuur); background: var(--mes-structuur-vlak); }
+.starttegel-invoer:hover { border-color: var(--mes-actie-tekst); background: var(--mes-uitvoering-vlak); }
 .starttegel:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-.starttegel-invoer { border-left: 3px solid var(--mes-uitvoering); }
+.starttegel-invoer { border-top: 3px solid var(--mes-uitvoering); }
 @media screen {
   .blok, .tegel, .starttegel, .tabel-kader { border-radius: var(--mes-kaart-radius); }
   .starttegel:not(.starttegel-invoer) { border-top: 3px solid var(--mes-structuur); }
+  .starttegel-invoer { border-top: 3px solid var(--mes-uitvoering); }
+  .starttegel-invoer:hover { border-top-color: var(--mes-actie-tekst); }
   .label { border-radius: var(--radius-xs); }
   .venster { border-radius: var(--mes-kaart-radius); }
 }

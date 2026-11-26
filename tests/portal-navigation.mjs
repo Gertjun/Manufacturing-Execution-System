@@ -59,7 +59,20 @@ try {
     assert.deepEqual(await ids(".starttegel[data-portaal]"), expected);
     assert.deepEqual(await ids("#menu .menu-portaal[data-portaal]"), expected);
   };
+  const checkAanmeldkaart = async () => {
+    const card = page.locator(".mes-aanmeldkaart");
+    await card.waitFor();
+    assert.equal(await card.locator("h1").innerText(), "Inloggen");
+    assert.equal(await card.locator(".mes-aanmeldmerk").innerText(), "MES · Manufacturing Execution System");
+    const css = await card.evaluate(el => ({ bg: getComputedStyle(el).backgroundColor, top: getComputedStyle(el).borderTopColor, radius: getComputedStyle(el).borderTopLeftRadius, width: el.getBoundingClientRect().width }));
+    assert.equal(css.bg, "rgb(255, 255, 255)");
+    assert.equal(css.top, "rgb(11, 46, 89)");
+    assert.equal(css.radius, "8px");
+    assert.ok(css.width <= 440);
+    assert.equal(await card.locator("input[type=password]").getAttribute("autocomplete"), "current-password");
+  };
   await page.goto(origin + "/portaal/#/login");
+  await checkAanmeldkaart();
   await set(page, { "portaal.token": A, "invoer.pc": "PC-01" });
   await landing(["invoer", "kwaliteit"]);
   console.log("OK P01/P02: kwaliteitsprojectie, identieke portalsets");
@@ -81,6 +94,9 @@ try {
   assert.equal(exchanges, before+1);
   assert.equal(await stored(page,"invoer.token"), null);
   assert.equal(await stored(page,"invoer.operatornaam"), null);
+  await checkAanmeldkaart();
+  assert.ok((await page.locator(".mes-aanmeldcontext").innerText()).includes("PC-01"));
+  console.log("OK 139.3a: gedeelde aanmeldkaart op beide frontends");
   console.log("OK P05: oude invoersessie gewist; geweigerde binding geen terugval");
   await landing(["invoer","kwaliteit"]);
   // Bewaar een geldige keuze, maar stop de standaardnavigatie om de randgevallen te testen.
