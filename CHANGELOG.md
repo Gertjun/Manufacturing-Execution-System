@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.4c): gedeelde documentatierenderer voor fysieke/conceptuele ERD en vier procesdiagrammen; strikte bronverwerking, vaste witte achtergrond en Graphviz-herhaalbaarheidscontrole.
+
 - #139 (139.4c): roadmapdiagram als reproduceerbare SVG met vaste lichte achtergrond en aparte labels; Gantt-bron behouden voor onderhoud.
 
 - #139 (139.4b): Gantt met alle fasen en expliciete acceptatiepoort, B+-architectuur-, recept- en migratiediagrammen, broncontractcontrole; geen domeinwijziging.

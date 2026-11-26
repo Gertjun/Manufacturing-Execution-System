@@ -642,3 +642,5 @@ Documentatiecontrole workflow 391 op 9b4cb1e geslaagd inclusief roadmapstap. D11
 139.4c: documentatiecontrole 414 (45794854265) groen; opdrachtgever constateert onleesbare GitHub-dark-mode Gantt. Statische SVG met vaste lichte achtergrond en afzonderlijke bewerkbare bron, reproduceerbaarheidscontrole toegevoegd. Werkelijke GitHub-weergave en overige diagrammen nog te controleren; 140.1 volgt pas na afhandeling.
 
 139.4c vervolg: CI 415 (45795707323) op 6816103 faalde vóór inhoudelijke controle door test_roadmap.sh mode 100644. Uitvoerpermissie hersteld naar 100755, lege Gantt-bron expliciet geweigerd. Chrome-renderregressie controleert SVG-tekstoverlap, grenzen en vaste kleuren in beide kleurmodi; CI volgt. Geen GitHub-UI- of overige diagramacceptatie geclaimd.
+
+139.4c: CI 416 (45795962235) groen op 4993bba. Gedeelde Graphviz-renderer toegevoegd, controle van node/edge-aantallen, vaste witte achtergrond en dubbele rendervergelijking; CI volgt. Geen gepubliceerde technische SVG's of visuele acceptatie geclaimd zolang uitvoer niet gecontroleerd is.

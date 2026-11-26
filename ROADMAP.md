@@ -333,3 +333,5 @@ Checklist voor iedere kandidaat:
 
 Nieuwe legacywensen zonder aangetoonde noodzaak en architectuurfit komen eerst hier. Strijdige implementatievormen niet overnemen. Onveilige of architectuurstrijdige bestaande interfaces volgens D99 beoordelen en beveiligen/uitfaseren; geen automatische verwijdering van werkende functionaliteit of data. Noodzakelijke beveiligingscorrecties niet parkeren. Eerdere geaccepteerde fasen en historisch bewijs blijven ongewijzigd.
 
+
+139.4c vervolg: documentatiecontrole 416 op 4993bba groen inclusief Chrome-roadmap in beide thema's en SQL-hergeneratie. Gedeelde Graphviz-renderer voor zes bestaande Mermaid-bronnen toegevoegd; strikte parser, behoud van alle getekende relaties/cardinaliteiten en witte achtergrond, herhaalbaarheidscontrole in CI. SVG-publicatie en browsercontrole van zes diagrammen volgen na groene rendercontrole; geen nieuwe MES-runtimeafhankelijkheid.

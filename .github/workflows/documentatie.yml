@@ -3,10 +3,10 @@ name: Documentatiecontrole
 on:
   push:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs]
+    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs, tools/render_diagrams.py, 'docs/mes/**']
   pull_request:
     branches: [main]
-    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs]
+    paths: [ROADMAP.md, CHANGELOG.md, docs/DATABASE.md, tools/schema_plaatje.py, 'docs/diagrams/**', tools/roadmap_diagram.py, tests/roadmap-render.mjs, tools/render_diagrams.py, 'docs/mes/**']
 
 permissions:
   contents: read
@@ -43,7 +43,7 @@ jobs:
           toegelaten = set(["README.md","CLAUDE.md","DECISIONS.md","ROADMAP.md","CHANGELOG.md","docs/DATABASE.md","docs/PRAKTIJKTESTS.md","docs/SERVER.md","tools/pakket/README.md","docs/mes/ACCEPTANCE-CRITERIA.md","docs/mes/BLUEPRINT.md","docs/mes/DATA-MODEL.md","docs/mes/ISA-CONFORMANCE.md","docs/mes/MBR-EBR-DESIGN.md","docs/mes/MIGRATION-STRATEGY.md","docs/mes/ROLES-AND-PROCESSES.md","docs/mes/TERMINOLOGY.md","docs/mes/VISUAL-STYLE.md"])
           bestanden = set(pathlib.Path("/tmp/docs-wijzigingen").read_bytes().decode().split("\0")) - {""}
           alleen_docs = bool(bestanden) and bestanden <= toegelaten
-          roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md", "tools/roadmap_diagram.py", "docs/diagrams/roadmap.mmd", "docs/diagrams/roadmap.svg", "tests/roadmap-render.mjs"})
+          roadmap = bool(bestanden & {"ROADMAP.md", "CHANGELOG.md", "tools/roadmap_diagram.py", "docs/diagrams/roadmap.mmd", "docs/diagrams/roadmap.svg", "tests/roadmap-render.mjs", "tools/render_diagrams.py"}) or any(p.startswith("docs/mes/") for p in bestanden)
           diagram = bool(bestanden & {"docs/DATABASE.md", "tools/schema_plaatje.py"})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print(f"roadmap={str(roadmap).lower()}", file=f)
@@ -67,6 +67,13 @@ jobs:
         run: |
           npm ci --prefix portaal --ignore-scripts
           node tests/roadmap-render.mjs
+      - name: Render zes technische diagrammen (Graphviz)
+        if: steps.wijzigingen.outputs.roadmap == 'true'
+        run: |
+          command -v dot || { sudo apt-get update && sudo apt-get install -y graphviz; }
+          python3 tools/render_diagrams.py /tmp/mes-diagrams
+          python3 tools/render_diagrams.py /tmp/mes-diagrams-repeat
+          diff -r /tmp/mes-diagrams /tmp/mes-diagrams-repeat
           V="$(cat VERSIE)"
           grep -q "^## $V " CHANGELOG.md
   diagram:
