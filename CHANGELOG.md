@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.3i-a): zes D64-formaten in componentregressie, Engineering-routes in bestaande echte formaatregressie; tijdelijke wachtwoordkeuze, mobiele versie en grafieklegenda gecorrigeerd. Integrale verificatie volgt.
+
 - #139 (139.3h): Beheer B+ met definitie- en gebeurteniskaarten, uniforme serverstatus, stapnavigatie en rode omlijnde deactivatieknoppen; bestaande bevestigingen en autorisaties ongewijzigd. Componentregressies toegevoegd.
 
 - #139 (139.3g): Planning B+ en centraal grafiekpalet C; zachte sigma-/trendzones, krachtige contouren, bestaande arcering en statuslogica behouden. Gerichte contrast- en componentregressies uitgebreid.

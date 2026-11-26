@@ -32,7 +32,7 @@ const ROUTES = {
     "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/hulp", "#/wachtwoord"],
   planner1: ["#/planning/week", "#/planning/dag", "#/planning/overzicht", "#/planning/route", "#/planning/lots", "#/planning/producten", "#/planning/capaciteit"],
   beheerder1: ["#/beheer/accounts", "#/beheer/pcs", "#/beheer/logboek", "#/beheer/server"],
-  "mes.engineer": ["#/beheer/stappen", "#/beheer/grondstoffen"],
+  "mes.engineer": ["#/engineering/overzicht", "#/engineering/materialen", "#/engineering/eenheden", "#/engineering/recepten", "#/engineering/beoordelingen", "#/beheer/stappen", "#/beheer/grondstoffen"],
   productiemanager1: ["#/beheer/operators", "#/beheer/ploegen", "#/beheer/oorzaken", "#/kwaliteit/herbewerkingen"],
   scherm1: ["#/wandscherm"],
 };
@@ -132,6 +132,7 @@ try {
       await page.locator("#scherm .kop h1").waitFor();
       await page.waitForFunction(() => location.hash === "#/stap/PS16" && document.querySelector("#scherm .kop h1")?.textContent !== "PS16" && !!document.querySelector("#scherm .kop h1") && !document.querySelector("#scherm .laden"));
       await page.getByRole("button", { name: "Meer" }).click();
+      check("Meer toont leesbare versie", await page.locator(".meer-paneel .mes-versie").isVisible() && await page.locator(".meer-paneel .mes-versie").evaluate(el => (() => { const probe = document.createElement("span"); probe.style.color = "var(--inkt-zacht)"; el.append(probe); const match = getComputedStyle(el).color === getComputedStyle(probe).color; probe.remove(); return match; })()));
       check("Meer toont Hulp en Afmelden",
         await page.locator(".meer-paneel").getByRole("button", { name: "Afmelden" }).isVisible()
         && await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).isVisible());

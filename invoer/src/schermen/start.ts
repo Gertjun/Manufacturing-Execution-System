@@ -95,7 +95,8 @@ export function loginScherm() {
 /** Na een tijdelijk wachtwoord: een eigen wachtwoord kiezen; geeft het nieuwe inlogantwoord. */
 function eigenWachtwoord<T>(tijdelijkToken: string, tijdelijk: string): Promise<T> {
   return new Promise((klaar) => {
-    toon(
+    toon(h("div", { class: "mes-aanmeldkaart" },
+      h("p", { class: "mes-aanmeldmerk" }, "MES · Manufacturing Execution System"),
       h("h1", {}, "Kies een eigen wachtwoord"),
       h("p", { class: "sub" }, "Je hebt een tijdelijk wachtwoord van de beheerder gekregen. Kies nu een wachtwoord dat alleen jij weet; daarna ga je verder."),
       wachtwoordFormulier({
@@ -108,7 +109,7 @@ function eigenWachtwoord<T>(tijdelijkToken: string, tijdelijk: string): Promise<
           }
         },
       }),
-    );
+    ));
     (document.getElementById("ww-nieuw") as HTMLInputElement | null)?.focus();
   });
 }

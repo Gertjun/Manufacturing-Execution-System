@@ -12,8 +12,8 @@ try {
     const files = (await readdir(dir)).filter(f => f.endsWith(".css"));
     assert.ok(files.length, frontend + ": geen gebouwde CSS");
     const css = (await Promise.all(files.map(f => readFile(new URL(f, dir), "utf8")))).join("\n");
-    for (const width of [390, 1280]) {
-      const page = await browser.newPage({ viewport: { width, height: 900 } });
+    for (const [width, height] of [[390,844],[844,390],[820,1180],[1180,820],[1280,800],[1440,900]]) {
+      const page = await browser.newPage({ viewport: { width, height } });
       try {
         await page.setContent('<main id="scherm"><h1>Test</h1><button id="primary" class="knop knop-hoofd">Opslaan</button> <button id="secondary" class="knop">Bekijken</button> <button id="danger" class="knop knop-gevaar">Intrekken</button> <button id="disabled" class="knop knop-hoofd" disabled>Niet mogelijk</button><section class="mes-kaart mes-kaart-uitvoering">Uitvoering</section><span class="label label-ok">Binnen grenzen</span><span class="label label-buiten_grens">Buiten grens</span><dialog class="venster"><h2>Invoer</h2><form class="vraag"><label>Waarde<input type="text"></label></form></dialog></main>');
         await page.addStyleTag({ content: css });
@@ -63,7 +63,7 @@ try {
           await eq(".rk-spec", "stroke", "rgb(179, 38, 30)");
           await eq(".rk-grens", "strokeDasharray", "6px, 4px");
           console.log("OK 139.3f: kwaliteitskaarten, specificaties en regelgrenzen", width);
-          await page.locator("#scherm").evaluate(el => { el.innerHTML = '<section class="blok planning-kaart planning-open">Lotvoorstel</section><section class="blok planning-definitie">Capaciteit</section><section class="dagkaart te-vol">Te vol</section><div class="legenda"><i class="blokje reeks-tol"></i></div><svg class="regelkaart" xmlns="http://www.w3.org/2000/svg"><rect class="rk-zone-1"/><rect class="rk-zone-2"/><rect class="rk-zone-3"/><path class="reeks-1"/><path class="tolerantielijn"/></svg>'; });
+          await page.locator("#scherm").evaluate(el => { el.innerHTML = '<section class="blok planning-kaart planning-open">Lotvoorstel</section><section class="blok planning-definitie">Capaciteit</section><section class="dagkaart te-vol">Te vol</section><div class="legenda"><i class="blokje reeks-tol"></i></div><svg class="regelkaart" xmlns="http://www.w3.org/2000/svg"><rect class="rk-zone-1"/><rect class="rk-zone-2"/><rect class="rk-zone-3"/><path class="reeks-1"/><path class="tolerantielijn"/></svg><i class="leg-lijn leg-tol"></i><i class="leg-lijn leg-setting"></i>'; });
           await eq(".planning-open", "borderLeftWidth", "6px");
           await eq(".planning-open", "borderTopColor", "rgb(242, 140, 40)");
           await eq(".planning-definitie", "borderTopColor", "rgb(11, 46, 89)");
@@ -74,6 +74,8 @@ try {
           await eq(".rk-zone-3", "fill", "rgb(251, 236, 236)");
           await eq(".reeks-1", "fill", "rgb(101, 136, 178)");
           await eq(".tolerantielijn", "stroke", "rgb(163, 95, 0)");
+          await eq(".leg-lijn.leg-tol", "borderTopColor", "rgb(163, 95, 0)");
+          await eq(".leg-lijn.leg-setting", "borderTopColor", "rgb(107, 119, 133)");
           console.log("OK 139.3g: planning en grafiekpalet C", width);
           await page.locator("#scherm").evaluate(el => { el.innerHTML = '<div class="beheer-indeling"><nav class="stappenlijst"><a aria-current="page">Stap</a></nav><section class="blok formulier-blok beheer-definitie"><label>Naam<input type="text"></label></section></div><div class="tegel beheer-gebeurtenis nadruk"><span class="tegel-getal">Back-up</span></div><ul class="serverstatus"><li class="status-fout">Actie nodig</li><li class="status-let_op">Let op</li></ul>'; });
           await eq(".beheer-definitie", "borderTopColor", "rgb(11, 46, 89)");

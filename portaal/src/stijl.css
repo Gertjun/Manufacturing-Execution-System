@@ -829,8 +829,8 @@ a.merk:hover { text-decoration: underline; }
 .rk-leg-punt { background: var(--mes-structuur); }
 .rk-leg-signaal { background: var(--grens); }
 .rk-leg-spec, .leg-lijn { border-top-color: var(--grens); }
-.leg-lijn.tolerantielijn { border-top-color: var(--tol); }
-.leg-lijn.setting { border-top-color: var(--mes-grafiek-setting); }
+.leg-lijn.leg-tol { border-top-color: var(--tol); }
+.leg-lijn.leg-setting { border-top-color: var(--mes-grafiek-setting); }
 @media screen {
   .planning-kaart, .planning-definitie, .dagkaart { border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
   .planning-kaart, .dagkaart { border-top: 3px solid var(--mes-uitvoering); }
