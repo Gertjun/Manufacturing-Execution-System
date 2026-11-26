@@ -1,11 +1,12 @@
-# MES visuele ontwerpstandaard — v1 (ontwerpbaseline)
+# MES visuele ontwerpstandaard — v2 (goedgekeurde variant B+)
  
-Bron: D107, D50, D63, D64, D70 en D105/D111. ISA-88/95 en goedgekeurde architectuur blijven leidend; vormgeving wijzigt geen rechten, processen of fysieke relaties.
+Bron: D114, D107, D50, D63, D64, D70 en D105/D111. ISA-88/95 en goedgekeurde architectuur blijven leidend; vormgeving wijzigt geen rechten, processen of fysieke relaties.
 
 | Tokenconcept | Kleur | Betekenis |
 |---|---|---|
 | Structuur | #0B2E59 | Titels, definities, masterdata, recepten, specificaties, rollen |
-| Uitvoering | #F28C28 | Actie, proces, batches, metingen, besluiten |
+| Uitvoering | #F28C28 | Functionele accenten, proces, batches, metingen, besluiten |
+| Interactief oranje | #B45309 | Primaire actie: tekst, rand en icoon op wit |
 | Structuurvlak | #E7EEF6 | Structurele blokken |
 | Uitvoeringsvlak | #FDEBD9 | Uitvoeringsblokken |
 | Achtergrond | #F4F7F9 | Algemeen |
@@ -35,7 +36,7 @@ Berekend met sRGB relatieve luminantie en (Lmax + 0,05)/(Lmin + 0,05). Normale t
 | wit #FFFFFF | structuur #0B2E59 | 13,55 | navigatie/titel |
 | structuur #0B2E59 | lichtblauw #E7EEF6 | 11,59 | structuurkaart |
 | structuur #0B2E59 | achtergrond #F4F7F9 | 12,60 | titel |
-| inkt #1B2430 | actie #F28C28 | 6,38 | primaire actie |
+| inkt #1B2430 | uitvoering #F28C28 | 6,38 | diagram / functioneel accent, geen standaard knop |
 | wit #FFFFFF | actie #F28C28 | 2,45 | verboden voor normale tekst |
 | inkt #1B2430 | lichtoranje #FDEBD9 | 13,46 | uitvoeringskaart |
 | amber #A35F00 | wit #FFFFFF | 5,01 | waarschuwingstekst |
@@ -49,7 +50,17 @@ Berekend met sRGB relatieve luminantie en (Lmax + 0,05)/(Lmin + 0,05). Normale t
 | donkerdisplay #10161F | tekst #F3F5F7 | 16,61 | bestaande displayvariant |
 | amber #FFB547 | donkerdisplay #10161F | 10,33 | waarschuwing op donker |
 
-Tokencontract voor 139.2: aparte structuur-, uitvoerings-, actie-, actie-tekst-, focus-, selectie-, status- en printtokens. Primaire actie oranje met donkere tekst en voldoende donkere rand waar de grens noodzakelijk is; secundaire actie neutraal met donkere tekst/rand; destructieve actie rood met tekst en bevestiging waar bestaande bedrijfsregel dat vereist. Geen oranje focusring op wit. Focus op donkere navigatie afzonderlijk contrasterend ontwerpen. Niet één globale op-kleur gebruiken voor alle actievlakken. Status amber/groen/rood blijft onderscheiden van reguliere actie, altijd label/symbool; geel voor wacht/knelpunt blijft als bestaande aparte betekenis te toetsen. Geen statusverandering door stijlaanpassing.
+Tokencontract voor 139.2: aparte structuur-, uitvoerings-, actie-, actie-tekst-, focus-, selectie-, status- en printtokens. Primaire actie wit met #B45309 tekst en rand, hover lichtoranje #FDEBD9; secundaire actie wit met donkerblauwe tekst en rand; destructieve actie wit met rode tekst en rand en bevestiging waar bestaande bedrijfsregel dat vereist. Geen oranje focusring op wit. Focus op donkere navigatie afzonderlijk contrasterend ontwerpen. Niet één globale op-kleur gebruiken voor alle actievlakken. Status amber/groen/rood blijft onderscheiden van reguliere actie, altijd label/symbool; geel voor wacht/knelpunt blijft als bestaande aparte betekenis te toetsen. Geen statusverandering door stijlaanpassing.
+
+## Variant B+ (D114, goedgekeurd)
+- Donkerblauwe hoofd- en linkernavigatie; actieve route wit tekstlabel op #1C416C met 3 px oranje zijaccent en aria-current. Geen volledig oranje of wit actief menu-item.
+- Werkruimte #F4F7F9; witte kaarten met dunne neutrale rand en betekenisvol blauw/oranje accent, bijvoorbeeld 3 px bovenrand. Oranje accent op wit is aanvullend, niet de enige betekenisdrager. Lichtblauw voor tabelkoppen; subtiele afwisseling witte en #F8FAFB rijen, lichte horizontale scheidingen, geen zware rasterlijnen.
+- Primaire, secundaire en destructieve knoppen omlijnd zoals tokencontract. Hover licht getint, focus onafhankelijk zichtbaar, disabled herkenbaar zonder actieve schijn. Geen kleur als enige indicatie; behoud bestaande bediening en labels.
+- Compacte statuslabels met betekenisvol icoon en tekst, geen groot kleurvlak in gewone tabelrijen. Kritieke veiligheidsmeldingen, blokkades en ernstige afwijkingen behouden opvallende gekleurde achtergrond, passende tekst/iconen en voldoende contrast. Een review die enkel in behandeling is, is geen waarschuwing of fout; label de werkelijke toestand.
+- Hoekradius doorgaans 4–8 px, dunne randen, minimale schaduw alleen waar functioneel (bijv. dialoogvenster). Uniforme lijniconen; tekstlabels behouden. Geen eigen basiskleur per portaal. Atkinson Hyperlegible en bestaande aanraakdoelen blijven.
+- Technische documentatie, procesdiagrammen, ERD en naslagwerk behouden volledig gekleurde semantische blokken D107. Zakelijke UI gebruikt kleur selectief, geen wijziging van diagramsemantiek.
+
+Aanvullende berekende contrastwaarden (sRGB): interactief oranje #B45309 op wit 5,02:1, op lichtoranje 4,32:1; wit op actief navigatievlak #1C416C 10,39:1; oranje #F28C28 op #1C416C 4,23:1. Toets daadwerkelijke focus/randen en samengestelde vlakken tijdens implementatie.
 
 ## Componentcontract
 - Schermkop: herkenbare portaalnaam, paginatitel links, context (product/revisie/batch) en acties rechts; op smal scherm stapelen. Navigatie toont actieve route ook tekstueel en met aria-current. Geen verborgen bevoegde portalen door legacy-rolnaam.

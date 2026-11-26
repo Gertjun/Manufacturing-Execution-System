@@ -594,3 +594,7 @@ CI-bevinding: workflow 389 was groen maar de roadmapstap overgeslagen wegens gem
 ### 145.1 afsluiting en 139.1 ontwerpbaseline
 
 Documentatiecontrole workflow 390 op 4869f70 geslaagd, inclusief roadmapstap; architectuur-/bestandsinventarisatie afgerond. D113: Production Execution gelijkwaardig portaal binnen één MES. VISUAL-STYLE.md v1 bevat berekende sRGB-contrastmatrix, token-/componentcontract en ontwerpcriteria; geen schermmeting of WCAG-conformiteitsbewijs. 138.1 moet technische frontendgrens beoordelen zonder offline/securityregressie. CI voor deze documentatiestap nog open.
+
+### 139.1 — goedgekeurde variant B+
+
+Documentatiecontrole workflow 391 op 9b4cb1e geslaagd inclusief roadmapstap. D114: B+ door opdrachtgever goedgekeurd; VISUAL-STYLE.md v2 is de ontwerpbaseline. Toets in 139.2–4 omlijnde knoppen, hover/focus, actieve navigatie, witte kaarten en subtiele accenten, rustige tabellen, compacte statuslabels en opvallende kritieke meldingen, 4–8 px radius, print en zes formaten. Behoud werkelijke statussemantiek en autorisaties; geen contrast- of WCAG-conformiteitsclaim op basis van kleurmatrix alleen. CI op v2 nog open.

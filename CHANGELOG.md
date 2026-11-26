@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.1): goedgekeurde zakelijke variant B+ (D114) vastgelegd in VISUAL-STYLE.md v2; aanvullende contrastwaarden. Implementatie volgt in 139.2; CI nog te verifiëren.
+
 - #139 (139.1): ontwerpbaseline v1 met berekende contrastmatrix, componentcontract en één MES-gebruikersomgeving (D113); geen UI-implementatie, CI nog te verifiëren.
 
 - #145: technische bestands-/architectuurinventarisatie afgerond; roadmapcontrole ook bij gemengde PR's, uitvoering nog te verifiëren.

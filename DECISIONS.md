@@ -697,3 +697,7 @@ Op 26 november 2026 heeft de opdrachtgever de branchstrategie gewijzigd: technis
 ## D113 – Eén MES-gebruikersomgeving (26 november 2026)
 
 Opdrachtgever bevestigt: vanuit het perspectief van de gebruiker geen onderscheid tussen twee applicaties; Production Execution is gewoon een portaal binnen hetzelfde MES, net zoals Kwaliteit of Process Engineering. Gelijke herkenbare aanmelding, portalkeuze, navigatie en huisstijl; technische frontendgrens in 138.1 beoordelen, geen samenvoeging vooraf besloten. Offlinefunctionaliteit, werkstationbinding, scanner, persoonlijke autorisatie en noodzakelijke herbevestiging behouden. D107 ontwerpbaseline in VISUAL-STYLE.md; WCAG 2.2 AA technisch toetskader, geen formele conformiteitsclaim. Geen domeinuitbreiding.
+
+## D114 – Zakelijke MES-huisstijl B+ (26 november 2026)
+
+Opdrachtgever keurt variant B+ goed. Donkerblauwe hoofd-/linkernavigatie, actieve route met subtiel oranje zijaccent; witte omlijnde primaire (contrasterend oranje #B45309), secundaire (donkerblauw) en destructieve (rood) knoppen; witte informatiekaarten met betekenisvol accent, rustige tabellen met lichtblauwe koppen, compacte statusiconen met tekst, grotere kleurvlakken voor kritieke meldingen, 4–8 px radius, minimale functionele schaduw, uniforme lijniconen. D107-palet en betekenis blijven voor diagrammen/documentatie behouden. VISUAL-STYLE.md v2 vervangt uitsluitend tegenstrijdige UI-voorstellen uit v1; D113, offline, security, domeinscope en acceptatiepoorten ongewijzigd.
