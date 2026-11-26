@@ -42,6 +42,19 @@ try {
         await page.locator("dialog").evaluate(e => e.showModal());
         await eq(".venster", "borderTopLeftRadius", "8px");
         await eq(".vraag input", "borderTopLeftRadius", "4px");
+        if (frontend === "portaal") {
+          await page.locator("dialog").evaluate(e => e.close());
+          await page.locator("#scherm").evaluate(el => { el.innerHTML = '<section class="blok operations-kaart"><div class="tegel operations-cijfer"><span class="tegel-getal">12</span></div><a class="staptegel open-acties">1 bezig</a><a class="staptegel knelpunt open-acties">5 klaar</a><a class="staptegel leeg-stap">Niets klaar</a></section>'; });
+          await eq(".operations-kaart", "borderTopColor", "rgb(242, 140, 40)");
+          await eq(".operations-cijfer", "borderTopWidth", "3px");
+          await eq(".operations-cijfer .tegel-getal", "color", "rgb(11, 46, 89)");
+          await eq(".staptegel.open-acties:not(.knelpunt)", "borderLeftWidth", "3px");
+          await eq(".staptegel.open-acties:not(.knelpunt)", "borderLeftColor", "rgb(31, 95, 191)");
+          await eq(".staptegel.knelpunt", "borderTopColor", "rgb(242, 140, 40)");
+          assert.ok((await style(".staptegel.knelpunt","boxShadow")).includes("rgb(242, 194, 0)"));
+          await eq(".staptegel.leeg-stap", "backgroundColor", "rgba(0, 0, 0, 0)");
+          console.log("OK 139.3e: operationele kaarten en knelpunten", width);
+        }
         if (frontend === "invoer") {
           await page.locator("dialog").evaluate(e => e.close());
           await page.locator("#scherm").evaluate(el => { el.innerHTML = '<a class="tegel bezig">Stap 1 · bezig</a><a class="tegel leeg">Stap 2 · niets klaar</a><div class="veld" data-markering="buiten_tolerantie"><div class="veld-code">Temperatuur</div><div class="veld-invoer"><label>Gemeten<input type="text"></label></div><span class="label label-buiten_tolerantie">Buiten tolerantie</span></div><div class="veld" data-markering="buiten_grens">Buiten grens</div><div class="rij wachtrij-fout">Geweigerd</div>'; });

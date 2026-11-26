@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.3e): Manufacturing Operations B+ voor operationele kaarten, KPI-tegels, open werk en knelpunten; bestaande cijfers, grafieklegenda en statuslogica behouden. Tabelhover hersteld. Gerichte regressies toegevoegd.
+
 - #139 (139.3d): goedgekeurde variant B voor openstaande acties: blauwe linkerrand van 3 px via gedeelde token, bovenaccent en alarmmarkeringen behouden; regressie op breedte en radius toegevoegd.
 
 - #139 (139.3d): Production Execution B+ met uitvoeringstegels, meetveldvormgeving, afzonderlijke tolerantie-/grensmarkering en wachtrijstatus. Actieve selectie weer blauw; bestaande bediening en offline logica ongewijzigd. Gerichte Chrome-componentregressie uitgebreid.

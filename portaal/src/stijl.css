@@ -95,7 +95,7 @@ select, textarea, input[type="text"], input[type="password"], input[type="number
 .tabel.compact td { padding: var(--space-2) var(--space-2); font-size: var(--text-md); }
 @media screen {
   .tabel thead th { background: var(--mes-structuur-vlak); }
-  .tabel tbody tr:nth-child(even):not([class]) { background: var(--mes-tabel-rij); }
+  .tabel tbody tr:nth-child(even):not([class]):not(:hover) { background: var(--mes-tabel-rij); }
 }
 .tabel tbody tr:hover { background: var(--vlak-2); }
 .tabel td .getal { display: block; text-align: right; }
@@ -776,4 +776,20 @@ a.merk:hover { text-decoration: underline; }
   .engineering-boom > li { margin-block: var(--space-2); }
   .engineering-kaart pre { max-width: 100%; overflow-wrap: anywhere; }
   @media (max-width: 599px) { .engineering-paneel { padding: var(--space-2); } .engineering-boom { padding-inline-start: var(--space-2); } }
+}
+
+/* 139.3e Manufacturing Operations: uitvoering zichtbaar, knelpunten blijven waarschuwingen. */
+@media screen {
+  .operations-kaart, .operations-cijfer { border-top: 3px solid var(--mes-uitvoering); border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
+  .operations-cijfer .tegel-getal { color: var(--mes-structuur); }
+  a.operations-cijfer:hover { border-top-color: var(--mes-uitvoering); }
+  .staptegel { border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
+  .staptegel:not(.leeg-stap) { border-top: 3px solid var(--mes-uitvoering); }
+  .staptegel.open-acties:not(.knelpunt) { border-left: var(--mes-open-acties-accent) solid var(--actie); }
+  .staptegel:not(.leeg-stap) .nr { color: var(--mes-structuur); }
+  .staptegel.knelpunt { border-top: 3px solid var(--mes-uitvoering); }
+  .route-scroll { border-radius: var(--mes-kaart-radius); }
+  .route-tabel thead th { background: var(--mes-structuur-vlak); }
+  .operations-kaart .tabel-kader { max-width: 100%; }
+  .operations-kaart .meer > summary { min-height: var(--doel-min); cursor: pointer; }
 }
