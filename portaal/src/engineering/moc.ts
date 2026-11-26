@@ -121,10 +121,10 @@ export function mocPane(version:Version,versions:Version[],current:()=>boolean,r
               h("p",{class:"sub"},["added","removed","changed"].map(k=>changeLabels[k]+": "+index.differences.filter(x=>x.change===k).length).join(" · ")),
               ...grouped.map(a=>h("details",{},h("summary",{},areaNames(a)+" ("+index.differences.filter(x=>x.area===a).length+")"),
                 h("ul",{},...index.differences.filter(x=>x.area===a).map(x=>h("li",{},(changeLabels[x.change]??x.change)+" · "+x.entity+" · "+x.item_key))))),
-              index.differences.length?null:h("p",{class:"leeg"},"Geen inhoudelijke verschillen."),
+              ...(index.differences.length?[]:[h("p",{class:"leeg"},"Geen inhoudelijke verschillen.")]),
               h("details",{},h("summary",{},"Exacte voor-/na-gegevens (server-JSON)"),
                 h("p",{class:"sub"},"Originele servertekst, zonder numerieke herinterpretatie of afronding. Bevat alle voor-/na-waarden en sleutels."),
-                h("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},raw.comparison_text)),editable?submissionForm(matrix):null);
+                h("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},raw.comparison_text)),...(editable?[submissionForm(matrix)]:[]));
           }catch(e){if(active())result.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
           finally{reading=false;}
         }

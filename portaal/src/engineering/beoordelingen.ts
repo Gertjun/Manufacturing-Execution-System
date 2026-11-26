@@ -142,7 +142,7 @@ export async function beoordelingen(){
                 h("h5",{},"Geregistreerde besluiten"),
                 ...dossier.decisions.map(d=>h("div",{},h("p",{},name(d.domain)+" · "+(d.decision==="approve"?"Goedgekeurd":"Afgewezen")+" · "+d.decided_at),
                   h("p",{},d.reason),h("p",{class:"sub"},"Beoordelaar: "+d.reviewer_id))),
-                dossier.decisions.length?null:h("p",{class:"leeg"},"Nog geen besluiten."),
+                ...(dossier.decisions.length?[]:[h("p",{class:"leeg"},"Nog geen besluiten.")]),
                 pending.length?decisionForm():h("p",{class:"sub"},"Geen actuele persoonlijke beoordelingsactie beschikbaar. Goedkeuring is geen formele vrijgave."),releasePane());
             }catch(e){if(active())detail.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
             finally{reading=false;}
