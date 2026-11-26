@@ -23,7 +23,7 @@ on:
       - 'docs/mes/VISUAL-STYLE.md'
       - 'tools/pakket/README.md'
   pull_request:
-    branches: [main, feature/mes-phase-2]
+    branches: [main]
     paths-ignore:
       - 'README.md'
       - 'CLAUDE.md'
