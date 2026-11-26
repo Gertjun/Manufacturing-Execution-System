@@ -51,7 +51,7 @@ permissions:
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
-  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || 'ontwikkeling' }}
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || github.event.label.name == 'scherm-test' && 'schermen' || 'ontwikkeling' }}
   cancel-in-progress: true
 
 jobs:
@@ -96,6 +96,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
@@ -164,6 +169,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
@@ -275,6 +285,68 @@ jobs:
             echo '::endgroup::'
           done
 
+  screen-regression:
+    name: Gerichte Chrome-schermregressies (Node.js 26)
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'scherm-test'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: batchgui
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Geteste tree vastleggen
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
+          git rev-parse 'HEAD^{tree}'
+      - name: Node.js 26 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
+      - name: Afhankelijkheden en builds voorbereiden
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          for m in api invoer portaal; do (cd "$m" && npm ci --no-audit --no-fund); done
+          npm run build --prefix invoer
+          npm run build --prefix portaal
+      - name: Schermtests in Chrome (invoerscherm, portalen)
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
+        run: |
+          google-chrome --version
+          python3 -m pip install --quiet openpyxl pillow pyzbar
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
+          sh tests/test_schermen.sh
+      - name: Logboeken van de schermtests tonen
+        if: failure()
+        run: |
+          for log in /tmp/schermtest-*.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo '::endgroup::'
+          done
+
   database-baseline:
     name: Gerichte PostgreSQL-baseline (D100)
     if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'database-baseline'
@@ -360,6 +432,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Security- en beheertoolregressies
         if: always() && steps.node.outcome == 'success'
         run: node --test tests/security-tools.test.mjs tests/phase2-source-manifest.test.mjs
@@ -429,6 +506,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Pakketafhankelijkheden
         run: |
           npm ci --prefix api --no-audit --no-fund

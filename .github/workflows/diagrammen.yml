@@ -24,6 +24,12 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$HEAD"
           python3 tools/roadmap_diagram.py --check
+      - name: Node.js 22 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: portaal/package-lock.json
       - name: Roadmap SVG in Chrome (licht en donker)
         run: |
           npm ci --prefix portaal --ignore-scripts

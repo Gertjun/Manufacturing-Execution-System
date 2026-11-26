@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- D115: CI-optimalisatie met npm-lockbestandcache, annuleren van verouderde documentatieruns en afzonderlijk label `scherm-test` voor bestaande Chrome-regressies met echte fictieve PostgreSQL-backend. Volledige acceptatiesuite en acceptatiebewijs blijven ongewijzigd. Verificatie volgt.
+
 - #140 (140.1): de groepering, het accent en het label van offline-acties gebruiken dezelfde beoordelingsvoorwaarde. Browserregressie dekt de oudere herkomstfout, gewone serverweigering en afgeschermde herkomst. Process Engineering test een compleet fictief recept via persoonlijke API’s, drie onafhankelijke beoordelingen, formele vrijgave en intrekking via de interface, exacte revisie- en rondegegevens, historisch bewijs en alleen-lezen gedrag. Gericht lokaal geslaagd.
 
 - Documentatie-CI voert gewone bron-, link- en versiecontroles zonder browser uit. Volledige diagramgeneratie en Chrome draaien bij het label `acceptatie-test` of bij een gerichte diagramcontrole. De PostgreSQL-controle blijft actief bij wijzigingen aan het schema, de SQL-diagramgenerator of de schemaregressie.

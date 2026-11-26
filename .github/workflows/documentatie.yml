@@ -46,6 +46,10 @@ on:
       - 'tests/technical-diagrams-render.mjs'
       - 'docs/mes/**'
 
+concurrency:
+  group: documentatie-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
