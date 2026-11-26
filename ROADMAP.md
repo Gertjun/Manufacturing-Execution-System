@@ -335,3 +335,5 @@ Nieuwe legacywensen zonder aangetoonde noodzaak en architectuurfit komen eerst h
 
 
 139.4c vervolg: documentatiecontrole 416 op 4993bba groen inclusief Chrome-roadmap in beide thema's en SQL-hergeneratie. Gedeelde Graphviz-renderer voor zes bestaande Mermaid-bronnen toegevoegd; strikte parser, behoud van alle getekende relaties/cardinaliteiten en witte achtergrond, herhaalbaarheidscontrole in CI. SVG-publicatie en browsercontrole van zes diagrammen volgen na groene rendercontrole; geen nieuwe MES-runtimeafhankelijkheid.
+
+139.4c vervolg: documentatiecontrole 417 op 427a1e8 groen; fysieke ERD 94 nodes/132 getekende edges (203 FK in schema, bestaande actorfilter), conceptueel 20/17, architectuur 8/7, receptlevenscyclus 11/11, migratie 7/7, procesketen 10/9. Chrome-tekstcontrole in beide thema's en reviewartifact met zes SVG's toegevoegd; publicatie in Markdown en beoordeling van relatielabels/layout nog open.

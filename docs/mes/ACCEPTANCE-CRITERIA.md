@@ -644,3 +644,5 @@ Documentatiecontrole workflow 391 op 9b4cb1e geslaagd inclusief roadmapstap. D11
 139.4c vervolg: CI 415 (45795707323) op 6816103 faalde vóór inhoudelijke controle door test_roadmap.sh mode 100644. Uitvoerpermissie hersteld naar 100755, lege Gantt-bron expliciet geweigerd. Chrome-renderregressie controleert SVG-tekstoverlap, grenzen en vaste kleuren in beide kleurmodi; CI volgt. Geen GitHub-UI- of overige diagramacceptatie geclaimd.
 
 139.4c: CI 416 (45795962235) groen op 4993bba. Gedeelde Graphviz-renderer toegevoegd, controle van node/edge-aantallen, vaste witte achtergrond en dubbele rendervergelijking; CI volgt. Geen gepubliceerde technische SVG's of visuele acceptatie geclaimd zolang uitvoer niet gecontroleerd is.
+
+139.4c vervolg: CI 417 (45797149834) op 427a1e8 groen; zes SVG's tweemaal gelijk gegenereerd. Chrome controleert nu node-tekstoverlap, vaste achtergrond, inktkleur en positieve viewBox in beide kleurmodi; reviewartifact voor handmatige beoordeling toegevoegd. Geen claim dat alle relatielabels overlapvrij zijn of GitHub-weergave al aangepast is.

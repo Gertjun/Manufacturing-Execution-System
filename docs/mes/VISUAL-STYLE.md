@@ -91,3 +91,5 @@ Acht centrale CSS-viewports in `tests/screen-formats.mjs`: 390×844, 844×390, 8
 139.4c vervolg: browsercontrole roadmap-SVG in beide kleurmodi, vaste achtergrond, tekstkleur, overlap en tekstgrenzen. Dit is een lokale Chrome-render, niet de daadwerkelijke GitHub-UI. Overige Mermaid-diagrammen blijven apart open.
 
 139.4c: Graphviz als uitsluitend documentatie-renderengine voor de zes technische diagrammen; behoud Mermaid in Markdown als bron en SQL-generator voor fysieke ERD. `python3 tools/render_diagrams.py <uitvoermap>` genereert SVG. Geen stilzwijgend negeren van onbekende relationele syntaxis. Werkelijke layout, GitHub-insluiting en browsercontrole volgen na eerste renderbewijs.
+
+139.4c: succesvolle eerste render in CI 417. Reviewartifact `mes-technical-diagrams` bevat zes SVG's; Chrome controleert node-labels en achtergrond in beide kleurmodi. Relatielabels, grote ERD en GitHub-insluiting afzonderlijk beoordelen. Graphviz-versie kan layout tussen verschillende omgevingen beïnvloeden; dubbele generatie bewijst herhaalbaarheid binnen dezelfde omgeving.
