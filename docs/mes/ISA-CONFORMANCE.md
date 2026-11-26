@@ -43,3 +43,17 @@ D105: fase 3 is een projectmatige portal/UI-acceptatiepoort, geen nieuwe ISA-nor
 | Productieprestatie en historische analyse | ISA-95 Manufacturing Operations; ISO 22400 waar toepasselijk | 11 #144 | Eigen KPI- en analysetoepassing |
 
 Geen formele ISA-, ISO- of SI-conformiteitsclaim. Bij acceptatie per onderwerp de concrete normeditie/clausule, ondersteund concept versus projecteis, implementatiebewijs en afwijkingen afzonderlijk beoordelen.
+
+## Fase 2 / PR #7 — implementatiebewijs, geen normcertificering
+
+Bewijs 26 november 2026: integrale CI [#665](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45765379770), head `2ebc36e0e0316c3edb34535fbc9aefe97c5fc12d`, schema 0128, beide Node-suites en Chrome groen. Gerichte baseline [#671](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45770644723), head `c7dce4f789acf84926a4f2e4a68f3bd669432fd9`, schema 0129, job 139742179386, base voor beide `ea3b78bc938647140b4e228e9382761504518906`: 1174/1174 DB, 16/16 security/beheertools inclusief bronmanifest, 10/10 autorisatiemodule, 129/129 API, schone installatie, migratiegelijkheid, historische upgrade 0035→0129 (tien historische tabellen, geen automatische grants), herstel en Linux-pakket groen. Geen integrale CI op 0129 of Windows-praktijkacceptatie geclaimd.
+
+| Conceptuele normrelatie | Implementatie / testbewijs | Afbakening |
+|---|---|---|
+| ISA-95 materiaalmodel | #109 materiaalidentiteit en onveranderlijke revisies, DB/API-regressies | Werkelijke materiaalstatus, verbruik en genealogie later |
+| ISA-88 proceduremodel | #110/#103 procedure/unit procedure/operation/phase, versiegebonden relaties en afhankelijkheden, DB/API-regressies | Fysieke resourcecontext fase 4 en uitvoering fase 6 |
+| ISA-88 Master Recipe/formule | #111/#141 versiegebonden parameters, materiaalvereisten, instructies, eenheden en schaaldefinities | Control Recipe en rekenengine fase 6; onbewezen complexe regels blokkeren vrijgave |
+| Gecontroleerd receptbeheer | #112 D108/D109 MOC, onafhankelijke beoordeling, vrijgave, intrekking en historische selectie; #671 | MOC-matrix, wachtwoordherbevestiging en lotnorm zijn projectkeuzes, niet als letterlijke ISA-eis geclaimd |
+| ISA-95 operations-context | #113 native Engineering-portaal en gecontroleerde bronvoorbereiding | Geen volledige acht-activiteitenimplementatie; geen echte bronmigratie |
+
+De bovenste normmatrix blijft een ontwerp-/scopematrix; deze paragraaf legt technisch bewijs per concept vast. Concrete normeditie en clausuleverificatie ontbreken nog; geen formele ISA-, ISO- of SI-conformiteitsclaim. Definitieve integrale CI en technische acceptatie blijven open.

@@ -361,7 +361,7 @@ Op 25 november 2026 is fase 1 functioneel geaccepteerd binnen de fictieve PoC-sc
 
 W7: één tester simuleerde drie accounthouders; onderbreking met lege reden, hervatting gelukt, oorzaak niet vastgesteld. W8: oude noodsleutel geblokkeerd; diagnose alleen-lezen. Gecontroleerd herstel met onafhankelijke personen, persoonlijke database-login/TLS/provisioning/intrekking en herstelreconciliatie niet als operationeel bewezen. Fysieke apparatuur, fabrieksnetwerk, organisatorische maatregelen en echte pilot blijven open. Geen formele ISA-claim. Eerdere historische open-statusregels zijn geen actuele eindstatus. Releasevoorbereiding vereist nieuwe volledige CI, geen merge/publicatie zonder toestemming.
 
-## Fase 2 — geplande regressies (nog niet uitgevoerd)
+## Fase 2 — regressiecriteria en historische ontwikkelnotities
 
 | Werkpakket | Positief en negatief bewijs |
 |---|---|
@@ -372,7 +372,7 @@ W7: één tester simuleerde drie accounthouders; onderbreking met lege reden, he
 | #113 (D110) | Native Process Engineering-portaal: persoonlijke productscope, conceptmutaties en MOC/vrijgave; actuele en historische versies onderscheiden. Broninventarisatie, mapping-/validatieplan en fictieve representatieve fixtures; ongeldige of onbekende gegevens niet stilzwijgend omzetten, expliciete herkomst en eenheden, geen automatische vrijgave/verzonnen historische koppeling. Structurele Excel-import/export en specifieke legacy-importer geen fase-2-acceptatie-eis. Werkelijke bronmigratie vóór relevante pilotinzet afzonderlijk valideren. |
 | Overkoepelend | Persoonlijke actuele grants, productcontext uit vertrouwde records, negatieve API/DB/UI-tests (legacy-only, operator, technisch beheer, ingetrokken/verlopen of verkeerde scope); beperkte mes_app; schone installatie en upgrade 0095, behoud ID's en historie, herstel, schema-equivalentie en diagram. |
 
-Voor integrale acceptatie: audit en testreview, volledige Node 22/26 op actuele head/base, Windows-pakket en praktijktests, formele toestemming. Geen bewijs geclaimd. Exacte wijzigingstype/beoordelaarsmatrix en lotgrenzen vóór implementatie van betreffende regels aan goedgekeurde besluiten toetsen; open ontwerpkeuzes eerst voorleggen.
+Voor integrale technische acceptatie: audit en testreview, volledige Node 22/26 op actuele head/base en formele toestemming. Handmatige Windows-praktijktest gecombineerd met fase 3 volgens D111. Historische ontwikkelnotities hieronder behouden hun oorspronkelijke bewijsstatus; actuele resultaten staan in de afsluitende auditparagraaf. Exacte wijzigingstype/beoordelaarsmatrix en lotgrenzen vóór implementatie van betreffende regels aan goedgekeurde besluiten toetsen; open ontwerpkeuzes eerst voorleggen.
 
 0096 (#109, deel): geplande DB-regressies op unieke codes, unieke bronkoppelingen, revisie-FK/positieve revisienummers, twee naast elkaar bestaande versies, geweigerde update/delete en afwezigheid directe app-ACL. Geen uitvoering geclaimd. Bronmigratie en gecontroleerde persoonlijke functies volgen; diagram opnieuw genereren.
 
@@ -543,3 +543,19 @@ D110: bij scope- en integrale audit iedere nieuwe legacywens toetsen aan ISA-geb
 113.7b vervolg: operatorredirect en precieze headerformulierselector gecorrigeerd; afzonderlijke productscope, geweigerde toegang tot globale materiaalcatalogus en inhoudelijk geblokkeerde vrijgave na drie onafhankelijke goedkeuringen toegevoegd. Uitvoering nog open.
 
 113.7b: automatische bronmanifestregressie toegevoegd aan gerichte en integrale CI: 16 unieke fictieve gevallen, expliciete statussen en redenen, geen automatische vrijgave, behoud van NULL, exacte decimale tekst en historische correctiereferentie. Dit is manifestvalidatie, geen bewijs van uitgevoerde bronmigratie; DB/API-regressies toetsen afzonderlijk de operationele regels. Uitvoering nog open.
+
+## 113.7e — technische audit: actuele bewijsstatus
+
+Bewijs 26 november 2026: integrale CI [#665](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45765379770), head `2ebc36e0e0316c3edb34535fbc9aefe97c5fc12d`, schema 0128, beide Node-suites en Chrome groen. Gerichte baseline [#671](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45770644723), head `c7dce4f789acf84926a4f2e4a68f3bd669432fd9`, schema 0129, job 139742179386, base voor beide `ea3b78bc938647140b4e228e9382761504518906`: 1174/1174 DB, 16/16 security/beheertools inclusief bronmanifest, 10/10 autorisatiemodule, 129/129 API, schone installatie, migratiegelijkheid, historische upgrade 0035→0129 (tien historische tabellen, geen automatische grants), herstel en Linux-pakket groen. Geen integrale CI op 0129 of Windows-praktijkacceptatie geclaimd.
+
+Auditcorrectie 0129: twee persoonlijke besluittransacties konden beide een gedeelde accountlock vasthouden en bij herbevestiging deadlocken (#667). `execution_bind_transaction` neemt nu de exclusieve accountlock direct bij binding met dezelfde sessiebewijs- en accountvoorwaarden; `execution_session_actor` behoudt de gedeelde leeslock. Geen wijziging van bevoegdheden. #671 bevestigt gelijktijdige identieke beoordelingen en releases (exact één 201, één 409), positieve vrijgave, toekomstige vervanging, intrekking vóór ingang, geen automatische terugval en historische kennisgrens. Zelfde-accounttransacties worden geserialiseerd; prestatie-impact en bredere concurrency bij pilot toetsen. Geen universele deadlockvrijheid geclaimd.
+
+| Onderwerp | Geautomatiseerd bewijs | Beperking |
+|---|---|---|
+| #109/#110 | Materiaalidentiteit, revisies, procedureboom, scope, FK en wijzigingsteller | Geen echte brondata |
+| #111/#141 | Formule, parameters, vereisten, catalogus, schaaldefinitie en vrijgaveblokkades | Geen uitvoeringsengine; resourcecatalogus fase 4, berekening fase 6 |
+| #112 | MOC, onafhankelijke review, formele vrijgave, intrekking en historische selectie | Geen CR of operationele batchvrijgave; bredere concurrency en herstel na ingetrokken planning nader toetsen |
+| #113 | Functionele Engineering-schermregressie op 0128; bronmanifest op 0129 | Geen volledige positieve vrijgave-UI-test op 0129; geen importer of echte migratie |
+| Overkoepelend | Persoonlijke API met beperkte mes_app, schema-equivalentie, upgrade en herstel | Definitieve integrale CI op eindbaseline en opdrachtgeveracceptatie open |
+
+Geen formele ISA-conformiteit, Windows-praktijkacceptatie, productiegeschiktheid of pilotvrijgave geclaimd. D111 blijft leidend.
