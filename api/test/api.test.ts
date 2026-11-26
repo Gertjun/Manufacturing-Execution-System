@@ -2574,6 +2574,83 @@ describe("#112 MOC- en beoordelings-API", () => {
   });
 });
 
+describe("#112 formele vrijgave en effectieve geldigheid (D109)", () => {
+  test("persoonlijke vrijgave, toekomstige vervanging, intrekking en historisch bewijs", async () => {
+    const engineer=await login("mes.engineer");
+    const approver=await login("mes.eng.approver");
+    const qa=await login("mes.quality.approver");
+    const production=await login("mes.manager");
+    const {rows:[p]}=await beheerDb.query("SELECT id FROM fabriek.product WHERE code='PRD-A'");
+    // Gebruik de expliciete cataloguseenheid uit de eerdere catalogusfixture.
+    const {rows:[unit]}=await beheerDb.query("SELECT id,symbol FROM fabriek.measurement_unit WHERE code='API-KG'");
+    assert.ok(unit,"Expliciete fictieve cataloguseenheid vereist");
+    const post=async (path:string,token:string,body:object) => {
+      const res=await verzoek("POST",path,token,body);
+      assert.equal(res.status,201,path+": "+JSON.stringify(res.body));
+      return res.body;
+    };
+    const recipe=await post("/recipes/",engineer,{product_id:p.id,code:"API-RELEASE",name:"Fictief",description:""});
+    const list=await verzoek("GET","/recipes/?product_id="+p.id,engineer);
+    assert.equal(list.status,200);
+    const first=list.body.find((x:any)=>x.id===recipe.id).versions[0].id as string;
+    async function prepare(v:string,baseline:string|null,baselineCounter:number|null) {
+      const base="/recipes/versions/"+v;
+      let n=0;
+      let parent:string|null=null;
+      for(const kind of ["procedure","unit_procedure","operation","phase"]) {
+        const el=await post(base+"/procedure/elements",engineer,{expected_change_no:n++,parent_id:parent,kind,code:kind.toUpperCase(),name:kind,position:1,required:true});
+        parent=el.id;
+      }
+      await post(base+"/content/formulas",engineer,{expected_change_no:n++,reference_quantity:"1000.125",reference_unit:unit.symbol,reference_unit_id:unit.id});
+      await post(base+"/requirements/lot-rules",engineer,{expected_change_no:n++,nominal_batch_count:6,deviation_approval_required:true});
+      const moc=await post(base+"/moc",engineer,{expected_change_no:n++,baseline_version_id:baseline,reason:"Fictief besluit",impact_description:"Fictieve impact"});
+      await post(base+"/moc/impacts",engineer,{expected_change_no:n++,request_id:moc.id,area:"formula",explanation:"Fictief"});
+      const validation=await verzoek("GET",base+"/release-validation",engineer);
+      assert.equal(validation.status,200);
+      assert.deepEqual(validation.body.blockers,[]);
+      assert.equal(validation.body.content_valid,true);
+      const round=await post(base+"/reviews",engineer,{expected_change_no:n,expected_baseline_change_no:baselineCounter,password:"demo"});
+      const decisionPath="/recipes/reviews/"+round.round_id+"/decisions";
+      // Twee gelijktijdige identieke besluiten: precies één mag slagen.
+      const decision={expected_change_no:n,domain:"engineering",decision:"approve",reason:"Fictief",password:"demo"};
+      const duplicate=await Promise.all([verzoek("POST",decisionPath,approver,decision),verzoek("POST",decisionPath,approver,decision)]);
+      assert.deepEqual(duplicate.map(x=>x.status).sort(),[201,409]);
+      await post(decisionPath,production,{...decision,domain:"production"});
+      const approved=await post(decisionPath,qa,{...decision,domain:"quality"});
+      assert.equal(approved.lifecycle_status,"approved");
+      return {base,n,round:round.round_id};
+    }
+    const a=await prepare(first,null,null);
+    const releaseBody={round_id:a.round,expected_change_no:a.n,effective_from:null,reason:"Fictief vrijgavebesluit",password:"demo"};
+    assert.equal((await verzoek("POST",a.base+"/releases",qa,releaseBody)).status,403);
+    assert.equal((await verzoek("POST",a.base+"/releases",approver,{...releaseBody,expected_change_no:a.n-1})).status,409);
+    const parallel=await Promise.all([verzoek("POST",a.base+"/releases",approver,releaseBody),verzoek("POST",a.base+"/releases",approver,releaseBody)]);
+    assert.deepEqual(parallel.map(x=>x.status).sort(),[201,409]);
+    const rel=parallel.find(x=>x.status===201)!.body.release_id;
+    const {rows:[evidence]}=await beheerDb.query("SELECT effective_from::text,released_at::text FROM fabriek.recipe_release WHERE id=$1",[rel]);
+    const selected=async (at:string,known:string) => (await beheerDb.query("SELECT fabriek.recipe_effective_release($1,$2,$3) AS id",[recipe.id,at,known])).rows[0].id;
+    assert.equal(await selected(evidence.effective_from,evidence.released_at),first);
+    const next=await post("/recipes/"+recipe.id+"/versions",engineer,{expected_revision:1,name:"Fictief 2",description:""});
+    const b=await prepare(next.id,first,a.n);
+    const future=new Date(Date.now()+86400000).toISOString();
+    const second=await post(b.base+"/releases",approver,{round_id:b.round,expected_change_no:b.n,effective_from:future,reason:"Fictieve vervanging",password:"demo"});
+    const {rows:[secondEvidence]}=await beheerDb.query("SELECT effective_from::text,released_at::text FROM fabriek.recipe_release WHERE id=$1",[second.release_id]);
+    assert.equal(await selected(evidence.effective_from,secondEvidence.released_at),first);
+    assert.equal(await selected(future,secondEvidence.released_at),next.id);
+    assert.equal(await selected(future,evidence.released_at),first);
+    const withdrawn=await post("/recipes/releases/"+second.release_id+"/withdrawals",qa,{reason:"Fictieve intrekking vóór ingang",password:"demo"});
+    const {rows:[w]}=await beheerDb.query("SELECT withdrawn_at::text FROM fabriek.recipe_release_withdrawal WHERE id=$1",[withdrawn.withdrawal_id]);
+    assert.equal(await selected(future,w.withdrawn_at),null,"Geen automatische terugval na intrekking");
+    assert.equal(await selected(future,secondEvidence.released_at),next.id,"Historische kennisgrens blijft behouden");
+    const intervals=await beheerDb.query("SELECT recipe_version_id,valid_from=valid_until AS empty FROM fabriek.recipe_release_intervals($1,$2)",[recipe.id,w.withdrawn_at]);
+    assert.equal(intervals.rows.find(x=>x.recipe_version_id===next.id).empty,true);
+    const dossier=await verzoek("GET","/recipes/reviews/"+b.round,qa);
+    assert.equal(dossier.status,200);
+    assert.equal(dossier.body.release.id,second.release_id);
+    assert.equal(dossier.body.withdrawal.id,withdrawn.withdrawal_id);
+  });
+});
+
 describe("#113 persoonlijke receptproductkeuze", () => {
   test("uitsluitend actuele productscope, geen impliciet conceptrecht", async () => {
     const {rows:[p]}=await beheerDb.query("SELECT id FROM fabriek.product WHERE code='PRD-A'");
