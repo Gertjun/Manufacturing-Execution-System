@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van meldingen in Chrome, op data van tools/genereer_testdata.py.
 // Gebruik: node e2e/meldingen.mjs   (start zelf de API op poort 3465)
 import { spawn } from "node:child_process";
@@ -21,13 +22,13 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3465", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -37,7 +38,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -58,12 +59,14 @@ try {
   await page.getByRole("heading", { name: "Meldingen" }).waitFor();
   await page.locator(".melding-rij").first().waitFor();
   check("Lijst met ongelezen meldingen", (await page.locator(".melding-rij").count()) === Math.min(n, 200));
-  await page.screenshot({ path: `${SHOTS}/01-meldingen.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/01-meldingen.png`, fullPage: true });
   await page.locator(".melding-rij").first().getByRole("button", { name: "Gelezen" }).click();
   await page.waitForFunction((x) => document.querySelector(".menu-meldingen .teller")?.textContent === String(x - 1) || (x === 1 && document.querySelector(".menu-meldingen .teller")?.textContent === ""), n);
   check("Gelezen: teller één lager", true);
 
   console.log("\nNieuwe melding");
+  // Versnel uitsluitend de browserklok; echte API en database blijven in gebruik.
+  await page.clock.install();
   const initTeller = page.waitForResponse(r=>new URL(r.url()).pathname==="/meldingen" && r.ok());
   await page.goto(`${BASIS}/portaal/#/kwaliteit/overzicht`);
   await initTeller;
@@ -72,7 +75,10 @@ try {
   await q(`INSERT INTO fabriek.batch_besluit (batch_id, besluit, reden, besloten_door)
            SELECT b.id, 'in_beoordeling', 'e2e: kleur wijkt af', g.id FROM fabriek.batch b, fabriek.gebruiker g
             WHERE b.batchnummer = $1 AND g.gebruikersnaam = 'ploegleider1'`, [b.batchnummer]);
-  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 75000 });
+  const poll = page.waitForResponse(r => new URL(r.url()).pathname === "/meldingen" && new URL(r.url()).searchParams.get("limiet") === "20" && r.ok());
+  await page.clock.fastForward(60_000);
+  await poll;
+  await page.locator("#melding", { hasText: "Nieuwe melding" }).waitFor({ timeout: 15000 });
   check("Nieuwe melding verschijnt onderin beeld", (await page.locator("#melding").innerText()).includes(b.batchnummer));
   await page.locator(".menu-meldingen").click();
   await page.locator(".melding-rij", { hasText: "e2e: kleur wijkt af" }).getByRole("link", { name: "Bekijken" }).click();
@@ -93,9 +99,10 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

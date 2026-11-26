@@ -1,8 +1,11 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
+import assert from "node:assert/strict";
 // Test van het wandscherm in Chrome, op data van tools/genereer_testdata.py.
 // Gebruik: node e2e/wandscherm.mjs   (start zelf de API op poort 3463)
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright-core";
+import { FORMATEN } from "../../tests/screen-formats.mjs";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
@@ -21,13 +24,13 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3463", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -37,7 +40,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -58,13 +61,15 @@ try {
   const regels = await page.locator("#scherm ul li").allInnerTexts();
   check("Actieve stilstanden komen overeen met database", regels.length === verwacht.length &&
     verwacht.every((r,i) => regels[i].startsWith([r.stap,r.stapnaam,r.oorzaaknaam].join(" · ")+" · ")), JSON.stringify(regels));
-  check("Geen bedrijfsportalen voor display", await page.locator("#menu .menu-groep").count() === 0);
+  const bestemmingen = () => page.locator("#menu .menu-groep > a").evaluateAll(links =>
+    links.map(link => link.getAttribute("href")));
+  assert.deepEqual(await bestemmingen(), ["#/wandscherm"], "Menu toont alleen Stilstanddisplay");
   await shot("01-beperkt-display");
   for (const pad of ["kwaliteit","productie","planning","beheer","wandscherm/stappen/PS3,PS7","wandscherm/kwaliteit","wandscherm/alle"]) {
     await page.goto(BASIS+"/portaal/#/"+pad);
     await page.waitForFunction(() => location.hash === "#/wandscherm");
     await page.getByRole("heading", { name: "Actieve stilstand" }).waitFor();
-    check("Displayroute afgeschermd: "+pad, await page.locator("#menu .menu-groep").count() === 0);
+    assert.deepEqual(await bestemmingen(), ["#/wandscherm"], "Menu blijft beperkt na route "+pad);
   }
   const token = await page.evaluate(() => localStorage.getItem("portaal.token"));
   const headers = { authorization: "Bearer "+token, "content-type": "application/json" };
@@ -72,9 +77,17 @@ try {
     check("API weigert display: "+pad, (await fetch(BASIS+pad,{headers})).status === 403);
   }
   check("Display kan geen stilstand melden", (await fetch(BASIS+"/stilstand",{method:"POST",headers,body:JSON.stringify({stapcode:"PS1",oorzaak:"TEST"})})).status === 403);
-  for (const [width,height] of [[1280,720],[1024,600]]) {
+  for (const [width,height] of [[1280,720],[1024,600],...FORMATEN.filter(f=>f.width>=1920).map(f=>[f.width,f.height])]) {
     await page.setViewportSize({width,height});
-    check("Actieve stilstand blijft zichtbaar op "+width, await page.getByRole("heading",{name:"Actieve stilstand"}).isVisible());
+    check("Actieve stilstand blijft zichtbaar op "+width+"x"+height, await page.getByRole("heading",{name:"Actieve stilstand"}).isVisible());
+    check("Displaylijst blijft binnen viewport "+width+"x"+height, await page.locator("#scherm").evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return document.documentElement.scrollWidth <= innerWidth + 1 &&
+        [...el.querySelectorAll("ul li")].every(li => {
+          const b = li.getBoundingClientRect();
+          return b.left >= -1 && b.right <= innerWidth + 1 && b.top >= r.top - 1 && b.bottom <= innerHeight + 1;
+        });
+    }));
   }
   await page.route("**/stilstand",r => r.abort());
   await page.getByRole("button",{name:"Vernieuwen"}).click();
@@ -98,9 +111,10 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

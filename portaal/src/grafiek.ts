@@ -76,10 +76,10 @@ export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void,
     const x = m.l + i * kolom + (kolom - breedte) / 2;
     const tol = w.buiten_tolerantie, gr = w.buiten_grens;
     // Grens onderaan (het ernstigste), tolerantie erboven; 2px ruimte tussen de delen.
-    if (gr > 0) svg.append(s("path", { d: staafPad(x, y(gr), breedte, y(0) - y(gr), tol === 0), fill: "url(#arcering-kritiek)" }));
+    if (gr > 0) svg.append(s("path", { d: staafPad(x, y(gr), breedte, y(0) - y(gr), tol === 0), fill: "url(#arcering-kritiek)", stroke: "var(--grens)", "stroke-width": 1 }));
     if (tol > 0) {
       const onder = y(gr) - (gr > 0 ? 2 : 0);
-      svg.append(s("path", { d: staafPad(x, y(gr + tol), breedte, onder - y(gr + tol), true), fill: KLEUR.tol }));
+      svg.append(s("path", { d: staafPad(x, y(gr + tol), breedte, onder - y(gr + tol), true), fill: "var(--mes-grafiek-tol)", stroke: "var(--tol)", "stroke-width": 1 }));
     }
     if (tol + gr > 0 && weken.length <= 40) svg.append(s("text", { x: x + breedte / 2, y: y(gr + tol) - 5, "text-anchor": "middle", class: "as-tekst" }, String(tol + gr)));
     if (i % elke === 0) svg.append(s("text", { x: x + breedte / 2, y: H - m.b + 18, "text-anchor": "middle", class: "as-tekst" }, perAs(w.week, per)));
@@ -125,7 +125,7 @@ export function afwijkingenPerWeek(weken: Week[], kies?: (week: string) => void,
 function arcering() {
   const defs = s("defs");
   const p = s("pattern", { id: "arcering-kritiek", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
-  p.append(s("rect", { width: 6, height: 6, style: "fill: var(--status-kritiek)" }));
+  p.append(s("rect", { width: 6, height: 6, style: "fill: var(--mes-grafiek-grens)" }));
   p.append(s("rect", { width: 2, height: 6, style: "fill: var(--vlak)" }));
   defs.append(p);
   return defs;
@@ -228,6 +228,23 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
   const Y = (v: number) => m.t + bh - ((v - ylo) / (yhi - ylo)) * bh;
 
   const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": `${veld.code} ${veld.naam} door de tijd` });
+  // Alleen zones waar historische specificatie en tolerantie daadwerkelijk genest zijn.
+  // Geen kleurvlak bij gemengde producten, ontbrekende grenzen of strijdige intervallen.
+  if (!gemengd && metTol && metGrens && punten.every(p => p.grens_min !== undefined && p.grens_max !== undefined && p.tolerantie !== undefined)) {
+    const volgorde = [...punten.keys()].sort((a, b) => tijden[a] - tijden[b]);
+    volgorde.forEach((i, j) => {
+      const p = punten[i], t = tolVan(p), a = gMin(p), b = gMax(p);
+      if (t === null || p.setting === null || a === null || b === null || t < 0) return;
+      const onder = p.setting - t, boven = p.setting + t;
+      if (!(a <= onder && onder <= boven && boven <= b)) return;
+      const x = X(tijden[i]), eind = j + 1 < volgorde.length ? X(tijden[volgorde[j + 1]]) : B - m.r;
+      if (eind <= x) return;
+      for (const [laag, hoog, klasse] of [[ylo, a, "trend-zone-3"], [a, onder, "trend-zone-2"], [onder, boven, "trend-zone-1"], [boven, b, "trend-zone-2"], [b, yhi, "trend-zone-3"]] as [number, number, string][]) {
+        const l = Math.max(ylo, laag), h = Math.min(yhi, hoog);
+        if (h > l) svg.append(s("rect", { x, y: Y(h), width: eind - x, height: Y(l) - Y(h), class: klasse, "aria-hidden": "true" }));
+      }
+    });
+  }
   for (const t of ticks) {
     svg.append(s("line", { x1: m.l, x2: B - m.r, y1: Y(t), y2: Y(t), class: "raster" }));
     svg.append(s("text", { x: m.l - 8, y: Y(t) + 4, "text-anchor": "end", class: "as-tekst" }, getal(t)));
@@ -440,7 +457,7 @@ export function regelkaartGrafiek(
   const Y = (v: number) => m.t + (1 - (v - y0) / (y1 - y0)) * (H - m.t - m.b);
   const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": titel, class: "regelkaart" });
   if (k.gemiddelde !== null && k.sigma) {
-    for (const [a, b, kl] of [[2, 3, "rk-zone-3"], [1, 2, "rk-zone-2"]] as [number, number, string][]) {
+    for (const [a, b, kl] of [[2, 3, "rk-zone-3"], [1, 2, "rk-zone-2"], [0, 1, "rk-zone-1"]] as [number, number, string][]) {
       for (const kant of [1, -1]) {
         const ya = Y(k.gemiddelde + kant * a * k.sigma), yb = Y(k.gemiddelde + kant * b * k.sigma);
         svg.append(s("rect", { x: m.l, width: B - m.l - m.r, y: Math.min(ya, yb), height: Math.abs(ya - yb), class: kl }));

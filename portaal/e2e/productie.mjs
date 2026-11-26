@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van het Portaal Productie in Chrome, op data van tools/genereer_testdata.py.
 // Gebruik: node e2e/productie.mjs   (start zelf de API op poort 3460)
 import { spawn } from "node:child_process";
@@ -18,13 +19,13 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3460", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
@@ -34,13 +35,13 @@ for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`, { signal: AbortSignal.timeout(1000) })).ok) { apiKlaar = true; break; } } catch {}
   await new Promise((r) => setTimeout(r, 250));
 }
-if (!apiKlaar) { stopApi(); await db.end(); throw new Error("API niet bereikbaar op /gezondheid"); }
+if (!apiKlaar) { await stopApi(); await db.end(); throw new Error("API niet bereikbaar op /gezondheid"); }
 
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam, fullPage = true) => page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage });
+const shot = (naam, fullPage = true) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage }) : Promise.resolve();
 
 try {
   console.log("\nWerkvoorraad");
@@ -219,6 +220,8 @@ try {
   await page.goto(`${BASIS}/`);
   await page.locator(".startpagina").waitFor();
   const tegels = await page.locator(".starttegel strong").allInnerTexts();
+  const portalIds = selector => page.locator(selector).evaluateAll(nodes => nodes.map(n => n.getAttribute("data-portaal")));
+  check("Ploegleider: gelijke portalsets", JSON.stringify(await portalIds(".starttegel[data-portaal]")) === JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]")));
   check("Ploegleider: invoer, productie en planning; geen display of technisch beheer",
     tegels[0] === "Production Execution" && tegels.includes("Manufacturing Operations") && tegels.includes("Planning") && !tegels.includes("Beheer") && !tegels.includes("Kwaliteit") && await page.locator(".starttegel-wandscherm").count() === 0, tegels.join(", "));
   await shot("09-startpagina");
@@ -251,12 +254,82 @@ try {
   await page.getByLabel("Gebruikersnaam").waitFor();
   check("Zonder de tegel neemt het invoerscherm de inlog van Kwaliteit niet over", true);
   await page.goto(`${BASIS}/`);
-  await page.locator(".starttegel-invoer").click();
+  await page.locator(".startpagina").waitFor();
+  check("Kwaliteit: gelijke portalsets", JSON.stringify(await portalIds(".starttegel[data-portaal]")) === JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]")));
+  await page.locator("#menu [data-portaal=invoer]").click();
   const pcKeuze = page.getByRole("button", { name: /^PC-03/ });
   await Promise.race([pcKeuze.waitFor(), page.locator(".balk-eigen-naam").waitFor()]);
   if (await pcKeuze.isVisible()) await pcKeuze.click();
   await page.locator(".balk-eigen-naam").waitFor();
-  check("Via de tegel: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
+  check("Via linkernavigatie: invoerscherm als kwaliteit1", (await page.locator(".balk-eigen-naam").innerText()) === "kwaliteit1");
+
+  console.log("\nMES-identiteiten: portalsets en centrale afmelding (D113)");
+  await page.locator("button:visible").filter({hasText:/^Afmelden$/}).click();
+  await page.getByRole("heading", { name: "Inloggen", exact: true }).waitFor();
+  await page.goto(BASIS+"/portaal/#/login");
+  await page.getByLabel("Gebruikersnaam").fill("mes.quality");
+  await page.getByLabel("Wachtwoord").fill("demo");
+  const qualityLogin = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/login" && r.request().method() === "POST");
+  await page.getByRole("button",{name:"Inloggen",exact:true}).click();
+  check("mes.quality persoonlijke aanmelding", (await qualityLogin).status() === 200);
+  await page.getByRole("heading",{name:"Welkom, mes.quality",exact:true}).waitFor();
+  check("mes.quality exacte portalsets", JSON.stringify(await portalIds(".starttegel[data-portaal]")) === JSON.stringify(["invoer","kwaliteit"]) &&
+    JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]")) === JSON.stringify(["invoer","kwaliteit"]));
+  const qualityBinding = page.waitForResponse(r => new URL(r.url()).pathname === "/auth/pc" && r.request().method() === "POST");
+  await page.locator("#menu [data-portaal=invoer]").click();
+  check("mes.quality werkstationbinding", (await qualityBinding).status() === 200);
+  await page.locator(".balk-eigen-naam").waitFor();
+  check("mes.quality persoonlijke invoeridentiteit", (await page.locator(".balk-eigen-naam").innerText()) === "mes.quality");
+  await page.locator("button:visible").filter({hasText:/^Afmelden$/}).click();
+  await page.getByRole("heading",{name:"Inloggen",exact:true}).waitFor();
+  check("Afmelden vanuit invoer wist beide tokens en behoudt werkstation", await page.evaluate(() =>
+    !localStorage.getItem("portaal.token") && !localStorage.getItem("invoer.token") &&
+    !localStorage.getItem("invoer.operatornaam") && localStorage.getItem("invoer.pc")==="PC-03"));
+  await page.goto(BASIS+"/portaal/#/");
+  await page.getByRole("heading",{name:"Inloggen",exact:true}).waitFor();
+
+  // Verwachte bestemmingen uit de goedgekeurde rolgrants, niet uit het UI-register.
+  const matrix = {
+    "mes.operator":["invoer","productie","planning"],
+    "mes.supervisor":["invoer","productie","planning","nainvoeren"],
+    "mes.manager":["engineering","kwaliteit","productie","planning","beheer"],
+    "mes.planner":["productie","planning"],
+    "mes.engineer":["engineering","planning","beheer"],
+    "mes.eng.approver":["engineering"],
+    "mes.quality":["invoer","kwaliteit"],
+    "mes.quality.approver":["invoer","engineering","kwaliteit"],
+    "mes.maintenance":[],
+    "mes.system":["beheer"],
+    "mes.security.a":[],
+    "mes.security.b":[],
+    "mes.analyst":["kwaliteit","productie"],
+    "mes.display":["wandscherm"],
+  };
+  for (const [naam, verwacht] of Object.entries(matrix)) {
+    const r = await fetch(BASIS+"/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({gebruikersnaam:naam,wachtwoord:"demo"})});
+    if (!r.ok) throw new Error("MES-matrix aanmelding "+naam+": "+r.status);
+    const {token} = await r.json();
+    await page.evaluate(t=>{localStorage.removeItem("invoer.token");localStorage.setItem("portaal.token",t);},token);
+    await page.goto(BASIS+"/portaal/#/");
+    await page.reload();
+    if (naam === "mes.display") {
+      await page.getByRole("heading",{name:"Actieve stilstand",exact:true}).waitFor();
+      check(naam+" alleen display",new URL(page.url()).hash==="#/wandscherm" &&
+        JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]"))===JSON.stringify(verwacht));
+    } else {
+      await page.getByRole("heading",{name:"Welkom, "+naam,exact:true}).waitFor();
+      check(naam+" exacte portalsets",JSON.stringify(await portalIds(".starttegel[data-portaal]"))===JSON.stringify(verwacht) &&
+        JSON.stringify(await portalIds("#menu .menu-portaal[data-portaal]"))===JSON.stringify(verwacht),JSON.stringify(await portalIds(".starttegel[data-portaal]")));
+    }
+    if (naam==="mes.quality") {
+      await page.goto(BASIS+"/portaal/#/beheer/accounts");
+      await page.reload();
+      await page.waitForFunction(()=>location.hash==="#/");
+      await page.getByRole("heading",{name:"Welkom, mes.quality",exact:true}).waitFor();
+      check("mes.quality directe beheerroute geweigerd",new URL(page.url()).hash==="#/");
+      check("mes.quality onafhankelijke account-API geweigerd",(await fetch(BASIS+"/beheer/gebruikers",{headers:{authorization:"Bearer "+token}})).status===403);
+    }
+  }
 
   console.log("\nPilotrapportage uitgesteld (D99)");
   const tokenVan = async (naam) => {
@@ -282,9 +355,10 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

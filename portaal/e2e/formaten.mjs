@@ -1,9 +1,15 @@
-// Alle schermen in zes formaten (D64): telefoon staand en liggend, tablet staand en liggend, laptop en pc.
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
+// Alle schermen in acht CSS-viewports (D64): telefoon, tablet, laptop, pc, Full HD en 4K UHD.
 // Controleert dat geen pagina breder is dan het scherm, dat tabellen op een telefoon kaartjes zijn,
 // en dat het invoerscherm op een staande telefoon de navigatie onderaan heeft.
 // Gebruik: node e2e/formaten.mjs   (start zelf de API op poort 3472; vraagt testdata uit tools/genereer_testdata.py)
 import { spawn } from "node:child_process";
 import { chromium } from "playwright-core";
+import { FORMATEN, BASISFORMATEN } from "../../tests/screen-formats.mjs";
+
+const formaatModus = process.env.MES_SCREEN_FORMATS ?? "uitgebreid";
+if (!["basis","uitgebreid"].includes(formaatModus)) throw new Error("Onbekende formaatmodus: "+formaatModus);
+const geselecteerd = formaatModus === "basis" ? BASISFORMATEN : FORMATEN;
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
 const APP_DB = process.env.TEST_APP_DATABASE_URL;
@@ -16,14 +22,6 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const FORMATEN = [
-  { naam: "telefoon staand", width: 390, height: 844, mobiel: true },
-  { naam: "telefoon liggend", width: 844, height: 390, mobiel: true },
-  { naam: "tablet staand", width: 820, height: 1180, mobiel: true },
-  { naam: "tablet liggend", width: 1180, height: 820, mobiel: true },
-  { naam: "laptop", width: 1280, height: 800, mobiel: false },
-  { naam: "pc", width: 1440, height: 900, mobiel: false },
-];
 const ROUTES = {
   kwaliteit1: ["#/", "#/kwaliteit/overzicht", "#/kwaliteit/beoordelen", "#/kwaliteit/lotpaspoort", "#/kwaliteit/lotpaspoort/L-2026-0131",
     "#/kwaliteit/certificaat/L-2026-0131", "#/kwaliteit/batch/B-2026-0235", "#/kwaliteit/grondstoffen", "#/kwaliteit/regelkaarten",
@@ -32,19 +30,19 @@ const ROUTES = {
     "#/productie/overdracht", "#/productie/stilstand", "#/nainvoeren", "#/nainvoeren/formulier/PS3", "#/hulp", "#/wachtwoord"],
   planner1: ["#/planning/week", "#/planning/dag", "#/planning/overzicht", "#/planning/route", "#/planning/lots", "#/planning/producten", "#/planning/capaciteit"],
   beheerder1: ["#/beheer/accounts", "#/beheer/pcs", "#/beheer/logboek", "#/beheer/server"],
-  "mes.engineer": ["#/beheer/stappen", "#/beheer/grondstoffen"],
+  "mes.engineer": ["#/engineering/overzicht", "#/engineering/materialen", "#/engineering/eenheden", "#/engineering/recepten", "#/engineering/beoordelingen", "#/beheer/stappen", "#/beheer/grondstoffen"],
   productiemanager1: ["#/beheer/operators", "#/beheer/ploegen", "#/beheer/oorzaken", "#/kwaliteit/herbewerkingen"],
   scherm1: ["#/wandscherm"],
 };
 const INVOER = ["#/stappen", "#/stap/PS3", "#/zoek", "#/zoek/B-2026-0235", "#/overdracht", "#/wachtrij", "#/hulp", "#/stap/PS16"];
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3472", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -66,7 +64,8 @@ const teBreed = (page, w) => page.evaluate((w) => {
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 try {
   const tokens = Object.fromEntries(await Promise.all(Object.keys(ROUTES).map(async (n) => [n, await token(n)])));
-  for (const f of FORMATEN) {
+  console.log(`Formaatmatrix: ${formaatModus} (${geselecteerd.length})`);
+  for (const f of geselecteerd) {
     console.log(`\n${f.naam} (${f.width} × ${f.height})`);
     const context = await browser.newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobiel, hasTouch: f.mobiel, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
     const page = await context.newPage();
@@ -116,10 +115,29 @@ try {
     await page.getByLabel("Wachtwoord").fill("demo");
     await page.getByRole("button", { name: "Inloggen" }).click();
     await page.waitForURL(/#\/stappen/);
+    await page.locator("#scherm .tegel").first().waitFor();
+    // Hashwijziging alleen bewijst geen nieuwe render: wacht op de inhoud van de bedoelde route.
+    const invoerKoppen = {
+      "#/stappen": /^Kies een stap$/,
+      "#/stap/PS3": /^Process Step 3$/,
+      "#/zoek": /^Zoeken$/,
+      "#/zoek/B-2026-0235": /^B-2026-0235$/,
+      "#/overdracht": /^Overdracht(?: .+)?$/,
+      "#/wachtrij": /^Verzenden$/,
+      "#/hulp": /^Hulp voor operators$/,
+      "#/stap/PS16": /^Process Step 16$/,
+    };
     for (const r of INVOER) {
       await page.goto(`${BASIS}/invoer/${r}`);
-      await klaar(page);
-      check("Invoer bereikt "+r,new URL(page.url()).hash===r && await page.locator("#scherm .foutmelding").count()===0,page.url());
+      try {
+        await page.locator("#scherm").getByRole("heading", { level: 1, name: invoerKoppen[r] }).waitFor({timeout:15000});
+        await klaar(page);
+      } catch(e) {
+        const inhoud = await page.locator("#scherm").innerText({timeout:2000}).catch(()=>"(niet beschikbaar)");
+        throw new Error("Invoer "+f.naam+" "+r+": "+inhoud.slice(0,600),{cause:e});
+      }
+      check("Invoer bereikt "+r,new URL(page.url()).hash===r && await page.locator("#scherm .foutmelding").count()===0,
+        page.url()+" | "+(await page.locator("#scherm h1").allInnerTexts()).join(", ")+" | "+(await page.locator("#scherm .foutmelding").allInnerTexts()).join(", "));
       const b = await teBreed(page, f.width);
       if (b) invoerBreed.push(`${r} ${b}`);
     }
@@ -132,6 +150,7 @@ try {
       await page.locator("#scherm .kop h1").waitFor();
       await page.waitForFunction(() => location.hash === "#/stap/PS16" && document.querySelector("#scherm .kop h1")?.textContent !== "PS16" && !!document.querySelector("#scherm .kop h1") && !document.querySelector("#scherm .laden"));
       await page.getByRole("button", { name: "Meer" }).click();
+      check("Meer toont leesbare versie", await page.locator(".meer-paneel .mes-versie").isVisible() && await page.locator(".meer-paneel .mes-versie").evaluate(el => (() => { const probe = document.createElement("span"); probe.style.color = "var(--inkt-zacht)"; el.append(probe); const match = getComputedStyle(el).color === getComputedStyle(probe).color; probe.remove(); return match; })()));
       check("Meer toont Hulp en Afmelden",
         await page.locator(".meer-paneel").getByRole("button", { name: "Afmelden" }).isVisible()
         && await page.locator(".meer-paneel").getByRole("link", { name: "Hulp" }).isVisible());
@@ -189,7 +208,7 @@ try {
   fouten++;
 } finally {
   await browser.close();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

@@ -7,6 +7,82 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #140.2: gedeelde test-API-afsluiting en databasequiescentie tussen schermscripts; gerichte Sjabloon/Engineering-overgangstest toegevoegd.
+
+- #140.2: expliciete wachting op offline-wachtrijstatus en actuele logboekweergave, extra diagnose en individuele Beheer-regressieselectie; verificatie volgt.
+
+- #140.2: corrigeer verwachte beperkte Kwaliteit-toegang van Manufacturing Manager; formaatregressie wacht op de daadwerkelijke nieuwe scherminhoud met foutdiagnose. Individuele hercontrole volgt.
+
+- D115: risicogestuurde CI/Windows-verdeling, standaard drie versus uitgebreide acht CSS-viewports, optionele reviewshots (functionele barcodeafbeelding en foutdiagnose behouden), versnelde browserklok voor meldingen en Windows-basisprotocol. Integrale acceptatie voorlopig acht viewports; nieuwe testmodi nog te verifiëren.
+
+- D115: individuele Chrome-regressies via expliciete labels met scriptgebonden fictieve fixtures; integrale schermsuite ongewijzigd. Verplichte groene ontwikkelregressies vóór acceptatie; actuele integrale fout blijft open.
+
+- #140.2: aanvullende echte backendregressies voor de 14 fictieve MES-identiteiten, portalsets, werkstationbinding van mes.quality, centrale afmelding vanuit invoer en onafhankelijke route-/API-weigering. Auditbewijs en CI-nulmeting vastgelegd; uitvoering volgt.
+
+- #140.1: Beheer-regressie gebruikt actuele fictieve MES-identiteiten voor systeembeheer en personeelsbeheer, expliciete centrale afmelding en controle op succesvolle HTTP-aanmelding en verwachte persoonlijke startpagina. Historische fixturecontroles en autorisatieverwachtingen behouden. Gerichte Chrome-verificatie volgt; oorzaak eerdere timeout nog niet definitief bewezen.
+
+- D115: CI-optimalisatie met npm-lockbestandcache, annuleren van verouderde documentatieruns en afzonderlijk label `scherm-test` voor bestaande Chrome-regressies met echte fictieve PostgreSQL-backend. Volledige acceptatiesuite en acceptatiebewijs blijven ongewijzigd. Verificatie volgt.
+
+- #140 (140.1): de groepering, het accent en het label van offline-acties gebruiken dezelfde beoordelingsvoorwaarde. Browserregressie dekt de oudere herkomstfout, gewone serverweigering en afgeschermde herkomst. Process Engineering test een compleet fictief recept via persoonlijke API’s, drie onafhankelijke beoordelingen, formele vrijgave en intrekking via de interface, exacte revisie- en rondegegevens, historisch bewijs en alleen-lezen gedrag. Gericht lokaal geslaagd.
+
+- Documentatie-CI voert gewone bron-, link- en versiecontroles zonder browser uit. Volledige diagramgeneratie en Chrome draaien bij het label `acceptatie-test` of bij een gerichte diagramcontrole. De PostgreSQL-controle blijft actief bij wijzigingen aan het schema, de SQL-diagramgenerator of de schemaregressie.
+
+- #139 (139.4c): twaalf geverifieerde SVG’s uit documentatiecontrole 422 opgenomen in de technische Markdown. Mermaid-bronnen blijven uitklapbaar. CI vergelijkt de gepubliceerde bestanden met de hergeneratie.
+
+- #139 (139.4c): de vier procesdiagrammen uit documentatiecontrole 421 visueel beoordeeld op pijlen, teruglussen, labels en uitlijning. Het conceptuele datamodel groepeert de 20 entiteiten met 17 bestaande relaties in gelijkvormige blokken. Zes fysieke domeinweergaven tonen samen alle 203 foreign keys, met gestippelde verwijzingen naar tabellen in andere domeinen. De bestaande fysieke overzichtsweergave blijft beschikbaar. Publicatie in de technische documentatie volgt na beoordeling van de nieuwe uitvoer.
+
+- #139 (139.4c): gedeelde documentatierenderer voor fysieke/conceptuele ERD en vier procesdiagrammen; strikte bronverwerking, vaste witte achtergrond en Graphviz-herhaalbaarheidscontrole.
+
+- #139 (139.4c): roadmapdiagram als reproduceerbare SVG met vaste lichte achtergrond en aparte labels; Gantt-bron behouden voor onderhoud.
+
+- #139 (139.4b): Gantt met alle fasen en expliciete acceptatiepoort, B+-architectuur-, recept- en migratiediagrammen, broncontractcontrole; geen domeinwijziging.
+
+- #139 (139.4a): B+-semantiek in fysieke ERD-generator, conceptueel datamodel en procesketen; neutrale FK-relaties en oranje procespijlen; expliciete tabelclassificatie, geen schemawijziging.
+
+- #139 (139.3i-c): regressies voor werkelijk gerenderde historische trendzones, statistische regelkaartzones en certificaat-PDF; geen achtergrondzones bij ontbrekende historische grensgegevens. Integrale verificatie volgt.
+
+- #139 (139.3i-b): herstel beheerbovenaccent na CI 710; gedeelde schermmatrix uitgebreid naar acht formaten inclusief Full HD en 4K, beperkte displaytest en Windows-praktijkacceptatie aangevuld. Bestaande regressies behouden.
+
+- #139 (139.3i-a): zes D64-formaten in componentregressie, Engineering-routes in bestaande echte formaatregressie; tijdelijke wachtwoordkeuze, mobiele versie en grafieklegenda gecorrigeerd. Integrale verificatie volgt.
+
+- #139 (139.3h): Beheer B+ met definitie- en gebeurteniskaarten, uniforme serverstatus, stapnavigatie en rode omlijnde deactivatieknoppen; bestaande bevestigingen en autorisaties ongewijzigd. Componentregressies toegevoegd.
+
+- #139 (139.3g): Planning B+ en centraal grafiekpalet C; zachte sigma-/trendzones, krachtige contouren, bestaande arcering en statuslogica behouden. Gerichte contrast- en componentregressies uitgebreid.
+
+- #139 (139.3f): kwaliteitskaarten en KPI's B+, open meetacties via centraal linkeraccent, specificatiedefinities blauw, intrekking als gevaaractie; regelkaartberekeningen en certificaatafdruk ongewijzigd. Gerichte regressies toegevoegd.
+
+- #139: herziene D114, alle verticale linkeraccenten 6 px via centrale CSS-token; bestaande kaart-, navigatie-, waarschuwing-, alarm- en wachtrijaccenten gemigreerd. Horizontale accenten blijven 3 px. Broncontrole en browserregressies toegevoegd.
+
+- #139 (139.3e): Manufacturing Operations B+ voor operationele kaarten, KPI-tegels, open werk en knelpunten; bestaande cijfers, grafieklegenda en statuslogica behouden. Tabelhover hersteld. Gerichte regressies toegevoegd.
+
+- #139 (139.3d): goedgekeurde variant B voor openstaande acties: blauwe linkerrand van 3 px via gedeelde token, bovenaccent en alarmmarkeringen behouden; regressie op breedte en radius toegevoegd.
+
+- #139 (139.3d): Production Execution B+ met uitvoeringstegels, meetveldvormgeving, afzonderlijke tolerantie-/grensmarkering en wachtrijstatus. Actieve selectie weer blauw; bestaande bediening en offline logica ongewijzigd. Gerichte Chrome-componentregressie uitgebreid.
+
+- #139 (139.3c): Process Engineering visueel geharmoniseerd: structuurkaarten, revisies, formulieren, procedurehiërarchie, MOC en formele besluiten. Bestaande receptlogica en rechten ongewijzigd; gerichte CI volgt.
+
+- #139 (139.3b): gedeelde MES-identiteit, gebruikerscontext en versie in navigatie; aanraakdoelen van menuvoet en bestaande mobiele bediening behouden. CI volgt.
+
+- #139 (139.3a): gedeelde persoonlijke MES-aanmeldkaart, werkstationcontext en uniforme portaltegels B+; gerichte Chrome-regressie toegevoegd. Authenticatielogica ongewijzigd.
+
+- #138 (138.1e): geïsoleerde Chrome-regressie voor portalsets, oude sessie, geweigerde/verlopen binding, vertraagd antwoord en intrekking; bestaande backend-schermtest uitgebreid. Onleesbare/niet-verwijderbare overdrachtskeuze geweigerd. CI nog open.
+
+- #138 (138.1d): expliciete portalovergang wist oude invoersessie vóór wachtrijstart, eenmalige tabgebonden keuze en controle op verouderde /auth/pc-antwoorden; geen verwijdering van registraties. CI nog open.
+
+- #138 (138.1b/c): één bestemmingsregister voor startpagina en linkernavigatie, inclusief Production Execution en Nainvoeren; bestaande toegangsvoorwaarden en interne router behouden. Gerichte verificatie volgt.
+
+- #139 (139.2b): gedeelde componentbasis en gerichte Chrome-regressie op gebouwde CSS; bestaande meetstatus en kritieke kleurvlakken behouden. CI nog open.
+
+- #139 (139.2a): gedeelde B+ tokens en omlijnde knoppen, basisnavigatie, titels en tabelkoppen; behoud bestaande statuskleuren en operatorafmetingen. Contrastregressie toegevoegd; CI nog open.
+
+- #139 (139.1): goedgekeurde zakelijke variant B+ (D114) vastgelegd in VISUAL-STYLE.md v2; aanvullende contrastwaarden. Implementatie volgt in 139.2; CI nog te verifiëren.
+
+- #139 (139.1): ontwerpbaseline v1 met berekende contrastmatrix, componentcontract en één MES-gebruikersomgeving (D113); geen UI-implementatie, CI nog te verifiëren.
+
+- #145: technische bestands-/architectuurinventarisatie afgerond; roadmapcontrole ook bij gemengde PR's, uitvoering nog te verifiëren.
+
+- #145 (voorbereiding): fase-2-acceptatiebewijs en fase-3-planning vastgelegd, ontwerpstandaard v0 en CI-inrichting voor concept-PR; tijdelijke gestapelde triggers na merge fase 2 teruggedraaid conform D112. Geen functionele UI-wijzigingen of release.
+
 - #112/#113 (113.5d): formele vrijgave en intrekking via bestaande persoonlijke API; 0128 ontsluit historische beoordelingsrondes zonder nieuwe bevoegdheden. API-regressie toegevoegd; nog niet uitgevoerd.
 
 - #111 (deel): 0109 persoonlijke productgebonden lees-/schrijf-/verwijderfuncties voor middelen, personeelskwalificaties, instructies, specificaties, lotnorm en incompatibiliteit. Kwalificatieomschrijving uit vertrouwde catalogus, redenplicht niet instelbaar, gezamenlijke change_no, audit en beperkte ACL. Regressies toegevoegd, nog niet uitgevoerd.

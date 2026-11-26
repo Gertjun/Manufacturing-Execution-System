@@ -67,7 +67,7 @@ export async function beoordelingen(){
                   field("Ik heb het vastgezette dossier beoordeeld",checked),field("Persoonlijk wachtwoord",password),error,submit);
               }
               function releasePane(){
-                const section=h("section",{},h("h5",{},"Formele vrijgave en intrekking"));
+                const section=h("section",{class:"engineering-paneel engineering-besluit"},h("h5",{},"Formele vrijgave en intrekking"));
                 const product=products.find(p=>p.id===id);
                 const permitted=(...permissions:string[])=>!!rechten()?.personal&&(heeftRecht(...permissions)||
                   !!rechten()?.products.some(p=>p.product===id&&permissions.includes(p.permission)));
@@ -86,7 +86,7 @@ export async function beoordelingen(){
                   const date=h("input",{type:"datetime-local",disabled:true});
                   mode.addEventListener("change",()=>{date.disabled=mode.value!=="future";date.required=!date.disabled;date.value="";});
                   const error=h("p",{class:"foutmelding",role:"alert"});
-                  const submit=h("button",{type:"submit",class:"knop knop-hoofd"},withdraw?"Intrekking bevestigen":"Formele vrijgave bevestigen");
+                  const submit=h("button",{type:"submit",class:withdraw?"knop knop-gevaar":"knop knop-hoofd"},withdraw?"Intrekking bevestigen":"Formele vrijgave bevestigen");
                   return h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
                     e.preventDefault();
                     const secret=password.value;password.value="";
@@ -147,8 +147,8 @@ export async function beoordelingen(){
             }catch(e){if(active())detail.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
             finally{reading=false;}
           }
-          return h("section",{class:"blok"},h("h2",{},row.recipe_code+" · revisie "+row.revision+" — "+row.name),
-            h("p",{class:"sub"},(statuses[row.lifecycle_status]??row.lifecycle_status)+" · ronde "+row.round_no),
+          return h("section",{class:"blok mes-kaart-structuur engineering-kaart"},h("h2",{},row.recipe_code+" · revisie "+row.revision+" — "+row.name),
+            h("p",{class:"sub engineering-revisiestatus"},(statuses[row.lifecycle_status]??row.lifecycle_status)+" · ronde "+row.round_no),
             h("p",{},"Goedgekeurd: "+(row.approved_domains.map(name).join(", ")||"Geen")+" · Mijn openstaande domeinen: "+(row.my_pending_domains.map(name).join(", ")||"Geen")),
             h("button",{type:"button",class:"knop",onclick:open},"Vastgezet dossier laden / vernieuwen"),detail);
         }

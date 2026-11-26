@@ -1,5 +1,6 @@
 // Inloggen, API-verzoeken en de lijst met portalen.
 import type { Rol } from "../../gedeeld/types";
+import { kiesPortaloverdracht, wisPortaloverdracht } from "../../gedeeld/portaloverdracht";
 
 const TOKEN = "portaal.token";
 
@@ -8,7 +9,15 @@ export const sessie = {
     try { return localStorage.getItem(TOKEN); } catch { return null; }
   },
   set token(t: string | null) {
-    try { t ? localStorage.setItem(TOKEN, t) : localStorage.removeItem(TOKEN); } catch { /* alleen deze sessie */ }
+    try {
+      if (localStorage.getItem(TOKEN) !== t) {
+        wisPortaloverdracht();
+        // Een nieuwe centrale sessie mag geen oudere invoersessie activeren; lokale registraties blijven bewaard.
+        localStorage.removeItem("invoer.token");
+        localStorage.removeItem("invoer.operatornaam");
+      }
+      t ? localStorage.setItem(TOKEN, t) : localStorage.removeItem(TOKEN);
+    } catch { /* alleen deze sessie */ }
   },
   inhoud(): { sub: string; naam: string; rol: Rol; exp: number } | null {
     const t = this.token;
@@ -26,6 +35,7 @@ export const sessie = {
   /** Afmelden geldt voor de hele app (D54): ook het invoerscherm op deze pc meldt af. */
   afmelden() {
     this.token = null;
+    wisPortaloverdracht();
     try { localStorage.removeItem("invoer.token"); localStorage.removeItem("invoer.operatornaam"); } catch { /* geen opslag */ }
   },
 };
@@ -48,7 +58,7 @@ export async function stuur<T>(methode: string, pad: string, body?: unknown, tok
   }
   const tekst = await r.text();
   const data = tekst ? JSON.parse(tekst) : null;
-  if (r.status === 401) {
+  if (r.status === 401 && t === sessie.token) {
     sessie.token = null;
     location.hash = "#/login";
   }
@@ -98,6 +108,7 @@ export const magDisplay = () => rechten()?.personal === false && heeftRecht("dis
 // ---------- Portalen ----------
 export interface Onderdeel { pad: string; naam: string; teller?: () => Promise<number>; toegestaan: () => boolean }
 export interface Portaal { id: string; naam: string; klaar: boolean; onderdelen: Onderdeel[] }
+export interface Bestemming extends Portaal { href: string; uitleg: string; toegestaan: () => boolean }
 export const zichtbareOnderdelen = (p: Portaal) => p.onderdelen.filter(o => !!rechten()?.personal && o.toegestaan());
 const lees = () => heeftRecht(...LEES);
 const kwaliteitLees = () => heeftRecht("inspection.read","analysis.execution.read");
@@ -160,15 +171,31 @@ export const PORTALEN: Portaal[] = [
     { pad: "server", naam: "Server", toegestaan: () => heeftRecht("system.read") },
   ]},
 ];
-export const portalenVoor = (_rol?: Rol | null) => PORTALEN.filter(p => zichtbareOnderdelen(p).length > 0);
+// Eén register voor startpagina en navigatie. Interne routes blijven afzonderlijk bewaakt.
+const BESTEMMINGEN: Bestemming[] = [
+  { id: "invoer", naam: "Production Execution", klaar: true, onderdelen: [],
+    uitleg: "Persoonlijke productie-invoer en keuringen.", href: "../invoer/index.html#/overstap", toegestaan: magInvoer },
+  ...PORTALEN.map(p => ({ ...p, href: "#/"+p.id,
+    uitleg: "Beschikbare functies volgens je actuele MES-bevoegdheden.", toegestaan: () => zichtbareOnderdelen(p).length > 0 })),
+  { id: "nainvoeren", naam: "Nainvoeren (papier)", klaar: true, onderdelen: [],
+    uitleg: "Gecontroleerde papieren nalevering.", href: "#/nainvoeren", toegestaan: magNalevering },
+  { id: "wandscherm", naam: "Stilstanddisplay", klaar: true, onderdelen: [],
+    uitleg: "Beperkt uitleesscherm voor actieve stilstand.", href: "#/wandscherm", toegestaan: magDisplay },
+];
+export const bestemmingenVoor = () => BESTEMMINGEN.filter(p => p.toegestaan());
+// Alleen interne portalen met eigen onderdeelrouter; geen externe bestemming als interne route behandelen.
+export const portalenVoor = (_rol?: Rol | null) => bestemmingenVoor().filter(p => p.onderdelen.length > 0);
 export interface Tegel { id: string; naam: string; uitleg: string; href: string }
 export function tegelsVoor(_rol?: Rol | null): Tegel[] {
-  return [
-    ...(magInvoer() ? [{ id: "invoer", naam: "Production Execution", uitleg: "Persoonlijke productie-invoer en keuringen.", href: "../invoer/index.html" }] : []),
-    ...portalenVoor().map(p => ({ id: p.id, naam: p.naam, uitleg: "Beschikbare functies volgens je actuele MES-bevoegdheden.", href: "#/"+p.id })),
-    ...(magNalevering() ? [{ id: "nainvoeren", naam: "Nainvoeren (papier)", uitleg: "Gecontroleerde papieren nalevering.", href: "#/nainvoeren" }] : []),
-    ...(magDisplay() ? [{ id: "wandscherm", naam: "Stilstanddisplay", uitleg: "Beperkt uitleesscherm voor actieve stilstand.", href: "#/wandscherm" }] : []),
-  ];
+  return bestemmingenVoor().map(({ id, naam, uitleg, href }) => ({ id, naam, uitleg, href }));
+}
+
+/** Expliciete keuze voor werkstationoverdracht; bestaande servercontrole /auth/pc blijft vereist. */
+export function markeerPortalkeuze(id: string) {
+  if (id !== "invoer") return;
+  if (!sessie.geldig() || !bestemmingenVoor().some(p => p.id === id)) { wisPortaloverdracht(); return; }
+  // Bij opslagweigering opent de overgang wel, maar vraagt veilig om persoonlijke login.
+  kiesPortaloverdracht(sessie.token);
 }
 
 // ---------- Periode (één filterrij boven de analyses) ----------

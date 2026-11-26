@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Regressie bestaande hulpweergave (D59); inhoudelijke MES-rolhandleidingen uitgesteld naar fase 9 (D99).
 // Gebruik: node e2e/hulp.mjs   (start zelf de API op poort 3470; vraagt de testaccounts van seed_accounts_demo.sql)
 import { spawn } from "node:child_process";
@@ -17,13 +18,13 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3470", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -59,7 +60,7 @@ try {
     const n = paginas(pdf);
     check(`Afgedrukt: hulp voor ${rol} past op één A4`, n === 1, `${n} pagina's`);
   }
-  await page.screenshot({ path: `${SHOTS}/portaal-hulp.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/portaal-hulp.png`, fullPage: true });
 
   console.log("\nInvoerscherm: hulp, ook zonder inlog");
   await page.goto(`${BASIS}/portaal/#/start`);
@@ -82,7 +83,7 @@ try {
   await page.locator(".balk-nav").getByRole("link", { name: "Hulp" }).click();
   await page.locator(".hulp h1").waitFor();
   check("Ingelogd als ploegleider: hulp voor ploegleiders", (await page.locator(".hulp h1").innerText()) === "Hulp voor ploegleiders");
-  await page.screenshot({ path: `${SHOTS}/invoer-hulp.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/invoer-hulp.png`, fullPage: true });
   await page.emulateMedia({ media: "print" });
   check("Bij afdrukken staan balk en knoppen er niet op", !(await page.locator("#balk").isVisible()) && !(await page.locator(".hulp-keuze").isVisible()));
   await page.emulateMedia({ media: "screen" });
@@ -100,8 +101,9 @@ try {
   await page.screenshot({ path: `${SHOTS}/fout.png` }).catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

@@ -200,7 +200,7 @@ export async function stappen(code?: string) {
         zichtbaar.some((x) => x.soort === "keuring") ? h("div", { class: "lijstkop" }, "Keuringen") : null,
         zichtbaar.filter((x) => x.soort === "keuring").map(stapLink)),
       // Vaste opbouw (#95): titel links, knoppen altijd rechtsboven, ook bij een lange uitleg.
-      h("section", { class: "blok stap-blok" },
+      h("section", { class: "blok stap-blok beheer-definitie" },
         h("div", { class: "stap-blok-kop" },
           h("div", {}, h("h2", {}, `${s.code} ${s.naam}`),
             h("p", { class: "sub" }, s.soort === "keuring"
@@ -230,7 +230,7 @@ export async function stappen(code?: string) {
                 h("div", { class: "knoppen-klein rij-knoppen" },
                   v.actief ? h("button", { class: "knop knop-mini", onclick: () => veldWijzigen(v) }, "Wijzigen") : null,
                   v.actief && product ? h("button", { class: "knop knop-mini", "aria-label": `${v.code} grenzen voor ${product.code}`, onclick: () => perProduct(v, product.code) }, "Grenzen") : null,
-                  h("button", { class: "knop knop-mini knop-stil", onclick: () => zetActief(v, !v.actief) }, v.actief ? "Uitzetten" : "Weer aanzetten")),
+                  h("button", { class: `knop knop-mini${v.actief ? " knop-gevaar" : " knop-stil"}`, onclick: () => zetActief(v, !v.actief) }, v.actief ? "Uitzetten" : "Weer aanzetten")),
               ];
             }), "compact stap-velden")
           : h("p", { class: "leeg" }, "Deze stap heeft nog geen velden.")),
@@ -396,11 +396,11 @@ async function sjabloonInlezen(bestand: File, terugNaar: string) {
     kop("Sjabloon inlezen", `${bestand.name}. Dit is een controle: er is nog niets opgeslagen. Velden die niet in het bestand staan, blijven zoals ze zijn.` +
       (grensRegels ? ` Het blad "${GRENZEN_BLAD}" is wel de volledige lijst: zie onderaan.` : "")),
     h("div", { class: "tegels" },
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.nieuw ?? 0), h("span", { class: "tegel-tekst" }, "nieuwe velden")),
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gewijzigd ?? 0), h("span", { class: "tegel-tekst" }, "velden gewijzigd")),
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, antwoord?.gelijk ?? 0), h("span", { class: "tegel-tekst" }, "ongewijzigd")),
-      g ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, g.nieuw + g.gewijzigd + g.weghalen), h("span", { class: "tegel-tekst" }, "grenzen per product gewijzigd")) : null,
-      h("div", { class: `tegel${metFout ? " let-op" : ""}` },
+      h("div", { class: "tegel beheer-gebeurtenis" }, h("span", { class: "tegel-getal" }, antwoord?.nieuw ?? 0), h("span", { class: "tegel-tekst" }, "nieuwe velden")),
+      h("div", { class: "tegel beheer-gebeurtenis" }, h("span", { class: "tegel-getal" }, antwoord?.gewijzigd ?? 0), h("span", { class: "tegel-tekst" }, "velden gewijzigd")),
+      h("div", { class: "tegel beheer-gebeurtenis" }, h("span", { class: "tegel-getal" }, antwoord?.gelijk ?? 0), h("span", { class: "tegel-tekst" }, "ongewijzigd")),
+      g ? h("div", { class: "tegel beheer-gebeurtenis" }, h("span", { class: "tegel-getal" }, g.nieuw + g.gewijzigd + g.weghalen), h("span", { class: "tegel-tekst" }, "grenzen per product gewijzigd")) : null,
+      h("div", { class: `tegel beheer-gebeurtenis${metFout ? " let-op" : ""}` },
         h("span", { class: "tegel-getal" }, uitkomsten.filter((x) => x.actie === "fout").length + grensUitkomsten.filter((x) => x.actie === "fout").length),
         h("span", { class: "tegel-tekst" }, "regels met een fout"))),
     metFout
@@ -417,7 +417,7 @@ async function sjabloonInlezen(bestand: File, terugNaar: string) {
         ]), "compact")
       : null,
     grensRegels || grensFouten.length
-      ? h("section", { class: "blok" },
+      ? h("section", { class: "blok beheer-gebeurtenis" },
           h("h2", {}, GRENZEN_BLAD),
           h("p", { class: "sub" }, "Dit blad is de volledige lijst met eigen grenzen per product. Wat er niet (meer) in staat, wordt weggehaald; voor dat product gelden dan de grenzen van het veld."),
           grensUitkomsten.length
@@ -464,7 +464,7 @@ export async function accounts() {
       a.gebruikersnaam, a.gedeeld ? "Historisch gedeeld (login geblokkeerd)" : rolNaam(a.rol), jaNee(a.actief),
       a.tijdelijk ? "Tijdelijk" : "Ingesteld",
       magWijzigen && a.gebruikersnaam !== sessie.naam && !a.gedeeld
-        ? h("button", { class: "knop knop-klein", onclick: () => aanUit(a) }, a.actief ? "Uitzetten" : "Activeren") : "",
+        ? h("button", { class: `knop knop-klein${a.actief ? " knop-gevaar" : ""}`, onclick: () => aanUit(a) }, a.actief ? "Uitzetten" : "Activeren") : "",
     ])));
 }
 
@@ -503,7 +503,7 @@ export async function personeel() {
       o.naam, o.ploeg ?? "Geen", o.account ?? "Niet gekoppeld", jaNee(o.actief),
       magWijzigen ? h("div", { class: "knoppen-klein" },
         h("button", { class: "knop knop-klein", onclick: () => bewerken(o) }, "Wijzigen"),
-        h("button", { class: "knop knop-klein knop-stil", onclick: () => aanUit(o) }, o.actief ? "Uitzetten" : "Activeren")) : "",
+        h("button", { class: `knop knop-klein${o.actief ? " knop-gevaar" : " knop-stil"}`, onclick: () => aanUit(o) }, o.actief ? "Uitzetten" : "Activeren")) : "",
     ])));
 }
 
@@ -629,7 +629,7 @@ export async function ploegen() {
 
   toon(
     kop("Diensten en ploegen", "Diensten zijn de tijdvakken van de dag; ploegen (A, B, … per divisie) draaien die diensten volgens het rooster. Hiermee worden de ploegoverdracht en de cijfers per dienst ingedeeld."),
-    h("section", { class: "blok" },
+    h("section", { class: "blok beheer-definitie" },
       h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, "Diensten"),
         h("p", { class: "sub" }, "Begin- en eindtijd. Een dienst die over middernacht loopt, hoort bij de dag waarop hij begint."))),
       tabel(["Code", "Naam", "Van", "Tot", ""], lijst.map((p) => [
@@ -647,14 +647,14 @@ export async function ploegen() {
             wijzig(() => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: !p.actief }), p.actief ? `${p.naam} uitgezet` : `${p.naam} weer actief`, ploegen, () => stuur("PATCH", `/overdracht/ploegen/${p.code}`, { actief: p.actief })) },
             p.actief ? "Uitzetten" : "Weer aanzetten")),
       ]), "compact")),
-    h("section", { class: "blok" },
+    h("section", { class: "blok beheer-definitie" },
       h("div", { class: "kop" },
         h("div", {}, h("h2", { style: "margin:0" }, "Rooster"),
           h("p", { class: "sub" }, `Een cyclus van ${r.patroon.length} dagen. Elke ploeg draait hetzelfde rooster, vanaf de eerste dag van zijn eigen cyclus.`)),
         h("div", { class: "knoppen-klein" }, h("button", { class: "knop", onclick: roosterWijzigen }, "Rooster wijzigen"))),
       h("ol", { class: "rooster-patroon", "aria-label": "Rooster, dag voor dag" },
         r.patroon.map((c, i) => h("li", { class: c === "-" ? "vrij" : "" }, h("span", { class: "rooster-dag" }, `Dag ${i + 1}`), h("strong", {}, naamVan(c)))))),
-    h("section", { class: "blok" },
+    h("section", { class: "blok beheer-definitie" },
       h("div", { class: "kop" },
         h("div", {}, h("h2", { style: "margin:0" }, "Ploegen"),
           h("p", { class: "sub" }, "Per ploeg de dag waarop hij dag 1 van het rooster draait. Schuif die dag op om een ploeg later of eerder te laten beginnen.")),
@@ -675,7 +675,7 @@ export async function ploegen() {
                 p.actief ? "Uitzetten" : "Weer aanzetten")),
           ]), "compact")
         : h("p", { class: "leeg" }, "Nog geen ploegen. Voeg er een toe.")),
-    h("section", { class: "blok" },
+    h("section", { class: "blok beheer-definitie" },
       h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, "Komende 14 dagen"),
         h("p", { class: "sub" }, "Welke ploegen volgens het rooster welke dienst draaien. Zo zie je meteen of het rooster klopt."))),
       tabel(["Dag", ...(r.dagen[0]?.diensten.map((d) => d.naam) ?? [])], r.dagen.map((d) => [
@@ -732,7 +732,7 @@ export async function bedrijf() {
   const tekst = h("textarea", { id: "b-tekst", rows: 4, maxlength: 1500 }, b.certificaat_verklaring) as HTMLTextAreaElement;
   toon(
     kop("Bedrijfsgegevens", "Staan bovenaan het certificaat per lot. Welke kenmerken erop komen, kies je per veld bij Stappen en velden."),
-    h("section", { class: "blok formulier-blok" },
+    h("section", { class: "blok formulier-blok beheer-definitie" },
       h("label", { for: "b-naam" }, "Bedrijfsnaam", naam),
       h("label", { for: "b-adres" }, "Adres", adres),
       h("label", { for: "b-tekst" }, "Verklaring op het certificaat", tekst),
@@ -890,8 +890,8 @@ export async function server() {
   try { s = await haal<ServerStand>("/beheer/server"); } catch (e) { return fout(e); }
   if (!actueel()) return;
   const nu = new Date(s.servertijd).getTime();
-  const tegel = (getal: string, tekst: string, extra?: string, nadruk = false) =>
-    h("div", { class: nadruk ? "tegel nadruk" : "tegel" }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst), extra ? h("span", { class: "tegel-extra" }, extra) : null);
+  const tegel = (getal: string, tekst: string, extra?: string, nadruk = false, definitie = false) =>
+    h("div", { class: `tegel ${definitie ? "beheer-definitie" : "beheer-gebeurtenis"}${nadruk ? " nadruk" : ""}` }, h("span", { class: "tegel-getal" }, getal), h("span", { class: "tegel-tekst" }, tekst), extra ? h("span", { class: "tegel-extra" }, extra) : null);
   const b = s.laatsteBackup, t = s.laatsteHersteltest;
   const meldingen = s.waarschuwingen.length
     ? h("ul", { class: "serverstatus" }, s.waarschuwingen.map((w) =>
@@ -905,10 +905,10 @@ export async function server() {
     meldingen,
     test,
     h("div", { class: "tegels server-tegels" },
-      tegel(s.versie, "versie van de applicatie", s.schema ? `database: schemaversie ${s.schema.nummer}` : "database: schemaversie onbekend"),
+      tegel(s.versie, "versie van de applicatie", s.schema ? `database: schemaversie ${s.schema.nummer}` : "database: schemaversie onbekend", false, true),
       tegel(b ? geleden(b.klaar_op, nu) : "Nooit", "laatste back-up", b ? `${b.gelukt ? grootte(b.grootte_bytes) : "mislukt"} · ${datum(b.klaar_op)}` : undefined, !b || !b.gelukt),
       tegel(t ? geleden(t.klaar_op, nu) : "Nooit", "laatste hersteltest", t ? (t.gelukt ? t.melding ?? "gelukt" : "mislukt") : undefined),
-      tegel(grootte(s.database.grootte_bytes), "grootte van de database", s.database.naam),
+      tegel(grootte(s.database.grootte_bytes), "grootte van de database", s.database.naam, false, true),
     ),
     h("h2", {}, "Laatste onderhoud"),
     s.recent.length

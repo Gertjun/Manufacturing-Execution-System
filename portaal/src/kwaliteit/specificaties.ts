@@ -46,7 +46,7 @@ export async function specificaties(productArg?: string) {
       ? `Geldig: versie ${g.versie}, vastgesteld ${kort(g.vastgesteld_op)}${g.vastgesteld_door ? ` door ${g.vastgesteld_door}` : ""}`
       : "Nog geen geldige versie: metingen worden getoetst aan de grenzen van het veld.";
     const koppen = ["Eigenschap", g ? `Geldig (versie ${g.versie})` : "Geldig", ...(c ? [`Concept (versie ${c.versie})`] : [])];
-    return h("section", { class: "blok spec-stap" },
+    return h("section", { class: "blok spec-stap kwaliteit-definitie" },
       h("div", { class: "kop" },
         h("div", {}, h("h2", { style: "margin:0" }, `${s.stap} ${s.stapnaam}`), h("p", { class: "sub" }, `Per ${s.niveau === "batch" ? "batch" : "lot"}. ${status}`)),
         null),

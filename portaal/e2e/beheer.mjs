@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van het Portaal Beheer in Chrome, plus de doorwerking op het invoerscherm.
 // Verwacht: database met schema.sql + seed_config.sql + seed_accounts_demo.sql (+ eventueel seed_demo.sql),
 // en een gebouwd invoerscherm. Gebruik: node e2e/beheer.mjs (API op poort 3461).
@@ -19,14 +20,14 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3461",
     PORTAAL_MAP: new URL("../dist", import.meta.url).pathname, INVOER_MAP: new URL("../../invoer/dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
@@ -40,15 +41,24 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam, fullPage = true) => page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage });
+const shot = (naam, fullPage = true) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png`, fullPage }) : Promise.resolve();
 const dialoog = () => page.getByRole("dialog");
 const inloggen = async naam => {
-  await page.goto(BASIS+"/portaal/#/login");
-  await page.evaluate(()=>localStorage.clear());
-  await page.reload();
+  if (page.url().startsWith(BASIS)) {
+    await page.getByRole("button",{name:"Afmelden",exact:true}).click();
+  } else {
+    await page.goto(BASIS+"/portaal/#/login");
+  }
+  await page.getByRole("heading",{name:"Inloggen",exact:true}).waitFor();
   await page.getByLabel("Gebruikersnaam").fill(naam);
   await page.getByLabel("Wachtwoord").fill("demo");
-  await page.getByRole("button",{name:"Inloggen"}).click();
+  const login = page.waitForResponse(r=>new URL(r.url()).pathname==="/auth/login" && r.request().method()==="POST");
+  await page.getByRole("button",{name:"Inloggen",exact:true}).click();
+  const response = await login;
+  if (!response.ok()) throw new Error("Aanmelding "+naam+": HTTP "+response.status());
+  const result = await response.json();
+  if (result.wachtwoordWijzigen) throw new Error("Onverwacht tijdelijk wachtwoord: "+naam);
+  await page.getByRole("heading",{name:"Welkom, "+naam,exact:true}).waitFor();
   await page.locator(".starttegel-beheer").click();
 };
 const token = () => page.evaluate(()=>localStorage.getItem("portaal.token"));
@@ -164,12 +174,12 @@ try {
   const engineer = await token();
   check("Engineer heeft geen account- of personeelsmenu",await page.getByRole("link",{name:"Accounts",exact:true}).count()===0 && await page.getByRole("link",{name:"Personeel",exact:true}).count()===0);
   check("Engineer mag geen accounts lezen",(await verzoek("GET","/beheer/gebruikers",engineer)).status===403);
-  await inloggen("beheerder1");
+  await inloggen("mes.system");
   await page.getByRole("heading",{name:"Accounts",exact:true}).waitFor();
-  await page.locator("tr",{hasText:"beheerder1"}).waitFor();
+  await page.locator("tr",{hasText:"mes.system"}).waitFor();
   const system=await token();
   check("System Administrator heeft geen personeels- of engineeringmenu",await page.getByRole("link",{name:"Personeel",exact:true}).count()===0 && await page.getByRole("link",{name:"Stappen en velden",exact:true}).count()===0);
-  check("Eigen account heeft geen uitzetknop",await page.locator("tr",{hasText:"beheerder1"}).getByRole("button",{name:"Uitzetten"}).count()===0);
+  check("Eigen account heeft geen uitzetknop",await page.locator("tr",{hasText:"mes.system"}).getByRole("button",{name:"Uitzetten"}).count()===0);
   check("Historisch gedeeld account is als geblokkeerd gemarkeerd",await page.locator("tr",{hasText:"Historisch gedeeld (login geblokkeerd)"}).count()>=1);
   await page.getByRole("button",{name:"Account aanmaken"}).click();
   await dialoog().getByLabel("Gebruikersnaam").fill("Kwaliteit 2");
@@ -189,7 +199,7 @@ try {
   await page.locator("tr",{hasText:"kwaliteit2"}).getByRole("button",{name:"Activeren"}).waitFor();
   check("Account uitgezet",(await q("SELECT actief FROM fabriek.gebruiker WHERE id=$1",[account.id]))[0].actief===false);
   await shot("02-accounts");
-  await inloggen("productiemanager1");
+  await inloggen("mes.manager");
   await page.getByRole("link",{name:"Personeel",exact:true}).click();
   await page.locator("tr",{hasText:"Operator A"}).waitFor();
   const manager=await token();
@@ -223,7 +233,7 @@ try {
   await page.locator("tr",{hasText:"Operator I"}).getByRole("button",{name:"Activeren"}).waitFor();
   check("Personeelsidentiteit uitgezet zonder accountwijziging",(await q("SELECT actief FROM fabriek.operator WHERE id=$1",[persoon.id]))[0].actief===false);
   await shot("02-personeel");
-  await inloggen("beheerder1");
+  await inloggen("mes.system");
   await page.getByRole("link", { name: "Pc's" }).click();
   await page.locator("tr", { hasText: "PC-01" }).getByRole("button", { name: "Stappen kiezen" }).click();
   await dialoog().getByLabel(/PS3 Mengen/).check();
@@ -237,13 +247,21 @@ try {
   check("Geen pilotfeedbackknop of opmerkingenmenu",await page.getByRole("button",{name:"Iets melden"}).count()===0 && await page.getByRole("link",{name:/Opmerkingen/}).count()===0);
   check("Feedbackinzage geweigerd",(await verzoek("GET","/terugmeldingen",await token())).status===403);
   console.log("\nLogboek");
+  // Wacht op de echte logboekrespons en de specifieke logboekweergave, niet op een oude tabel.
+  const logRespons = page.waitForResponse(r => new URL(r.url()).pathname === "/beheer/logboek" && r.request().method() === "GET");
   await page.getByRole("link", { name: "Logboek" }).click();
-  await page.locator(".tabel tbody tr").first().waitFor();
+  const logRes = await logRespons;
+  if (!logRes.ok()) throw new Error("Logboek HTTP "+logRes.status());
+  await page.getByRole("heading", { name: "Logboek", exact: true }).waitFor();
+  await page.locator("#f-onderdeel").waitFor();
+  const logTabel = page.locator("main .tabel");
+  await logTabel.getByRole("columnheader", { name: "Wijziging", exact: true }).waitFor();
+  await logTabel.locator("tbody tr").first().waitFor();
+  const log = await logTabel.innerText();
   await shot("04-logboek");
-  const log = await page.locator(".tabel").innerText();
-  check("Logboek: naamwijziging stap", log.includes("naam: Process Step 3 naar Mengen"));
-  check("Logboek: tolerantie 5 naar 8", log.includes("tolerantie: 5 naar 8"));
-  check("Logboek: pc-koppeling", log.includes("PC-01: PS3") && log.includes("Stap toegevoegd aan de pc"));
+  check("Logboek: naamwijziging stap", log.includes("naam: Process Step 3 naar Mengen"), log.slice(0,1200));
+  check("Logboek: tolerantie 5 naar 8", log.includes("tolerantie: 5 naar 8"), log.slice(0,1200));
+  check("Logboek: pc-koppeling", log.includes("PC-01: PS3") && log.includes("Stap toegevoegd aan de pc"), log.slice(0,1200));
   check("Logboek toont geen wachtwoord-hash", !log.includes("$2a$") && !log.includes("hash"));
 
   console.log("\nServer");
@@ -289,11 +307,11 @@ try {
   await invoer.locator(".tegel").first().waitFor();
   const tegels = await invoer.locator(".tegel").allInnerTexts();
   check("PC-01 toont alleen PS3 (Mengen) en PS4", tegels.length === 2 && tegels[0].includes("Mengen"), tegels.join(" | "));
-  await invoer.screenshot({ path: `${SHOTS}/05-invoer-pc01.png` });
+  if (process.env.MES_SCREENSHOTS === "review") await invoer.screenshot({ path: `${SHOTS}/05-invoer-pc01.png` });
   await invoer.close();
 
   console.log("\nDiensten en ploegen (#86)");
-  await inloggen("productiemanager1");
+  await inloggen("mes.manager");
   await page.goto(`${BASIS}/portaal/#/beheer/ploegen`);
   await page.getByRole("heading", { name: "Diensten en ploegen", level: 1 }).waitFor();
   const komend = page.locator("section", { has: page.getByRole("heading", { name: "Komende 14 dagen" }) });
@@ -320,9 +338,10 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

@@ -20,6 +20,7 @@ on:
       - 'docs/mes/MIGRATION-STRATEGY.md'
       - 'docs/mes/ROLES-AND-PROCESSES.md'
       - 'docs/mes/TERMINOLOGY.md'
+      - 'docs/mes/VISUAL-STYLE.md'
       - 'tools/pakket/README.md'
   pull_request:
     branches: [main]
@@ -40,6 +41,7 @@ on:
       - 'docs/mes/MIGRATION-STRATEGY.md'
       - 'docs/mes/ROLES-AND-PROCESSES.md'
       - 'docs/mes/TERMINOLOGY.md'
+      - 'docs/mes/VISUAL-STYLE.md'
       - 'tools/pakket/README.md'
     types: [opened, synchronize, reopened, labeled, ready_for_review]
 
@@ -49,7 +51,7 @@ permissions:
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
-  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || 'ontwikkeling' }}
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test') && 'schermen' || 'ontwikkeling' }}
   cancel-in-progress: true
 
 jobs:
@@ -94,6 +96,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
@@ -104,6 +111,10 @@ jobs:
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap controleren
         run: tests/test_roadmap.sh
+      - name: B+ contrastcontract
+        run: |
+          python3 tests/test_visual_style.py
+          python3 tests/test_left_accents.py
       - name: API typecheck op Node.js 22
         working-directory: api
         run: |
@@ -120,6 +131,10 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: B+ componenten in Chrome
+        run: node tests/visual-components.mjs
+      - name: Portalnavigatie en sessieoverdracht in Chrome
+        run: node tests/portal-navigation.mjs
 
   full-tests:
     name: Volledige testsuite (Node.js 26)
@@ -154,6 +169,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
@@ -164,6 +184,10 @@ jobs:
           grep -q "^## $V " CHANGELOG.md || { echo "CHANGELOG.md mist versie $V"; exit 1; }
       - name: Roadmap bij met de laatste versie
         run: tests/test_roadmap.sh
+      - name: B+ contrastcontract
+        run: |
+          python3 tests/test_visual_style.py
+          python3 tests/test_left_accents.py
       - name: PostgreSQL-client en Python voorbereiden
         run: |
           python3 -m pip install --quiet "psycopg[binary]"
@@ -236,6 +260,10 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: B+ componenten in Chrome
+        run: node tests/visual-components.mjs
+      - name: Portalnavigatie en sessieoverdracht in Chrome
+        run: node tests/portal-navigation.mjs
       - name: Laptoppakket met ingebouwde PostgreSQL (Linux-variant)
         run: tests/test_laptoppakket.sh
       - name: Schermtests in Chrome (invoerscherm, portalen)
@@ -247,6 +275,144 @@ jobs:
           python3 -m pip install --quiet openpyxl pillow pyzbar
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
           sh tests/test_schermen.sh
+      - name: Logboeken van de schermtests tonen
+        if: failure()
+        run: |
+          for log in /tmp/schermtest-*.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo '::endgroup::'
+          done
+
+  screen-regression:
+    name: Gerichte Chrome-schermregressies (Node.js 26)
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test')
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: batchgui
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Geteste tree vastleggen
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
+          git rev-parse 'HEAD^{tree}'
+      - name: Node.js 26 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
+      - name: Afhankelijkheden en builds voorbereiden
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          for m in api invoer portaal; do (cd "$m" && npm ci --no-audit --no-fund); done
+          npm run build --prefix invoer
+          npm run build --prefix portaal
+      - name: Schermtests in Chrome (invoerscherm, portalen)
+        env:
+          MES_SCREEN_FORMATS: ${{ github.event.label.name == 'scherm-review-test' && 'uitgebreid' || 'basis' }}
+          MES_SCREENSHOTS: ${{ github.event.label.name == 'scherm-review-test' && 'review' || 'failure' }}
+          DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
+        run: |
+          google-chrome --version
+          python3 -m pip install --quiet openpyxl pillow pyzbar
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
+          sh tests/test_schermen.sh
+      - name: Logboeken van de schermtests tonen
+        if: failure()
+        run: |
+          for log in /tmp/schermtest-*.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo '::endgroup::'
+          done
+
+  individual-screen:
+    name: Individuele Chrome-regressie (${{ github.event.label.name }})
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test' || github.event.label.name == 'scherm-overgang-test')
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: batchgui
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Geteste tree vastleggen
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
+          git rev-parse 'HEAD^{tree}'
+      - name: Node.js 26 instellen
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
+      - name: Schermtestselectie controleren
+        env:
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          case "$LABEL" in
+            scherm-flow-test|scherm-formaten-test|scherm-formaten-uitgebreid-test|scherm-meldingen-test|scherm-beheer-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test|scherm-overgang-test) ;;
+            *) exit 2 ;;
+          esac
+          selectie="${LABEL#scherm-}"
+          echo "SCHERM_SELECTIE=${selectie%-test}" >> "$GITHUB_ENV"
+          sh -n tests/test_schermen.sh
+          for script in invoer/e2e/*.mjs portaal/e2e/*.mjs tests/screen-formats.mjs tests/screen-api-lifecycle.mjs; do node --check "$script"; done
+      - name: Afhankelijkheden en builds voorbereiden
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          for m in api invoer portaal; do (cd "$m" && npm ci --no-audit --no-fund); done
+          npm run build --prefix invoer
+          npm run build --prefix portaal
+      - name: Schermtests in Chrome (invoerscherm, portalen)
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/batchgui
+          TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
+        run: |
+          google-chrome --version
+          python3 -m pip install --quiet openpyxl pillow pyzbar
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
+          sh tests/test_schermen.sh "$SCHERM_SELECTIE"
       - name: Logboeken van de schermtests tonen
         if: failure()
         run: |
@@ -342,6 +508,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Security- en beheertoolregressies
         if: always() && steps.node.outcome == 'success'
         run: node --test tests/security-tools.test.mjs tests/phase2-source-manifest.test.mjs
@@ -411,6 +582,11 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            invoer/package-lock.json
+            portaal/package-lock.json
       - name: Pakketafhankelijkheden
         run: |
           npm ci --prefix api --no-audit --no-fund

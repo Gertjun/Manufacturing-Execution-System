@@ -22,3 +22,21 @@
 }
 /* Wacht de knop op een keuze in een venster ("Klopt dit?"), dan geen rondje achter het venster. */
 body:has(dialog[open]) .knop.knop-bezig::after { visibility: hidden; }
+
+/* B+ gedeelde visuele knopvarianten. Afmetingen blijven per werkcontext. */
+.knop {
+  border: 1.5px solid var(--mes-structuur);
+  background: var(--vlak); color: var(--mes-structuur);
+  border-radius: var(--radius-xs);
+}
+.knop:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--vlak-2); }
+.knop-stil { border-color: var(--lijn-sterk); }
+.knop-hoofd { background: var(--vlak); color: var(--mes-actie-tekst); border-color: var(--mes-actie-tekst); }
+.knop-hoofd:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--mes-uitvoering-vlak); color: var(--mes-actie-hover-tekst); border-color: var(--mes-actie-hover-tekst);
+}
+.knop-gevaar { background: var(--vlak); color: var(--grens); border-color: var(--grens); }
+.knop-gevaar:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--grens-vlak); color: var(--grens-donker); border-color: var(--grens-donker);
+}
+.knop:disabled { opacity: .45; cursor: not-allowed; }

@@ -37,7 +37,7 @@ export async function recepten() {
           const name=h("input",{type:"text",required:true,maxlength:250,value:initial?.name??""});
           const description=h("textarea",{maxlength:10000,rows:3},initial?.description??"");
           const error=h("p",{class:"foutmelding",role:"alert"});
-          return h("details",{},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
+          return h("details",{class:"engineering-details"},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
             e.preventDefault();
             if(!active(id,g)||!magReceptconcept())return;
             error.textContent="";
@@ -54,15 +54,15 @@ export async function recepten() {
         }
         const productVersions=recipes.flatMap(r=>r.versions.map(v=>({id:v.id,label:r.code+" · revisie "+v.revision+" — "+v.name+" · "+(status[v.lifecycle_status]??v.lifecycle_status)})));
         content.replaceChildren(
-          h("section",{class:"blok"},h("h2",{},"Nieuwe Master Recipe"),
+          h("section",{class:"blok mes-kaart-structuur engineering-kaart"},h("h2",{},"Nieuwe Master Recipe"),
             editForm("Recept aanmaken","/recipes/","POST",(name,description,code)=>({product_id:id,code,name,description}),undefined,true)),
           ...recipes.map(r=>{
             const versions=[...r.versions].sort((a,b)=>b.revision-a.revision);
             const latest=versions[0];
-            return h("section",{class:"blok"},h("h2",{},r.code),
+            return h("section",{class:"blok mes-kaart-structuur engineering-kaart"},h("h2",{},r.code),
               latest?editForm("Nieuwe lege conceptrevisie","/recipes/"+r.id+"/versions","POST",(name,description)=>({expected_revision:latest.revision,name,description}),latest):null,
               latest?h("p",{class:"sub"},"Een nieuwe revisie bevat nog geen gekopieerde receptinhoud."):null,
-              ...versions.map(v=>h("details",{},h("summary",{},"Revisie "+v.revision+" — "+v.name+" · "+(status[v.lifecycle_status]??v.lifecycle_status)),
+              ...versions.map(v=>h("details",{class:"engineering-details engineering-revisie"},h("summary",{},"Revisie "+v.revision+" — "+v.name+" · "+(status[v.lifecycle_status]??v.lifecycle_status)),
                 h("p",{},v.description||"Geen beschrijving"),
                 h("p",{class:"sub"},"Wijzigingsteller: "+v.change_no),
                 v.lifecycle_status==="draft"?editForm("Conceptheader wijzigen","/recipes/versions/"+v.id,"PATCH",(name,description)=>({expected_change_no:v.change_no,name,description}),v)

@@ -72,7 +72,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         await refresh();
       }
       function save(title:string,fields:Node[],path:string,body:()=>object,id?:string,root=base) {
-        return h("details",{},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
+        return h("details",{class:"engineering-details"},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{
           e.preventDefault();
           if(!active())return;
           try{await mutate(id?"PATCH":"POST",root+"/"+path+(id?"/"+id:""),{expected_change_no:data.change_no,...body()});}
@@ -577,5 +577,5 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
       );
     }catch(e){if(active())area.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
   }
-  return h("section",{},h("h3",{},"Formule, vereisten, instructies en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
+  return h("section",{class:"engineering-paneel"},h("h3",{},"Formule, vereisten, instructies en procesparameters"),h("button",{type:"button",class:"knop",onclick:load},"Receptinhoud laden / vernieuwen"),area);
 }

@@ -357,7 +357,7 @@ export async function dag(datum?: string, stapcode?: string) {
       h("nav", { class: "stappenlijst", "aria-label": "Stappen" },
         h("div", { class: "lijstkop" }, "Per batch"), stappen.filter((x) => x.niveau === "batch").map(lijstLink),
         h("div", { class: "lijstkop" }, "Per lot"), stappen.filter((x) => x.niveau === "lot").map(lijstLink)),
-      h("section", { class: "blok", style: "margin-top:0" },
+      h("section", { class: "blok planning-kaart", style: "margin-top:0" },
         h("div", { class: "kop" },
           h("div", {}, h("h2", { style: "margin:0" }, `${s.code} ${s.naam}`),
             h("p", { class: "sub" }, s.is_lot_stap ? "Hier worden 4 batches één lot. Je plant een lotvoorstel." : s.niveau === "lot" ? "Per lot" : "Per batch"),
@@ -404,7 +404,7 @@ export async function overzicht(datum?: string) {
         dagKiezer(d, (dag) => `#/planning/overzicht/${dag}`))),
     h("p", {}, `${aantal} gepland in ${stappen.filter((s) => s.items.length).length} van ${stappen.length} stappen`,
       metWaarschuwing ? [". ", waarschuwing(`${metWaarschuwing} met een vorige stap die niet op tijd is`)] : "."),
-    h("section", { class: "blok" },
+    h("section", { class: "blok planning-kaart" },
       h("table", { class: "tabel dagoverzicht" },
         h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Stap (klik om te wijzigen)"), h("th", { scope: "col" }, "Gepland, in volgorde"))),
         h("tbody", {}, stappen.map((s) =>
@@ -562,7 +562,7 @@ export async function lots() {
 
   const kaart = (v: Voorstel) => {
     const nKlaar = v.batches.filter((b) => b.klaar_voor_lot).length;
-    return h("section", { class: "blok voorstel" },
+    return h("section", { class: "blok voorstel planning-kaart planning-open" },
       h("div", { class: "kop" },
         h("div", {}, h("h2", { style: "margin:0" }, `Lotvoorstel ${v.nummer}`),
           h("p", { class: "sub" }, nKlaar === 4 ? "Alle 4 batches zijn klaar. De operator kan het lot samenstellen." : `${nKlaar} van 4 batches klaar voor een lot.`)),
@@ -582,7 +582,7 @@ export async function lots() {
       magPlannen() ? h("button", { class: "knop knop-hoofd", onclick: nieuw }, "Nieuw lotvoorstel") : null),
     open.length ? h("div", { class: "voorstellen" }, open.map(kaart)) : h("p", { class: "leeg" }, "Er zijn geen open lotvoorstellen."),
     klaar.length
-      ? h("section", { class: "blok" }, h("h2", {}, "Afgerond"),
+      ? h("section", { class: "blok planning-kaart" }, h("h2", {}, "Afgerond"),
           tabel(["Voorstel", "Uitkomst", "Lot", "Batches", "Reden van afwijken"], klaar.map((v) => [
             String(v.nummer), VOORSTEL_STATUS[v.status] ?? v.status,
             v.lotnummer ? h("a", { class: "sterk", href: `#/kwaliteit/lotpaspoort/${v.lotnummer}` }, v.lotnummer) : "",
@@ -723,14 +723,14 @@ async function routeBewerken(code: string) {
         "Lopende batches van dit product volgen een gewijzigde route meteen; wat al gedaan is, blijft staan.",
         h("a", { class: "knop knop-stil", href: "#/planning/producten" }, "Terug naar producten")),
       h("p", { class: "sub" }, isStandaard() ? "Nu: alle processtappen (de standaardroute), zonder keuringen." : `Nu: ${routeSamenvatting(route, alle)}.`),
-      h("section", { class: "blok" }, h("h2", {}, `Batchstappen (${batch.length})`),
+      h("section", { class: "blok planning-definitie" }, h("h2", {}, `Batchstappen (${batch.length})`),
         batch.length ? h("ol", { class: "routelijst" }, batch.map((c, i) => rij(c, i + 1))) : h("p", { class: "leeg" }, "Kies minstens één batchstap.")),
-      h("section", { class: "blok" }, h("h2", {}, "Lot samenstellen"),
+      h("section", { class: "blok planning-definitie" }, h("h2", {}, "Lot samenstellen"),
         h("ol", { class: "routelijst", start: batch.length + 1 }, route.filter((c) => groep(c) === 1).map((c) => rij(c, batch.length + 1)))),
-      h("section", { class: "blok" }, h("h2", {}, `Lotstappen (${lot.length})`),
+      h("section", { class: "blok planning-definitie" }, h("h2", {}, `Lotstappen (${lot.length})`),
         lot.length ? h("ol", { class: "routelijst", start: batch.length + 2 }, lot.map((c, i) => rij(c, batch.length + 2 + i))) : h("p", { class: "leeg" }, "Geen lotstappen na het samenstellen.")),
       buiten.length
-        ? h("section", { class: "blok" }, h("h2", {}, `Niet in de route (${buiten.length})`),
+        ? h("section", { class: "blok planning-definitie" }, h("h2", {}, `Niet in de route (${buiten.length})`),
             h("ul", { class: "routelijst routelijst-buiten" }, buiten.map((s) => h("li", { class: "route-rij" },
               h("span", { class: "route-stap" }, h("strong", {}, s.code), ` ${s.naam}`,
                 s.soort === "keuring" ? h("span", { class: "sub" }, " · keuring door Kwaliteit; komt achteraan, zet hem met Eerder op zijn plek") : null),
@@ -804,7 +804,7 @@ function afwijkendeDagen(lijst: Afwijking[]) {
     }), "Afwijking opgeslagen", capaciteit);
   };
   const periode = (a: Afwijking) => (a.van === a.tot ? dagNaam(a.van, false) : `${dagNaam(a.van, false)} t/m ${dagNaam(a.tot, false)}`);
-  return h("section", { class: "blok" },
+  return h("section", { class: "blok planning-kaart" },
     h("div", { class: "kop" },
       h("div", {}, h("h2", { style: "margin:0" }, "Afwijkende dagen"),
         h("p", { class: "sub" }, "Feestdagen, onderhoud of een korte dag: voor alle producten of één product, voor alle stappen of één stap.")),
@@ -873,7 +873,7 @@ function capaciteitPerStap(regels: CapRegel[], nogInvullen: number, uren: number
           const p = producten.find((x) => x.code === code);
           const open = rijen.filter((x) => x.max_per_dag === null && !x.kg_per_dag);
           const zonderGewicht = !!p && p.batchgewicht_kg === null;
-          return h("section", { class: "blok cap-product" },
+          return h("section", { class: "blok cap-product planning-definitie" },
             h("div", { class: "kop" },
               h("div", {}, h("h2", { style: "margin:0" }, `${code} – ${rijen[0].productnaam}`),
                 zonderGewicht

@@ -47,6 +47,28 @@ def kort_type(t: str) -> str:
     return KORT.get(t.removesuffix("[]"), t.removesuffix("[]")) + ("[]" if t.endswith("[]") else "")
 
 
+# Expliciete semantische indeling D114; onbekende tabellen vereisen bewuste classificatie.
+DIAGRAM_KLASSEN = {
+    "structuur": set("activity_qualification authorization_permission authorization_role authorization_role_permission capaciteit_stap gebruiker grondstof instelling master_recipe master_recipe_version material_class material_definition material_definition_version measurement_unit operator pc pc_stap ploeg processtap product product_stap qualification quantity_dimension quantity_kind recipe_compatibility_rule recipe_dependency recipe_equipment_requirement recipe_formula recipe_instruction recipe_lot_rule recipe_material_requirement recipe_parameter recipe_parameter_limit recipe_personnel_requirement recipe_procedural_element recipe_scaling_binding recipe_scaling_expression recipe_scaling_input recipe_scaling_rule recipe_specification_link rooster rooster_ploeg specificatie specificatie_regel stap_grondstof stilstand_oorzaak unit_conversion unit_conversion_version veld veld_product".split()),
+    "uitvoering": set("authorization_decision authorization_grant authorization_personnel_link authorization_request authorization_revocation batch batch_besluit capaciteit_afwijking certificaat execution_session geweigerde_invoer grondstof_gebruik herbewerking invoerconflict keuring lot lot_voorstel lot_voorstel_batch melding melding_gelezen overdracht personnel_qualification qualification_issue qualification_revocation recipe_change_impact recipe_change_request recipe_release recipe_release_withdrawal recipe_review_decision recipe_review_round stapplanning stapregistratie stilstand terugmelding waarde".split()),
+    "ondersteuning": set("authorization_bootstrap authorization_channel_identity authorization_channel_identity_revocation authorization_legacy_snapshot authorization_recovery config_log inlogpoging onderhoud_log schema_versie".split()),
+}
+DIAGRAM_INIT = '%%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%'
+DIAGRAM_LEGENDA = "Legenda B+: structuur (blauw), uitvoering en besluiten (oranje), technische ondersteuning (grijs). Alle relaties zijn fysieke FK-verwijzingen, geen procespijlen. Kleur is aanvullend; de tabelnamen en relatiekolommen blijven bepalend."
+
+
+def diagram_stijl(tabellen):
+    toegewezen = set().union(*DIAGRAM_KLASSEN.values())
+    if toegewezen != set(tabellen) or sum(map(len, DIAGRAM_KLASSEN.values())) != len(tabellen):
+        raise ValueError(f"ERD-classificatie ontbreekt of is verouderd: {sorted(toegewezen ^ set(tabellen))}")
+    return [
+        "    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59",
+        "    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430",
+        "    classDef ondersteuning fill:#F4F7F9,stroke:#6B7785,color:#1B2430",
+        *[f"    class {','.join(sorted(namen))} {klasse}" for klasse, namen in DIAGRAM_KLASSEN.items()],
+    ]
+
+
 def main() -> None:
     verbinding = sys.argv[1] if len(sys.argv) > 1 else "host=localhost user=postgres"
     uitvoer = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / "docs" / "DATABASE.md"
@@ -90,9 +112,6 @@ def main() -> None:
     for rel, kol, typ, _, pk, fk, uk in kolommen:
         per_tabel[rel].append((kol, typ, pk, fk, uk))
 
-    # Wie iets deed (gebruiker, operator, pc) staat in bijna elke tabel; die lijnen maken het plaatje onleesbaar.
-    wie = {"gebruiker", "operator", "pc"}
-    lijnen = [v for v in verbanden if v[1] not in wie or v[0] in wie]
     r = ["# Database – tabellen en verbanden", "",
          "> **Dit bestand:** een plaatje van de database, **automatisch gemaakt** uit `db/schema.sql` met",
          "> `tools/schema_plaatje.py` (#100, D84). Niet met de hand wijzigen: `tests/test_schema_plaatje.sh` faalt als het niet bij is.",
@@ -102,14 +121,29 @@ def main() -> None:
          "## Overzicht", "",
          "Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. "
          "`||` = altijd ingevuld, `|o` = mag leeg zijn, `o{` = nul of meer, `o|` = hoogstens één. "
-         "Niet getekend, wel in de lijst hieronder: verwijzingen naar `gebruiker`, `operator` en `pc` (wie iets deed of waar).", "",
-         "```mermaid", "erDiagram"]
+         "De Mermaid-bron hieronder bevat alle foreign keys, inclusief verwijzingen naar `gebruiker`, `operator` en `pc`.", "",
+         DIAGRAM_LEGENDA, "",
+         "[Open het fysieke overzicht met alle tabellen](diagrams/rendered/physical-erd.svg). Het overzicht laat de meeste "
+         "verwijzingen naar gebruikers, operators en werkstations weg voor de leesbaarheid.", "",
+         "## Fysieke domeindiagrammen", "",
+         "De zes diagrammen tonen samen alle foreign keys. Elke relatie staat bij de tabel die de foreign key bevat. "
+         "Gestippelde lijnen en blokken markeren een verwijzing naar een tabel in een ander domein. "
+         "Open een SVG op volledig formaat om de labels te lezen.", "",
+         "- [Autorisaties en identiteit](diagrams/rendered/physical-identity.svg)",
+         "- [Master Data en Recipe Management](diagrams/rendered/physical-master-data.svg)",
+         "- [Productie-uitvoering](diagrams/rendered/physical-execution.svg)",
+         "- [Planning en lotvorming](diagrams/rendered/physical-planning.svg)",
+         "- [Kwaliteit en metingen](diagrams/rendered/physical-quality.svg)",
+         "- [Technische ondersteuning](diagrams/rendered/physical-support.svg)", "",
+         "<details>", "<summary>Mermaid-bron met alle foreign keys</summary>", "",
+         "```mermaid", DIAGRAM_INIT, "erDiagram"]
     r += [f"    {t}" for t in tabellen]
-    for kind, ouder, kols, verplicht, uniek in lijnen:
+    for kind, ouder, kols, verplicht, uniek in verbanden:
         links = "||" if verplicht else "|o"
         rechts = "o|" if uniek else "o{"
         r.append(f'    {ouder} {links}--{rechts} {kind} : "{kols}"')
-    r += ["```", "", "## Tabellen", "", "| Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |", "| --- | ---: | --- | --- |"]
+    r += diagram_stijl(tabellen)
+    r += ["```", "", "</details>", "", "## Tabellen", "", "| Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |", "| --- | ---: | --- | --- |"]
     for t in tabellen:
         naar = sorted({o for k, o, *_ in verbanden if k == t and o != t})
         r.append(f"| [`{t}`](#{t}) | {len(per_tabel[t])} | {', '.join(f'`{x}`' for x in naar)} | {uitleg.get(t, '')} |")

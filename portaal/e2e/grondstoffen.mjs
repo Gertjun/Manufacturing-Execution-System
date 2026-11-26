@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van grondstoffen in Chrome (Beheer en Kwaliteit), op data van tools/genereer_testdata.py.
 // Gebruik: node e2e/grondstoffen.mjs   (start zelf de API op poort 3464)
 import { spawn } from "node:child_process";
@@ -21,13 +22,13 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3464", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -37,7 +38,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -66,7 +67,7 @@ try {
   await page.getByRole("dialog").getByRole("button", { name: "Opslaan" }).click();
   await page.locator("tr", { hasText: "GS-D" }).getByText("PS5, PS6 (mag)").waitFor();
   check("GS-D in PS5 (verplicht) en PS6 (mag)", true);
-  await page.screenshot({ path: `${SHOTS}/01-beheer.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/01-beheer.png`, fullPage: true });
   const [cfg] = await q("SELECT count(*)::int AS n FROM fabriek.stap_grondstof x JOIN fabriek.grondstof g ON g.id = x.grondstof_id WHERE g.code = 'GS-D' AND x.actief");
   check("Koppeling in de database", cfg.n === 2);
   const [log] = await q("SELECT count(*)::int AS n FROM fabriek.config_log WHERE tabel IN ('grondstof', 'stap_grondstof') AND gewijzigd_door = 'mes.engineer'");
@@ -83,7 +84,7 @@ try {
   await page.locator(".tegel", { hasText: /batch/ }).first().waitFor();
   const tegel = await page.locator(".tegel").first().innerText();
   check(`Partij ${partij}: aantal batches klopt`, tegel.startsWith(String(verwacht.b)), tegel);
-  await page.screenshot({ path: `${SHOTS}/02-terugzoeken.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/02-terugzoeken.png`, fullPage: true });
   const lotLink = page.locator("tbody tr a[href*='lotpaspoort']").first();
   const lotnummer = (await lotLink.innerText()).trim();
   const [gsLot] = await q(`SELECT count(*)::int AS n FROM fabriek.grondstof_gebruik_actueel u
@@ -96,15 +97,16 @@ try {
   await gsBlok.locator("tbody tr").first().waitFor({ timeout: 10000 }).catch(() => {});
   const gsRijen = await gsBlok.locator("tbody tr").count();
   check(`Lotpaspoort ${lotnummer} toont alle grondstoffen van het lot en zijn batches`, gsRijen === gsLot.n && gsRijen >= 12, `${gsRijen} / ${gsLot.n}`);
-  await page.locator("section", { hasText: "Grondstoffen" }).screenshot({ path: `${SHOTS}/03-lotpaspoort.png` });
+  if (process.env.MES_SCREENSHOTS === "review") await page.locator("section", { hasText: "Grondstoffen" }).screenshot({ path: `${SHOTS}/03-lotpaspoort.png` });
 } catch (e) {
   console.log("  AFGEBROKEN", e.message.split("\n")[0]);
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

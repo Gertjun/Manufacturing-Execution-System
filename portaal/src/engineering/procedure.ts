@@ -11,7 +11,7 @@ const child:Partial<Record<Kind,Kind>>={procedure:"unit_procedure",unit_procedur
 
 export function procedurePane(version:{id:string;lifecycle_status:string},current:()=>boolean,refresh:()=>Promise<void>) {
   const base="/recipes/versions/"+encodeURIComponent(version.id)+"/procedure";
-  const pane=h("section",{},h("h3",{},"Procedure en afhankelijkheden"));
+  const pane=h("section",{class:"engineering-paneel"},h("h3",{},"Procedure en afhankelijkheden"));
   const area=h("div",{});
   let generation=0;
   let busy=false;
@@ -41,7 +41,7 @@ export function procedurePane(version:{id:string;lifecycle_status:string},curren
         await refresh();
       }
       function form(title:string,fields:Node[],run:()=>Promise<void>) {
-        return h("details",{},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{e.preventDefault();await run();}},fields,h("button",{type:"submit",class:"knop knop-hoofd"},"Opslaan")));
+        return h("details",{class:"engineering-details"},h("summary",{},title),h("form",{class:"formulier-blok",onsubmit:async(e:Event)=>{e.preventDefault();await run();}},fields,h("button",{type:"submit",class:"knop knop-hoofd"},"Opslaan")));
       }
       function elementForm(parent:Element|null,existing?:Element) {
         const kind=existing?.kind??(parent?child[parent.kind]:"procedure");
@@ -60,7 +60,7 @@ export function procedurePane(version:{id:string;lifecycle_status:string},curren
       const sorted=(parent:string|null)=>data.elements.filter(e=>e.parent_id===parent).sort((a,b)=>a.position-b.position);
       function tree(parent:Element|null):HTMLElement {
         const nodes=sorted(parent?.id??null);
-        return h("ul",{},nodes.map(e=>h("li",{},
+        return h("ul",{class:"engineering-boom"},nodes.map(e=>h("li",{},
           h("strong",{},labels[e.kind]+" · "+e.code+" — "+e.name),
           h("p",{class:"sub"},"Positie "+e.position+" · "+(e.required?"Verplicht":"Optioneel")),
           editable?elementForm(parent,e):null,

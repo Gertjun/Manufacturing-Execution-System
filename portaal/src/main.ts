@@ -1,8 +1,9 @@
 import { VERSIE } from "../../gedeeld/versie";
+import { mesMerk, mesVersie, mesGebruiker } from "../../gedeeld/mes-identiteit";
 import "./stijl.css";
 import { h, melding, nieuweRoute, toon } from "../../gedeeld/ui";
 import { wachtwoordFormulier } from "../../gedeeld/wachtwoord";
-import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor, vernieuwRechten, rechten, magDisplay, magEtiketten, magNalevering } from "./basis";
+import { ApiFout, haal, portalenVoor, PORTALEN, zichtbareOnderdelen,  sessie, stuur, tegelsVoor, vernieuwRechten, rechten, magDisplay, magEtiketten, magNalevering, bestemmingenVoor, markeerPortalkeuze } from "./basis";
 import * as kwaliteit from "./kwaliteit/schermen";
 import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
@@ -25,10 +26,10 @@ import type { Rol } from "../../gedeeld/types";
 async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   const menu = document.getElementById("menu")!;
   if (!sessie.geldig()) {
-    menu.replaceChildren(h("div", { class: "merk" }, "MES"));
+    menu.replaceChildren(h("div", { class: "merk" }, mesMerk()));
     return;
   }
-  const portalen = portalenVoor(sessie.rol);
+  const portalen = bestemmingenVoor();
   // Op een smal scherm (tablet) staat het menu dicht achter een knop, zodat de inhoud meteen zichtbaar is (#44).
   const huidig = portalen.find((p) => p.id === actiefPortaal);
   const onderdeel = huidig?.onderdelen.find((o) => o.pad === actiefOnderdeel);
@@ -44,7 +45,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   }, "Menu", h("span", { class: "menu-knop-waar" }, [huidig?.naam, onderdeel?.naam].filter(Boolean).join(" · ") || (actiefPortaal === "meldingen" ? "Meldingen" : "")));
   // Meldingen staan buiten het inklapbare deel: de teller blijft ook op een smal scherm zichtbaar.
   menu.replaceChildren(
-    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, "MES"), knop),
+    h("div", { class: "menu-kop" }, h("a", { class: "merk", href: "#/", title: "Startpagina" }, mesMerk()), knop),
     ...(heeftMeldingen()
       ? [h("a", { class: "menu-portaal menu-meldingen", href: "#/meldingen", "aria-current": actiefPortaal === "meldingen" ? "page" : undefined }, "Meldingen", meldingTeller())]
       : []),
@@ -52,7 +53,7 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
   inhoud.replaceChildren(
     ...portalen.map((p) =>
       h("div", { class: "menu-groep" },
-        h("a", { class: "menu-portaal", href: `#/${p.id}`, "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,
+        h("a", { class: "menu-portaal", href: p.href, "data-portaal": p.id, onclick: () => markeerPortalkeuze(p.id), "aria-current": p.id === actiefPortaal && !actiefOnderdeel ? "page" : undefined }, p.naam,
           p.klaar ? null : h("span", { class: "binnenkort" }, "volgt")),
         p.id === actiefPortaal && zichtbareOnderdelen(p).length
           ? h("ul", {}, zichtbareOnderdelen(p).map((o) => {
@@ -62,12 +63,12 @@ async function tekenMenu(actiefPortaal: string, actiefOnderdeel: string) {
             }))
           : null)),
     h("div", { class: "menu-voet" },
-      h("div", {}, sessie.naam),
+      mesGebruiker(sessie.naam),
       h("button", { class: "knop-link", onclick: () => { sessie.afmelden(); location.hash = "#/login"; } }, "Afmelden"),
       h("a", { href: "#/" }, "Startpagina"),
       h("a", { href: "#/hulp" }, "Hulp"),
       h("a", { href: "#/wachtwoord" }, "Wachtwoord wijzigen"),
-      h("div", { class: "sub versie" }, `Versie ${VERSIE}`)),
+      h("div", { class: "sub versie" }, mesVersie())),
   );
 }
 
@@ -78,9 +79,10 @@ function loginScherm() {
   const fout = h("p", { class: "foutmelding", role: "alert" });
   const testaccounts = h("div", { class: "testaccounts" });
   toon(
-    h("div", { class: "inlog" },
+    h("div", { class: "inlog mes-aanmeldkaart" },
+      h("p", { class: "mes-aanmeldmerk" }, "MES · Manufacturing Execution System"),
       h("h1", {}, "Inloggen"),
-      h("p", { class: "sub" }, "Met je eigen account. Daarna kies je het invoerscherm of een portaal."),
+      h("p", { class: "sub" }, "Met je eigen account. Daarna kies je een MES-portaal."),
       h("form", {
         onsubmit: async (e: Event) => {
           e.preventDefault();
@@ -117,7 +119,8 @@ function loginScherm() {
 function wachtwoordScherm(tijdelijk?: { token: string; wachtwoord: string }) {
   // Vanuit het menu een gewone pagina met kop; na een tijdelijk wachtwoord de smalle kolom van het inlogscherm.
   toon(
-    h("div", { class: tijdelijk ? "inlog" : "wachtwoord-pagina" },
+    h("div", { class: tijdelijk ? "inlog mes-aanmeldkaart" : "wachtwoord-pagina" },
+      tijdelijk ? h("p", { class: "mes-aanmeldmerk" }, "MES · Manufacturing Execution System") : null,
       h("h1", {}, tijdelijk ? "Kies een eigen wachtwoord" : "Wachtwoord wijzigen"),
       h("p", { class: "sub" }, tijdelijk
         ? "Je hebt een tijdelijk wachtwoord van de beheerder gekregen. Kies nu een wachtwoord dat alleen jij weet; daarna ga je verder."
@@ -140,7 +143,7 @@ function startScherm() {
   const tegels = tegelsVoor(sessie.rol);
   // Maar één bestemming (bijvoorbeeld een operator: alleen het invoerscherm): meteen daarheen.
   if (tegels.length === 1 && tegels[0].id === "invoer") {
-    try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ }
+    markeerPortalkeuze("invoer");
     return void location.assign(tegels[0].href);
   }
   toon(
@@ -148,9 +151,9 @@ function startScherm() {
     tegels.length
       ? h("ul", { class: "startpagina" }, tegels.map((t) =>
           h("li", {}, h("a", {
-            class: `starttegel starttegel-${t.id}`, href: t.href,
+            class: `starttegel starttegel-${t.id}`, href: t.href, "data-portaal": t.id,
             // Kwaliteit neemt de inlog alleen mee als ze zelf voor het invoerscherm kiest (lab-pc, D58); zie invoer/src/sessie.ts.
-            onclick: t.id === "invoer" ? () => { try { localStorage.setItem("invoer.vanStart", String(Date.now())); } catch { /* */ } } : undefined,
+            onclick: () => markeerPortalkeuze(t.id),
           }, h("strong", {}, t.naam), h("span", {}, t.uitleg)))))
       : h("p", { class: "leeg" }, "Er is geen portaal beschikbaar met je actuele MES-bevoegdheden. Neem contact op met de bevoegde autorisatiebeheerder."),
     h("p", { class: "sub", style: "margin-top:24px" }, h("a", { href: "#/hulp" }, "Hulp voor jouw rol"), ", ook om af te drukken."),
@@ -205,7 +208,7 @@ async function route() {
   const routeHash = location.hash;
   const routeToken = sessie.token;
   const actueel = () => location.hash === routeHash && sessie.token === routeToken;
-  document.getElementById("menu")!.replaceChildren(h("div", { class: "merk" }, "MES"));
+  document.getElementById("menu")!.replaceChildren(h("div", { class: "merk" }, mesMerk()));
   toon(h("p", { class: "sub" }, "Bevoegdheden ophalen…"));
   try {
     if (!(await vernieuwRechten()) || !actueel()) return;
@@ -222,7 +225,7 @@ async function route() {
       return toon(h("p", { class: "leeg" }, "Geen actuele displaybevoegdheid."));
     }
     if (portaal !== "wandscherm" || onderdeel) return void (location.hash = "#/wandscherm");
-    await tekenMenu("", "");
+    await tekenMenu("wandscherm", "");
     return beperktDisplay();
   }
   if (portaal === "wandscherm") return void (location.hash = "#/");
@@ -236,7 +239,7 @@ async function route() {
   }
   // Nainvoeren na papier en lege formulieren (#75, D60): ploegleider en beheerder.
   if (portaal === "nainvoeren" && magNalevering()) {
-    await tekenMenu("", "");
+    await tekenMenu("nainvoeren", "");
     return onderdeel === "formulier" ? formulieren(arg) : nalevering();
   }
   if (portaal === "wachtwoord") {

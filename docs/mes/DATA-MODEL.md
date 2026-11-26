@@ -2,7 +2,17 @@
 
 D89 M01–M12. Eén modulaire PostgreSQL-database, UUID, stabiele codes, FK, timestamptz, numeric en expliciete eenheid; relationele kern, JSONB voor berichten/auditdetails. Kritische regels in database en API, transacties, idempotentie, historie behouden. Onderstaande namen zijn ontwerp, geen definitieve DDL.
 
+Legenda: blauw = definities; oranje = uitvoering, historie en besluiten. Grijze relaties zijn conceptuele relaties, geen procesvolgorde. Dit is geen fysieke ERD.
+
+![Conceptueel datamodel met recept, planning en uitvoering, middelen en materiaal](../diagrams/rendered/conceptual-erd.svg)
+
+[Open de SVG op volledig formaat](../diagrams/rendered/conceptual-erd.svg).
+
+<details>
+<summary>Mermaid-bron</summary>
+
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 erDiagram
  PRODUCT ||--o{ MASTER_RECIPE : defines
  MASTER_RECIPE ||--o{ MASTER_RECIPE_VERSION : versions
@@ -21,7 +31,13 @@ erDiagram
  PHYSICAL_ASSET ||--o{ EQUIPMENT_ASSET_ASSIGNMENT : assigned
  MATERIAL_DEFINITION ||--o{ MATERIAL_LOT : identifies
  EXECUTION ||--o{ MATERIAL_TRANSFORMATION : transforms
+    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59
+    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430
+    class PRODUCT,MASTER_RECIPE,MASTER_RECIPE_VERSION,RECIPE_PROCEDURAL_ELEMENT,EQUIPMENT,PHYSICAL_ASSET,MATERIAL_DEFINITION structuur
+    class RECIPE_APPROVAL,CONTROL_RECIPE,PRODUCTION_ORDER,JOB_ORDER,CONTROL_RECIPE_REVISION,EXECUTION,STAPREGISTRATIE,WAARDE,EBR_REVISION,QUALITY_RELEASE,EQUIPMENT_ASSET_ASSIGNMENT,MATERIAL_LOT,MATERIAL_TRANSFORMATION uitvoering
 ```
+
+</details>
 
 | Domein | Entiteiten (voorlopig) |
 |---|---|

@@ -45,13 +45,13 @@ export async function werkvoorraad() {
   // Knelpunt: de stap waar het meeste werk ligt te wachten.
   const meest = stappen.reduce((a, s) => (s.wachtend > a.wachtend ? s : a), stappen[0]);
   const tegel = (s: StapWerk) =>
-    h("a", { class: `staptegel${s === meest && s.wachtend > 1 ? " knelpunt" : ""}${s.open + s.wachtend === 0 ? " leeg-stap" : ""}`, href: `#/productie/stap/${s.stapcode}` },
+    h("a", { class: `staptegel${s === meest && s.wachtend > 1 ? " knelpunt" : ""}${s.open + s.wachtend === 0 ? " leeg-stap" : ""}${s.open > 0 ? " open-acties" : ""}`, href: `#/productie/stap/${s.stapcode}` },
       h("span", { class: "nr" }, s.stapcode.replace("PS", "")),
       h("span", { class: "naam" }, s.stapnaam),
       h("span", { class: "werk" }, s.open || s.wachtend ? `${s.open} bezig, ${s.wachtend} klaar` : "Niets bezig of klaar"),
       s.oudste_wachtend ? h("span", { class: "werk" }, `Wacht al ${leeftijd(s.oudste_wachtend)}`) : null);
   const kpi = (n: number, tekst: string, link?: string) =>
-    h(link ? "a" : "div", { class: "tegel", href: link }, h("span", { class: "tegel-getal" }, n), h("span", { class: "tegel-tekst" }, tekst));
+    h(link ? "a" : "div", { class: "tegel operations-cijfer", href: link }, h("span", { class: "tegel-getal" }, n), h("span", { class: "tegel-tekst" }, tekst));
   toon(
     kop("Productie", "Wat er nu in de fabriek bezig is en wat klaarstaat voor de volgende stap."),
     h("div", { class: "tegels" },
@@ -81,13 +81,13 @@ export async function stap(code: string) {
   toon(
     h("p", { class: "terug" }, h("a", { href: "#/productie/overzicht" }, "Alle stappen")),
     kop(s?.stapnaam ?? code, s?.niveau === "lot" ? "Per lot" : "Per batch"),
-    h("section", { class: "blok" }, h("h2", {}, `Bezig (${w.open.length})`),
+    h("section", { class: "blok operations-kaart" }, h("h2", {}, `Bezig (${w.open.length})`),
       w.open.length
         ? tabel(["Batch of lot", "Gestart", "Loopt al", "Operator", "Pc", "Opmerking"], w.open.map((r) => [
             link(r.batchnummer ?? r.lotnummer ?? ""), kort(r.gestart_op), leeftijd(r.gestart_op), r.operator, r.pc,
             r.herbewerking_start ? `Herbewerking: ${r.reden}` : r.poging > 1 ? `Poging ${r.poging}` : ""]))
         : h("p", { class: "leeg" }, "Er staat niets open in deze stap.")),
-    h("section", { class: "blok" }, h("h2", {}, `Klaar om te starten (${w.wachtend.length})`),
+    h("section", { class: "blok operations-kaart" }, h("h2", {}, `Klaar om te starten (${w.wachtend.length})`),
       w.wachtend.length
         ? tabel(["Batch of lot", "Klaar sinds", "Wacht al"], w.wachtend.map((x) => [link(x.nummer), kort(x.sinds), leeftijd(x.sinds)]))
         : h("p", { class: "leeg" }, "Niets klaar voor deze stap.")),
@@ -117,10 +117,10 @@ export async function doorlooptijden() {
       ? h("p", { class: "leeg" }, "Geen afgeronde stappen in deze periode.")
       : h("div", {}, ...[
           h("div", { class: "tegels" },
-            laatste ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, uren(laatste.batch_uren_mediaan)), h("span", { class: "tegel-tekst" }, `doorlooptijd batch, eerste tot laatste batchstap (laatste ${per})`)) : null,
-            langste ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, langste.stap), h("span", { class: "tegel-tekst" }, `langste stap: ${minuten((langste.wachten_mediaan ?? 0) + langste.bewerking_mediaan)} inclusief wachten`)) : null,
-            meestWachten?.wachten_mediaan ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, meestWachten.stap), h("span", { class: "tegel-tekst" }, `langste wachttijd ervoor: ${minuten(meestWachten.wachten_mediaan)}`)) : null),
-          h("section", { class: "blok" }, h("h2", {}, "Tijd per stap"),
+            laatste ? h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, uren(laatste.batch_uren_mediaan)), h("span", { class: "tegel-tekst" }, `doorlooptijd batch, eerste tot laatste batchstap (laatste ${per})`)) : null,
+            langste ? h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, langste.stap), h("span", { class: "tegel-tekst" }, `langste stap: ${minuten((langste.wachten_mediaan ?? 0) + langste.bewerking_mediaan)} inclusief wachten`)) : null,
+            meestWachten?.wachten_mediaan ? h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, meestWachten.stap), h("span", { class: "tegel-tekst" }, `langste wachttijd ervoor: ${minuten(meestWachten.wachten_mediaan)}`)) : null),
+          h("section", { class: "blok operations-kaart" }, h("h2", {}, "Tijd per stap"),
             h("p", { class: "sub" }, "Grijs is de wachttijd sinds de vorige stap, blauw de bewerking zelf."),
             liggendeStaven(
               d.stappen.map((s) => ({
@@ -134,12 +134,12 @@ export async function doorlooptijden() {
               (n) => minuten(n),
               [{ naam: "Wachten", klasse: "deel-wachten" }, { naam: "Bewerking", klasse: "deel-bewerking" }],
               [15, 30, 60, 120, 240, 480, 960])),
-          h("section", { class: "blok" }, h("h2", {}, "Per stap in cijfers"),
+          h("section", { class: "blok operations-kaart" }, h("h2", {}, "Per stap in cijfers"),
             tabel(["Stap", "Uitgevoerd", "Wachten (mediaan)", "Wachten (90%)", "Bewerking (mediaan)", "Bewerking (90%)"], d.stappen.map((s) => [
               h("a", { href: `#/productie/stap/${s.stap}`, class: "sterk" }, `${s.stap} ${s.stapnaam}`), h("span", { class: "getal" }, s.aantal),
               h("span", { class: "getal" }, minuten(s.wachten_mediaan)), h("span", { class: "getal" }, minuten(s.wachten_p90)),
               h("span", { class: "getal" }, minuten(s.bewerking_mediaan)), h("span", { class: "getal" }, minuten(s.bewerking_p90))]), "compact")),
-          h("section", { class: "blok" }, h("h2", {}, `Doorlooptijd ${perWoord(per)}`),
+          h("section", { class: "blok operations-kaart" }, h("h2", {}, `Doorlooptijd ${perWoord(per)}`),
             h("p", { class: "sub" }, "Totaal per lot is de hele weg van de eerste batch tot het lot gereed is. Dat is niet de som van de andere kolommen: het zijn medianen, en de batches wachten nog op elkaar voordat het lot wordt samengesteld (#99)."),
             tabel([perKop(per), "Batches klaar", "Batch: eerste tot laatste batchstap", "Wachten op het lot", "Lots gereed", "Lot: samenstellen tot gereed", "Totaal per lot"],
               [...d.per_week].reverse().map((w) => [perCel(w.week, per),
@@ -168,14 +168,14 @@ export async function perWeek() {
     kop(`Productie ${perWoord(per)}`, `Hoeveel batches er ${perWoord(per)} zijn gestart en klaar gekomen, en hoeveel lots er gereed zijn.`, periodeKeuze(perWeek, true, true)),
     h("div", { class: "tegels" },
       ...([["batches_gestart", "batches gestart"], ["batches_klaar", "batches klaar voor een lot"], ["lots_gereed", "lots gereed"], ["afgekeurd", "batches afgekeurd"]] as [keyof Week, string][])
-        .map(([k, t]) => h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, som(k)), h("span", { class: "tegel-tekst" }, t)))),
-    h("section", { class: "blok" }, h("h2", {}, `Lots gereed ${perWoord(per)}`),
+        .map(([k, t]) => h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, som(k)), h("span", { class: "tegel-tekst" }, t)))),
+    h("section", { class: "blok operations-kaart" }, h("h2", {}, `Lots gereed ${perWoord(per)}`),
       w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.lots_gereed, tip: [weekTekst(x.week), `${x.lots_gereed} lots gereed`, `${x.batches_gestart} batches gestart`] })), `Lots gereed ${perWoord(per)}`, per)
         : h("p", { class: "leeg" }, "Geen productie in deze periode.")),
-    h("section", { class: "blok" }, h("h2", {}, `Batches gestart ${perWoord(per)}`),
+    h("section", { class: "blok operations-kaart" }, h("h2", {}, `Batches gestart ${perWoord(per)}`),
       w.length ? staven(w.map((x) => ({ week: x.week, waarde: x.batches_gestart, tip: [weekTekst(x.week), `${x.batches_gestart} batches gestart`, `${x.batches_klaar} batches klaar voor een lot`] })), `Batches gestart ${perWoord(per)}`, per)
         : h("p", { class: "leeg" }, "Geen productie in deze periode.")),
-    h("section", { class: "blok" }, h("h2", {}, `${perWoord(per).replace("p", "P")} in cijfers`),
+    h("section", { class: "blok operations-kaart" }, h("h2", {}, `${perWoord(per).replace("p", "P")} in cijfers`),
       tabel([perKop(per), "Batches gestart", "Batches klaar", "Lots gereed", "Afgekeurd"], [...w].reverse().map((x) => [
         perCel(x.week, per),
         h("span", { class: "getal" }, x.batches_gestart), h("span", { class: "getal" }, x.batches_klaar),
@@ -253,7 +253,7 @@ export async function overdracht(dag?: string) {
         h("a", { class: "knop knop-stil", href: "#/productie/overdracht" }, "Vandaag"),
         d < isoDag() ? h("a", { class: "knop knop-stil", href: `#/productie/overdracht/${plusDag(d, 1)}` }, "Volgende dag") : null)),
     // #62: hoeveel van de planning van deze dag klaar is (de planning is per dag, niet per ploeg).
-    h("section", { class: "blok plan-stand" },
+    h("section", { class: "blok plan-stand operations-kaart" },
       plan.gepland
         ? [
             h("p", { class: "plan-getal" }, h("strong", {}, `${plan.afgerond} / ${plan.gepland}`), " geplande stappen afgerond",
@@ -265,7 +265,7 @@ export async function overdracht(dag?: string) {
         : h("p", { class: "leeg" }, "Voor deze dag is niets gepland.")),
     p.length
       ? h("div", { class: "ploegen" }, p.map((x) =>
-          h("section", { class: `blok ploeg${x.loopt_nog ? " ploeg-nu" : ""}` },
+          h("section", { class: `blok ploeg operations-kaart${x.loopt_nog ? " ploeg-nu" : ""}` },
             h("div", { class: "kop" }, h("div", {}, h("h2", { style: "margin:0" }, x.ploegnaam), h("p", { class: "sub" }, `${uur(x.begin_op)}–${uur(x.eind_op)}${x.ploegen?.length ? `, ${ploegTekst(x.ploegen)}` : ""}${x.loopt_nog ? ", loopt nog" : ""}`))),
             h("div", { class: "ploeg-cijfers" },
               cijfer(x.cijfers.stappen_afgerond, "stappen afgerond"), cijfer(x.cijfers.batches_gestart, "batches gestart"),
@@ -324,13 +324,13 @@ export async function stilstand() {
           tabel(["Stap", "Oorzaak", "Sinds", "Duur", "Toelichting", "Gemeld door"], lopend.map((x) => [`${x.stap} ${x.stapnaam}`, x.oorzaaknaam, kort(x.begin_op), minuten(x.minuten), x.toelichting ?? "", x.operator ?? ""]), "compact"))
       : null,
     h("div", { class: "tegels" },
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, minuten(ongepland)), h("span", { class: "tegel-tekst" }, "ongeplande stilstand (storing, wachten, overig)")),
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, procent(gemB)), h("span", { class: "tegel-tekst" }, "beschikbaarheid, gemiddeld over de stappen")),
+      h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, minuten(ongepland)), h("span", { class: "tegel-tekst" }, "ongeplande stilstand (storing, wachten, overig)")),
+      h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, procent(gemB)), h("span", { class: "tegel-tekst" }, "beschikbaarheid, gemiddeld over de stappen")),
       slechtst && slechtst.beschikbaarheid! < 1
-        ? h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, slechtst.stap), h("span", { class: "tegel-tekst" }, `laagste beschikbaarheid: ${procent(slechtst.beschikbaarheid)}`))
+        ? h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, slechtst.stap), h("span", { class: "tegel-tekst" }, `laagste beschikbaarheid: ${procent(slechtst.beschikbaarheid)}`))
         : null,
-      h("div", { class: "tegel" }, h("span", { class: "tegel-getal" }, procent(a.kwaliteit)), h("span", { class: "tegel-tekst" }, "kwaliteit: gestarte batches niet afgekeurd"))),
-    h("section", { class: "blok" }, h("h2", {}, "Stilstand per stap"),
+      h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, procent(a.kwaliteit)), h("span", { class: "tegel-tekst" }, "kwaliteit: gestarte batches niet afgekeurd"))),
+    h("section", { class: "blok operations-kaart" }, h("h2", {}, "Stilstand per stap"),
       h("p", { class: "sub" }, `Beschikbaarheid = de geplande productietijd (${toonGetal(a.ploeguren_per_dag)} ploeguren per dag, min geplande stilstand) waarin de stap niet stil lag. Samen met kwaliteit het begin van OEE; voor de prestatie zijn nog normtijden per stap nodig.`),
       ongepland + a.per_stap.reduce((t, x) => t + x.gepland, 0) > 0
         ? liggendeStaven(
@@ -353,11 +353,11 @@ export async function stilstand() {
         `${x.stap} ${x.stapnaam}`, h("span", { class: "getal" }, x.aantal), minuten(x.storing), minuten(x.wachten), minuten(x.overig), minuten(x.gepland),
         h("span", { class: x.beschikbaarheid !== null && x.beschikbaarheid < 0.95 ? "getal let-op" : "getal" }, procent(x.beschikbaarheid))]), "compact")),
     a.per_oorzaak.length
-      ? h("section", { class: "blok" }, h("h2", {}, "Per oorzaak"),
+      ? h("section", { class: "blok operations-kaart" }, h("h2", {}, "Per oorzaak"),
           tabel(["Oorzaak", "Soort", "Keer", "Totaal"], a.per_oorzaak.map((x) => [x.oorzaaknaam, CATEGORIE[x.categorie] ?? x.categorie, h("span", { class: "getal" }, x.aantal), minuten(x.minuten)]), "compact"))
       : null,
     a.lijst.length
-      ? h("section", { class: "blok" }, h("h2", {}, "Laatste 50 keer stilstand"),
+      ? h("section", { class: "blok operations-kaart" }, h("h2", {}, "Laatste 50 keer stilstand"),
           tabel(["Begin", "Stap", "Oorzaak", "Duur", "Toelichting", "Wat er is gedaan", "Gemeld door", "Beëindigd door", "Pc"], a.lijst.slice(0, 50).map((x) => [
             kort(x.begin_op), x.stap, x.oorzaaknaam, x.eind_op ? minuten(x.minuten) : h("strong", {}, `loopt (${minuten(x.minuten)})`), x.toelichting ?? "",
             x.eind_notitie ?? "", x.operator ?? "", x.beeindigd_door ?? "", x.pc ?? ""]), "compact"))

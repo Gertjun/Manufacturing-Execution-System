@@ -1,5 +1,6 @@
 // Wat deze pc onthoudt: zijn eigen naam en het token van de ingelogde gebruiker.
 import type { Rol } from "./types";
+import { neemPortaloverdracht, wisPortaloverdracht } from "../../gedeeld/portaloverdracht";
 
 const PC = "invoer.pc";
 const TOKEN = "invoer.token";
@@ -77,29 +78,28 @@ export const sessie = {
     return !!this.inhoud()?.operatorId;
   },
 
-  /** Afmelden geldt voor de hele app (D54): ook de startpagina en de portalen op deze pc melden af. */
-  afmelden() {
+  /** Wis uitsluitend de invoersessie, nooit de registraties of wachtrij. */
+  wisInvoersessie() {
     this.token = null;
     this.operatornaam = null;
+  },
+  actueelPortaalToken(): string | null { return lees(PORTAAL_TOKEN); },
+  /** Afmelden geldt voor de hele app (D54). */
+  afmelden() {
+    this.wisInvoersessie();
+    wisPortaloverdracht();
     schrijf(PORTAAL_TOKEN, null);
   },
 
-  /** Token van de startpagina (zelfde server, D54), als dat nog geldig is en bij een invoerrol hoort (Kwaliteit sinds 0.37.0: de lab-pc). */
+  /** Eenmalige expliciete keuze, aan het actuele portaal-JWT gebonden. */
   portaalToken(): string | null {
-    const t = lees(PORTAAL_TOKEN);
-    if (!t) return null;
+    const t = this.actueelPortaalToken();
+    const gekozen = neemPortaloverdracht(t);
+    if (!t || !gekozen) return null;
     try {
       const i = JSON.parse(decodeURIComponent(escape(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")))));
-      // Kwaliteit alleen als ze net op de startpagina voor het invoerscherm koos (de lab-pc, D58). Anders zou een
-      // pc waarop iemand van Kwaliteit in een portaal werkt, het invoerscherm ongevraagd als Kwaliteit openen.
-      // De keuze geldt één keer, voor elke rol, zodat hij niet blijft liggen voor een volgende inlog.
-      const gekozen = Number(lees("invoer.vanStart") ?? 0);
-      schrijf("invoer.vanStart", null);
-      if (i.gedeeld || i.exp * 1000 <= Date.now() + 15 * 60 * 1000) return null;
-      // Alleen een expliciete keuze; de server beslist via /auth/pc.
-      return gekozen > 0 && Date.now() - gekozen >= 0 && Date.now() - gekozen < 2 * 60 * 1000 ? t : null;
-    } catch {
-      return null;
-    }
+      if (i.gedeeld || !Number.isFinite(i.exp) || i.exp * 1000 <= Date.now() + 15 * 60 * 1000) return null;
+      return t;
+    } catch { return null; }
   },
 };

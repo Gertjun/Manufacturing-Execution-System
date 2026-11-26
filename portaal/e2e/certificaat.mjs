@@ -1,3 +1,4 @@
+import { stopTestApi } from "../../tests/screen-api-lifecycle.mjs";
 // Test van het certificaat per lot in Chrome, op data van tools/genereer_testdata.py.
 // Gebruik: node e2e/certificaat.mjs   (start zelf de API op poort 3466)
 import { spawn } from "node:child_process";
@@ -21,13 +22,13 @@ const db = new pg.Client({ connectionString: DB });
 await db.connect();
 const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 
-const api = spawn("npx", ["tsx", "src/index.ts"], {
+const api = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
   cwd: new URL("../../api/", import.meta.url).pathname,
   env: { ...process.env, DATABASE_URL: APP_DB, JWT_GEHEIM: "e2e-".repeat(10), POORT: "3466", PORTAAL_MAP: new URL("../dist", import.meta.url).pathname },
   stdio: ["ignore", "ignore", "inherit"],
   detached: true,
 });
-const stopApi = () => { try { process.kill(-api.pid); } catch {} };
+const stopApi = () => stopTestApi(api);
 for (let i = 0; i < 40; i++) {
   try { if ((await fetch(`${BASIS}/gezondheid`)).ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 250));
@@ -37,7 +38,7 @@ const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome"
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: "nl-NL", timezoneId: "Europe/Amsterdam" });
 const page = await context.newPage();
 page.on("pageerror", (e) => { console.log("  PAGINAFOUT", e.message); fouten++; });
-const shot = (naam) => page.screenshot({ path: `${SHOTS}/${naam}.png` });
+const shot = (naam) => (naam === "fout" || process.env.MES_SCREENSHOTS === "review") ? page.screenshot({ path: `${SHOTS}/${naam}.png` }) : Promise.resolve();
 const inloggen = async (naam) => {
   await page.goto(`${BASIS}/portaal/#/login`);
   await page.getByLabel("Gebruikersnaam").fill(naam);
@@ -86,8 +87,11 @@ try {
   const herdruk = await fetch(BASIS+"/certificaten/"+c.nummer,{headers});
   check("Historische inhoud ongewijzigd", herdruk.ok && (await q("SELECT $1::jsonb = $2::jsonb AS gelijk",[JSON.stringify((await herdruk.json()).inhoud),JSON.stringify(concept)]))[0].gelijk === true);
   await page.emulateMedia({ media: "print" });
-  await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
+  if (process.env.MES_SCREENSHOTS === "review") await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
   check("Bij afdrukken alleen het certificaat (geen menu of knoppen)", !(await page.locator("#menu").isVisible()) && !(await page.getByRole("button", { name: "Afdrukken of pdf" }).isVisible()));
+  check("Historische afdruk behoudt tabel, nummer en printstijl", await page.locator(".certificaat").evaluate(el=>getComputedStyle(el).boxShadow==="none" && getComputedStyle(el).borderTopWidth==="0px" && el.querySelectorAll(".cert-tabel tbody tr").length===5 && !!el.querySelector(".cert-nummer")?.textContent?.trim()));
+  const pdf = await page.pdf({path:`${SHOTS}/01-certificaat.pdf`,preferCSSPageSize:true,printBackground:true});
+  check("Chromium genereert historische PDF", pdf.subarray(0,5).toString()==="%PDF-" && pdf.length>1000);
   await page.emulateMedia({ media: "screen" });
 
   console.log("\nLot van een product met een andere route (D55)");
@@ -130,9 +134,10 @@ try {
   await shot("fout").catch(() => {});
   fouten++;
 } finally {
+  if (fouten > 0) await page.screenshot({ path: `${SHOTS}/fout-eind.png` }).catch(() => {});
   await browser.close();
   await db.end();
-  stopApi();
+  await stopApi();
 }
 console.log(fouten ? `\n${fouten} fout(en)` : "\nAlles geslaagd");
 process.exit(fouten ? 1 : 0);

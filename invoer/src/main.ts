@@ -14,6 +14,7 @@ import { heeftMeldingen, meldingenScherm, ongelezen, startMeldingen } from "./sc
 import { startScanner, wisScanActie } from "./scan";
 import { hulpScherm, wachtwoordWijzigen } from "./schermen/hulp";
 import { volgNummers } from "../../gedeeld/nummers";
+import { mesMerk, mesVersie, mesGebruiker } from "../../gedeeld/mes-identiteit";
 
 // ---------- Statusbalk ----------
 let laatsteStatus: Status | null = null;
@@ -39,7 +40,7 @@ function tekenBalk() {
 
   const actief = (r: string) => (route === r || (r === "stappen" && route === "stap") ? "page" : undefined);
   const naam = () => ingelogd && sessie.operatornaam
-    ? h("span", { class: "balk-wie balk-eigen-naam" }, sessie.operatornaam)
+    ? mesGebruiker(sessie.operatornaam, "balk-wie balk-eigen-naam")
     : null;
   const meldingenLink = (klasse?: string) => heeftMeldingen()
     ? h("a", { href: "#/meldingen", class: klasse, "aria-current": actief("meldingen") },
@@ -49,7 +50,7 @@ function tekenBalk() {
   // Breed scherm (pc, tablet, liggende telefoon): alles in de balk bovenaan. Telefoon staand (D64): bovenaan
   // alleen pc, naam en verbinding; de navigatie staat onderaan binnen duimbereik, de rest onder "Meer".
   const delen: (Node | null)[] = [
-    h("div", { class: "balk-naam" }, h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Production Execution"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
+    h("div", { class: "balk-naam" }, mesMerk(), h("span", { class: sessie.pc ? "alleen-breed" : undefined }, "Production Execution"), sessie.pc ? h("span", { class: "balk-pc" }, sessie.pc) : null),
     ingelogd
       ? h("nav", { class: "balk-nav alleen-breed", "aria-label": "Hoofdmenu" },
           h("a", { href: "#/stappen", "aria-current": actief("stappen") }, "Stappen"),
@@ -67,6 +68,7 @@ function tekenBalk() {
       ? h("button", { class: "balk-wie alleen-breed", onclick: () => void afmelden() }, "Afmelden")
       : null,
     verbinding,
+    h("span", { class: "balk-versie alleen-breed" }, mesVersie()),
   ];
   balk.replaceChildren(...(delen.filter(Boolean) as Node[]));
   tekenOnderbalk(ingelogd ? [
@@ -78,6 +80,7 @@ function tekenBalk() {
     h("a", { href: "#/hulp" }, "Hulp"),
     h("a", { href: "../portaal/index.html#/" }, "Portalen"),
     h("button", { type: "button", onclick: () => void afmelden() }, "Afmelden"),
+    mesVersie(),
   ]);
 }
 
@@ -163,12 +166,17 @@ function naarStartpagina() {
 }
 
 /** Overstap van de startpagina: vraag een token met deze pc erbij (/auth/pc). Lukt dat niet, dan gewoon inloggen. */
-async function vanStartpagina(): Promise<boolean> {
+async function vanStartpagina(actueel: () => boolean): Promise<boolean> {
   const t = sessie.portaalToken();
-  if (!t || !sessie.pc) return false;
+  const pc = sessie.pc;
+  const invoerToken = sessie.token;
+  const hash = location.hash;
+  if (!t || !pc) return false;
   try {
     const r = await stuur<{ token: string; naamKiezen: boolean; operator?: { id: string; naam: string } | null }>(
-      "POST", "/auth/pc", { pc: sessie.pc }, { authorization: `Bearer ${t}` });
+      "POST", "/auth/pc", { pc }, { authorization: `Bearer ${t}` });
+    if (!actueel() || location.hash !== hash || sessie.actueelPortaalToken() !== t ||
+        sessie.pc !== pc || sessie.token !== invoerToken) return false;
     sessie.token = r.token;
     sessie.operatornaam = r.operator?.naam ?? null;
     vergeetConfig();
@@ -185,6 +193,13 @@ async function route() {
   nieuweRoute();
   wisScanActie();
   const [, scherm, arg] = location.hash.split("/");
+  // Expliciete overstap: nooit op een oude invoersessie terugvallen, ook zonder geldige marker.
+  if (scherm === "overstap") {
+    sessie.wisInvoersessie();
+    vergeetConfig();
+    tekenBalk();
+    return void (location.hash = sessie.pc ? "#/login" : "#/pc");
+  }
   tekenBalk();
 
   // Hulp kan altijd, ook vóór het inloggen en zonder verbinding (zit in het pakket, D59).
@@ -193,7 +208,10 @@ async function route() {
   if (scherm === "pc") return pcScherm();
   if (scherm === "login" || !sessie.geldig()) {
     // Al ingelogd op de startpagina (D54)? Dan hetzelfde account op deze pc, zonder opnieuw in te loggen.
-    if (await vanStartpagina()) return;
+    const nogActueel = vastHouden();
+    const hash = location.hash;
+    if (await vanStartpagina(nogActueel)) return;
+    if (!nogActueel() || location.hash !== hash) return;
     if (scherm !== "login") return void (location.hash = "#/login");
     return loginScherm();
   }
@@ -244,10 +262,11 @@ opStatus((s) => {
   // Terug online op het stappenoverzicht: verversen.
   if (wasUit && s.verbonden && (location.hash === "#/stappen" || location.hash.startsWith("#/stap/"))) void route();
 });
+// Bij een expliciete overstap wist route() de oude sessie synchroon vóór achtergrondverwerking.
+void route();
 startWachtrij();
 startMeldingen(tekenBalk);
 startScanner();
-void route();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   navigator.serviceWorker.register("/invoer/sw.js", { scope: "/invoer/" }).catch(() => {});

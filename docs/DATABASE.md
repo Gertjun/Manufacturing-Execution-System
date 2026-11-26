@@ -9,9 +9,28 @@ Schema `fabriek`: 94 tabellen en 203 verbanden.
 
 ## Overzicht
 
-Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. `||` = altijd ingevuld, `|o` = mag leeg zijn, `o{` = nul of meer, `o|` = hoogstens één. Niet getekend, wel in de lijst hieronder: verwijzingen naar `gebruiker`, `operator` en `pc` (wie iets deed of waar).
+Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. `||` = altijd ingevuld, `|o` = mag leeg zijn, `o{` = nul of meer, `o|` = hoogstens één. De Mermaid-bron hieronder bevat alle foreign keys, inclusief verwijzingen naar `gebruiker`, `operator` en `pc`.
+
+Legenda B+: structuur (blauw), uitvoering en besluiten (oranje), technische ondersteuning (grijs). Alle relaties zijn fysieke FK-verwijzingen, geen procespijlen. Kleur is aanvullend; de tabelnamen en relatiekolommen blijven bepalend.
+
+[Open het fysieke overzicht met alle tabellen](diagrams/rendered/physical-erd.svg). Het overzicht laat de meeste verwijzingen naar gebruikers, operators en werkstations weg voor de leesbaarheid.
+
+## Fysieke domeindiagrammen
+
+De zes diagrammen tonen samen alle foreign keys. Elke relatie staat bij de tabel die de foreign key bevat. Gestippelde lijnen en blokken markeren een verwijzing naar een tabel in een ander domein. Open een SVG op volledig formaat om de labels te lezen.
+
+- [Autorisaties en identiteit](diagrams/rendered/physical-identity.svg)
+- [Master Data en Recipe Management](diagrams/rendered/physical-master-data.svg)
+- [Productie-uitvoering](diagrams/rendered/physical-execution.svg)
+- [Planning en lotvorming](diagrams/rendered/physical-planning.svg)
+- [Kwaliteit en metingen](diagrams/rendered/physical-quality.svg)
+- [Technische ondersteuning](diagrams/rendered/physical-support.svg)
+
+<details>
+<summary>Mermaid-bron met alle foreign keys</summary>
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 erDiagram
     activity_qualification
     authorization_bootstrap
@@ -121,7 +140,58 @@ erDiagram
     batch ||--o{ lot_voorstel_batch : "batch_id"
     batch |o--o{ stapplanning : "batch_id"
     batch |o--o{ stapregistratie : "batch_id"
+    gebruiker ||--o{ authorization_bootstrap : "security_user_a"
+    gebruiker ||--o{ authorization_bootstrap : "security_user_b"
+    gebruiker ||--o{ authorization_bootstrap : "system_user_id"
+    gebruiker ||--o{ authorization_channel_identity : "user_id"
+    gebruiker ||--o{ authorization_decision : "decided_by"
+    gebruiker ||--o{ authorization_grant : "user_id"
+    gebruiker ||--o| authorization_legacy_snapshot : "user_id"
+    gebruiker ||--o{ authorization_personnel_link : "approved_by"
+    gebruiker ||--o{ authorization_personnel_link : "requested_by"
+    gebruiker ||--o| authorization_personnel_link : "user_id"
+    gebruiker ||--o{ authorization_recovery : "approved_by"
+    gebruiker ||--o{ authorization_recovery : "requested_by"
+    gebruiker ||--o{ authorization_recovery : "user_id"
+    gebruiker ||--o{ authorization_request : "requested_by"
+    gebruiker ||--o{ authorization_request : "user_id"
+    gebruiker ||--o{ authorization_revocation : "revoked_by"
+    gebruiker |o--o{ batch : "gepland_door"
+    gebruiker ||--o{ batch_besluit : "besloten_door"
+    gebruiker ||--o{ certificaat : "uitgegeven_door"
+    gebruiker |o--o{ config_log : "actor_user_id"
+    gebruiker ||--o{ execution_session : "user_id"
+    gebruiker |o--o{ geweigerde_invoer : "gebruiker_id"
+    gebruiker |o--o{ grondstof_gebruik : "gecorrigeerd_door"
+    gebruiker |o--o{ herbewerking : "aangemaakt_door"
+    gebruiker |o--o{ herbewerking : "ingetrokken_door"
+    gebruiker |o--o{ invoerconflict : "opgelost_door"
+    gebruiker |o--o{ keuring : "besloten_door"
+    gebruiker ||--o{ lot_voorstel : "aangemaakt_door"
+    gebruiker ||--o{ master_recipe : "created_by"
+    gebruiker ||--o{ master_recipe_version : "created_by"
+    gebruiker ||--o{ material_definition_version : "created_by"
+    gebruiker ||--o{ melding_gelezen : "gebruiker_id"
     gebruiker |o--o| operator : "gebruiker_id"
+    gebruiker ||--o{ overdracht : "gebruiker_id"
+    gebruiker ||--o{ personnel_qualification : "user_id"
+    gebruiker ||--o{ qualification_issue : "approved_by"
+    gebruiker ||--o{ qualification_issue : "requested_by"
+    gebruiker ||--o{ qualification_revocation : "revoked_by"
+    gebruiker ||--o{ recipe_change_request : "created_by"
+    gebruiker ||--o{ recipe_release : "released_by"
+    gebruiker ||--o{ recipe_release_withdrawal : "withdrawn_by"
+    gebruiker ||--o{ recipe_review_decision : "reviewer_id"
+    gebruiker ||--o{ recipe_review_round : "created_by"
+    gebruiker |o--o{ specificatie : "aangemaakt_door"
+    gebruiker |o--o{ specificatie : "vastgesteld_door"
+    gebruiker ||--o{ stapplanning : "aangemaakt_door"
+    gebruiker |o--o{ stapregistratie : "nageleverd_door"
+    gebruiker ||--o{ stilstand : "gemeld_door"
+    gebruiker |o--o{ terugmelding : "afgehandeld_door"
+    gebruiker ||--o{ terugmelding : "gebruiker_id"
+    gebruiker ||--o{ unit_conversion_version : "created_by"
+    gebruiker |o--o{ waarde : "gecorrigeerd_door"
     grondstof ||--o{ grondstof_gebruik : "grondstof_id"
     grondstof |o--o{ invoerconflict : "grondstof_id"
     grondstof |o--o| material_definition : "raw_material_id"
@@ -169,6 +239,26 @@ erDiagram
     measurement_unit ||--o{ unit_conversion : "quantity_kind_id, from_unit_id"
     measurement_unit ||--o{ unit_conversion : "quantity_kind_id, to_unit_id"
     melding ||--o{ melding_gelezen : "melding_id"
+    operator ||--o| authorization_personnel_link : "personnel_id"
+    operator |o--o{ batch : "aangemaakt_door"
+    operator |o--o{ geweigerde_invoer : "operator_id"
+    operator |o--o{ grondstof_gebruik : "ingevoerd_door"
+    operator ||--o{ invoerconflict : "ingevoerd_door"
+    operator |o--o{ overdracht : "operator_id"
+    operator |o--o{ stapregistratie : "afgerond_door"
+    operator ||--o{ stapregistratie : "operator_id"
+    operator |o--o{ stilstand : "beeindigd_door"
+    operator |o--o{ stilstand : "operator_id"
+    operator |o--o{ terugmelding : "operator_id"
+    operator |o--o{ waarde : "ingevoerd_door"
+    pc |o--o{ geweigerde_invoer : "pc_id"
+    pc |o--o{ invoerconflict : "pc_id"
+    pc |o--o{ overdracht : "pc_id"
+    pc ||--o{ pc_stap : "pc_id"
+    pc |o--o{ stapregistratie : "afgerond_pc_id"
+    pc ||--o{ stapregistratie : "pc_id"
+    pc |o--o{ stilstand : "pc_id"
+    pc |o--o{ terugmelding : "pc_id"
     personnel_qualification ||--o| qualification_issue : "qualification_id"
     personnel_qualification ||--o| qualification_revocation : "qualification_id"
     ploeg ||--o{ overdracht : "ploeg_id"
@@ -239,7 +329,15 @@ erDiagram
     veld ||--o{ waarde : "veld_id"
     waarde |o--o{ invoerconflict : "bestaand_waarde_id"
     waarde |o--o| waarde : "vervangt_waarde_id"
+    classDef structuur fill:#E7EEF6,stroke:#0B2E59,color:#0B2E59
+    classDef uitvoering fill:#FDEBD9,stroke:#B45309,color:#1B2430
+    classDef ondersteuning fill:#F4F7F9,stroke:#6B7785,color:#1B2430
+    class activity_qualification,authorization_permission,authorization_role,authorization_role_permission,capaciteit_stap,gebruiker,grondstof,instelling,master_recipe,master_recipe_version,material_class,material_definition,material_definition_version,measurement_unit,operator,pc,pc_stap,ploeg,processtap,product,product_stap,qualification,quantity_dimension,quantity_kind,recipe_compatibility_rule,recipe_dependency,recipe_equipment_requirement,recipe_formula,recipe_instruction,recipe_lot_rule,recipe_material_requirement,recipe_parameter,recipe_parameter_limit,recipe_personnel_requirement,recipe_procedural_element,recipe_scaling_binding,recipe_scaling_expression,recipe_scaling_input,recipe_scaling_rule,recipe_specification_link,rooster,rooster_ploeg,specificatie,specificatie_regel,stap_grondstof,stilstand_oorzaak,unit_conversion,unit_conversion_version,veld,veld_product structuur
+    class authorization_decision,authorization_grant,authorization_personnel_link,authorization_request,authorization_revocation,batch,batch_besluit,capaciteit_afwijking,certificaat,execution_session,geweigerde_invoer,grondstof_gebruik,herbewerking,invoerconflict,keuring,lot,lot_voorstel,lot_voorstel_batch,melding,melding_gelezen,overdracht,personnel_qualification,qualification_issue,qualification_revocation,recipe_change_impact,recipe_change_request,recipe_release,recipe_release_withdrawal,recipe_review_decision,recipe_review_round,stapplanning,stapregistratie,stilstand,terugmelding,waarde uitvoering
+    class authorization_bootstrap,authorization_channel_identity,authorization_channel_identity_revocation,authorization_legacy_snapshot,authorization_recovery,config_log,inlogpoging,onderhoud_log,schema_versie ondersteuning
 ```
+
+</details>
 
 ## Tabellen
 

@@ -10,8 +10,8 @@ try {
   const origin = "http://127.0.0.1:" + server.httpServer.address().port;
   browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
   const page = await browser.newPage();
-  // Nooit de echte UI of API starten: de productiemodules worden via Vite geïmporteerd.
-  await page.route(origin + "/invoer/test-offline.html", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>D101 test</title>" }));
+  // Laad productiemodules via Vite in een geïsoleerde pagina met fictieve API-antwoorden.
+  await page.route(origin + "/invoer/test-offline.html", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>D101 test</title><main id=scherm tabindex=-1></main>" }));
   await page.goto(origin + "/invoer/test-offline.html");
   const results = await page.evaluate(async () => {
     const { sessie } = await import("/invoer/src/sessie.ts");
@@ -91,6 +91,23 @@ try {
     }
     const bewaard = await opslag.alle("wachtrij");
     check("Serverweigering bewaart oorspronkelijke invoer", bewaard.length === 1 && bewaard[0].status === "fout" && bewaard[0].body.waarden[0].veldcode === "P");
+    const { wachtrijScherm } = await import("/invoer/src/schermen/zoek.ts");
+    const { volgnr: _volgnr, ...eigenActie } = bewaard[0];
+    await opslag.zet("wachtrij", { ...eigenActie, omschrijving: "Oudere fout voor beoordeling", fout: "Persoonlijke herkomst moet worden beoordeeld" });
+    await opslag.zet("wachtrij", { ...eigenActie, omschrijving: "Andere persoon", userId: "b", operatorId: "persoon-b" });
+    await wachtrijScherm();
+
+    const review = document.querySelector(".wachtrij-beoordeling");
+    check("Oude persoonsgebonden fout staat in beoordelingsgroep met beoordelingsaccent",
+      review?.textContent.includes("Oudere fout voor beoordeling")
+      && review.closest("ul")?.previousElementSibling?.previousElementSibling?.textContent === "Gecontroleerde beoordeling nodig"
+      && !review.querySelector("button"));
+    const fout = document.querySelector(".wachtrij-fout");
+    check("Gewone serverfout behoudt foutaccent en verwijderactie",
+      fout?.textContent.includes("Fictieve meting") && fout.querySelector("button")?.textContent === "Verwijderen");
+    check("Wachtrij toont afgeschermd aantal zonder inhoud van andere persoon",
+      document.querySelector("#scherm .waarschuwing")?.textContent.startsWith("1 afgeschermde acties")
+      && !document.getElementById("scherm")?.textContent.includes("Andere persoon"));
     return geslaagd;
   });
   for (const naam of results) console.log("OK " + naam);
