@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- D115: individuele Chrome-regressies via expliciete labels met scriptgebonden fictieve fixtures; integrale schermsuite ongewijzigd. Verplichte groene ontwikkelregressies vóór acceptatie; actuele integrale fout blijft open.
+
 - #140.2: aanvullende echte backendregressies voor de 14 fictieve MES-identiteiten, portalsets, werkstationbinding van mes.quality, centrale afmelding vanuit invoer en onafhankelijke route-/API-weigering. Auditbewijs en CI-nulmeting vastgelegd; uitvoering volgt.
 
 - #140.1: Beheer-regressie gebruikt actuele fictieve MES-identiteiten voor systeembeheer en personeelsbeheer, expliciete centrale afmelding en controle op succesvolle HTTP-aanmelding en verwachte persoonlijke startpagina. Historische fixturecontroles en autorisatieverwachtingen behouden. Gerichte Chrome-verificatie volgt; oorzaak eerdere timeout nog niet definitief bewezen.
