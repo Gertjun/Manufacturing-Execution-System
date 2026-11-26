@@ -846,7 +846,7 @@ a.merk:hover { text-decoration: underline; }
 @media screen {
   .beheer-definitie, .beheer-gebeurtenis, .stappenlijst, .serverstatus li { border-radius: var(--mes-kaart-radius); min-width: 0; overflow-wrap: anywhere; }
   .beheer-definitie { border-top: 3px solid var(--mes-structuur); }
-  .beheer-gebeurtenis { border-top: 3px solid var(--mes-uitvoering); }
+  .beheer-gebeurtenis, .tegel.beheer-gebeurtenis.nadruk { border-top: 3px solid var(--mes-uitvoering); }
   .beheer-definitie .tegel-getal, .beheer-gebeurtenis .tegel-getal { color: var(--mes-structuur); }
   .beheer-gebeurtenis.let-op .tegel-getal { color: var(--tol); }
   .beheer-indeling .stappenlijst { border-top: 3px solid var(--mes-structuur); }

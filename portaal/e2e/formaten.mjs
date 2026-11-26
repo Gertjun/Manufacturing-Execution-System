@@ -1,9 +1,10 @@
-// Alle schermen in zes formaten (D64): telefoon staand en liggend, tablet staand en liggend, laptop en pc.
+// Alle schermen in acht CSS-viewports (D64): telefoon, tablet, laptop, pc, Full HD en 4K UHD.
 // Controleert dat geen pagina breder is dan het scherm, dat tabellen op een telefoon kaartjes zijn,
 // en dat het invoerscherm op een staande telefoon de navigatie onderaan heeft.
 // Gebruik: node e2e/formaten.mjs   (start zelf de API op poort 3472; vraagt testdata uit tools/genereer_testdata.py)
 import { spawn } from "node:child_process";
 import { chromium } from "playwright-core";
+import { FORMATEN } from "../../tests/screen-formats.mjs";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
 const APP_DB = process.env.TEST_APP_DATABASE_URL;
@@ -16,14 +17,6 @@ const check = (naam, ok, extra = "") => {
   if (!ok) fouten++;
 };
 
-const FORMATEN = [
-  { naam: "telefoon staand", width: 390, height: 844, mobiel: true },
-  { naam: "telefoon liggend", width: 844, height: 390, mobiel: true },
-  { naam: "tablet staand", width: 820, height: 1180, mobiel: true },
-  { naam: "tablet liggend", width: 1180, height: 820, mobiel: true },
-  { naam: "laptop", width: 1280, height: 800, mobiel: false },
-  { naam: "pc", width: 1440, height: 900, mobiel: false },
-];
 const ROUTES = {
   kwaliteit1: ["#/", "#/kwaliteit/overzicht", "#/kwaliteit/beoordelen", "#/kwaliteit/lotpaspoort", "#/kwaliteit/lotpaspoort/L-2026-0131",
     "#/kwaliteit/certificaat/L-2026-0131", "#/kwaliteit/batch/B-2026-0235", "#/kwaliteit/grondstoffen", "#/kwaliteit/regelkaarten",

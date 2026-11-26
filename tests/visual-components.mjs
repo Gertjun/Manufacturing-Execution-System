@@ -1,6 +1,7 @@
 // Geïsoleerde browserregressie: gebruik de werkelijk gebouwde CSS van beide frontendonderdelen.
 // Geen API, database, sessie of service worker nodig. Geen productiedata.
 import assert from "node:assert/strict";
+import { FORMATEN } from "./screen-formats.mjs";
 import { readFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 const require = createRequire(new URL("../portaal/package.json", import.meta.url));
@@ -12,7 +13,7 @@ try {
     const files = (await readdir(dir)).filter(f => f.endsWith(".css"));
     assert.ok(files.length, frontend + ": geen gebouwde CSS");
     const css = (await Promise.all(files.map(f => readFile(new URL(f, dir), "utf8")))).join("\n");
-    for (const [width, height] of [[390,844],[844,390],[820,1180],[1180,820],[1280,800],[1440,900]]) {
+    for (const { width, height } of FORMATEN) {
       const page = await browser.newPage({ viewport: { width, height } });
       try {
         await page.setContent('<main id="scherm"><h1>Test</h1><button id="primary" class="knop knop-hoofd">Opslaan</button> <button id="secondary" class="knop">Bekijken</button> <button id="danger" class="knop knop-gevaar">Intrekken</button> <button id="disabled" class="knop knop-hoofd" disabled>Niet mogelijk</button><section class="mes-kaart mes-kaart-uitvoering">Uitvoering</section><span class="label label-ok">Binnen grenzen</span><span class="label label-buiten_grens">Buiten grens</span><dialog class="venster"><h2>Invoer</h2><form class="vraag"><label>Waarde<input type="text"></label></form></dialog></main>');

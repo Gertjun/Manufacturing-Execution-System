@@ -3,6 +3,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright-core";
+import { FORMATEN } from "../../tests/screen-formats.mjs";
 import pg from "pg";
 
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost/batchgui?host=/tmp&port=5433";
@@ -72,9 +73,17 @@ try {
     check("API weigert display: "+pad, (await fetch(BASIS+pad,{headers})).status === 403);
   }
   check("Display kan geen stilstand melden", (await fetch(BASIS+"/stilstand",{method:"POST",headers,body:JSON.stringify({stapcode:"PS1",oorzaak:"TEST"})})).status === 403);
-  for (const [width,height] of [[1280,720],[1024,600]]) {
+  for (const [width,height] of [[1280,720],[1024,600],...FORMATEN.filter(f=>f.width>=1920).map(f=>[f.width,f.height])]) {
     await page.setViewportSize({width,height});
-    check("Actieve stilstand blijft zichtbaar op "+width, await page.getByRole("heading",{name:"Actieve stilstand"}).isVisible());
+    check("Actieve stilstand blijft zichtbaar op "+width+"x"+height, await page.getByRole("heading",{name:"Actieve stilstand"}).isVisible());
+    check("Displaylijst blijft binnen viewport "+width+"x"+height, await page.locator("#scherm").evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return document.documentElement.scrollWidth <= innerWidth + 1 &&
+        [...el.querySelectorAll("ul li")].every(li => {
+          const b = li.getBoundingClientRect();
+          return b.left >= -1 && b.right <= innerWidth + 1 && b.top >= r.top - 1 && b.bottom <= innerHeight + 1;
+        });
+    }));
   }
   await page.route("**/stilstand",r => r.abort());
   await page.getByRole("button",{name:"Vernieuwen"}).click();
