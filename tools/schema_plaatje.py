@@ -125,7 +125,7 @@ def main() -> None:
          DIAGRAM_LEGENDA, "",
          "[Open het fysieke overzicht met alle tabellen](diagrams/rendered/physical-erd.svg). Het overzicht laat de meeste "
          "verwijzingen naar gebruikers, operators en werkstations weg voor de leesbaarheid.", "",
-         "### Fysieke domeindiagrammen", "",
+         "## Fysieke domeindiagrammen", "",
          "De zes diagrammen tonen samen alle foreign keys. Elke relatie staat bij de tabel die de foreign key bevat. "
          "Gestippelde lijnen en blokken markeren een verwijzing naar een tabel in een ander domein. "
          "Open een SVG op volledig formaat om de labels te lezen.", "",
