@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #139 (139.3i-c): regressies voor werkelijk gerenderde historische trendzones, statistische regelkaartzones en certificaat-PDF; geen achtergrondzones bij ontbrekende historische grensgegevens. Integrale verificatie volgt.
+
 - #139 (139.3i-b): herstel beheerbovenaccent na CI 710; gedeelde schermmatrix uitgebreid naar acht formaten inclusief Full HD en 4K, beperkte displaytest en Windows-praktijkacceptatie aangevuld. Bestaande regressies behouden.
 
 - #139 (139.3i-a): zes D64-formaten in componentregressie, Engineering-routes in bestaande echte formaatregressie; tijdelijke wachtwoordkeuze, mobiele versie en grafieklegenda gecorrigeerd. Integrale verificatie volgt.

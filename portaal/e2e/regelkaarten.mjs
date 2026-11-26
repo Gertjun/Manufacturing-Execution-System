@@ -71,6 +71,11 @@ try {
   await page.locator("svg.regelkaart").waitFor();
   const ruitjes = await page.locator("svg.regelkaart .rk-signaal").count();
   check("Signalen op de kaart als ruitjes", ruitjes === signalen, `${ruitjes} / ${signalen}`);
+  check("Regelkaartzonegeometrie en kleuren", await page.locator("svg.regelkaart").evaluate(svg => {
+    const zones = [...svg.querySelectorAll("rect[class^=rk-zone-]")];
+    const kleuren = {"rk-zone-1":"rgb(241, 248, 244)","rk-zone-2":"rgb(252, 241, 223)","rk-zone-3":"rgb(251, 236, 236)"};
+    return zones.length === 6 && zones.every(z=>{const b=z.getBBox();return b.width>0 && b.height>0 && [b.x,b.y,b.width,b.height].every(Number.isFinite) && getComputedStyle(z).fill===kleuren[z.getAttribute("class")];});
+  }));
   check("Tabel met signalen", (await page.locator("section", { hasText: "Signalen" }).locator("tbody tr").count()) === Math.min(50, signalen));
   // Punten liggen soms dicht op elkaar; het raakvlak van de buurman mag erover liggen.
   await page.locator("svg.regelkaart .raakvlak").nth(0).hover({ force: true });

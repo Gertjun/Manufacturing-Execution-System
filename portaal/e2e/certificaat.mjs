@@ -88,6 +88,9 @@ try {
   await page.emulateMedia({ media: "print" });
   await page.screenshot({ path: `${SHOTS}/01-certificaat-print.png`, fullPage: true });
   check("Bij afdrukken alleen het certificaat (geen menu of knoppen)", !(await page.locator("#menu").isVisible()) && !(await page.getByRole("button", { name: "Afdrukken of pdf" }).isVisible()));
+  check("Historische afdruk behoudt tabel, nummer en printstijl", await page.locator(".certificaat").evaluate(el=>getComputedStyle(el).boxShadow==="none" && getComputedStyle(el).borderTopWidth==="0px" && el.querySelectorAll(".cert-tabel tbody tr").length===5 && !!el.querySelector(".cert-nummer")?.textContent?.trim()));
+  const pdf = await page.pdf({path:`${SHOTS}/01-certificaat.pdf`,preferCSSPageSize:true,printBackground:true});
+  check("Chromium genereert historische PDF", pdf.subarray(0,5).toString()==="%PDF-" && pdf.length>1000);
   await page.emulateMedia({ media: "screen" });
 
   console.log("\nLot van een product met een andere route (D55)");

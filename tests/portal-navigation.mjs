@@ -25,6 +25,9 @@ for (const t of [A, B, OLD, BOUND]) assert.match(t, /^[A-Za-z0-9_-]+\.[A-Za-z0-9
 const personal = (global = [], products = [], linkedPerson = true) => ({ personal: true, linkedPerson, global, products });
 const quality = personal(["inspection.read"], [{ product: "P1", permission: "inspection.record" }]);
 let projection = quality, binding = "ok", exchanges = 0, pending = null;
+const veld = { code:"S3.2", naam:"Fictieve temperatuur", eenheid:"°C", soort:"procesparameter", stap:"PS3", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut" };
+const meting = (dag, extra = {}) => ({ tijd: "2026-11-"+dag+"T10:00:00Z", setting:75, gemeten:75, markering:"ok", batch_of_lot:"FICTIEF-"+dag, operator:"Test", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut", product:"P1", ...extra });
+let trendPunten = [meting("20",{gemeten:59,markering:"buiten_grens"}),meting("21",{setting:78,gemeten:85,markering:"buiten_tolerantie"}),meting("22",{gemeten:91,markering:"buiten_grens"})];
 let browser;
 try {
   browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
@@ -43,6 +46,7 @@ try {
       return json({ token: BOUND, naamKiezen: false, operator: { id: "persoon-mes.quality", naam: "mes.quality" } });
     }
     if (path === "/gezondheid") return json({ ok: true });
+    if (path === "/analyse/trend") return json({ veld, punten: trendPunten });
     return json([]);
   });
   const page = await context.newPage();
@@ -146,6 +150,34 @@ try {
   assert.equal(await stored(page,"portaal.token"), null);
   assert.equal(await stored(page,"invoer.token"), null);
   console.log("OK P10: centrale afmelding");
+  // Werkelijk gebouwde trendgrafiek, met gecontroleerde historische meetwaarden.
+  await set(page, {"portaal.token": A});
+  projection = quality;
+  const openTrend = async () => {
+    await page.goto(origin+"/portaal/#/kwaliteit/trend/S3.2");
+    await page.reload();
+    await page.locator(".grafiek > svg").waitFor();
+  };
+  await openTrend();
+  const zones = page.locator(".grafiek > svg rect[class^=trend-zone-]");
+  assert.ok(await zones.count() >= 6, "Geneste historische zones ontbreken");
+  assert.equal(await page.locator(".trend-zone-1").first().evaluate(el=>getComputedStyle(el).fill),"rgb(241, 248, 244)");
+  assert.ok(await zones.evaluateAll(nodes=>nodes.every(el=>{
+    const r=el.getBBox();return [r.x,r.y,r.width,r.height].every(Number.isFinite)&&r.width>0&&r.height>0&&r.x>=52-.01&&r.x+r.width<=744+.01&&r.y>=16-.01&&r.y+r.height<=286+.01;
+  })), "Trendzones buiten plotgebied");
+  const groen = await page.locator(".trend-zone-1").evaluateAll(nodes=>nodes.map(el=>el.getBBox().y));
+  assert.ok(new Set(groen).size>1, "Historische setting moet zone verplaatsen");
+  trendPunten = [meting("20"),meting("21",{product:"P2",grens_min:65})];
+  await openTrend();
+  assert.equal(await zones.count(),0,"Gemengde grenzen mogen geen zones krijgen");
+  assert.equal(await page.locator(".grafiek .grenslijn, .grafiek .tolerantielijn").count(),0);
+  trendPunten = [meting("20",{grens_min:null}),meting("21",{grens_min:null})];
+  await openTrend();
+  assert.equal(await zones.count(),0,"Ontbrekende grens mag geen zone krijgen");
+  trendPunten = [meting("20",{tolerantie:30}),meting("21",{tolerantie:30})];
+  await openTrend();
+  assert.equal(await zones.count(),0,"Niet-geneste tolerantie mag geen zone krijgen");
+  console.log("OK 139.3i: werkelijke historische trendzones, gemengde en ontbrekende grenzen");
   await context.close();
 } finally {
   pending?.();

@@ -230,7 +230,7 @@ export function trend(veld: TrendVeld, punten: TrendPunt[]): HTMLElement {
   const svg = s("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": `${veld.code} ${veld.naam} door de tijd` });
   // Alleen zones waar historische specificatie en tolerantie daadwerkelijk genest zijn.
   // Geen kleurvlak bij gemengde producten, ontbrekende grenzen of strijdige intervallen.
-  if (!gemengd && metTol && metGrens) {
+  if (!gemengd && metTol && metGrens && punten.every(p => p.grens_min !== undefined && p.grens_max !== undefined && p.tolerantie !== undefined)) {
     const volgorde = [...punten.keys()].sort((a, b) => tijden[a] - tijden[b]);
     volgorde.forEach((i, j) => {
       const p = punten[i], t = tolVan(p), a = gMin(p), b = gMax(p);
