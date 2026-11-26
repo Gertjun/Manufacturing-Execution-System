@@ -55,6 +55,13 @@ De fictieve bronmanifestregressie is geslaagd; dit bewijst de structuur en verwa
 
 Blauw = ontwerp en mapping; oranje = uitvoering en besluit; grijs = herstelondersteuning. Pijlen beschrijven de bestaande Expand/Migrate/Validate/Switch/Contract-strategie. Geen automatische productieomschakeling.
 
+![Migratieproces met acceptatiepoort en teruglus bij afwijkingen](../diagrams/rendered/migration.svg)
+
+[Open de SVG op volledig formaat](../diagrams/rendered/migration.svg).
+
+<details>
+<summary>Mermaid-bron</summary>
+
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"lineColor":"#B45309","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 flowchart TD
@@ -73,5 +80,7 @@ flowchart TD
     class B ondersteuning
     linkStyle default stroke:#B45309,stroke-width:2px
 ```
+
+</details>
 
 Bij herstel nieuwe feiten en historische identiteit behouden. Werkelijke bronmigratie blijft vóór relevante pilotinzet te valideren; fictieve fixtures zijn geen bewijs van uitgevoerde productiemigratie.

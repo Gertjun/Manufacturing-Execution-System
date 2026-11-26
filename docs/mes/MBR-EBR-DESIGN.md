@@ -62,6 +62,13 @@ D110 (#113): MES-native Process Engineering is de gezaghebbende interface voor r
 
 Blauw = versiegebonden definitie; oranje = besluit of uitvoeringsrecord; grijs = ondersteuning. Pijlen beschrijven het conceptuele proces, niet een automatische statusovergang of autorisatie. Exacte vrijgave, ingangsdatum, intrekking, herbeoordeling en scope blijven onder D108/D109 en latere EBR/quality-fasen vallen.
 
+![Receptlevenscyclus van MBR-concept tot CoA](../diagrams/rendered/recipe-lifecycle.svg)
+
+[Open de SVG op volledig formaat](../diagrams/rendered/recipe-lifecycle.svg).
+
+<details>
+<summary>Mermaid-bron</summary>
+
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"lineColor":"#B45309","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 flowchart TD
@@ -83,5 +90,7 @@ flowchart TD
     class B,D,F,G,H,I,J,K uitvoering
     linkStyle default stroke:#B45309,stroke-width:2px
 ```
+
+</details>
 
 De fase-2-baseline bevat MBR-beoordeling en formele release; CR, uitvoering op CR, EBR en definitieve kwaliteitsvrijgave volgen in de toegewezen fasen. Geen claim dat de hele keten al operationeel is.

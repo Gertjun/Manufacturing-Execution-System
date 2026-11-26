@@ -13,6 +13,22 @@ Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijz
 
 Legenda B+: structuur (blauw), uitvoering en besluiten (oranje), technische ondersteuning (grijs). Alle relaties zijn fysieke FK-verwijzingen, geen procespijlen. Kleur is aanvullend; de tabelnamen en relatiekolommen blijven bepalend.
 
+[Open het fysieke overzicht met alle tabellen](diagrams/rendered/physical-erd.svg). Het overzicht laat de meeste verwijzingen naar gebruikers, operators en werkstations weg voor de leesbaarheid.
+
+### Fysieke domeindiagrammen
+
+De zes diagrammen tonen samen alle foreign keys. Elke relatie staat bij de tabel die de foreign key bevat. Gestippelde lijnen en blokken markeren een verwijzing naar een tabel in een ander domein. Open een SVG op volledig formaat om de labels te lezen.
+
+- [Autorisaties en identiteit](diagrams/rendered/physical-identity.svg)
+- [Master Data en Recipe Management](diagrams/rendered/physical-master-data.svg)
+- [Productie-uitvoering](diagrams/rendered/physical-execution.svg)
+- [Planning en lotvorming](diagrams/rendered/physical-planning.svg)
+- [Kwaliteit en metingen](diagrams/rendered/physical-quality.svg)
+- [Technische ondersteuning](diagrams/rendered/physical-support.svg)
+
+<details>
+<summary>Mermaid-bron met alle foreign keys</summary>
+
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 erDiagram
@@ -320,6 +336,8 @@ erDiagram
     class authorization_decision,authorization_grant,authorization_personnel_link,authorization_request,authorization_revocation,batch,batch_besluit,capaciteit_afwijking,certificaat,execution_session,geweigerde_invoer,grondstof_gebruik,herbewerking,invoerconflict,keuring,lot,lot_voorstel,lot_voorstel_batch,melding,melding_gelezen,overdracht,personnel_qualification,qualification_issue,qualification_revocation,recipe_change_impact,recipe_change_request,recipe_release,recipe_release_withdrawal,recipe_review_decision,recipe_review_round,stapplanning,stapregistratie,stilstand,terugmelding,waarde uitvoering
     class authorization_bootstrap,authorization_channel_identity,authorization_channel_identity_revocation,authorization_legacy_snapshot,authorization_recovery,config_log,inlogpoging,onderhoud_log,schema_versie ondersteuning
 ```
+
+</details>
 
 ## Tabellen
 

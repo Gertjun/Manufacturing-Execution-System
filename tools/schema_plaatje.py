@@ -122,14 +122,28 @@ def main() -> None:
          "Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. "
          "`||` = altijd ingevuld, `|o` = mag leeg zijn, `o{` = nul of meer, `o|` = hoogstens één. "
          "De Mermaid-bron hieronder bevat alle foreign keys, inclusief verwijzingen naar `gebruiker`, `operator` en `pc`.", "",
-         DIAGRAM_LEGENDA, "", "```mermaid", DIAGRAM_INIT, "erDiagram"]
+         DIAGRAM_LEGENDA, "",
+         "[Open het fysieke overzicht met alle tabellen](diagrams/rendered/physical-erd.svg). Het overzicht laat de meeste "
+         "verwijzingen naar gebruikers, operators en werkstations weg voor de leesbaarheid.", "",
+         "### Fysieke domeindiagrammen", "",
+         "De zes diagrammen tonen samen alle foreign keys. Elke relatie staat bij de tabel die de foreign key bevat. "
+         "Gestippelde lijnen en blokken markeren een verwijzing naar een tabel in een ander domein. "
+         "Open een SVG op volledig formaat om de labels te lezen.", "",
+         "- [Autorisaties en identiteit](diagrams/rendered/physical-identity.svg)",
+         "- [Master Data en Recipe Management](diagrams/rendered/physical-master-data.svg)",
+         "- [Productie-uitvoering](diagrams/rendered/physical-execution.svg)",
+         "- [Planning en lotvorming](diagrams/rendered/physical-planning.svg)",
+         "- [Kwaliteit en metingen](diagrams/rendered/physical-quality.svg)",
+         "- [Technische ondersteuning](diagrams/rendered/physical-support.svg)", "",
+         "<details>", "<summary>Mermaid-bron met alle foreign keys</summary>", "",
+         "```mermaid", DIAGRAM_INIT, "erDiagram"]
     r += [f"    {t}" for t in tabellen]
     for kind, ouder, kols, verplicht, uniek in verbanden:
         links = "||" if verplicht else "|o"
         rechts = "o|" if uniek else "o{"
         r.append(f'    {ouder} {links}--{rechts} {kind} : "{kols}"')
     r += diagram_stijl(tabellen)
-    r += ["```", "", "## Tabellen", "", "| Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |", "| --- | ---: | --- | --- |"]
+    r += ["```", "", "</details>", "", "## Tabellen", "", "| Tabel | Kolommen | Verwijst naar | Uitleg (uit `schema.sql`) |", "| --- | ---: | --- | --- |"]
     for t in tabellen:
         naar = sorted({o for k, o, *_ in verbanden if k == t and o != t})
         r.append(f"| [`{t}`](#{t}) | {len(per_tabel[t])} | {', '.join(f'`{x}`' for x in naar)} | {uitleg.get(t, '')} |")

@@ -5,6 +5,13 @@ Vastgestelde architectuurbaseline D89 (A01–A12). Doel: modulair MES voor chemi
 Acht activiteiten: Definition Management (MBR), Resource Management (middelen, materialen, personeel), Detailed Scheduling, Dispatching, Execution Management, Data Collection, Tracking en Performance Analysis. ISA-88 procesmodel (process/stage/operation/action), procedureel (procedure/unit procedure/operation/phase), fysiek (process cell/unit/equipment module/control module); geen gedwongen 1-op-1 mapping. General/Site Recipe voorbereid, Master Recipe en Control Recipe binnen scope. Enterprise/site/area/cell/unit; lagere niveaus indien nodig. Modulaire PostgreSQL/API, lokale offline invoer.
 
 Legenda: blauw = definitie, oranje = uitvoering of besluit. Oranje pijlen geven conceptuele procesafhankelijkheden aan, geen fysieke FK of automatische vrijgave.
+![MES-architectuur van Master Recipe en Production Order tot uitvoering en vrijgave](../diagrams/rendered/architecture.svg)
+
+[Open de SVG op volledig formaat](../diagrams/rendered/architecture.svg).
+
+<details>
+<summary>Mermaid-bron</summary>
+
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"lineColor":"#B45309","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 flowchart TD
@@ -22,6 +29,8 @@ flowchart TD
     class O,J,C,E,B,Q,G uitvoering
     linkStyle default stroke:#B45309,stroke-width:2px
 ```
+
+</details>
 
 Referenties: [ISA-88](https://www.isa.org/standards-and-publications/isa-standards/isa-88-standards), [ISA-95](https://www.isa.org/standards-and-publications/isa-standards/isa-95-standard), [OPC UA ISA-95](https://reference.opcfoundation.org/specs/OPC-10030/full), [Job Control](https://reference.opcfoundation.org/specs/OPC-10031-4/full). Openbare modellen, geen formele conformiteitsverklaring.
 

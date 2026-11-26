@@ -76,6 +76,13 @@ D105: nieuwe fase 3 centraliseert portalregistratie en zichtbaarheid op actuele 
 
 Blauw = receptdefinitie; oranje = operationele handeling of besluit. Pijlen geven procesvolgorde, geen database-FK of automatische bevoegdheid. Latere fasen blijven gepland.
 
+![MES-procesketen van MBR-opstelling tot orderafsluiting](../diagrams/rendered/process-chain.svg)
+
+[Open de SVG op volledig formaat](../diagrams/rendered/process-chain.svg).
+
+<details>
+<summary>Mermaid-bron</summary>
+
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%
 flowchart TD
@@ -94,3 +101,5 @@ flowchart TD
     class B,C,D,E,F,G,H,I,J uitvoering
     linkStyle default stroke:#B45309,stroke-width:2px
 ```
+
+</details>
