@@ -18,7 +18,7 @@ BEGIN
        OR (p_property IS NULL AND (p_unit IS NOT NULL OR p_operator IS NOT NULL OR p_limit IS NOT NULL OR p_capacity))
        OR (p_property IS NOT NULL AND (p_unit IS NULL OR p_operator IS NULL
            OR p_operator NOT IN ('minimum','maximum','equal') OR p_limit IS NULL
-           OR p_limit IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric')
+           OR p_limit IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
            OR (p_capacity AND (p_operator<>'minimum' OR p_limit<=0)))) THEN
         RAISE EXCEPTION 'Ongeldig technisch geschiktheidscriterium' USING ERRCODE='22023';
     END IF;
