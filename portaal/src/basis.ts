@@ -74,7 +74,7 @@ export function qs(params: Record<string, string | number | null | undefined>): 
 }
 
 // ---------- Actuele bevoegdheden (D101) ----------
-export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean }
+export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean; resourceCatalog?: boolean }
 let projection: Permissions | null = null;
 let projectionToken: string | null = null;
 let requestGeneration = 0;
@@ -121,7 +121,11 @@ export const magMateriaalstamdata = () => heeftRecht("material.definition.manage
 export const magReceptconcept = () => heeftProductRecht("recipe.draft.manage");
 export const magReceptbeoordeling = () => heeftProductRecht("recipe.draft.manage",...RECEPT_REVIEW_RECHTEN);
 
+export const magMiddelenbeheer = () => !!rechten()?.personal && (rechten()?.resourceCatalog === true || heeftRecht("resource.catalog.manage"));
 export const PORTALEN: Portaal[] = [
+  { id: "maintenance", naam: "Maintenance", klaar: true, onderdelen: [
+    { pad: "middelen", naam: "Middelenbeheer", toegestaan: magMiddelenbeheer },
+  ]},
   { id: "engineering", naam: "Process Engineering", klaar: true, onderdelen: [
     { pad: "overzicht", naam: "Overzicht", toegestaan: () => magMateriaalstamdata() || magReceptconcept() || magReceptbeoordeling() },
     { pad: "materialen", naam: "Materiaalstamgegevens", toegestaan: magMateriaalstamdata },

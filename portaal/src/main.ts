@@ -9,6 +9,7 @@ import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import * as engineering from "./engineering/schermen";
+import { middelen } from "./maintenance/middelen";
 import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
 import { volgStappenlijsten } from "./stappenkeuze";
@@ -266,6 +267,11 @@ async function route() {
     : p.id === "kwaliteit" && deel === "batch" ? "beoordelen" : deel;
   if (!zichtbaar.some(o => o.pad === alias)) return void (location.hash = "#/"+p.id);
   const a = arg ? decodeURIComponent(arg) : undefined;
+  if (p.id === "maintenance") {
+    await tekenMenu(p.id, deel);
+    if (!actueel()) return;
+    return middelen();
+  }
   if (p.id === "engineering") {
     await tekenMenu(p.id, deel);
     if (!actueel()) return;
