@@ -2892,6 +2892,70 @@ def main():
     check("#112 interne leeshelper afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_read_permitted(uuid,uuid)','EXECUTE')"))
     check("#112 geen directe snapshottoegang",not val("SELECT has_table_privilege('mes_app','fabriek.recipe_review_round','SELECT')"))
 
+    print("\n#114.2 middelenhiërarchie")
+    con.execute("BEGIN")
+    try:
+        def add_node(code, level, parent=None, name="Fictief"):
+            return val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES (%s,%s,%s,%s) RETURNING id",
+                       (code,name,level,parent))
+        ent=add_node("F4-ENT","enterprise")
+        site=add_node("F4-SITE","site",ent)
+        other_site=add_node("F4-SITE2","site",ent)
+        area=add_node("F4-AREA","area",site)
+        cell=add_node("F4-CELL","cell",area)
+        unit=add_node("F4-UNIT","unit",cell)
+        check("F4-114-A01 volledige hiërarchie en tweede site",
+              val("SELECT count(*) FROM equipment_hierarchy")==6 and other_site!=site)
+        def hierarchy_denied(label,sql,params=(),state=None):
+            con.execute("SAVEPOINT hierarchy_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT hierarchy_guard")
+                con.execute("RELEASE SAVEPOINT hierarchy_guard")
+        insert="INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES (%s,'Fictief',%s,%s)"
+        for label,params,state in [
+            ("unit onder site",("F4-BAD","unit",site),"23503"),
+            ("site zonder ouder",("F4-BAD","site",None),"23514"),
+            ("enterprise met ouder",("F4-BAD","enterprise",ent),"23514"),
+            ("onbekende ouder",("F4-BAD","site","00000000-0000-0000-0000-000000000001"),"23503"),
+            ("onbekend niveau",("F4-BAD","module",cell),"23514"),
+            ("dubbele code",("F4-ENT","enterprise",None),"23505"),
+            ("lege code",("   ","enterprise",None),"23514"),
+        ]:
+            hierarchy_denied("F4-114-A02/A03 "+label,insert,params,state)
+        hierarchy_denied("F4-114-A02 zelfverwijzing",
+            "INSERT INTO equipment_hierarchy(id,code,name,level,parent_id) VALUES (%s,'F4-SELF','Fictief','unit',%s)",
+            ("00000000-0000-0000-0000-000000000002",)*2,"23503")
+        for label,statement,params in [
+            ("id","UPDATE equipment_hierarchy SET id=gen_random_uuid() WHERE id=%s",(unit,)),
+            ("code","UPDATE equipment_hierarchy SET code='F4-NEW' WHERE id=%s",(unit,)),
+            ("niveau","UPDATE equipment_hierarchy SET level='area' WHERE id=%s",(unit,)),
+            ("ouder","UPDATE equipment_hierarchy SET parent_id=%s WHERE id=%s",(other_site,area)),
+            ("verwijderen","DELETE FROM equipment_hierarchy WHERE id=%s",(unit,)),
+        ]:
+            hierarchy_denied("F4-114-A03 "+label,statement,params,"55000")
+        con.execute("UPDATE equipment_hierarchy SET name='Nieuwe fictieve naam' WHERE id=%s",(unit,))
+        check("F4-114-A03 naamcorrectie behoudt identiteit",
+              val("SELECT name FROM equipment_hierarchy WHERE id=%s",(unit,))=="Nieuwe fictieve naam")
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"):
+            check("F4-114-A07 geen directe app-"+privilege,
+                  not val("SELECT has_table_privilege('mes_app','fabriek.equipment_hierarchy',%s)",(privilege,)))
+        check("F4-114-A07 geen directe triggerfunctie",
+              not val("SELECT has_function_privilege('mes_app','fabriek.equipment_hierarchy_identity_guard()','EXECUTE')"))
+        con.execute("SET LOCAL ROLE mes_app")
+        hierarchy_denied("F4-114-A07 werkelijk lezen geweigerd","SELECT * FROM fabriek.equipment_hierarchy",state="42501")
+        hierarchy_denied("F4-114-A07 werkelijk invoegen geweigerd",
+                         "INSERT INTO fabriek.equipment_hierarchy(code,name,level) VALUES ('F4-APP','Fictief','enterprise')",state="42501")
+        hierarchy_denied("F4-114-A07 werkelijk wijzigen geweigerd",
+                         "UPDATE fabriek.equipment_hierarchy SET name='Fictief'",state="42501")
+        con.execute("RESET ROLE")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    check("F4-114-A10 geen automatische middelenmapping",
+          val("SELECT count(*) FROM equipment_hierarchy")==0)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

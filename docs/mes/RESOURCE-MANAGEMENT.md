@@ -46,3 +46,7 @@ Alle 14 ROADMAP-bevindingen behouden hun bestaande bestemming. W07-UX03/04/05/09
 ## Open grenzen
 
 Migratie 0130 nog niet geschreven; schema blijft 0129. Voor elke volgende DDL exacte constraints, ACL, installatieschema, upgradepad en tests vaststellen. Geen nieuwe werkpakketnummers (volgende vrij #147 volgens ROADMAP). Geen fase 5/6 vooruitbouwen. README-status #146 bij gebundelde actualisatie corrigeren. Geen CI-resultaten, merge of release geclaimd.
+
+## 114.2 — eerste implementatie
+
+0130: `equipment_hierarchy` met globale code-uniciteit, level en parent_id, plus gegenereerde parent_level voor samengestelde FK (id, level). Alleen enterprise heeft geen ouder; overige niveaus verwijzen verplicht naar het onmiddellijk voorafgaande niveau. Cycli zijn structureel onmogelijk. Identiteit, code, niveau en ouder niet wijzigbaar; verwijderen geweigerd. Naamcorrectie voor de eigenaar toegestaan; persoonlijke audit en lifecycle volgen vóór opening van beheer. Geen app-grants of demo-/legacy-mapping. Regressies F4-114-A01/A02/A03/A07/A10 toegevoegd; uitvoering en schema-equivalentie open. DATABASE.md blijft bewust momentopname 0129 (D115). Generatorclassificatie en domeinindeling voorbereid; SVG's pas bij faseacceptatie.

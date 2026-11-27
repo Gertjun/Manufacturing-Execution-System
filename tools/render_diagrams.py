@@ -200,7 +200,7 @@ PHYSICAL_DOMAINS = {
         qualification qualification_issue qualification_revocation
     """.split(),
     "master-data": """
-        grondstof master_recipe master_recipe_version material_class material_definition
+        equipment_hierarchy grondstof master_recipe master_recipe_version material_class material_definition
         material_definition_version measurement_unit processtap product product_stap
         quantity_dimension quantity_kind recipe_change_impact recipe_change_request
         recipe_compatibility_rule recipe_dependency recipe_equipment_requirement recipe_formula
