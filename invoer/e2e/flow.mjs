@@ -306,6 +306,10 @@ try {
   const [resourceStation] = await q("SELECT id FROM pc WHERE naam='PC-01'");
   const [resourceHierarchy] = await q("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F115-FLOW-ENT','Fictief','enterprise') RETURNING id");
   const [resourceEquipment] = await q("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-FLOW-E','Fictief testmiddel',$1) RETURNING id",[resourceHierarchy.id]);
+  // Demo PC-01 shows all steps without explicit pc_stap assignments.
+  // The resource API intentionally requires a real, explicit step assignment.
+  const [resourceStep] = await q("SELECT id FROM processtap WHERE code='PS4' AND actief AND soort='proces'");
+  await q("INSERT INTO pc_stap(pc_id,processtap_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",[resourceStation.id,resourceStep.id]);
   await q("INSERT INTO equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES ($1,$2,$3,'Fictieve schermtest')",[resourceStation.id,resourceEquipment.id,resourceActor.id]);
   // The preceding legacy close has already rendered PS4 with no linked equipment.
   // Leave the route before returning so the SPA requests a fresh projection.
