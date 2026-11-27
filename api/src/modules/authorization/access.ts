@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import { ApiFout } from "../../fouten.js";
-import { ingelogd } from "../../auth.js";
+import { ingelogd, persoonlijkeTransactie } from "../../auth.js";
 import { lees, type Db, type Tx } from "../../db.js";
 
 /** Alleen server-afgeleide context, nooit door de client opgegeven scope. */
@@ -73,5 +73,20 @@ export async function permissionProjection(req: FastifyRequest) {
     .map(r => ({ permission: r.code, product: r.product! }));
   const [person] = req.user.rol === "scherm" ? [] : await lees<{ id: string | null }>(req.server.db,
     "SELECT operator_van_account($1) AS id", [req.user.sub]);
-  return { global, products, personal: req.user.rol !== "scherm", linkedPerson: !!person?.id };
+  // Afzonderlijk menusignaal, geen uitbreiding van globale rechten.
+  let resourceCatalog = false;
+  if (req.user.rol !== "scherm") {
+    if (globalSet.has("resource.catalog.manage")) resourceCatalog = true;
+    else {
+      try {
+        resourceCatalog = await persoonlijkeTransactie(req.server.db, req, async tx => {
+          await tx.query("SELECT resource_catalog_list()");
+          return true;
+        });
+      } catch (e) {
+        if ((e as { code?: string }).code !== "42501") throw e;
+      }
+    }
+  }
+  return { global, products, personal: req.user.rol !== "scherm", linkedPerson: !!person?.id, resourceCatalog };
 }
