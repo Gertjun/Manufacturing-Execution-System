@@ -1,7 +1,7 @@
 import { persoonlijkeTransactie } from "../auth.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { ingelogd, operatorVan } from "../auth.js";
+import { ingelogd, operatorVan, invoerContext } from "../auth.js";
 import { requiresPermission, personalSession, requirePermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
@@ -39,7 +39,74 @@ const eenStilstand = async (db: Db, id: string) => (await lees(db, `${STILSTAND_
 /** Een tijdstip van het apparaat; in de toekomst (verkeerde klok) telt als nu. */
 const tijdstip = (t?: string) => (t && Date.parse(t) < Date.now() ? t : new Date().toISOString());
 
+// Alleen vaste, publieke foutteksten voor de nieuwe middelinterface.
+function middelFout(e: unknown): never {
+  const { code, constraint } = e as { code?: string; constraint?: string };
+  if (code === "23505") throw new ApiFout(409, constraint === "stilstand_equipment_een_lopend"
+    ? "Voor dit middel loopt al een stilstand" : "Dit id hoort bij een andere stilstandmelding");
+  if (code === "40001") throw new ApiFout(409, "Deze middelstilstand is al anders afgesloten");
+  if (code === "P0002") throw niet("Middelstilstand");
+  if (code === "22023" || code === "23514" || code === "23503") throw new ApiFout(422, "Ongeldige middelstilstandcontext");
+  throw e;
+}
+
+const MiddelAntwoord = Type.Object({ id: Type.String({ format: "uuid" }) });
 const routes: FastifyPluginAsyncTypebox = async (app) => {
+  // Bewust afzonderlijke online routes; niet opnemen in de offlinewachtrij.
+  app.post("/middelen", {
+    preHandler: requiresPermission("downtime.record"),
+    schema: {
+      tags: ["stilstand"],
+      description: "Online middelstilstand melden; herhaalde identieke UUID retourneert hetzelfde ID.",
+      body: Type.Object({
+        id: Type.String({ format: "uuid" }),
+        stapcode: StapCode,
+        equipmentId: Type.String({ format: "uuid" }),
+        oorzaak: Type.String(),
+        toelichting: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
+      }, { additionalProperties: false }),
+      response: { 200: MiddelAntwoord },
+    },
+  }, async req => {
+    const { pcId } = await invoerContext(app.db, req);
+    try {
+      return await persoonlijkeTransactie(app.db, req, async tx => {
+        await requireTransactionPermission(tx, req.user.sub, "downtime.record");
+        // Ook inactieve codes opzoeken: identieke replay mag na deactivering
+        // nog terugkomen. Nieuwe registraties worden in de DB gevalideerd.
+        const { rows: [step] } = await tx.query<{ id: string }>("SELECT id FROM processtap WHERE code=$1", [req.body.stapcode]);
+        if (!step) throw niet("Stap");
+        const { rows: [reason] } = await tx.query<{ id: string }>("SELECT id FROM stilstand_oorzaak WHERE code=$1", [req.body.oorzaak]);
+        if (!reason) throw new ApiFout(422, "Onbekende stilstandoorzaak");
+        const { rows: [r] } = await tx.query<{ id: string }>(
+          "SELECT resource_downtime_open($1,$2,$3,$4,$5,$6) AS id",
+          [req.body.id, pcId, step.id, req.body.equipmentId, reason.id, req.body.toelichting ?? null]);
+        return { id: r.id };
+      });
+    } catch (e) { return middelFout(e); }
+  });
+
+  app.post("/middelen/:id/einde", {
+    preHandler: requiresPermission("downtime.record"),
+    schema: {
+      tags: ["stilstand"],
+      description: "Online middelstilstand beëindigen op registratie-ID.",
+      params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+      body: Type.Object({ notitie: Type.Optional(Type.String({ maxLength: 500 })) }, { additionalProperties: false }),
+      response: { 200: MiddelAntwoord },
+    },
+  }, async req => {
+    operatorVan(req);
+    try {
+      return await persoonlijkeTransactie(app.db, req, async tx => {
+        await requireTransactionPermission(tx, req.user.sub, "downtime.record");
+        const { rows: [r] } = await tx.query<{ id: string }>(
+          "SELECT resource_downtime_close($1,$2) AS id", [req.params.id, req.body.notitie ?? null]);
+        return { id: r.id };
+      });
+    } catch (e) { return middelFout(e); }
+  });
+
   app.get(
     "/oorzaken",
     {

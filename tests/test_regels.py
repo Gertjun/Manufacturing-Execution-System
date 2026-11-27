@@ -3894,8 +3894,8 @@ def main():
 
     print("\n#115.5 middelgebonden stilstand")
     for signature in ("resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text)","resource_downtime_close(uuid,text)"):
-        check("F4-115-E03 interne functie nog afgesloten "+signature,
-              not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+        check("F4-115-E03 gecontroleerde persoonlijke functie "+signature,
+              val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
     check("F4-115-E01 bestaande registraties behouden NULL-context",
           val("SELECT count(*) FROM stilstand WHERE equipment_id IS NOT NULL")==0)
     con.execute("BEGIN")
@@ -3921,7 +3921,7 @@ def main():
         con.execute("SET LOCAL ROLE mes_app")
         proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115e','F115-E-PC')",("f115e."+name,)) for name in names}
         con.execute("RESET ROLE")
-        # Interne eigenaarinterface met persoonlijk bewijs; app-EXECUTE blijft dicht.
+        # Persoonlijke interface; eigenaarfixture voor directe controles.
         open_sql="SELECT resource_downtime_open(%s,%s,%s,%s,%s,%s)"
         close_sql="SELECT resource_downtime_close(%s,%s)"
         a,b,c,legacy=[val("SELECT gen_random_uuid()") for _ in range(4)]
@@ -3948,7 +3948,6 @@ def main():
         deny115("F4-115-E03 geen actieve middelmapping",open_sql,(a,station,step,e3,cause,"Test"))
         deny115("F4-115-E03 ontbrekende stapmapping",open_sql,(a,station,val("SELECT gen_random_uuid()"),e1,cause,"Test"))
         con.execute("SET LOCAL ROLE mes_app")
-        deny115("F4-115-E03 geen app-uitvoering",open_sql,args)
         deny115("F4-115-E03 geen directe middelinsert","INSERT INTO stilstand(id,processtap_id,oorzaak_id,gemeld_door,equipment_id) VALUES (%s,%s,%s,%s,%s)",(a,step,cause,actors["operator"],e1))
         con.execute("RESET ROLE")
         # Gebruik eigen fictieve stapcontext voor legacy naast middelstilstand;
@@ -3989,7 +3988,7 @@ def main():
 
 
     # Gecommitteerde fictieve fixtures voor twee onafhankelijke transacties.
-    # Geen app-EXECUTE voor middelmutaties: eigenaarinterface met persoonlijk bewijs.
+    # Eigenaarfixture met persoonlijk bewijs; app-interface afzonderlijk getest.
     race_actor=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('f115e.race','pending',wachtwoord_hash('fictief-race')) RETURNING id")
     race_operator=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-E-RACE',%s) RETURNING id",(race_actor,))
     con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(race_actor,))
