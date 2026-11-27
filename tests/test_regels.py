@@ -4047,7 +4047,7 @@ def main():
                 result=future.result(timeout=25)
             check("F4-115-E04 race-uitkomst "+label,result==expected,str(result))
 
-    for mode in ("replay","duplicate","close-same","close-different","close-other","legacy-collision"):
+    for mode in ("replay","duplicate","close-same","close-different","close-other","legacy-collision","legacy-reverse"):
         for outcome in ("commit","rollback"):
             label=mode+"-"+outcome
             eq=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-E-"+label,ent))
@@ -4074,15 +4074,19 @@ def main():
                       val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_origin='personal'",(rid,))==2 and
                       val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor))==(2 if closing_actor==race_actor else 1) and
                       val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor2))==(0 if closing_actor==race_actor else 1))
-            elif mode=="legacy-collision":
-                # De oude insert neemt geen nieuwe advisory lock; de PK beslist.
-                legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES (%s,'Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id",("F115-E-LEG-"+outcome,))
+            elif mode in ("legacy-collision","legacy-reverse"):
+                # Beide volgordes: de oude insert neemt geen advisory lock; de PK beslist.
+                legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES (%s,'Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id",("F115-E-LEG-"+label,))
                 legacy_insert="INSERT INTO fabriek.stilstand(id,processtap_id,oorzaak_id,gemeld_door) VALUES (%s,%s,%s,%s)"
-                race_e(label,legacy_insert,(rid,legacy_step,race_cause,race_actor),race_open,args2,outcome,
+                legacy_first=mode=="legacy-collision"
+                legacy_args=(rid,legacy_step,race_cause,race_actor if legacy_first else race_actor2)
+                first_cmd,second_cmd=((legacy_insert,legacy_args),(race_open,args2)) if legacy_first else ((race_open,args1),(legacy_insert,legacy_args))
+                race_e(label,*first_cmd,*second_cmd,outcome,
                        "23505" if outcome=="commit" else "committed",other=True)
-                check("F4-115-E04 winnende context "+label,
-                      one("SELECT processtap_id,equipment_id FROM stilstand WHERE id=%s",(rid,))==
-                      ((legacy_step,None) if outcome=="commit" else (race_step,eq)))
+                legacy_wins=legacy_first==(outcome=="commit")
+                check("F4-115-E04 winnende context en actor "+label,
+                      one("SELECT processtap_id,equipment_id,gemeld_door FROM stilstand WHERE id=%s",(rid,))==
+                      (legacy_step if legacy_wins else race_step,None if legacy_wins else eq,race_actor if outcome=="commit" else race_actor2))
             else:
                 race_e(label,race_open,args1,race_open,args2,outcome,
                        "23505" if mode=="duplicate" and outcome=="commit" else "committed",other=mode=="duplicate")
