@@ -312,8 +312,9 @@ def main():
     check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
     check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))
 
-    check("Vijftien MES-rollen inclusief middelen- en scopebeheer",
-          val("SELECT count(*) FROM authorization_role") == 15 and
+    check("Zestien MES-rollen inclusief middelen-, scope- en statusbeheer",
+          val("SELECT count(*) FROM authorization_role") == 16 and
+          val("SELECT domain FROM authorization_role WHERE code='resource_status_manager'")=="maintenance" and
           val("SELECT domain FROM authorization_role WHERE code='resource_catalog_manager'")=="maintenance" and
           val("SELECT domain FROM authorization_role WHERE code='resource_scope_administrator'")=="security")
     check("Twee persoonlijke security-identiteiten", val("SELECT count(DISTINCT g.user_id) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE g.role_code='security_administrator' AND u.actief AND NOT u.gedeeld AND NOT u.wachtwoord_wijzigen") == 2)

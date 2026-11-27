@@ -162,3 +162,7 @@ F4-115-C01 onbekend/expliciete eerste status en opeenvolgende overgangen; C02 ve
 ## 115.3b — intern fundament 0144
 
 Append-only equipment_status_history met unieke middel/revisie, expliciete blocked/available, verplichte reden en actor-FK. INSERT-guard serialiseert op middelrij bij read committed, eist opeenvolgende revisie en wisselende status, overschrijft vastleggingstijd serverzijdig. Geen initiële status of automatische vrijgave; geen app-grants. Eigenaar kan nog actor-ID kiezen; persoonlijke actorbinding, afzonderlijke permission, audit en regressies volgen 115.3c. Generatorclassificatie bijgewerkt; geen diagramgeneratie. Statische broncontrole, geen PostgreSQL-runtimebewijs. Voortgang 9/20 geïmplementeerd, 8/20 technisch bewezen.
+
+## 115.3c — persoonlijke statusmutatie 0145
+
+Afzonderlijke rol resource_status_manager met resource.status.manage in maintenance-domein, geen automatische gebruikersgrants of uitbreiding bestaande rollen. resource_status_set(uuid,integer,text,text) leidt actor uit persoonlijk transactiebewijs en scope uit bestaande expliciete mappings af. Onbekend middel geweigerd, geen productcontext; read committed, middelrijlock, hercontrole bewijs/bevoegdheid na lock, verwachte revisie (0 bij eerste registratie), actor en tijd serverzijdig. Audit via log_config. Alleen functie-uitvoering mes_app; bestaande D100 tabel-ACL-beperking blijft gelden. Geen API/portaal of automatische vrijgave. Centrale roltelling aangepast van 15 naar 16. Specifieke regressies volgen 115.3d; runtimebewijs open.
