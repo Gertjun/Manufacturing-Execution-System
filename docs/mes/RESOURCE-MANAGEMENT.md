@@ -138,3 +138,7 @@ Voor 0141 eerst relatie, guards en regressies; daarna persoonlijke aanwijzing en
 ## 115.2b — intern fundament 0141
 
 Equipment_capacity verwijst uniek naar een bestaande capability, zonder tweede waarde of eenheid. Aanwijzing vereist actuele positieve eindige waarde; latere revisies van aangewezen capaciteit eveneens. Beide schrijfpaden vergrendelen dezelfde capabilityrij vóór het lezen van de actuele toestand. Expliciete beperking tot read committed voor beide schrijfpaden om verouderde snapshots bij hogere isolatieniveaus uit te sluiten; geen wijziging aan andere transacties. Aanwijzing is append-only, geen directe app-ACL, geen automatische mapping. Persoonlijke aanwijzing en audit volgen 115.2c; vergelijking en regressies open, inclusief beide volgordes van concurrentie. Generatorclassificatie bijgewerkt; geen diagramgeneratie. Nog geen runtimebewijs.
+
+## 115.2c — persoonlijke capaciteitsaanwijzing 0142
+
+resource_capacity_designate(uuid,integer) autoriseert via de persoonlijke transactie en de vertrouwde, onveranderlijke middelcontext van de capability. Onbekend doel wordt geweigerd. Read committed, gedeelde capability-rijlock en verwachte actuele revisie voorkomen aanwijzing van een inmiddels gewijzigde waarde. Positiviteit en uniciteit blijven door 0141 afgedwongen. Persoonlijke audit via log_config bij INSERT. Geen directe tabelrechten, alleen functie-uitvoering mes_app; geen nieuwe rollen of automatische grants, geen wijziging of verwijdering van aanwijzing. Geen nieuwe numerieke bron. Vergelijking, regressies en runtimebewijs volgen.
