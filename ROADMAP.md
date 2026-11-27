@@ -2,7 +2,7 @@
 
 Enige centrale takenlijst; besluiten in DECISIONS.md, gerealiseerd in CHANGELOG.md, actuele werking in README.md. D89: 69 ontwerpbesluiten, nieuwe start vanaf main; PR #1 niet mergen.
 
-Bijgewerkt: 27 november 2026 · releasekandidaat 0.64.0; laatst officieel 0.63.0
+Bijgewerkt: 27 november 2026 · huidige versie 0.64.0 (releasekandidaat; laatst officieel 0.63.0)
 
 D110: ISA-88/95 leidend voor alle nieuwe fasen; legacywensen zonder aangetoonde noodzaak of architectuurfit eerst naar het wishlist-/beoordelingsregister onderaan deze roadmap. Noodzakelijke fabrieks-, veiligheids-, kwaliteits-, wettelijke, integriteits- en migratievereisten blijven binnen passende scope. Geen automatische scope-uitbreiding.
 
