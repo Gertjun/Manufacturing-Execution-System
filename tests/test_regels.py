@@ -3891,6 +3891,90 @@ def main():
                   one("SELECT count(*),max(close_reason) FROM equipment_workstation WHERE pc_id=%s",(station,))==(1,winner) if closing else
                   one("SELECT count(*),max(open_reason) FROM equipment_workstation WHERE pc_id=%s",(station,))==(1,winner))
 
+
+    print("\n#115.5 middelgebonden stilstand")
+    for signature in ("resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text)","resource_downtime_close(uuid,text)"):
+        check("F4-115-E03 interne functie nog afgesloten "+signature,
+              not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+    check("F4-115-E01 bestaande registraties behouden NULL-context",
+          val("SELECT count(*) FROM stilstand WHERE equipment_id IS NOT NULL")==0)
+    con.execute("BEGIN")
+    try:
+        station=val("INSERT INTO pc(naam) VALUES ('F115-E-PC') RETURNING id")
+        other_pc=val("INSERT INTO pc(naam) VALUES ('F115-E-OTHER') RETURNING id")
+        step=val("SELECT id FROM processtap WHERE actief AND soort='proces' ORDER BY volgorde LIMIT 1")
+        other_step=val("SELECT id FROM processtap WHERE actief AND soort='proces' AND id<>%s ORDER BY volgorde LIMIT 1",(step,))
+        cause=val("SELECT id FROM stilstand_oorzaak WHERE actief AND categorie='storing' LIMIT 1")
+        con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s),(%s,%s)",(station,step,station,other_step))
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-E-E1','Fictief',%s) RETURNING id",(ent,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-E-E2','Fictief',%s) RETURNING id",(ent,))
+        e3=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-E-E3','Fictief',%s) RETURNING id",(ent,))
+        for eq in (e1,e2):
+            con.execute(ws_insert,(station,eq,actor,"Test"))
+        names=("operator","other","maintenance","scoped")
+        for name in names:
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115e'))",("f115e."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115e."+name,)) for name in names}
+        operators={name:val("INSERT INTO operator(naam,gebruiker_id) VALUES (%s,%s) RETURNING id",("F115-E-"+name,actors[name])) for name in names}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator'),(%s,'operator'),(%s,'maintenance_technician')",(actors["operator"],actors["other"],actors["maintenance"]))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'operator','F115-E-AREA')",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115e',NULL)",("f115e."+name,)) for name in names}
+        con.execute("RESET ROLE")
+        # Interne eigenaarinterface met persoonlijk bewijs; app-EXECUTE blijft dicht.
+        open_sql="SELECT resource_downtime_open(%s,%s,%s,%s,%s,%s)"
+        close_sql="SELECT resource_downtime_close(%s,%s)"
+        a,b,c,legacy=[val("SELECT gen_random_uuid()") for _ in range(4)]
+        args=(a,station,step,e1,cause,"Test")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-E03 geen persoonlijk bewijs",open_sql,args)
+        for name in ("maintenance","scoped"):
+            bind115(name)
+            deny115("F4-115-E03 onbevoegd "+name,open_sql,args)
+        bind115("operator")
+        deny115("F4-115-E03 verkeerde pc",open_sql,(a,other_pc,step,e1,cause,"Test"))
+        deny115("F4-115-E03 geen actieve middelmapping",open_sql,(a,station,step,e3,cause,"Test"))
+        deny115("F4-115-E03 ontbrekende stapmapping",open_sql,(a,station,val("SELECT gen_random_uuid()"),e1,cause,"Test"))
+        con.execute("SET LOCAL ROLE mes_app")
+        deny115("F4-115-E03 geen app-uitvoering",open_sql,args)
+        deny115("F4-115-E03 geen directe middelinsert","INSERT INTO stilstand(id,processtap_id,oorzaak_id,gemeld_door,equipment_id) VALUES (%s,%s,%s,%s,%s)",(a,step,cause,actors["operator"],e1))
+        con.execute("RESET ROLE")
+        # Gebruik eigen fictieve stapcontext voor legacy naast middelstilstand;
+        # bestaande testdata kan al een open stapmelding hebben.
+        legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES ('F115-E-STEP','Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id")
+        con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s)",(station,legacy_step))
+        args=(a,station,legacy_step,e1,cause,"Test")
+        before_status=val("SELECT count(*) FROM equipment_status_history")
+        con.execute("INSERT INTO stilstand(id,processtap_id,oorzaak_id,gemeld_door) VALUES (%s,%s,%s,%s)",(legacy,legacy_step,cause,actors["operator"]))
+        check("F4-115-E01 eerste middel naast legacy",val(open_sql,args)==a)
+        check("F4-115-E02 tweede middel zelfde stap",val(open_sql,(b,station,legacy_step,e2,cause,"Ander"))==b)
+        check("F4-115-E04 identieke UUID herhaling",val(open_sql,args)==a)
+        deny115("F4-115-E04 afwijkende toelichting zelfde UUID",open_sql,(a,station,legacy_step,e1,cause,"Anders"),"23505")
+        deny115("F4-115-E04 afwijkend middel zelfde UUID",open_sql,(a,station,legacy_step,e2,cause,"Test"),"23505")
+        deny115("F4-115-E04 legacy UUID niet herbruikbaar",open_sql,(legacy,station,legacy_step,e1,cause,"Test"),"23505")
+        deny115("F4-115-E02 tweede open registratie zelfde middel andere stap",open_sql,(c,station,other_step,e1,cause,"Test"),"23505")
+        bind115("other")
+        deny115("F4-115-E04 andere actor zelfde UUID",open_sql,args,"23505")
+        bind115("operator")
+        check("F4-115-E05 precies een melding per middel",val("SELECT count(*) FROM melding WHERE bron_id IN (%s,%s)",(a,b))==2)
+        check("F4-115-E05 herkenbare middelcode",val("SELECT tekst LIKE '%%[middel F115-E-E1]' FROM melding WHERE bron_id=%s",(a,)))
+        check("F4-115-E03 persoonlijke openingsaudit",val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(a,actors["operator"]))==1)
+        deny115("F4-115-E02 middelcontext onveranderlijk","UPDATE stilstand SET equipment_id=%s WHERE id=%s",(e3,a),"55000")
+        con.execute("SET LOCAL ROLE mes_app")
+        deny115("F4-115-E03 geen directe middelafsluiting","UPDATE stilstand SET eind_op=clock_timestamp(),beeindigd_door=%s WHERE id=%s",(operators["operator"],a))
+        con.execute("RESET ROLE")
+        con.execute("UPDATE equipment_workstation SET closed_by=%s,closed_at=clock_timestamp(),close_reason='Ontkoppeld' WHERE pc_id=%s AND equipment_id=%s",(actor,station,e1))
+        check("F4-115-E03 afsluiten na ontkoppeling",val(close_sql,(a,"Hersteld"))==a)
+        check("F4-115-E04 identieke afsluitreplay",val(close_sql,(a,"Hersteld"))==a)
+        deny115("F4-115-E04 afwijkende afsluitreplay",close_sql,(a,"Anders"),"40001")
+        deny115("F4-115-E01 legacy niet via middelinterface",close_sql,(legacy,"Geen"),"P0002")
+        check("F4-115-E05 geen technische statuswijziging",val("SELECT count(*) FROM equipment_status_history")==before_status)
+        check("F4-115-E05 contexten apart",one("SELECT count(*) FILTER (WHERE equipment_id IS NULL),count(*) FILTER (WHERE equipment_id IS NOT NULL) FROM stilstand WHERE processtap_id=%s",(legacy_step,))==(1,2))
+        check("F4-115-E03 persoonlijke afsluitaudit",val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(a,actors["operator"]))==2)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
