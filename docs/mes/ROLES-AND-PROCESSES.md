@@ -13,6 +13,8 @@ D89 P01–P15. Persoonlijk account met meerdere rollen, concrete permissions, sc
 | Quality Technician | Keuringen en blokkades, geen definitieve vrijgave |
 | Quality Approver | Specificaties, afwijkingsbesluiten, vrijgave en intrekking |
 | Maintenance Technician | Technische beschikbaarheid en blokkades |
+| Resource Catalog Manager | Persoonlijk middelenbeheer binnen expliciete scope; geen mappingbeheer |
+| Resource Scope Administrator | Persoonlijk security-beheer van expliciete scopemappings; geen inhoudelijk middelenbeheer |
 | System Administrator | Accounts, server, herstel; geen automatische inhoudelijke rechten |
 | Security Administrator | Rechten met onafhankelijke goedkeuring |
 | Analyst / Management | Raadplegen binnen privacy en scope |
@@ -103,3 +105,5 @@ flowchart TD
 ```
 
 </details>
+
+Fase 4 (0133–0137): beide nieuwe rollen in het bestaande register, geen automatische grants. De bestaande security-tool accepteert een MES-rolcode en de algemene API/UI-permissieprojectie gebruikt bevoegdheidscodes. Specifieke middelenroutes en schermen volgen in 114.6; geen claim van praktische bediening. Functiescheiding blijft verplicht.

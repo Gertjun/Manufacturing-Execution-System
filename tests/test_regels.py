@@ -3301,6 +3301,17 @@ def main():
         con.execute("SET LOCAL ROLE mes_app")
         resource_denied("F4-114-A07 verlopen en toekomstige scopes","SELECT resource_equipment_rename(%s,2,'Geen')",(e,))
         con.execute("RESET ROLE")
+        check("F4-114-A07 beide rollen in centraal register",
+              val("""SELECT count(*) FROM authorization_role r JOIN authorization_role_permission rp ON rp.role_code=r.code
+                     JOIN authorization_permission p ON p.code=rp.permission_code AND p.domain=r.domain
+                     WHERE (r.code,r.domain,p.code) IN (('resource_catalog_manager','maintenance','resource.catalog.manage'),
+                       ('resource_scope_administrator','security','resource.scope.manage'))""")==2)
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager')",(mapper,))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(map_proof,mapper))
+        resource_denied("F4-114-A07 gemengde rollen geen mapping","SELECT resource_area_scope_create('NO',%s)",(area,))
+        resource_denied("F4-114-A07 gemengde rollen geen catalogus","SELECT resource_equipment_rename(%s,2,'Geen')",(e,))
+        con.execute("RESET ROLE")
         con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(mapper,))
         con.execute("SET LOCAL ROLE mes_app")
         con.execute("SELECT execution_bind_transaction(%s,%s)",(map_proof,mapper))
