@@ -25,6 +25,13 @@ for (const t of [A, B, OLD, BOUND]) assert.match(t, /^[A-Za-z0-9_-]+\.[A-Za-z0-9
 const personal = (global = [], products = [], linkedPerson = true) => ({ personal: true, linkedPerson, global, products });
 const quality = personal(["inspection.read"], [{ product: "P1", permission: "inspection.record" }]);
 let projection = quality, binding = "ok", exchanges = 0, pending = null;
+const resourceItem = (id,code,name) => ({id,code,name,change_no:0});
+const resourceArea = {...resourceItem("area-1","FICT-AREA","Fictief gebied"),level:"area",parent_id:null};
+const resourceEquipment = {...resourceItem("equipment-1","FICT-E1","Fictief middel"),hierarchy_id:resourceArea.id};
+const resourceClass = resourceItem("class-1","FICT-CLASS","Fictieve klasse");
+const resourceAsset = resourceItem("asset-1","FICT-ASSET","Fictieve asset");
+let resourceGlobal = false, resourceRequests = 0, scopeRequests = 0, scopeWrites = 0;
+const scopeFixture = {areas:[resourceArea],equipment:[resourceEquipment],area_scopes:[],equipment_scopes:[]};
 const veld = { code:"S3.2", naam:"Fictieve temperatuur", eenheid:"°C", soort:"procesparameter", stap:"PS3", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut" };
 const meting = (dag, extra = {}) => ({ tijd: "2026-11-"+dag+"T10:00:00Z", setting:75, gemeten:75, markering:"ok", batch_of_lot:"FICTIEF-"+dag, operator:"Test", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut", product:"P1", ...extra });
 let trendPunten = [meting("20",{gemeten:59,markering:"buiten_grens"}),meting("21",{setting:78,gemeten:85,markering:"buiten_tolerantie"}),meting("22",{gemeten:91,markering:"buiten_grens"})];
@@ -37,6 +44,22 @@ try {
     if (path.startsWith("/portaal/") || path.startsWith("/invoer/")) return route.continue();
     const json = (value, status = 200) => route.fulfill({ json: value, status });
     if (path === "/auth/permissions") return json(projection);
+    if (path === "/resources/") {
+      resourceRequests++;
+      if (!projection.resourceCatalog && !projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
+      return json({global:resourceGlobal,hierarchy:[resourceArea],equipment:[resourceEquipment],classes:[resourceClass],assets:[resourceAsset],class_assignments:[],asset_assignments:[{id:"assignment-1",equipment_id:resourceEquipment.id,physical_asset_id:resourceAsset.id,valid_from:"2026-01-01T10:00:00Z",valid_until:null}]});
+    }
+    if (path === "/resources/scopes") {
+      scopeRequests++;
+      return projection.global.includes("resource.scope.manage")?json(scopeFixture):json({fout:"Geweigerd"},403);
+    }
+    if (path === "/resources/scopes/areas" && route.request().method()==="POST") {
+      assert.ok(projection.global.includes("resource.scope.manage"));
+      assert.deepEqual(route.request().postDataJSON(),{area_code:"FICT-GRANT",hierarchy_id:resourceArea.id});
+      scopeWrites++;
+      scopeFixture.area_scopes.push({id:"map-1",area_code:"FICT-GRANT",hierarchy_id:resourceArea.id});
+      return json({id:"map-1"},201);
+    }
     if (path === "/auth/pc") {
       exchanges++;
       assert.equal(route.request().headers().authorization, "Bearer " + A);
@@ -96,6 +119,51 @@ try {
   await page.getByRole("heading",{name:"Master Recipes",exact:true}).waitFor();
   await page.getByText("Geen producten met actuele receptbeheerbevoegdheid.",{exact:true}).waitFor();
   console.log("OK 139.3c: receptscherm met beperkte productscope en lege API-respons");
+  // #114.6: native middelenbeheer en onafhankelijke securitybediening.
+  projection = {...personal(),resourceCatalog:true};
+  resourceGlobal=false;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/middelen");
+  await page.getByRole("heading",{name:"Middelenbeheer",exact:true}).waitFor();
+  await page.getByText("Fictief middel",{exact:true}).waitFor();
+  assert.equal(await page.getByText("Klasse toevoegen",{exact:true}).count(),0);
+  assert.equal(await page.getByText("Asset toevoegen",{exact:true}).count(),0);
+  assert.equal(await page.getByText("Asset toewijzen",{exact:true}).count(),0);
+  assert.equal(await page.getByText("Klasse koppelen",{exact:true}).count(),1);
+  assert.equal(await page.getByText("Afsluiten",{exact:true}).count(),1);
+  const scopeBefore=scopeRequests;
+  await page.goto(origin+"/portaal/#/beheer/scopemapping");
+  await page.getByRole("heading",{name:/^Welkom/}).waitFor();
+  assert.equal(scopeRequests,scopeBefore);
+  projection={...personal(["resource.catalog.manage"]),resourceCatalog:true};
+  resourceGlobal=true;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/middelen");
+  await page.getByText("Asset toewijzen",{exact:true}).waitFor();
+  assert.equal(await page.getByText("Klasse toevoegen",{exact:true}).count(),1);
+  assert.equal(await page.getByText("Asset toevoegen",{exact:true}).count(),1);
+  projection=personal(["resource.scope.manage"]);
+  await landing(["beheer"]);
+  const resourcesBefore=resourceRequests;
+  await page.goto(origin+"/portaal/#/maintenance/middelen");
+  await page.getByRole("heading",{name:/^Welkom/}).waitFor();
+  assert.equal(resourceRequests,resourcesBefore);
+  await page.goto(origin+"/portaal/#/beheer/scopemapping");
+  await page.getByRole("heading",{name:"Scopemapping middelen",exact:true}).waitFor();
+  const areaBlock=page.locator("section").filter({has:page.getByRole("heading",{name:"Gebiedsmappings",exact:true})});
+  await areaBlock.getByText("Nieuwe mapping toevoegen",{exact:true}).click();
+  await areaBlock.getByLabel("Exacte autorisatiecode").fill("FICT-GRANT");
+  await areaBlock.getByLabel("Catalogusobject").selectOption(resourceArea.id);
+  await areaBlock.getByRole("button",{name:"Mapping vastleggen"}).click();
+  assert.equal(scopeWrites,0);
+  await areaBlock.getByRole("checkbox").check();
+  await areaBlock.getByRole("button",{name:"Mapping vastleggen"}).click();
+  await areaBlock.getByText("FICT-GRANT",{exact:true}).waitFor();
+  assert.equal(scopeWrites,1);
+  assert.equal(await areaBlock.getByText("Nieuwe mapping toevoegen",{exact:true}).count(),0);
+  projection=personal();
+  await landing([]);
+  console.log("OK F4-114: begrensd/globaal middelenbeheer, directe routeweigering, onafhankelijke mapping en bevestiging");
   projection = quality;
   await landing(["invoer", "kwaliteit"]);
   await set(page, { "invoer.token": OLD, "invoer.operatornaam": "ander" });
