@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #140.2–3: fase 3 technisch geaccepteerd en gemerged; Windows-acceptatiekandidaat voor fase 2 en 3 gebouwd zonder release. Windows W01–W12 uitgevoerd op dezelfde kandidaat; W10 met fysieke 4K-beperking, overige bewijsnuances en 14 verbeterpunten vastgelegd. Formele functionele acceptatie en release blijven open. Geen runtimewijziging.
+
 - #140.2: gedeelde test-API-afsluiting en databasequiescentie tussen schermscripts; gerichte Sjabloon/Engineering-overgangstest toegevoegd.
 
 - #140.2: expliciete wachting op offline-wachtrijstatus en actuele logboekweergave, extra diagnose en individuele Beheer-regressieselectie; verificatie volgt.
