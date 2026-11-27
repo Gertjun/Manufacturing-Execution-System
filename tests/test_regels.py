@@ -3987,6 +3987,94 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    # Gecommitteerde fictieve fixtures voor twee onafhankelijke transacties.
+    # Geen app-EXECUTE voor middelmutaties: eigenaarinterface met persoonlijk bewijs.
+    race_actor=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('f115e.race','pending',wachtwoord_hash('fictief-race')) RETURNING id")
+    race_operator=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-E-RACE',%s) RETURNING id",(race_actor,))
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(race_actor,))
+    race_pc=val("INSERT INTO pc(naam) VALUES ('F115-E-RACE-PC') RETURNING id")
+    race_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES ('F115-E-RACE-STEP','Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id")
+    con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s)",(race_pc,race_step))
+    race_cause=val("SELECT id FROM stilstand_oorzaak WHERE actief AND categorie='storing' LIMIT 1")
+    race_proof=val("SELECT session_proof FROM execution_session_login('f115e.race','fictief-race','F115-E-RACE-PC')")
+    race_open="SELECT fabriek.resource_downtime_open(%s,%s,%s,%s,%s,%s)"
+    race_close="SELECT fabriek.resource_downtime_close(%s,%s)"
+
+    def bind_e(connection):
+        connection.execute("SET LOCAL statement_timeout='20s'")
+        connection.execute("SELECT fabriek.execution_bind_transaction(%s,%s)",(race_proof,race_actor))
+
+    def race_e(label,query1,args1,query2,args2,outcome,expected):
+        with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+            bind_e(first)
+            bind_e(second)
+            first.execute(query1,args1)
+            def contender_e():
+                try:
+                    second.execute(query2,args2)
+                    second.commit()
+                    return "committed"
+                except psycopg.Error as error:
+                    second.rollback()
+                    return error.sqlstate
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future=pool.submit(contender_e)
+                blocked=False
+                try:
+                    deadline=time.monotonic()+10
+                    while time.monotonic()<deadline and not future.done():
+                        if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                            blocked=True
+                            break
+                        time.sleep(0.02)
+                    check("F4-115-E04 waargenomen lock "+label,blocked)
+                finally:
+                    if outcome=="commit":
+                        first.commit()
+                    else:
+                        first.rollback()
+                result=future.result(timeout=25)
+            check("F4-115-E04 race-uitkomst "+label,result==expected,str(result))
+
+    for mode in ("replay","duplicate","close-same","close-different","legacy-collision"):
+        for outcome in ("commit","rollback"):
+            label=mode+"-"+outcome
+            eq=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-E-"+label,ent))
+            con.execute(ws_insert,(race_pc,eq,race_actor,"Race"))
+            rid=val("SELECT gen_random_uuid()")
+            rid2=val("SELECT gen_random_uuid()") if mode=="duplicate" else rid
+            args1=(rid,race_pc,race_step,eq,race_cause,"Test")
+            args2=(rid2,race_pc,race_step,eq,race_cause,"Test")
+            if mode.startswith("close-"):
+                with psycopg.connect(DSN) as setup:
+                    bind_e(setup)
+                    setup.execute(race_open,args1)
+                note2="Eerste" if mode=="close-same" else "Tweede"
+                race_e(label,race_close,(rid,"Eerste"),race_close,(rid,note2),outcome,
+                       "40001" if mode=="close-different" and outcome=="commit" else "committed")
+                check("F4-115-E04 juiste afsluitnotitie "+label,
+                      val("SELECT eind_notitie FROM stilstand WHERE id=%s",(rid,))==("Eerste" if outcome=="commit" else note2))
+                check("F4-115-E05 precies twee auditregels "+label,
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor))==2)
+            elif mode=="legacy-collision":
+                # De oude insert neemt geen nieuwe advisory lock; de PK beslist.
+                legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES (%s,'Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id",("F115-E-LEG-"+outcome,))
+                legacy_insert="INSERT INTO fabriek.stilstand(id,processtap_id,oorzaak_id,gemeld_door) VALUES (%s,%s,%s,%s)"
+                race_e(label,legacy_insert,(rid,legacy_step,race_cause,race_actor),race_open,args2,outcome,
+                       "23505" if outcome=="commit" else "committed")
+                check("F4-115-E04 winnende context "+label,
+                      one("SELECT processtap_id,equipment_id FROM stilstand WHERE id=%s",(rid,))==
+                      ((legacy_step,None) if outcome=="commit" else (race_step,eq)))
+            else:
+                race_e(label,race_open,args1,race_open,args2,outcome,
+                       "23505" if mode=="duplicate" and outcome=="commit" else "committed")
+                winner=rid if outcome=="commit" else rid2
+                check("F4-115-E04 juiste winnende ID "+label,
+                      one("SELECT count(*),count(*) FILTER (WHERE id=%s) FROM stilstand WHERE equipment_id=%s",(winner,eq))==(1,1))
+            check("F4-115-E05 geen dubbele storingmelding "+label,
+                  val("SELECT count(*) FROM melding WHERE bron_id IN (%s,%s)",(rid,rid2))==1)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
