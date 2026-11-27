@@ -143,13 +143,14 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           SCHEMA: ${{ steps.wijzigingen.outputs.schema }}
+          FORCE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-force-herhaling') }}
         run: |
           docs=false
           schema=false
           if [ "$EVENT" = push ]; then
             docs="$(node tools/verifieer_docs_test.mjs "$EVENT" "$HEAD" "$BASE" docs)" || docs=false
           fi
-          if [ "$SCHEMA" = true ]; then
+          if [ "$SCHEMA" = true ] && [ "$FORCE" != true ]; then
             schema="$(node tools/verifieer_docs_test.mjs "$EVENT" "$HEAD" "$BASE" schema)" || schema=false
           fi
           [ "$docs" = true ] || docs=false
