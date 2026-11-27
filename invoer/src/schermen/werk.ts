@@ -198,7 +198,8 @@ interface MiddelKeuze { id:string; code:string; name:string; open_downtime_id:st
 type MiddelMelding={id:string;stapcode:string;equipmentId:string;oorzaak:string;toelichting:string|null};
 // Alleen in geheugen, uitsluitend bij exact dezelfde persoonlijke sessie.
 let pendingMiddel:{token:string|null;body:MiddelMelding}|null=null;
-async function middelstilstandBlok(s:Stap, opnieuw:()=>void, actueel:()=>boolean):Promise<Node|null>{
+let middelVerzoekBezig=false;
+export async function middelstilstandBlok(s:Stap, opnieuw:()=>void, actueel:()=>boolean):Promise<Node|null>{
   const token=sessie.token;
   const geldig=()=>actueel()&&token===sessie.token&&sessie.geldig()&&heeftRecht("downtime.record");
   if(!geldig()||s.soort!=="proces")return null;
@@ -209,8 +210,9 @@ async function middelstilstandBlok(s:Stap, opnieuw:()=>void, actueel:()=>boolean
     h("p",{class:"sub"},"Afzonderlijk van stapstilstand en technische vrijgave."),error);
   const retry=()=>h("button",{class:"knop",onclick:opnieuw},"Vernieuwen");
   async function send(body:MiddelMelding){
-    if(!geldig())return;
+    if(!geldig()||middelVerzoekBezig)return;
     if(!navigator.onLine){error.textContent="Geen verbinding; niets in de offlinewachtrij geplaatst.";return;}
+    middelVerzoekBezig=true;
     pendingMiddel={token,body};
     try{
       await stuur("POST",pad,body,{authorization:"Bearer "+token});
@@ -224,7 +226,7 @@ async function middelstilstandBlok(s:Stap, opnieuw:()=>void, actueel:()=>boolean
         if(pendingMiddel?.body.id===body.id){melding("Uitkomst onzeker; probeer dezelfde melding opnieuw","fout");opnieuw();}
         else error.textContent=(e as Error).message;
       }
-    }
+    }finally{middelVerzoekBezig=false;}
   }
   if(pendingMiddel?.token===token){
     const body=pendingMiddel.body;
