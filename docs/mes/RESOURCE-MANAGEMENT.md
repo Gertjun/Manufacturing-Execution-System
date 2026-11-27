@@ -94,3 +94,7 @@ Run 803 op e818619: 1388/1388 databaseregels, 894 beheertoolwaarden, API-autoris
 ## 114.6b — API-interface
 
 /resources: twee leesroutes, vier creatieroutes, vier naamcorrecties met expected_change_no, klassekoppeling, assetopening/-afsluiting en twee scopecreaties. Persoonlijke sessie en transactie, uitsluitend vaste SQL-functies met parameters; geen clientactor of client-scope. 23P01 wordt 409 en 22004 wordt 422. Eerste projectie zonder paginering blijft expliciet beperkt tot pilotomvang; geen gemeten schaalbaarheid. UI en API-regressies volgen. Typecheck, OpenAPI en runtimebewijs open.
+
+## 114.6c-e — portalen en regressies
+
+8edfd66: afzonderlijk resourceCatalog-menusignaal, geen uitbreiding globale/productrechten. 1a6cd6c: native Maintenance-middelencatalogus met B+ kaarten, tabellen, formulieren, change_no en route-/sessiebewaking. Globale identiteitmutaties en assetopening alleen bij globale projectie. 4f5378c: afzonderlijk globaal security-scopemappingscherm in Beheer, alleen toevoegingen, expliciete bevestiging. 0d9ff3a: integratieregressies tegen echte database met beperkte applicatierechten; b19e34e: browserregressies in bestaande portal-navigation.mjs met fictieve API. Broninspectie op b19e34e, geen runtimebewijs. Volledige lokale broncheckout en PostgreSQL niet beschikbaar; typecheck, OpenAPI, SQL/API en browserbewijs nog open. Geen aparte nieuwe workflow; bestaande gerichte baseline en schermtest gebruiken. Geen paginering of gemeten schaalbaarheid; Windows-praktijkacceptatie en integrale faseacceptatie blijven open.
