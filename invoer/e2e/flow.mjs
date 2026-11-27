@@ -307,7 +307,16 @@ try {
   const [resourceHierarchy] = await q("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F115-FLOW-ENT','Fictief','enterprise') RETURNING id");
   const [resourceEquipment] = await q("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-FLOW-E','Fictief testmiddel',$1) RETURNING id",[resourceHierarchy.id]);
   await q("INSERT INTO equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES ($1,$2,$3,'Fictieve schermtest')",[resourceStation.id,resourceEquipment.id,resourceActor.id]);
+  // The preceding legacy close has already rendered PS4 with no linked equipment.
+  // Leave the route before returning so the SPA requests a fresh projection.
+  await page.getByRole("link",{name:"Stappen",exact:true}).click();
+  await page.getByRole("heading",{name:"Kies een stap",exact:true}).waitFor();
+  const resourceChoices=page.waitForResponse(r=>r.url().includes("/stilstand/middelen/keuzes?stapcode=PS4")&&r.request().method()==="GET");
   await page.goto(`${BASIS}/invoer/#/stap/PS4`);
+  const choicesResponse=await resourceChoices;
+  const choicesBody=await choicesResponse.json();
+  if(choicesResponse.status()!==200||!Array.isArray(choicesBody)||!choicesBody.some(x=>x.id===resourceEquipment.id))
+    throw new Error("F4-115-G actuele middelkeuze: "+choicesResponse.status()+" "+JSON.stringify(choicesBody));
   const resourceSection = page.locator("section").filter({has:page.getByRole("heading",{name:"Middelstilstand (online)",exact:true})});
   const resourceRow = resourceSection.locator(".rij").filter({hasText:"F115-FLOW-E"});
   await resourceRow.getByRole("button",{name:"Melden",exact:true}).waitFor();
