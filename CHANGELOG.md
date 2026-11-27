@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #115.1: getypeerde numerieke middelenkenmerken (0139), persoonlijke scoped creatie en revisies (0140), onveranderlijke historie en regressies. Baseline 823 op b259a7d groen: 1442/1442 SQL, 131/131 API, 966 beheertoolwaarden; concurrentie commit/rollback en upgrade 0129→0140 geslaagd. Leesprojectie/UI en faseacceptatie open.
+
 - #114.7: alle elf technische acceptatiecriteria afgedekt; baseline 816 op a121290 groen (1396/1396 SQL, 131/131 API, expliciete upgrade 0129 naar 0138), browserbewijs 813 op ongewijzigde applicatiebron. #114 technisch afgerond, Windows-praktijk en integrale faseacceptatie open.
 
 - #114.6c-e: Maintenance-middelenbeheer, afzonderlijk security-scopemapping scherm in Beheer, begrensd menusignaal en SQL/API/browserregressies. Technisch geverifieerd op 7cf15a1 via baseline 812 (1396/1396 SQL, 131/131 API) en compatibiliteit 813 (Chrome F4-114 groen); Windows-praktijk en faseacceptatie open.
