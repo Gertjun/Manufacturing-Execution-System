@@ -7,15 +7,17 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
-- #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie volgt.
+- #146 (D115): technisch geaccepteerd op c43c34e, PR #11 gemerged naar a03d72d. Chronologische bewijscontrole op jobtijdstempels, conservatieve weigering bij herstarts/onvolledige API-resultaten, geforceerde schemacontrole en hergebruik volledige schermbundel; mergebewijs vereist beide suites en expliciet checkoutbewijs. 14/14 beleidstests (run 779), integrale Node22/26 (run 780) en diagramrun 29 groen; ready_for_review run 781 en main run 782 hergebruiken bewijs, documentatie run 452 groen. Geen functionele wijziging, geen nieuwe release. Zie ROADMAP en D115 voor meetresultaten en beperkingen.
 
-- #146 (CI-E): handmatige Windows-backfill selecteert uitsluitend ontbrekende ondersteunde officiële pakketten; hercontrole vóór build, geen overschrijven, gedeelde releaseconcurrency. Geen nieuwe publicatie. Verificatie volgt.
+- #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie afgerond binnen scope; zie #146-afsluiting.
 
-- #146 (CI-D): optionele gerichte schermbundel formaten/productie/meldingen op één Node26-runner, één installatie/build, per selectie eigen verse fictieve fixture via bestaande testscript; stop bij fout. Integrale suite ongewijzigd. Meting en verificatie volgen.
+- #146 (CI-E): handmatige Windows-backfill selecteert uitsluitend ontbrekende ondersteunde officiële pakketten; hercontrole vóór build, geen overschrijven, gedeelde releaseconcurrency. Geen nieuwe publicatie. Verificatie afgerond binnen scope; zie #146-afsluiting.
 
-- #146 (CI-C): documentatiebewijs bij identieke merge-tree; schemabewijs alleen op exacte head/base en werkelijk uitgevoerde geslaagde stap. Integrale schemaacceptatie blijft verplicht; wijziging DATABASE.md activeert ook de schemacontrole. Verificatie volgt.
+- #146 (CI-D): optionele gerichte schermbundel formaten/productie/meldingen op één Node26-runner, één installatie/build, per selectie eigen verse fictieve fixture via bestaande testscript; stop bij fout. Integrale suite ongewijzigd. Meting en verificatie afgerond; zie #146-afsluiting.
 
-- #146 (CI-A/B/F): PR-status en gerichte testherhaling krijgen conservatieve head/base/modus-bewijscontrole; bewuste herhaling blijft mogelijk, integrale acceptatie en reviewshots altijd uitvoeren; labelconcurrency geïsoleerd. Verificatie volgt.
+- #146 (CI-C): documentatiebewijs bij identieke merge-tree; schemabewijs alleen op exacte head/base en werkelijk uitgevoerde geslaagde stap. Integrale schemaacceptatie blijft verplicht; wijziging DATABASE.md activeert ook de schemacontrole. Verificatie afgerond binnen scope; zie #146-afsluiting.
+
+- #146 (CI-A/B/F): PR-status en gerichte testherhaling krijgen conservatieve head/base/modus-bewijscontrole; bewuste herhaling blijft mogelijk, integrale acceptatie en reviewshots altijd uitvoeren; labelconcurrency geïsoleerd. Verificatie afgerond binnen scope; zie #146-afsluiting.
 
 ## 0.64.0 (27 nov 2026)
 

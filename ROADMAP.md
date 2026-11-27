@@ -123,20 +123,36 @@ D107 — volgorde binnen fase 3 (geen extra fase):
 
 Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 3 (D111); merge en publicatie uitsluitend na afzonderlijk besluit opdrachtgever; gecombineerde Windows-praktijkacceptatie en officiële release vóór fase 4; latere portalen en documentatie volgen de standaard bij ontwikkeling. Geen nieuwe domeinfunctionaliteit, geen SQL- of autorisatiewijziging vanwege vormgeving. Bestaand PDF-naslagwerk is een momentopname en wordt afzonderlijk geharmoniseerd/geactualiseerd na vaststelling van de standaard. Geen nieuwe pilotdatum.
 
-### #146 CI-optimalisatieronde vóór fase 4 (D115, in uitvoering)
+### #146 CI-optimalisatieronde vóór fase 4 (D115, technisch afgerond)
 
 Opdrachtgever akkoord 27 november 2026: eerst CI-optimalisatie, daarna fase 4. Basis v0.64.0 / 00b356b; geen functionele wijziging, geen nieuwe release. Nulmeting: run 45991082965 Node22 43 s, Node26 678 s; diagram 34 s; documentatie 7 s; dubbele ready_for_review Node22 50 s (45992904866); mergebewijs 15 s (45993172307), beide zware jobs overgeslagen.
 
 | Werkpakket | Scope | Status |
 |---|---|---|
-| CI-A | Exact PR-head/base/testbewijs bij ready_for_review en reopened; ontbrekend/ongeldig bewijs verplicht opnieuw testen. | Eerste implementatie, verificatie open |
-| CI-B | Exact modusgebonden hergebruik gerichte tests; bewuste herhaling via ci-force-herhaling; acceptatie en reviewshots niet overslaan. | Eerste implementatie, verificatie open |
-| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Eerste implementatie, verificatie open |
-| CI-D | Eén runner en één build voor formaten (basis), productie en meldingen via scherm-bundel-test; afzonderlijke verse fixtures en rustcontrole per script; geen fixturecache. | Eerste implementatie, meting open |
-| CI-E | Bestaande Windows-releasepakketten overslaan, ook expliciete selectie; hercontrole vóór build, geen clobber, gedeelde releaseconcurrency. | Eerste implementatie, verificatie open |
-| CI-F | Labelconcurrency isoleren; snelle controles behouden; nieuwste schemabewijs over workflows vergelijken; irrelevante labels starten geen runner. | Implementatie gereed; gezamenlijke verificatie open |
+| CI-A | Exact PR-head/base/testbewijs bij ready_for_review en reopened; ontbrekend/ongeldig bewijs verplicht opnieuw testen. | Praktisch bewezen bij ready_for_review (run 781); reopened niet apart getest |
+| CI-B | Exact modusgebonden hergebruik gerichte tests; bewuste herhaling via ci-force-herhaling; acceptatie en reviewshots niet overslaan. | Praktisch bewezen (run 773, run 777); 14 beleidstestgroepen groen |
+| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Documentatiebewijs na merge bewezen (run 452); schema ongewijzigd, negatieve scenario’s op beleidsniveau |
+| CI-D | Eén runner en één build voor formaten (basis), productie en meldingen via scherm-bundel-test; afzonderlijke verse fixtures en rustcontrole per script; geen fixturecache. | Praktisch bewezen (run 771, run 776); 27,1–36,6% minder runnerduur |
+| CI-E | Bestaande Windows-releasepakketten overslaan, ook expliciete selectie; hercontrole vóór build, geen clobber, gedeelde releaseconcurrency. | Code en beleidstests groen; bestaande pakketten niet gewijzigd |
+| CI-F | Labelconcurrency isoleren; snelle controles behouden; nieuwste schemabewijs over workflows vergelijken; irrelevante labels starten geen runner. | Audit, beleidstests en integrale acceptatie groen; gelijktijdige dubbele aanvragen niet apart getest |
 
-Geen formele fase-4-start vóór technische acceptatie #146. Exacte volledige acceptatie op uiteindelijke CI-tree blijft verplicht. Alle huidige tests behouden.
+Technisch geaccepteerd door opdrachtgever op 27 november 2026 op `c43c34e`, inclusief testbeperkingen; PR #11 gemerged naar main `a03d72d`. Identieke git-tree `acd290ce608dd380597a6ff5aac0b9d4a9af4bb7`. Geen functionele wijziging of nieuwe release.
+
+| Verificatie | Bewijs | Status |
+|---|---|---|
+| V01 Documentatie | run 449, run 450, run 451 | Geslaagd |
+| V02 CI-beleid | run 769, run 775, run 779 (14/14 op eindcommit) | Geslaagd |
+| V03 Schermbundel | run 771, run 776 (formaten, productie, meldingen) | Geslaagd |
+| V04 Compatibiliteit | run 772 | Geslaagd |
+| V05 Hergebruik | run 773, run 777, run 781 | Geslaagd |
+| V06 Workflowaudit | correcties 721b863 en c43c34e; run 779 | Afgerond binnen scope |
+| V07 Integrale acceptatie | Tests run 780 (Node22/26), diagramrun 29 | Geslaagd |
+| V08 Acceptatie/merge | akkoord opdrachtgever, PR #11, run 781 | Afgerond |
+| V09 Na merge | Tests run 782 en documentatie run 452, identieke tree, release v0.64.0 ongewijzigd | Technisch geslaagd |
+
+Meetresultaten: schermbundel 451 s afzonderlijk versus 329 s (run 771) en 286 s (run 776), 27,1–36,6% minder runnerduur (bewijsjob vooraf niet inbegrepen); hergebruik compatibiliteitsbewijs circa 89%; schermbundelbewijs 4,9 s versus 286 s (circa 98,3%). Integrale workflow run 780 8m34s versus run 782 18s na merge (96,5% kortere workflowduur, geen runner- of facturatieclaim). Documentatie run 452 12 s. Geen cumulatieve besparingsclaim.
+
+Beperkingen: gelijktijdige dubbele aanvragen en reopened niet afzonderlijk praktisch getest; Windows-releasepakketbescherming op beleidsniveau, zonder bestaande pakketten te wijzigen; technische diagrammen automatisch gecontroleerd, niet apart visueel beoordeeld; schemabewijshergebruik bij gewijzigde schema's niet afzonderlijk live bewezen. Alle verplichte acceptatietests behouden. Fase 4 mag na administratieve afronding starten; nog niet gestart.
 
 ## Fase 4 — Middelenbeheer en stilstand (Resource Management)
 
