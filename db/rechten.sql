@@ -937,6 +937,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0151: afzonderlijke persoonlijke middelenleesprojecties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=151) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_capability_list(),fabriek.resource_status_list(),
+     fabriek.resource_status_history(uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
