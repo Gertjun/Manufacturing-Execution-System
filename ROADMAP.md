@@ -129,10 +129,10 @@ Opdrachtgever akkoord 27 november 2026: eerst CI-optimalisatie, daarna fase 4. B
 
 | Werkpakket | Scope | Status |
 |---|---|---|
-| CI-A | Exact PR-head/base/testbewijs bij ready_for_review en reopened; ontbrekend/ongeldig bewijs verplicht opnieuw testen. | Praktisch bewezen bij ready_for_review (#781); reopened niet apart getest |
-| CI-B | Exact modusgebonden hergebruik gerichte tests; bewuste herhaling via ci-force-herhaling; acceptatie en reviewshots niet overslaan. | Praktisch bewezen (#773, #777); 14 beleidstestgroepen groen |
-| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Documentatiebewijs na merge bewezen (#452); schema ongewijzigd, negatieve scenario’s op beleidsniveau |
-| CI-D | Eén runner en één build voor formaten (basis), productie en meldingen via scherm-bundel-test; afzonderlijke verse fixtures en rustcontrole per script; geen fixturecache. | Praktisch bewezen (#771, #776); 27,1–36,6% minder runnerduur |
+| CI-A | Exact PR-head/base/testbewijs bij ready_for_review en reopened; ontbrekend/ongeldig bewijs verplicht opnieuw testen. | Praktisch bewezen bij ready_for_review (run 781); reopened niet apart getest |
+| CI-B | Exact modusgebonden hergebruik gerichte tests; bewuste herhaling via ci-force-herhaling; acceptatie en reviewshots niet overslaan. | Praktisch bewezen (run 773, run 777); 14 beleidstestgroepen groen |
+| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Documentatiebewijs na merge bewezen (run 452); schema ongewijzigd, negatieve scenario’s op beleidsniveau |
+| CI-D | Eén runner en één build voor formaten (basis), productie en meldingen via scherm-bundel-test; afzonderlijke verse fixtures en rustcontrole per script; geen fixturecache. | Praktisch bewezen (run 771, run 776); 27,1–36,6% minder runnerduur |
 | CI-E | Bestaande Windows-releasepakketten overslaan, ook expliciete selectie; hercontrole vóór build, geen clobber, gedeelde releaseconcurrency. | Code en beleidstests groen; bestaande pakketten niet gewijzigd |
 | CI-F | Labelconcurrency isoleren; snelle controles behouden; nieuwste schemabewijs over workflows vergelijken; irrelevante labels starten geen runner. | Audit, beleidstests en integrale acceptatie groen; gelijktijdige dubbele aanvragen niet apart getest |
 
@@ -140,17 +140,17 @@ Technisch geaccepteerd door opdrachtgever op 27 november 2026 op `c43c34e`, incl
 
 | Verificatie | Bewijs | Status |
 |---|---|---|
-| V01 Documentatie | #449, #450, #451 | Geslaagd |
-| V02 CI-beleid | #769, #775, #779 (14/14 op eindcommit) | Geslaagd |
-| V03 Schermbundel | #771, #776 (formaten, productie, meldingen) | Geslaagd |
-| V04 Compatibiliteit | #772 | Geslaagd |
-| V05 Hergebruik | #773, #777, #781 | Geslaagd |
-| V06 Workflowaudit | correcties 721b863 en c43c34e; #779 | Afgerond binnen scope |
-| V07 Integrale acceptatie | Tests #780 (Node22/26), diagram #29 | Geslaagd |
-| V08 Acceptatie/merge | akkoord opdrachtgever, PR #11, #781 | Afgerond |
-| V09 Na merge | Tests #782 en documentatie #452, identieke tree, release v0.64.0 ongewijzigd | Technisch geslaagd |
+| V01 Documentatie | run 449, run 450, run 451 | Geslaagd |
+| V02 CI-beleid | run 769, run 775, run 779 (14/14 op eindcommit) | Geslaagd |
+| V03 Schermbundel | run 771, run 776 (formaten, productie, meldingen) | Geslaagd |
+| V04 Compatibiliteit | run 772 | Geslaagd |
+| V05 Hergebruik | run 773, run 777, run 781 | Geslaagd |
+| V06 Workflowaudit | correcties 721b863 en c43c34e; run 779 | Afgerond binnen scope |
+| V07 Integrale acceptatie | Tests run 780 (Node22/26), diagramrun 29 | Geslaagd |
+| V08 Acceptatie/merge | akkoord opdrachtgever, PR #11, run 781 | Afgerond |
+| V09 Na merge | Tests run 782 en documentatie run 452, identieke tree, release v0.64.0 ongewijzigd | Technisch geslaagd |
 
-Meetresultaten: schermbundel 451 s afzonderlijk versus 329 s (#771) en 286 s (#776), 27,1–36,6% minder runnerduur (bewijsjob vooraf niet inbegrepen); hergebruik compatibiliteitsbewijs circa 89%; schermbundelbewijs 4,9 s versus 286 s (circa 98,3%). Integrale workflow #780 8m34s versus #782 18s na merge (96,5% kortere workflowduur, geen runner- of facturatieclaim). Documentatie #452 12 s. Geen cumulatieve besparingsclaim.
+Meetresultaten: schermbundel 451 s afzonderlijk versus 329 s (run 771) en 286 s (run 776), 27,1–36,6% minder runnerduur (bewijsjob vooraf niet inbegrepen); hergebruik compatibiliteitsbewijs circa 89%; schermbundelbewijs 4,9 s versus 286 s (circa 98,3%). Integrale workflow run 780 8m34s versus run 782 18s na merge (96,5% kortere workflowduur, geen runner- of facturatieclaim). Documentatie run 452 12 s. Geen cumulatieve besparingsclaim.
 
 Beperkingen: gelijktijdige dubbele aanvragen en reopened niet afzonderlijk praktisch getest; Windows-releasepakketbescherming op beleidsniveau, zonder bestaande pakketten te wijzigen; technische diagrammen automatisch gecontroleerd, niet apart visueel beoordeeld; schemabewijshergebruik bij gewijzigde schema's niet afzonderlijk live bewezen. Alle verplichte acceptatietests behouden. Fase 4 mag na administratieve afronding starten; nog niet gestart.
 

@@ -7,7 +7,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
-- #146 (D115): technisch geaccepteerd op c43c34e, PR #11 gemerged naar a03d72d. Chronologische bewijscontrole op jobtijdstempels, conservatieve weigering bij herstarts/onvolledige API-resultaten, geforceerde schemacontrole en hergebruik volledige schermbundel; mergebewijs vereist beide suites en expliciet checkoutbewijs. 14/14 beleidstests (#779), integrale Node22/26 (#780) en diagram #29 groen; ready_for_review #781 en main #782 hergebruiken bewijs, documentatie #452 groen. Geen functionele wijziging, geen nieuwe release. Zie ROADMAP en D115 voor meetresultaten en beperkingen.
+- #146 (D115): technisch geaccepteerd op c43c34e, PR #11 gemerged naar a03d72d. Chronologische bewijscontrole op jobtijdstempels, conservatieve weigering bij herstarts/onvolledige API-resultaten, geforceerde schemacontrole en hergebruik volledige schermbundel; mergebewijs vereist beide suites en expliciet checkoutbewijs. 14/14 beleidstests (run 779), integrale Node22/26 (run 780) en diagramrun 29 groen; ready_for_review run 781 en main run 782 hergebruiken bewijs, documentatie run 452 groen. Geen functionele wijziging, geen nieuwe release. Zie ROADMAP en D115 voor meetresultaten en beperkingen.
 
 - #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie afgerond binnen scope; zie #146-afsluiting.
 
