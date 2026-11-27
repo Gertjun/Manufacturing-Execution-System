@@ -3757,6 +3757,140 @@ def main():
         finally:
             isolation.rollback()
 
+
+    print("\n#115.4 werkstationkoppelingen")
+    check("F4-115-D01 geen automatische koppelingen",val("SELECT count(*) FROM equipment_workstation")==0)
+    for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+        check("F4-115-D03 geen directe "+privilege,
+              not val("SELECT has_table_privilege('mes_app','fabriek.equipment_workstation',%s)",(privilege,)))
+    for signature in ("resource_workstation_open(uuid,uuid,text)","resource_workstation_close(uuid,text)"):
+        check("F4-115-D03 persoonlijke functie "+signature,
+              val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+    con.execute("BEGIN")
+    try:
+        p1=val("INSERT INTO pc(naam) VALUES ('F115-D-PC1') RETURNING id")
+        p2=val("INSERT INTO pc(naam) VALUES ('F115-D-PC2') RETURNING id")
+        p3=val("INSERT INTO pc(naam,actief) VALUES ('F115-D-PC3',false) RETURNING id")
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-D-E1','Middel',%s) RETURNING id",(ent,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-D-E2','Middel',%s) RETURNING id",(ent,))
+        names=("manager","scoped","maintenance","status")
+        for name in names:
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115d'))",("f115d."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115d."+name,)) for name in names}
+        for name,role in (("manager","resource_catalog_manager"),("maintenance","maintenance_technician"),("status","resource_status_manager")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,%s)",(actors[name],role))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','F115-D-AREA')",(actors["scoped"],))
+        before=con.execute("SELECT pc_id,processtap_id FROM pc_stap ORDER BY pc_id,processtap_id").fetchall()
+        before_binding=val("SELECT mag_invoeren_namens(%s,%s,%s)",(acc_a,op_a,pc1))
+        open_sql="SELECT resource_workstation_open(%s,%s,%s)"
+        close_sql="SELECT resource_workstation_close(%s,%s)"
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-D03 geen persoonlijk bewijs",open_sql,(p1,e1,"Test"))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115d',NULL)",("f115d."+name,)) for name in names}
+        for name in ("scoped","maintenance","status"):
+            bind115(name)
+            deny115("F4-115-D03 geen globale catalogusbevoegdheid "+name,open_sql,(p1,e1,"Test"))
+        bind115("manager")
+        deny115("F4-115-D02 inactieve pc",open_sql,(p3,e1,"Test"),"23514")
+        deny115("F4-115-D02 onbekende pc","SELECT resource_workstation_open(gen_random_uuid(),%s,'Test')",(e1,),"23503")
+        deny115("F4-115-D02 onbekend middel","SELECT resource_workstation_open(%s,gen_random_uuid(),'Test')",(p1,),"23503")
+        deny115("F4-115-D02 lege reden",open_sql,(p1,e1,"  "),"23514")
+        a=val(open_sql,(p1,e1,"Eerste"))
+        b=val(open_sql,(p1,e2,"Tweede middel"))
+        c=val(open_sql,(p2,e1,"Tweede pc"))
+        check("F4-115-D01 N:M verschillende koppelingen",len({a,b,c})==3)
+        deny115("F4-115-D02 dubbele actieve koppeling",open_sql,(p1,e1,"Dubbel"),"23505")
+        deny115("F4-115-D03 directe update","UPDATE equipment_workstation SET open_reason='Geen' WHERE id=%s",(a,))
+        deny115("F4-115-D02 lege afsluitreden",close_sql,(a,"  "),"23514")
+        for name in ("scoped","maintenance","status"):
+            bind115(name)
+            deny115("F4-115-D03 onbevoegd afsluiten "+name,close_sql,(a,"Geen"))
+        bind115("manager")
+        check("F4-115-D01 gecontroleerde afsluiting",val(close_sql,(a,"Afgesloten"))==a)
+        d=val(open_sql,(p1,e1,"Opnieuw"))
+        check("F4-115-D01 nieuwe identiteit na heropening",d!=a)
+        deny115("F4-115-D04 oude koppeling niet opnieuw afsluiten",close_sql,(a,"Verouderd"),"40001")
+        con.execute("RESET ROLE")
+        check("F4-115-D01 drie actieve en een historische koppeling",one("SELECT count(*),count(*) FILTER (WHERE closed_at IS NULL) FROM equipment_workstation WHERE pc_id IN (%s,%s)",(p1,p2))==(4,3))
+        check("F4-115-D03 persoonlijke openings- en afsluitactor",one("SELECT opened_by,closed_by,close_reason FROM equipment_workstation WHERE id=%s",(a,))==(actors["manager"],actors["manager"],"Afgesloten"))
+        check("F4-115-D03 vijf persoonlijke auditregels",val("SELECT count(*) FROM config_log WHERE tabel='equipment_workstation' AND record_id IN (%s,%s,%s,%s) AND actor_origin='personal' AND actor_user_id=%s",(a,b,c,d,actors["manager"]))==5)
+        deny115("F4-115-D02 historie niet verwijderen","DELETE FROM equipment_workstation WHERE id=%s",(a,),"55000")
+        deny115("F4-115-D02 identiteit niet wijzigen","UPDATE equipment_workstation SET equipment_id=%s,closed_at=clock_timestamp(),closed_by=%s,close_reason='Geen' WHERE id=%s",(e2,actors["manager"],d),"55000")
+        con.execute("UPDATE pc SET actief=false WHERE id=%s",(p1,))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("manager")
+        check("F4-115-D01 afsluiten na deactivering",val(close_sql,(d,"Pc inactief"))==d)
+        deny115("F4-115-D02 niet opnieuw koppelen aan inactieve pc",open_sql,(p1,e1,"Geen"),"23514")
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["manager"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("manager")
+        deny115("F4-115-D03 ingetrokken grant openen",open_sql,(p2,e2,"Geen"))
+        deny115("F4-115-D03 ingetrokken grant sluiten",close_sql,(c,"Geen"))
+        con.execute("RESET ROLE")
+        check("F4-115-D05 bestaande stapselectie ongewijzigd",con.execute("SELECT pc_id,processtap_id FROM pc_stap ORDER BY pc_id,processtap_id").fetchall()==before)
+        check("F4-115-D05 bestaande persoonlijke pc-bevoegdheid ongewijzigd",val("SELECT mag_invoeren_namens(%s,%s,%s)",(acc_a,op_a,pc1))==before_binding)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    # Concurrerende eigenaarfixtures; persoonlijke autorisatie afzonderlijk hierboven.
+    ws_insert="INSERT INTO fabriek.equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES (%s,%s,%s,%s)"
+    for closing in (False,True):
+        for outcome in ("commit","rollback"):
+            label=("afsluiten" if closing else "openen")+" "+outcome
+            station=val("INSERT INTO pc(naam) VALUES (%s) RETURNING id",("F115-D-RACE-"+label,))
+            eq=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-D-RACE-"+label,ent))
+            if closing:
+                assignment=val(ws_insert+" RETURNING id",(station,eq,actor,"Begin"))
+                query="UPDATE fabriek.equipment_workstation SET closed_by=%s,closed_at=clock_timestamp(),close_reason=%s WHERE id=%s AND closed_at IS NULL RETURNING id"
+                args1=(actor,"Eerste",assignment)
+                args2=(actor,"Tweede",assignment)
+            else:
+                query=ws_insert+" RETURNING id"
+                args1=(station,eq,actor,"Eerste")
+                args2=(station,eq,actor,"Tweede")
+            with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+                first.execute("SET LOCAL statement_timeout='20s'")
+                second.execute("SET LOCAL statement_timeout='20s'")
+                if closing:
+                    first.execute("SELECT id FROM fabriek.pc WHERE id=%s FOR UPDATE",(station,))
+                first.execute(query,args1)
+                def contender_d():
+                    try:
+                        if closing:
+                            second.execute("SELECT id FROM fabriek.pc WHERE id=%s FOR UPDATE",(station,))
+                        result=second.execute(query,args2).fetchone()
+                        second.commit()
+                        return "committed" if result else "stale"
+                    except psycopg.Error as error:
+                        second.rollback()
+                        return error.sqlstate
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(contender_d)
+                    blocked=False
+                    try:
+                        deadline=time.monotonic()+10
+                        while time.monotonic()<deadline and not future.done():
+                            if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                                blocked=True
+                                break
+                            time.sleep(0.02)
+                        check("F4-115-D04 tweede schrijver wacht "+label,blocked)
+                    finally:
+                        if outcome=="commit":
+                            first.commit()
+                        else:
+                            first.rollback()
+                    result=future.result(timeout=25)
+                expected=("stale" if closing else "23505") if outcome=="commit" else "committed"
+                check("F4-115-D04 race-uitkomst "+label,result==expected,str(result))
+            winner="Eerste" if outcome=="commit" else "Tweede"
+            check("F4-115-D04 juiste eindhistorie "+label,
+                  one("SELECT count(*),max(close_reason) FROM equipment_workstation WHERE pc_id=%s",(station,))==(1,winner) if closing else
+                  one("SELECT count(*),max(open_reason) FROM equipment_workstation WHERE pc_id=%s",(station,))==(1,winner))
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
