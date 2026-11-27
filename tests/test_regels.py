@@ -2956,6 +2956,75 @@ def main():
     check("F4-114-A10 geen automatische middelenmapping",
           val("SELECT count(*) FROM equipment_hierarchy")==0)
 
+    print("\n#114.3 equipmentcatalogus")
+    con.execute("BEGIN")
+    try:
+        h=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-CAT-ENT','Fictief','enterprise') RETURNING id")
+        h2=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-CAT-ENT2','Fictief','enterprise') RETURNING id")
+        k1=val("INSERT INTO equipment_class(code,name) VALUES ('F4-REACTOR','Fictief') RETURNING id")
+        k2=val("INSERT INTO equipment_class(code,name) VALUES ('F4-MIXER','Fictief') RETURNING id")
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-R101','Fictief',%s) RETURNING id",(h,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-R102','Fictief',%s) RETURNING id",(h,))
+        for e,k in ((e1,k1),(e1,k2),(e2,k1)):
+            con.execute("INSERT INTO equipment_class_assignment VALUES (%s,%s)",(e,k))
+        check("F4-114-A04 meerdere middelen en meerdere klassen",
+              val("SELECT count(*) FROM equipment_class_assignment")==3 and
+              val("SELECT count(*) FROM equipment_class_assignment WHERE equipment_id=%s",(e1,))==2 and
+              val("SELECT count(*) FROM equipment_class_assignment WHERE equipment_class_id=%s",(k1,))==2)
+        def catalog_denied(label,sql,params=(),state=None):
+            con.execute("SAVEPOINT catalog_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT catalog_guard")
+                con.execute("RELEASE SAVEPOINT catalog_guard")
+        missing="00000000-0000-0000-0000-000000000001"
+        for label,sql,params,state in [
+            ("dubbele klasse","INSERT INTO equipment_class(code,name) VALUES ('F4-REACTOR','Fictief')",(),"23505"),
+            ("dubbel middel","INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-R101','Fictief',%s)",(h,),"23505"),
+            ("lege klassecode","INSERT INTO equipment_class(code,name) VALUES (' ','Fictief')",(),"23514"),
+            ("lege middelnaam","INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-BAD',' ',%s)",(h,),"23514"),
+            ("locatie ontbreekt","INSERT INTO equipment(code,name) VALUES ('F4-BAD','Fictief')",(),"23502"),
+            ("onbekende locatie","INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-BAD','Fictief',%s)",(missing,),"23503"),
+            ("dubbele koppeling","INSERT INTO equipment_class_assignment VALUES (%s,%s)",(e1,k1),"23505"),
+            ("onbekend middel","INSERT INTO equipment_class_assignment VALUES (%s,%s)",(missing,k1),"23503"),
+            ("onbekende klasse","INSERT INTO equipment_class_assignment VALUES (%s,%s)",(e1,missing),"23503"),
+            ("klassecode wijzigen","UPDATE equipment_class SET code='F4-NEW' WHERE id=%s",(k1,),"55000"),
+            ("klasse-id wijzigen","UPDATE equipment_class SET id=gen_random_uuid() WHERE id=%s",(k1,),"55000"),
+            ("middelcode wijzigen","UPDATE equipment SET code='F4-NEW' WHERE id=%s",(e1,),"55000"),
+            ("middel-id wijzigen","UPDATE equipment SET id=gen_random_uuid() WHERE id=%s",(e1,),"55000"),
+            ("middel verplaatsen","UPDATE equipment SET hierarchy_id=%s WHERE id=%s",(h2,e1),"55000"),
+            ("klasse verwijderen","DELETE FROM equipment_class WHERE id=%s",(k1,),"55000"),
+            ("middel verwijderen","DELETE FROM equipment WHERE id=%s",(e1,),"55000"),
+            ("koppeling wijzigen","UPDATE equipment_class_assignment SET equipment_class_id=%s WHERE equipment_id=%s AND equipment_class_id=%s",(k2,e2,k1),"55000"),
+            ("koppeling verwijderen","DELETE FROM equipment_class_assignment WHERE equipment_id=%s AND equipment_class_id=%s",(e1,k1),"55000"),
+        ]:
+            catalog_denied("F4-114-A04 "+label,sql,params,state)
+        con.execute("UPDATE equipment SET name='Fictieve correctie' WHERE id=%s",(e1,))
+        con.execute("UPDATE equipment_class SET name='Fictieve klassecorrectie' WHERE id=%s",(k1,))
+        check("F4-114-A04 naamcorrecties behouden identiteit en koppelingen",
+              val("SELECT name FROM equipment WHERE id=%s",(e1,))=="Fictieve correctie" and
+              val("SELECT name FROM equipment_class WHERE id=%s",(k1,))=="Fictieve klassecorrectie" and
+              val("SELECT count(*) FROM equipment_class_assignment")==3)
+        for table in ("equipment_class","equipment","equipment_class_assignment"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"):
+                check("F4-114-A07 geen directe app-"+privilege+" "+table,
+                      not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+        for fn in ("equipment_catalog_identity_guard","equipment_location_guard","equipment_class_assignment_guard"):
+            check("F4-114-A07 geen directe functie "+fn,
+                  not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+fn+"()",)))
+        con.execute("SET LOCAL ROLE mes_app")
+        for table in ("equipment_class","equipment","equipment_class_assignment"):
+            catalog_denied("F4-114-A07 werkelijk lezen geweigerd "+table,"SELECT * FROM fabriek."+table,state="42501")
+        catalog_denied("F4-114-A07 werkelijk koppelen geweigerd",
+                       "INSERT INTO fabriek.equipment_class_assignment VALUES (%s,%s)",(e1,k1),"42501")
+        con.execute("RESET ROLE")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    for table in ("equipment_class","equipment","equipment_class_assignment"):
+        check("F4-114-A10 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

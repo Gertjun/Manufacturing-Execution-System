@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #114.3: intern equipmentcatalogusfundament 0131 met functionele middelen, klassen en N:M-koppelingen; permanente identiteiten, beschermde locatie en koppelingen, geen directe apprechten of receptmapping. 114.2 PostgreSQL-baseline run 787 groen op 147b9db. 0131 runtimeverificatie open; DATABASE.md blijft momentopname 0129.
+
 - #114.2: migratie 0130 intern equipment_hierarchy, stabiele identiteit, strikt opeenvolgende niveaus via samengestelde FK, geen directe apprechten of automatische mapping. Schema-equivalentie, PostgreSQL-regressies en upgradebewijs volgen. Afgeleide databasedocumentatie blijft momentopname 0129.
 
 - D115-aanvulling: stel PostgreSQL-documentatievergelijking uit in concept-PRs, behoud snelle broncontroles en alle SQL-/securityregressies; gegenereerde DATABASE.md vermeldt bron-schemaversie. Integrale acceptatie en release behouden werkelijke schema- en diagramverificatie op identieke tree. Gerichte database-baseline behoudt OpenAPI maar genereert geen databaseplaatje; afzonderlijk label schema-generatie levert de versiegebonden momentopname als artifact (geen acceptatiebewijs). Beleidstests en gerichte verificatie volgen; geen functionele wijziging.
