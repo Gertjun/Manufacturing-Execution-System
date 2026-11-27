@@ -4007,10 +4007,13 @@ def main():
     def race_e(label,query1,args1,query2,args2,outcome,expected):
         with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
             bind_e(first)
-            bind_e(second)
             first.execute(query1,args1)
             def contender_e():
                 try:
+                    # Personal binding itself locks the user row (0129).
+                    # Run it concurrently so the first transaction can finish.
+                    # This observes serialization, not necessarily the resource lock.
+                    bind_e(second)
                     second.execute(query2,args2)
                     second.commit()
                     return "committed"
