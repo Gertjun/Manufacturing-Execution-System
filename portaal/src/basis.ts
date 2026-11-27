@@ -74,7 +74,7 @@ export function qs(params: Record<string, string | number | null | undefined>): 
 }
 
 // ---------- Actuele bevoegdheden (D101) ----------
-export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean; resourceCatalog?: boolean }
+export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean; resourceCatalog?: boolean; resourceStatus?: boolean }
 let projection: Permissions | null = null;
 let projectionToken: string | null = null;
 let requestGeneration = 0;
@@ -123,9 +123,12 @@ export const magReceptbeoordeling = () => heeftProductRecht("recipe.draft.manage
 
 export const magScopemapping = () => !!rechten()?.personal && heeftRecht("resource.scope.manage");
 export const magMiddelenbeheer = () => !!rechten()?.personal && (rechten()?.resourceCatalog === true || heeftRecht("resource.catalog.manage"));
+export const magMiddelenstatus = () => !!rechten()?.personal && (rechten()?.resourceStatus === true || heeftRecht("resource.status.manage"));
 export const PORTALEN: Portaal[] = [
   { id: "maintenance", naam: "Maintenance", klaar: true, onderdelen: [
     { pad: "middelen", naam: "Middelenbeheer", toegestaan: magMiddelenbeheer },
+    { pad: "capaciteiten", naam: "Eigenschappen en capaciteit", toegestaan: magMiddelenbeheer },
+    { pad: "status", naam: "Technische middelenstatus", toegestaan: magMiddelenstatus },
   ]},
   { id: "engineering", naam: "Process Engineering", klaar: true, onderdelen: [
     { pad: "overzicht", naam: "Overzicht", toegestaan: () => magMateriaalstamdata() || magReceptconcept() || magReceptbeoordeling() },

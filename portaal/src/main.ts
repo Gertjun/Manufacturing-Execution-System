@@ -10,6 +10,7 @@ import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import * as engineering from "./engineering/schermen";
 import { middelen } from "./maintenance/middelen";
+import { capaciteiten, middelenstatus } from "./maintenance/inzetbaarheid";
 import { scopemapping } from "./beheer/scopemapping";
 import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
@@ -271,7 +272,12 @@ async function route() {
   if (p.id === "maintenance") {
     await tekenMenu(p.id, deel);
     if (!actueel()) return;
-    return middelen();
+    switch (deel) {
+      case "middelen": return middelen();
+      case "capaciteiten": return capaciteiten();
+      case "status": return middelenstatus();
+      default: return void (location.hash = "#/maintenance");
+    }
   }
   if (p.id === "engineering") {
     await tekenMenu(p.id, deel);
