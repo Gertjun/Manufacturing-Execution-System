@@ -666,7 +666,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         tags: ["analyse"],
         description:
-          "Stilstand per stap en per oorzaak in de periode (standaard de laatste 30 dagen), in minuten. Beschikbaarheid per stap = (geplande productietijd - ongeplande stilstand) / geplande productietijd, waarbij de geplande productietijd = de ploeguren min geplande stilstand (omstellen, schoonmaken, onderhoud). Kwaliteit = deel van de gestarte batches dat niet is afgekeurd. Samen het begin van OEE; de prestatie (snelheid) vraagt normtijden per stap en ontbreekt nog.",
+          "Stilstand op stapniveau (zonder afzonderlijke middelregistraties) per stap en per oorzaak in de periode (standaard de laatste 30 dagen), in minuten. Beschikbaarheid per stap = (geplande productietijd - ongeplande stilstand) / geplande productietijd, waarbij de geplande productietijd = de ploeguren min geplande stilstand (omstellen, schoonmaken, onderhoud). Kwaliteit = deel van de gestarte batches dat niet is afgekeurd. Samen het begin van OEE; de prestatie (snelheid) vraagt normtijden per stap en ontbreekt nog.",
         querystring: Type.Object(Periode),
         response: {
           200: Type.Object({
@@ -705,7 +705,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
                 coalesce(sum(${BINNEN}) FILTER (WHERE o.categorie = 'gepland'), 0)::float AS gepland,
                 coalesce(sum(${BINNEN}) FILTER (WHERE o.categorie = 'overig'), 0)::float AS overig
            FROM processtap s
-           LEFT JOIN stilstand x ON x.processtap_id = s.id AND x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz
+           LEFT JOIN stilstand x ON x.processtap_id = s.id AND x.equipment_id IS NULL AND x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz
            LEFT JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
           WHERE s.actief
           GROUP BY s.id ORDER BY s.volgorde`,
@@ -716,13 +716,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         app.db,
         `SELECT o.code AS oorzaak, o.naam AS oorzaaknaam, o.categorie, count(*)::int AS aantal, round(sum(${BINNEN})::numeric, 1)::float AS minuten
            FROM stilstand x JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
-          WHERE x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz
+          WHERE x.equipment_id IS NULL AND x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz
           GROUP BY o.code, o.naam, o.categorie ORDER BY 5 DESC`,
         t,
       );
       const lijst = await lees(
         app.db,
-        `${STILSTAND_SQL} WHERE x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz ORDER BY x.begin_op DESC LIMIT 200`,
+        `${STILSTAND_SQL} WHERE x.equipment_id IS NULL AND x.begin_op < $2::date::timestamptz AND coalesce(x.eind_op, now()) > $1::date::timestamptz ORDER BY x.begin_op DESC LIMIT 200`,
         t,
       );
       const [k] = await lees<{ gestart: number; afgekeurd: number }>(

@@ -35,7 +35,7 @@ export const STILSTAND_SQL = `
     FROM stilstand x JOIN processtap s ON s.id = x.processtap_id JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
     LEFT JOIN pc ON pc.id = x.pc_id LEFT JOIN operator op ON op.id = x.operator_id LEFT JOIN operator eo ON eo.id = x.beeindigd_door`;
 
-const eenStilstand = async (db: Db, id: string) => (await lees(db, `${STILSTAND_SQL} WHERE x.id = $1`, [id]))[0];
+const eenStilstand = async (db: Db, id: string) => (await lees(db, `${STILSTAND_SQL} WHERE x.id = $1 AND x.equipment_id IS NULL`, [id]))[0];
 /** Een tijdstip van het apparaat; in de toekomst (verkeerde klok) telt als nu. */
 const tijdstip = (t?: string) => (t && Date.parse(t) < Date.now() ? t : new Date().toISOString());
 
@@ -61,7 +61,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
       schema: { tags: ["stilstand"], description: "Stilstand die nu loopt, per stap.", response: { 200: Type.Array(Stilstand) } },
     },
-    async (req) => (await lees(app.db, `${STILSTAND_SQL} WHERE x.eind_op IS NULL AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'display.downtime.read',NULL,NULL,NULL)) ORDER BY s.volgorde`, [req.user.sub])) as never,
+    async (req) => (await lees(app.db, `${STILSTAND_SQL} WHERE x.equipment_id IS NULL AND x.eind_op IS NULL AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'display.downtime.read',NULL,NULL,NULL)) ORDER BY s.volgorde`, [req.user.sub])) as never,
   );
 
   app.post(
@@ -84,8 +84,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       if (req.body.id) {
         const al = await eenStilstand(app.db, req.body.id);
+        if (!al) {
+          const [existing] = await lees<{ exists: boolean }>(app.db, "SELECT EXISTS(SELECT 1 FROM stilstand WHERE id=$1) AS exists", [req.body.id]);
+          if (existing?.exists) throw new ApiFout(409,"Dit id hoort bij een andere stilstandmelding");
+        }
         if (al) {
-          const [original] = await lees<{ gemeld_door: string; stap: string }>(app.db, "SELECT x.gemeld_door,s.code AS stap FROM stilstand x JOIN processtap s ON s.id=x.processtap_id WHERE x.id=$1", [req.body.id]);
+          const [original] = await lees<{ gemeld_door: string; stap: string }>(app.db, "SELECT x.gemeld_door,s.code AS stap FROM stilstand x JOIN processtap s ON s.id=x.processtap_id WHERE x.id=$1 AND x.equipment_id IS NULL", [req.body.id]);
           if (original?.gemeld_door !== req.user.sub || original.stap !== req.body.stapcode) throw new ApiFout(409,"Dit id hoort bij een andere stilstandmelding");
           return reply.status(200).send(al as never);
         }
@@ -106,6 +110,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           );
           return r.rows[0].id as string;
         } catch (e) {
+          if ((e as { constraint?: string }).constraint === "stilstand_pkey") {
+            throw new ApiFout(409,"Dit id hoort bij een andere of gelijktijdige stilstandmelding");
+          }
           if ((e as { constraint?: string }).constraint === "stilstand_een_lopend") {
             throw new ApiFout(409, `In ${req.body.stapcode} loopt al een stilstand; beëindig die eerst`);
           }
@@ -134,7 +141,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if ((al as { eind_op: string | null }).eind_op) return al as never; // al beëindigd (opnieuw verstuurd)
       await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx,req.user.sub,"downtime.record");
-        return tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1 AND eind_op IS NULL",
+        return tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1 AND equipment_id IS NULL AND eind_op IS NULL",
           [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null, req.body.notitie ?? null]);
       });
       return (await eenStilstand(app.db, req.params.id)) as never;

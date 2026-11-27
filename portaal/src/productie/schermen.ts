@@ -318,7 +318,7 @@ export async function stilstand() {
   const slechtst = [...metB].sort((x, y) => x.beschikbaarheid! - y.beschikbaarheid!)[0];
   const lopend = a.lijst.filter((x) => !x.eind_op);
   toon(
-    kop("Stilstand", `Wanneer en waarom er niet gewerkt kon worden, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}. Operators melden stilstand in het invoerscherm.`, periodeKeuze(stilstand, false)),
+    kop("Stilstand", `Registraties op processtapniveau, zonder afzonderlijke middelstilstand, ${PERIODES.find((p) => p.id === periode.id)!.naam.toLowerCase()}. Operators melden stilstand in het invoerscherm.`, periodeKeuze(stilstand, false)),
     lopend.length
       ? h("section", { class: "blok stil-blok" }, h("h2", {}, `Nu stil (${lopend.length})`),
           tabel(["Stap", "Oorzaak", "Sinds", "Duur", "Toelichting", "Gemeld door"], lopend.map((x) => [`${x.stap} ${x.stapnaam}`, x.oorzaaknaam, kort(x.begin_op), minuten(x.minuten), x.toelichting ?? "", x.operator ?? ""]), "compact"))
@@ -331,7 +331,7 @@ export async function stilstand() {
         : null,
       h("div", { class: "tegel operations-cijfer" }, h("span", { class: "tegel-getal" }, procent(a.kwaliteit)), h("span", { class: "tegel-tekst" }, "kwaliteit: gestarte batches niet afgekeurd"))),
     h("section", { class: "blok operations-kaart" }, h("h2", {}, "Stilstand per stap"),
-      h("p", { class: "sub" }, `Beschikbaarheid = de geplande productietijd (${toonGetal(a.ploeguren_per_dag)} ploeguren per dag, min geplande stilstand) waarin de stap niet stil lag. Samen met kwaliteit het begin van OEE; voor de prestatie zijn nog normtijden per stap nodig.`),
+      h("p", { class: "sub" }, `Beschikbaarheid = de geplande productietijd (${toonGetal(a.ploeguren_per_dag)} ploeguren per dag, min geplande stilstand) waarin de stap niet stil lag. Deze indicatie gebruikt uitsluitend stapregistraties en is geen volledige OEE-berekening.`),
       ongepland + a.per_stap.reduce((t, x) => t + x.gepland, 0) > 0
         ? liggendeStaven(
             a.per_stap.map((x) => ({
