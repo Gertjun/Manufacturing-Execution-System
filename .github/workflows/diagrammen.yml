@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   diagrammen:
@@ -49,9 +50,31 @@ jobs:
           path: /tmp/mes-diagrams/*.svg
           if-no-files-found: error
           retention-days: 7
+  schema-bewijs:
+    name: Bestaand schemabewijs controleren
+    if: github.event_name == 'pull_request' && github.event.label.name == 'diagramcontrole' && !contains(github.event.pull_request.labels.*.name, 'ci-force-herhaling')
+    runs-on: ubuntu-latest
+    outputs:
+      hergebruik: ${{ steps.bewijs.outputs.hergebruik }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Schemabewijs zoeken
+        id: bewijs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          resultaat="$(node tools/verifieer_docs_test.mjs pull_request "$HEAD" "$BASE" schema)" || resultaat=false
+          [ "$resultaat" = true ] || resultaat=false
+          echo "hergebruik=$resultaat" >> "$GITHUB_OUTPUT"
   schema:
     name: Databasediagram bij gerichte diagramcontrole
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'diagramcontrole'
+    needs: schema-bewijs
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'diagramcontrole') && needs.schema-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -66,6 +89,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Docs-bewijs ${{ github.event.pull_request.base.sha }} schema
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
       - name: Databasediagram vergelijken met schema
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: |

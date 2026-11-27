@@ -10,6 +10,10 @@ on:
       - 'ROADMAP.md'
       - 'CHANGELOG.md'
       - 'docs/DATABASE.md'
+      - 'docs/PRAKTIJKTESTS.md'
+      - 'docs/SERVER.md'
+      - 'tools/pakket/README.md'
+      - 'tools/verifieer_docs_test.mjs'
       - 'db/schema.sql'
       - 'tests/test_schema_plaatje.sh'
       - 'tests/test_roadmap.sh'
@@ -32,6 +36,10 @@ on:
       - 'ROADMAP.md'
       - 'CHANGELOG.md'
       - 'docs/DATABASE.md'
+      - 'docs/PRAKTIJKTESTS.md'
+      - 'docs/SERVER.md'
+      - 'tools/pakket/README.md'
+      - 'tools/verifieer_docs_test.mjs'
       - 'db/schema.sql'
       - 'tests/test_schema_plaatje.sh'
       - 'tests/test_roadmap.sh'
@@ -52,6 +60,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   documentatie:
@@ -59,6 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       schema: ${{ steps.wijzigingen.outputs.schema }}
+      schema-hergebruik: ${{ steps.bewijs.outputs.schema }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -99,7 +109,7 @@ jobs:
               ["git", "cat-file", "-e", vorige + "^{commit}"], capture_output=True,
           ).returncode == 0
           deze_wijziging = wijzigingen(vorige) if bekend else bestanden
-          schema = bool(deze_wijziging & {"db/schema.sql", "tools/schema_plaatje.py", "tests/test_schema_plaatje.sh"})
+          schema = bool(deze_wijziging & {"db/schema.sql", "docs/DATABASE.md", "tools/schema_plaatje.py", "tests/test_schema_plaatje.sh"})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print(f"schema={str(schema).lower()}", file=f)
 
@@ -125,7 +135,37 @@ jobs:
               if versies(os.environ["BEGIN"]) != versies(os.environ["END"]):
                   raise SystemExit("Nieuwe, verwijderde of herschikte versies horen in een software-PR.")
           PY
+      - name: Documentatie- en schemabewijs zoeken
+        id: bewijs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          SCHEMA: ${{ steps.wijzigingen.outputs.schema }}
+        run: |
+          docs=false
+          schema=false
+          if [ "$EVENT" = push ]; then
+            docs="$(node tools/verifieer_docs_test.mjs "$EVENT" "$HEAD" "$BASE" docs)" || docs=false
+          fi
+          if [ "$SCHEMA" = true ]; then
+            schema="$(node tools/verifieer_docs_test.mjs "$EVENT" "$HEAD" "$BASE" schema)" || schema=false
+          fi
+          [ "$docs" = true ] || docs=false
+          [ "$schema" = true ] || schema=false
+          echo "docs=$docs" >> "$GITHUB_OUTPUT"
+          echo "schema=$schema" >> "$GITHUB_OUTPUT"
+      - name: Docs-bewijs ${{ github.event.pull_request.base.sha }} docs
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
       - name: Roadmap en changelog controleren
+        if: steps.bewijs.outputs.docs != 'true'
         run: |
           tests/test_roadmap.sh
           python3 tests/test_diagram_style.py
@@ -135,7 +175,7 @@ jobs:
   schema:
     name: Databasediagram controleren
     needs: documentatie
-    if: needs.documentatie.outputs.schema == 'true'
+    if: needs.documentatie.outputs.schema == 'true' && needs.documentatie.outputs.schema-hergebruik != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -150,6 +190,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Docs-bewijs ${{ github.event.pull_request.base.sha }} schema
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
       - name: Databasediagram vergelijken met schema
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: |

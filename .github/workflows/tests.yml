@@ -268,6 +268,14 @@ jobs:
         run: |
           pg_dump --version
           tests/test_migraties.sh
+      - name: Docs-bewijs ${{ github.event.pull_request.base.sha }} schema
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
       - name: Plaatje van de database bij (docs/DATABASE.md)
         env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
         run: tests/test_schema_plaatje.sh

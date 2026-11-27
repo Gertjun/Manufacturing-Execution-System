@@ -131,7 +131,7 @@ Opdrachtgever akkoord 27 november 2026: eerst CI-optimalisatie, daarna fase 4. B
 |---|---|---|
 | CI-A | Exact PR-head/base/testbewijs bij ready_for_review en reopened; ontbrekend/ongeldig bewijs verplicht opnieuw testen. | Eerste implementatie, verificatie open |
 | CI-B | Exact modusgebonden hergebruik gerichte tests; bewuste herhaling via ci-force-herhaling; acceptatie en reviewshots niet overslaan. | Eerste implementatie, verificatie open |
-| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Gepland |
+| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Eerste implementatie, verificatie open |
 | CI-D | Gedeelde builds/fixturevoorbereiding onderzoeken en meten; behoud isolatie en Node-versiegrenzen. | Gepland |
 | CI-E | Bestaande Windows-releasepakketten standaard niet opnieuw bouwen/vervangen. | Gepland |
 | CI-F | Labelconcurrency isoleren; snelle controles behouden; integrale borging en meting. | Eerste implementatie, verificatie open |

@@ -10,3 +10,22 @@ test("andere base/head/modus, huidig run-ID en ontbrekend bewijs",async()=>{for(
 test("mislukte run/job/marker en nieuwer falend bewijs",async()=>{for(const opts of [{runs:[{...run,conclusion:"failure"}]},{listJobs:async()=>[{...job,conclusion:"failure"}]},{listJobs:async()=>[{...job,steps:[{...job.steps[0],conclusion:"failure"}]}]},{runs:[run,{...run,id:2,conclusion:"failure"}]}])assert.equal(await check(opts),false)});
 test("overgeslagen jobs zijn geen bewijs en verdringen geen geslaagd bewijs",async()=>{assert.equal(await check({listJobs:async()=>[{...job,conclusion:"skipped"}]}),false);assert.equal(await check({runs:[run,{...run,id:2}],listJobs:async id=>id===2?[{...job,conclusion:"skipped"}]:[job]}),true)});
 test("gerichte modi hebben eigen bewijs; review-output nooit hergebruiken",async()=>{const j={name:"Gerichte Chrome-schermregressies (Node.js 26)",conclusion:"success",steps:[{name:`PR-bewijs ${base} scherm-test`,conclusion:"success"}]};assert.equal(await check({mode:"scherm-test",listJobs:async()=>[j]}),true);assert.equal(await check({mode:"scherm-review-test",listJobs:async()=>[j]}),false);assert.equal(await check({mode:"scherm-test",listJobs:async()=>[{...j,steps:[{name:`PR-bewijs ${base} scherm-review-test`,conclusion:"success"}]}]}),false)});
+
+import {validProof,mergeCandidate} from "../tools/verifieer_docs_test.mjs";
+test("documentatiebewijs vereist werkelijke geslaagde inhoudelijke stap",()=>{
+ const j={conclusion:"success",steps:[{name:`Docs-bewijs ${base} docs`,conclusion:"success"},{name:"Roadmap en changelog controleren",conclusion:"success"}]};
+ const args={run,job:j,head,base,mode:"docs",step:"Roadmap en changelog controleren"};
+ assert.equal(validProof(args),true);
+ assert.equal(validProof({...args,base:"c".repeat(40)}),false);
+ assert.equal(validProof({...args,head:"c".repeat(40)}),false);
+ assert.equal(validProof({...args,job:{...j,steps:[j.steps[0]]}}),false);
+ assert.equal(validProof({...args,job:{...j,steps:[j.steps[0],{...j.steps[1],conclusion:"skipped"}]}}),false);
+ assert.equal(validProof({...args,run:{...run,conclusion:"failure"}}),false);
+});
+test("mergebewijs vereist twee ouders, exacte oude main en identieke tree",()=>{
+ const args={parents:[base,head],base,tree:"t",parentTree:"t"};
+ assert.equal(mergeCandidate(args),head);
+ assert.equal(mergeCandidate({...args,parentTree:"u"}),null);
+ assert.equal(mergeCandidate({...args,parents:[head,base]}),null);
+ assert.equal(mergeCandidate({...args,parents:[head]}),null);
+});
