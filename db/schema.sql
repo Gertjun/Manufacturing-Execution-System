@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management'), (138, 'resource_catalog_read'), (139, 'equipment_capability'), (140, 'equipment_capability_manage');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management'), (138, 'resource_catalog_read'), (139, 'equipment_capability'), (140, 'equipment_capability_manage'), (141, 'equipment_capacity');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -10792,5 +10792,65 @@ END $$;
 REVOKE ALL ON FUNCTION resource_property_create(text,text,uuid,uuid),
     resource_capability_create(uuid,uuid,numeric,text),
     resource_capability_revise(uuid,integer,numeric,text) FROM PUBLIC;
+
+-- Migratie 0141: expliciete technische capaciteitsaanwijzing (#115.2b).
+SET search_path = fabriek, public;
+
+-- Geen tweede waarde of eenheid: beide volgen uit de capability.
+CREATE TABLE equipment_capacity (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    capability_id uuid NOT NULL UNIQUE REFERENCES equipment_capability(id)
+);
+
+CREATE FUNCTION equipment_capacity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_value numeric;
+BEGIN
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Capaciteitsaanwijzing vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment_capability WHERE id=NEW.capability_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekende capability' USING ERRCODE='23503';
+    END IF;
+    SELECT value INTO current_value FROM equipment_capability_revision
+        WHERE capability_id=NEW.capability_id ORDER BY revision DESC LIMIT 1;
+    IF NOT FOUND OR current_value<=0 OR current_value IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric) THEN
+        RAISE EXCEPTION 'Technische capaciteit vereist een positieve eindige actuele waarde' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_capacity_guard BEFORE INSERT ON equipment_capacity
+    FOR EACH ROW EXECUTE FUNCTION equipment_capacity_guard();
+CREATE TRIGGER equipment_capacity_immutable BEFORE UPDATE OR DELETE ON equipment_capacity
+    FOR EACH ROW EXECUTE FUNCTION equipment_capability_immutable();
+
+-- Gebruik dezelfde rijlock bij beide schrijfpaden. Read committed is nodig
+-- voor een verse snapshot na de lock; hogere isolatieniveaus zijn hier niet
+-- ondersteund omdat een aanwijzing anders buiten de snapshot kan vallen.
+CREATE OR REPLACE FUNCTION equipment_capability_revision_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE previous_revision integer;
+BEGIN
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Capabilityrevisie vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment_capability WHERE id=NEW.capability_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekende capability' USING ERRCODE='23503';
+    END IF;
+    SELECT coalesce(max(revision),0) INTO previous_revision
+        FROM equipment_capability_revision WHERE capability_id=NEW.capability_id;
+    IF NEW.revision::bigint <> previous_revision::bigint+1 THEN
+        RAISE EXCEPTION 'Ongeldige of verouderde capabilityrevisie' USING ERRCODE='40001';
+    END IF;
+    IF EXISTS (SELECT 1 FROM equipment_capacity WHERE capability_id=NEW.capability_id)
+       AND (NEW.value<=0 OR NEW.value IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)) THEN
+        RAISE EXCEPTION 'Technische capaciteit vereist een positieve eindige waarde' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+END $$;
+REVOKE ALL ON equipment_capacity FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_capacity_guard(),equipment_capability_revision_guard() FROM PUBLIC;
 
 COMMIT;
