@@ -115,3 +115,7 @@ Voortbouwen op 0138 en het geverifieerde #114. Voorgestelde eerste slice: equipm
 ## 115.1b — intern fundament 0139
 
 Drie nieuwe tabellen voor numerieke eigenschappen, vaste grootheid/eenheid via samengestelde FK, unieke middel/eigenschap-combinatie, eindige exacte numeric en onveranderlijke oplopende revisies. Revisieguard serialiseert inserts per capability met rijlock. Geen automatische conversie of mapping, geen app-ACL. Alleen intern fundament: een eigenaar kan nog een lege capability aanmaken en actor/tijd invoeren; persoonlijke atomaire creatie en gevalideerde actor, stale-controle en audit volgen 115.1c. Definitie voorlopig volledig onveranderlijk. Generatorclassificatie bijgewerkt; afgeleide diagrammen uitgesteld. SQL-regressies en runtimebewijs open.
+
+## 115.1c — persoonlijk beheer 0140
+
+Globale eigenschapsdefinitiecreatie, begrensde atomaire capabilitycreatie met eerste revisie en begrensde revisietoevoeging via drie expliciete SECURITY DEFINER-functies. Actor uit persoonlijke transactie, scope uit het middel, tijd serverzijdig, reden verplicht, rijlock en verwachte revisie; bij ongeldige eerste revisie geen lege identiteit. Audit via log_config bij alle drie tabellen; revisie bevat tevens persoonlijke actor en tijd. Geen mutatie van historie, geen herdefinitie of verwijdering, geen directe app-tabelrechten, geen nieuwe grants aan gebruikers. Uitsluitend uitvoerrechten voor mes_app. Leesprojectie en UI volgen later; regressies en runtimebewijs open.

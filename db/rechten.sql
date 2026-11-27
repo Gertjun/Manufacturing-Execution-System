@@ -885,6 +885,16 @@ BEGIN
  END IF;
 END $$;
 
+-- 0140: persoonlijke capabilitymutaties, geen directe tabelrechten.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=140) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_property_create(text,text,uuid,uuid),
+     fabriek.resource_capability_create(uuid,uuid,numeric,text),
+     fabriek.resource_capability_revise(uuid,integer,numeric,text) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
