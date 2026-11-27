@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #114.5d: expliciete gebieds- en middelscopemapping 0136, afleiding uit databasecontext; run 797 op 5b078c8 groen (1364/1364) voor 0134/0135. Runtimeverificatie 0136 en rolregisterintegratie open.
+
 - #114.5c: persoonlijke klassekoppelingen en assettoewijzingen (0135), permanente audit-UUID naast samengestelde sleutel, uitsluitend eenmalige afsluiting, bestaande overlap- en historiebeveiliging behouden. Runtimeverificatie open.
 
 - #114.5b: persoonlijke creatie en naamcorrectie van hiërarchie, functionele middelen en fysieke assets (0134), wijzigingsteller, rijlock, audit en beperkte functie-ACLs. Run 795 groen op ee7cc9a (1308/1308), inclusief 114.4 race en 114.5a; herstel van SQL-dollartekenfout uit run 793. 0134 runtimeverificatie open.

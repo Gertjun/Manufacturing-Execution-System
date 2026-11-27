@@ -74,3 +74,7 @@ Verificatie: baseline run 795 op ee7cc9a groen, 1308/1308 databaseregels, inclus
 ## 114.5c — persoonlijke koppelingen
 
 0135: klassekoppeling uitsluitend toevoegen; permanente UUID voor bestaand log_config naast samengestelde primaire sleutel. Bestaande koppelingen krijgen een UUID zonder verzonnen historische actor. Assettoewijzing opent een halfopen interval en kan eenmaal worden afgesloten via atomische UPDATE op de open rij. Bestaande exclusieconstraint, identiteits- en historieguards blijven intact. Geen verwijdering, heropening, automatische receptmapping of nieuwe grants. Alleen globale persoonlijke autorisatie; expliciete tijdstippen, geen automatische overdracht. Audit van nieuwe koppelingen en afsluitingen via log_config. Runtimeverificatie 0134/0135 gebundeld open.
+
+## 114.5d — expliciete scopemapping
+
+Run 797 op 5b078c8 groen (1364/1364); 0134/0135 technisch geverifieerd. 0136 voegt lege, uitsluitend door vertrouwde database-eigenaar beheerde, onveranderlijke scopekoppelingen toe. Geen automatische codeherkenning, geen productcontext, geen app-tabelrechten. Hiërarchie en middelencontext uit database afgeleid; klasse- en assetidentiteit globaal. Nieuwe area zelf vereist globale autorisatie (nog geen mapping); kinderen kunnen via gebiedsscope. Openen van assettoewijzingen blijft globaal tot een expliciet overdrachtscontract voor bron- en doelscope beschikbaar is; afsluiten via toegewezen middel. Geen verplaatsing, geen wijziging of verwijdering van mapping. App-beheer van mapping en rolregisterintegratie nog open. Runtimeverificatie open.
