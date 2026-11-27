@@ -407,7 +407,7 @@ jobs:
   individual-screen:
     name: Individuele Chrome-regressie (${{ github.event.label.name }})
     needs: pr-bewijs
-    if: always() && (github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test' || github.event.label.name == 'scherm-overgang-test')) && needs.pr-bewijs.outputs.hergebruik != 'true'
+    if: always() && (github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-bundel-test' || github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test' || github.event.label.name == 'scherm-overgang-test')) && needs.pr-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -452,7 +452,7 @@ jobs:
           LABEL: ${{ github.event.label.name }}
         run: |
           case "$LABEL" in
-            scherm-flow-test|scherm-formaten-test|scherm-formaten-uitgebreid-test|scherm-meldingen-test|scherm-beheer-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test|scherm-overgang-test) ;;
+            scherm-bundel-test|scherm-flow-test|scherm-formaten-test|scherm-formaten-uitgebreid-test|scherm-meldingen-test|scherm-beheer-test|scherm-productie-test|scherm-planning-test|scherm-sjabloon-test|scherm-engineering-test|scherm-overgang-test) ;;
             *) exit 2 ;;
           esac
           selectie="${LABEL#scherm-}"
@@ -473,7 +473,15 @@ jobs:
           google-chrome --version
           python3 -m pip install --quiet openpyxl pillow pyzbar
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libzbar0 >/dev/null
-          sh tests/test_schermen.sh "$SCHERM_SELECTIE"
+          if [ "$SCHERM_SELECTIE" = bundel ]; then
+            for selectie in formaten productie meldingen; do
+              echo "::group::Onafhankelijke regressie $selectie"
+              sh tests/test_schermen.sh "$selectie"
+              echo "::endgroup::"
+            done
+          else
+            sh tests/test_schermen.sh "$SCHERM_SELECTIE"
+          fi
       - name: Logboeken van de schermtests tonen
         if: failure()
         run: |

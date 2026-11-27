@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #146 (CI-D): optionele gerichte schermbundel formaten/productie/meldingen op één Node26-runner, één installatie/build, per selectie eigen verse fictieve fixture via bestaande testscript; stop bij fout. Integrale suite ongewijzigd. Meting en verificatie volgen.
+
 - #146 (CI-C): documentatiebewijs bij identieke merge-tree; schemabewijs alleen op exacte head/base en werkelijk uitgevoerde geslaagde stap. Integrale schemaacceptatie blijft verplicht; wijziging DATABASE.md activeert ook de schemacontrole. Verificatie volgt.
 
 - #146 (CI-A/B/F): PR-status en gerichte testherhaling krijgen conservatieve head/base/modus-bewijscontrole; bewuste herhaling blijft mogelijk, integrale acceptatie en reviewshots altijd uitvoeren; labelconcurrency geïsoleerd. Verificatie volgt.
