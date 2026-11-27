@@ -7,7 +7,11 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
-- #140.2–3: fase 3 technisch geaccepteerd en gemerged; Windows-acceptatiekandidaat voor fase 2 en 3 gebouwd zonder release. Windows W01–W12 uitgevoerd op dezelfde kandidaat; W10 met fysieke 4K-beperking, overige bewijsnuances en 14 verbeterpunten vastgelegd. Formele functionele acceptatie en release blijven open. Geen runtimewijziging.
+## 0.64.0 (27 nov 2026) · #103 #104 #105 #109–113 #138–141
+
+- Gecombineerde releasekandidaat fase 2/3: Master Data & Recipe Management, versiegebonden eenheden/schaalregels, MOC en vrijgave, uniforme portalstructuur en huisstijl. Functioneel geaccepteerd binnen fictieve PoC-scope op bron 33b7a91; 14 verbeterpunten en beperkingen aanvaard. D116 legt toekomstige gebruikershandleidingen vast. Geen productie- of pilotvrijgave. Publicatie uitsluitend na afzonderlijke toestemming.
+
+- #140.2–3: fase 3 technisch geaccepteerd en gemerged; Windows-acceptatiekandidaat voor fase 2 en 3 gebouwd zonder release. Windows W01–W12 uitgevoerd op dezelfde kandidaat; W10 met fysieke 4K-beperking, overige bewijsnuances en 14 verbeterpunten vastgelegd. Functionele acceptatie op 27 november 2026 vastgelegd in PR #9; publicatie afzonderlijk. Geen runtimewijziging.
 
 - #140.2: gedeelde test-API-afsluiting en databasequiescentie tussen schermscripts; gerichte Sjabloon/Engineering-overgangstest toegevoegd.
 
