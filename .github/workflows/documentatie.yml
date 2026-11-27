@@ -81,6 +81,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
         run: |
           set -e
           if [ "$EVENT" = pull_request ]; then
@@ -110,6 +111,9 @@ jobs:
           ).returncode == 0
           deze_wijziging = wijzigingen(vorige) if bekend else bestanden
           schema = bool(deze_wijziging & {"db/schema.sql", "docs/DATABASE.md", "tools/schema_plaatje.py", "tests/test_schema_plaatje.sh"})
+          if schema and os.environ["DRAFT"] == "true":
+              print("::notice::D115: afgeleide databasedocumentatie is een momentopname tijdens conceptontwikkeling; gelijkheid verplicht bij acceptatie-test of gerichte diagramcontrole.")
+              schema = False
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print(f"schema={str(schema).lower()}", file=f)
 

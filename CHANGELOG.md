@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- D115-aanvulling: stel PostgreSQL-documentatievergelijking uit in concept-PRs, behoud snelle broncontroles en alle SQL-/securityregressies; gegenereerde DATABASE.md vermeldt bron-schemaversie. Integrale acceptatie en release behouden werkelijke schema- en diagramverificatie op identieke tree. Gerichte database-baseline behoudt OpenAPI maar genereert geen databaseplaatje; afzonderlijk label schema-generatie levert de versiegebonden momentopname als artifact (geen acceptatiebewijs). Beleidstests en gerichte verificatie volgen; geen functionele wijziging.
+
 - #146 (D115): technisch geaccepteerd op c43c34e, PR #11 gemerged naar a03d72d. Chronologische bewijscontrole op jobtijdstempels, conservatieve weigering bij herstarts/onvolledige API-resultaten, geforceerde schemacontrole en hergebruik volledige schermbundel; mergebewijs vereist beide suites en expliciet checkoutbewijs. 14/14 beleidstests (run 779), integrale Node22/26 (run 780) en diagramrun 29 groen; ready_for_review run 781 en main run 782 hergebruiken bewijs, documentatie run 452 groen. Geen functionele wijziging, geen nieuwe release. Zie ROADMAP en D115 voor meetresultaten en beperkingen.
 
 - #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie afgerond binnen scope; zie #146-afsluiting.

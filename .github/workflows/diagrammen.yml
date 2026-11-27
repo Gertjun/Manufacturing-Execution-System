@@ -103,3 +103,49 @@ jobs:
         run: |
           python3 -m pip install --quiet "psycopg[binary]"
           tests/test_schema_plaatje.sh
+
+  schema-generatie:
+    name: Afgeleide databasedocumentatie genereren
+    if: github.event_name == 'pull_request' && github.event.label.name == 'schema-generatie'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Controleer broncommit en base
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          git merge-base --is-ancestor "$BASE" HEAD
+      - name: Genereer databaseoverzicht en technische SVG's
+        env: { PGHOST: localhost, PGPORT: "5432", PGUSER: postgres }
+        run: |
+          python3 -m pip install --quiet "psycopg[binary]"
+          command -v dot || { sudo apt-get update && sudo apt-get install -y graphviz; }
+          python3 tools/schema_plaatje.py "host=localhost port=5432 user=postgres"
+          mkdir -p /tmp/mes-schema-documentatie/rendered
+          python3 tools/render_diagrams.py /tmp/mes-schema-documentatie/rendered
+          cp docs/DATABASE.md /tmp/mes-schema-documentatie/DATABASE.md
+          git rev-parse HEAD > /tmp/mes-schema-documentatie/SOURCE-COMMIT.txt
+          echo 'BEGIN_GENERATED_DATABASE'
+          cat docs/DATABASE.md
+          echo 'END_GENERATED_DATABASE'
+      - name: Bewaar gegenereerde momentopname (geen acceptatiebewijs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mes-schema-documentatie
+          path: /tmp/mes-schema-documentatie/
+          if-no-files-found: error
+          retention-days: 7

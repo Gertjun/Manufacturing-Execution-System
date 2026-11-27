@@ -82,6 +82,7 @@ def main() -> None:
         subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-d", url, "-f", str(SCHEMA)],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         with psycopg.connect(url) as c:
+            schema_versie = c.execute("SELECT max(nummer) FROM fabriek.schema_versie").fetchone()[0]
             tabellen = [r[0] for r in c.execute(
                 "SELECT relname FROM pg_class WHERE relnamespace = 'fabriek'::regnamespace AND relkind = 'r' ORDER BY relname")]
             kolommen = c.execute("""
@@ -116,7 +117,8 @@ def main() -> None:
          "> **Dit bestand:** een plaatje van de database, **automatisch gemaakt** uit `db/schema.sql` met",
          "> `tools/schema_plaatje.py` (#100, D84). Niet met de hand wijzigen: `tests/test_schema_plaatje.sh` faalt als het niet bij is.",
          "> Opnieuw maken: `python3 tools/schema_plaatje.py \"host=localhost user=postgres\"`.",
-         "> **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).", "",
+         "> **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).",
+         f"> **Momentopname schema {schema_versie:04d}:** tijdens conceptontwikkeling kan het actuele SQL-schema voorlopen; bij faseacceptatie en release wordt dit overzicht geverifieerd.", "",
          f"Schema `fabriek`: {len(tabellen)} tabellen en {len(verbanden)} verbanden.", "",
          "## Overzicht", "",
          "Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. "

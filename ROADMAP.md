@@ -156,7 +156,7 @@ Beperkingen: gelijktijdige dubbele aanvragen en reopened niet afzonderlijk prakt
 
 ## Fase 4 — Middelenbeheer en stilstand (Resource Management)
 
-- #114 **Enterprise/site/area/cell/unit, equipment classes en fysieke assets** — Zie ontwerpdocumenten en acceptatiecriteria.
+- #114 **Enterprise/site/area/cell/unit, equipment classes en fysieke assets** — 114.1 ontwerpcontract gecommit in 46119a2, documentatiecontrole run 456 groen; 114.2 voorbereid, schema nog 0129. Zie [RESOURCE-MANAGEMENT.md](docs/mes/RESOURCE-MANAGEMENT.md). D115-aanvulling: afgeleide technische documentatie mag tijdens conceptontwikkeling achterlopen; SQL-integriteitscontroles blijven verplicht; volledige hergeneratie en verificatie bij faseacceptatie/release. Beleid geïmplementeerd, verificatie volgt.
 - #115 **Geschiktheid, capaciteit, status, werkstations en stilstand** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #116 **Maintenance-portaal en middelenvereisten** — Zie ontwerpdocumenten en acceptatiecriteria. D99: storingsnotities herbeoordelen binnen de middelen- en stilstandscope.
 

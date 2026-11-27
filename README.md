@@ -22,9 +22,9 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 Bijgewerkt: 27 november 2026 · versie **0.64.0** (officieel uitgebracht).
 
 - **Ontwikkeling:** fase 1 gepubliceerd als v0.63.0; fase 2 en 3 technisch geaccepteerd en gemerged, schema 0129. Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); officieel gepubliceerd op 27 november 2026 ([release v0.64.0](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.64.0)). Zie ROADMAP en ACCEPTANCE-CRITERIA. D110: structurele MBR Excel-import/export geparkeerd; ISA-model leidend.
-- **Databaseplaatje:** 69 tabellen en 146 relaties op geteste schema 0101; gegenereerd in run 45687274731. Schema 0109 in ontwikkeling; regeneratie en gelijkheidscontrole volgen.
+- **Databaseplaatje:** momentopname schema 0129 (94 tabellen en 203 relaties). Tijdens conceptontwikkeling kan SQL voorlopen; vóór faseacceptatie en release hergenereren en verifiëren (D115-aanvulling).
 - **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
-- **Open:** CI-optimalisatieronde #146 technisch afgerond (V01–V09, PR #11, main a03d72d); administratieve afronding vóór start fase 4; 14 goedgekeurde praktijkverbeterpunten; daarna fase 4 middelenbeheer en overige domeinen; operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Open:** #146 technisch en administratief afgerond via PR 11/12; fase 4 middelenbeheer in concept-PR 13; 114.1 ontwerp vastgelegd, 114.2 voorbereiding. 14 goedgekeurde praktijkverbeterpunten blijven gepland; overige domeinen, operationele security en pilotvoorwaarden open. Zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
 - **Releases:** uitsluitend op aanvraag na acceptatie. Fase 1 is uitgebracht; fase 2 en 3 technisch en functioneel geaccepteerd en gepubliceerd als v0.64.0 (D111).
 
 **Links**

@@ -38,7 +38,7 @@ jobs:
           [[ "$GEVRAAGD" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           ! git show-ref --verify --quiet "refs/tags/v$GEVRAAGD" || { echo "Tag bestaat al"; exit 1; }
           node tools/release.mjs controle "$GEVRAAGD"
-          test "$(node tools/verifieer_acceptatie.mjs "$GITHUB_SHA")" = true
+          test "$(node tools/verifieer_acceptatie.mjs "$GITHUB_SHA" --require-diagrams)" = true
       - name: Node.js instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
