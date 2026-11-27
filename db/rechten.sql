@@ -868,6 +868,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0137: persoonlijke security-mappinginterface, interne helper afgesloten.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=137) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_area_scope_create(text,uuid),
+     fabriek.resource_equipment_scope_create(text,uuid) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

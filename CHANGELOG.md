@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #114.5d: persoonlijk scopemappingbeheer 0137 via aparte security-rol, geen automatische grants; aanvullende negatieve en auditregressies.
+
 - #114.5d: expliciete gebieds- en middelscopemapping 0136, afleiding uit databasecontext; run 797 op 5b078c8 groen (1364/1364) voor 0134/0135. Runtimeverificatie 0136 en rolregisterintegratie open.
 
 - #114.5c: persoonlijke klassekoppelingen en assettoewijzingen (0135), permanente audit-UUID naast samengestelde sleutel, uitsluitend eenmalige afsluiting, bestaande overlap- en historiebeveiliging behouden. Runtimeverificatie open.
