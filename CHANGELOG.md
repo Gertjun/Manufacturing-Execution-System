@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #114.6b: persoonlijke middelen- en scope-API via /resources, strikte invoerschema's, bestaande persoonlijke transacties en databasefuncties; typecheck en runtimebewijs open.
+
 - #114.5 technisch afgerond: baseline 803 op e818619 groen (1388/1388); run 801 had één verouderde testverwachting (14 in plaats van 15 rollen), gecorrigeerd zonder schemawijziging. #114.6a: beperkte persoonlijke leesprojecties 0138, runtimeverificatie open.
 
 - #114.5d: persoonlijk scopemappingbeheer 0137 via aparte security-rol, geen automatische grants; aanvullende negatieve en auditregressies.

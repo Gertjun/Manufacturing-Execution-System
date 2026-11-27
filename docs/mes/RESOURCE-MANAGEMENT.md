@@ -90,3 +90,7 @@ Run 803 op e818619: 1388/1388 databaseregels, 894 beheertoolwaarden, API-autoris
 ## 114.6a — beveiligde leesprojecties
 
 0138: persoonlijke catalogusprojectie op vertrouwde scope, alleen zichtbare hiërarchieknooppunten, middelen, koppelingen en hun assethistorie; globale klassen als keuzereferentie bij concrete toegestane context. Geen buiten-scope assethistorie of directe tabellezing. Begrensde projectie kan ontbrekende ouder-/locatie-ID's bevatten; UI mag die niet automatisch buiten scope ophalen. Securityprojectie uitsluitend voor mappingdoelen en bestaande mappings, geen assets of classificatie. Geen automatische grants. Eerste SQL-regressies toegevoegd; runtime en API/UI open. Geen paginering in deze eerste projectie; schaalbaarheid evalueren in 114.6b.
+
+## 114.6b — API-interface
+
+/resources: twee leesroutes, vier creatieroutes, vier naamcorrecties met expected_change_no, klassekoppeling, assetopening/-afsluiting en twee scopecreaties. Persoonlijke sessie en transactie, uitsluitend vaste SQL-functies met parameters; geen clientactor of client-scope. 23P01 wordt 409 en 22004 wordt 422. Eerste projectie zonder paginering blijft expliciet beperkt tot pilotomvang; geen gemeten schaalbaarheid. UI en API-regressies volgen. Typecheck, OpenAPI en runtimebewijs open.
