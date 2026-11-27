@@ -51,7 +51,33 @@ function middelFout(e: unknown): never {
 }
 
 const MiddelAntwoord = Type.Object({ id: Type.String({ format: "uuid" }) });
+const MiddelId = Type.String({ format: "uuid" });
+const MiddelKeuze = Type.Object({ id: MiddelId, code: Type.String(), name: Type.String(),
+  open_downtime_id: Type.Union([MiddelId,Type.Null()]) });
+const MiddelStilstand = Type.Object({
+  id: MiddelId, equipment_id: MiddelId, equipment_code: Type.String(), equipment_name: Type.String(),
+  step_code: Type.String(), step_name: Type.String(), reason_code: Type.String(), reason_name: Type.String(),
+  category: Type.String(), note: OptTekst, started_at: Tijd, workstation: OptTekst, operator: OptTekst,
+});
 const routes: FastifyPluginAsyncTypebox = async (app) => {
+  app.get("/middelen", {
+    preHandler: personalSession,
+    schema: { tags: ["stilstand"], response: { 200: Type.Array(MiddelStilstand) } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_downtime_list() AS data")).rows[0].data));
+
+  app.get("/middelen/keuzes", {
+    preHandler: requiresPermission("downtime.record"),
+    schema: { tags: ["stilstand"], querystring: Type.Object({ stapcode: StapCode },{ additionalProperties: false }),
+      response: { 200: Type.Array(MiddelKeuze) } },
+  }, async req => {
+    const { pcId }=await invoerContext(app.db,req);
+    return persoonlijkeTransactie(app.db,req,async tx => {
+      const { rows: [step] }=await tx.query<{ id: string }>("SELECT id FROM processtap WHERE code=$1",[req.query.stapcode]);
+      if(!step) throw new ApiFout(403,"Geen actuele werkstation-stapcontext");
+      return (await tx.query("SELECT resource_downtime_choices($1,$2) AS data",[pcId,step.id])).rows[0].data;
+    });
+  });
+
   // Bewust afzonderlijke online routes; niet opnemen in de offlinewachtrij.
   app.post("/middelen", {
     preHandler: requiresPermission("downtime.record"),

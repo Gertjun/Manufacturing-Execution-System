@@ -33,7 +33,79 @@ const Changed = Type.Object({ change_no: Type.Integer({ minimum: 1 }) });
 const tags = ["middelen"];
 const strict = { additionalProperties: false } as const;
 
+const NullText = Type.Union([Type.String(),Type.Null()]);
+const NullTime = Type.Union([Time,Type.Null()]);
+const Reason = Type.String({ minLength: 1, maxLength: 2000, pattern: "\\S" });
+// Geen JSON-number: behoud exacte decimale waarde tot aan PostgreSQL.
+const Decimal = Type.String({ minLength: 1, maxLength: 256, pattern: "^[+-]?[0-9]+(?:\\.[0-9]+)?$" });
+const Revision = Type.Integer({ minimum: 1, maximum: 2147483647 });
+const NextRevision = Type.Object({ revision: Revision });
+const Status = Type.Union([Type.Literal("blocked"),Type.Literal("available")]);
+const StatusEvidence = { revision: Revision, status: Status, reason: Reason, created_at: Time, created_by: Id, created_by_name: Type.String() };
+const StatusRow = Type.Object({
+  id: Id, code: Type.String(), name: Type.String(),
+  revision: Type.Integer({ minimum: 0 }),
+  status: Type.Union([Status,Type.Literal("unknown")]),
+  reason: NullText, created_at: NullTime, created_by: NullId, created_by_name: NullText,
+});
+const Capabilities = Type.Object({
+  global: Type.Boolean(),
+  equipment: Type.Array(Type.Object({ ...Base, hierarchy_id: Id })),
+  properties: Type.Array(Type.Object({ id: Id, code: Code, name: Name, quantity_kind_id: Id, measurement_unit_id: Id, unit: Type.String() })),
+  capabilities: Type.Array(Type.Object({
+    id: Id, equipment_id: Id, property_definition_id: Id,
+    revision: Type.Union([Revision,Type.Null()]), value: NullText, reason: NullText, created_at: NullTime, capacity: Type.Boolean(),
+  })),
+});
+const Workstations = Type.Object({
+  workstations: Type.Array(Type.Object({ id: Id, name: Type.String(), location: NullText, active: Type.Boolean() })),
+  equipment: Type.Array(Type.Object({ id: Id, code: Type.String(), name: Type.String() })),
+  assignments: Type.Array(Type.Object({
+    id: Id, pc_id: Id, equipment_id: Id, opened_at: Time, opened_by: Id, opened_by_name: Type.String(), open_reason: Reason,
+    closed_at: NullTime, closed_by: NullId, closed_by_name: NullText, close_reason: NullText,
+  })),
+});
+
 const routes: FastifyPluginAsyncTypebox = async app => {
+  app.get("/capabilities", { preHandler: personalSession, schema: { tags, response: { 200: Capabilities } } },
+    async req => persoonlijkeTransactie(app.db, req, async tx => (await tx.query("SELECT resource_capability_list() AS data")).rows[0].data));
+  app.get("/statuses", { preHandler: personalSession, schema: { tags, response: { 200: Type.Array(StatusRow) } } },
+    async req => persoonlijkeTransactie(app.db, req, async tx => (await tx.query("SELECT resource_status_list() AS data")).rows[0].data));
+  app.get("/equipment/:id/status-history", { preHandler: personalSession, schema: { tags, params: Params, response: { 200: Type.Array(Type.Object(StatusEvidence)) } } },
+    async req => persoonlijkeTransactie(app.db, req, async tx => (await tx.query("SELECT resource_status_history($1) AS data",[req.params.id])).rows[0].data));
+  app.get("/workstations", { preHandler: personalSession, schema: { tags, response: { 200: Workstations } } },
+    async req => persoonlijkeTransactie(app.db, req, async tx => (await tx.query("SELECT resource_workstation_list() AS data")).rows[0].data));
+
+  app.post("/properties", { preHandler: personalSession, schema: { tags, body: Type.Object({ ...Create, quantity_kind_id: Id, measurement_unit_id: Id }, strict), response: { 201: Result } } },
+    async (req,reply) => {
+      const b=req.body;
+      const r=await persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_property_create($1,$2,$3,$4) AS id",[b.code,b.name,b.quantity_kind_id,b.measurement_unit_id])).rows[0]);
+      return reply.code(201).send(r as {id:string});
+    });
+  app.post("/capabilities", { preHandler: personalSession, schema: { tags, body: Type.Object({ equipment_id: Id, property_definition_id: Id, value: Decimal, reason: Reason },strict), response: { 201: Result } } },
+    async (req,reply) => {
+      const b=req.body;
+      const r=await persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_capability_create($1,$2,$3::numeric,$4) AS id",[b.equipment_id,b.property_definition_id,b.value,b.reason])).rows[0]);
+      return reply.code(201).send(r as {id:string});
+    });
+  app.post("/capabilities/:id/revisions", { preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ expected_revision: Revision, value: Decimal, reason: Reason },strict), response: { 200: NextRevision } } },
+    async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_capability_revise($1,$2,$3::numeric,$4) AS revision",[req.params.id,req.body.expected_revision,req.body.value,req.body.reason])).rows[0]));
+  app.post("/capabilities/:id/capacity", { preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ expected_revision: Revision },strict), response: { 201: Result } } },
+    async (req,reply) => {
+      const r=await persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_capacity_designate($1,$2) AS id",[req.params.id,req.body.expected_revision])).rows[0]);
+      return reply.code(201).send(r as {id:string});
+    });
+  app.post("/equipment/:id/status", { preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ expected_revision: Type.Integer({ minimum: 0, maximum: 2147483646 }), status: Status, reason: Reason },strict), response: { 200: NextRevision } } },
+    async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_status_set($1,$2,$3,$4) AS revision",[req.params.id,req.body.expected_revision,req.body.status,req.body.reason])).rows[0]));
+  app.post("/workstation-assignments", { preHandler: personalSession, schema: { tags, body: Type.Object({ pc_id: Id, equipment_id: Id, reason: Reason },strict), response: { 201: Result } } },
+    async (req,reply) => {
+      const b=req.body;
+      const r=await persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_workstation_open($1,$2,$3) AS id",[b.pc_id,b.equipment_id,b.reason])).rows[0]);
+      return reply.code(201).send(r as {id:string});
+    });
+  app.post("/workstation-assignments/:id/close", { preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ reason: Reason },strict), response: { 200: Result } } },
+    async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_workstation_close($1,$2) AS id",[req.params.id,req.body.reason])).rows[0]));
+
   // Geen actor, scope of rechten uit de HTTP-body. De persoonlijke transactie
   // bindt de identiteit; iedere DB-functie controleert de actuele doelcontext.
   app.get("/", { preHandler: personalSession, schema: { tags, response: { 200: Catalog } } },
