@@ -1761,6 +1761,24 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     const r = await verzoek("POST", "/auth/pc", zonderPc, { pc: "PC-10" });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.operator.naam, "Operator A");
+    const payload = (token: string) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    const original = payload(zonderPc), bound = payload(r.body.token);
+    assert.notEqual(bound.sessionProof, original.sessionProof);
+    const context = async (proof: string) => (await beheerDb.query(
+      "SELECT s.pc_id,p.naam,s.expires_at FROM fabriek.execution_session s LEFT JOIN fabriek.pc p ON p.id=s.pc_id WHERE s.proof_hash=public.digest($1,'sha256')", [proof])).rows[0];
+    const oldContext = await context(original.sessionProof), newContext = await context(bound.sessionProof);
+    assert.equal(oldContext.pc_id, null);
+    assert.equal(newContext.pc_id, bound.pcId);
+    assert.equal(newContext.naam, "PC-10");
+    assert.deepEqual(newContext.expires_at, oldContext.expires_at);
+    const direct = payload(await login("operator.a","PC-01"));
+    assert.equal((await context(direct.sessionProof)).pc_id, direct.pcId);
+    const switched = await verzoek("POST","/auth/pc",r.body.token,{pc:"PC-01"});
+    assert.equal(switched.status,200);
+    const switchedPayload = payload(switched.body.token);
+    assert.equal((await context(switchedPayload.sessionProof)).naam,"PC-01");
+    assert.equal((await context(bound.sessionProof)).naam,"PC-10");
+    assert.deepEqual((await context(switchedPayload.sessionProof)).expires_at,oldContext.expires_at);
     assert.equal((await verzoek("POST", "/batches", r.body.token, { batchnummer: "B-2026-8030" })).status, 201);
     const [p] = (await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'operator.a' AND pc = 'PC-10' AND uitkomst = 'gelukt'")).rows;
     assert.equal(p.n, voorPc.n, "werkstationbinding is geen wachtwoordlogin");

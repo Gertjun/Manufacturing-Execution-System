@@ -904,21 +904,29 @@ BEGIN
 END $$;
 
 -- 0145: uitsluitend persoonlijke technische statusmutatie.
-DO $
+DO $$
 BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=145) THEN
    GRANT EXECUTE ON FUNCTION fabriek.resource_status_set(uuid,integer,text,text) TO mes_app;
  END IF;
-END $;
+END $$;
 
 -- 0147: uitsluitend persoonlijke werkstationkoppelingen.
-DO $
+DO $$
 BEGIN
  IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=147) THEN
    GRANT EXECUTE ON FUNCTION fabriek.resource_workstation_open(uuid,uuid,text),
      fabriek.resource_workstation_close(uuid,text) TO mes_app;
  END IF;
-END $;
+END $$;
+
+-- 0150: persoonlijk werkstationbewijs, nog geen middelstilstandmutaties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=150) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.execution_session_workstation(text,uuid) TO mes_app;
+ END IF;
+END $$;
 
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
