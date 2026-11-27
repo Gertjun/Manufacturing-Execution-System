@@ -2773,3 +2773,70 @@ describe("#113.4c.1 beperkte referentiecatalogus", () => {
     assert.equal((await verzoek("GET",pad,token)).status,403);
   });
 });
+
+
+describe("#115.5 middelstilstand online", () => {
+  test("F4-115-E01–E05: persoonlijke context, replay, scheiding en audit", async () => {
+    const {rows:[person]}=await beheerDb.query("SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam='operator.a'");
+    const {rows:[station]}=await beheerDb.query("INSERT INTO fabriek.pc(naam) VALUES ('F115-API-PC') RETURNING id");
+    const {rows:[step]}=await beheerDb.query("INSERT INTO fabriek.processtap(code,naam,volgorde,niveau) VALUES ('F115-API-STEP','Fictief',(SELECT max(volgorde)+1 FROM fabriek.processtap),'batch') RETURNING id");
+    await beheerDb.query("INSERT INTO fabriek.pc_stap(pc_id,processtap_id) VALUES ($1,$2)",[station.id,step.id]);
+    const {rows:[hierarchy]}=await beheerDb.query("INSERT INTO fabriek.equipment_hierarchy(code,name,level) VALUES ('F115-API-ENT','Fictief','enterprise') RETURNING id");
+    const {rows:equipment}=await beheerDb.query("INSERT INTO fabriek.equipment(code,name,hierarchy_id) SELECT code,'Fictief',$1 FROM unnest(ARRAY['F115-API-A','F115-API-B','F115-API-C']) AS t(code) RETURNING id,code",[hierarchy.id]);
+    const a=equipment.find(x=>x.code==="F115-API-A")!.id;
+    const b=equipment.find(x=>x.code==="F115-API-B")!.id;
+    const c=equipment.find(x=>x.code==="F115-API-C")!.id;
+    for(const id of [a,b]) await beheerDb.query("INSERT INTO fabriek.equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES ($1,$2,$3,'Test')",[station.id,id,person.id]);
+    const op=await login("operator.a","F115-API-PC");
+    const other=await login("operator.b","F115-API-PC");
+    const pl=await login("ploegleider1");
+    const path="/stilstand/middelen";
+    const close=(id:string)=>path+"/"+id+"/einde";
+    const body={id:randomUUID(),stapcode:"F115-API-STEP",equipmentId:a,oorzaak:"STOR-MACH",toelichting:"Fictieve storing"};
+    const second={...body,id:randomUUID(),equipmentId:b};
+    assert.equal((await verzoek("POST",path,undefined,body)).status,401);
+    assert.equal((await verzoek("POST",path,await login("kwaliteit1","F115-API-PC"),body)).status,403);
+    assert.equal((await verzoek("POST",path,await login("operator.a"),body)).status,400);
+    assert.equal((await verzoek("POST",path,await login("operator.a","PC-01"),body)).status,403);
+    assert.equal((await verzoek("POST",path,op,{...body,equipmentId:c})).status,403);
+    assert.equal((await verzoek("POST",path,op,{...body,stapcode:"PS1"})).status,403);
+    assert.equal((await verzoek("POST",path,op,{...body,oorzaak:"ONBEKEND"})).status,422);
+    const legacy={id:randomUUID(),stapcode:body.stapcode,oorzaak:body.oorzaak};
+    assert.equal((await verzoek("POST","/stilstand",op,legacy)).status,201);
+    const baseline=await verzoek("GET","/analyse/stilstand",pl);
+    assert.equal(baseline.status,200);
+    const before=(await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.equipment_status_history")).rows[0].n;
+    const both=await Promise.all([verzoek("POST",path,op,body),verzoek("POST",path,op,body)]);
+    for(const r of both){assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body,{id:body.id});}
+    assert.deepEqual((await verzoek("POST",path,op,second)).body,{id:second.id});
+    assert.equal((await verzoek("POST",path,op,{...body,id:randomUUID()})).status,409);
+    assert.equal((await verzoek("POST",path,other,body)).status,409);
+    assert.equal((await verzoek("POST",path,op,{...body,toelichting:"Anders"})).status,409);
+    assert.equal((await verzoek("POST",path,op,{...body,id:legacy.id})).status,409);
+    assert.equal((await verzoek("POST","/stilstand",op,{...legacy,id:body.id})).status,409);
+    assert.equal((await verzoek("POST","/stilstand/"+body.id+"/einde",op,{})).status,404);
+    assert.equal((await verzoek("POST",close(legacy.id),op,{})).status,404);
+    const list=await verzoek("GET","/stilstand",op);
+    assert.equal(list.status,200);
+    assert.deepEqual(list.body.filter((x:any)=>x.stap===body.stapcode).map((x:any)=>x.id),[legacy.id]);
+    const display=await verzoek("GET","/stilstand",await login("scherm1"));
+    assert.equal(display.status,200);
+    assert.deepEqual(display.body.filter((x:any)=>x.stap===body.stapcode).map((x:any)=>x.id),[legacy.id]);
+    const analysis=await verzoek("GET","/analyse/stilstand",pl);
+    assert.equal(analysis.status,200);
+    assert.equal(analysis.body.per_stap.find((x:any)=>x.stap===body.stapcode).aantal,1);
+    assert.deepEqual(analysis.body.per_oorzaak.map((x:any)=>[x.oorzaak,x.aantal]).sort(),baseline.body.per_oorzaak.map((x:any)=>[x.oorzaak,x.aantal]).sort());
+    assert.ok(!analysis.body.lijst.some((x:any)=>x.id===body.id||x.id===second.id));
+    await beheerDb.query("UPDATE fabriek.equipment_workstation SET closed_by=$1,closed_at=clock_timestamp(),close_reason='Ontkoppeld' WHERE pc_id=$2 AND equipment_id=$3",[person.id,station.id,a]);
+    const end=await Promise.all([verzoek("POST",close(body.id),op,{notitie:"Hersteld"}),verzoek("POST",close(body.id),op,{notitie:"Hersteld"})]);
+    for(const r of end){assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body,{id:body.id});}
+    assert.equal((await verzoek("POST",close(body.id),op,{notitie:"Anders"})).status,409);
+    assert.equal((await verzoek("POST",close(body.id),other,{notitie:"Hersteld"})).status,409);
+    assert.equal((await verzoek("POST",close(second.id),await login("kwaliteit1"),{})).status,403);
+    assert.equal((await verzoek("POST",close(randomUUID()),op,{})).status,404);
+    assert.equal((await verzoek("POST",close(second.id),op,{})).status,200);
+    assert.equal((await verzoek("POST","/stilstand/"+legacy.id+"/einde",op,{})).status,200);
+    const {rows:[evidence]}=await beheerDb.query("SELECT (SELECT count(*)::int FROM fabriek.stilstand WHERE id IN ($1,$2) AND eind_op IS NOT NULL AND equipment_id IS NOT NULL) AS records,(SELECT count(*)::int FROM fabriek.melding WHERE bron_id IN ($1,$2)) AS messages,(SELECT count(*)::int FROM fabriek.config_log WHERE tabel='stilstand' AND record_id IN ($1,$2) AND actor_origin='personal' AND actor_user_id=$3) AS audits,(SELECT count(*)::int FROM fabriek.equipment_status_history) AS statuses",[body.id,second.id,person.id]);
+    assert.deepEqual(evidence,{records:2,messages:2,audits:4,statuses:before});
+  });
+});
