@@ -17,11 +17,11 @@ let db: Db; // de verbinding van de applicatie
 
 type Antwoord = { status: number; body: any };
 
-async function verzoek(methode: string, pad: string, token?: string, body?: unknown): Promise<Antwoord> {
+async function verzoek(methode: string, pad: string, token?: string, body?: unknown, extraHeaders: Record<string,string> = {}): Promise<Antwoord> {
   const r = await app.inject({
     method: methode as never,
     url: pad,
-    headers: token ? { authorization: `Bearer ${token}` } : {},
+    headers: { ...extraHeaders, ...(token ? { authorization: `Bearer ${token}` } : {}) },
     payload: body as never,
   });
   return { status: r.statusCode, body: r.body ? JSON.parse(r.body) : null };
@@ -2801,7 +2801,12 @@ describe("#115.5 middelstilstand online", () => {
     assert.equal((await verzoek("POST",path,op,{...body,equipmentId:c})).status,403);
     assert.equal((await verzoek("POST",path,op,{...body,stapcode:"PS1"})).status,403);
     assert.equal((await verzoek("POST",path,op,{...body,oorzaak:"ONBEKEND"})).status,422);
-    const legacy={id:randomUUID(),stapcode:body.stapcode,oorzaak:body.oorzaak};
+    for(const header of ["x-batchgui-moment","x-batchgui-verzonden"]){
+      const rejected=await verzoek("POST",path,op,body,{[header]:new Date().toISOString()});
+      assert.equal(rejected.status,400,JSON.stringify(rejected.body));
+    }
+    assert.equal((await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.stilstand WHERE id=$1",[body.id])).rows[0].n,0);
+    const legacy={id:randomUUID(),stapcode:body.stapcode,oorzaak:body.oorzaak,begin_op:new Date(Date.now()-60*60_000).toISOString()};
     assert.equal((await verzoek("POST","/stilstand",op,legacy)).status,201);
     const baseline=await verzoek("GET","/analyse/stilstand",pl);
     assert.equal(baseline.status,200);
@@ -2828,6 +2833,11 @@ describe("#115.5 middelstilstand online", () => {
     assert.deepEqual(analysis.body.per_oorzaak.map((x:any)=>[x.oorzaak,x.aantal]).sort(),baseline.body.per_oorzaak.map((x:any)=>[x.oorzaak,x.aantal]).sort());
     assert.ok(!analysis.body.lijst.some((x:any)=>x.id===body.id||x.id===second.id));
     await beheerDb.query("UPDATE fabriek.equipment_workstation SET closed_by=$1,closed_at=clock_timestamp(),close_reason='Ontkoppeld' WHERE pc_id=$2 AND equipment_id=$3",[person.id,station.id,a]);
+    for(const header of ["x-batchgui-moment","x-batchgui-verzonden"]){
+      const rejected=await verzoek("POST",close(body.id),op,{notitie:"Hersteld"},{[header]:new Date().toISOString()});
+      assert.equal(rejected.status,400,JSON.stringify(rejected.body));
+    }
+    assert.equal((await beheerDb.query("SELECT eind_op FROM fabriek.stilstand WHERE id=$1",[body.id])).rows[0].eind_op,null);
     const end=await Promise.all([verzoek("POST",close(body.id),op,{notitie:"Hersteld"}),verzoek("POST",close(body.id),op,{notitie:"Hersteld"})]);
     for(const r of end){assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body,{id:body.id});}
     assert.equal((await verzoek("POST",close(body.id),op,{notitie:"Anders"})).status,409);
@@ -2838,6 +2848,19 @@ describe("#115.5 middelstilstand online", () => {
     assert.equal((await verzoek("POST","/stilstand/"+legacy.id+"/einde",op,{})).status,200);
     const {rows:[evidence]}=await beheerDb.query("SELECT (SELECT count(*)::int FROM fabriek.stilstand WHERE id IN ($1,$2) AND eind_op IS NOT NULL AND equipment_id IS NOT NULL) AS records,(SELECT count(*)::int FROM fabriek.melding WHERE bron_id IN ($1,$2)) AS messages,(SELECT count(*)::int FROM fabriek.config_log WHERE tabel='stilstand' AND record_id IN ($1,$2) AND actor_origin='personal' AND actor_user_id=$3) AS audits,(SELECT count(*)::int FROM fabriek.equipment_status_history) AS statuses",[body.id,second.id,person.id]);
     assert.deepEqual(evidence,{records:2,messages:2,audits:4,statuses:before});
+    // Closed intervals: compare the report with the actual step-only duration.
+    const {rows:[duration]}=await beheerDb.query(
+      "SELECT round((extract(epoch FROM (eind_op-begin_op))/60)::numeric,1)::float AS minutes FROM fabriek.stilstand WHERE id=$1",[legacy.id]);
+    const {rows:[overlap]}=await beheerDb.query(
+      "SELECT count(*)::int AS n FROM fabriek.stilstand m JOIN fabriek.stilstand s ON s.id=$1 WHERE m.id IN ($2,$3) AND m.begin_op<s.eind_op AND m.eind_op>s.begin_op",[legacy.id,body.id,second.id]);
+    assert.equal(overlap.n,2);
+    const closedAnalysis=await verzoek("GET","/analyse/stilstand",pl);
+    assert.equal(closedAnalysis.status,200);
+    const stepTotals=closedAnalysis.body.per_stap.find((x:any)=>x.stap===body.stapcode);
+    assert.equal(stepTotals.aantal,1);
+    assert.equal(stepTotals.storing,duration.minutes);
+    assert.equal(closedAnalysis.body.lijst.find((x:any)=>x.id===legacy.id).minuten,duration.minutes);
+    assert.ok(!closedAnalysis.body.lijst.some((x:any)=>x.id===body.id||x.id===second.id));
   });
 });
 
