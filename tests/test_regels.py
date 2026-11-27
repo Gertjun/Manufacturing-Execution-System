@@ -3481,6 +3481,154 @@ def main():
         check("F4-115-A04 juiste winnaar en historie "+outcome,
               con.execute("SELECT revision,value FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision",(cap,)).fetchall()==[(1,0),(2,11 if outcome=="commit" else 22)])
 
+
+    print("\n#115.2 capaciteit en technische geschiktheid")
+    check("F4-115-B05 geen automatische capaciteitsaanwijzing",val("SELECT count(*) FROM equipment_capacity")==0)
+    for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+        check("F4-115-B03 geen directe "+privilege,
+              not val("SELECT has_table_privilege('mes_app','fabriek.equipment_capacity',%s)",(privilege,)))
+    check("F4-115-B03 interne vergelijking afgesloten",
+          not val("SELECT has_function_privilege('mes_app','fabriek.equipment_suitability(uuid,uuid,uuid,uuid,text,numeric,boolean)','EXECUTE')"))
+    con.execute("BEGIN")
+    try:
+        # Hergebruik de fictieve, reeds gecommitteerde 115.1 eenhedencatalogus.
+        alt_unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-B-ALT','alt','Andere eenheid') RETURNING id",(kind,))
+        missing_prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F115-B-MISSING','Ontbreekt',%s,%s) RETURNING id",(kind,unit))
+        for name in ("manager","scoped","mapper","maintenance"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115b'))",("f115b."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115b."+name,)) for name in ("manager","scoped","mapper","maintenance")}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager'),(%s,'resource_scope_administrator'),(%s,'maintenance_technician')",(actors["manager"],actors["mapper"],actors["maintenance"]))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','F115-B-GRANT')",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        designate="SELECT resource_capacity_designate(%s,%s)"
+        deny115("F4-115-B03 geen persoonlijk bewijs",designate,(cap,2))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115b',NULL)",("f115b."+name,)) for name in actors}
+        bind115("manager")
+        site=val("SELECT resource_hierarchy_create('F115-B-SITE','Site','site',%s)",(ent,))
+        area=val("SELECT resource_hierarchy_create('F115-B-AREA','Area','area',%s)",(site,))
+        e=val("SELECT resource_equipment_create('F115-B-E','Middel',%s)",(area,))
+        outside=val("SELECT resource_equipment_create('F115-B-OUT','Ander',%s)",(site,))
+        cls=val("SELECT resource_class_create('F115-B-CLASS','Klasse')")
+        other_cls=val("SELECT resource_class_create('F115-B-OTHER','Andere klasse')")
+        con.execute("SELECT resource_class_assign(%s,%s)",(e,cls))
+        create="SELECT resource_capability_create(%s,%s,%s::numeric,%s)"
+        revise="SELECT resource_capability_revise(%s,%s,%s::numeric,%s)"
+        bcap=val(create,(e,prop,"9007199254740993.123456789","Exact"))
+        outcap=val(create,(outside,prop,"0","Nul"))
+        deny115("F4-115-B02 nul geen capaciteit",designate,(outcap,1),"23514")
+        con.execute("SELECT resource_capability_revise(%s,1,-1,'Negatief')",(outcap,))
+        deny115("F4-115-B02 negatief geen capaciteit",designate,(outcap,2),"23514")
+        deny115("F4-115-B02 onbekende capability", "SELECT resource_capacity_designate(gen_random_uuid(),1)")
+        bind115("scoped")
+        deny115("F4-115-B03 scope zonder mapping",designate,(bcap,1))
+        bind115("maintenance")
+        deny115("F4-115-B03 maintenance geen catalogusgrant",designate,(bcap,1))
+        bind115("mapper")
+        deny115("F4-115-B03 security geen aanwijzing",designate,(bcap,1))
+        con.execute("SELECT resource_area_scope_create('F115-B-GRANT',%s)",(area,))
+        bind115("scoped")
+        deny115("F4-115-B03 buiten gebied",designate,(outcap,2))
+        deny115("F4-115-B03 verouderde revisie",designate,(bcap,0),"40001")
+        con.execute("RESET ROLE")
+        compare="SELECT equipment_suitability(%s,%s,%s,%s,%s,%s::numeric,%s)"
+        def suitability(equipment,klass,property_id,unit_id,operator,limit,capacity=False):
+            return val(compare,(equipment,klass,property_id,unit_id,operator,limit,capacity))
+        check("F4-115-B04 ontbrekende aanwijzing onbekend",suitability(e,cls,prop,unit,"minimum","1",True)["property"]["reason"]=="missing_capacity_designation")
+        con.execute("SET LOCAL ROLE mes_app")
+        designation=val(designate,(bcap,1))
+        deny115("F4-115-B02 dubbele aanwijzing",designate,(bcap,1),"23505")
+        for bad in ("0","-1","NaN","Infinity","-Infinity"):
+            deny115("F4-115-B02 ongeldige capaciteitsrevisie "+bad,revise,(bcap,1,bad,"Fout"),"23514")
+        deny115("F4-115-B03 directe aanwijzing","INSERT INTO fabriek.equipment_capacity(capability_id) VALUES (%s)",(outcap,))
+        check("F4-115-B01 volgende positieve revisie",val(revise,(bcap,1,"9007199254740993.123456790","Nieuw"))==2)
+        con.execute("RESET ROLE")
+        result=suitability(e,cls,prop,unit,"minimum","9007199254740993.123456790",True)
+        check("F4-115-B01 actuele exacte capaciteit en revisie",result["status"]=="suitable" and result["property"]["actual_value"]=="9007199254740993.123456790" and result["property"]["revision_id"]==str(val("SELECT id FROM equipment_capability_revision WHERE capability_id=%s AND revision=2",(bcap,))))
+        for op,limit,status in (("minimum","9007199254740993.123456791","unsuitable"),("maximum","9007199254740993.123456790","suitable"),("maximum","9007199254740993.123456789","unsuitable"),("equal","9007199254740993.123456790","suitable"),("equal","9007199254740993.123456789","unsuitable")):
+            check("F4-115-B04 exacte grens "+op+" "+status,suitability(e,cls,prop,unit,op,limit)["status"]==status)
+        check("F4-115-B04 alleen klasse",val("SELECT equipment_suitability(%s,%s)",(e,cls))["status"]=="suitable")
+        check("F4-115-B04 ontbrekende capability",suitability(e,cls,missing_prop,unit,"minimum","1")["status"]=="unknown")
+        check("F4-115-B04 andere eenheid zelfde grootheid",suitability(e,cls,prop,alt_unit,"minimum","1")["property"]["reason"]=="unit_mismatch")
+        check("F4-115-B04 negatieve klasse prevaleert",suitability(e,other_cls,missing_prop,unit,"minimum","1")["status"]=="unsuitable")
+        check("F4-115-B04 onbekend middel",val("SELECT equipment_suitability(gen_random_uuid(),%s)",(cls,))["status"]=="unknown")
+        for op,limit,capacity in (("bad","1",False),("minimum","NaN",False),("maximum","1",True),("minimum","0",True)):
+            deny115("F4-115-B04 ongeldig criterium "+op+" "+limit,compare,(e,cls,prop,unit,op,limit,capacity),"22023")
+        check("F4-115-B03 persoonlijke aanwijzingsaudit",val("SELECT count(*) FROM config_log WHERE tabel='equipment_capacity' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(designation,actors["scoped"]))==1)
+        deny115("F4-115-B02 aanwijzing onveranderlijk","DELETE FROM equipment_capacity WHERE id=%s",(designation,),"55000")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("scoped")
+        deny115("F4-115-B03 ingetrokken scope",designate,(bcap,2))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    # Beide volgordes van de race, inclusief rollback van de eerste schrijver.
+    for designation_first in (True,False):
+        for outcome in ("commit","rollback"):
+            label=("aanwijzing-eerst" if designation_first else "revisie-eerst")+" "+outcome
+            equipment=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-B-RACE-"+label,ent))
+            race_cap=val("INSERT INTO equipment_capability(equipment_id,property_definition_id) VALUES (%s,%s) RETURNING id",(equipment,prop))
+            con.execute(insert_sql,(race_cap,1,10,actor))
+            designate_sql="INSERT INTO fabriek.equipment_capacity(capability_id) VALUES (%s)"
+            d=(designate_sql,(race_cap,))
+            v=(insert_sql,(race_cap,2,-1,actor))
+            first_cmd,second_cmd=(d,v) if designation_first else (v,d)
+            with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+                first.execute("SET LOCAL statement_timeout='20s'")
+                second.execute("SET LOCAL statement_timeout='20s'")
+                first.execute(*first_cmd)
+                def contender_b():
+                    try:
+                        second.execute(*second_cmd)
+                        second.commit()
+                        return "committed"
+                    except psycopg.Error as error:
+                        second.rollback()
+                        return error.sqlstate
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(contender_b)
+                    blocked=False
+                    try:
+                        deadline=time.monotonic()+10
+                        while time.monotonic()<deadline and not future.done():
+                            if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                                blocked=True
+                                break
+                            time.sleep(0.02)
+                        check("F4-115-B02 tweede schrijver wacht "+label,blocked)
+                    finally:
+                        if outcome=="commit":
+                            first.commit()
+                        else:
+                            first.rollback()
+                    result=future.result(timeout=25)
+                check("F4-115-B02 race-uitkomst "+label,result==("23514" if outcome=="commit" else "committed"),str(result))
+            expected_designation=designation_first==(outcome=="commit")
+            check("F4-115-B02 consistente eindtoestand "+label,
+                  val("SELECT EXISTS(SELECT 1 FROM equipment_capacity WHERE capability_id=%s)",(race_cap,))==expected_designation and
+                  val("SELECT value FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision DESC LIMIT 1",(race_cap,))==(10 if expected_designation else -1))
+    with psycopg.connect(DSN) as isolation:
+        isolation.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        try:
+            isolation.execute("INSERT INTO fabriek.equipment_capacity(capability_id) VALUES (%s)",(race_cap,))
+        except psycopg.Error as error:
+            check("F4-115-B02 hogere isolatie aanwijzing geweigerd",error.sqlstate=="25001",str(error))
+        else:
+            check("F4-115-B02 hogere isolatie aanwijzing geweigerd",False)
+        finally:
+            isolation.rollback()
+        isolation.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        try:
+            isolation.execute(insert_sql,(race_cap,3,1,actor))
+        except psycopg.Error as error:
+            check("F4-115-B02 hogere isolatie revisie geweigerd",error.sqlstate=="25001",str(error))
+        else:
+            check("F4-115-B02 hogere isolatie revisie geweigerd",False)
+        finally:
+            isolation.rollback()
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
