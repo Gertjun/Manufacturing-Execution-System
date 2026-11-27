@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       versies:
-        description: "Welke versies (bijv. 0.23.0 of 0.21.1 0.22.0); leeg = alle releases zonder pakket"
+        description: "Welke ontbrekende pakketten (bijv. 0.23.0); leeg = alle ondersteunde releases zonder pakket"
         required: false
         default: ""
 
@@ -18,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: laptoppakket
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -27,32 +27,17 @@ jobs:
     outputs:
       versies: ${{ steps.lijst.outputs.versies }}
     steps:
+      - name: Selectiebeleid ophalen
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Releases zonder laptoppakket zoeken
         id: lijst
         env:
           GH_TOKEN: ${{ github.token }}
           GEVRAAGD: ${{ inputs.versies }}
         run: |
-          # Vanaf 0.7.0 bestaat het Windows-pakket. 0.14.0 en 0.15.0 niet gebruiken (pakkettest faalde).
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
-            --jq '.[] | select(.draft | not) | [.tag_name, ([.assets[].name] | map(select(test("^batch-gui-laptop-.*-windows\\.zip$"))) | length)] | @tsv' \
-            > /tmp/releases.tsv
-          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import json, os
-          gevraagd = os.environ.get("GEVRAAGD", "").split()
-          overslaan = {"0.14.0", "0.15.0"}
-          lijst = []
-          for regel in open("/tmp/releases.tsv"):
-              tag, pakketten = regel.split()
-              v = tag.removeprefix("v")
-              deel = tuple(int(x) for x in v.split("."))
-              if gevraagd:
-                  if v in gevraagd: lijst.append(v)
-              elif int(pakketten) == 0 and deel >= (0, 7, 0) and v not in overslaan:
-                  lijst.append(v)
-          print("versies=" + json.dumps(sorted(lijst, key=lambda v: tuple(map(int, v.split("."))))))
-          EOF
-          cat "$GITHUB_OUTPUT"
+          test "$GITHUB_REF" = refs/heads/main
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp > /tmp/releases.json
+          node tools/selecteer_laptoppakketten.mjs /tmp/releases.json >> "$GITHUB_OUTPUT"
 
   bouwen:
     needs: lijst
@@ -64,24 +49,44 @@ jobs:
       matrix:
         versie: ${{ fromJSON(needs.lijst.outputs.versies) }}
     steps:
+      - name: Controleer dat pakket nog ontbreekt
+        id: ontbreekt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSIE: ${{ matrix.versie }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$VERSIE" > /tmp/release.json
+          jq -e '.draft == false and .prerelease == false and (.assets | type == "array")' /tmp/release.json >/dev/null
+          aantal="$(jq '[.assets[].name | select(startswith("batch-gui-laptop-") and endswith("-windows.zip"))] | length' /tmp/release.json)"
+          if [ "$aantal" = 0 ]; then
+            echo "bouwen=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bouwen=false" >> "$GITHUB_OUTPUT"
+            echo "Pakket bestaat al; geen build of upload."
+          fi
       - name: Code van versie ${{ matrix.versie }} ophalen
+        if: steps.ontbreekt.outputs.bouwen == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: v${{ matrix.versie }}
       - name: Node.js instellen
+        if: steps.ontbreekt.outputs.bouwen == 'true'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
       - name: Afhankelijkheden installeren
+        if: steps.ontbreekt.outputs.bouwen == 'true'
         run: |
           for m in api invoer portaal; do (cd $m && npm ci --no-audit --no-fund); done
       - name: Laptoppakket bouwen
+        if: steps.ontbreekt.outputs.bouwen == 'true'
         run: |
           tools/maak_laptoppakket.sh "$RUNNER_TEMP/batch-gui-laptop" windows
           ls -la "$RUNNER_TEMP"/batch-gui-laptop-*-windows.zip
       - name: Als bijlage aan de release hangen
+        if: steps.ontbreekt.outputs.bouwen == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "v${{ matrix.versie }}" "$RUNNER_TEMP"/batch-gui-laptop-${{ matrix.versie }}-windows.zip \
-            --clobber --repo "$GITHUB_REPOSITORY"
+            --repo "$GITHUB_REPOSITORY"

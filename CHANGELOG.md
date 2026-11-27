@@ -7,6 +7,16 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie volgt.
+
+- #146 (CI-E): handmatige Windows-backfill selecteert uitsluitend ontbrekende ondersteunde officiële pakketten; hercontrole vóór build, geen overschrijven, gedeelde releaseconcurrency. Geen nieuwe publicatie. Verificatie volgt.
+
+- #146 (CI-D): optionele gerichte schermbundel formaten/productie/meldingen op één Node26-runner, één installatie/build, per selectie eigen verse fictieve fixture via bestaande testscript; stop bij fout. Integrale suite ongewijzigd. Meting en verificatie volgen.
+
+- #146 (CI-C): documentatiebewijs bij identieke merge-tree; schemabewijs alleen op exacte head/base en werkelijk uitgevoerde geslaagde stap. Integrale schemaacceptatie blijft verplicht; wijziging DATABASE.md activeert ook de schemacontrole. Verificatie volgt.
+
+- #146 (CI-A/B/F): PR-status en gerichte testherhaling krijgen conservatieve head/base/modus-bewijscontrole; bewuste herhaling blijft mogelijk, integrale acceptatie en reviewshots altijd uitvoeren; labelconcurrency geïsoleerd. Verificatie volgt.
+
 ## 0.64.0 (27 nov 2026)
 
 - Gecombineerde releasekandidaat fase 2/3 (deelrealisatie #103, #104, #105, #109–113, #138–141; open roadmapwerk blijft open): Master Data & Recipe Management, versiegebonden eenheden/schaalregels, MOC en vrijgave, uniforme portalstructuur en huisstijl. Functioneel geaccepteerd binnen fictieve PoC-scope op bron 33b7a91; 14 verbeterpunten en beperkingen aanvaard. D116 legt toekomstige gebruikershandleidingen vast. Geen productie- of pilotvrijgave. Publicatie uitsluitend na afzonderlijke toestemming.
