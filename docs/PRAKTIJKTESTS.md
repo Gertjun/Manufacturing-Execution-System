@@ -122,6 +122,9 @@ Noteer per controle ID, uitvoerder, datum, Windows-versie, browser, pakketcommit
 | W09 | C | Planning: fictieve dagplanning, lotvoorstellen en capaciteit; Manufacturing Operations: werkvoorraad, doorlooptijden en analyse; Beheer en display met eigen toegestane accounts. |
 | W10 | B/C | Alle relevante portalen: B+ hoofdbalk, tegels, kaarten, formulieren, tabellen, dialogen, fout/lege toestanden, grafieken, contrast, toetsenbord en zichtbare focus; status niet alleen kleur. Volg volledige D64/D111-schaling hierboven inclusief 200% browserzoom en werkelijk beschikbare fysieke resoluties. |
 | W11 | B/C | Afdrukvoorbeeld en werkelijke PDF/afdruk van certificaat, lotpaspoort en relevante formulieren; leesbaarheid, paginering, geen afsnijding. Exports in beschikbaar Excel openen en inhoud controleren; ontbrekende software of printer noteren. |
-| W12 | C | Maak tijdens normaal gebruik een fictieve melding aan; controleer normale 60s achtergrondverversing zonder handmatig herladen of kunstmatige klok. |
+| W12 | C | Maak tijdens normaal gebruik met mes.operator in een afzonderlijke browsersessie een fictieve afwijkende meting buiten de grens aan; ontvang als mes.quality.approver met Meldingen-menu. Controleer normale 60s achtergrondverversing zonder handmatig herladen of kunstmatige klok; teller, toast, Gelezen en behoud onder Alle. mes.quality (technician) is geen geschikte ontvanger voor deze test. |
 
 L/A/V/T/S/F1 blijven gelden waar toepasselijk volgens bestaande scope; ontbrekende fysieke apparatuur of organisatievoorwaarden expliciet niet uitgevoerd, met reden en beoordeling door opdrachtgever. Geen vrijgave bij onbeoordeelde afwijkingen. Werkpakket 140.4 uitsluitend na expliciete praktijkacceptatie en afzonderlijke releasetoestemming.
+
+
+Uitkomsten W01–W12 op 27 november 2026: [acceptatiebewijs 140.3](mes/ACCEPTANCE-CRITERIA.md). Beperkingen en oorspronkelijke mislukte W12-test behouden; geen formeel akkoord.
