@@ -121,6 +121,7 @@ export const magMateriaalstamdata = () => heeftRecht("material.definition.manage
 export const magReceptconcept = () => heeftProductRecht("recipe.draft.manage");
 export const magReceptbeoordeling = () => heeftProductRecht("recipe.draft.manage",...RECEPT_REVIEW_RECHTEN);
 
+export const magScopemapping = () => !!rechten()?.personal && heeftRecht("resource.scope.manage");
 export const magMiddelenbeheer = () => !!rechten()?.personal && (rechten()?.resourceCatalog === true || heeftRecht("resource.catalog.manage"));
 export const PORTALEN: Portaal[] = [
   { id: "maintenance", naam: "Maintenance", klaar: true, onderdelen: [
@@ -166,6 +167,7 @@ export const PORTALEN: Portaal[] = [
   { id: "beheer", naam: "Beheer", klaar: true, onderdelen: [
     { pad: "stappen", naam: "Stappen en velden", toegestaan: () => lees() && heeftRecht("process.parameter.manage") },
     { pad: "accounts", naam: "Accounts", toegestaan: () => heeftRecht("account.read") },
+    { pad: "scopemapping", naam: "Scopemapping middelen", toegestaan: magScopemapping },
     { pad: "operators", naam: "Personeel", toegestaan: () => heeftRecht("personnel.read") },
     { pad: "grondstoffen", naam: "Grondstoffen", toegestaan: () => heeftRecht("material.definition.manage") },
     { pad: "ploegen", naam: "Diensten en ploegen", toegestaan: () => heeftRecht("shift.manage") },

@@ -10,6 +10,7 @@ import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import * as engineering from "./engineering/schermen";
 import { middelen } from "./maintenance/middelen";
+import { scopemapping } from "./beheer/scopemapping";
 import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
 import { volgStappenlijsten } from "./stappenkeuze";
@@ -314,6 +315,7 @@ async function route() {
       case "stappen": return beheer.stappen(a);
       // Accounts en Operators zijn samen Medewerkers (#87); oude bladwijzers komen daar uit.
       case "accounts": return beheer.accounts();
+      case "scopemapping": if (actueel()) return scopemapping(); return;
       case "operators": return beheer.personeel();
       case "grondstoffen": return beheer.grondstoffen();
       case "ploegen": return beheer.ploegen();
