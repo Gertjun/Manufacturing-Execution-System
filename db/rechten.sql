@@ -836,6 +836,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0133: persoonlijke catalogusfuncties, interne actorhelper blijft afgesloten.
+DO $
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=133) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_class_create(text,text),
+     fabriek.resource_class_rename(uuid,integer,text) TO mes_app;
+ END IF;
+END $;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

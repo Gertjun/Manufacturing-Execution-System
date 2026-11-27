@@ -312,7 +312,7 @@ def main():
     check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
     check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))
 
-    check("Dertien MES-rollen gedefinieerd", val("SELECT count(*) FROM authorization_role") == 13)
+    check("Veertien MES-rollen inclusief middelenbeheer", val("SELECT count(*) FROM authorization_role") == 14 and val("SELECT domain FROM authorization_role WHERE code='resource_catalog_manager'")=="maintenance")
     check("Twee persoonlijke security-identiteiten", val("SELECT count(DISTINCT g.user_id) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE g.role_code='security_administrator' AND u.actief AND NOT u.gedeeld AND NOT u.wachtwoord_wijzigen") == 2)
     check("Security-identiteit heeft geen legacy beheerdersrol", val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam IN ('mes.security.a','mes.security.b') AND rol='beheerder'") == 0)
     check("Supervisor met twee afzonderlijke grants", val("SELECT count(*) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE u.gebruikersnaam='mes.supervisor'") == 2)
@@ -3135,6 +3135,51 @@ def main():
               val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==1)
         check("F4-114-A09 juiste winnaar "+outcome,
               val("SELECT equipment_id FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==(e1 if outcome=="commit" else e2))
+
+    print("\n#114.5a persoonlijk equipmentklassebeheer")
+    check("F4-114-A07 geen automatische middelenbeheergrants",
+          val("SELECT count(*) FROM authorization_grant WHERE role_code='resource_catalog_manager'")==0)
+    check("F4-114-A07 interne actorhelper afgeschermd",
+          not val("SELECT has_function_privilege('mes_app','fabriek.resource_catalog_actor()','EXECUTE')"))
+    con.execute("BEGIN")
+    try:
+        for name in ("manager","scoped","maintenance","engineer"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('test-f4-catalog'))",("f4.catalog."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f4.catalog."+name,)) for name in ("manager","scoped","maintenance","engineer")}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager')",(actors["manager"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','LEGACY-AREA')",(actors["scoped"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'maintenance_technician'),(%s,'process_engineer')",(actors["maintenance"],actors["engineer"]))
+        def resource_denied(label,sql,params=(),state="42501"):
+            con.execute("SAVEPOINT resource_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT resource_guard")
+                con.execute("RELEASE SAVEPOINT resource_guard")
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        resource_denied("F4-114-A07 zonder persoonlijk bewijs","SELECT resource_class_create('F4-DENIED','Fictief')")
+        for name in ("scoped","maintenance","engineer","manager"):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-f4-catalog',NULL)",("f4.catalog."+name,))
+            con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors[name]))
+            if name!="manager":
+                resource_denied("F4-114-A07 geweigerd "+name,"SELECT resource_class_create('F4-DENIED','Fictief')")
+        cls=val("SELECT resource_class_create('F4-PERSONAL','Fictieve klasse')")
+        check("F4-114-A03 eerste persoonlijke wijziging",val("SELECT resource_class_rename(%s,0,'Nieuwe naam')",(cls,))==1)
+        resource_denied("F4-114-A09 verouderde change_no","SELECT resource_class_rename(%s,0,'Verouderd')",(cls,),"40001")
+        resource_denied("F4-114-A07 directe tabelmutatie","UPDATE fabriek.equipment_class SET name='Onbevoegd' WHERE id=%s",(cls,))
+        con.execute("RESET ROLE")
+        check("F4-114-A08 persoonlijk auditbewijs",
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class' AND record_id=%s
+                     AND actor_user_id=%s AND actor_origin='personal' AND gewijzigd_door='f4.catalog.manager'""",(cls,actors["manager"]))==2 and
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class' AND record_id=%s
+                     AND actie='UPDATE' AND oud->>'name'='Fictieve klasse' AND nieuw->>'name'='Nieuwe naam'""",(cls,))==1)
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["manager"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        resource_denied("F4-114-A07 ingetrokken middelenbeheerrecht","SELECT resource_class_rename(%s,1,'Ingetrokken')",(cls,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

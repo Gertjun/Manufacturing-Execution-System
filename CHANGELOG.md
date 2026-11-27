@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #114.5a: afzonderlijke middelenbeheerrol, globale persoonlijke klassemutaties, wijzigingsteller en bestaand persoonlijk auditlog; geen automatische grants. 0132 baseline run 791 groen; concurrentieregressie en 0133 runtimeverificatie volgen gebundeld.
+
 - #114.4: fysieke assets en historische toewijzingen 0132; halfopen tijdsintervallen, GiST-exclusie per asset, eenmalige afsluiting en afgeschermde toegang. 114.3 baseline run 789 groen op aac6447. 0132 runtime, gelijktijdige transacties en ingebouwde PostgreSQL met btree_gist nog te verifiëren; geen automatische mapping.
 
 - #114.3: intern equipmentcatalogusfundament 0131 met functionele middelen, klassen en N:M-koppelingen; permanente identiteiten, beschermde locatie en koppelingen, geen directe apprechten of receptmapping. 114.2 PostgreSQL-baseline run 787 groen op 147b9db. 0131 runtimeverificatie open; DATABASE.md blijft momentopname 0129.
