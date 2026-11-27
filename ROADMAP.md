@@ -137,6 +137,8 @@ Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 
 
 ## Fase 6 — Control Recipes en productie-uitvoering
 
+- **DOC6 — Gebruikershandleidingen en documentatiepoort (D116, gepland)** — Na functionele stabilisatie en praktische validatie van fase 6: Process Engineer, Engineering Approver, Maintenance Technician en Production Planner. Volledig engineer-stappenplan van nieuw product tot vrijgegeven MBR: receptstructuur, productiestappen, parameters/grenzen, schaalregels, eenheidsconversies, middelenvereisten, lotvorming, MOC en revisiebeheer. Wacht op gevalideerde middelen- en uitvoeringsfuncties uit fasen 4 en 6. Praktijkvalidatie per rol. Zie D116 en acceptatiecriteria; onderdeel van faseafronding, geen wijziging ontwikkelvolgorde.
+
 - #120 **Control Recipes, revisies, batchstart en geautoriseerde wijzigingen** — Zie ontwerpdocumenten en acceptatiecriteria. D98: systeem geeft batchidentiteit uit vanuit vrijgegeven werk; sluit legacy ongeplande creatieroute bij omschakeling.
 - #142 **Gecontroleerde receptberekeningen en eenheidsconversie (D106)** — Afhankelijk van #141 en fase 4 voor equipmentcontext. Bij afleiding/revisie van Control Recipe: dimensioneel geldige conversies, vaste/lineaire en goedgekeurde niet-lineaire schaalrelaties, afhankelijke parameters en beschikbare equipmentgegevens. Contextafhankelijke omzetting (massa/volume, hoeveelheid stof) alleen met toepasselijke, versiegebonden eigenschappen en condities. Detecteer cycli, ontbrekende gegevens, buitenbereik, ongeldige dimensies, ongedefinieerde uitkomsten en afrondingsconflicten; geen impliciete fallback. Leg originele waarden, regels/versies, inputs, eenheden, factoren/offset, afronding, equipmentcontext en resultaten reproduceerbaar vast; gecontroleerde wijzigingen, geen retroactieve herberekening. Geen generieke scriptuitvoering of procesbesturing.
 - #121 **Procedure-uitvoering, instructies, kwalificaties, middelen en ISA-88-statussen** — Zie ontwerpdocumenten en acceptatiecriteria.
@@ -159,14 +161,18 @@ Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 
 
 ## Fase 9 — Materiaalgenealogie en traceerbaarheid
 
+- **DOC9 — Gebruikershandleidingen en documentatiepoort (D116, gepland)** — Na functionele stabilisatie en praktische validatie van fase 9: Operator, Shift Supervisor, Quality Technician en Quality Approver; elektronische batchdossiers, materiaalgenealogie en traceerbaarheid. Eerdere handleidingen uitsluitend functioneel noodzakelijke aanvullingen. Praktijkvalidatie per rol. Zie D116 en acceptatiecriteria; onderdeel van faseafronding, geen wijziging ontwikkelvolgorde.
+
 - #126 **Materiaalpartijen, status, verbruik, transformaties en genealogie** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #127 **Impactanalyse, visualisatie en basis massabalans** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #143 **Automatische operationele massabalans en rendement (D106)** — Bouw voort op #126/#127, #142 en de feitelijke uitvoeringsrecords. Per batch, lot en processtap/transformatie: theoretische versus werkelijke input/output en verbruik, voorraadverandering/hold-up, afval, bijproducten, bekende verliezen, onverklaard verschil en rendement. Expliciete systeemgrens, tijdsperiode, grondslag, eenheden, volledigheid en toleranties; geen dubbel tellen van interne transfers of gemengde batches. Onbekend/niet gemeten blijft onbekend; afwijkingen zichtbaar en door bevoegden beoordeeld. Geen nieuwe dubbele bron van feitelijk verbruik.
 
 ## Fase 10 — Pilotvoorbereiding en integrale validatie
 
+- **DOC10 — Gebruikershandleidingen en documentatiepoort (D116, gepland)** — Na functionele stabilisatie en praktische validatie van fase 10: Integrale validatie bestaande handleidingen; basishandleiding Manufacturing Manager, System Administrator, Security Administrator, Display Account; IT-installatie, onderhoud, back-up en herstel; training per rol, snelstartkaarten, pilotdraaiboek inclusief terugvalprocedure, definitieve publicatie van pilotgevalideerde documentatie. Verplicht vóór daadwerkelijke pilot; koppeling #134/#128/#74/#129/#10. Zie D116 en acceptatiecriteria; onderdeel van faseafronding, geen wijziging ontwikkelvolgorde.
+
 - #92 **Wandscherm instellen in Beheer** (klein) — Per wandschermaccount in Beheer kiezen wat het toont (hal, stappen of Kwaliteit); de tv toont na het inloggen wat daar staat en hoeft er niemand meer heen (D74; uitgesteld volgens D99).
-- #134 **Herinrichting rolhulp, pilotfeedback en pilotrapportage** — D99: actualiseren na stabiele kernschermen; uitgebreide wandschermen herbeoordelen op betrouwbare middelen- en statusgegevens.
+- #134 **Herinrichting rolhulp, pilotfeedback en pilotrapportage** — D99/D116: actualiseren via DOC6/DOC9/DOC10/DOC12; DOC10 integreert rolhulp en pilotdocumentatie, geen dubbel werkpakket. Uitgebreide wandschermen herbeoordelen op betrouwbare middelen- en statusgegevens.
 
 - #128 **Echte MBR's, middelen, rollen, kwalificaties en organisatorische acceptatie** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #129 **Management-portaal basisrapportage; pilotpoort, schaduwpilot en terugvalprocedure** — Zie ontwerpdocumenten en acceptatiecriteria.
@@ -174,7 +180,7 @@ Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 
 - #2 **Echte velden per stap** (middel, *Geert*) — De velden en grenzen kunnen nu per product (D55), ook via het sjabloon (blad "Grenzen per product"). Per processtap de echte invoervelden aanleveren, het liefst in het sjabloon uit Beheer → Stappen en velden: veld, soort, eenheid, verplicht, tolerantie, grenzen, decimalen, op het certificaat. Ook de echte ploegtijden, oorzaken van stilstand, grondstoffen, producten met hun route (welke stappen, in welke volgorde; D55), operators en pc's. Daarna samen inrichten via het sjabloon en controleren in een lege fabriek.
 - #10 **Fabrieksserver installeren met IT** (middel, *Geert*, *IT*, D26) — Geert bespreekt het advies met IT en beantwoordt de vier vragen onder "Nog te besluiten" in het advies. IT richt de server in volgens `docs/SERVER.md`; eerste keer samen op een testmachine, met back-up, hersteltest en een pc die offline gaat.
 - #33 **Praktijktests** (middel) — Nog nooit echt getest: handscanner, etiketprinter, tv als wandscherm, invoerscherm offline op een fabrieks-pc via https, tablet via het netwerk, twee pc's op dezelfde stap, nachtploeg rond de klokwissel. Op Windows nog niet: versies 0.8–0.23 op de laptop, Ctrl+C en venster sluiten, back-up terugzetten, serverpakket en draaiboek op een echte Windows Server. Hoe en wanneer goed: [`docs/PRAKTIJKTESTS.md`](docs/PRAKTIJKTESTS.md) (0.38.0). Per test vastleggen wie, wanneer en de uitkomst, in het invulblad dat daar genoemd staat.
-- #74 **Training** (klein, *Geert*) — Een trainingsmoment per rol vóór de pilot, met de laptop of de server en fictieve data. De hulp per rol staat in de schermen en is als A4 af te drukken (0.38.0, #36, D59). Afspreken wat de ploeg doet als een pc bij het begin van een dienst offline is (praktijktest V3).
+- #74 **Training** (klein, *Geert*) — D116/DOC10: training en gevalideerde rolhandleidingen verplicht vóór de pilot. Een trainingsmoment per rol vóór de pilot, met de laptop of de server en fictieve data. De hulp per rol staat in de schermen en is als A4 af te drukken (0.38.0, #36, D59). Afspreken wat de ploeg doet als een pc bij het begin van een dienst offline is (praktijktest V3).
 - #79 **Ondernemingsraad en privacy** (klein, *Geert*) — Het systeem legt per persoon vast wie wat invoert (nodig om terug te zoeken). Vóór de pilot met de ondernemingsraad bespreken wat er wordt vastgelegd, wie het mag zien en hoe lang het bewaard blijft; raakt ook #8 en #63 (D12).
 - #3 **Pilot met echte data** (groot) — Versie 1.0.0 in één hal: de eerste twee weken met de papieren registratie ernaast, dan alleen het systeem.
 
@@ -196,6 +202,8 @@ Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 
 - #84 **Specificatie per klant** (middel) — Naast de specificatie per product (#80, D73) een afwijkende specificatie voor een klant, en een lot toetsen aan de specificatie van de klant voor wie het is. Geert: later.
 
 ## Fase 12 — Integraties en uitrol
+
+- **DOC12 — Gebruikershandleidingen en documentatiepoort (D116, gepland)** — Na functionele stabilisatie en praktische validatie van fase 12: Uitbreiding Manufacturing Manager en Process Engineer (analyse), handleiding Analyst, IT-integraties en Integration Account, uitroldraaiboek overige hallen, gerichte actualisatie bestaande handleidingen. Fase 11: OEE, SPC, Cpk, massabalansen, rendementsanalyse, RCA en CAPA; noodzakelijke instructies vóór eventuele eerdere ingebruikname. Zie D116 en acceptatiecriteria; onderdeel van faseafronding, geen wijziging ontwikkelvolgorde.
 
 - #132 **ISA-95 interfaces, meetapparatuur, LIMS, DCS/SCADA en onderhoudssysteem** — Zie ontwerpdocumenten en acceptatiecriteria.
 - #133 **Gefaseerde uitrol overige hallen** — Zie ontwerpdocumenten en acceptatiecriteria.
