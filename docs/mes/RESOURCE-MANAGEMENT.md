@@ -64,3 +64,9 @@ Migratie 0130 nog niet geschreven; schema blijft 0129. Voor elke volgende DDL ex
 ## 114.5a — persoonlijke catalogusautorisatie
 
 0133: aparte rol resource_catalog_manager (maintenance-domein), permission resource.catalog.manage, geen automatische grants of uitbreiding van bestaande rollen. Voorlopig uitsluitend globale grants; begrensde area/product/equipment-grants matchen niet op NULL-context. Expliciete scopemapping volgt. Eerste slice: persoonlijk equipmentklasse aanmaken en naamcorrectie met verwachte change_no en rijlock, via bestaande actor en authorization_permits; audit via log_config. Alleen twee appfuncties via ACL, interne helper afgesloten. Geen API/portaal of andere catalogusmutaties geopend. Regressies voor ontbrekend bewijs, bestaande rollen, begrensde grant, intrekking, wijzigingsteller en audit. F4-114-A09 uit ad719b4 gebundeld. Runtime en rolregisterintegratie nog open.
+
+Verificatie: baseline run 795 op ee7cc9a groen, 1308/1308 databaseregels, inclusief F4-114-A09 commit/rollback en persoonlijk klassebeheer. Run 793 faalde door enkel dollarteken in rechten.sql; gecorrigeerd in ee7cc9a. Geen Windows-acceptatie uitgevoerd.
+
+## 114.5b — persoonlijke objectmutaties
+
+0134: aanmaken en naamcorrectie van hiërarchieknooppunten, functionele middelen en fysieke assets via zes expliciete functies, dezelfde globale catalogusautorisatie, change_no en rijlock per object, log_config met persoonlijke actor. Geen impliciete scope, geen verplaatsing, geen wijziging identiteit, geen directe tabelrechten of nieuwe gebruikerstoekenning. Regressies voor ongeldige ouder/locatie, unieke identiteit, verouderde teller, audit en weigering van bestaande/begrensde rollen. Runtimeverificatie open; koppelingen volgen 114.5c.

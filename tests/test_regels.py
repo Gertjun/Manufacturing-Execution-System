@@ -3168,6 +3168,44 @@ def main():
         check("F4-114-A03 eerste persoonlijke wijziging",val("SELECT resource_class_rename(%s,0,'Nieuwe naam')",(cls,))==1)
         resource_denied("F4-114-A09 verouderde change_no","SELECT resource_class_rename(%s,0,'Verouderd')",(cls,),"40001")
         resource_denied("F4-114-A07 directe tabelmutatie","UPDATE fabriek.equipment_class SET name='Onbevoegd' WHERE id=%s",(cls,))
+        # 114.5b: dezelfde persoonlijke autorisatie voor alle drie objecttypen.
+        h=val("SELECT resource_hierarchy_create('F4-PERS-ENT','Enterprise','enterprise',NULL)")
+        site=val("SELECT resource_hierarchy_create('F4-PERS-SITE','Site','site',%s)",(h,))
+        e=val("SELECT resource_equipment_create('F4-PERS-E','Middel',%s)",(site,))
+        a=val("SELECT resource_asset_create('F4-PERS-A','Asset')")
+        resource_denied("F4-114-A02 ongeldige ouder","SELECT resource_hierarchy_create('F4-PERS-BAD','Fictief','unit',%s)",(h,),"23503")
+        resource_denied("F4-114-A03 dubbele assetcode","SELECT resource_asset_create('F4-PERS-A','Dubbel')",state="23505")
+        resource_denied("F4-114-A03 onbekende locatie","SELECT resource_equipment_create('F4-PERS-BAD','Fictief',gen_random_uuid())",state="23503")
+        for table,prefix,obj in (("equipment_hierarchy","hierarchy",site),("equipment","equipment",e),("physical_asset","asset",a)):
+            rename="SELECT resource_"+prefix+"_rename(%s,%s,%s)"
+            check("F4-114-A03 persoonlijke naamcorrectie "+table,val(rename,(obj,0,"Correctie"))==1)
+            resource_denied("F4-114-A09 verouderde teller "+table,rename,(obj,0,"Verouderd"),"40001")
+            resource_denied("F4-114-A07 directe mutatie "+table,"UPDATE fabriek."+table+" SET name='Onbevoegd' WHERE id=%s",(obj,))
+        con.execute("RESET ROLE")
+        for table,obj in (("equipment_hierarchy",site),("equipment",e),("physical_asset",a)):
+            check("F4-114-A08 persoonlijk auditbewijs "+table,
+                  val("""SELECT count(*) FROM config_log WHERE tabel=%s AND record_id=%s
+                         AND actor_user_id=%s AND actor_origin='personal'""",(table,obj,actors["manager"]))==2 and
+                  val("""SELECT count(*) FROM config_log WHERE tabel=%s AND record_id=%s
+                         AND actie='UPDATE' AND nieuw->>'name'='Correctie' AND nieuw->>'change_no'='1'""",(table,obj))==1)
+        check("F4-114-A03 locatie en ouder behouden",
+              val("SELECT parent_id FROM equipment_hierarchy WHERE id=%s",(site,))==h and
+              val("SELECT hierarchy_id FROM equipment WHERE id=%s",(e,))==site)
+        con.execute("SET LOCAL ROLE mes_app")
+        for name in ("scoped","maintenance","engineer"):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-f4-catalog',NULL)",("f4.catalog."+name,))
+            con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors[name]))
+            for label,query,params in (
+                ("hierarchy create","SELECT resource_hierarchy_create('NO','Geen','enterprise',NULL)",()),
+                ("equipment create","SELECT resource_equipment_create('NO','Geen',%s)",(site,)),
+                ("asset create","SELECT resource_asset_create('NO','Geen')",()),
+                ("hierarchy rename","SELECT resource_hierarchy_rename(%s,1,'Geen')",(site,)),
+                ("equipment rename","SELECT resource_equipment_rename(%s,1,'Geen')",(e,)),
+                ("asset rename","SELECT resource_asset_rename(%s,1,'Geen')",(a,)),
+            ):
+                resource_denied("F4-114-A07 "+name+" "+label,query,params)
+        proof=val("SELECT session_proof FROM execution_session_login('f4.catalog.manager','test-f4-catalog',NULL)")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors["manager"]))
         con.execute("RESET ROLE")
         check("F4-114-A08 persoonlijk auditbewijs",
               val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class' AND record_id=%s

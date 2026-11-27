@@ -845,6 +845,19 @@ BEGIN
  END IF;
 END $$;
 
+-- 0134: gecontroleerde persoonlijke catalogusmutaties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=134) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_hierarchy_create(text,text,text,uuid),
+     fabriek.resource_hierarchy_rename(uuid,integer,text),
+     fabriek.resource_equipment_create(text,text,uuid),
+     fabriek.resource_equipment_rename(uuid,integer,text),
+     fabriek.resource_asset_create(text,text),
+     fabriek.resource_asset_rename(uuid,integer,text) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
