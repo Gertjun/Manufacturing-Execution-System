@@ -36,6 +36,9 @@ const property={id:"property-1",code:"FICT-VOL",name:"Fictief volume",quantity_k
 const capability={id:"cap-1",equipment_id:resourceEquipment.id,property_definition_id:property.id,revision:1,value:exact,reason:"Fictief",created_at:"2026-01-01T10:00:00Z",capacity:false};
 const technicalStatus={...resourceEquipment,status:"unknown",revision:0,reason:null,created_at:null,created_by_name:null};
 let capRequests=0,statusRequests=0,referenceRequests=0,capWrites=0,statusWrites=0;
+const stationFixture={workstations:[{id:"pc1",name:"PC-01",location:"Hal 1",active:true},{id:"pc2",name:"PC-02",location:null,active:false}],equipment:[resourceEquipment],assignments:[]};
+let stationReads=0,stationWrites=0,downtimeReads=0;
+const downtimeFixture=[{id:"stop-1",equipment_id:resourceEquipment.id,equipment_code:resourceEquipment.code,equipment_name:resourceEquipment.name,step_code:"PS1",step_name:"Reactie",reason_code:"STOR-MACH",reason_name:"Machinestoring",category:"storing",note:"Fictieve storing",started_at:"2026-01-01T10:00:00Z",workstation:"PC-01",operator:"Fictieve operator"}];
 const scopeFixture = {areas:[resourceArea],equipment:[resourceEquipment],area_scopes:[],equipment_scopes:[]};
 const veld = { code:"S3.2", naam:"Fictieve temperatuur", eenheid:"°C", soort:"procesparameter", stap:"PS3", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut" };
 const meting = (dag, extra = {}) => ({ tijd: "2026-11-"+dag+"T10:00:00Z", setting:75, gemeten:75, markering:"ok", batch_of_lot:"FICTIEF-"+dag, operator:"Test", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut", product:"P1", ...extra });
@@ -82,6 +85,26 @@ try {
     }
     if (path === "/resources/equipment/equipment-1/status-history") {
       return projection.resourceStatus?json([{revision:1,status:"blocked",reason:"Inspectie vereist",created_at:"2026-01-01T10:00:00Z",created_by_name:"mes.quality"}]):json({fout:"Geweigerd"},403);
+    }
+    if(path==="/resources/workstations"){
+      stationReads++;
+      return projection.global.includes("resource.catalog.manage")?json(stationFixture):json({fout:"Geweigerd"},403);
+    }
+    if(path==="/resources/workstation-assignments"&&route.request().method()==="POST"){
+      assert.ok(projection.global.includes("resource.catalog.manage"));
+      assert.deepEqual(route.request().postDataJSON(),{pc_id:"pc1",equipment_id:resourceEquipment.id,reason:"Fictieve koppeling"});
+      stationWrites++;stationFixture.assignments.push({id:"ws-1",pc_id:"pc1",equipment_id:resourceEquipment.id,opened_at:"2026-01-01T10:00:00Z",opened_by_name:"mes.quality",open_reason:"Fictieve koppeling",closed_at:null,closed_by_name:null,close_reason:null});
+      return json({id:"ws-1"},201);
+    }
+    if(path==="/resources/workstation-assignments/ws-1/close"&&route.request().method()==="POST"){
+      assert.ok(projection.global.includes("resource.catalog.manage"));
+      assert.deepEqual(route.request().postDataJSON(),{reason:"Fictief ontkoppeld"});
+      stationWrites++;Object.assign(stationFixture.assignments[0],{closed_at:"2026-01-01T11:00:00Z",closed_by_name:"mes.quality",close_reason:"Fictief ontkoppeld"});
+      return json({id:"ws-1"});
+    }
+    if(path==="/stilstand/middelen"){
+      downtimeReads++;
+      return projection.global.some(x=>["downtime.read","maintenance.downtime.read"].includes(x))?json(downtimeFixture):json({fout:"Geweigerd"},403);
     }
     if (path === "/resources/scopes") {
       scopeRequests++;
@@ -253,6 +276,46 @@ try {
   await page.getByRole("heading",{name:/^Welkom/}).waitFor();
   assert.equal(statusRequests,deniedStatus);
   console.log("OK F4-115: exacte waarde, eenhedenfilter, statusovergang, historie en onafhankelijke directe routeweigering");
+  projection={...personal(["resource.catalog.manage"]),resourceCatalog:true};resourceGlobal=true;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/werkstations");
+  await page.getByRole("heading",{name:"Werkstationkoppelingen",exact:true}).waitFor();
+  const link=page.locator("details").filter({has:page.getByText("Middel koppelen",{exact:true})});
+  await link.getByText("Middel koppelen",{exact:true}).click();
+  assert.deepEqual(await link.getByLabel("Werkstation").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),["","pc1"]);
+  await link.getByLabel("Werkstation").selectOption("pc1");
+  await link.getByLabel("Middel").selectOption(resourceEquipment.id);
+  await link.getByLabel("Reden",{exact:true}).fill("Fictieve koppeling");
+  await link.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByRole("cell",{name:"Actief",exact:true}).waitFor();
+  assert.equal(stationWrites,1);
+  await link.getByText("Middel koppelen",{exact:true}).click();
+  await link.getByLabel("Werkstation").selectOption("pc1");
+  assert.deepEqual(await link.getByLabel("Middel").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),[""]);
+  const unlink=page.locator("details").filter({has:page.getByText("Koppeling beëindigen",{exact:true})});
+  await unlink.getByText("Koppeling beëindigen",{exact:true}).click();
+  await unlink.getByLabel("Reden van ontkoppeling").fill("Fictief ontkoppeld");
+  await unlink.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByRole("cell",{name:"Afgesloten",exact:true}).waitFor();
+  await page.getByRole("cell",{name:"Fictief ontkoppeld",exact:true}).waitFor();
+  assert.equal(stationWrites,2);
+  const noDowntime=downtimeReads;
+  await page.goto(origin+"/portaal/#/maintenance/middelstilstand");
+  await page.getByRole("heading",{name:"Middelenbeheer",exact:true}).waitFor();
+  assert.equal(downtimeReads,noDowntime);
+  projection=personal(["maintenance.downtime.read"]);
+  await landing(["maintenance"]);
+  const noStations=stationReads;
+  await page.goto(origin+"/portaal/#/maintenance/werkstations");
+  await page.getByRole("heading",{name:"Actuele middelstilstand",exact:true}).waitFor();
+  assert.equal(stationReads,noStations);
+  await page.getByRole("cell",{name:"Machinestoring",exact:true}).waitFor();
+  assert.equal(await page.getByText("Fictieve storing",{exact:true}).count(),1);
+  assert.equal(await page.getByRole("button",{name:"Beëindigen",exact:true}).count(),0);
+  downtimeFixture.length=0;
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByText("Geen actieve middelstilstand geregistreerd.",{exact:true}).waitFor();
+  console.log("OK F4-115-e: werkstationkoppeling, historie, gescheiden alleen-lezen stilstand en routeweigering");
   projection = quality;
   await landing(["invoer", "kwaliteit"]);
   await set(page, { "invoer.token": OLD, "invoer.operatornaam": "ander" });

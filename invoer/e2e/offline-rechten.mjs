@@ -56,6 +56,13 @@ try {
     await weigert("Geheim niet offline", () => voegToe({ ...handover, body: { wachtwoord: "fictief" } }), /niet in de offline/);
     await weigert("Geen gedeeltelijke wijziging bij ontbrekend meetrecht", () => slaWaardenOp(reg, [{ code: "K", setting: null, gemeten: 1 }]), /Geen MES-bevoegdheid/);
     check("Originele registratie ongewijzigd", reg.velden.every(v => v.waarde === null));
+    projectie.global.push("downtime.record");
+    await vernieuwRechten();
+    controleerOfflineActie({...handover,pad:"/stilstand",body:{id:reg.id}});
+    controleerOfflineActie({...handover,pad:"/stilstand/"+reg.id+"/einde",body:{}});
+    check("Stapstilstand blijft offline toegestaan",true);
+    await weigert("Middelstilstand opening nooit offline",()=>voegToe({...handover,pad:"/stilstand/middelen",body:{id:reg.id}}),/niet in de offline/);
+    await weigert("Middelstilstand einde nooit offline",()=>voegToe({...handover,pad:"/stilstand/middelen/"+reg.id+"/einde",body:{}}),/niet in de offline/);
     check("Geen geweigerde acties opgeslagen", (await opslag.alle("wachtrij")).length === 0);
     const sleutel = registratieSleutel(reg.id, "a:persoon-a");
     check("Geen geweigerde lokale registratie", await opslag.haal("cache", sleutel) === undefined);
