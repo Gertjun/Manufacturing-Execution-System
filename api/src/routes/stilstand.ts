@@ -94,6 +94,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       response: { 200: MiddelAntwoord },
     },
   }, async req => {
+    if (req.headers["x-batchgui-moment"] !== undefined || req.headers["x-batchgui-verzonden"] !== undefined)
+      throw new ApiFout(400, "Middelstilstand kan niet via de offlinewachtrij worden geregistreerd");
     const { pcId } = await invoerContext(app.db, req);
     try {
       return await persoonlijkeTransactie(app.db, req, async tx => {
@@ -122,6 +124,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       response: { 200: MiddelAntwoord },
     },
   }, async req => {
+    if (req.headers["x-batchgui-moment"] !== undefined || req.headers["x-batchgui-verzonden"] !== undefined)
+      throw new ApiFout(400, "Middelstilstand kan niet via de offlinewachtrij worden geregistreerd");
     operatorVan(req);
     try {
       return await persoonlijkeTransactie(app.db, req, async tx => {
