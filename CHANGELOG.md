@@ -7,7 +7,7 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
-- #114.6c-e: Maintenance-middelenbeheer, afzonderlijk security-scopemapping scherm in Beheer, begrensd menusignaal en SQL/API/browserregressies. Uitvoering en technische acceptatie nog open.
+- #114.6c-e: Maintenance-middelenbeheer, afzonderlijk security-scopemapping scherm in Beheer, begrensd menusignaal en SQL/API/browserregressies. Technisch geverifieerd op 7cf15a1 via baseline 812 (1396/1396 SQL, 131/131 API) en compatibiliteit 813 (Chrome F4-114 groen); Windows-praktijk en faseacceptatie open.
 
 - #114.6b: persoonlijke middelen- en scope-API via /resources, strikte invoerschema's, bestaande persoonlijke transacties en databasefuncties; typecheck en runtimebewijs open.
 
