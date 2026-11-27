@@ -3630,6 +3630,133 @@ def main():
         finally:
             isolation.rollback()
 
+
+    print("\n#115.3 technische middelenstatus")
+    check("F4-115-C01 geen impliciete beginstatus",val("SELECT count(*) FROM equipment_status_history")==0)
+    for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+        check("F4-115-C03 geen directe "+privilege,
+              not val("SELECT has_table_privilege('mes_app','fabriek.equipment_status_history',%s)",(privilege,)))
+    check("F4-115-C03 persoonlijke functie beschikbaar",
+          val("SELECT has_function_privilege('mes_app','fabriek.resource_status_set(uuid,integer,text,text)','EXECUTE')"))
+    legacy_queries=("SELECT md5(coalesce(string_agg(to_jsonb(t)::text,'' ORDER BY id),'')) FROM stilstand t",
+                    "SELECT md5(coalesce(string_agg(to_jsonb(t)::text,'' ORDER BY id),'')) FROM recipe_release t",
+                    "SELECT md5(coalesce(string_agg(to_jsonb(t)::text,'' ORDER BY id),'')) FROM equipment_capacity t")
+    before=[val(q) for q in legacy_queries]
+    con.execute("BEGIN")
+    try:
+        site=val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES ('F115-C-SITE','Site','site',%s) RETURNING id",(ent,))
+        area=val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES ('F115-C-AREA','Area','area',%s) RETURNING id",(site,))
+        e=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-C-E','Middel',%s) RETURNING id",(area,))
+        outside=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-C-OUT','Ander',%s) RETURNING id",(site,))
+        names=("global","area","equipment","catalog","maintenance","security")
+        for name in names:
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115c'))",("f115c."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115c."+name,)) for name in names}
+        for name,role in (("global","resource_status_manager"),("catalog","resource_catalog_manager"),
+                          ("maintenance","maintenance_technician"),("security","resource_scope_administrator")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,%s)",(actors[name],role))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_status_manager','F115-C-GRANT')",(actors["area"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_manager','F115-C-EQ-GRANT')",(actors["equipment"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        status_sql="SELECT resource_status_set(%s,%s,%s,%s)"
+        deny115("F4-115-C03 ontbrekend persoonlijk bewijs",status_sql,(e,0,"blocked","Test"))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115c',NULL)",("f115c."+name,)) for name in names}
+        for name in ("catalog","maintenance","security","area","equipment"):
+            bind115(name)
+            deny115("F4-115-C03 onbevoegd of ongemapt "+name,status_sql,(e,0,"blocked","Test"))
+        bind115("security")
+        con.execute("SELECT resource_area_scope_create('F115-C-GRANT',%s)",(area,))
+        con.execute("SELECT resource_equipment_scope_create('F115-C-EQ-GRANT',%s)",(e,))
+        bind115("global")
+        deny115("F4-115-C03 onbekend middel","SELECT resource_status_set(gen_random_uuid(),0,'blocked','Test')")
+        for status,reason,state in (("unknown","Test","23514"),(None,"Test","23502"),("blocked","   ","23514"),("blocked",None,"23502")):
+            deny115("F4-115-C02 ongeldige invoer "+str((status,reason)),status_sql,(e,0,status,reason),state)
+        check("F4-115-C01 eerste expliciete vrijgave",val(status_sql,(outside,0,"available","Beoordeeld"))==1)
+        bind115("area")
+        deny115("F4-115-C03 buiten gebied",status_sql,(outside,1,"blocked","Test"))
+        check("F4-115-C01 eerste blokkade",val(status_sql,(e,0,"blocked","Onderhoud"))==1)
+        deny115("F4-115-C04 verouderde revisie",status_sql,(e,0,"available","Test"),"40001")
+        deny115("F4-115-C02 dubbele status",status_sql,(e,1,"blocked","Test"),"23514")
+        bind115("equipment")
+        deny115("F4-115-C03 buiten middel",status_sql,(outside,1,"blocked","Test"))
+        check("F4-115-C01 persoonlijke vrijgave",val(status_sql,(e,1,"available","Gecontroleerd"))==2)
+        deny115("F4-115-C03 directe mutatie","UPDATE fabriek.equipment_status_history SET reason='Geen' WHERE equipment_id=%s",(e,))
+        con.execute("RESET ROLE")
+        check("F4-115-C01 volledige historie",con.execute("SELECT revision,status,created_by FROM equipment_status_history WHERE equipment_id=%s ORDER BY revision",(e,)).fetchall()==[(1,"blocked",actors["area"]),(2,"available",actors["equipment"])])
+        check("F4-115-C03 persoonlijke audit",val("""SELECT count(*) FROM equipment_status_history h JOIN config_log l ON l.record_id=h.id
+            WHERE h.equipment_id=%s AND l.tabel='equipment_status_history' AND l.actor_origin='personal' AND l.actor_user_id=h.created_by""",(e,))==2)
+        deny115("F4-115-C02 historie niet wijzigbaar","UPDATE equipment_status_history SET reason='Geen' WHERE equipment_id=%s",(e,),"55000")
+        deny115("F4-115-C02 historie niet verwijderbaar","DELETE FROM equipment_status_history WHERE equipment_id=%s",(e,),"55000")
+        deny115("F4-115-C02 revisiegat","INSERT INTO equipment_status_history(equipment_id,revision,status,reason,created_by) VALUES (%s,4,'blocked','Test',%s)",(e,actors["global"]),"40001")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["equipment"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("equipment")
+        deny115("F4-115-C03 ingetrokken bevoegdheid",status_sql,(e,2,"blocked","Test"))
+        con.execute("RESET ROLE")
+        check("F4-115-C05 geen neveneffecten op stilstand, vrijgave en capaciteit",[val(q) for q in legacy_queries]==before)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    # Concurrerende eerste registratie en latere overgang; echte rijlock.
+    status_insert="INSERT INTO fabriek.equipment_status_history(equipment_id,revision,status,reason,created_by) VALUES (%s,%s,%s,%s,%s)"
+    for initial in (True,False):
+        for outcome in ("commit","rollback"):
+            label=("eerste" if initial else "overgang")+" "+outcome
+            equipment=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-C-RACE-"+label,ent))
+            revision=1 if initial else 2
+            if not initial:
+                con.execute(status_insert,(equipment,1,"blocked","Begin",actor))
+            first_status="blocked" if initial else "available"
+            second_status="available"
+            with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+                first.execute("SET LOCAL statement_timeout='20s'")
+                second.execute("SET LOCAL statement_timeout='20s'")
+                first.execute(status_insert,(equipment,revision,first_status,"Eerste",actor))
+                def contender_c():
+                    try:
+                        second.execute(status_insert,(equipment,revision,second_status,"Tweede",actor))
+                        second.commit()
+                        return "committed"
+                    except psycopg.Error as error:
+                        second.rollback()
+                        return error.sqlstate
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(contender_c)
+                    blocked=False
+                    try:
+                        deadline=time.monotonic()+10
+                        while time.monotonic()<deadline and not future.done():
+                            if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                                blocked=True
+                                break
+                            time.sleep(0.02)
+                        check("F4-115-C04 tweede schrijver wacht "+label,blocked)
+                    finally:
+                        if outcome=="commit":
+                            first.commit()
+                        else:
+                            first.rollback()
+                    result=future.result(timeout=25)
+                check("F4-115-C04 race-uitkomst "+label,result==("40001" if outcome=="commit" else "committed"),str(result))
+            expected=(revision,first_status if outcome=="commit" else second_status,"Eerste" if outcome=="commit" else "Tweede")
+            check("F4-115-C04 juiste historie "+label,one("SELECT revision,status,reason FROM equipment_status_history WHERE equipment_id=%s ORDER BY revision DESC LIMIT 1",(equipment,))==expected and val("SELECT count(*) FROM equipment_status_history WHERE equipment_id=%s",(equipment,))==revision)
+    # De eigenaarfixture kan geen tijd terugdateren; de guard overschrijft die.
+    e=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-C-TIME','Fictief',%s) RETURNING id",(ent,))
+    con.execute("INSERT INTO equipment_status_history(equipment_id,revision,status,reason,created_by,created_at) VALUES (%s,1,'blocked','Test',%s,'2000-01-01')",(e,actor))
+    check("F4-115-C02 serverdatum",val("SELECT created_at > '2000-01-02'::timestamptz AND created_at<=clock_timestamp() FROM equipment_status_history WHERE equipment_id=%s",(e,)))
+    with psycopg.connect(DSN) as isolation:
+        isolation.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        try:
+            isolation.execute(status_insert,(e,2,"available","Test",actor))
+        except psycopg.Error as error:
+            check("F4-115-C04 hogere isolatie geweigerd",error.sqlstate=="25001",str(error))
+        else:
+            check("F4-115-C04 hogere isolatie geweigerd",False)
+        finally:
+            isolation.rollback()
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

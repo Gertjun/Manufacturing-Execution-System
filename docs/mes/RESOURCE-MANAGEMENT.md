@@ -166,3 +166,7 @@ Append-only equipment_status_history met unieke middel/revisie, expliciete block
 ## 115.3c — persoonlijke statusmutatie 0145
 
 Afzonderlijke rol resource_status_manager met resource.status.manage in maintenance-domein, geen automatische gebruikersgrants of uitbreiding bestaande rollen. resource_status_set(uuid,integer,text,text) leidt actor uit persoonlijk transactiebewijs en scope uit bestaande expliciete mappings af. Onbekend middel geweigerd, geen productcontext; read committed, middelrijlock, hercontrole bewijs/bevoegdheid na lock, verwachte revisie (0 bij eerste registratie), actor en tijd serverzijdig. Audit via log_config. Alleen functie-uitvoering mes_app; bestaande D100 tabel-ACL-beperking blijft gelden. Geen API/portaal of automatische vrijgave. Centrale roltelling aangepast van 15 naar 16. Specifieke regressies volgen 115.3d; runtimebewijs open.
+
+## 115.3d — regressies en uitgesteld bewijs
+
+F4-115-C01–C05 toegevoegd: onbekende beginstatus, beide initiële statussen, persoonlijke overgangen, reden/statusvalidatie, expliciete area/equipmentmapping, verkeerde rollen en ingetrokken grant, ACL/audit, onveranderlijke historie, serverdatum en geen neveneffecten op stilstand, recipe_release en capaciteit. Vier eigenaar-races met waargenomen rijlock, commit/rollback, eerste registratie en latere overgang; persoonlijke stale-controle afzonderlijk. Hogere isolatie geweigerd. Runtimebewijs open wegens uitgeput Actions-quotum; geen expliciete testtrigger. 115.3 geïmplementeerd, 10/20 fase 4; technisch bewezen blijft 8/20. Volgende 115.4.
