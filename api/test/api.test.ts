@@ -2192,6 +2192,68 @@ describe("#103/110 procedure-API", () => {
   });
 });
 
+describe("#114 middelenbeheer en scopemapping API", () => {
+  test("persoonlijke catalogus, scope, functiescheiding en intrekking", async () => {
+    const prefix="mes.resources.";
+    for (const [name,role,area] of [
+      ["manager","resource_catalog_manager",null],
+      ["scoped","resource_catalog_manager","API-AREA"],
+      ["mapper","resource_scope_administrator",null],
+    ] as const) {
+      await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'pending',fabriek.wachtwoord_hash('demo'))",[prefix+name]);
+      await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,area_code) SELECT id,$2,$3 FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[prefix+name,role,area]);
+    }
+    const manager=await login(prefix+"manager"), scoped=await login(prefix+"scoped"), mapper=await login(prefix+"mapper");
+    const operator=await login("mes.operator");
+    const get=async(path:string,token:string,status=200)=>{
+      const r=await verzoek("GET",path,token);assert.equal(r.status,status,JSON.stringify(r.body));return r.body;
+    };
+    const post=async(path:string,token:string,body:object,status=201)=>{
+      const r=await verzoek("POST",path,token,body);assert.equal(r.status,status,JSON.stringify(r.body));return r.body.id as string;
+    };
+    assert.equal((await verzoek("GET","/resources/")).status,401);
+    await get("/resources/",operator,403);
+    await get("/resources/",mapper,403);
+    await get("/resources/scopes",manager,403);
+    await get("/resources/",scoped,403);
+    assert.equal((await get("/auth/permissions",scoped)).resourceCatalog,false);
+    const root=await post("/resources/hierarchy",manager,{code:"API-ENT",name:"Enterprise",level:"enterprise",parent_id:null});
+    const site=await post("/resources/hierarchy",manager,{code:"API-SITE",name:"Site",level:"site",parent_id:root});
+    const area=await post("/resources/hierarchy",manager,{code:"API-AREA",name:"Area",level:"area",parent_id:site});
+    const other=await post("/resources/hierarchy",manager,{code:"API-OTHER",name:"Other area",level:"area",parent_id:site});
+    const e=await post("/resources/equipment",manager,{code:"API-E1",name:"Middel",hierarchy_id:area});
+    const e2=await post("/resources/equipment",manager,{code:"API-E2",name:"Ander middel",hierarchy_id:other});
+    await post("/resources/scopes/areas",manager,{area_code:"API-AREA",hierarchy_id:area},403);
+    await post("/resources/scopes/areas",mapper,{area_code:"API-AREA",hierarchy_id:area});
+    const p=await get("/auth/permissions",scoped);
+    assert.equal(p.resourceCatalog,true);
+    assert.ok(!p.global.includes("resource.catalog.manage"));
+    const c=await get("/resources/",scoped);
+    assert.equal(c.global,false);
+    assert.deepEqual(c.equipment.map((x:any)=>x.id),[e]);
+    assert.deepEqual(c.hierarchy.map((x:any)=>x.id),[area]);
+    const cls=await post("/resources/classes",manager,{code:"API-CLASS",name:"Klasse"});
+    await post("/resources/classes",scoped,{code:"API-DENIED",name:"Geen"},403);
+    await post("/resources/class-assignments",scoped,{equipment_id:e,equipment_class_id:cls});
+    await post("/resources/class-assignments",scoped,{equipment_id:e2,equipment_class_id:cls},403);
+    const asset=await post("/resources/assets",manager,{code:"API-ASSET",name:"Asset"});
+    const assignment=await post("/resources/asset-assignments",manager,{equipment_id:e,physical_asset_id:asset,valid_from:"2026-01-01T00:00:00Z"});
+    await post("/resources/asset-assignments",manager,{equipment_id:e2,physical_asset_id:asset,valid_from:"2026-01-02T00:00:00Z"},409);
+    await post("/resources/asset-assignments/"+assignment+"/close",scoped,{valid_until:"2026-01-02T00:00:00Z"},200);
+    await post("/resources/asset-assignments/"+assignment+"/close",scoped,{valid_until:"2026-01-03T00:00:00Z"},409);
+    const rename={expected_change_no:0,name:"Nieuwe naam"};
+    assert.equal((await verzoek("PATCH","/resources/equipment/"+e,scoped,rename)).status,200);
+    assert.equal((await verzoek("PATCH","/resources/equipment/"+e,scoped,rename)).status,409);
+    assert.equal((await verzoek("PATCH","/resources/equipment/"+e2,scoped,rename)).status,403);
+    await post("/resources/classes",manager,{code:"API-UNKNOWN",name:"Geen",actor_id:randomUUID()},400);
+    const security=await get("/resources/scopes",mapper);
+    assert.deepEqual(Object.keys(security).sort(),["area_scopes","areas","equipment","equipment_scopes"]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam=$1)",[prefix+"scoped"]);
+    assert.equal((await get("/auth/permissions",scoped)).resourceCatalog,false);
+    await get("/resources/",scoped,403);
+  });
+});
+
 describe("#141 eenhedencatalogus en materiaal-eenheidsAPI", () => {
   test("exacte conversierevisies, persoonlijke scope en onveranderlijke materiaalversies", async () => {
     const engineer=await login("mes.engineer");
