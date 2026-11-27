@@ -3087,6 +3087,55 @@ def main():
     for table in ("physical_asset","equipment_asset_assignment"):
         check("F4-114-A10 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
 
+    # F4-114-A09: echte onafhankelijke transacties, uitsluitend fictieve testdata.
+    # De fixture blijft aan het einde van deze wegwerpdatabase staan; geen
+    # productiegegevens, geen uitschakeling van immutabiliteitstriggers.
+    print("\n#114.4 gelijktijdige assettoewijzing")
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    h=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-RACE-ENT','Fictief','enterprise') RETURNING id")
+    e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-RACE-E1','Fictief',%s) RETURNING id",(h,))
+    e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-RACE-E2','Fictief',%s) RETURNING id",(h,))
+    for outcome in ("commit","rollback"):
+        a=val("INSERT INTO physical_asset(code,name) VALUES (%s,'Fictief') RETURNING id",("F4-RACE-"+outcome,))
+        sql="INSERT INTO fabriek.equipment_asset_assignment(equipment_id,physical_asset_id,valid_from) VALUES (%s,%s,'2026-01-01T00:00:00Z')"
+        with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+            first.execute("SET LOCAL statement_timeout='20s'")
+            second.execute("SET LOCAL statement_timeout='20s'")
+            first.execute(sql,(e1,a))
+            pid=second.info.backend_pid
+            def contender():
+                try:
+                    second.execute(sql,(e2,a))
+                    second.commit()
+                    return "committed"
+                except psycopg.Error as error:
+                    second.rollback()
+                    return error.sqlstate
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future=pool.submit(contender)
+                blocked=False
+                try:
+                    deadline=time.monotonic()+10
+                    while time.monotonic()<deadline and not future.done():
+                        if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,pid)):
+                            blocked=True
+                            break
+                        time.sleep(0.02)
+                    check("F4-114-A09 tweede transactie wacht op eerste ("+outcome+")",blocked)
+                finally:
+                    if outcome=="commit":
+                        first.commit()
+                    else:
+                        first.rollback()
+                result=future.result(timeout=25)
+            check("F4-114-A09 correcte uitkomst "+outcome,
+                  result==("23P01" if outcome=="commit" else "committed"),str(result))
+        check("F4-114-A09 precies een toewijzing "+outcome,
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==1)
+        check("F4-114-A09 juiste winnaar "+outcome,
+              val("SELECT equipment_id FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==(e1 if outcome=="commit" else e2))
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
