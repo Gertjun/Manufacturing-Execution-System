@@ -125,3 +125,38 @@ BEGIN
 END $$;
 SQL
 echo "Eenmalige overgang 0094: negatieve bevestigingen, functiescheiding, drie grants, sessie-intrekking en herhaling geslaagd."
+
+# F4-114-A11: afzonderlijk upgradepad vanaf de werkelijk gepubliceerde 0129.
+# Hergebruik tijdelijke database en testinfrastructuur; behoud expliciete grants.
+psql -v ON_ERROR_STOP=1 -q -d postgres -c "DROP DATABASE $DB WITH (FORCE)"
+psql -v ON_ERROR_STOP=1 -q -d postgres -c "CREATE DATABASE $DB"
+BASIS=9ceba898c8d04115253cb060a75d9206a6e0a65f
+git archive "$BASIS" db/schema.sql db/seed_config.sql db/seed_accounts_demo.sql db/rechten.sql | tar -x -C "$T"
+for f in schema seed_config seed_accounts_demo rechten; do
+  psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$T/db/$f.sql" >/dev/null
+done
+[ "$(sql 'SELECT max(nummer) FROM fabriek.schema_versie')" = 129 ] || fout "fase-4 basis is niet 0129"
+sql "INSERT INTO fabriek.authorization_grant(user_id,role_code) SELECT id,'process_engineer' FROM fabriek.gebruiker WHERE NOT gedeeld ORDER BY gebruikersnaam LIMIT 1" >/dev/null
+[ "$(sql 'SELECT count(*) FROM fabriek.authorization_grant')" -gt 0 ] || fout "lege grantfixture 0129"
+# Bewaar alle bestaande grants en gebruikers.
+for t in authorization_grant gebruiker; do
+  cols=$(sql "SELECT string_agg(quote_ident(attname),',' ORDER BY attnum) FROM pg_attribute WHERE attrelid='fabriek.$t'::regclass AND attnum>0 AND NOT attisdropped")
+  printf '%s\n' "$cols" > "$T/$t.0129.cols"
+  sql "SELECT count(*) || ':' || md5(coalesce(string_agg(to_jsonb(s)::text,E'\\n' ORDER BY id),'')) FROM (SELECT $cols FROM fabriek.$t) s" > "$T/$t.0129.voor"
+done
+node tools/migreer.mjs --instellingen "$T/inst.json" > "$T/upgrade-0129.log" 2>&1 || { tail -80 "$T/upgrade-0129.log"; fout "migratie vanaf 0129"; }
+[ "$(sql 'SELECT max(nummer) FROM fabriek.schema_versie')" = "$LAATSTE" ] || fout "0129: actueel schema niet bereikt"
+[ "$(sql 'SELECT count(*) FROM fabriek.schema_versie')" = "$LAATSTE" ] || fout "0129: ontbrekende migratiemarkeringen"
+ls "$T"/backups/*_voor-migratie-0130.dump >/dev/null || fout "0129: geen pre-upgradebackup"
+for t in authorization_grant gebruiker; do
+  cols=$(cat "$T/$t.0129.cols")
+  sql "SELECT count(*) || ':' || md5(coalesce(string_agg(to_jsonb(s)::text,E'\\n' ORDER BY id),'')) FROM (SELECT $cols FROM fabriek.$t) s" > "$T/$t.0129.na"
+  cmp -s "$T/$t.0129.voor" "$T/$t.0129.na" || fout "0129: inhoud gewijzigd: $t"
+done
+for t in equipment_hierarchy equipment equipment_class equipment_class_assignment physical_asset equipment_asset_assignment resource_area_scope resource_equipment_scope; do
+  [ "$(sql "SELECT count(*) FROM fabriek.$t")" = 0 ] || fout "0129: automatische mapping $t"
+  [ "$(sql "SELECT has_table_privilege('mes_app','fabriek.$t','SELECT,INSERT,UPDATE,DELETE')")" = f ] || fout "0129: directe app-ACL $t"
+done
+[ "$(sql "SELECT has_function_privilege('mes_app','fabriek.resource_catalog_list()','EXECUTE')")" = t ] || fout "0129: catalogusinterface ontbreekt"
+echo "OK F4-114-A11: upgrade 0129 -> $LAATSTE, bestaande grants en gebruikers behouden, geen automatische mapping, beperkte ACL en pre-upgradebackup."
+
