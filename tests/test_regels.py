@@ -3919,7 +3919,7 @@ def main():
         con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator'),(%s,'operator'),(%s,'maintenance_technician')",(actors["operator"],actors["other"],actors["maintenance"]))
         con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'operator','F115-E-AREA')",(actors["scoped"],))
         con.execute("SET LOCAL ROLE mes_app")
-        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115e',NULL)",("f115e."+name,)) for name in names}
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115e','F115-E-PC')",("f115e."+name,)) for name in names}
         con.execute("RESET ROLE")
         # Interne eigenaarinterface met persoonlijk bewijs; app-EXECUTE blijft dicht.
         open_sql="SELECT resource_downtime_open(%s,%s,%s,%s,%s,%s)"
@@ -3931,6 +3931,18 @@ def main():
         for name in ("maintenance","scoped"):
             bind115(name)
             deny115("F4-115-E03 onbevoegd "+name,open_sql,args)
+        bind115("operator")
+        check("F4-115-E03 sessiebewijs bevat juiste pc",val("SELECT execution_transaction_workstation(%s)",(station,))==station)
+        unbound=val("SELECT session_proof FROM execution_session_login('f115e.operator','fictief-f115e',NULL)")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(unbound,actors["operator"]))
+        deny115("F4-115-E03 ongebonden bewijs",open_sql,args)
+        child=val("SELECT execution_session_workstation(%s,%s)",(unbound,other_pc))
+        check("F4-115-E03 nieuw bewijs bij pc-keuze",child!=unbound)
+        check("F4-115-E03 geldigheid niet verlengd",val("SELECT a.expires_at=b.expires_at FROM execution_session a,execution_session b WHERE a.proof_hash=public.digest(%s,'sha256') AND b.proof_hash=public.digest(%s,'sha256')",(unbound,child)))
+        deny115("F4-115-E03 origineel bewijs blijft ongebonden","SELECT execution_transaction_workstation(%s)",(other_pc,))
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(child,actors["operator"]))
+        check("F4-115-E03 nieuw bewijs juiste pc",val("SELECT execution_transaction_workstation(%s)",(other_pc,))==other_pc)
+        deny115("F4-115-E03 verkeerde pc met nieuw bewijs",open_sql,args)
         bind115("operator")
         deny115("F4-115-E03 verkeerde pc",open_sql,(a,other_pc,step,e1,cause,"Test"))
         deny115("F4-115-E03 geen actieve middelmapping",open_sql,(a,station,step,e3,cause,"Test"))
