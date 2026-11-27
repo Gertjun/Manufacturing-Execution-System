@@ -3997,23 +3997,27 @@ def main():
     con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s)",(race_pc,race_step))
     race_cause=val("SELECT id FROM stilstand_oorzaak WHERE actief AND categorie='storing' LIMIT 1")
     race_proof=val("SELECT session_proof FROM execution_session_login('f115e.race','fictief-race','F115-E-RACE-PC')")
+    race_actor2=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('f115e.race2','pending',wachtwoord_hash('fictief-race2')) RETURNING id")
+    race_operator2=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-E-RACE2',%s) RETURNING id",(race_actor2,))
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(race_actor2,))
+    race_proof2=val("SELECT session_proof FROM execution_session_login('f115e.race2','fictief-race2','F115-E-RACE-PC')")
     race_open="SELECT fabriek.resource_downtime_open(%s,%s,%s,%s,%s,%s)"
     race_close="SELECT fabriek.resource_downtime_close(%s,%s)"
 
-    def bind_e(connection):
+    def bind_e(connection,other=False):
         connection.execute("SET LOCAL statement_timeout='20s'")
-        connection.execute("SELECT fabriek.execution_bind_transaction(%s,%s)",(race_proof,race_actor))
+        connection.execute("SELECT fabriek.execution_bind_transaction(%s,%s)",
+                           (race_proof2,race_actor2) if other else (race_proof,race_actor))
 
-    def race_e(label,query1,args1,query2,args2,outcome,expected):
+    def race_e(label,query1,args1,query2,args2,outcome,expected,other=False):
         with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
             bind_e(first)
             first.execute(query1,args1)
             def contender_e():
                 try:
-                    # Personal binding itself locks the user row (0129).
-                    # Run it concurrently so the first transaction can finish.
-                    # This observes serialization, not necessarily the resource lock.
-                    bind_e(second)
+                    # Same-user replay serializes at binding (0129).
+                    # Distinct users must reach the resource operation itself.
+                    bind_e(second,other)
                     second.execute(query2,args2)
                     second.commit()
                     return "committed"
@@ -4031,6 +4035,10 @@ def main():
                             break
                         time.sleep(0.02)
                     check("F4-115-E04 waargenomen lock "+label,blocked)
+                    if other:
+                        active_query=val("SELECT query FROM pg_stat_activity WHERE pid=%s",(second.info.backend_pid,))
+                        check("F4-115-E04 afzonderlijke actor bereikt middeloperatie "+label,
+                              blocked and query2.split("(")[0] in active_query)
                 finally:
                     if outcome=="commit":
                         first.commit()
@@ -4039,7 +4047,7 @@ def main():
                 result=future.result(timeout=25)
             check("F4-115-E04 race-uitkomst "+label,result==expected,str(result))
 
-    for mode in ("replay","duplicate","close-same","close-different","legacy-collision"):
+    for mode in ("replay","duplicate","close-same","close-different","close-other","legacy-collision"):
         for outcome in ("commit","rollback"):
             label=mode+"-"+outcome
             eq=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-E-"+label,ent))
@@ -4054,23 +4062,30 @@ def main():
                     setup.execute(race_open,args1)
                 note2="Eerste" if mode=="close-same" else "Tweede"
                 race_e(label,race_close,(rid,"Eerste"),race_close,(rid,note2),outcome,
-                       "40001" if mode=="close-different" and outcome=="commit" else "committed")
+                       "40001" if mode in ("close-different","close-other") and outcome=="commit" else "committed",
+                       other=mode=="close-other")
                 check("F4-115-E04 juiste afsluitnotitie "+label,
                       val("SELECT eind_notitie FROM stilstand WHERE id=%s",(rid,))==("Eerste" if outcome=="commit" else note2))
-                check("F4-115-E05 precies twee auditregels "+label,
-                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor))==2)
+                closing_actor=race_actor2 if mode=="close-other" and outcome=="rollback" else race_actor
+                check("F4-115-E05 juiste afsluitende operator "+label,
+                      val("SELECT beeindigd_door FROM stilstand WHERE id=%s",(rid,))==
+                      (race_operator2 if closing_actor==race_actor2 else race_operator))
+                check("F4-115-E05 precies twee persoonlijke auditregels "+label,
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_origin='personal'",(rid,))==2 and
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor))==(2 if closing_actor==race_actor else 1) and
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor2))==(0 if closing_actor==race_actor else 1))
             elif mode=="legacy-collision":
                 # De oude insert neemt geen nieuwe advisory lock; de PK beslist.
                 legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES (%s,'Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id",("F115-E-LEG-"+outcome,))
                 legacy_insert="INSERT INTO fabriek.stilstand(id,processtap_id,oorzaak_id,gemeld_door) VALUES (%s,%s,%s,%s)"
                 race_e(label,legacy_insert,(rid,legacy_step,race_cause,race_actor),race_open,args2,outcome,
-                       "23505" if outcome=="commit" else "committed")
+                       "23505" if outcome=="commit" else "committed",other=True)
                 check("F4-115-E04 winnende context "+label,
                       one("SELECT processtap_id,equipment_id FROM stilstand WHERE id=%s",(rid,))==
                       ((legacy_step,None) if outcome=="commit" else (race_step,eq)))
             else:
                 race_e(label,race_open,args1,race_open,args2,outcome,
-                       "23505" if mode=="duplicate" and outcome=="commit" else "committed")
+                       "23505" if mode=="duplicate" and outcome=="commit" else "committed",other=mode=="duplicate")
                 winner=rid if outcome=="commit" else rid2
                 check("F4-115-E04 juiste winnende ID "+label,
                       one("SELECT count(*),count(*) FILTER (WHERE id=%s) FROM stilstand WHERE equipment_id=%s",(winner,eq))==(1,1))
