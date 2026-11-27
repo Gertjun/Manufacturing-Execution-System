@@ -70,3 +70,7 @@ Verificatie: baseline run 795 op ee7cc9a groen, 1308/1308 databaseregels, inclus
 ## 114.5b — persoonlijke objectmutaties
 
 0134: aanmaken en naamcorrectie van hiërarchieknooppunten, functionele middelen en fysieke assets via zes expliciete functies, dezelfde globale catalogusautorisatie, change_no en rijlock per object, log_config met persoonlijke actor. Geen impliciete scope, geen verplaatsing, geen wijziging identiteit, geen directe tabelrechten of nieuwe gebruikerstoekenning. Regressies voor ongeldige ouder/locatie, unieke identiteit, verouderde teller, audit en weigering van bestaande/begrensde rollen. Runtimeverificatie open; koppelingen volgen 114.5c.
+
+## 114.5c — persoonlijke koppelingen
+
+0135: klassekoppeling uitsluitend toevoegen; permanente UUID voor bestaand log_config naast samengestelde primaire sleutel. Bestaande koppelingen krijgen een UUID zonder verzonnen historische actor. Assettoewijzing opent een halfopen interval en kan eenmaal worden afgesloten via atomische UPDATE op de open rij. Bestaande exclusieconstraint, identiteits- en historieguards blijven intact. Geen verwijdering, heropening, automatische receptmapping of nieuwe grants. Alleen globale persoonlijke autorisatie; expliciete tijdstippen, geen automatische overdracht. Audit van nieuwe koppelingen en afsluitingen via log_config. Runtimeverificatie 0134/0135 gebundeld open.

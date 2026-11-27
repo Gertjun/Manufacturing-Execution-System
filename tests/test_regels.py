@@ -3181,6 +3181,33 @@ def main():
             check("F4-114-A03 persoonlijke naamcorrectie "+table,val(rename,(obj,0,"Correctie"))==1)
             resource_denied("F4-114-A09 verouderde teller "+table,rename,(obj,0,"Verouderd"),"40001")
             resource_denied("F4-114-A07 directe mutatie "+table,"UPDATE fabriek."+table+" SET name='Onbevoegd' WHERE id=%s",(obj,))
+        # 114.5c: persoonlijke koppelingen, halfopen historie en audit.
+        link=val("SELECT resource_class_assign(%s,%s)",(e,cls))
+        resource_denied("F4-114-A03 dubbele klassekoppeling","SELECT resource_class_assign(%s,%s)",(e,cls),"23505")
+        resource_denied("F4-114-A03 onbekende klasse","SELECT resource_class_assign(%s,gen_random_uuid())",(e,),"23503")
+        ass=val("SELECT resource_asset_assign(%s,%s,'2025-01-01T00:00:00Z')",(e,a))
+        resource_denied("F4-114-A04 overlap","SELECT resource_asset_assign(%s,%s,'2025-01-02T00:00:00Z')",(e,a),"23P01")
+        resource_denied("F4-114-A04 ongeldig einde","SELECT resource_asset_close(%s,'2024-12-31T00:00:00Z')",(ass,),"23514")
+        resource_denied("F4-114-A04 leeg einde","SELECT resource_asset_close(%s,NULL)",(ass,),"22004")
+        check("F4-114-A04 persoonlijke afsluiting",val("SELECT resource_asset_close(%s,'2025-01-02T00:00:00Z')",(ass,))==ass)
+        resource_denied("F4-114-A04 herhaalde afsluiting","SELECT resource_asset_close(%s,'2025-01-03T00:00:00Z')",(ass,),"40001")
+        ass2=val("SELECT resource_asset_assign(%s,%s,'2025-01-02T00:00:00Z')",(e,a))
+        resource_denied("F4-114-A07 directe klassekoppeling","INSERT INTO fabriek.equipment_class_assignment(equipment_id,equipment_class_id) VALUES (%s,%s)",(e,cls))
+        resource_denied("F4-114-A07 directe verwijdering historie","DELETE FROM fabriek.equipment_asset_assignment WHERE id=%s",(ass,))
+        con.execute("RESET ROLE")
+        check("F4-114-A08 klassekoppeling auditidentiteit",
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class_assignment' AND record_id=%s
+                     AND actor_user_id=%s AND actor_origin='personal' AND actie='INSERT'
+                     AND (nieuw->>'equipment_id')::uuid=%s AND (nieuw->>'equipment_class_id')::uuid=%s""",
+                  (link,actors["manager"],e,cls))==1)
+        check("F4-114-A08 assetaudit aanmaak en afsluiting",
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_asset_assignment' AND record_id=%s
+                     AND actor_user_id=%s AND actor_origin='personal'""",(ass,actors["manager"]))==2 and
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_asset_assignment' AND record_id=%s
+                     AND actie='UPDATE' AND oud->>'valid_until' IS NULL AND nieuw->>'valid_until' IS NOT NULL""",(ass,))==1)
+        check("F4-114-A04 historie behouden",
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==2)
+        con.execute("SET LOCAL ROLE mes_app")
         con.execute("RESET ROLE")
         for table,obj in (("equipment_hierarchy",site),("equipment",e),("physical_asset",a)):
             check("F4-114-A08 persoonlijk auditbewijs "+table,
@@ -3202,6 +3229,9 @@ def main():
                 ("hierarchy rename","SELECT resource_hierarchy_rename(%s,1,'Geen')",(site,)),
                 ("equipment rename","SELECT resource_equipment_rename(%s,1,'Geen')",(e,)),
                 ("asset rename","SELECT resource_asset_rename(%s,1,'Geen')",(a,)),
+                ("class assign","SELECT resource_class_assign(%s,%s)",(e,cls)),
+                ("asset assign","SELECT resource_asset_assign(%s,%s,now())",(e,a)),
+                ("asset close","SELECT resource_asset_close(%s,now())",(ass2,)),
             ):
                 resource_denied("F4-114-A07 "+name+" "+label,query,params)
         proof=val("SELECT session_proof FROM execution_session_login('f4.catalog.manager','test-f4-catalog',NULL)")
@@ -3215,6 +3245,7 @@ def main():
         con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["manager"],))
         con.execute("SET LOCAL ROLE mes_app")
         resource_denied("F4-114-A07 ingetrokken middelenbeheerrecht","SELECT resource_class_rename(%s,1,'Ingetrokken')",(cls,))
+        resource_denied("F4-114-A07 ingetrokken koppelingbeheer","SELECT resource_asset_close(%s,now())",(ass2,))
     finally:
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")

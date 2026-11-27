@@ -858,6 +858,16 @@ BEGIN
  END IF;
 END $$;
 
+-- 0135: uitsluitend persoonlijke koppelfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=135) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_class_assign(uuid,uuid),
+     fabriek.resource_asset_assign(uuid,uuid,timestamptz),
+     fabriek.resource_asset_close(uuid,timestamptz) TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
