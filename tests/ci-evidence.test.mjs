@@ -29,3 +29,15 @@ test("mergebewijs vereist twee ouders, exacte oude main en identieke tree",()=>{
  assert.equal(mergeCandidate({...args,parents:[head,base]}),null);
  assert.equal(mergeCandidate({...args,parents:[head]}),null);
 });
+
+import {selectPackages} from "../tools/selecteer_laptoppakketten.mjs";
+test("Windows-pakketselectie beschermt bestaande en uitgesloten releases",()=>{
+ const row=(v,assets=[],extra={})=>({tag_name:"v"+v,draft:false,prerelease:false,assets,...extra});
+ const rows=[row("0.64.0",[{name:"batch-gui-laptop-0.64.0-windows.zip"}]),row("0.63.0"),row("0.14.0"),row("0.15.0"),row("0.6.0"),row("0.65.0",[],{draft:true}),row("0.66.0",[],{prerelease:true}),row("0.9.0")];
+ assert.deepEqual(selectPackages(rows),["0.9.0","0.63.0"]);
+ assert.deepEqual(selectPackages(rows,"0.64.0"),[]);
+ assert.deepEqual(selectPackages(rows,"0.14.0 0.63.0"),["0.63.0"]);
+ assert.throws(()=>selectPackages(rows,"0.99.0"));
+ assert.throws(()=>selectPackages(rows,"invalid"));
+ assert.throws(()=>selectPackages([row("0.63.0",null)]));
+});
