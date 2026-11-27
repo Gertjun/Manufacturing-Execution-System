@@ -134,7 +134,7 @@ Opdrachtgever akkoord 27 november 2026: eerst CI-optimalisatie, daarna fase 4. B
 | CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Eerste implementatie, verificatie open |
 | CI-D | Eén runner en één build voor formaten (basis), productie en meldingen via scherm-bundel-test; afzonderlijke verse fixtures en rustcontrole per script; geen fixturecache. | Eerste implementatie, meting open |
 | CI-E | Bestaande Windows-releasepakketten overslaan, ook expliciete selectie; hercontrole vóór build, geen clobber, gedeelde releaseconcurrency. | Eerste implementatie, verificatie open |
-| CI-F | Labelconcurrency isoleren; snelle controles behouden; integrale borging en meting. | Eerste implementatie, verificatie open |
+| CI-F | Labelconcurrency isoleren; snelle controles behouden; nieuwste schemabewijs over workflows vergelijken; irrelevante labels starten geen runner. | Implementatie gereed; gezamenlijke verificatie open |
 
 Geen formele fase-4-start vóór technische acceptatie #146. Exacte volledige acceptatie op uiteindelijke CI-tree blijft verplicht. Alle huidige tests behouden.
 

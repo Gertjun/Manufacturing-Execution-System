@@ -57,7 +57,7 @@ jobs:
         run: |
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$VERSIE" > /tmp/release.json
           jq -e '.draft == false and .prerelease == false and (.assets | type == "array")' /tmp/release.json >/dev/null
-          aantal="$(jq '[.assets[].name | select(test("^batch-gui-laptop-.*-windows\\\\.zip$"))] | length' /tmp/release.json)"
+          aantal="$(jq '[.assets[].name | select(startswith("batch-gui-laptop-") and endswith("-windows.zip"))] | length' /tmp/release.json)"
           if [ "$aantal" = 0 ]; then
             echo "bouwen=true" >> "$GITHUB_OUTPUT"
           else

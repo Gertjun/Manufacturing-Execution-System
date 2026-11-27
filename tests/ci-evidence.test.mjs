@@ -41,3 +41,16 @@ test("Windows-pakketselectie beschermt bestaande en uitgesloten releases",()=>{
  assert.throws(()=>selectPackages(rows,"invalid"));
  assert.throws(()=>selectPackages([row("0.63.0",null)]));
 });
+
+import {latestProof} from "../tools/verifieer_docs_test.mjs";
+test("schemabewijs: latere fout in andere workflow blokkeert ouder groen",()=>{
+ const step="Databasediagram vergelijken met schema";
+ const j={conclusion:"success",steps:[{name:`Docs-bewijs ${base} schema`,conclusion:"success"},{name:step,conclusion:"success"}]};
+ const good={run,job:j,step};
+ const bad={run:{...run,id:2,conclusion:"failure"},job:{...j,conclusion:"failure"},step};
+ const args={head,base,mode:"schema"};
+ assert.equal(latestProof({...args,attempts:[good]}),true);
+ assert.equal(latestProof({...args,attempts:[good,bad]}),false);
+ assert.equal(latestProof({...args,attempts:[good,{...bad,run:{...bad.run,conclusion:"success"},job:{...j,steps:[{name:step,conclusion:"skipped"}]}}]}),true);
+ assert.equal(latestProof({...args,attempts:[good,{...bad,job:{conclusion:"failure",steps:[]}}]}),false);
+});

@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie volgt.
+
 - #146 (CI-E): handmatige Windows-backfill selecteert uitsluitend ontbrekende ondersteunde officiële pakketten; hercontrole vóór build, geen overschrijven, gedeelde releaseconcurrency. Geen nieuwe publicatie. Verificatie volgt.
 
 - #146 (CI-D): optionele gerichte schermbundel formaten/productie/meldingen op één Node26-runner, één installatie/build, per selectie eigen verse fictieve fixture via bestaande testscript; stop bij fout. Integrale suite ongewijzigd. Meting en verificatie volgen.
