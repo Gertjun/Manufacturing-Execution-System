@@ -10,7 +10,7 @@ import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import * as engineering from "./engineering/schermen";
 import { middelen } from "./maintenance/middelen";
-import { capaciteiten, middelenstatus } from "./maintenance/inzetbaarheid";
+import { capaciteiten, middelenstatus, werkstationkoppelingen, middelstilstand } from "./maintenance/inzetbaarheid";
 import { scopemapping } from "./beheer/scopemapping";
 import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
@@ -276,6 +276,8 @@ async function route() {
       case "middelen": return middelen();
       case "capaciteiten": return capaciteiten();
       case "status": return middelenstatus();
+      case "werkstations": return werkstationkoppelingen();
+      case "middelstilstand": return middelstilstand();
       default: return void (location.hash = "#/maintenance");
     }
   }
@@ -294,6 +296,7 @@ async function route() {
       case "correcties": return productie.correcties();
       case "overdracht": return productie.overdracht(a);
       case "stilstand": return productie.stilstand();
+      case "middelstilstand": if (actueel()) return middelstilstand(); return;
       case "batch": return a ? kwaliteit.batch(a) : productie.werkvoorraad();
       case "lot": return a ? kwaliteit.lotpaspoort(a) : productie.werkvoorraad();
       default: return void (location.hash = "#/productie");

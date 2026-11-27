@@ -1,5 +1,5 @@
 import { h, toon, vastHouden, melding } from "../../../gedeeld/ui";
-import { haal, stuur, sessie, magMiddelenbeheer, magMiddelenstatus } from "../basis";
+import { haal, stuur, sessie, magMiddelenbeheer, magMiddelenstatus, magWerkstationbeheer, magMiddelstilstand } from "../basis";
 
 type Item={id:string;code:string;name:string};
 type Property=Item & {quantity_kind_id:string;measurement_unit_id:string;unit:string};
@@ -114,4 +114,53 @@ export async function middelenstatus(){
       block("Statusoverzicht",h("p",{class:"sub"},["available","blocked","unknown"].map(s=>statusLabel(s as Status)+": "+rows.filter(x=>x.status===s).length).join(" · ")),
         table(["Code","Middel","Technische status","Revisie","Reden","Tijd","Medewerker","Actie","Historie"],statusRows)));
   }catch(e){if(current())toon(h("p",{class:"foutmelding",role:"alert"},(e as Error).message),h("button",{class:"knop",onclick:middelenstatus},"Opnieuw proberen"));}
+}
+
+
+type Workstation={id:string;name:string;location:string|null;active:boolean};
+type Assignment={id:string;pc_id:string;equipment_id:string;opened_at:string;opened_by_name:string;open_reason:string;closed_at:string|null;closed_by_name:string|null;close_reason:string|null};
+type Workstations={workstations:Workstation[];equipment:Item[];assignments:Assignment[]};
+export async function werkstationkoppelingen(){
+  const current=guard();
+  if(!magWerkstationbeheer()){toon(h("p",{class:"leeg",role:"alert"},"Geen actuele globale middelenbeheerbevoegdheid."));return;}
+  toon(h("p",{class:"sub"},"Werkstationkoppelingen ophalen…"));
+  try{
+    const c=await haal<Workstations>("/resources/workstations");
+    if(!current())return;
+    const active=c.workstations.filter(p=>p.active);
+    const pc=select("Werkstation",active.map(p=>({id:p.id,label:p.name+(p.location?" — "+p.location:"")})));
+    const eq=select("Middel",[]),reason=text("Reden");
+    pc.input.addEventListener("change",()=>{
+      const linked=new Set(c.assignments.filter(a=>a.pc_id===val(pc)&&a.closed_at===null).map(a=>a.equipment_id));
+      eq.input.replaceChildren(h("option",{value:""},"Maak een keuze"),...opts(c.equipment.filter(e=>!linked.has(e.id))).map(e=>h("option",{value:e.id},e.label)));
+    });
+    const edit=(title:string,fields:Field[],path:string,body:()=>object)=>form(title,fields,path,body,current,magWerkstationbeheer,werkstationkoppelingen);
+    const rows=c.assignments.map(a=>{
+      const station=c.workstations.find(p=>p.id===a.pc_id);
+      const why=text("Reden van ontkoppeling");
+      return [station?station.name+(station.active?"":" (inactief)"):"Onbekend",label(c.equipment,a.equipment_id),
+        date(a.opened_at),a.opened_by_name,a.open_reason,date(a.closed_at),a.closed_by_name,a.close_reason,
+        a.closed_at?"Afgesloten":"Actief",
+        a.closed_at?null:edit("Koppeling beëindigen",[why],"/resources/workstation-assignments/"+a.id+"/close",()=>({reason:val(why)}))];
+    });
+    toon(h("div",{class:"kop"},h("div",{},h("h1",{},"Werkstationkoppelingen"),h("p",{class:"sub"},"Expliciete koppelingen · geen technische vrijgave of productiebevoegdheid")),h("button",{class:"knop",onclick:werkstationkoppelingen},"Vernieuwen")),
+      block("Koppelingen en historie",table(["Werkstation","Middel","Vanaf","Geopend door","Reden","Tot","Gesloten door","Afsluitreden","Status","Actie"],rows),
+        active.length>0&&c.equipment.length>0&&edit("Middel koppelen",[pc,eq,reason],"/resources/workstation-assignments",()=>({pc_id:val(pc),equipment_id:val(eq),reason:val(reason)}))));
+  }catch(e){if(current())toon(h("p",{class:"foutmelding",role:"alert"},(e as Error).message),h("button",{class:"knop",onclick:werkstationkoppelingen},"Opnieuw proberen"));}
+}
+
+type Downtime={id:string;equipment_id:string;equipment_code:string;equipment_name:string;step_code:string;step_name:string;reason_code:string;reason_name:string;category:string;note:string|null;started_at:string;workstation:string|null;operator:string|null};
+export async function middelstilstand(){
+  const current=guard();
+  if(!magMiddelstilstand()){toon(h("p",{class:"leeg",role:"alert"},"Geen actuele stilstandleesbevoegdheid."));return;}
+  toon(h("p",{class:"sub"},"Actuele middelstilstand ophalen…"));
+  try{
+    const rows=await haal<Downtime[]>("/stilstand/middelen");
+    if(!current())return;
+    toon(h("div",{class:"kop"},h("div",{},h("h1",{},"Actuele middelstilstand"),h("p",{class:"sub"},"Uitsluitend actieve middelregistraties. Geen technische status of stapbeschikbaarheidsberekening.")),h("button",{class:"knop",onclick:middelstilstand},"Vernieuwen")),
+      block("Actieve meldingen ("+rows.length+")",rows.length?
+        table(["Middel","Processtap","Oorzaak","Sinds","Werkstation","Gemeld door","Toelichting"],rows.map(x=>[
+          x.equipment_code+" — "+x.equipment_name,x.step_code+" — "+x.step_name,x.reason_name,date(x.started_at),x.workstation,x.operator,x.note
+        ])):h("p",{class:"leeg"},"Geen actieve middelstilstand geregistreerd.")));
+  }catch(e){if(current())toon(h("p",{class:"foutmelding",role:"alert"},(e as Error).message),h("button",{class:"knop",onclick:middelstilstand},"Opnieuw proberen"));}
 }
