@@ -266,7 +266,7 @@ try {
   await transition.getByRole("button",{name:"Opslaan"}).click();
   await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
   assert.equal(statusWrites,1);
-  await page.getByText("Historie",{exact:true}).click();
+  await page.locator("details > summary").filter({hasText:/^Historie$/}).click();
   await page.getByRole("button",{name:"Historie ophalen"}).click();
   await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
   projection=personal();
