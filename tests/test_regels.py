@@ -3025,6 +3025,68 @@ def main():
     for table in ("equipment_class","equipment","equipment_class_assignment"):
         check("F4-114-A10 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
 
+    print("\n#114.4 fysieke assets")
+    con.execute("BEGIN")
+    try:
+        h=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-ASSET-ENT','Fictief','enterprise') RETURNING id")
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-ASSET-E1','Fictief',%s) RETURNING id",(h,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-ASSET-E2','Fictief',%s) RETURNING id",(h,))
+        a1=val("INSERT INTO physical_asset(code,name) VALUES ('F4-ASSET-A1','Fictief') RETURNING id")
+        a2=val("INSERT INTO physical_asset(code,name) VALUES ('F4-ASSET-A2','Fictief') RETURNING id")
+        insert="INSERT INTO equipment_asset_assignment(equipment_id,physical_asset_id,valid_from,valid_until) VALUES (%s,%s,%s,%s)"
+        t1="2026-01-01T00:00:00Z"
+        t2="2026-02-01T00:00:00Z"
+        t3="2026-03-01T00:00:00Z"
+        first=val(insert+" RETURNING id",(e1,a1,t1,None))
+        con.execute(insert,(e1,a2,t1,None))
+        def asset_denied(label,sql,params=(),state=None):
+            con.execute("SAVEPOINT asset_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT asset_guard")
+                con.execute("RELEASE SAVEPOINT asset_guard")
+        asset_denied("F4-114-A06 open overlap",insert,(e2,a1,t2,None),"23P01")
+        con.execute("UPDATE equipment_asset_assignment SET valid_until=%s WHERE id=%s",(t2,first))
+        second=val(insert+" RETURNING id",(e2,a1,t2,None))
+        check("F4-114-A05 historische en aansluitende toewijzing behouden",
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a1,))==2 and
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE equipment_id=%s",(e1,))==2)
+        for label,sql,params,state in [
+            ("historische overlap",insert,(e2,a1,t1,t2),"23P01"),
+            ("overlap zelfde middel",insert,(e2,a1,t3,None),"23P01"),
+            ("nulduur",insert,(e2,a2,t3,t3),"23514"),
+            ("negatieve duur",insert,(e2,a2,t3,t2),"23514"),
+            ("oneindige start",insert,(e2,a2,"-infinity",None),"23514"),
+            ("oneindig einde",insert,(e2,a2,t3,"infinity"),"23514"),
+            ("onbekende asset",insert,(e2,"00000000-0000-0000-0000-000000000001",t3,None),"23503"),
+            ("afgesloten periode wijzigen","UPDATE equipment_asset_assignment SET valid_until=%s WHERE id=%s",(t3,first),"55000"),
+            ("afgesloten periode heropenen","UPDATE equipment_asset_assignment SET valid_until=NULL WHERE id=%s",(first,),"55000"),
+            ("middel overschrijven","UPDATE equipment_asset_assignment SET equipment_id=%s,valid_until=%s WHERE id=%s",(e1,t3,second),"55000"),
+            ("asset overschrijven","UPDATE equipment_asset_assignment SET physical_asset_id=%s,valid_until=%s WHERE id=%s",(a2,t3,second),"55000"),
+            ("start overschrijven","UPDATE equipment_asset_assignment SET valid_from=%s,valid_until=%s WHERE id=%s",(t1,t3,second),"55000"),
+            ("historie verwijderen","DELETE FROM equipment_asset_assignment WHERE id=%s",(first,),"55000"),
+            ("assetcode wijzigen","UPDATE physical_asset SET code='F4-NEW' WHERE id=%s",(a1,),"55000"),
+            ("asset verwijderen","DELETE FROM physical_asset WHERE id=%s",(a1,),"55000"),
+        ]:
+            asset_denied("F4-114-A05/A06 "+label,sql,params,state)
+        for table in ("physical_asset","equipment_asset_assignment"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"):
+                check("F4-114-A07 geen directe app-"+privilege+" "+table,
+                      not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+        check("F4-114-A07 geen directe assetguard",
+              not val("SELECT has_function_privilege('mes_app','fabriek.equipment_asset_assignment_guard()','EXECUTE')"))
+        con.execute("SET LOCAL ROLE mes_app")
+        asset_denied("F4-114-A07 asset lezen geweigerd","SELECT * FROM fabriek.physical_asset",state="42501")
+        asset_denied("F4-114-A07 historie lezen geweigerd","SELECT * FROM fabriek.equipment_asset_assignment",state="42501")
+        asset_denied("F4-114-A07 afsluiten geweigerd","UPDATE fabriek.equipment_asset_assignment SET valid_until=%s WHERE id=%s",(t3,second),"42501")
+        con.execute("RESET ROLE")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    for table in ("physical_asset","equipment_asset_assignment"):
+        check("F4-114-A10 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
