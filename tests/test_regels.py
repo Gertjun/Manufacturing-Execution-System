@@ -3340,6 +3340,96 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    print("\n#115.1 getypeerde middelenkenmerken")
+    from decimal import Decimal
+    for table in ("equipment_property_definition","equipment_capability","equipment_capability_revision"):
+        check("F4-115-A05 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+            check("F4-115-A04 geen directe "+privilege+" "+table,
+                  not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+    con.execute("BEGIN")
+    try:
+        # Fictieve grootheden met dezelfde dimensie maar verschillende semantiek.
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,0,0,0,1,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-ABS','Temperatuur','absolute') RETURNING id",(dim,))
+        other_kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-DIFF','Verschil','difference') RETURNING id",(dim,))
+        unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-C','degC','Celsius') RETURNING id",(kind,))
+        other_unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-DC','deltaC','Verschil Celsius') RETURNING id",(other_kind,))
+        for name in ("manager","scoped","mapper","maintenance"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115'))",("f115."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115."+name,)) for name in ("manager","scoped","mapper","maintenance")}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager'),(%s,'resource_scope_administrator'),(%s,'maintenance_technician')",(actors["manager"],actors["mapper"],actors["maintenance"]))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','F115-GRANT')",(actors["scoped"],))
+        def deny115(label,query,params=(),state="42501"):
+            con.execute("SAVEPOINT f115_guard")
+            try:
+                faalt(label,query,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT f115_guard")
+                con.execute("RELEASE SAVEPOINT f115_guard")
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-A04 geen persoonlijk bewijs","SELECT resource_property_create('F115-NO','Geen',%s,%s)",(kind,unit))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115',NULL)",("f115."+name,)) for name in actors}
+        def bind115(name):
+            con.execute("SELECT execution_bind_transaction(%s,%s)",(proofs[name],actors[name]))
+        bind115("manager")
+        ent=val("SELECT resource_hierarchy_create('F115-ENT','Enterprise','enterprise',NULL)")
+        site=val("SELECT resource_hierarchy_create('F115-SITE','Site','site',%s)",(ent,))
+        area=val("SELECT resource_hierarchy_create('F115-AREA','Area','area',%s)",(site,))
+        e=val("SELECT resource_equipment_create('F115-E','Middel',%s)",(area,))
+        outside=val("SELECT resource_equipment_create('F115-OUT','Ander',%s)",(site,))
+        prop=val("SELECT resource_property_create('F115-TEMP','Temperatuur',%s,%s)",(kind,unit))
+        deny115("F4-115-A02 afwijkende grootheidsemantiek","SELECT resource_property_create('F115-BAD','Fout',%s,%s)",(kind,other_unit),"23503")
+        deny115("F4-115-A03 dubbele definitiecode","SELECT resource_property_create('F115-TEMP','Dubbel',%s,%s)",(kind,unit),"23505")
+        create="SELECT resource_capability_create(%s,%s,%s::numeric,%s)"
+        revise="SELECT resource_capability_revise(%s,%s,%s::numeric,%s)"
+        for bad in ("NaN","Infinity","-Infinity"):
+            deny115("F4-115-A02 niet eindig "+bad,create,(e,prop,bad,"Test"),"23514")
+        deny115("F4-115-A02 lege reden",create,(e,prop,"1"," "),"23514")
+        con.execute("RESET ROLE")
+        check("F4-115-A03 geen lege identiteit na fout",val("SELECT count(*) FROM equipment_capability WHERE equipment_id=%s",(e,))==0)
+        con.execute("SET LOCAL ROLE mes_app")
+        cap=val(create,(e,prop,"9007199254740993.123456789","Exact"))
+        outside_cap=val(create,(outside,prop,"10","Fictief"))
+        deny115("F4-115-A03 dubbele capability",create,(e,prop,"1","Dubbel"),"23505")
+        bind115("scoped")
+        deny115("F4-115-A04 scope zonder mapping",revise,(cap,1,"0","Geen"))
+        deny115("F4-115-A04 definitie blijft globaal","SELECT resource_property_create('F115-NO','Geen',%s,%s)",(kind,unit))
+        bind115("maintenance")
+        deny115("F4-115-A04 maintenance zonder catalogusgrant",revise,(cap,1,"0","Geen"))
+        bind115("mapper")
+        deny115("F4-115-A04 security geen capabilitymutatie",revise,(cap,1,"0","Geen"))
+        con.execute("SELECT resource_area_scope_create('F115-GRANT',%s)",(area,))
+        bind115("scoped")
+        check("F4-115-A04 gebiedsgebonden revisie",val(revise,(cap,1,"-12.345","Correctie"))==2)
+        deny115("F4-115-A04 buiten gebied",revise,(outside_cap,1,"0","Geen"))
+        deny115("F4-115-A04 stale revisie",revise,(cap,1,"0","Verouderd"),"40001")
+        deny115("F4-115-A04 directe revisiemutatie","UPDATE fabriek.equipment_capability_revision SET value=1 WHERE capability_id=%s",(cap,))
+        con.execute("RESET ROLE")
+        check("F4-115-A01 vaste eenheid",one("SELECT quantity_kind_id,measurement_unit_id FROM equipment_property_definition WHERE id=%s",(prop,))==(kind,unit))
+        check("F4-115-A01 exacte waarden en historie",
+              con.execute("SELECT revision,value,created_by FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision",(cap,)).fetchall()==[(1,Decimal("9007199254740993.123456789"),actors["manager"]),(2,Decimal("-12.345"),actors["scoped"])])
+        check("F4-115-A04 persoonlijke revisieaudit",
+              val("""SELECT count(*) FROM config_log l JOIN equipment_capability_revision v ON v.id=l.record_id
+                     WHERE v.capability_id=%s AND l.tabel='equipment_capability_revision'
+                       AND l.actor_user_id=v.created_by AND l.actor_origin='personal'""",(cap,))==2)
+        for table,query,params in (
+            ("definitie","UPDATE equipment_property_definition SET name='Geen' WHERE id=%s",(prop,)),
+            ("capability","DELETE FROM equipment_capability WHERE id=%s",(cap,)),
+            ("revisie","DELETE FROM equipment_capability_revision WHERE capability_id=%s",(cap,)),
+        ):
+            deny115("F4-115-A03 onveranderlijke "+table,query,params,"55000")
+        deny115("F4-115-A03 revisiegat","INSERT INTO equipment_capability_revision(capability_id,revision,value,created_by,reason) VALUES (%s,4,0,%s,'Test')",(cap,actors["manager"]),"40001")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("scoped")
+        deny115("F4-115-A04 ingetrokken scope",revise,(cap,2,"0","Geen"))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
