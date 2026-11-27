@@ -13,6 +13,13 @@ type Field={label:string;input:HTMLInputElement|HTMLSelectElement};
 type Cell=string|number|Node|null;
 const val=(f:Field)=>f.input.value.trim();
 const text=(label:string,value="",max=2000):Field=>({label,input:h("input",{type:"text",required:true,maxlength:max,value})});
+// Waarden blijven tekst, ook op mobiele toetsenborden.
+function decimal(label:string,value=""):Field {
+  const field=text(label,value,256);
+  field.input.setAttribute("inputmode","decimal");
+  field.input.setAttribute("pattern","[+\\-]?[0-9]+(?:[.][0-9]+)?");
+  return field;
+}
 function select(label:string,items:{id:string;label:string}[]):Field {
   return {label,input:h("select",{required:true},h("option",{value:""},"Maak een keuze"),items.map(x=>h("option",{value:x.id},x.label)))};
 }
@@ -55,7 +62,7 @@ export async function capaciteiten(){
     const refs=c.global?await haal<References>("/resources/property-references"):null;
     if(!current())return;
     const edit=(title:string,fields:Field[],path:string,body:()=>object)=>form(title,fields,path,body,current,magMiddelenbeheer,capaciteiten);
-    const eq=select("Middel",opts(c.equipment)),prop=select("Eigenschap",opts(c.properties)),amount=text("Exacte waarde","",256),why=text("Reden");
+    const eq=select("Middel",opts(c.equipment)),prop=select("Eigenschap",opts(c.properties)),amount=decimal("Exacte waarde"),why=text("Reden");
     let createProperty:Node|false=false;
     if(refs){
       const code=text("Code","",100),name=text("Naam","",250),kind=select("Grootheid",opts(refs.quantity_kinds)),unit=select("Eenheid",[]);
@@ -65,7 +72,7 @@ export async function capaciteiten(){
     }
     const rows=c.capabilities.map(x=>{
       const p=c.properties.find(p=>p.id===x.property_definition_id);
-      const value=text("Exacte waarde",x.value??"",256),reason=text("Reden");
+      const value=decimal("Exacte waarde",x.value??""),reason=text("Reden");
       const actions=h("div",{},
         x.revision!==null?edit("Revisie toevoegen",[value,reason],"/resources/capabilities/"+x.id+"/revisions",()=>({expected_revision:x.revision,value:val(value),reason:val(reason)})):null,
         !x.capacity&&x.revision!==null?edit("Als technische capaciteit aanwijzen",[],"/resources/capabilities/"+x.id+"/capacity",()=>({expected_revision:x.revision})):null);

@@ -31,6 +31,11 @@ const resourceEquipment = {...resourceItem("equipment-1","FICT-E1","Fictief midd
 const resourceClass = resourceItem("class-1","FICT-CLASS","Fictieve klasse");
 const resourceAsset = resourceItem("asset-1","FICT-ASSET","Fictieve asset");
 let resourceGlobal = false, resourceRequests = 0, scopeRequests = 0, scopeWrites = 0;
+const exact="9007199254740993.123456789";
+const property={id:"property-1",code:"FICT-VOL",name:"Fictief volume",quantity_kind_id:"kind-1",measurement_unit_id:"unit-1",unit:"L"};
+const capability={id:"cap-1",equipment_id:resourceEquipment.id,property_definition_id:property.id,revision:1,value:exact,reason:"Fictief",created_at:"2026-01-01T10:00:00Z",capacity:false};
+const technicalStatus={...resourceEquipment,status:"unknown",revision:0,reason:null,created_at:null,created_by_name:null};
+let capRequests=0,statusRequests=0,referenceRequests=0,capWrites=0,statusWrites=0;
 const scopeFixture = {areas:[resourceArea],equipment:[resourceEquipment],area_scopes:[],equipment_scopes:[]};
 const veld = { code:"S3.2", naam:"Fictieve temperatuur", eenheid:"°C", soort:"procesparameter", stap:"PS3", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut" };
 const meting = (dag, extra = {}) => ({ tijd: "2026-11-"+dag+"T10:00:00Z", setting:75, gemeten:75, markering:"ok", batch_of_lot:"FICTIEF-"+dag, operator:"Test", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut", product:"P1", ...extra });
@@ -48,6 +53,35 @@ try {
       resourceRequests++;
       if (!projection.resourceCatalog && !projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
       return json({global:resourceGlobal,hierarchy:[resourceArea],equipment:[resourceEquipment],classes:[resourceClass],assets:[resourceAsset],class_assignments:[],asset_assignments:[{id:"assignment-1",equipment_id:resourceEquipment.id,physical_asset_id:resourceAsset.id,valid_from:"2026-01-01T10:00:00Z",valid_until:null}]});
+    }
+    if (path === "/resources/capabilities") {
+      capRequests++;
+      if (!projection.resourceCatalog&&!projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
+      return json({global:resourceGlobal,equipment:[resourceEquipment],properties:[property],capabilities:[capability]});
+    }
+    if (path === "/resources/property-references") {
+      referenceRequests++;
+      if (!projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
+      return json({quantity_kinds:[{id:"kind-1",code:"VOL",name:"Volume"},{id:"kind-2",code:"MASS",name:"Massa"}],units:[{id:"unit-1",quantity_kind_id:"kind-1",code:"L",symbol:"L",name:"Liter"},{id:"unit-2",quantity_kind_id:"kind-2",code:"KG",symbol:"kg",name:"Kilogram"}]});
+    }
+    if (path === "/resources/capabilities/cap-1/revisions"&&route.request().method()==="POST") {
+      assert.ok(projection.resourceCatalog);
+      assert.deepEqual(route.request().postDataJSON(),{expected_revision:1,value:"9007199254740993.123456790",reason:"Precisie"});
+      capWrites++;capability.value=route.request().postDataJSON().value;capability.revision=2;
+      return json({revision:2});
+    }
+    if (path === "/resources/statuses") {
+      statusRequests++;
+      return projection.resourceStatus?json([technicalStatus]):json({fout:"Geweigerd"},403);
+    }
+    if (path === "/resources/equipment/equipment-1/status"&&route.request().method()==="POST") {
+      assert.ok(projection.resourceStatus);
+      assert.deepEqual(route.request().postDataJSON(),{expected_revision:0,status:"blocked",reason:"Inspectie vereist"});
+      statusWrites++;Object.assign(technicalStatus,{status:"blocked",revision:1,reason:"Inspectie vereist",created_at:"2026-01-01T10:00:00Z",created_by_name:"mes.quality"});
+      return json({revision:1});
+    }
+    if (path === "/resources/equipment/equipment-1/status-history") {
+      return projection.resourceStatus?json([{revision:1,status:"blocked",reason:"Inspectie vereist",created_at:"2026-01-01T10:00:00Z",created_by_name:"mes.quality"}]):json({fout:"Geweigerd"},403);
     }
     if (path === "/resources/scopes") {
       scopeRequests++;
@@ -164,6 +198,61 @@ try {
   projection=personal();
   await landing([]);
   console.log("OK F4-114: begrensd/globaal middelenbeheer, directe routeweigering, onafhankelijke mapping en bevestiging");
+  // #115.6d: gescheiden portaalroutes, precieze waarde en statusovergang.
+  projection={...personal(),resourceCatalog:true};resourceGlobal=false;
+  await landing(["maintenance"]);
+  const refsBefore=referenceRequests;
+  await page.goto(origin+"/portaal/#/maintenance/capaciteiten");
+  await page.getByRole("heading",{name:"Eigenschappen en capaciteit",exact:true}).waitFor();
+  await page.getByText(exact,{exact:true}).waitFor();
+  assert.equal(referenceRequests,refsBefore);
+  assert.equal(await page.getByText("Eigenschap definiëren",{exact:true}).count(),0);
+  const revision=page.locator("details").filter({has:page.getByText("Revisie toevoegen",{exact:true})});
+  await revision.getByText("Revisie toevoegen",{exact:true}).click();
+  await revision.getByLabel("Exacte waarde").fill("9007199254740993.123456790");
+  await revision.getByLabel("Reden").fill("Precisie");
+  await revision.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByText("9007199254740993.123456790",{exact:true}).waitFor();
+  assert.equal(capWrites,1);
+  const noStatus=statusRequests;
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("heading",{name:"Middelenbeheer",exact:true}).waitFor();
+  assert.equal(statusRequests,noStatus);
+  projection={...personal(["resource.catalog.manage"]),resourceCatalog:true};resourceGlobal=true;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/capaciteiten");
+  const definition=page.locator("details").filter({has:page.getByText("Eigenschap definiëren",{exact:true})});
+  await definition.getByText("Eigenschap definiëren",{exact:true}).click();
+  await definition.getByLabel("Grootheid").selectOption("kind-1");
+  assert.deepEqual(await definition.getByLabel("Eenheid").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),["","unit-1"]);
+  await definition.getByLabel("Eenheid").selectOption("unit-1");
+  await definition.getByLabel("Grootheid").selectOption("kind-2");
+  assert.deepEqual(await definition.getByLabel("Eenheid").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),["","unit-2"]);
+  assert.equal(await definition.getByLabel("Eenheid").inputValue(),"");
+  projection={...personal(),resourceStatus:true};
+  await landing(["maintenance"]);
+  const noCatalog=capRequests;
+  await page.goto(origin+"/portaal/#/maintenance/capaciteiten");
+  await page.getByRole("heading",{name:"Technische middelenstatus",exact:true}).waitFor();
+  assert.equal(capRequests,noCatalog);
+  await page.getByRole("cell",{name:"Onbekend",exact:true}).waitFor();
+  const transition=page.locator("details").filter({has:page.getByText("Status wijzigen",{exact:true})});
+  await transition.getByText("Status wijzigen",{exact:true}).click();
+  await transition.getByLabel("Nieuwe technische status").selectOption("blocked");
+  await transition.getByLabel("Reden").fill("Inspectie vereist");
+  await transition.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  assert.equal(statusWrites,1);
+  await page.getByText("Historie",{exact:true}).click();
+  await page.getByRole("button",{name:"Historie ophalen"}).click();
+  await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
+  projection=personal();
+  await landing([]);
+  const deniedStatus=statusRequests;
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("heading",{name:/^Welkom/}).waitFor();
+  assert.equal(statusRequests,deniedStatus);
+  console.log("OK F4-115: exacte waarde, eenhedenfilter, statusovergang, historie en onafhankelijke directe routeweigering");
   projection = quality;
   await landing(["invoer", "kwaliteit"]);
   await set(page, { "invoer.token": OLD, "invoer.operatornaam": "ander" });
