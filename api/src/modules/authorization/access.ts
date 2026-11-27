@@ -88,5 +88,12 @@ export async function permissionProjection(req: FastifyRequest) {
       }
     }
   }
-  return { global, products, personal: req.user.rol !== "scherm", linkedPerson: !!person?.id, resourceCatalog };
+  let resourceStatus = false;
+  if (req.user.rol !== "scherm") {
+    resourceStatus = await persoonlijkeTransactie(req.server.db, req, async tx => {
+      const {rows:[r]}=await tx.query<{allowed:boolean}>("SELECT resource_status_access() AS allowed");
+      return r?.allowed === true;
+    });
+  }
+  return { global, products, personal: req.user.rol !== "scherm", linkedPerson: !!person?.id, resourceCatalog, resourceStatus };
 }

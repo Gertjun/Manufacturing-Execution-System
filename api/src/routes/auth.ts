@@ -30,6 +30,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         personal: Type.Boolean(),
         linkedPerson: Type.Boolean(),
         resourceCatalog: Type.Boolean(),
+        resourceStatus: Type.Boolean(),
       }) },
     },
   }, async (req, reply) => {

@@ -955,6 +955,14 @@ BEGIN
  END IF;
 END $$;
 
+-- 0153: beperkte referenties en statusmenusignaal.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=153) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_property_references(),fabriek.resource_status_access() TO mes_app;
+ END IF;
+END $$;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

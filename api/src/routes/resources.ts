@@ -1,6 +1,8 @@
 import { Type, type FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { persoonlijkeTransactie } from "../auth.js";
 import { personalSession } from "../modules/authorization/access.js";
+import { ApiFout } from "../fouten.js";
+import type { FastifyRequest } from "fastify";
 
 const Id = Type.String({ format: "uuid" });
 const NullId = Type.Unsafe<string | null>({ type: ["string", "null"], format: "uuid" });
@@ -66,7 +68,20 @@ const Workstations = Type.Object({
   })),
 });
 
+const PropertyReferences = Type.Object({
+  quantity_kinds: Type.Array(Type.Object({ id: Id, code: Type.String(), name: Type.String(), value_semantics: Type.String() })),
+  units: Type.Array(Type.Object({ id: Id, quantity_kind_id: Id, code: Type.String(), symbol: Type.String(), name: Type.String() })),
+});
+// Pre-validation draait vóór AJV-coercion. Geen reeds afgerond JSON-number
+// stilzwijgend naar een decimale tekstwaarde omzetten.
+async function exactDecimalInput(req: FastifyRequest) {
+  const b=req.body as {value?:unknown} | null;
+  if (typeof b?.value !== "string") throw new ApiFout(400,"Geef de exacte decimale waarde als tekst");
+}
+
 const routes: FastifyPluginAsyncTypebox = async app => {
+  app.get("/property-references", { preHandler: personalSession, schema: { tags, response: { 200: PropertyReferences } } },
+    async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_property_references() AS data")).rows[0].data));
   app.get("/capabilities", { preHandler: personalSession, schema: { tags, response: { 200: Capabilities } } },
     async req => persoonlijkeTransactie(app.db, req, async tx => (await tx.query("SELECT resource_capability_list() AS data")).rows[0].data));
   app.get("/statuses", { preHandler: personalSession, schema: { tags, response: { 200: Type.Array(StatusRow) } } },
@@ -82,13 +97,13 @@ const routes: FastifyPluginAsyncTypebox = async app => {
       const r=await persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_property_create($1,$2,$3,$4) AS id",[b.code,b.name,b.quantity_kind_id,b.measurement_unit_id])).rows[0]);
       return reply.code(201).send(r as {id:string});
     });
-  app.post("/capabilities", { preHandler: personalSession, schema: { tags, body: Type.Object({ equipment_id: Id, property_definition_id: Id, value: Decimal, reason: Reason },strict), response: { 201: Result } } },
+  app.post("/capabilities", { preValidation: exactDecimalInput, preHandler: personalSession, schema: { tags, body: Type.Object({ equipment_id: Id, property_definition_id: Id, value: Decimal, reason: Reason },strict), response: { 201: Result } } },
     async (req,reply) => {
       const b=req.body;
       const r=await persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_capability_create($1,$2,$3::numeric,$4) AS id",[b.equipment_id,b.property_definition_id,b.value,b.reason])).rows[0]);
       return reply.code(201).send(r as {id:string});
     });
-  app.post("/capabilities/:id/revisions", { preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ expected_revision: Revision, value: Decimal, reason: Reason },strict), response: { 200: NextRevision } } },
+  app.post("/capabilities/:id/revisions", { preValidation: exactDecimalInput, preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ expected_revision: Revision, value: Decimal, reason: Reason },strict), response: { 200: NextRevision } } },
     async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_capability_revise($1,$2,$3::numeric,$4) AS revision",[req.params.id,req.body.expected_revision,req.body.value,req.body.reason])).rows[0]));
   app.post("/capabilities/:id/capacity", { preHandler: personalSession, schema: { tags, params: Params, body: Type.Object({ expected_revision: Revision },strict), response: { 201: Result } } },
     async (req,reply) => {
