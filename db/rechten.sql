@@ -911,6 +911,15 @@ BEGIN
  END IF;
 END $;
 
+-- 0147: uitsluitend persoonlijke werkstationkoppelingen.
+DO $
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=147) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_workstation_open(uuid,uuid,text),
+     fabriek.resource_workstation_close(uuid,text) TO mes_app;
+ END IF;
+END $;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$
