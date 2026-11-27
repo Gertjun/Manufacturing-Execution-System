@@ -1,6 +1,6 @@
 # MES
 
-> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 technisch geaccepteerd op 8987ea7 en gemerged naar main (411a9d3); fase 3 technisch geaccepteerd op c91791e en gemerged via PR #8 (33b7a91). Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); afzonderlijke publicatietoestemming nog open. Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D106 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
+> **MES-transitie:** fase 1 functioneel geaccepteerd op 25 november 2026; release 0.63.0 gepubliceerd; fase 2 technisch geaccepteerd op 8987ea7 en gemerged naar main (411a9d3); fase 3 technisch geaccepteerd op c91791e en gemerged via PR #8 (33b7a91). Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); officieel gepubliceerd op 27 november 2026 ([release v0.64.0](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.64.0)). Architectuur: [docs/mes/BLUEPRINT.md](docs/mes/BLUEPRINT.md), D89–D106 en [ROADMAP.md](ROADMAP.md). PR #1 blijft historisch. Geen operationele fabrieksvrijgave.
 
 Platform om per batch en per lot de productiegegevens van de fabriek vast te leggen en te analyseren. De huidige fictieve PoC gebruikt 18 processtappen en een lot van vier batches in PS16; dit is een tijdelijk model, geen definitief MES-recept. Lokale registratie ondersteunt offline werken. **Alle namen, nummers en waarden in deze repository zijn fictief.**
 
@@ -19,13 +19,13 @@ De opbouw van de database als plaatje: [`docs/DATABASE.md`](docs/DATABASE.md) (a
 
 ## Stand
 
-Bijgewerkt: 27 november 2026 · versie **0.64.0** (releasekandidaat; laatst officieel uitgebracht 0.63.0).
+Bijgewerkt: 27 november 2026 · versie **0.64.0** (officieel uitgebracht).
 
-- **Ontwikkeling:** fase 1 gepubliceerd als v0.63.0; fase 2 en 3 technisch geaccepteerd en gemerged, schema 0129. Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); afzonderlijke publicatietoestemming nog open. Zie ROADMAP en ACCEPTANCE-CRITERIA. D110: structurele MBR Excel-import/export geparkeerd; ISA-model leidend.
+- **Ontwikkeling:** fase 1 gepubliceerd als v0.63.0; fase 2 en 3 technisch geaccepteerd en gemerged, schema 0129. Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); officieel gepubliceerd op 27 november 2026 ([release v0.64.0](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.64.0)). Zie ROADMAP en ACCEPTANCE-CRITERIA. D110: structurele MBR Excel-import/export geparkeerd; ISA-model leidend.
 - **Databaseplaatje:** 69 tabellen en 146 relaties op geteste schema 0101; gegenereerd in run 45687274731. Schema 0109 in ontwikkeling; regeneratie en gelijkheidscontrole volgen.
 - **Omgevingen:** Windows-laptoppakket en PostgreSQL leidend; browserdemo historisch en buiten verplichte scope (D99). Alleen fictieve gegevens.
-- **Open:** afzonderlijke release fase 2/3, 14 goedgekeurde praktijkverbeterpunten, daarna pas fase 4 middelenbeheer en overige domeinen; operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
-- **Releases:** uitsluitend op aanvraag na acceptatie. Fase 1 is uitgebracht; fase 2 en 3 technisch en functioneel geaccepteerd; afzonderlijke releasetoestemming nog vereist (D111).
+- **Open:** CI-optimalisatieronde #146 vóór fase 4; 14 goedgekeurde praktijkverbeterpunten; daarna fase 4 middelenbeheer en overige domeinen; operationele security en pilotvoorwaarden; zie ROADMAP.md en docs/mes/ACCEPTANCE-CRITERIA.md.
+- **Releases:** uitsluitend op aanvraag na acceptatie. Fase 1 is uitgebracht; fase 2 en 3 technisch en functioneel geaccepteerd en gepubliceerd als v0.64.0 (D111).
 
 **Links**
 - Code: https://github.com/Gertjun/Manufacturing-Execution-System (privé)

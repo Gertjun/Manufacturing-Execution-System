@@ -51,7 +51,7 @@ permissions:
 
 # Nieuwe wijzigingen op dezelfde branch vervangen oudere, nog lopende test-runs.
 concurrency:
-  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name == 'acceptatie-test' && 'acceptatie' || (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test') && 'schermen' || 'ontwikkeling' }}
+  group: tests-${{ github.ref }}-${{ github.event.action == 'labeled' && format('label-{0}', github.event.label.name) || (github.event.action == 'ready_for_review' || github.event.action == 'reopened') && 'pr-status' || 'ontwikkeling' }}
   cancel-in-progress: true
 
 jobs:
@@ -73,10 +73,44 @@ jobs:
           resultaat="$(node tools/verifieer_acceptatie.mjs "$GITHUB_SHA")" || resultaat=false
           [ "$resultaat" = true ] || resultaat=false
           echo "hergebruik=$resultaat" >> "$GITHUB_OUTPUT"
+  pr-bewijs:
+    name: Bestaand PR-testbewijs controleren
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-force-herhaling') && (((github.event.action == 'ready_for_review' || github.event.action == 'reopened') && !github.event.pull_request.draft) || (github.event.action == 'labeled' && (github.event.label.name == 'compatibiliteit-test' || github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test' || github.event.label.name == 'scherm-overgang-test' || github.event.label.name == 'database-baseline' || github.event.label.name == 'laptop-security')))
+    runs-on: ubuntu-latest
+    outputs:
+      hergebruik: ${{ steps.bewijs.outputs.hergebruik }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: PR-bewijs zoeken
+        id: bewijs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MODUS: ${{ github.event.action == 'labeled' && github.event.label.name || 'compatibiliteit-test' }}
+        run: |
+          resultaat="$(node tools/verifieer_pr_test.mjs "$HEAD" "$BASE" "$MODUS")" || resultaat=false
+          [ "$resultaat" = true ] || resultaat=false
+          echo "hergebruik=$resultaat" >> "$GITHUB_OUTPUT"
+  ci-policy:
+    name: CI-bewijsbeleid testen
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'ci-policy-test'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: node --test tests/ci-evidence.test.mjs
   compatibility:
     name: Node.js 22-compatibiliteit
-    needs: verificatie
-    if: always() && ((github.event_name == 'push' && needs.verificatie.outputs.hergebruik != 'true') || (github.event_name == 'pull_request' && ((github.event.action == 'labeled' && (github.event.label.name == 'compatibiliteit-test' || github.event.label.name == 'acceptatie-test')) || (github.event.action != 'labeled' && !github.event.pull_request.draft))))
+    needs: [verificatie, pr-bewijs]
+    if: always() && ((github.event_name == 'push' && needs.verificatie.outputs.hergebruik != 'true') || (github.event_name == 'pull_request' && ((github.event.action == 'labeled' && (github.event.label.name == 'compatibiliteit-test' || github.event.label.name == 'acceptatie-test')) || (github.event.action != 'labeled' && !github.event.pull_request.draft)))) && needs.pr-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Repository ophalen
@@ -92,6 +126,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$HEAD"
           if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
           git rev-parse 'HEAD^{tree}'
+      - name: PR-bewijs ${{ github.event.pull_request.base.sha }} ${{ github.event.action == 'labeled' && github.event.label.name || 'compatibiliteit-test' }}
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: git merge-base --is-ancestor "$BASE" HEAD
       - name: Node.js 22 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -101,6 +140,8 @@ jobs:
             api/package-lock.json
             invoer/package-lock.json
             portaal/package-lock.json
+      - name: CI-bewijsbeleid testen
+        run: node --test tests/ci-evidence.test.mjs
       - name: Versienummer overal gelijk
         run: |
           V="$(cat VERSIE)"
@@ -287,7 +328,8 @@ jobs:
 
   screen-regression:
     name: Gerichte Chrome-schermregressies (Node.js 26)
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test')
+    needs: pr-bewijs
+    if: always() && (github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-test' || github.event.label.name == 'scherm-review-test')) && needs.pr-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -313,6 +355,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$HEAD"
           if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
           git rev-parse 'HEAD^{tree}'
+      - name: PR-bewijs ${{ github.event.pull_request.base.sha }} ${{ github.event.action == 'labeled' && github.event.label.name || 'compatibiliteit-test' }}
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: git merge-base --is-ancestor "$BASE" HEAD
       - name: Node.js 26 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -351,7 +398,8 @@ jobs:
 
   individual-screen:
     name: Individuele Chrome-regressie (${{ github.event.label.name }})
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test' || github.event.label.name == 'scherm-overgang-test')
+    needs: pr-bewijs
+    if: always() && (github.event_name == 'pull_request' && github.event.action == 'labeled' && (github.event.label.name == 'scherm-flow-test' || github.event.label.name == 'scherm-formaten-test' || github.event.label.name == 'scherm-formaten-uitgebreid-test' || github.event.label.name == 'scherm-meldingen-test' || github.event.label.name == 'scherm-beheer-test' || github.event.label.name == 'scherm-productie-test' || github.event.label.name == 'scherm-planning-test' || github.event.label.name == 'scherm-sjabloon-test' || github.event.label.name == 'scherm-engineering-test' || github.event.label.name == 'scherm-overgang-test')) && needs.pr-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -377,6 +425,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$HEAD"
           if [ -n "$BASE" ]; then git merge-base --is-ancestor "$BASE" HEAD; fi
           git rev-parse 'HEAD^{tree}'
+      - name: PR-bewijs ${{ github.event.pull_request.base.sha }} ${{ github.event.action == 'labeled' && github.event.label.name || 'compatibiliteit-test' }}
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: git merge-base --is-ancestor "$BASE" HEAD
       - name: Node.js 26 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -425,7 +478,8 @@ jobs:
 
   database-baseline:
     name: Gerichte PostgreSQL-baseline (D100)
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'database-baseline'
+    needs: pr-bewijs
+    if: always() && (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'database-baseline') && needs.pr-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -456,6 +510,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$HEAD"
           git merge-base --is-ancestor "$BASE" HEAD
           git rev-parse 'HEAD^{tree}'
+      - name: PR-bewijs ${{ github.event.pull_request.base.sha }} ${{ github.event.action == 'labeled' && github.event.label.name || 'compatibiliteit-test' }}
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: git merge-base --is-ancestor "$BASE" HEAD
       - name: PostgreSQL-client en Python voorbereiden
         id: tools
         run: |
@@ -562,7 +621,8 @@ jobs:
 
   laptop-security:
     name: Gerichte laptoppakketbeveiliging (D24/D100)
-    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'laptop-security'
+    needs: pr-bewijs
+    if: always() && (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'laptop-security') && needs.pr-bewijs.outputs.hergebruik != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Repository ophalen
@@ -578,6 +638,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$HEAD"
           git merge-base --is-ancestor "$BASE" HEAD
           git rev-parse 'HEAD^{tree}'
+      - name: PR-bewijs ${{ github.event.pull_request.base.sha }} ${{ github.event.action == 'labeled' && github.event.label.name || 'compatibiliteit-test' }}
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: git merge-base --is-ancestor "$BASE" HEAD
       - name: Node.js 22 instellen
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:

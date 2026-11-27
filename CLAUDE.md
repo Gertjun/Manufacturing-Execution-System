@@ -140,3 +140,6 @@ D115 meetresultaat: basisformaten 171 s versus uitgebreid 285 s (40% minder); in
 D115: screenshots zijn nooit synchronisatiebewijs; wacht op specifieke route-inhoud, API-respons en exacte asynchrone status, behoud assertions. Individueel beheer: scherm-beheer-test (verse fictieve historische fixture, isolatie te verifiëren).
 
 D115: alle verplichte Chrome-tests gebruiken de gedeelde API-lifecyclehelper; wacht op proces-exit en databasequiescentie, geen vaste wachttijd of stille retry. Gebruik scherm-overgang-test voor Sjabloon → reset → Engineering. Alleen exclusieve fictieve testdatabase.
+
+
+D115/#146: bij PR-statuswijziging en gerichte testherhaling exact head/base/modus-bewijs controleren. Geen bewijs betekent werkelijk testen. Voor bewust herhalen eerst label ci-force-herhaling toevoegen, daarna het gewenste testlabel verwijderen/opnieuw toevoegen; force-label na de run verwijderen. Integrale acceptatie-test en scherm-review-test blijven altijd werkelijk uitvoeren. Voor bewijsbeleid uitsluitend ci-policy-test; geen fase 4 vóór #146-acceptatie.

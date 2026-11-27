@@ -2,7 +2,7 @@
 
 Enige centrale takenlijst; besluiten in DECISIONS.md, gerealiseerd in CHANGELOG.md, actuele werking in README.md. D89: 69 ontwerpbesluiten, nieuwe start vanaf main; PR #1 niet mergen.
 
-Bijgewerkt: 27 november 2026 · huidige versie 0.64.0 (releasekandidaat; laatst officieel 0.63.0)
+Bijgewerkt: 27 november 2026 · huidige versie 0.64.0 (officieel uitgebracht)
 
 D110: ISA-88/95 leidend voor alle nieuwe fasen; legacywensen zonder aangetoonde noodzaak of architectuurfit eerst naar het wishlist-/beoordelingsregister onderaan deze roadmap. Noodzakelijke fabrieks-, veiligheids-, kwaliteits-, wettelijke, integriteits- en migratievereisten blijven binnen passende scope. Geen automatische scope-uitbreiding.
 
@@ -118,10 +118,25 @@ D107 — volgorde binnen fase 3 (geen extra fase):
 | 139.4 Documentatieharmonisatie | 139.4a: fysieke ERD-generator en gegenereerde weergave met expliciete classificatie van 94 tabellen, conceptuele ERD en procesketen B+; SQL en relaties ongewijzigd; CI volgt. Documentatiecontrole 413 op 8668b63 groen inclusief PostgreSQL-hergeneratie. 139.4b: alle dertien fasen en gecombineerde acceptatiepoort in Gantt, architectuur/receptlevenscyclus/migratieproces B+; afzonderlijk naslagwerk blijft momentopname; broncontractcontrole toegevoegd; documentatiecontrole 414 groen. 139.4c: GitHub-dark-mode contrastprobleem in Gantt vastgesteld; reproduceerbare SVG met witte achtergrond en aparte labels, bron behouden; CI 415 faalde op verloren uitvoerpermissie van test_roadmap.sh; hersteld met mode 100755. Chrome-rendercontrole roadmap-SVG in beide kleurmodi toegevoegd; overige Mermaid-diagrammen en echte GitHub-weergave nog open. |
 | 140.1 Integrale functionele regressies en borging | Offline-wachtrij gebruikt dezelfde beoordelingsvoorwaarde voor groep en presentatie. Positieve MBR-vrijgave en intrekking doorlopen het echte pad met een fictief recept, MOC, drie onafhankelijke domeinen en controle op exacte revisie en ronde, historisch bewijs en alleen-lezen gedrag. Beide gerichte browsercontroles lokaal geslaagd. Integrale run 730 op `ae0c6bf`: Node 22, acht schermformaten en positieve MBR-vrijgave groen. Node 26 faalde alleen in de wandschermtest: die verwachtte een leeg menu. De test controleert nu de exacte bestemming `#/wandscherm` en behoudt de controles op routeafscherming en API-rechten. Integrale run 45813077111 op 4cb17b9: wandscherm en overige schermtests groen, Beheer-timeout bij wissel naar beheerder1. D115 CI-optimalisatie op 538611f: gerichte Node 22-run 45816349524 groen (41 s). Beheer-test gebruikt nu expliciete afmelding, actuele MES-systeem/manager-identiteiten en HTTP-/identiteitscontrole; gerichte Chrome-verificatie volgt. Gerichte Chrome 45818078177 op d47159b groen (17 scripts, 406 s; cache hit), Beheer hersteld. D115 eerste optimalisatie geverifieerd; aanvullende individuele regressies en A/B/C-verdeling CI/Windows geïmplementeerd, runtimebewijs open. Run 45820963850: formaatregressie staande telefoon en mes.manager-matrix gefaald; correctie van schermwachting en bedoelde beperkte Kwaliteit-toegang geïmplementeerd; individuele verificatie vóór integrale hercontrole. D115: productie 45827603948 (146 s), basisformaten 45828121067 (171 s), meldingen 45829004253 (134 s), uitgebreide formaten 45829695975 (285 s) groen op 85f7ea3; 40% minder runnerduur voor basisformaten. Integrale run 45831543154 op 63708ad: Node22 en diagram groen, Node26 faalt op offline-status en logboek; gerichte timingcorrecties en beheerselectie geïmplementeerd, verificatie open. Integrale acceptatie en Windows-praktijk blijven open. |
 | 140.2 Technische acceptatie | Geaccepteerd en gemerged via PR #8; zie bewijs hieronder. |
-| 140.3 Windows-praktijkacceptatie | Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); afzonderlijke publicatietoestemming nog open. |
-| 140.4 Officiële publicatie | Releasevoorbereiding 0.64.0; integrale CI op exacte nieuwe tree, daarna afzonderlijke merge-/publicatietoestemming. |
+| 140.3 Windows-praktijkacceptatie | Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); officieel gepubliceerd op 27 november 2026 ([release v0.64.0](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.64.0)). |
+| 140.4 Officiële publicatie | Afgerond: v0.64.0 op 00b356b, releaseworkflow 45993256405 groen; mergecontrole 45993172307 hergebruikte integraal bewijs. |
 
 Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 3 (D111); merge en publicatie uitsluitend na afzonderlijk besluit opdrachtgever; gecombineerde Windows-praktijkacceptatie en officiële release vóór fase 4; latere portalen en documentatie volgen de standaard bij ontwikkeling. Geen nieuwe domeinfunctionaliteit, geen SQL- of autorisatiewijziging vanwege vormgeving. Bestaand PDF-naslagwerk is een momentopname en wordt afzonderlijk geharmoniseerd/geactualiseerd na vaststelling van de standaard. Geen nieuwe pilotdatum.
+
+### #146 CI-optimalisatieronde vóór fase 4 (D115, in uitvoering)
+
+Opdrachtgever akkoord 27 november 2026: eerst CI-optimalisatie, daarna fase 4. Basis v0.64.0 / 00b356b; geen functionele wijziging, geen nieuwe release. Nulmeting: run 45991082965 Node22 43 s, Node26 678 s; diagram 34 s; documentatie 7 s; dubbele ready_for_review Node22 50 s (45992904866); mergebewijs 15 s (45993172307), beide zware jobs overgeslagen.
+
+| Werkpakket | Scope | Status |
+|---|---|---|
+| CI-A | Exact PR-head/base/testbewijs bij ready_for_review en reopened; ontbrekend/ongeldig bewijs verplicht opnieuw testen. | Eerste implementatie, verificatie open |
+| CI-B | Exact modusgebonden hergebruik gerichte tests; bewuste herhaling via ci-force-herhaling; acceptatie en reviewshots niet overslaan. | Eerste implementatie, verificatie open |
+| CI-C | Schema- en documentatiecontrole ontdubbelen met aantoonbaar bewijs; behoud contextcontrole. | Gepland |
+| CI-D | Gedeelde builds/fixturevoorbereiding onderzoeken en meten; behoud isolatie en Node-versiegrenzen. | Gepland |
+| CI-E | Bestaande Windows-releasepakketten standaard niet opnieuw bouwen/vervangen. | Gepland |
+| CI-F | Labelconcurrency isoleren; snelle controles behouden; integrale borging en meting. | Eerste implementatie, verificatie open |
+
+Geen formele fase-4-start vóór technische acceptatie #146. Exacte volledige acceptatie op uiteindelijke CI-tree blijft verplicht. Alle huidige tests behouden.
 
 ## Fase 4 — Middelenbeheer en stilstand (Resource Management)
 
@@ -224,7 +239,7 @@ Afhankelijkheden: expliciete technische acceptatie van fase 2 vóór start fase 
 
 ## Werkafspraken
 
-- Nieuwe taken met het volgende vrije nummer (nu #146); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
+- Nieuwe taken met het volgende vrije nummer (nu #147); gebouwde nummers in CHANGELOG onder Unreleased, geen nieuwe versie zonder releaseverzoek.
 - Faseacceptatie volgens docs/mes/ACCEPTANCE-CRITERIA.md en D88; eigenaar merget. Geen automatische release.
 
 Fase 1 (0058): personeelsrechten en koppeling afgeschermd; gecontroleerde identiteitsoverdracht, kwalificaties, UI en testbewijs nog open.
@@ -392,4 +407,4 @@ Technische acceptatie fase 3 op 26 november 2026: [opdrachtgever PR #8](https://
 Windows-kandidaat: [build 45847472975](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45847472975) groen, buildcommit `ce71ca6534160798c9cb1948d08db097ccf80fdf`; bron exact `33b7a91fd6dcfd323148bd1505fb34c7bdc11f37` met bovenstaande tree. Artifact [MES-fase2-3-Windows-33b7a91](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/45847472975/artifacts/15130988657), ID 15130988657, vervalt 10 december 2026. ZIP-test, verplichte bestanden, SHA256-bestand en herkomstbestand geslaagd in build; fysieke uitvoering en lokale checksumcontrole nog open. Interne versie 0.63.0, schema 0129, uitsluitend fictief, geen release.
 
 
-Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); afzonderlijke publicatietoestemming nog open. Zie [praktijkbewijs](docs/mes/ACCEPTANCE-CRITERIA.md) en het praktijkbevindingenregister hierboven. Geen fase 4 vóór expliciet akkoord en officiële release.
+Windows-praktijktest W01–W12 uitgevoerd; 11 blokken geslaagd binnen hun uitgevoerde scope, W10 met fysieke 4K-beperking. Functioneel geaccepteerd op 27 november 2026 op bron 33b7a91, inclusief beperkingen en 14 verbeterpunten ([functionele acceptatie PR #9](https://github.com/Gertjun/Manufacturing-Execution-System/pull/9#issuecomment-7217036681)); officieel gepubliceerd op 27 november 2026 ([release v0.64.0](https://github.com/Gertjun/Manufacturing-Execution-System/releases/tag/v0.64.0)). Zie [praktijkbewijs](docs/mes/ACCEPTANCE-CRITERIA.md) en het praktijkbevindingenregister hierboven. Geen fase 4 vóór expliciet akkoord en officiële release.

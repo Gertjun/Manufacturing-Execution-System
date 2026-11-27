@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {findEvidence} from "../tools/verifieer_pr_test.mjs";
+const head="a".repeat(40),base="b".repeat(40);
+const run={id:1,head_sha:head,event:"pull_request",status:"completed",conclusion:"success"};
+const job={name:"Node.js 22-compatibiliteit",conclusion:"success",steps:[{name:`PR-bewijs ${base} acceptatie-test`,conclusion:"success"}]};
+const check=opts=>findEvidence({head,base,mode:"compatibiliteit-test",currentRun:99,runs:[run],listJobs:async()=>[job],...opts});
+test("exacte head/base en compatibiliteit uit integrale acceptatie",async()=>assert.equal(await check({}),true));
+test("andere base/head/modus, huidig run-ID en ontbrekend bewijs",async()=>{for(const opts of [{base:"c".repeat(40)},{head:"c".repeat(40)},{mode:"scherm-test"},{currentRun:1},{listJobs:async()=>[{...job,steps:[]}]},{mode:"acceptatie-test"}])assert.equal(await check(opts),false)});
+test("mislukte run/job/marker en nieuwer falend bewijs",async()=>{for(const opts of [{runs:[{...run,conclusion:"failure"}]},{listJobs:async()=>[{...job,conclusion:"failure"}]},{listJobs:async()=>[{...job,steps:[{...job.steps[0],conclusion:"failure"}]}]},{runs:[run,{...run,id:2,conclusion:"failure"}]}])assert.equal(await check(opts),false)});
+test("overgeslagen jobs zijn geen bewijs en verdringen geen geslaagd bewijs",async()=>{assert.equal(await check({listJobs:async()=>[{...job,conclusion:"skipped"}]}),false);assert.equal(await check({runs:[run,{...run,id:2}],listJobs:async id=>id===2?[{...job,conclusion:"skipped"}]:[job]}),true)});
+test("gerichte modi hebben eigen bewijs; review-output nooit hergebruiken",async()=>{const j={name:"Gerichte Chrome-schermregressies (Node.js 26)",conclusion:"success",steps:[{name:`PR-bewijs ${base} scherm-test`,conclusion:"success"}]};assert.equal(await check({mode:"scherm-test",listJobs:async()=>[j]}),true);assert.equal(await check({mode:"scherm-review-test",listJobs:async()=>[j]}),false);assert.equal(await check({mode:"scherm-test",listJobs:async()=>[{...j,steps:[{name:`PR-bewijs ${base} scherm-review-test`,conclusion:"success"}]}]}),false)});

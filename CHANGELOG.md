@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #146 (CI-A/B/F): PR-status en gerichte testherhaling krijgen conservatieve head/base/modus-bewijscontrole; bewuste herhaling blijft mogelijk, integrale acceptatie en reviewshots altijd uitvoeren; labelconcurrency geïsoleerd. Verificatie volgt.
+
 ## 0.64.0 (27 nov 2026)
 
 - Gecombineerde releasekandidaat fase 2/3 (deelrealisatie #103, #104, #105, #109–113, #138–141; open roadmapwerk blijft open): Master Data & Recipe Management, versiegebonden eenheden/schaalregels, MOC en vrijgave, uniforme portalstructuur en huisstijl. Functioneel geaccepteerd binnen fictieve PoC-scope op bron 33b7a91; 14 verbeterpunten en beperkingen aanvaard. D116 legt toekomstige gebruikershandleidingen vast. Geen productie- of pilotvrijgave. Publicatie uitsluitend na afzonderlijke toestemming.
