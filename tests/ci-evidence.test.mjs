@@ -74,3 +74,22 @@ test("onvolledige API-pagina wordt geweigerd",()=>{
  assert.throws(()=>completeList({total_count:2,jobs:[job]},"jobs"));
  assert.deepEqual(completeList({total_count:1,jobs:[job]},"jobs"),[job]);
 });
+
+import {acceptanceProof} from "../tools/verifieer_acceptatie.mjs";
+test("mergebewijs vereist beide suites en expliciet checkoutbewijs",()=>{
+ const a={run,job:{...job,steps:[{name:"Geteste tree vastleggen",conclusion:"success"}]}};
+ const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)"}};
+ assert.equal(acceptanceProof([a,b]),true);
+ assert.equal(acceptanceProof([a]),false);
+ assert.equal(acceptanceProof([a,{...b,job:{...b.job,steps:[]}}]),false);
+ assert.equal(acceptanceProof([a,{...b,job:{...b.job,conclusion:"skipped"}}]),false);
+});
+test("mergebewijs: recentere fout, herstart of ontbrekende tijd blokkeert oud groen",()=>{
+ const a={run,job:{...job,steps:[{name:"Geteste tree vastleggen",conclusion:"success"}]}};
+ const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)"}};
+ const bad={run:{...run,id:2,conclusion:"failure"},job:{...b.job,...later,conclusion:"failure"}};
+ assert.equal(acceptanceProof([a,b,bad]),false);
+ assert.equal(acceptanceProof([a,b,{run:{...run,run_attempt:2},job:{...b.job,...later}}]),false);
+ assert.equal(acceptanceProof([a,b,{run,job:{...b.job,started_at:null}}]),false);
+ assert.equal(acceptanceProof([a,b,{...bad,job:{...bad.job,conclusion:"skipped"}}]),true);
+});
