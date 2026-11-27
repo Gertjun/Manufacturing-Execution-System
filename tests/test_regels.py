@@ -3430,6 +3430,57 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+
+    # F4-115-A04: echte concurrerende inserts op dezelfde capability.
+    # Eigenaarfixture in wegwerpdatabase; persoonlijke stale-controle hierboven.
+    print("\n#115.1 gelijktijdige capabilityrevisies")
+    dim=val("""INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)
+               VALUES (0,0,0,0,0,0,0) ON CONFLICT DO NOTHING RETURNING id""") if not val("""SELECT EXISTS(SELECT 1 FROM quantity_dimension WHERE
+               length_exp=0 AND mass_exp=0 AND time_exp=0 AND current_exp=0 AND temperature_exp=0 AND amount_exp=0 AND luminous_exp=0)""") else val("""SELECT id FROM quantity_dimension WHERE length_exp=0 AND mass_exp=0 AND time_exp=0 AND current_exp=0 AND temperature_exp=0 AND amount_exp=0 AND luminous_exp=0""")
+    kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-RACE-Q','Fictief','ratio') RETURNING id",(dim,))
+    unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-RACE-U','1','Fictief') RETURNING id",(kind,))
+    prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F115-RACE-P','Fictief',%s,%s) RETURNING id",(kind,unit))
+    actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+    ent=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F115-RACE-ENT','Fictief','enterprise') RETURNING id")
+    for outcome in ("commit","rollback"):
+        equipment=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-RACE-"+outcome,ent))
+        cap=val("INSERT INTO equipment_capability(equipment_id,property_definition_id) VALUES (%s,%s) RETURNING id",(equipment,prop))
+        insert_sql="INSERT INTO fabriek.equipment_capability_revision(capability_id,revision,value,created_by,reason) VALUES (%s,%s,%s,%s,'Fictief')"
+        con.execute(insert_sql,(cap,1,0,actor))
+        with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+            first.execute("SET LOCAL statement_timeout='20s'")
+            second.execute("SET LOCAL statement_timeout='20s'")
+            first.execute(insert_sql,(cap,2,11,actor))
+            pid=second.info.backend_pid
+            def contender115():
+                try:
+                    second.execute(insert_sql,(cap,2,22,actor))
+                    second.commit()
+                    return "committed"
+                except psycopg.Error as error:
+                    second.rollback()
+                    return error.sqlstate
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future=pool.submit(contender115)
+                blocked=False
+                try:
+                    deadline=time.monotonic()+10
+                    while time.monotonic()<deadline and not future.done():
+                        if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,pid)):
+                            blocked=True
+                            break
+                        time.sleep(0.02)
+                    check("F4-115-A04 tweede revisie wacht "+outcome,blocked)
+                finally:
+                    if outcome=="commit":
+                        first.commit()
+                    else:
+                        first.rollback()
+                result=future.result(timeout=25)
+            check("F4-115-A04 gelijktijdige uitkomst "+outcome,result==("40001" if outcome=="commit" else "committed"),str(result))
+        check("F4-115-A04 juiste winnaar en historie "+outcome,
+              con.execute("SELECT revision,value FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision",(cap,)).fetchall()==[(1,0),(2,11 if outcome=="commit" else 22)])
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)
