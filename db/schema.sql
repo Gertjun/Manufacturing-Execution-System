@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management'), (138, 'resource_catalog_read');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -10582,5 +10582,81 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION resource_scope_actor(),resource_area_scope_create(text,uuid),
     resource_equipment_scope_create(text,uuid) FROM PUBLIC;
+
+-- Migratie 0138: persoonlijke beperkte leesinterface (#114.6a).
+SET search_path = fabriek, public;
+
+-- Dezelfde vertrouwde context als bij de mutaties. Interne helper, geen app-ACL.
+CREATE FUNCTION resource_catalog_visible(p_actor uuid,p_hierarchy uuid,p_equipment uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+    WITH RECURSIVE location AS (
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h
+        WHERE h.id=CASE WHEN p_equipment IS NULL THEN p_hierarchy
+                        ELSE (SELECT e.hierarchy_id FROM equipment e WHERE e.id=p_equipment) END
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN location l ON h.id=l.parent_id
+    )
+    SELECT authorization_permits(p_actor,'resource.catalog.manage',
+        (SELECT s.area_code FROM location l JOIN resource_area_scope s ON s.hierarchy_id=l.id WHERE l.level='area'),
+        NULL,
+        (SELECT s.equipment_code FROM resource_equipment_scope s WHERE s.equipment_id=p_equipment))
+$$;
+
+-- Expliciete projectie; geen directe tabeltoegang of client-scope.
+-- Voor begrensde beheerders alleen toegestane middelen en hun eigen historie.
+-- Globale klassen mogen als referentie worden gelezen, maar alleen wanneer
+-- ten minste één concrete cataloguscontext is toegestaan.
+CREATE FUNCTION resource_catalog_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_global boolean; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    v_global:=authorization_permits(actor,'resource.catalog.manage',NULL,NULL,NULL);
+    WITH visible_equipment AS MATERIALIZED (
+        SELECT e.id,e.code,e.name,e.hierarchy_id,e.change_no FROM equipment e
+        WHERE resource_catalog_visible(actor,NULL,e.id)
+    ), visible_hierarchy AS MATERIALIZED (
+        SELECT h.id,h.code,h.name,h.level,h.parent_id,h.change_no FROM equipment_hierarchy h
+        WHERE resource_catalog_visible(actor,h.id,NULL)
+    ), visible_assignments AS MATERIALIZED (
+        SELECT a.id,a.equipment_id,a.physical_asset_id,a.valid_from,a.valid_until
+        FROM equipment_asset_assignment a JOIN visible_equipment e ON e.id=a.equipment_id
+    )
+    SELECT jsonb_build_object(
+        'global',v_global,
+        'hierarchy',coalesce((SELECT jsonb_agg(to_jsonb(h) ORDER BY h.code) FROM visible_hierarchy h),'[]'::jsonb),
+        'equipment',coalesce((SELECT jsonb_agg(to_jsonb(e) ORDER BY e.code) FROM visible_equipment e),'[]'::jsonb),
+        'classes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',c.id,'code',c.code,'name',c.name,'change_no',c.change_no) ORDER BY c.code)
+            FROM equipment_class c WHERE v_global OR EXISTS (SELECT 1 FROM visible_equipment) OR EXISTS (SELECT 1 FROM visible_hierarchy)),'[]'::jsonb),
+        'class_assignments',coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'equipment_id',a.equipment_id,'equipment_class_id',a.equipment_class_id) ORDER BY a.id)
+            FROM equipment_class_assignment a JOIN visible_equipment e ON e.id=a.equipment_id),'[]'::jsonb),
+        'assets',coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'code',a.code,'name',a.name,'change_no',a.change_no) ORDER BY a.code)
+            FROM physical_asset a WHERE v_global OR EXISTS (SELECT 1 FROM visible_assignments x WHERE x.physical_asset_id=a.id)),'[]'::jsonb),
+        'asset_assignments',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY a.valid_from,a.id) FROM visible_assignments a),'[]'::jsonb)
+    ) INTO result;
+    IF NOT v_global AND jsonb_array_length(result->'hierarchy')=0 AND jsonb_array_length(result->'equipment')=0 THEN
+        RAISE EXCEPTION 'Geen actuele zichtbare middelenbeheercontext' USING ERRCODE='42501';
+    END IF;
+    RETURN result;
+END $$;
+
+-- Security mag alleen identifiers en namen lezen die voor mapping nodig zijn;
+-- geen classificatie, assethistorie of inhoudelijke mutatie.
+CREATE FUNCTION resource_scope_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    PERFORM resource_scope_actor();
+    RETURN jsonb_build_object(
+        'areas',coalesce((SELECT jsonb_agg(jsonb_build_object('id',h.id,'code',h.code,'name',h.name) ORDER BY h.code)
+            FROM equipment_hierarchy h WHERE h.level='area'),'[]'::jsonb),
+        'equipment',coalesce((SELECT jsonb_agg(jsonb_build_object('id',e.id,'code',e.code,'name',e.name,'hierarchy_id',e.hierarchy_id) ORDER BY e.code)
+            FROM equipment e),'[]'::jsonb),
+        'area_scopes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'area_code',s.area_code,'hierarchy_id',s.hierarchy_id) ORDER BY s.area_code)
+            FROM resource_area_scope s),'[]'::jsonb),
+        'equipment_scopes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'equipment_code',s.equipment_code,'equipment_id',s.equipment_id) ORDER BY s.equipment_code)
+            FROM resource_equipment_scope s),'[]'::jsonb)
+    );
+END $$;
+REVOKE ALL ON FUNCTION resource_catalog_visible(uuid,uuid,uuid),resource_catalog_list(),resource_scope_list() FROM PUBLIC;
 
 COMMIT;

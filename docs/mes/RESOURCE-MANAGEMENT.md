@@ -82,3 +82,11 @@ Run 797 op 5b078c8 groen (1364/1364); 0134/0135 technisch geverifieerd. 0136 voe
 0137: aparte security-rol resource_scope_administrator met resource.scope.manage, geen automatische grants of uitbreiding bestaande rollen; uitsluitend globale persoonlijke toevoeging van mappings via twee functies. Bestaande functiescheiding verhindert combinatie met inhoudelijk beheer. Geen wijziging/verwijdering; API/UI-integratie en runtimeverificatie open.
 
 Rolregisterbroncontrole: security.mjs accepteert rolcode, authorization/policy.ts gebruikt domein en permission, access.ts projecteert databasepermissions en invoer/src/rechten.ts gebruikt permissioncodes. Geen vaste rollenallowlist in deze onderdelen. Extra SQL- en TypeScript-regressies voor rolregister en gemengde domeinen toegevoegd. Specifieke API/UI-bediening volgt 114.6. Runtimebewijs open.
+
+## 114.5 — technisch bewijs
+
+Run 803 op e818619: 1388/1388 databaseregels, 894 beheertoolwaarden, API-autorisatie, schema-equivalentie, upgrade en Linux-pakket geslaagd. Run 801: 1387/1388, uitsluitend verouderde roltelling, gecorrigeerd in e818619. Geen Windows-praktijkacceptatie of integrale faseacceptatie. 114.5 technisch afgerond; 5/7 binnen #114, 5/20 fase 4.
+
+## 114.6a — beveiligde leesprojecties
+
+0138: persoonlijke catalogusprojectie op vertrouwde scope, alleen zichtbare hiërarchieknooppunten, middelen, koppelingen en hun assethistorie; globale klassen als keuzereferentie bij concrete toegestane context. Geen buiten-scope assethistorie of directe tabellezing. Begrensde projectie kan ontbrekende ouder-/locatie-ID's bevatten; UI mag die niet automatisch buiten scope ophalen. Securityprojectie uitsluitend voor mappingdoelen en bestaande mappings, geen assets of classificatie. Geen automatische grants. Eerste SQL-regressies toegevoegd; runtime en API/UI open. Geen paginering in deze eerste projectie; schaalbaarheid evalueren in 114.6b.
