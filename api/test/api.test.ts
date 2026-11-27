@@ -2779,7 +2779,7 @@ describe("#115.5 middelstilstand online", () => {
   test("F4-115-E01–E05: persoonlijke context, replay, scheiding en audit", async () => {
     const {rows:[person]}=await beheerDb.query("SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam='operator.a'");
     const {rows:[station]}=await beheerDb.query("INSERT INTO fabriek.pc(naam) VALUES ('F115-API-PC') RETURNING id");
-    const {rows:[step]}=await beheerDb.query("INSERT INTO fabriek.processtap(code,naam,volgorde,niveau) VALUES ('F115-API-STEP','Fictief',(SELECT max(volgorde)+1 FROM fabriek.processtap),'batch') RETURNING id");
+    const {rows:[step]}=await beheerDb.query("INSERT INTO fabriek.processtap(code,naam,volgorde,niveau) VALUES ('PS9155','Fictief',(SELECT max(volgorde)+1 FROM fabriek.processtap),'batch') RETURNING id");
     await beheerDb.query("INSERT INTO fabriek.pc_stap(pc_id,processtap_id) VALUES ($1,$2)",[station.id,step.id]);
     const {rows:[hierarchy]}=await beheerDb.query("INSERT INTO fabriek.equipment_hierarchy(code,name,level) VALUES ('F115-API-ENT','Fictief','enterprise') RETURNING id");
     const {rows:equipment}=await beheerDb.query("INSERT INTO fabriek.equipment(code,name,hierarchy_id) SELECT code,'Fictief',$1 FROM unnest(ARRAY['F115-API-A','F115-API-B','F115-API-C']) AS t(code) RETURNING id,code",[hierarchy.id]);
@@ -2792,7 +2792,7 @@ describe("#115.5 middelstilstand online", () => {
     const pl=await login("ploegleider1");
     const path="/stilstand/middelen";
     const close=(id:string)=>path+"/"+id+"/einde";
-    const body={id:randomUUID(),stapcode:"F115-API-STEP",equipmentId:a,oorzaak:"STOR-MACH",toelichting:"Fictieve storing"};
+    const body={id:randomUUID(),stapcode:"PS9155",equipmentId:a,oorzaak:"STOR-MACH",toelichting:"Fictieve storing"};
     const second={...body,id:randomUUID(),equipmentId:b};
     assert.equal((await verzoek("POST",path,undefined,body)).status,401);
     assert.equal((await verzoek("POST",path,await login("kwaliteit1","F115-API-PC"),body)).status,403);
@@ -2838,5 +2838,112 @@ describe("#115.5 middelstilstand online", () => {
     assert.equal((await verzoek("POST","/stilstand/"+legacy.id+"/einde",op,{})).status,200);
     const {rows:[evidence]}=await beheerDb.query("SELECT (SELECT count(*)::int FROM fabriek.stilstand WHERE id IN ($1,$2) AND eind_op IS NOT NULL AND equipment_id IS NOT NULL) AS records,(SELECT count(*)::int FROM fabriek.melding WHERE bron_id IN ($1,$2)) AS messages,(SELECT count(*)::int FROM fabriek.config_log WHERE tabel='stilstand' AND record_id IN ($1,$2) AND actor_origin='personal' AND actor_user_id=$3) AS audits,(SELECT count(*)::int FROM fabriek.equipment_status_history) AS statuses",[body.id,second.id,person.id]);
     assert.deepEqual(evidence,{records:2,messages:2,audits:4,statuses:before});
+  });
+});
+
+
+describe("#115.6 middelenprojecties en beheercontracten", () => {
+  test("F4-115-F01–F06: exacte decimalen, gescheiden rechten en werkstationkeuze", async () => {
+    const prefix="mes.resources.f115.";
+    const accounts=[
+      ["catalog","resource_catalog_manager",null],
+      ["scoped","resource_catalog_manager","API-AREA"],
+      ["status","resource_status_manager",null],
+      ["statusScoped","resource_status_manager","API-AREA"],
+      ["maintenance","maintenance_technician",null],
+    ] as const;
+    for(const [name,role,area] of accounts){
+      await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'pending',fabriek.wachtwoord_hash('demo'))",[prefix+name]);
+      await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,area_code) SELECT id,$2,$3 FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[prefix+name,role,area]);
+    }
+    const catalog=await login(prefix+"catalog"), scoped=await login(prefix+"scoped"), status=await login(prefix+"status"), statusScoped=await login(prefix+"statusScoped"), maintenance=await login(prefix+"maintenance");
+    const op=await login("operator.a","F115-API-PC");
+    const display=await login("scherm1");
+    const get=async(path:string,token:string,status=200)=>{
+      const r=await verzoek("GET",path,token); assert.equal(r.status,status,JSON.stringify(r.body));return r.body;
+    };
+    const post=async(path:string,token:string,body:object,status=201)=>{
+      const r=await verzoek("POST",path,token,body); assert.equal(r.status,status,JSON.stringify(r.body));return r.body;
+    };
+    const perms=async(token:string)=>get("/auth/permissions",token);
+    assert.deepEqual([(await perms(catalog)).resourceCatalog,(await perms(catalog)).resourceStatus],[true,false]);
+    assert.deepEqual([(await perms(status)).resourceCatalog,(await perms(status)).resourceStatus],[false,true]);
+    assert.equal((await perms(statusScoped)).resourceStatus,true);
+    assert.equal((await perms(scoped)).resourceCatalog,true);
+    assert.equal((await perms(display)).resourceStatus,false);
+    assert.equal((await perms(op)).resourceStatus,false);
+    const {rows:equipment}=await beheerDb.query("SELECT id,code FROM fabriek.equipment WHERE code IN ('API-E1','API-E2','F115-API-B')");
+    const e=equipment.find(x=>x.code==="API-E1")!.id, outside=equipment.find(x=>x.code==="API-E2")!.id;
+    const linked=equipment.find(x=>x.code==="F115-API-B")!.id;
+    const {rows:[station]}=await beheerDb.query("SELECT id FROM fabriek.pc WHERE naam='F115-API-PC'");
+    const {rows:[dim]}=await beheerDb.query("SELECT id FROM fabriek.quantity_dimension WHERE (length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)=(0,1,0,0,0,0,0)");
+    const {rows:[kind]}=await beheerDb.query("INSERT INTO fabriek.quantity_kind(dimension_id,code,name,value_semantics) VALUES ($1,'F115-HTTP-MASS','Fictief','ratio') RETURNING id",[dim.id]);
+    const {rows:[unit]}=await beheerDb.query("INSERT INTO fabriek.measurement_unit(quantity_kind_id,code,symbol,name) VALUES ($1,'F115-HTTP-KG','kg','Fictief') RETURNING id",[kind.id]);
+    const references=await get("/resources/property-references",catalog);
+    assert.ok(references.quantity_kinds.some((x:any)=>x.id===kind.id));
+    assert.ok(references.units.some((x:any)=>x.id===unit.id&&x.quantity_kind_id===kind.id));
+    assert.deepEqual(Object.keys(references).sort(),["quantity_kinds","units"]);
+    await get("/resources/property-references",scoped,403);
+    await get("/resources/property-references",status,403);
+    await get("/resources/property-references",op,403);
+    const prop=(await post("/resources/properties",catalog,{code:"F115-HTTP-P",name:"Fictieve capaciteit",quantity_kind_id:kind.id,measurement_unit_id:unit.id})).id;
+    const base={equipment_id:e,property_definition_id:prop,value:"9007199254740993.123456789",reason:"Exact"};
+    for(const value of [9007199254740992,"1e3","NaN","Infinity","",null]){
+      await post("/resources/capabilities",catalog,{...base,value},400);
+    }
+    await post("/resources/capabilities",catalog,{...base,actor_id:randomUUID()},400);
+    await post("/resources/capabilities",status,base,403);
+    await post("/resources/capabilities",scoped,{...base,equipment_id:outside},403);
+    const cap=(await post("/resources/capabilities",scoped,base)).id;
+    await post("/resources/capabilities/"+cap+"/capacity",scoped,{expected_revision:1});
+    const caps=await get("/resources/capabilities",scoped);
+    assert.deepEqual(caps.equipment.map((x:any)=>x.id),[e]);
+    assert.equal(caps.capabilities.find((x:any)=>x.id===cap).value,base.value);
+    assert.equal(caps.capabilities.find((x:any)=>x.id===cap).capacity,true);
+    await post("/resources/capabilities/"+cap+"/revisions",scoped,{expected_revision:1,value:0,reason:"Geen"},400);
+    await post("/resources/capabilities/"+cap+"/revisions",scoped,{expected_revision:1,value:"0",reason:"Geen"},422);
+    const rev={expected_revision:1,value:"9007199254740993.123456790",reason:"Revisie"};
+    assert.equal((await post("/resources/capabilities/"+cap+"/revisions",scoped,rev,200)).revision,2);
+    await post("/resources/capabilities/"+cap+"/revisions",scoped,rev,409);
+    assert.equal((await get("/resources/capabilities",scoped)).capabilities.find((x:any)=>x.id===cap).value,rev.value);
+    await get("/resources/capabilities",status,403);
+    await get("/resources/statuses",catalog,403);
+    const unknown=(await get("/resources/statuses",status)).find((x:any)=>x.id===outside);
+    assert.equal(unknown.status,"unknown");assert.equal(unknown.revision,0);
+    const statusPath="/resources/equipment/"+e+"/status";
+    await post(statusPath,catalog,{expected_revision:0,status:"blocked",reason:"Geen"},403);
+    assert.equal((await post(statusPath,statusScoped,{expected_revision:0,status:"blocked",reason:"Test"},200)).revision,1);
+    await post(statusPath,statusScoped,{expected_revision:0,status:"available",reason:"Oud"},409);
+    await post("/resources/equipment/"+outside+"/status",statusScoped,{expected_revision:0,status:"blocked",reason:"Geen"},403);
+    assert.equal((await post(statusPath,statusScoped,{expected_revision:1,status:"available",reason:"Hersteld"},200)).revision,2);
+    const statuses=await get("/resources/statuses",statusScoped);
+    assert.deepEqual(statuses.map((x:any)=>x.id),[e]);
+    assert.equal(statuses[0].status,"available");
+    const history=await get("/resources/equipment/"+e+"/status-history",statusScoped);
+    assert.deepEqual(history.map((x:any)=>x.revision),[2,1]);
+    assert.equal(history[0].created_by_name,prefix+"statusScoped");
+    await get("/resources/equipment/"+outside+"/status-history",statusScoped,403);
+    await get("/resources/workstations",scoped,403);
+    const assignment=(await post("/resources/workstation-assignments",catalog,{pc_id:station.id,equipment_id:e,reason:"Test"})).id;
+    assert.ok((await get("/resources/workstations",catalog)).assignments.some((x:any)=>x.id===assignment&&x.closed_at===null));
+    const choices="/stilstand/middelen/keuzes?stapcode=PS9155";
+    assert.deepEqual((await get(choices,op)).map((x:any)=>x.id).sort(),[e,linked].sort());
+    await get(choices,await login("operator.a","PC-01"),403);
+    await get(choices,maintenance,403);
+    await get("/stilstand/middelen",catalog,403);
+    await get("/stilstand/middelen",display,403);
+    const downtime={id:randomUUID(),stapcode:"PS9155",equipmentId:e,oorzaak:"STOR-MACH"};
+    await post("/stilstand/middelen",op,{...downtime,pcId:station.id},400);
+    await post("/stilstand/middelen",op,{...downtime,begin_op:"2020-01-01T00:00:00Z"},400);
+    await post("/stilstand/middelen",op,downtime,200);
+    assert.ok((await get("/stilstand/middelen",maintenance)).some((x:any)=>x.id===downtime.id));
+    assert.equal((await get(choices,op)).find((x:any)=>x.id===e).open_downtime_id,downtime.id);
+    await post("/resources/workstation-assignments/"+assignment+"/close",catalog,{reason:"Ontkoppeld"},200);
+    assert.deepEqual((await get(choices,op)).map((x:any)=>x.id),[linked]);
+    await post("/stilstand/middelen/"+downtime.id+"/einde",op,{},200);
+    assert.ok(!(await get("/stilstand/middelen",maintenance)).some((x:any)=>x.id===downtime.id));
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam=$1)",[prefix+"statusScoped"]);
+    assert.equal((await perms(statusScoped)).resourceStatus,false);
+    await get("/resources/statuses",statusScoped,403);
   });
 });
