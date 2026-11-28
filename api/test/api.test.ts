@@ -2873,6 +2873,8 @@ describe("#115.6 middelenprojecties en beheercontracten", () => {
       ["scoped","resource_catalog_manager","API-AREA"],
       ["status","resource_status_manager",null],
       ["statusScoped","resource_status_manager","API-AREA"],
+      ["reader","resource_status_reader",null],
+      ["readerScoped","resource_status_reader","API-AREA"],
       ["maintenance","maintenance_technician",null],
     ] as const;
     for(const [name,role,area] of accounts){
@@ -2880,6 +2882,7 @@ describe("#115.6 middelenprojecties en beheercontracten", () => {
       await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,area_code) SELECT id,$2,$3 FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[prefix+name,role,area]);
     }
     const catalog=await login(prefix+"catalog"), scoped=await login(prefix+"scoped"), status=await login(prefix+"status"), statusScoped=await login(prefix+"statusScoped"), maintenance=await login(prefix+"maintenance");
+    const reader=await login(prefix+"reader"), readerScoped=await login(prefix+"readerScoped");
     const op=await login("operator.a","F115-API-PC");
     const display=await login("scherm1");
     const get=async(path:string,token:string,status=200)=>{
@@ -2942,6 +2945,26 @@ describe("#115.6 middelenprojecties en beheercontracten", () => {
     const statuses=await get("/resources/statuses",statusScoped);
     assert.deepEqual(statuses.map((x:any)=>x.id),[e]);
     assert.equal(statuses[0].status,"available");
+    assert.equal(statuses[0].can_manage,true);
+    for(const token of [reader,readerScoped]){
+      assert.equal((await perms(token)).resourceStatus,true);
+      assert.equal((await perms(token)).resourceCatalog,false);
+      const visible=await get("/resources/statuses",token);
+      assert.ok(visible.some((x:any)=>x.id===e&&x.status==="available"));
+      assert.ok(visible.every((x:any)=>x.can_manage===false));
+      if(token===readerScoped)assert.deepEqual(visible.map((x:any)=>x.id),[e]);
+      else assert.ok(visible.some((x:any)=>x.id===outside));
+      assert.deepEqual((await get("/resources/equipment/"+e+"/status-history",token)).map((x:any)=>x.revision),[2,1]);
+      await post(statusPath,token,{expected_revision:2,status:"blocked",reason:"Geen mutatierecht"},403);
+      await get("/resources/capabilities",token,403);
+      await get("/stilstand/middelen",token,403);
+    }
+    await get("/resources/equipment/"+outside+"/status-history",readerScoped,403);
+    assert.equal((await get("/resources/statuses",statusScoped))[0].revision,2);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam=$1)",[prefix+"readerScoped"]);
+    assert.equal((await perms(readerScoped)).resourceStatus,false);
+    await get("/resources/statuses",readerScoped,403);
+    await get("/resources/equipment/"+e+"/status-history",readerScoped,403);
     const history=await get("/resources/equipment/"+e+"/status-history",statusScoped);
     assert.deepEqual(history.map((x:any)=>x.revision),[2,1]);
     assert.equal(history[0].created_by_name,prefix+"statusScoped");
