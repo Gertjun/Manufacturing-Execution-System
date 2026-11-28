@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3b: interne getypeerde eigenschapsreferenties (0157) voor receptcapaciteit en schaalinvoer, exacte eenheden en broncode, geen automatische omzetting of vrijgave. Runtimebewijs volgt.
+
 - #116.3a: interne expliciete middelklassekoppeling voor receptvereisten (0156), zonder automatische omzetting of vrijgave; historische review- en vergelijkingsvorm bij ontbrekende koppeling behouden. Runtimebewijs volgt.
 
 - #116.1: afzonderlijke persoonlijke statusinzage (0155), scope, historie, per-middel mutatieprojectie, intrekking en negatieve SQL/API/browserregressies. Baseline [895](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46121447232) op `9cb34a3`: 1774/1774 SQL, 133/133 API, security 16/16, autorisatie 11/11, beheertools en Linux-upgrade groen; compatibiliteit [893](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46118038745) op `b6e8aa3` groen. Alleen migratiepad gewijzigd tussen beide heads, zonder inhoudswijziging. Integrale faseacceptatie en Windows-praktijk blijven open.
