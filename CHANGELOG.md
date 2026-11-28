@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3e: SQL-gedragstests voor catalogusgebonden schaalbronnen en blijvende complexe-schalingsblokkade toegevoegd; uitvoering volgt.
+
 - #116.3e: SQL-gedragstests voor expliciete middelklassekoppeling, snapshotvorm, vrijgavevalidatie en persoonlijke audit toegevoegd; uitvoering volgt.
 
 - #116.3e: SQL-regressies voor gevalideerde catalogusconstraints en beperkte app-rechten toegevoegd; uitvoering en gedragsbewijs volgen.
