@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3d.4a: API-regressies voor catalogusgebonden middelenvereisten toegevoegd; uitvoering volgt.
+
 - #116.3d.3: native catalogusselecties voor middelenvereisten en equipmentschaalbronnen in Process Engineering; historische ongekoppelde waarden blijven zichtbaar. Runtimebewijs volgt.
 
 - #116.3d.2: persoonlijke receptcatalogusreferenties (0160), afzonderlijke API voor gekoppelde middelenvereisten en schaalbronnen; bestaande ongekoppelde interfaces blijven beschikbaar. Runtimebewijs en OpenAPI-regeneratie volgen.
