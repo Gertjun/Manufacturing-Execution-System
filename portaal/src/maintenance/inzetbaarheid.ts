@@ -92,6 +92,15 @@ export async function middelenstatus(){
   try{
     const rows=await haal<StatusRow[]>("/resources/statuses");
     if(!current())return;
+    // Onafhankelijke leesprojectie; geen stilstand opvragen zonder het eigen recht.
+    let stops:Downtime[]|null=null;
+    let stopsError=false;
+    if(magMiddelstilstand()){
+      try{stops=await haal<Downtime[]>("/stilstand/middelen");}
+      catch{stopsError=true;}
+    }
+    if(!current())return;
+    const activeStops=new Set((stops??[]).map(x=>x.equipment_id));
     const statusRows=rows.map(x=>{
       const next=x.status==="blocked"?"available":x.status==="available"?"blocked":null;
       const choice=select("Nieuwe technische status",next?[{id:next,label:statusLabel(next)}]:[{id:"blocked",label:"Geblokkeerd"},{id:"available",label:"Beschikbaar"}]);
@@ -106,13 +115,15 @@ export async function middelenstatus(){
         }catch(e){if(current())target.replaceChildren(h("p",{class:"foutmelding",role:"alert"},(e as Error).message));}
         finally{history.disabled=false;}
       }},"Historie ophalen");
-      return [x.code,x.name,statusLabel(x.status),x.revision,x.reason,date(x.created_at),x.created_by_name,
+      return [x.code,x.name,statusLabel(x.status),stops===null?"Niet beschikbaar":activeStops.has(x.id)?"Actieve melding":"Geen actieve melding",x.revision,x.reason,date(x.created_at),x.created_by_name,
         x.can_manage===true?form("Status wijzigen",[choice,reason],"/resources/equipment/"+x.id+"/status",()=>({expected_revision:x.revision,status:val(choice),reason:val(reason)}),current,()=>x.can_manage===true&&magMiddelenstatus(),middelenstatus):"Alleen lezen",
         h("details",{class:"engineering-details"},h("summary",{},"Historie"),history,target)];
     });
     toon(h("div",{class:"kop"},h("div",{},h("h1",{},"Technische middelenstatus"),h("p",{class:"sub"},"Onbekend is niet beschikbaar. Geen vervanging van veiligheidsprocedures of operationele stilstand.")),h("button",{class:"knop",onclick:middelenstatus},"Vernieuwen")),
       block("Statusoverzicht",h("p",{class:"sub"},["available","blocked","unknown"].map(s=>statusLabel(s as Status)+": "+rows.filter(x=>x.status===s).length).join(" · ")),
-        table(["Code","Middel","Technische status","Revisie","Reden","Tijd","Medewerker","Actie","Historie"],statusRows)));
+        stopsError?h("p",{class:"sub",role:"status"},"Operationele stilstand kon niet worden opgehaald. Vernieuw voor een nieuwe poging."):false,
+        h("p",{class:"sub"},"Geen actieve melding is geen bewijs van productieactiviteit of fysieke veiligheid."),
+        table(["Code","Middel","Technische status","Operationele stilstand","Revisie","Reden","Tijd","Medewerker","Actie","Historie"],statusRows)));
   }catch(e){if(current())toon(h("p",{class:"foutmelding",role:"alert"},(e as Error).message),h("button",{class:"knop",onclick:middelenstatus},"Opnieuw proberen"));}
 }
 
