@@ -36,6 +36,7 @@ const property={id:"property-1",code:"FICT-VOL",name:"Fictief volume",quantity_k
 const capability={id:"cap-1",equipment_id:resourceEquipment.id,property_definition_id:property.id,revision:1,value:exact,reason:"Fictief",created_at:"2026-01-01T10:00:00Z",capacity:false};
 const technicalStatus={...resourceEquipment,status:"unknown",revision:0,reason:null,created_at:null,created_by_name:null};
 let capRequests=0,statusRequests=0,referenceRequests=0,capWrites=0,statusWrites=0;
+let statusCanManage=true;
 const stationFixture={workstations:[{id:"pc1",name:"PC-01",location:"Hal 1",active:true},{id:"pc2",name:"PC-02",location:null,active:false}],equipment:[resourceEquipment],assignments:[]};
 let stationReads=0,stationWrites=0,downtimeReads=0;
 const downtimeFixture=[{id:"stop-1",equipment_id:resourceEquipment.id,equipment_code:resourceEquipment.code,equipment_name:resourceEquipment.name,step_code:"PS1",step_name:"Reactie",reason_code:"STOR-MACH",reason_name:"Machinestoring",category:"storing",note:"Fictieve storing",started_at:"2026-01-01T10:00:00Z",workstation:"PC-01",operator:"Fictieve operator"}];
@@ -75,10 +76,10 @@ try {
     }
     if (path === "/resources/statuses") {
       statusRequests++;
-      return projection.resourceStatus?json([technicalStatus]):json({fout:"Geweigerd"},403);
+      return projection.resourceStatus?json([{...technicalStatus,can_manage:statusCanManage}]):json({fout:"Geweigerd"},403);
     }
     if (path === "/resources/equipment/equipment-1/status"&&route.request().method()==="POST") {
-      assert.ok(projection.resourceStatus);
+      assert.ok(projection.resourceStatus&&statusCanManage);
       assert.deepEqual(route.request().postDataJSON(),{expected_revision:0,status:"blocked",reason:"Inspectie vereist"});
       statusWrites++;Object.assign(technicalStatus,{status:"blocked",revision:1,reason:"Inspectie vereist",created_at:"2026-01-01T10:00:00Z",created_by_name:"mes.quality"});
       return json({revision:1});
@@ -269,6 +270,18 @@ try {
   await page.locator("details > summary").filter({hasText:/^Historie$/}).click();
   await page.getByRole("button",{name:"Historie ophalen"}).click();
   await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
+  statusCanManage=false;
+  projection={...personal(["resource.status.read"]),resourceStatus:true};
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("cell",{name:"Alleen lezen",exact:true}).waitFor();
+  assert.equal(await page.getByText("Status wijzigen",{exact:true}).count(),0);
+  await page.locator("details > summary").filter({hasText:/^Historie$/}).click();
+  await page.getByRole("button",{name:"Historie ophalen"}).click();
+  await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
+  assert.equal(statusWrites,1);
+  console.log("OK F4-116: statuslezer ziet historie zonder mutatieformulier");
+  statusCanManage=true;
   projection=personal();
   await landing([]);
   const deniedStatus=statusRequests;
