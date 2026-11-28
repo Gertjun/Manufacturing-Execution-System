@@ -45,7 +45,7 @@ const NextRevision = Type.Object({ revision: Revision });
 const Status = Type.Union([Type.Literal("blocked"),Type.Literal("available")]);
 const StatusEvidence = { revision: Revision, status: Status, reason: Reason, created_at: Time, created_by: Id, created_by_name: Type.String() };
 const StatusRow = Type.Object({
-  id: Id, code: Type.String(), name: Type.String(),
+  id: Id, code: Type.String(), name: Type.String(), can_manage: Type.Boolean(),
   revision: Type.Integer({ minimum: 0 }),
   status: Type.Union([Status,Type.Literal("unknown")]),
   reason: NullText, created_at: NullTime, created_by: NullId, created_by_name: NullText,
