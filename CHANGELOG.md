@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3d.2: persoonlijke receptcatalogusreferenties (0160), afzonderlijke API voor gekoppelde middelenvereisten en schaalbronnen; bestaande ongekoppelde interfaces blijven beschikbaar. Runtimebewijs en OpenAPI-regeneratie volgen.
+
 - #116.3d.1: persoonlijke catalogusgebonden receptmutaties (0159), server leidt code en eenheid af uit expliciete identiteit; legacy-mutatie van gekoppelde records geweigerd. Runtimebewijs volgt.
 
 - #116.3c: receptvrijgavevalidatie (0158) onderscheidt expliciet gekoppelde definities van onbewezen klasse-/capaciteitsvereisten; geen automatische vrijgave, geen actuele inzetbaarheidsclaim, complexe schaling blijft geblokkeerd. Runtimebewijs volgt.

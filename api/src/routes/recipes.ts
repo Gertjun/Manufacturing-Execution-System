@@ -77,7 +77,12 @@ const PositiveCount = Type.Integer({ minimum: 1, maximum: 2147483647 });
 const LotCount = Type.Integer({ minimum: 1, maximum: 50 });
 const EquipmentRequirementFields = { procedural_element_id: Id, code: Code, equipment_class_code: Code, description: Nonblank, required_count: PositiveCount, minimum_capacity: NullableDecimal, capacity_unit_id: OptId };
 const EquipmentRequirementBody = Type.Object({ expected_change_no: Expected, ...EquipmentRequirementFields }, { additionalProperties: false });
-const EquipmentRequirementRecord = Type.Object({ id: Id, recipe_version_id: Id, ...EquipmentRequirementFields });
+const EquipmentRequirementRecord = Type.Object({ id: Id, recipe_version_id: Id, ...EquipmentRequirementFields, equipment_class_id: OptId, capacity_property_definition_id: OptId });
+const LinkedEquipmentRequirementBody = Type.Object({
+  expected_change_no: Expected, procedural_element_id: Id, code: Code, equipment_class_id: Id,
+  description: Nonblank, required_count: PositiveCount, minimum_capacity: NullableDecimal,
+  capacity_property_definition_id: OptId
+}, { additionalProperties: false });
 const PersonnelRequirementFields = { procedural_element_id: Id, code: Code, qualification_code: Code, required_count: PositiveCount };
 const PersonnelRequirementBody = Type.Object({ expected_change_no: Expected, ...PersonnelRequirementFields }, { additionalProperties: false });
 const PersonnelRequirementRecord = Type.Object({ id: Id, recipe_version_id: Id, ...PersonnelRequirementFields, qualification_description: Nonblank });
@@ -124,7 +129,8 @@ const ScalingRuleBody = Type.Object({ expected_change_no: Expected, ...ScalingRu
 const ScalingRuleRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingRuleFields });
 const ScalingInputFields = { rule_id: Id, code: Code, source_kind: SourceKind, parameter_id: OptId, equipment_property: Type.Union([Nonblank,Type.Null()]), constant_value: NullableDecimal, unit_id: Id, conversion_version_id: OptId };
 const ScalingInputBody = Type.Object({ expected_change_no: Expected, ...ScalingInputFields }, { additionalProperties: false });
-const ScalingInputRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingInputFields });
+const ScalingInputRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingInputFields, equipment_property_definition_id: OptId });
+const LinkedScalingInputBody = Type.Object({ expected_change_no: Expected, rule_id: Id, code: Code, equipment_property_definition_id: Id }, { additionalProperties: false });
 const ScalingBindingFields = { rule_id: Id, parameter_limit_id: OptId, material_requirement_id: OptId };
 const ScalingBindingBody = Type.Object({ expected_change_no: Expected, ...ScalingBindingFields }, { additionalProperties: false });
 const ScalingBindingRecord = Type.Object({ id: Id, recipe_version_id: Id, ...ScalingBindingFields });
@@ -203,7 +209,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         materials: Type.Array(Type.Object({ id: Id, material_code: Type.String(),
           revision: Type.Integer({minimum:1}), name: Type.String(),
           unit: Type.Union([Type.String(),Type.Null()]), measurement_unit_id: Type.Union([Id,Type.Null()]) })),
-        qualifications: Type.Array(Type.Object({ code: Type.String(), description: Type.String() }))
+        qualifications: Type.Array(Type.Object({ code: Type.String(), description: Type.String() })),
+        equipment_classes: Type.Array(Type.Object({ id: Id, code: Type.String(), name: Type.String() })),
+        equipment_properties: Type.Array(Type.Object({ id: Id, code: Type.String(), name: Type.String(), quantity_kind_id: Id, measurement_unit_id: Id }))
       }) } },
   }, async req => persoonlijkeTransactie(app.db,req,async tx =>
     (await tx.query("SELECT recipe_reference_catalog($1) AS data",[req.params.productId])).rows[0].data));
@@ -451,6 +459,27 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   }, async req => persoonlijkeTransactie(app.db,req,async tx =>
     (await tx.query(requirementsSql,[req.params.id])).rows[0].data));
 
+  app.post("/versions/:id/requirements/linked-equipment-requirements", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: LinkedEquipmentRequirementBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_equipment_requirement_linked($1,$2,NULL,$3,$4,$5,$6,$7,$8,$9) AS data",
+        [req.params.id,b.expected_change_no,b.procedural_element_id,b.code,b.equipment_class_id,b.description,b.required_count,b.minimum_capacity,b.capacity_property_definition_id])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/requirements/linked-equipment-requirements/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: LinkedEquipmentRequirementBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_equipment_requirement_linked($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.procedural_element_id,b.code,b.equipment_class_id,b.description,b.required_count,b.minimum_capacity,b.capacity_property_definition_id])).rows[0].data);
+  });
+
   app.post("/versions/:id/requirements/equipment-requirements", {
     preHandler: personalSession,
     schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: EquipmentRequirementBody, response: { 201: ChangedId } },
@@ -659,6 +688,27 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
   }, async req => persoonlijkeTransactie(app.db,req,async tx =>
     (await tx.query("SELECT recipe_delete_scaling_rule($1,$2,$3) AS change_no",
       [req.params.id,req.query.expected_change_no,req.params.recordId])).rows[0]));
+
+  app.post("/versions/:id/scaling/linked-equipment-inputs", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id }), body: LinkedScalingInputBody, response: { 201: ChangedId } },
+  }, async (req,reply) => {
+    const b=req.body;
+    const result=await persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_input_linked($1,$2,NULL,$3,$4,$5) AS data",
+        [req.params.id,b.expected_change_no,b.rule_id,b.code,b.equipment_property_definition_id])).rows[0].data);
+    return reply.code(201).send(result);
+  });
+
+  app.patch("/versions/:id/scaling/linked-equipment-inputs/:recordId", {
+    preHandler: personalSession,
+    schema: { tags: ["recepten"], params: Type.Object({ id: Id, recordId: Id }), body: LinkedScalingInputBody, response: { 200: ChangedId } },
+  }, async req => {
+    const b=req.body;
+    return persoonlijkeTransactie(app.db,req,async tx =>
+      (await tx.query("SELECT recipe_save_scaling_input_linked($1,$2,$3,$4,$5,$6) AS data",
+        [req.params.id,b.expected_change_no,req.params.recordId,b.rule_id,b.code,b.equipment_property_definition_id])).rows[0].data);
+  });
 
   app.post("/versions/:id/scaling/inputs", {
     preHandler: personalSession,
