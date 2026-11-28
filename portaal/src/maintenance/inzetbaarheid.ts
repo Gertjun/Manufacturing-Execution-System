@@ -8,7 +8,7 @@ type Capabilities={global:boolean;equipment:Item[];properties:Property[];capabil
 type References={quantity_kinds:Item[];units:(Item & {quantity_kind_id:string;symbol:string})[]};
 type Status="unknown"|"blocked"|"available";
 type Evidence={revision:number;status:Status;reason:string|null;created_at:string|null;created_by_name:string|null};
-type StatusRow=Item & Evidence;
+type StatusRow=Item & Evidence & {can_manage:boolean};
 type Field={label:string;input:HTMLInputElement|HTMLSelectElement};
 type Cell=string|number|Node|null;
 const val=(f:Field)=>f.input.value.trim();
@@ -107,7 +107,7 @@ export async function middelenstatus(){
         finally{history.disabled=false;}
       }},"Historie ophalen");
       return [x.code,x.name,statusLabel(x.status),x.revision,x.reason,date(x.created_at),x.created_by_name,
-        form("Status wijzigen",[choice,reason],"/resources/equipment/"+x.id+"/status",()=>({expected_revision:x.revision,status:val(choice),reason:val(reason)}),current,magMiddelenstatus,middelenstatus),
+        x.can_manage===true?form("Status wijzigen",[choice,reason],"/resources/equipment/"+x.id+"/status",()=>({expected_revision:x.revision,status:val(choice),reason:val(reason)}),current,()=>x.can_manage===true&&magMiddelenstatus(),middelenstatus):"Alleen lezen",
         h("details",{class:"engineering-details"},h("summary",{},"Historie"),history,target)];
     });
     toon(h("div",{class:"kop"},h("div",{},h("h1",{},"Technische middelenstatus"),h("p",{class:"sub"},"Onbekend is niet beschikbaar. Geen vervanging van veiligheidsprocedures of operationele stilstand.")),h("button",{class:"knop",onclick:middelenstatus},"Vernieuwen")),
