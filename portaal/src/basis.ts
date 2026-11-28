@@ -74,7 +74,7 @@ export function qs(params: Record<string, string | number | null | undefined>): 
 }
 
 // ---------- Actuele bevoegdheden (D101) ----------
-export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean }
+export interface Permissions { global: string[]; products: { permission: string; product: string }[]; personal: boolean; linkedPerson: boolean; resourceCatalog?: boolean; resourceStatus?: boolean }
 let projection: Permissions | null = null;
 let projectionToken: string | null = null;
 let requestGeneration = 0;
@@ -121,7 +121,19 @@ export const magMateriaalstamdata = () => heeftRecht("material.definition.manage
 export const magReceptconcept = () => heeftProductRecht("recipe.draft.manage");
 export const magReceptbeoordeling = () => heeftProductRecht("recipe.draft.manage",...RECEPT_REVIEW_RECHTEN);
 
+export const magScopemapping = () => !!rechten()?.personal && heeftRecht("resource.scope.manage");
+export const magMiddelenbeheer = () => !!rechten()?.personal && (rechten()?.resourceCatalog === true || heeftRecht("resource.catalog.manage"));
+export const magMiddelenstatus = () => !!rechten()?.personal && (rechten()?.resourceStatus === true || heeftRecht("resource.status.manage","resource.status.read"));
+export const magWerkstationbeheer = () => !!rechten()?.personal && heeftRecht("resource.catalog.manage");
+export const magMiddelstilstand = () => !!rechten()?.personal && heeftRecht("downtime.read","maintenance.downtime.read");
 export const PORTALEN: Portaal[] = [
+  { id: "maintenance", naam: "Maintenance", klaar: true, onderdelen: [
+    { pad: "middelen", naam: "Middelenbeheer", toegestaan: magMiddelenbeheer },
+    { pad: "capaciteiten", naam: "Eigenschappen en capaciteit", toegestaan: magMiddelenbeheer },
+    { pad: "status", naam: "Technische middelenstatus", toegestaan: magMiddelenstatus },
+    { pad: "werkstations", naam: "Werkstationkoppelingen", toegestaan: magWerkstationbeheer },
+    { pad: "middelstilstand", naam: "Actuele middelstilstand", toegestaan: magMiddelstilstand },
+  ]},
   { id: "engineering", naam: "Process Engineering", klaar: true, onderdelen: [
     { pad: "overzicht", naam: "Overzicht", toegestaan: () => magMateriaalstamdata() || magReceptconcept() || magReceptbeoordeling() },
     { pad: "materialen", naam: "Materiaalstamgegevens", toegestaan: magMateriaalstamdata },
@@ -149,6 +161,7 @@ export const PORTALEN: Portaal[] = [
     { pad: "correcties", naam: "Correcties", toegestaan: () => heeftRecht("execution.correct","analysis.execution.read") },
     { pad: "overdracht", naam: "Ploegoverdracht", toegestaan: () => heeftRecht("handover.read") },
     { pad: "stilstand", naam: "Stilstand", toegestaan: () => lees() && heeftRecht("downtime.read","maintenance.downtime.read") },
+    { pad: "middelstilstand", naam: "Actuele middelstilstand", toegestaan: () => lees() && magMiddelstilstand() },
   ]},
   { id: "planning", naam: "Planning", klaar: true, onderdelen: [
     { pad: "week", naam: "Batches plannen", toegestaan: planningLees },
@@ -162,6 +175,7 @@ export const PORTALEN: Portaal[] = [
   { id: "beheer", naam: "Beheer", klaar: true, onderdelen: [
     { pad: "stappen", naam: "Stappen en velden", toegestaan: () => lees() && heeftRecht("process.parameter.manage") },
     { pad: "accounts", naam: "Accounts", toegestaan: () => heeftRecht("account.read") },
+    { pad: "scopemapping", naam: "Scopemapping middelen", toegestaan: magScopemapping },
     { pad: "operators", naam: "Personeel", toegestaan: () => heeftRecht("personnel.read") },
     { pad: "grondstoffen", naam: "Grondstoffen", toegestaan: () => heeftRecht("material.definition.manage") },
     { pad: "ploegen", naam: "Diensten en ploegen", toegestaan: () => heeftRecht("shift.manage") },

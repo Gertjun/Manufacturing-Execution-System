@@ -7,6 +7,62 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3e: SQL-gedragstests voor catalogusgebonden schaalbronnen en blijvende complexe-schalingsblokkade toegevoegd; uitvoering volgt.
+
+- #116.3e: SQL-gedragstests voor expliciete middelklassekoppeling, snapshotvorm, vrijgavevalidatie en persoonlijke audit toegevoegd; uitvoering volgt.
+
+- #116.3e: SQL-regressies voor gevalideerde catalogusconstraints en beperkte app-rechten toegevoegd; uitvoering en gedragsbewijs volgen.
+
+- #116.3d.4c: Chrome-regressie voor catalogusgebonden middelenvereisten en formele vrijgave toegevoegd; uitvoering volgt.
+
+- #116.3d.4b: API-regressies voor expliciete equipmentschaalbronnen en behoud van complexe-schalingsblokkade toegevoegd; uitvoering volgt.
+
+- #116.3d.4a: API-regressies voor catalogusgebonden middelenvereisten toegevoegd; uitvoering volgt.
+
+- #116.3d.3: native catalogusselecties voor middelenvereisten en equipmentschaalbronnen in Process Engineering; historische ongekoppelde waarden blijven zichtbaar. Runtimebewijs volgt.
+
+- #116.3d.2: persoonlijke receptcatalogusreferenties (0160), afzonderlijke API voor gekoppelde middelenvereisten en schaalbronnen; bestaande ongekoppelde interfaces blijven beschikbaar. Runtimebewijs en OpenAPI-regeneratie volgen.
+
+- #116.3d.1: persoonlijke catalogusgebonden receptmutaties (0159), server leidt code en eenheid af uit expliciete identiteit; legacy-mutatie van gekoppelde records geweigerd. Runtimebewijs volgt.
+
+- #116.3c: receptvrijgavevalidatie (0158) onderscheidt expliciet gekoppelde definities van onbewezen klasse-/capaciteitsvereisten; geen automatische vrijgave, geen actuele inzetbaarheidsclaim, complexe schaling blijft geblokkeerd. Runtimebewijs volgt.
+
+- #116.3b: interne getypeerde eigenschapsreferenties (0157) voor receptcapaciteit en schaalinvoer, exacte eenheden en broncode, geen automatische omzetting of vrijgave. Runtimebewijs volgt.
+
+- #116.3a: interne expliciete middelklassekoppeling voor receptvereisten (0156), zonder automatische omzetting of vrijgave; historische review- en vergelijkingsvorm bij ontbrekende koppeling behouden. Runtimebewijs volgt.
+
+- #116.1: afzonderlijke persoonlijke statusinzage (0155), scope, historie, per-middel mutatieprojectie, intrekking en negatieve SQL/API/browserregressies. Baseline [895](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46121447232) op `9cb34a3`: 1774/1774 SQL, 133/133 API, security 16/16, autorisatie 11/11, beheertools en Linux-upgrade groen; compatibiliteit [893](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46118038745) op `b6e8aa3` groen. Alleen migratiepad gewijzigd tussen beide heads, zonder inhoudswijziging. Integrale faseacceptatie en Windows-praktijk blijven open.
+
+- #115.2–115.7: expliciete capaciteit en technische geschiktheid, persoonlijke statushistorie, werkstationkoppelingen, afzonderlijke online middelstilstand, beperkte leesprojecties en Maintenance-schermen (0141–0154). Gerichte verificatie #115: baseline [878](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46075597785) op `9f5604f` (1740/1740 SQL, 133/133 API, 1012 beheertoolwaarden, upgrade 0129→0154, beide legacy-racevolgordes en offlineheaders/minutenoverlap); compatibiliteit [874](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46074532971) op `68749ea` (37 D101-controles, Chrome-portalen); volledige operatorflow [883](https://github.com/Gertjun/Manufacturing-Execution-System/actions/runs/46077666629) op `ae1be4c`. Vergelijking bevestigt uitsluitend testbestanden gewijzigd tussen deze heads; geen nieuw runtimebewijs op één gezamenlijke head. Windows-praktijk, integrale faseacceptatie en afzonderlijke merge/release blijven open. Specifieke intrekking tijdens wachten op replay-lock niet afzonderlijk aangetoond; meenemen in integrale beveiligingsverificatie.
+
+- #115.1: getypeerde numerieke middelenkenmerken (0139), persoonlijke scoped creatie en revisies (0140), onveranderlijke historie en regressies. Baseline 823 op b259a7d groen: 1442/1442 SQL, 131/131 API, 966 beheertoolwaarden; concurrentie commit/rollback en upgrade 0129→0140 geslaagd. Leesprojectie/UI en faseacceptatie open.
+
+- #114.7: alle elf technische acceptatiecriteria afgedekt; baseline 816 op a121290 groen (1396/1396 SQL, 131/131 API, expliciete upgrade 0129 naar 0138), browserbewijs 813 op ongewijzigde applicatiebron. #114 technisch afgerond, Windows-praktijk en integrale faseacceptatie open.
+
+- #114.6c-e: Maintenance-middelenbeheer, afzonderlijk security-scopemapping scherm in Beheer, begrensd menusignaal en SQL/API/browserregressies. Technisch geverifieerd op 7cf15a1 via baseline 812 (1396/1396 SQL, 131/131 API) en compatibiliteit 813 (Chrome F4-114 groen); Windows-praktijk en faseacceptatie open.
+
+- #114.6b: persoonlijke middelen- en scope-API via /resources, strikte invoerschema's, bestaande persoonlijke transacties en databasefuncties; typecheck en runtimebewijs open.
+
+- #114.5 technisch afgerond: baseline 803 op e818619 groen (1388/1388); run 801 had één verouderde testverwachting (14 in plaats van 15 rollen), gecorrigeerd zonder schemawijziging. #114.6a: beperkte persoonlijke leesprojecties 0138, runtimeverificatie open.
+
+- #114.5d: persoonlijk scopemappingbeheer 0137 via aparte security-rol, geen automatische grants; aanvullende negatieve en auditregressies.
+
+- #114.5d: expliciete gebieds- en middelscopemapping 0136, afleiding uit databasecontext; run 797 op 5b078c8 groen (1364/1364) voor 0134/0135. Runtimeverificatie 0136 en rolregisterintegratie open.
+
+- #114.5c: persoonlijke klassekoppelingen en assettoewijzingen (0135), permanente audit-UUID naast samengestelde sleutel, uitsluitend eenmalige afsluiting, bestaande overlap- en historiebeveiliging behouden. Runtimeverificatie open.
+
+- #114.5b: persoonlijke creatie en naamcorrectie van hiërarchie, functionele middelen en fysieke assets (0134), wijzigingsteller, rijlock, audit en beperkte functie-ACLs. Run 795 groen op ee7cc9a (1308/1308), inclusief 114.4 race en 114.5a; herstel van SQL-dollartekenfout uit run 793. 0134 runtimeverificatie open.
+
+- #114.5a: afzonderlijke middelenbeheerrol, globale persoonlijke klassemutaties, wijzigingsteller en bestaand persoonlijk auditlog; geen automatische grants. 0132 baseline run 791 groen; concurrentieregressie en 0133 runtimeverificatie volgen gebundeld.
+
+- #114.4: fysieke assets en historische toewijzingen 0132; halfopen tijdsintervallen, GiST-exclusie per asset, eenmalige afsluiting en afgeschermde toegang. 114.3 baseline run 789 groen op aac6447. 0132 runtime, gelijktijdige transacties en ingebouwde PostgreSQL met btree_gist nog te verifiëren; geen automatische mapping.
+
+- #114.3: intern equipmentcatalogusfundament 0131 met functionele middelen, klassen en N:M-koppelingen; permanente identiteiten, beschermde locatie en koppelingen, geen directe apprechten of receptmapping. 114.2 PostgreSQL-baseline run 787 groen op 147b9db. 0131 runtimeverificatie open; DATABASE.md blijft momentopname 0129.
+
+- #114.2: migratie 0130 intern equipment_hierarchy, stabiele identiteit, strikt opeenvolgende niveaus via samengestelde FK, geen directe apprechten of automatische mapping. Schema-equivalentie, PostgreSQL-regressies en upgradebewijs volgen. Afgeleide databasedocumentatie blijft momentopname 0129.
+
+- D115-aanvulling: stel PostgreSQL-documentatievergelijking uit in concept-PRs, behoud snelle broncontroles en alle SQL-/securityregressies; gegenereerde DATABASE.md vermeldt bron-schemaversie. Integrale acceptatie en release behouden werkelijke schema- en diagramverificatie op identieke tree. Gerichte database-baseline behoudt OpenAPI maar genereert geen databaseplaatje; afzonderlijk label schema-generatie levert de versiegebonden momentopname als artifact (geen acceptatiebewijs). Beleidstests en gerichte verificatie volgen; geen functionele wijziging.
+
 - #146 (D115): technisch geaccepteerd op c43c34e, PR #11 gemerged naar a03d72d. Chronologische bewijscontrole op jobtijdstempels, conservatieve weigering bij herstarts/onvolledige API-resultaten, geforceerde schemacontrole en hergebruik volledige schermbundel; mergebewijs vereist beide suites en expliciet checkoutbewijs. 14/14 beleidstests (run 779), integrale Node22/26 (run 780) en diagramrun 29 groen; ready_for_review run 781 en main run 782 hergebruiken bewijs, documentatie run 452 groen. Geen functionele wijziging, geen nieuwe release. Zie ROADMAP en D115 voor meetresultaten en beperkingen.
 
 - #146 (CI-F): nieuwste werkelijk uitgevoerde schemacontrole over de drie workflows bepaalt hergebruik; latere fouten blokkeren ouder groen. Irrelevante labelruns blijven zonder runner; snelle broncontroles blijven behouden. Gezamenlijke verificatie afgerond binnen scope; zie #146-afsluiting.

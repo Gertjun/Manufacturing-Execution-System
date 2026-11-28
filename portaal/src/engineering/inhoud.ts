@@ -9,7 +9,7 @@ interface Limit {id:string;parameter_id:string;data_type:"decimal"|"integer";cat
 interface Formula {id:string;reference_quantity:string;reference_unit:string;reference_unit_id:string|null}
 interface MaterialRequirement {id:string;formula_id:string;procedural_element_id:string|null;material_version_id:string;code:string;direction:"input"|"output";quantity:string;unit:string;scaling:"fixed"|"linear";measurement_unit_id:string|null}
 interface MaterialReference {id:string;material_code:string;revision:number;name:string;unit:string|null;measurement_unit_id:string|null}
-interface EquipmentRequirement {id:string;procedural_element_id:string;code:string;equipment_class_code:string;description:string;required_count:number;minimum_capacity:string|null;capacity_unit_id:string|null}
+interface EquipmentRequirement {id:string;procedural_element_id:string;code:string;equipment_class_code:string;description:string;required_count:number;minimum_capacity:string|null;capacity_unit_id:string|null;equipment_class_id:string|null;capacity_property_definition_id:string|null}
 interface PersonnelRequirement {id:string;procedural_element_id:string;code:string;qualification_code:string;qualification_description:string;required_count:number}
 interface Instruction {id:string;procedural_element_id:string;code:string;position:number;instruction_text:string;confirmation_required:boolean}
 interface SpecificationLink {id:string;parameter_limit_id:string;code:string;description:string}
@@ -18,7 +18,7 @@ interface CompatibilityRule {id:string;other_recipe_version_id:string;reason:str
 type RuleKind="nonlinear"|"parameter_dependent"|"equipment_dependent";
 interface ScalingRule {id:string;code:string;description:string;rule_kind:RuleKind;output_unit_id:string;source_reference:string;applicability:string}
 type SourceKind="batch_quantity"|"parameter"|"equipment_property"|"constant";
-interface ScalingInput {id:string;rule_id:string;code:string;source_kind:SourceKind;parameter_id:string|null;equipment_property:string|null;constant_value:string|null;unit_id:string;conversion_version_id:string|null}
+interface ScalingInput {id:string;rule_id:string;code:string;source_kind:SourceKind;parameter_id:string|null;equipment_property:string|null;constant_value:string|null;unit_id:string;conversion_version_id:string|null;equipment_property_definition_id:string|null}
 type Operator="add"|"subtract"|"multiply"|"divide"|"power";
 type ScalingToken={op:"input";id:string}|{op:Operator};
 interface ScalingExpression {id:string;rule_id:string;grammar_version:1;tokens:ScalingToken[]}
@@ -28,7 +28,9 @@ const operators:Record<Operator,string>={add:"+",subtract:"−",multiply:"×",di
 const sourceKinds:Record<SourceKind,string>={batch_quantity:"Batchhoeveelheid",parameter:"Procesparameter",equipment_property:"Equipmenteigenschap",constant:"Constante"};
 const ruleKinds:Record<RuleKind,string>={nonlinear:"Niet-lineair",parameter_dependent:"Parameterafhankelijk",equipment_dependent:"Equipmentafhankelijk"};
 interface Requirements {lot_rules:LotRule[];compatibility_rules:CompatibilityRule[];change_no:number;equipment_requirements:EquipmentRequirement[];personnel_requirements:PersonnelRequirement[];instructions:Instruction[];specification_links:SpecificationLink[]}
-interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[]}
+interface EquipmentClassReference {id:string;code:string;name:string}
+interface EquipmentPropertyReference {id:string;code:string;name:string;quantity_kind_id:string;measurement_unit_id:string}
+interface References {materials:MaterialReference[];qualifications:{code:string;description:string}[];equipment_classes:EquipmentClassReference[];equipment_properties:EquipmentPropertyReference[]}
 interface Content {change_no:number;parameters:Parameter[];parameter_limits:Limit[];formulas:Formula[];material_requirements:MaterialRequirement[]}
 interface Procedure {change_no:number;elements:{id:string;code:string;name:string;kind:string}[]}
 interface Catalog {units:{id:string;code:string;symbol:string;name:string}[];conversions:{id:string;from_unit_id:string;to_unit_id:string}[];versions:{id:string;conversion_id:string;revision:number;factor_numerator:string;factor_denominator:string;additive_offset:string;source_reference:string}[]}
@@ -165,29 +167,39 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         },m?.id);
       }
       const requirementsRoot=prefix+"/requirements";
+      const classReferences=references.equipment_classes??[];
+      const propertyReferences=references.equipment_properties??[];
+      const classOptions=classReferences.map(c=>({id:c.id,label:c.code+" — "+c.name}));
+      const propertyOptions=propertyReferences.map(p=>({id:p.id,label:p.code+" — "+p.name+" ("+(unit(p.measurement_unit_id)?.symbol??p.measurement_unit_id)+")"}));
       function equipmentForm(r?:EquipmentRequirement) {
         const element=choice(elementOptions,r?.procedural_element_id??"");
-        const code=input(r?.code??"",100),equipmentClass=input(r?.equipment_class_code??"",100);
+        const code=input(r?.code??"",100),equipmentClass=choice(classOptions,r?.equipment_class_id??"");
         const description=input(r?.description??"",10000);
         const count=h("input",{type:"number",min:1,max:2147483647,step:1,required:true,value:String(r?.required_count??1)});
         const capacity=exact(r?.minimum_capacity??"");
-        const capacityUnit=choice(unitOptions,r?.capacity_unit_id??"",false);
+        const capacityProperty=choice(propertyOptions,r?.capacity_property_definition_id??"",false);
+        const capacityInfo=h("p",{class:"sub","aria-live":"polite"});
         function sync(){
           const hasCapacity=capacity.value.trim()!=="";
-          capacityUnit.disabled=!hasCapacity;
-          capacityUnit.required=hasCapacity;
+          capacityProperty.disabled=!hasCapacity;
+          capacityProperty.required=hasCapacity;
+          const p=propertyReferences.find(p=>p.id===capacityProperty.value);
+          capacityInfo.textContent=!hasCapacity?"Geen capaciteitseis.":p?"Cataloguseenheid: "+(unit(p.measurement_unit_id)?.symbol??p.measurement_unit_id):"Kies expliciet een eigenschap.";
         }
-        capacity.addEventListener("input",sync);sync();
+        capacity.addEventListener("input",sync);capacityProperty.addEventListener("change",sync);sync();
         return save(r?"Equipmentvereiste wijzigen":"Equipmentvereiste toevoegen",[
           field("Procedure-element",element),field("Code vereiste",code),
-          field("Equipmentklassecode (voorlopig)",equipmentClass),field("Omschrijving",description),
-          field("Vereist aantal",count),field("Minimumcapaciteit (optioneel)",capacity),field("Capaciteitseenheid",capacityUnit)
-        ],"equipment-requirements",()=>{
+          field("Equipmentklasse",equipmentClass),field("Omschrijving",description),
+          field("Vereist aantal",count),field("Minimumcapaciteit (optioneel)",capacity),field("Capaciteitseigenschap",capacityProperty),capacityInfo
+        ],"linked-equipment-requirements",()=>{
           const n=Number(count.value),value=decimalValue(capacity);
+          if(!classReferences.some(c=>c.id===equipmentClass.value))throw Error("Kies een bekende middelklasse.");
           if(!Number.isInteger(n)||n<1||n>2147483647)throw Error("Geef een geldig positief geheel aantal op.");
-          if(value!==null&&(!/^[0-9]+(?:\.[0-9]+)?$/.test(value)||!/[1-9]/.test(value)||!unit(capacityUnit.value)))throw Error("Minimumcapaciteit vereist een positieve waarde en cataloguseenheid.");
-          return {procedural_element_id:element.value,code:code.value.trim(),equipment_class_code:equipmentClass.value.trim(),
-            description:description.value.trim(),required_count:n,minimum_capacity:value,capacity_unit_id:value===null?null:capacityUnit.value};
+          const p=propertyReferences.find(p=>p.id===capacityProperty.value);
+          if(value!==null&&(!/^[0-9]+(?:\.[0-9]+)?$/.test(value)||!/[1-9]/.test(value)||!p||!unit(p.measurement_unit_id)))throw Error("Minimumcapaciteit vereist een positieve waarde en expliciete cataloguseigenschap.");
+          if(value!==null&&r?.minimum_capacity!==null&&r?.capacity_unit_id&&p?.measurement_unit_id!==r.capacity_unit_id)throw Error("De bestaande capaciteit heeft een andere eenheid. Leg eerst een nieuwe capaciteitseis vast; geen automatische omzetting.");
+          return {procedural_element_id:element.value,code:code.value.trim(),equipment_class_id:equipmentClass.value,
+            description:description.value.trim(),required_count:n,minimum_capacity:value,capacity_property_definition_id:value===null?null:capacityProperty.value};
         },r?.id,requirementsRoot);
       }
       function personnelForm(r?:PersonnelRequirement) {
@@ -297,9 +309,8 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
       }
       function scalingInputForm(rule:ScalingRule,r?:ScalingInput) {
         const code=input(r?.code??"",100);
-        const source=choice(Object.entries(sourceKinds).map(([id,label])=>({id,label})),r?.source_kind??"");
+        const source=choice(Object.entries(sourceKinds).filter(([id])=>id!=="equipment_property").map(([id,label])=>({id,label})),r?.source_kind??"");
         const parameter=choice(numericParameters.map(p=>({id:p.id,label:p.code+" — "+p.name+" ("+p.unit+")"})),r?.parameter_id??"",false);
-        const property=input(r?.equipment_property??"",10000);
         const constant=exact(r?.constant_value??"");
         const target=choice(unitOptions,r?.unit_id??"");
         const conversion=choice([], "", false);
@@ -308,7 +319,6 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         function sync(initial=false) {
           const k=source.value, from=fromUnit(), to=target.value;
           parameter.disabled=k!=="parameter";parameter.required=k==="parameter";
-          property.disabled=k!=="equipment_property";property.required=k==="equipment_property";
           constant.disabled=k!=="constant";constant.required=k==="constant";
           const needs=!!from&&!!to&&from!==to;
           const old=initial?r?.conversion_version_id??"":conversion.value;
@@ -322,20 +332,37 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         sync(true);
         return save(r?"Schaalinvoer wijzigen":"Schaalinvoer toevoegen",[
           field("Code invoer",code),field("Brontype",source),field("Numerieke procesparameter",parameter),
-          field("Equipmenteigenschap (voorlopige definitie)",property),field("Exacte constante",constant),
+          field("Exacte constante",constant),
           sourceInfo,field("Invoereenheid",target),field("Exacte conversierevisie indien nodig",conversion)
         ],"inputs",()=>{
           const k=source.value,from=fromUnit(),to=target.value;
-          if(!Object.prototype.hasOwnProperty.call(sourceKinds,k)||!unit(to)||!code.value.trim())throw Error("Kies een brontype, eenheid en code.");
+          if(k==="equipment_property"||!Object.prototype.hasOwnProperty.call(sourceKinds,k)||!unit(to)||!code.value.trim())throw Error("Kies een brontype, eenheid en code.");
           const sourced=k==="batch_quantity"||k==="parameter";
           if(sourced&&(!from||!unit(from)))throw Error("Bron vereist een expliciete cataloguseenheid.");
           const needs=sourced&&from!==to;
           if(needs&&!conversionChoices(from!,to).some(v=>v.id===conversion.value))throw Error("Kies een passende exacte conversierevisie.");
-          if(k==="equipment_property"&&!property.value.trim())throw Error("Geef een equipmenteigenschap op.");
           if(k==="constant"&&!constant.value.trim())throw Error("Geef een exacte constante op.");
           return {rule_id:rule.id,code:code.value.trim(),source_kind:k,parameter_id:k==="parameter"?parameter.value:null,
-            equipment_property:k==="equipment_property"?property.value.trim():null,constant_value:k==="constant"?constant.value.trim():null,
+            equipment_property:null,constant_value:k==="constant"?constant.value.trim():null,
             unit_id:to,conversion_version_id:needs?conversion.value:null};
+        },r?.id,scalingRoot);
+      }
+      function linkedScalingInputForm(rule:ScalingRule,r?:ScalingInput) {
+        const code=input(r?.code??"",100);
+        const property=choice(propertyOptions,r?.equipment_property_definition_id??"");
+        const info=h("p",{class:"sub","aria-live":"polite"});
+        function sync(){
+          const p=propertyReferences.find(p=>p.id===property.value);
+          info.textContent=p?"Cataloguseenheid: "+(unit(p.measurement_unit_id)?.symbol??p.measurement_unit_id)+" — geen conversie.":"Kies expliciet een middeleneigenschap.";
+        }
+        property.addEventListener("change",sync);sync();
+        return save(r?"Equipmentschaalbron koppelen of wijzigen":"Equipmentschaalbron toevoegen",[
+          field("Code invoer",code),field("Equipmenteigenschap",property),info
+        ],"linked-equipment-inputs",()=>{
+          const p=propertyReferences.find(p=>p.id===property.value);
+          if(!p||!unit(p.measurement_unit_id)||!code.value.trim())throw Error("Kies een bekende eigenschap met cataloguseenheid en code.");
+          if(r&&p.measurement_unit_id!==r.unit_id)throw Error("De bestaande schaalbron heeft een andere eenheid. Geen automatische omzetting; maak zo nodig een nieuwe invoer.");
+          return {rule_id:rule.id,code:code.value.trim(),equipment_property_definition_id:p.id};
         },r?.id,scalingRoot);
       }
       function scalingInputView(rule:ScalingRule,r:ScalingInput) {
@@ -345,7 +372,8 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         return h("details",{},h("summary",{},r.code+" · "+sourceKinds[r.source_kind]),
           h("p",{},(value??"Onbekend")+" · "+(unit(r.unit_id)?.symbol??r.unit_id)),
           h("p",{class:"sub"},r.conversion_version_id?(v?conversionLabel(v):"Conversierevisie: "+r.conversion_version_id):"Geen conversie"),
-          editable&&unitOptions.length?scalingInputForm(rule,r):null,
+          r.source_kind==="equipment_property"?h("p",{class:"sub"},r.equipment_property_definition_id?"Catalogusgebonden schaalbron":"Historische, ongekoppelde schaalbron; expliciete koppeling vereist."):null,
+          editable&&unitOptions.length?(r.source_kind==="equipment_property"?linkedScalingInputForm(rule,r):scalingInputForm(rule,r)):null,
           editable?remove("inputs",r.id,"Schaalinvoer "+r.code,scalingRoot):null);
       }
       function expressionPane(rule:ScalingRule) {
@@ -481,14 +509,16 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
         ...(editable&&!data.formulas.length?[h("p",{class:"sub"},"Maak eerst de referentieformule aan.")]:[]),
         ...(editable&&!usableMaterials.length?[h("p",{class:"sub"},"Geen materiaalrevisies met expliciet gekoppelde cataloguseenheid beschikbaar.")]:[]),
         h("h4",{},"Equipmentvereisten"),
-        h("p",{class:"sub"},"Voorlopige equipmentklasse-eisen per procedure-element; geen fysieke toewijzing. Resourcecatalogus en geschiktheidsvalidatie volgen in fase 4."),
+        h("p",{class:"sub"},"Expliciete middelklasse en optionele capaciteitseigenschap per procedure-element. Geen fysieke toewijzing of bewijs van actuele inzetbaarheid."),
         ...requirements.equipment_requirements.map(r=>{
           const element=procedure.elements.find(e=>e.id===r.procedural_element_id);
           const u=r.capacity_unit_id?unit(r.capacity_unit_id):undefined;
           return h("details",{},h("summary",{},r.code+" — "+r.equipment_class_code),
             h("p",{},r.description),
+            h("p",{class:"sub"},r.equipment_class_id?"Catalogusgebonden middelklasse":"Historische, ongekoppelde middelklasse; expliciete koppeling vereist."),
             h("p",{class:"sub"},"Procedure-element: "+(element?element.code+" — "+element.name:r.procedural_element_id)+" · Aantal: "+r.required_count),
             h("p",{},"Minimumcapaciteit: "+(r.minimum_capacity===null?"Niet opgegeven":r.minimum_capacity+" "+(u?.symbol??r.capacity_unit_id??"onbekende eenheid"))),
+            r.minimum_capacity!==null?h("p",{class:"sub"},r.capacity_property_definition_id?"Capaciteitseigenschap: "+(propertyReferences.find(p=>p.id===r.capacity_property_definition_id)?.code??r.capacity_property_definition_id):"Capaciteitseigenschap nog niet gekoppeld."):null,
             editable&&elementOptions.length?equipmentForm(r):null,
             editable?remove("equipment-requirements",r.id,"Equipmentvereiste "+r.code,requirementsRoot):null);
         }),
@@ -556,7 +586,7 @@ export function contentPane(version:{id:string;lifecycle_status:string},productI
           h("h5",{},"Getypeerde invoer"),
           ...scaling.inputs.filter(i=>i.rule_id===r.id).map(i=>scalingInputView(r,i)),
           scaling.inputs.some(i=>i.rule_id===r.id)?null:h("p",{class:"leeg"},"Nog geen schaalinvoer."),
-          editable&&unitOptions.length?scalingInputForm(r):null,expressionPane(r),bindingPane(r))),
+          editable&&unitOptions.length?scalingInputForm(r):null,editable&&unitOptions.length?linkedScalingInputForm(r):null,expressionPane(r),bindingPane(r))),
         ...(scaling.rules.length?[]:[h("p",{class:"leeg"},"Nog geen geavanceerde schaalregels.")]),
         ...(editable&&unitOptions.length?[scalingRuleForm()]:[]),
         h("h4",{},"Procesparameters"),

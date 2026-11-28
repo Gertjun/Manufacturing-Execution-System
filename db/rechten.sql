@@ -836,6 +836,142 @@ BEGIN
  END IF;
 END $$;
 
+-- 0133: persoonlijke catalogusfuncties, interne actorhelper blijft afgesloten.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=133) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_class_create(text,text),
+     fabriek.resource_class_rename(uuid,integer,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0134: gecontroleerde persoonlijke catalogusmutaties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=134) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_hierarchy_create(text,text,text,uuid),
+     fabriek.resource_hierarchy_rename(uuid,integer,text),
+     fabriek.resource_equipment_create(text,text,uuid),
+     fabriek.resource_equipment_rename(uuid,integer,text),
+     fabriek.resource_asset_create(text,text),
+     fabriek.resource_asset_rename(uuid,integer,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0135: uitsluitend persoonlijke koppelfuncties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=135) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_class_assign(uuid,uuid),
+     fabriek.resource_asset_assign(uuid,uuid,timestamptz),
+     fabriek.resource_asset_close(uuid,timestamptz) TO mes_app;
+ END IF;
+END $$;
+
+-- 0137: persoonlijke security-mappinginterface, interne helper afgesloten.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=137) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_area_scope_create(text,uuid),
+     fabriek.resource_equipment_scope_create(text,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0138: beperkte persoonlijke leesprojecties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=138) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_catalog_list(),fabriek.resource_scope_list() TO mes_app;
+ END IF;
+END $$;
+
+-- 0140: persoonlijke capabilitymutaties, geen directe tabelrechten.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=140) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_property_create(text,text,uuid,uuid),
+     fabriek.resource_capability_create(uuid,uuid,numeric,text),
+     fabriek.resource_capability_revise(uuid,integer,numeric,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0142: uitsluitend persoonlijke capaciteitsaanwijzing.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=142) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_capacity_designate(uuid,integer) TO mes_app;
+ END IF;
+END $$;
+
+-- 0145: uitsluitend persoonlijke technische statusmutatie.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=145) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_status_set(uuid,integer,text,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0147: uitsluitend persoonlijke werkstationkoppelingen.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=147) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_workstation_open(uuid,uuid,text),
+     fabriek.resource_workstation_close(uuid,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0150: persoonlijk werkstationbewijs, nog geen middelstilstandmutaties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=150) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.execution_session_workstation(text,uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0150: gecontroleerde persoonlijke middelstilstandinterface.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=150) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text),
+     fabriek.resource_downtime_close(uuid,text) TO mes_app;
+ END IF;
+END $$;
+
+-- 0151: afzonderlijke persoonlijke middelenleesprojecties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=151) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_capability_list(),fabriek.resource_status_list(),
+     fabriek.resource_status_history(uuid) TO mes_app;
+ END IF;
+END $$;
+
+-- 0152: persoonlijke werkstation- en middelstilstandprojecties.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=152) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_workstation_list(),
+     fabriek.resource_downtime_choices(uuid,uuid),fabriek.resource_downtime_list() TO mes_app;
+ END IF;
+END $$;
+
+-- 0153: beperkte referenties en statusmenusignaal.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=153) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.resource_property_references(),fabriek.resource_status_access() TO mes_app;
+ END IF;
+END $$;
+
+-- 0159: uitsluitend persoonlijke catalogusgebonden receptmutaties.
+DO $
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=159) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_save_equipment_requirement_linked(uuid,integer,uuid,uuid,text,uuid,text,integer,numeric,uuid),
+     fabriek.recipe_save_scaling_input_linked(uuid,integer,uuid,uuid,text,uuid) TO mes_app;
+ END IF;
+END $;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

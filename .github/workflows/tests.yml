@@ -617,14 +617,10 @@ jobs:
           TEST_APP_DATABASE_URL: postgres://mes_app@localhost:5432/batchgui
         run: npm test
 
-      - name: Genereer databaseplaatje en OpenAPI voor ontwikkelreview
+      - name: Genereer OpenAPI voor ontwikkelreview
         if: always() && steps.schema.outcome == 'success' && steps.npm.outcome == 'success'
         run: |
-          python3 tools/schema_plaatje.py "host=localhost port=5432 user=postgres" /tmp/MES-DATABASE.md
           (cd api && npm run openapi)
-          echo 'BEGIN_GENERATED_DATABASE'
-          cat /tmp/MES-DATABASE.md
-          echo 'END_GENERATED_DATABASE'
           echo 'BEGIN_GENERATED_OPENAPI'
           node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync("api/openapi.json","utf8")))+"\\n")'
           echo 'END_GENERATED_OPENAPI'

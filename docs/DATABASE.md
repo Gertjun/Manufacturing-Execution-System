@@ -4,6 +4,7 @@
 > `tools/schema_plaatje.py` (#100, D84). Niet met de hand wijzigen: `tests/test_schema_plaatje.sh` faalt als het niet bij is.
 > Opnieuw maken: `python3 tools/schema_plaatje.py "host=localhost user=postgres"`.
 > **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).
+> **Momentopname schema 0129:** tijdens conceptontwikkeling kan het actuele SQL-schema voorlopen; bij faseacceptatie en release wordt dit overzicht geverifieerd.
 
 Schema `fabriek`: 94 tabellen en 203 verbanden.
 

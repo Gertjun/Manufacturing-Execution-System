@@ -25,6 +25,23 @@ for (const t of [A, B, OLD, BOUND]) assert.match(t, /^[A-Za-z0-9_-]+\.[A-Za-z0-9
 const personal = (global = [], products = [], linkedPerson = true) => ({ personal: true, linkedPerson, global, products });
 const quality = personal(["inspection.read"], [{ product: "P1", permission: "inspection.record" }]);
 let projection = quality, binding = "ok", exchanges = 0, pending = null;
+const resourceItem = (id,code,name) => ({id,code,name,change_no:0});
+const resourceArea = {...resourceItem("area-1","FICT-AREA","Fictief gebied"),level:"area",parent_id:null};
+const resourceEquipment = {...resourceItem("equipment-1","FICT-E1","Fictief middel"),hierarchy_id:resourceArea.id};
+const resourceClass = resourceItem("class-1","FICT-CLASS","Fictieve klasse");
+const resourceAsset = resourceItem("asset-1","FICT-ASSET","Fictieve asset");
+let resourceGlobal = false, resourceRequests = 0, scopeRequests = 0, scopeWrites = 0;
+const exact="9007199254740993.123456789";
+const property={id:"property-1",code:"FICT-VOL",name:"Fictief volume",quantity_kind_id:"kind-1",measurement_unit_id:"unit-1",unit:"L"};
+const capability={id:"cap-1",equipment_id:resourceEquipment.id,property_definition_id:property.id,revision:1,value:exact,reason:"Fictief",created_at:"2026-01-01T10:00:00Z",capacity:false};
+const technicalStatus={...resourceEquipment,status:"unknown",revision:0,reason:null,created_at:null,created_by_name:null};
+let capRequests=0,statusRequests=0,referenceRequests=0,capWrites=0,statusWrites=0;
+let statusCanManage=true;
+const stationFixture={workstations:[{id:"pc1",name:"PC-01",location:"Hal 1",active:true},{id:"pc2",name:"PC-02",location:null,active:false}],equipment:[resourceEquipment],assignments:[]};
+let stationReads=0,stationWrites=0,downtimeReads=0;
+let downtimeError=false;
+const downtimeFixture=[{id:"stop-1",equipment_id:resourceEquipment.id,equipment_code:resourceEquipment.code,equipment_name:resourceEquipment.name,step_code:"PS1",step_name:"Reactie",reason_code:"STOR-MACH",reason_name:"Machinestoring",category:"storing",note:"Fictieve storing",started_at:"2026-01-01T10:00:00Z",workstation:"PC-01",operator:"Fictieve operator"}];
+const scopeFixture = {areas:[resourceArea],equipment:[resourceEquipment],area_scopes:[],equipment_scopes:[]};
 const veld = { code:"S3.2", naam:"Fictieve temperatuur", eenheid:"°C", soort:"procesparameter", stap:"PS3", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut" };
 const meting = (dag, extra = {}) => ({ tijd: "2026-11-"+dag+"T10:00:00Z", setting:75, gemeten:75, markering:"ok", batch_of_lot:"FICTIEF-"+dag, operator:"Test", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut", product:"P1", ...extra });
 let trendPunten = [meting("20",{gemeten:59,markering:"buiten_grens"}),meting("21",{setting:78,gemeten:85,markering:"buiten_tolerantie"}),meting("22",{gemeten:91,markering:"buiten_grens"})];
@@ -37,6 +54,72 @@ try {
     if (path.startsWith("/portaal/") || path.startsWith("/invoer/")) return route.continue();
     const json = (value, status = 200) => route.fulfill({ json: value, status });
     if (path === "/auth/permissions") return json(projection);
+    if (path === "/resources/") {
+      resourceRequests++;
+      if (!projection.resourceCatalog && !projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
+      return json({global:resourceGlobal,hierarchy:[resourceArea],equipment:[resourceEquipment],classes:[resourceClass],assets:[resourceAsset],class_assignments:[],asset_assignments:[{id:"assignment-1",equipment_id:resourceEquipment.id,physical_asset_id:resourceAsset.id,valid_from:"2026-01-01T10:00:00Z",valid_until:null}]});
+    }
+    if (path === "/resources/capabilities") {
+      capRequests++;
+      if (!projection.resourceCatalog&&!projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
+      return json({global:resourceGlobal,equipment:[resourceEquipment],properties:[property],capabilities:[capability]});
+    }
+    if (path === "/resources/property-references") {
+      referenceRequests++;
+      if (!projection.global.includes("resource.catalog.manage")) return json({fout:"Geweigerd"},403);
+      return json({quantity_kinds:[{id:"kind-1",code:"VOL",name:"Volume"},{id:"kind-2",code:"MASS",name:"Massa"}],units:[{id:"unit-1",quantity_kind_id:"kind-1",code:"L",symbol:"L",name:"Liter"},{id:"unit-2",quantity_kind_id:"kind-2",code:"KG",symbol:"kg",name:"Kilogram"}]});
+    }
+    if (path === "/resources/capabilities/cap-1/revisions"&&route.request().method()==="POST") {
+      assert.ok(projection.resourceCatalog);
+      assert.deepEqual(route.request().postDataJSON(),{expected_revision:1,value:"9007199254740993.123456790",reason:"Precisie"});
+      capWrites++;capability.value=route.request().postDataJSON().value;capability.revision=2;
+      return json({revision:2});
+    }
+    if (path === "/resources/statuses") {
+      statusRequests++;
+      return projection.resourceStatus?json([{...technicalStatus,can_manage:statusCanManage}]):json({fout:"Geweigerd"},403);
+    }
+    if (path === "/resources/equipment/equipment-1/status"&&route.request().method()==="POST") {
+      assert.ok(projection.resourceStatus&&statusCanManage);
+      assert.deepEqual(route.request().postDataJSON(),{expected_revision:0,status:"blocked",reason:"Inspectie vereist"});
+      statusWrites++;Object.assign(technicalStatus,{status:"blocked",revision:1,reason:"Inspectie vereist",created_at:"2026-01-01T10:00:00Z",created_by_name:"mes.quality"});
+      return json({revision:1});
+    }
+    if (path === "/resources/equipment/equipment-1/status-history") {
+      return projection.resourceStatus?json([{revision:1,status:"blocked",reason:"Inspectie vereist",created_at:"2026-01-01T10:00:00Z",created_by_name:"mes.quality"}]):json({fout:"Geweigerd"},403);
+    }
+    if(path==="/resources/workstations"){
+      stationReads++;
+      return projection.global.includes("resource.catalog.manage")?json(stationFixture):json({fout:"Geweigerd"},403);
+    }
+    if(path==="/resources/workstation-assignments"&&route.request().method()==="POST"){
+      assert.ok(projection.global.includes("resource.catalog.manage"));
+      assert.deepEqual(route.request().postDataJSON(),{pc_id:"pc1",equipment_id:resourceEquipment.id,reason:"Fictieve koppeling"});
+      stationWrites++;stationFixture.assignments.push({id:"ws-1",pc_id:"pc1",equipment_id:resourceEquipment.id,opened_at:"2026-01-01T10:00:00Z",opened_by_name:"mes.quality",open_reason:"Fictieve koppeling",closed_at:null,closed_by_name:null,close_reason:null});
+      return json({id:"ws-1"},201);
+    }
+    if(path==="/resources/workstation-assignments/ws-1/close"&&route.request().method()==="POST"){
+      assert.ok(projection.global.includes("resource.catalog.manage"));
+      assert.deepEqual(route.request().postDataJSON(),{reason:"Fictief ontkoppeld"});
+      stationWrites++;Object.assign(stationFixture.assignments[0],{closed_at:"2026-01-01T11:00:00Z",closed_by_name:"mes.quality",close_reason:"Fictief ontkoppeld"});
+      return json({id:"ws-1"});
+    }
+    if(path==="/stilstand/middelen"){
+      downtimeReads++;
+      if(downtimeError)return json({fout:"Geweigerd"},403);
+      return projection.global.some(x=>["downtime.read","maintenance.downtime.read"].includes(x))?json(downtimeFixture):json({fout:"Geweigerd"},403);
+    }
+    if (path === "/resources/scopes") {
+      scopeRequests++;
+      return projection.global.includes("resource.scope.manage")?json(scopeFixture):json({fout:"Geweigerd"},403);
+    }
+    if (path === "/resources/scopes/areas" && route.request().method()==="POST") {
+      assert.ok(projection.global.includes("resource.scope.manage"));
+      assert.deepEqual(route.request().postDataJSON(),{area_code:"FICT-GRANT",hierarchy_id:resourceArea.id});
+      scopeWrites++;
+      scopeFixture.area_scopes.push({id:"map-1",area_code:"FICT-GRANT",hierarchy_id:resourceArea.id});
+      return json({id:"map-1"},201);
+    }
     if (path === "/auth/pc") {
       exchanges++;
       assert.equal(route.request().headers().authorization, "Bearer " + A);
@@ -96,6 +179,182 @@ try {
   await page.getByRole("heading",{name:"Master Recipes",exact:true}).waitFor();
   await page.getByText("Geen producten met actuele receptbeheerbevoegdheid.",{exact:true}).waitFor();
   console.log("OK 139.3c: receptscherm met beperkte productscope en lege API-respons");
+  // #114.6: native middelenbeheer en onafhankelijke securitybediening.
+  projection = {...personal(),resourceCatalog:true};
+  resourceGlobal=false;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/middelen");
+  await page.getByRole("heading",{name:"Middelenbeheer",exact:true}).waitFor();
+  await page.getByText("Fictief middel",{exact:true}).waitFor();
+  assert.equal(await page.getByText("Klasse toevoegen",{exact:true}).count(),0);
+  assert.equal(await page.getByText("Asset toevoegen",{exact:true}).count(),0);
+  assert.equal(await page.getByText("Asset toewijzen",{exact:true}).count(),0);
+  assert.equal(await page.getByText("Klasse koppelen",{exact:true}).count(),1);
+  assert.equal(await page.getByText("Afsluiten",{exact:true}).count(),1);
+  const scopeBefore=scopeRequests;
+  await page.goto(origin+"/portaal/#/beheer/scopemapping");
+  await page.getByRole("heading",{name:/^Welkom/}).waitFor();
+  assert.equal(scopeRequests,scopeBefore);
+  projection={...personal(["resource.catalog.manage"]),resourceCatalog:true};
+  resourceGlobal=true;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/middelen");
+  await page.getByText("Asset toewijzen",{exact:true}).waitFor();
+  assert.equal(await page.getByText("Klasse toevoegen",{exact:true}).count(),1);
+  assert.equal(await page.getByText("Asset toevoegen",{exact:true}).count(),1);
+  projection=personal(["resource.scope.manage"]);
+  await landing(["beheer"]);
+  const resourcesBefore=resourceRequests;
+  await page.goto(origin+"/portaal/#/maintenance/middelen");
+  await page.getByRole("heading",{name:/^Welkom/}).waitFor();
+  assert.equal(resourceRequests,resourcesBefore);
+  await page.goto(origin+"/portaal/#/beheer/scopemapping");
+  await page.getByRole("heading",{name:"Scopemapping middelen",exact:true}).waitFor();
+  const areaBlock=page.locator("section").filter({has:page.getByRole("heading",{name:"Gebiedsmappings",exact:true})});
+  await areaBlock.getByText("Nieuwe mapping toevoegen",{exact:true}).click();
+  await areaBlock.getByLabel("Exacte autorisatiecode").fill("FICT-GRANT");
+  await areaBlock.getByLabel("Catalogusobject").selectOption(resourceArea.id);
+  await areaBlock.getByRole("button",{name:"Mapping vastleggen"}).click();
+  assert.equal(scopeWrites,0);
+  await areaBlock.getByRole("checkbox").check();
+  await areaBlock.getByRole("button",{name:"Mapping vastleggen"}).click();
+  await areaBlock.getByText("FICT-GRANT",{exact:true}).waitFor();
+  assert.equal(scopeWrites,1);
+  assert.equal(await areaBlock.getByText("Nieuwe mapping toevoegen",{exact:true}).count(),0);
+  projection=personal();
+  await landing([]);
+  console.log("OK F4-114: begrensd/globaal middelenbeheer, directe routeweigering, onafhankelijke mapping en bevestiging");
+  // #115.6d: gescheiden portaalroutes, precieze waarde en statusovergang.
+  projection={...personal(),resourceCatalog:true};resourceGlobal=false;
+  await landing(["maintenance"]);
+  const refsBefore=referenceRequests;
+  await page.goto(origin+"/portaal/#/maintenance/capaciteiten");
+  await page.getByRole("heading",{name:"Eigenschappen en capaciteit",exact:true}).waitFor();
+  await page.getByText(exact,{exact:true}).waitFor();
+  assert.equal(referenceRequests,refsBefore);
+  assert.equal(await page.getByText("Eigenschap definiëren",{exact:true}).count(),0);
+  const revision=page.locator("details").filter({has:page.getByText("Revisie toevoegen",{exact:true})});
+  await revision.getByText("Revisie toevoegen",{exact:true}).click();
+  await revision.getByLabel("Exacte waarde").fill("9007199254740993.123456790");
+  await revision.getByLabel("Reden").fill("Precisie");
+  await revision.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByText("9007199254740993.123456790",{exact:true}).waitFor();
+  assert.equal(capWrites,1);
+  const noStatus=statusRequests;
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("heading",{name:"Middelenbeheer",exact:true}).waitFor();
+  assert.equal(statusRequests,noStatus);
+  projection={...personal(["resource.catalog.manage"]),resourceCatalog:true};resourceGlobal=true;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/capaciteiten");
+  const definition=page.locator("details").filter({has:page.getByText("Eigenschap definiëren",{exact:true})});
+  await definition.getByText("Eigenschap definiëren",{exact:true}).click();
+  await definition.getByLabel("Grootheid").selectOption("kind-1");
+  assert.deepEqual(await definition.getByLabel("Eenheid").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),["","unit-1"]);
+  await definition.getByLabel("Eenheid").selectOption("unit-1");
+  await definition.getByLabel("Grootheid").selectOption("kind-2");
+  assert.deepEqual(await definition.getByLabel("Eenheid").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),["","unit-2"]);
+  assert.equal(await definition.getByLabel("Eenheid").inputValue(),"");
+  projection={...personal(),resourceStatus:true};
+  await landing(["maintenance"]);
+  const noCatalog=capRequests;
+  await page.goto(origin+"/portaal/#/maintenance/capaciteiten");
+  await page.getByRole("heading",{name:"Technische middelenstatus",exact:true}).waitFor();
+  assert.equal(capRequests,noCatalog);
+  await page.getByRole("cell",{name:"Onbekend",exact:true}).waitFor();
+  const transition=page.locator("details").filter({has:page.getByText("Status wijzigen",{exact:true})});
+  await transition.getByText("Status wijzigen",{exact:true}).click();
+  await transition.getByLabel("Nieuwe technische status").selectOption("blocked");
+  await transition.getByLabel("Reden").fill("Inspectie vereist");
+  await transition.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  assert.equal(statusWrites,1);
+  await page.locator("details > summary").filter({hasText:/^Historie$/}).click();
+  await page.getByRole("button",{name:"Historie ophalen"}).click();
+  await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
+  statusCanManage=false;
+  const noStatusDowntime=downtimeReads;
+  projection={...personal(["resource.status.read"]),resourceStatus:true};
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("cell",{name:"Alleen lezen",exact:true}).waitFor();
+  assert.equal(await page.getByText("Status wijzigen",{exact:true}).count(),0);
+  await page.locator("details > summary").filter({hasText:/^Historie$/}).click();
+  await page.getByRole("button",{name:"Historie ophalen"}).click();
+  await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
+  assert.equal(statusWrites,1);
+  console.log("OK F4-116: statuslezer ziet historie zonder mutatieformulier");
+  await page.getByRole("cell",{name:"Niet beschikbaar",exact:true}).waitFor();
+  assert.equal(downtimeReads,noStatusDowntime);
+  projection={...personal(["resource.status.read","maintenance.downtime.read"]),resourceStatus:true};
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("cell",{name:"Actieve melding",exact:true}).waitFor();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  assert.equal(await page.getByText("Status wijzigen",{exact:true}).count(),0);
+  const savedStops=downtimeFixture.splice(0);
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByRole("cell",{name:"Geen actieve melding",exact:true}).waitFor();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  downtimeFixture.push(...savedStops);
+  downtimeError=true;
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByRole("cell",{name:"Niet beschikbaar",exact:true}).waitFor();
+  await page.getByText("Operationele stilstand kon niet worden opgehaald.",{exact:false}).waitFor();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  downtimeError=false;
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByRole("cell",{name:"Actieve melding",exact:true}).waitFor();
+  assert.equal(statusWrites,1);
+  console.log("OK F4-116.2: onafhankelijke status/stilstand, ontbrekend recht, fout en herstel");
+  statusCanManage=true;
+  projection=personal();
+  await landing([]);
+  const deniedStatus=statusRequests;
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("heading",{name:/^Welkom/}).waitFor();
+  assert.equal(statusRequests,deniedStatus);
+  console.log("OK F4-115: exacte waarde, eenhedenfilter, statusovergang, historie en onafhankelijke directe routeweigering");
+  projection={...personal(["resource.catalog.manage"]),resourceCatalog:true};resourceGlobal=true;
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/werkstations");
+  await page.getByRole("heading",{name:"Werkstationkoppelingen",exact:true}).waitFor();
+  const link=page.locator("details").filter({has:page.getByText("Middel koppelen",{exact:true})});
+  await link.getByText("Middel koppelen",{exact:true}).click();
+  assert.deepEqual(await link.getByLabel("Werkstation").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),["","pc1"]);
+  await link.getByLabel("Werkstation").selectOption("pc1");
+  await link.getByLabel("Middel").selectOption(resourceEquipment.id);
+  await link.getByLabel("Reden",{exact:true}).fill("Fictieve koppeling");
+  await link.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByRole("cell",{name:"Actief",exact:true}).waitFor();
+  assert.equal(stationWrites,1);
+  await link.getByText("Middel koppelen",{exact:true}).click();
+  await link.getByLabel("Werkstation").selectOption("pc1");
+  assert.deepEqual(await link.getByLabel("Middel").locator("option").evaluateAll(xs=>xs.map(x=>x.value)),[""]);
+  const unlink=page.locator("details").filter({has:page.getByText("Koppeling beëindigen",{exact:true})});
+  await unlink.getByText("Koppeling beëindigen",{exact:true}).click();
+  await unlink.getByLabel("Reden van ontkoppeling").fill("Fictief ontkoppeld");
+  await unlink.getByRole("button",{name:"Opslaan"}).click();
+  await page.getByRole("cell",{name:"Afgesloten",exact:true}).waitFor();
+  await page.getByRole("cell",{name:"Fictief ontkoppeld",exact:true}).waitFor();
+  assert.equal(stationWrites,2);
+  const noDowntime=downtimeReads;
+  await page.goto(origin+"/portaal/#/maintenance/middelstilstand");
+  await page.getByRole("heading",{name:"Middelenbeheer",exact:true}).waitFor();
+  assert.equal(downtimeReads,noDowntime);
+  projection=personal(["maintenance.downtime.read"]);
+  await landing(["maintenance"]);
+  const noStations=stationReads;
+  await page.goto(origin+"/portaal/#/maintenance/werkstations");
+  await page.getByRole("heading",{name:"Actuele middelstilstand",exact:true}).waitFor();
+  assert.equal(stationReads,noStations);
+  await page.getByRole("cell",{name:"Machinestoring",exact:true}).waitFor();
+  assert.equal(await page.getByText("Fictieve storing",{exact:true}).count(),1);
+  assert.equal(await page.getByRole("button",{name:"Beëindigen",exact:true}).count(),0);
+  downtimeFixture.length=0;
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByText("Geen actieve middelstilstand geregistreerd.",{exact:true}).waitFor();
+  console.log("OK F4-115-e: werkstationkoppeling, historie, gescheiden alleen-lezen stilstand en routeweigering");
   projection = quality;
   await landing(["invoer", "kwaliteit"]);
   await set(page, { "invoer.token": OLD, "invoer.operatornaam": "ander" });

@@ -50,6 +50,10 @@ export function foutAfhandeling(err: FastifyError | ApiFout | PgFout, req: Fasti
       const c = (err as PgFout).constraint ?? "";
       return reply.status(409).send({ fout: UNIEK[c] ?? `Bestaat al (${c || "uniek"})` });
     }
+    case "23P01": // Overlappende historische toewijzing
+      return reply.status(409).send({ fout: "Deze asset heeft al een overlappende toewijzing" });
+    case "22004": // Verplichte waarde ontbreekt
+      return reply.status(422).send({ fout: "Verplichte waarde ontbreekt" });
     case "55000": // Handeling niet toegestaan in huidige objectstatus
       return reply.status(409).send({ fout: "Handeling niet toegestaan in de huidige status" });
     case "40001": // Verouderde revisie of serialisatieconflict

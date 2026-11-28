@@ -1,7 +1,7 @@
 import { persoonlijkeTransactie } from "../auth.js";
 import { Type } from "@fastify/type-provider-typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { ingelogd, operatorVan } from "../auth.js";
+import { ingelogd, operatorVan, invoerContext } from "../auth.js";
 import { requiresPermission, personalSession, requirePermission, requireTransactionPermission } from "../modules/authorization/access.js";
 import { lees, type Db } from "../db.js";
 import { ApiFout, niet } from "../fouten.js";
@@ -35,11 +35,108 @@ export const STILSTAND_SQL = `
     FROM stilstand x JOIN processtap s ON s.id = x.processtap_id JOIN stilstand_oorzaak o ON o.id = x.oorzaak_id
     LEFT JOIN pc ON pc.id = x.pc_id LEFT JOIN operator op ON op.id = x.operator_id LEFT JOIN operator eo ON eo.id = x.beeindigd_door`;
 
-const eenStilstand = async (db: Db, id: string) => (await lees(db, `${STILSTAND_SQL} WHERE x.id = $1`, [id]))[0];
+const eenStilstand = async (db: Db, id: string) => (await lees(db, `${STILSTAND_SQL} WHERE x.id = $1 AND x.equipment_id IS NULL`, [id]))[0];
 /** Een tijdstip van het apparaat; in de toekomst (verkeerde klok) telt als nu. */
 const tijdstip = (t?: string) => (t && Date.parse(t) < Date.now() ? t : new Date().toISOString());
 
+// Alleen vaste, publieke foutteksten voor de nieuwe middelinterface.
+function middelFout(e: unknown): never {
+  const { code, constraint } = e as { code?: string; constraint?: string };
+  if (code === "23505") throw new ApiFout(409, constraint === "stilstand_equipment_een_lopend"
+    ? "Voor dit middel loopt al een stilstand" : "Dit id hoort bij een andere stilstandmelding");
+  if (code === "40001") throw new ApiFout(409, "Deze middelstilstand is al anders afgesloten");
+  if (code === "P0002") throw niet("Middelstilstand");
+  if (code === "22023" || code === "23514" || code === "23503") throw new ApiFout(422, "Ongeldige middelstilstandcontext");
+  throw e;
+}
+
+const MiddelAntwoord = Type.Object({ id: Type.String({ format: "uuid" }) });
+const MiddelId = Type.String({ format: "uuid" });
+const MiddelKeuze = Type.Object({ id: MiddelId, code: Type.String(), name: Type.String(),
+  open_downtime_id: Type.Union([MiddelId,Type.Null()]) });
+const MiddelStilstand = Type.Object({
+  id: MiddelId, equipment_id: MiddelId, equipment_code: Type.String(), equipment_name: Type.String(),
+  step_code: Type.String(), step_name: Type.String(), reason_code: Type.String(), reason_name: Type.String(),
+  category: Type.String(), note: OptTekst, started_at: Tijd, workstation: OptTekst, operator: OptTekst,
+});
 const routes: FastifyPluginAsyncTypebox = async (app) => {
+  app.get("/middelen", {
+    preHandler: personalSession,
+    schema: { tags: ["stilstand"], response: { 200: Type.Array(MiddelStilstand) } },
+  }, async req => persoonlijkeTransactie(app.db,req,async tx => (await tx.query("SELECT resource_downtime_list() AS data")).rows[0].data));
+
+  app.get("/middelen/keuzes", {
+    preHandler: requiresPermission("downtime.record"),
+    schema: { tags: ["stilstand"], querystring: Type.Object({ stapcode: StapCode },{ additionalProperties: false }),
+      response: { 200: Type.Array(MiddelKeuze) } },
+  }, async req => {
+    const { pcId }=await invoerContext(app.db,req);
+    return persoonlijkeTransactie(app.db,req,async tx => {
+      const { rows: [step] }=await tx.query<{ id: string }>("SELECT id FROM processtap WHERE code=$1",[req.query.stapcode]);
+      if(!step) throw new ApiFout(403,"Geen actuele werkstation-stapcontext");
+      return (await tx.query("SELECT resource_downtime_choices($1,$2) AS data",[pcId,step.id])).rows[0].data;
+    });
+  });
+
+  // Bewust afzonderlijke online routes; niet opnemen in de offlinewachtrij.
+  app.post("/middelen", {
+    preHandler: requiresPermission("downtime.record"),
+    schema: {
+      tags: ["stilstand"],
+      description: "Online middelstilstand melden; herhaalde identieke UUID retourneert hetzelfde ID.",
+      body: Type.Object({
+        id: Type.String({ format: "uuid" }),
+        stapcode: StapCode,
+        equipmentId: Type.String({ format: "uuid" }),
+        oorzaak: Type.String(),
+        toelichting: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 500 })])),
+      }, { additionalProperties: false }),
+      response: { 200: MiddelAntwoord },
+    },
+  }, async req => {
+    if (req.headers["x-batchgui-moment"] !== undefined || req.headers["x-batchgui-verzonden"] !== undefined)
+      throw new ApiFout(400, "Middelstilstand kan niet via de offlinewachtrij worden geregistreerd");
+    const { pcId } = await invoerContext(app.db, req);
+    try {
+      return await persoonlijkeTransactie(app.db, req, async tx => {
+        await requireTransactionPermission(tx, req.user.sub, "downtime.record");
+        // Ook inactieve codes opzoeken: identieke replay mag na deactivering
+        // nog terugkomen. Nieuwe registraties worden in de DB gevalideerd.
+        const { rows: [step] } = await tx.query<{ id: string }>("SELECT id FROM processtap WHERE code=$1", [req.body.stapcode]);
+        if (!step) throw niet("Stap");
+        const { rows: [reason] } = await tx.query<{ id: string }>("SELECT id FROM stilstand_oorzaak WHERE code=$1", [req.body.oorzaak]);
+        if (!reason) throw new ApiFout(422, "Onbekende stilstandoorzaak");
+        const { rows: [r] } = await tx.query<{ id: string }>(
+          "SELECT resource_downtime_open($1,$2,$3,$4,$5,$6) AS id",
+          [req.body.id, pcId, step.id, req.body.equipmentId, reason.id, req.body.toelichting ?? null]);
+        return { id: r.id };
+      });
+    } catch (e) { return middelFout(e); }
+  });
+
+  app.post("/middelen/:id/einde", {
+    preHandler: requiresPermission("downtime.record"),
+    schema: {
+      tags: ["stilstand"],
+      description: "Online middelstilstand beëindigen op registratie-ID.",
+      params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+      body: Type.Object({ notitie: Type.Optional(Type.String({ maxLength: 500 })) }, { additionalProperties: false }),
+      response: { 200: MiddelAntwoord },
+    },
+  }, async req => {
+    if (req.headers["x-batchgui-moment"] !== undefined || req.headers["x-batchgui-verzonden"] !== undefined)
+      throw new ApiFout(400, "Middelstilstand kan niet via de offlinewachtrij worden geregistreerd");
+    operatorVan(req);
+    try {
+      return await persoonlijkeTransactie(app.db, req, async tx => {
+        await requireTransactionPermission(tx, req.user.sub, "downtime.record");
+        const { rows: [r] } = await tx.query<{ id: string }>(
+          "SELECT resource_downtime_close($1,$2) AS id", [req.params.id, req.body.notitie ?? null]);
+        return { id: r.id };
+      });
+    } catch (e) { return middelFout(e); }
+  });
+
   app.get(
     "/oorzaken",
     {
@@ -61,7 +158,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       },
       schema: { tags: ["stilstand"], description: "Stilstand die nu loopt, per stap.", response: { 200: Type.Array(Stilstand) } },
     },
-    async (req) => (await lees(app.db, `${STILSTAND_SQL} WHERE x.eind_op IS NULL AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'display.downtime.read',NULL,NULL,NULL)) ORDER BY s.volgorde`, [req.user.sub])) as never,
+    async (req) => (await lees(app.db, `${STILSTAND_SQL} WHERE x.equipment_id IS NULL AND x.eind_op IS NULL AND (authorization_permits($1,'downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'maintenance.downtime.read',NULL,NULL,NULL) OR authorization_permits($1,'display.downtime.read',NULL,NULL,NULL)) ORDER BY s.volgorde`, [req.user.sub])) as never,
   );
 
   app.post(
@@ -84,8 +181,12 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
     async (req, reply) => {
       if (req.body.id) {
         const al = await eenStilstand(app.db, req.body.id);
+        if (!al) {
+          const [existing] = await lees<{ exists: boolean }>(app.db, "SELECT EXISTS(SELECT 1 FROM stilstand WHERE id=$1) AS exists", [req.body.id]);
+          if (existing?.exists) throw new ApiFout(409,"Dit id hoort bij een andere stilstandmelding");
+        }
         if (al) {
-          const [original] = await lees<{ gemeld_door: string; stap: string }>(app.db, "SELECT x.gemeld_door,s.code AS stap FROM stilstand x JOIN processtap s ON s.id=x.processtap_id WHERE x.id=$1", [req.body.id]);
+          const [original] = await lees<{ gemeld_door: string; stap: string }>(app.db, "SELECT x.gemeld_door,s.code AS stap FROM stilstand x JOIN processtap s ON s.id=x.processtap_id WHERE x.id=$1 AND x.equipment_id IS NULL", [req.body.id]);
           if (original?.gemeld_door !== req.user.sub || original.stap !== req.body.stapcode) throw new ApiFout(409,"Dit id hoort bij een andere stilstandmelding");
           return reply.status(200).send(al as never);
         }
@@ -106,6 +207,9 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
           );
           return r.rows[0].id as string;
         } catch (e) {
+          if ((e as { constraint?: string }).constraint === "stilstand_pkey") {
+            throw new ApiFout(409,"Dit id hoort bij een andere of gelijktijdige stilstandmelding");
+          }
           if ((e as { constraint?: string }).constraint === "stilstand_een_lopend") {
             throw new ApiFout(409, `In ${req.body.stapcode} loopt al een stilstand; beëindig die eerst`);
           }
@@ -134,7 +238,7 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       if ((al as { eind_op: string | null }).eind_op) return al as never; // al beëindigd (opnieuw verstuurd)
       await persoonlijkeTransactie(app.db, req, async (tx) => {
         await requireTransactionPermission(tx,req.user.sub,"downtime.record");
-        return tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1 AND eind_op IS NULL",
+        return tx.query("UPDATE stilstand SET eind_op = greatest($2::timestamptz, begin_op), beeindigd_door = $3, eind_notitie = nullif(btrim($4), '') WHERE id = $1 AND equipment_id IS NULL AND eind_op IS NULL",
           [req.params.id, tijdstip(req.body.eind_op), operatorVan(req) ?? null, req.body.notitie ?? null]);
       });
       return (await eenStilstand(app.db, req.params.id)) as never;

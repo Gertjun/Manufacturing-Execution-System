@@ -312,7 +312,13 @@ def main():
     check("Operator heeft uitvoeringsrecht", val("SELECT authorization_permits(%s,'execution.record',NULL,NULL,NULL)", (demo_operator,)))
     check("Operator heeft geen correctierecht", not val("SELECT authorization_permits(%s,'execution.correct',NULL,NULL,NULL)", (demo_operator,)))
 
-    check("Dertien MES-rollen gedefinieerd", val("SELECT count(*) FROM authorization_role") == 13)
+    check("Zeventien MES-rollen inclusief afzonderlijke statusinzage",
+          val("SELECT count(*) FROM authorization_role") == 17 and
+          val("SELECT domain FROM authorization_role WHERE code='resource_status_reader'")=="maintenance" and
+          val("SELECT count(*) FROM authorization_grant WHERE role_code='resource_status_reader'")==0 and
+          val("SELECT domain FROM authorization_role WHERE code='resource_status_manager'")=="maintenance" and
+          val("SELECT domain FROM authorization_role WHERE code='resource_catalog_manager'")=="maintenance" and
+          val("SELECT domain FROM authorization_role WHERE code='resource_scope_administrator'")=="security")
     check("Twee persoonlijke security-identiteiten", val("SELECT count(DISTINCT g.user_id) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE g.role_code='security_administrator' AND u.actief AND NOT u.gedeeld AND NOT u.wachtwoord_wijzigen") == 2)
     check("Security-identiteit heeft geen legacy beheerdersrol", val("SELECT count(*) FROM gebruiker WHERE gebruikersnaam IN ('mes.security.a','mes.security.b') AND rol='beheerder'") == 0)
     check("Supervisor met twee afzonderlijke grants", val("SELECT count(*) FROM authorization_grant g JOIN gebruiker u ON u.id=g.user_id WHERE u.gebruikersnaam='mes.supervisor'") == 2)
@@ -2339,6 +2345,29 @@ def main():
         data=val("SELECT recipe_requirements_list(%s)",(v,))
         check("#111 vereisten leeg na gecontroleerd verwijderen",data["change_no"]==16 and all(not data[k] for k in ("equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules")))
         check("#111 persoonlijke lotregel-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_lot_rule' AND record_id=%s AND actie='DELETE' AND actor_user_id=%s AND actor_origin='personal'",(lot["id"],actor))==1)
+        # #116.3: the same historical row is only verified after explicit linking.
+        con.execute("RESET ROLE")
+        cls=val("INSERT INTO equipment_class(code,name) VALUES ('F116-C-MIXER','Fictief') RETURNING id")
+        con.execute("SET LOCAL ROLE mes_app")
+        legacy=val("SELECT recipe_save_equipment_requirement(%s,16,NULL,%s,'F116-EQ','F116-C-MIXER','Fictief',1,NULL,NULL)",(v,root))
+        con.execute("RESET ROLE")
+        snapshot=val("SELECT recipe_review_snapshot(%s)",(v,))
+        row=snapshot["recipe_equipment_requirement"][0]
+        check("F4-116-C04 historische snapshot zonder nieuwe null-sleutels","equipment_class_id" not in row and "capacity_property_definition_id" not in row)
+        check("F4-116-C04 bestaande code is geen impliciete koppeling",val("SELECT EXISTS(SELECT 1 FROM recipe_release_blockers(%s) WHERE code='equipment_class_unverified' AND record_id=%s)",(v,legacy["id"])))
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("F4-116-C05 andere productscope","SELECT recipe_save_equipment_requirement_linked(%s,0,NULL,%s,'F116-EQ',%s,'Fictief',1,NULL,NULL)",(other,root,cls))
+        denied("F4-116-C05 capaciteit zonder definitie","SELECT recipe_save_equipment_requirement_linked(%s,17,%s,%s,'F116-EQ',%s,'Fictief',1,10,NULL)",(v,legacy["id"],root,cls),"Minimumcapaciteit vereist")
+        linked=val("SELECT recipe_save_equipment_requirement_linked(%s,17,%s,%s,'F116-EQ',%s,'Fictief',1,NULL,NULL)",(v,legacy["id"],root,cls))
+        check("F4-116-C05 stabiele identiteit en teller",linked["id"]==legacy["id"] and linked["change_no"]==18)
+        denied("F4-116-C05 legacy-interface mag koppeling niet wissen","SELECT recipe_save_equipment_requirement(%s,18,%s,%s,'F116-EQ','F116-C-MIXER','Fictief',1,NULL,NULL)",(v,legacy["id"],root),"expliciete middelencataloguskoppeling")
+        con.execute("RESET ROLE")
+        current=val("SELECT recipe_review_snapshot(%s)",(v,))["recipe_equipment_requirement"][0]
+        check("F4-116-C04 gekoppelde snapshot bevat expliciete identiteit",current["equipment_class_id"]==str(cls) and "capacity_property_definition_id" not in current)
+        check("F4-116-C04 definitieblokkade vervalt",not val("SELECT EXISTS(SELECT 1 FROM recipe_release_blockers(%s) WHERE code='equipment_class_unverified' AND record_id=%s)",(v,legacy["id"])))
+        check("F4-116-C05 persoonlijke wijzigingsaudit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_equipment_requirement' AND record_id=%s AND actie='UPDATE' AND actor_user_id=%s AND actor_origin='personal'",(legacy["id"],actor))==1)
+        con.execute("SET LOCAL ROLE mes_app")
+
         con.execute("RESET ROLE")
         con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
         con.execute("SET LOCAL ROLE mes_app")
@@ -2441,6 +2470,25 @@ def main():
         check("#141 lege schaalgrafiek na verwijderen",data["change_no"]==10 and all(not data[k] for k in ("rules","inputs","bindings")))
         con.execute("RESET ROLE")
         check("#141 persoonlijke schaalregel-audit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_scaling_rule' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal' AND actie='DELETE'",(r["id"],actor))==1)
+        prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F116-SCALE','Fictief',%s,%s) RETURNING id",(kind,kg))
+        con.execute("SET LOCAL ROLE mes_app")
+        rule=val("SELECT recipe_save_scaling_rule(%s,10,NULL,'F116-R','Fictief','nonlinear',%s,'Bron','Test')",(v,kg))
+        old=val("SELECT recipe_save_scaling_input(%s,11,NULL,%s,'F116-I','equipment_property',NULL,'F116-SCALE',NULL,%s,NULL)",(v,rule["id"],kg))
+        con.execute("RESET ROLE")
+        old_snapshot=val("SELECT recipe_review_snapshot(%s)",(v,))["recipe_scaling_input"][0]
+        check("F4-116-C06 historische schaalbron zonder nieuwe null-sleutel","equipment_property_definition_id" not in old_snapshot)
+        con.execute("SET LOCAL ROLE mes_app")
+        denied("F4-116-C06 andere productscope","SELECT recipe_save_scaling_input_linked(%s,0,NULL,%s,'F116-I',%s)",(other,rule["id"],prop))
+        denied("F4-116-C06 onbekende eigenschap","SELECT recipe_save_scaling_input_linked(%s,12,%s,%s,'F116-I',gen_random_uuid())",(v,old["id"],rule["id"]),"Onbekende middeleneigenschap")
+        linked=val("SELECT recipe_save_scaling_input_linked(%s,12,%s,%s,'F116-I',%s)",(v,old["id"],rule["id"],prop))
+        check("F4-116-C06 stabiele bronidentiteit en teller",linked["id"]==old["id"] and linked["change_no"]==13)
+        denied("F4-116-C06 legacy-interface mag koppeling niet wissen","SELECT recipe_save_scaling_input(%s,13,%s,%s,'F116-I','constant',NULL,NULL,2,%s,NULL)",(v,old["id"],rule["id"],kg),"expliciete eigenschapskoppeling")
+        con.execute("RESET ROLE")
+        current=val("SELECT recipe_review_snapshot(%s)",(v,))["recipe_scaling_input"][0]
+        check("F4-116-C06 exacte eigenschap en eenheid",current["equipment_property_definition_id"]==str(prop) and current["equipment_property"]=="F116-SCALE" and current["unit_id"]==str(kg))
+        check("F4-116-C06 complexe schaling blijft geblokkeerd",val("SELECT EXISTS(SELECT 1 FROM recipe_release_blockers(%s) WHERE code='complex_scaling_unproven' AND record_id=%s)",(v,rule["id"])))
+        check("F4-116-C06 persoonlijke schaalbronaudit",val("SELECT count(*) FROM config_log WHERE tabel='recipe_scaling_input' AND record_id=%s AND actie='UPDATE' AND actor_user_id=%s AND actor_origin='personal'",(old["id"],actor))==1)
+
         con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actor,))
         con.execute("SET LOCAL ROLE mes_app")
         denied("#141 ingetrokken schaalregelbevoegdheid","SELECT recipe_scaling_list(%s)",(v,))
@@ -2891,6 +2939,1349 @@ def main():
         con.execute("RESET ROLE")
     check("#112 interne leeshelper afgeschermd",not val("SELECT has_function_privilege('mes_app','fabriek.recipe_review_read_permitted(uuid,uuid)','EXECUTE')"))
     check("#112 geen directe snapshottoegang",not val("SELECT has_table_privilege('mes_app','fabriek.recipe_review_round','SELECT')"))
+
+    print("\n#114.2 middelenhiërarchie")
+    con.execute("BEGIN")
+    try:
+        def add_node(code, level, parent=None, name="Fictief"):
+            return val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES (%s,%s,%s,%s) RETURNING id",
+                       (code,name,level,parent))
+        ent=add_node("F4-ENT","enterprise")
+        site=add_node("F4-SITE","site",ent)
+        other_site=add_node("F4-SITE2","site",ent)
+        area=add_node("F4-AREA","area",site)
+        cell=add_node("F4-CELL","cell",area)
+        unit=add_node("F4-UNIT","unit",cell)
+        check("F4-114-A01 volledige hiërarchie en tweede site",
+              val("SELECT count(*) FROM equipment_hierarchy")==6 and other_site!=site)
+        def hierarchy_denied(label,sql,params=(),state=None):
+            con.execute("SAVEPOINT hierarchy_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT hierarchy_guard")
+                con.execute("RELEASE SAVEPOINT hierarchy_guard")
+        insert="INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES (%s,'Fictief',%s,%s)"
+        for label,params,state in [
+            ("unit onder site",("F4-BAD","unit",site),"23503"),
+            ("site zonder ouder",("F4-BAD","site",None),"23514"),
+            ("enterprise met ouder",("F4-BAD","enterprise",ent),"23514"),
+            ("onbekende ouder",("F4-BAD","site","00000000-0000-0000-0000-000000000001"),"23503"),
+            ("onbekend niveau",("F4-BAD","module",cell),"23514"),
+            ("dubbele code",("F4-ENT","enterprise",None),"23505"),
+            ("lege code",("   ","enterprise",None),"23514"),
+        ]:
+            hierarchy_denied("F4-114-A02/A03 "+label,insert,params,state)
+        hierarchy_denied("F4-114-A02 zelfverwijzing",
+            "INSERT INTO equipment_hierarchy(id,code,name,level,parent_id) VALUES (%s,'F4-SELF','Fictief','unit',%s)",
+            ("00000000-0000-0000-0000-000000000002",)*2,"23503")
+        for label,statement,params in [
+            ("id","UPDATE equipment_hierarchy SET id=gen_random_uuid() WHERE id=%s",(unit,)),
+            ("code","UPDATE equipment_hierarchy SET code='F4-NEW' WHERE id=%s",(unit,)),
+            ("niveau","UPDATE equipment_hierarchy SET level='area' WHERE id=%s",(unit,)),
+            ("ouder","UPDATE equipment_hierarchy SET parent_id=%s WHERE id=%s",(other_site,area)),
+            ("verwijderen","DELETE FROM equipment_hierarchy WHERE id=%s",(unit,)),
+        ]:
+            hierarchy_denied("F4-114-A03 "+label,statement,params,"55000")
+        con.execute("UPDATE equipment_hierarchy SET name='Nieuwe fictieve naam' WHERE id=%s",(unit,))
+        check("F4-114-A03 naamcorrectie behoudt identiteit",
+              val("SELECT name FROM equipment_hierarchy WHERE id=%s",(unit,))=="Nieuwe fictieve naam")
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"):
+            check("F4-114-A07 geen directe app-"+privilege,
+                  not val("SELECT has_table_privilege('mes_app','fabriek.equipment_hierarchy',%s)",(privilege,)))
+        check("F4-114-A07 geen directe triggerfunctie",
+              not val("SELECT has_function_privilege('mes_app','fabriek.equipment_hierarchy_identity_guard()','EXECUTE')"))
+        con.execute("SET LOCAL ROLE mes_app")
+        hierarchy_denied("F4-114-A07 werkelijk lezen geweigerd","SELECT * FROM fabriek.equipment_hierarchy",state="42501")
+        hierarchy_denied("F4-114-A07 werkelijk invoegen geweigerd",
+                         "INSERT INTO fabriek.equipment_hierarchy(code,name,level) VALUES ('F4-APP','Fictief','enterprise')",state="42501")
+        hierarchy_denied("F4-114-A07 werkelijk wijzigen geweigerd",
+                         "UPDATE fabriek.equipment_hierarchy SET name='Fictief'",state="42501")
+        con.execute("RESET ROLE")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    check("F4-114-A10 geen automatische middelenmapping",
+          val("SELECT count(*) FROM equipment_hierarchy")==0)
+
+    print("\n#114.3 equipmentcatalogus")
+    con.execute("BEGIN")
+    try:
+        h=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-CAT-ENT','Fictief','enterprise') RETURNING id")
+        h2=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-CAT-ENT2','Fictief','enterprise') RETURNING id")
+        k1=val("INSERT INTO equipment_class(code,name) VALUES ('F4-REACTOR','Fictief') RETURNING id")
+        k2=val("INSERT INTO equipment_class(code,name) VALUES ('F4-MIXER','Fictief') RETURNING id")
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-R101','Fictief',%s) RETURNING id",(h,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-R102','Fictief',%s) RETURNING id",(h,))
+        for e,k in ((e1,k1),(e1,k2),(e2,k1)):
+            con.execute("INSERT INTO equipment_class_assignment VALUES (%s,%s)",(e,k))
+        check("F4-114-A04 meerdere middelen en meerdere klassen",
+              val("SELECT count(*) FROM equipment_class_assignment")==3 and
+              val("SELECT count(*) FROM equipment_class_assignment WHERE equipment_id=%s",(e1,))==2 and
+              val("SELECT count(*) FROM equipment_class_assignment WHERE equipment_class_id=%s",(k1,))==2)
+        def catalog_denied(label,sql,params=(),state=None):
+            con.execute("SAVEPOINT catalog_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT catalog_guard")
+                con.execute("RELEASE SAVEPOINT catalog_guard")
+        missing="00000000-0000-0000-0000-000000000001"
+        for label,sql,params,state in [
+            ("dubbele klasse","INSERT INTO equipment_class(code,name) VALUES ('F4-REACTOR','Fictief')",(),"23505"),
+            ("dubbel middel","INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-R101','Fictief',%s)",(h,),"23505"),
+            ("lege klassecode","INSERT INTO equipment_class(code,name) VALUES (' ','Fictief')",(),"23514"),
+            ("lege middelnaam","INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-BAD',' ',%s)",(h,),"23514"),
+            ("locatie ontbreekt","INSERT INTO equipment(code,name) VALUES ('F4-BAD','Fictief')",(),"23502"),
+            ("onbekende locatie","INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-BAD','Fictief',%s)",(missing,),"23503"),
+            ("dubbele koppeling","INSERT INTO equipment_class_assignment VALUES (%s,%s)",(e1,k1),"23505"),
+            ("onbekend middel","INSERT INTO equipment_class_assignment VALUES (%s,%s)",(missing,k1),"23503"),
+            ("onbekende klasse","INSERT INTO equipment_class_assignment VALUES (%s,%s)",(e1,missing),"23503"),
+            ("klassecode wijzigen","UPDATE equipment_class SET code='F4-NEW' WHERE id=%s",(k1,),"55000"),
+            ("klasse-id wijzigen","UPDATE equipment_class SET id=gen_random_uuid() WHERE id=%s",(k1,),"55000"),
+            ("middelcode wijzigen","UPDATE equipment SET code='F4-NEW' WHERE id=%s",(e1,),"55000"),
+            ("middel-id wijzigen","UPDATE equipment SET id=gen_random_uuid() WHERE id=%s",(e1,),"55000"),
+            ("middel verplaatsen","UPDATE equipment SET hierarchy_id=%s WHERE id=%s",(h2,e1),"55000"),
+            ("klasse verwijderen","DELETE FROM equipment_class WHERE id=%s",(k1,),"55000"),
+            ("middel verwijderen","DELETE FROM equipment WHERE id=%s",(e1,),"55000"),
+            ("koppeling wijzigen","UPDATE equipment_class_assignment SET equipment_class_id=%s WHERE equipment_id=%s AND equipment_class_id=%s",(k2,e2,k1),"55000"),
+            ("koppeling verwijderen","DELETE FROM equipment_class_assignment WHERE equipment_id=%s AND equipment_class_id=%s",(e1,k1),"55000"),
+        ]:
+            catalog_denied("F4-114-A04 "+label,sql,params,state)
+        con.execute("UPDATE equipment SET name='Fictieve correctie' WHERE id=%s",(e1,))
+        con.execute("UPDATE equipment_class SET name='Fictieve klassecorrectie' WHERE id=%s",(k1,))
+        check("F4-114-A04 naamcorrecties behouden identiteit en koppelingen",
+              val("SELECT name FROM equipment WHERE id=%s",(e1,))=="Fictieve correctie" and
+              val("SELECT name FROM equipment_class WHERE id=%s",(k1,))=="Fictieve klassecorrectie" and
+              val("SELECT count(*) FROM equipment_class_assignment")==3)
+        for table in ("equipment_class","equipment","equipment_class_assignment"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"):
+                check("F4-114-A07 geen directe app-"+privilege+" "+table,
+                      not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+        for fn in ("equipment_catalog_identity_guard","equipment_location_guard","equipment_class_assignment_guard"):
+            check("F4-114-A07 geen directe functie "+fn,
+                  not val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+fn+"()",)))
+        con.execute("SET LOCAL ROLE mes_app")
+        for table in ("equipment_class","equipment","equipment_class_assignment"):
+            catalog_denied("F4-114-A07 werkelijk lezen geweigerd "+table,"SELECT * FROM fabriek."+table,state="42501")
+        catalog_denied("F4-114-A07 werkelijk koppelen geweigerd",
+                       "INSERT INTO fabriek.equipment_class_assignment VALUES (%s,%s)",(e1,k1),"42501")
+        con.execute("RESET ROLE")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    for table in ("equipment_class","equipment","equipment_class_assignment"):
+        check("F4-114-A10 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
+
+    print("\n#114.4 fysieke assets")
+    con.execute("BEGIN")
+    try:
+        h=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-ASSET-ENT','Fictief','enterprise') RETURNING id")
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-ASSET-E1','Fictief',%s) RETURNING id",(h,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-ASSET-E2','Fictief',%s) RETURNING id",(h,))
+        a1=val("INSERT INTO physical_asset(code,name) VALUES ('F4-ASSET-A1','Fictief') RETURNING id")
+        a2=val("INSERT INTO physical_asset(code,name) VALUES ('F4-ASSET-A2','Fictief') RETURNING id")
+        insert="INSERT INTO equipment_asset_assignment(equipment_id,physical_asset_id,valid_from,valid_until) VALUES (%s,%s,%s,%s)"
+        t1="2026-01-01T00:00:00Z"
+        t2="2026-02-01T00:00:00Z"
+        t3="2026-03-01T00:00:00Z"
+        first=val(insert+" RETURNING id",(e1,a1,t1,None))
+        con.execute(insert,(e1,a2,t1,None))
+        def asset_denied(label,sql,params=(),state=None):
+            con.execute("SAVEPOINT asset_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT asset_guard")
+                con.execute("RELEASE SAVEPOINT asset_guard")
+        asset_denied("F4-114-A06 open overlap",insert,(e2,a1,t2,None),"23P01")
+        con.execute("UPDATE equipment_asset_assignment SET valid_until=%s WHERE id=%s",(t2,first))
+        second=val(insert+" RETURNING id",(e2,a1,t2,None))
+        check("F4-114-A05 historische en aansluitende toewijzing behouden",
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a1,))==2 and
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE equipment_id=%s",(e1,))==2)
+        for label,sql,params,state in [
+            ("historische overlap",insert,(e2,a1,t1,t2),"23P01"),
+            ("overlap zelfde middel",insert,(e2,a1,t3,None),"23P01"),
+            ("nulduur",insert,(e2,a2,t3,t3),"23514"),
+            ("negatieve duur",insert,(e2,a2,t3,t2),"23514"),
+            ("oneindige start",insert,(e2,a2,"-infinity",None),"23514"),
+            ("oneindig einde",insert,(e2,a2,t3,"infinity"),"23514"),
+            ("onbekende asset",insert,(e2,"00000000-0000-0000-0000-000000000001",t3,None),"23503"),
+            ("afgesloten periode wijzigen","UPDATE equipment_asset_assignment SET valid_until=%s WHERE id=%s",(t3,first),"55000"),
+            ("afgesloten periode heropenen","UPDATE equipment_asset_assignment SET valid_until=NULL WHERE id=%s",(first,),"55000"),
+            ("middel overschrijven","UPDATE equipment_asset_assignment SET equipment_id=%s,valid_until=%s WHERE id=%s",(e1,t3,second),"55000"),
+            ("asset overschrijven","UPDATE equipment_asset_assignment SET physical_asset_id=%s,valid_until=%s WHERE id=%s",(a2,t3,second),"55000"),
+            ("start overschrijven","UPDATE equipment_asset_assignment SET valid_from=%s,valid_until=%s WHERE id=%s",(t1,t3,second),"55000"),
+            ("historie verwijderen","DELETE FROM equipment_asset_assignment WHERE id=%s",(first,),"55000"),
+            ("assetcode wijzigen","UPDATE physical_asset SET code='F4-NEW' WHERE id=%s",(a1,),"55000"),
+            ("asset verwijderen","DELETE FROM physical_asset WHERE id=%s",(a1,),"55000"),
+        ]:
+            asset_denied("F4-114-A05/A06 "+label,sql,params,state)
+        for table in ("physical_asset","equipment_asset_assignment"):
+            for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"):
+                check("F4-114-A07 geen directe app-"+privilege+" "+table,
+                      not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+        check("F4-114-A07 geen directe assetguard",
+              not val("SELECT has_function_privilege('mes_app','fabriek.equipment_asset_assignment_guard()','EXECUTE')"))
+        con.execute("SET LOCAL ROLE mes_app")
+        asset_denied("F4-114-A07 asset lezen geweigerd","SELECT * FROM fabriek.physical_asset",state="42501")
+        asset_denied("F4-114-A07 historie lezen geweigerd","SELECT * FROM fabriek.equipment_asset_assignment",state="42501")
+        asset_denied("F4-114-A07 afsluiten geweigerd","UPDATE fabriek.equipment_asset_assignment SET valid_until=%s WHERE id=%s",(t3,second),"42501")
+        con.execute("RESET ROLE")
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+    for table in ("physical_asset","equipment_asset_assignment"):
+        check("F4-114-A10 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
+
+    # F4-114-A09: echte onafhankelijke transacties, uitsluitend fictieve testdata.
+    # De fixture blijft aan het einde van deze wegwerpdatabase staan; geen
+    # productiegegevens, geen uitschakeling van immutabiliteitstriggers.
+    print("\n#114.4 gelijktijdige assettoewijzing")
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    h=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F4-RACE-ENT','Fictief','enterprise') RETURNING id")
+    e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-RACE-E1','Fictief',%s) RETURNING id",(h,))
+    e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F4-RACE-E2','Fictief',%s) RETURNING id",(h,))
+    for outcome in ("commit","rollback"):
+        a=val("INSERT INTO physical_asset(code,name) VALUES (%s,'Fictief') RETURNING id",("F4-RACE-"+outcome,))
+        sql="INSERT INTO fabriek.equipment_asset_assignment(equipment_id,physical_asset_id,valid_from) VALUES (%s,%s,'2026-01-01T00:00:00Z')"
+        with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+            first.execute("SET LOCAL statement_timeout='20s'")
+            second.execute("SET LOCAL statement_timeout='20s'")
+            first.execute(sql,(e1,a))
+            pid=second.info.backend_pid
+            def contender():
+                try:
+                    second.execute(sql,(e2,a))
+                    second.commit()
+                    return "committed"
+                except psycopg.Error as error:
+                    second.rollback()
+                    return error.sqlstate
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future=pool.submit(contender)
+                blocked=False
+                try:
+                    deadline=time.monotonic()+10
+                    while time.monotonic()<deadline and not future.done():
+                        if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,pid)):
+                            blocked=True
+                            break
+                        time.sleep(0.02)
+                    check("F4-114-A09 tweede transactie wacht op eerste ("+outcome+")",blocked)
+                finally:
+                    if outcome=="commit":
+                        first.commit()
+                    else:
+                        first.rollback()
+                result=future.result(timeout=25)
+            check("F4-114-A09 correcte uitkomst "+outcome,
+                  result==("23P01" if outcome=="commit" else "committed"),str(result))
+        check("F4-114-A09 precies een toewijzing "+outcome,
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==1)
+        check("F4-114-A09 juiste winnaar "+outcome,
+              val("SELECT equipment_id FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==(e1 if outcome=="commit" else e2))
+
+    print("\n#114.5a persoonlijk equipmentklassebeheer")
+    check("F4-114-A07 geen automatische middelenbeheergrants",
+          val("SELECT count(*) FROM authorization_grant WHERE role_code='resource_catalog_manager'")==0)
+    check("F4-114-A07 interne actorhelper afgeschermd",
+          not val("SELECT has_function_privilege('mes_app','fabriek.resource_catalog_actor()','EXECUTE')"))
+    con.execute("BEGIN")
+    try:
+        for name in ("manager","scoped","maintenance","engineer"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('test-f4-catalog'))",("f4.catalog."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f4.catalog."+name,)) for name in ("manager","scoped","maintenance","engineer")}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager')",(actors["manager"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','LEGACY-AREA')",(actors["scoped"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'maintenance_technician'),(%s,'process_engineer')",(actors["maintenance"],actors["engineer"]))
+        def resource_denied(label,sql,params=(),state="42501"):
+            con.execute("SAVEPOINT resource_guard")
+            try:
+                faalt(label,sql,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT resource_guard")
+                con.execute("RELEASE SAVEPOINT resource_guard")
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        resource_denied("F4-114-A07 zonder persoonlijk bewijs","SELECT resource_class_create('F4-DENIED','Fictief')")
+        for name in ("scoped","maintenance","engineer","manager"):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-f4-catalog',NULL)",("f4.catalog."+name,))
+            con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors[name]))
+            if name!="manager":
+                resource_denied("F4-114-A07 geweigerd "+name,"SELECT resource_class_create('F4-DENIED','Fictief')")
+        cls=val("SELECT resource_class_create('F4-PERSONAL','Fictieve klasse')")
+        check("F4-114-A03 eerste persoonlijke wijziging",val("SELECT resource_class_rename(%s,0,'Nieuwe naam')",(cls,))==1)
+        resource_denied("F4-114-A09 verouderde change_no","SELECT resource_class_rename(%s,0,'Verouderd')",(cls,),"40001")
+        resource_denied("F4-114-A07 directe tabelmutatie","UPDATE fabriek.equipment_class SET name='Onbevoegd' WHERE id=%s",(cls,))
+        # 114.5b: dezelfde persoonlijke autorisatie voor alle drie objecttypen.
+        h=val("SELECT resource_hierarchy_create('F4-PERS-ENT','Enterprise','enterprise',NULL)")
+        site=val("SELECT resource_hierarchy_create('F4-PERS-SITE','Site','site',%s)",(h,))
+        e=val("SELECT resource_equipment_create('F4-PERS-E','Middel',%s)",(site,))
+        a=val("SELECT resource_asset_create('F4-PERS-A','Asset')")
+        resource_denied("F4-114-A02 ongeldige ouder","SELECT resource_hierarchy_create('F4-PERS-BAD','Fictief','unit',%s)",(h,),"23503")
+        resource_denied("F4-114-A03 dubbele assetcode","SELECT resource_asset_create('F4-PERS-A','Dubbel')",state="23505")
+        resource_denied("F4-114-A03 onbekende locatie","SELECT resource_equipment_create('F4-PERS-BAD','Fictief',gen_random_uuid())",state="23503")
+        for table,prefix,obj in (("equipment_hierarchy","hierarchy",site),("equipment","equipment",e),("physical_asset","asset",a)):
+            rename="SELECT resource_"+prefix+"_rename(%s,%s,%s)"
+            check("F4-114-A03 persoonlijke naamcorrectie "+table,val(rename,(obj,0,"Correctie"))==1)
+            resource_denied("F4-114-A09 verouderde teller "+table,rename,(obj,0,"Verouderd"),"40001")
+            resource_denied("F4-114-A07 directe mutatie "+table,"UPDATE fabriek."+table+" SET name='Onbevoegd' WHERE id=%s",(obj,))
+        # 114.5c: persoonlijke koppelingen, halfopen historie en audit.
+        link=val("SELECT resource_class_assign(%s,%s)",(e,cls))
+        resource_denied("F4-114-A03 dubbele klassekoppeling","SELECT resource_class_assign(%s,%s)",(e,cls),"23505")
+        resource_denied("F4-114-A03 onbekende klasse","SELECT resource_class_assign(%s,gen_random_uuid())",(e,),"23503")
+        ass=val("SELECT resource_asset_assign(%s,%s,'2025-01-01T00:00:00Z')",(e,a))
+        resource_denied("F4-114-A04 overlap","SELECT resource_asset_assign(%s,%s,'2025-01-02T00:00:00Z')",(e,a),"23P01")
+        resource_denied("F4-114-A04 ongeldig einde","SELECT resource_asset_close(%s,'2024-12-31T00:00:00Z')",(ass,),"23514")
+        resource_denied("F4-114-A04 leeg einde","SELECT resource_asset_close(%s,NULL)",(ass,),"22004")
+        check("F4-114-A04 persoonlijke afsluiting",val("SELECT resource_asset_close(%s,'2025-01-02T00:00:00Z')",(ass,))==ass)
+        resource_denied("F4-114-A04 herhaalde afsluiting","SELECT resource_asset_close(%s,'2025-01-03T00:00:00Z')",(ass,),"40001")
+        ass2=val("SELECT resource_asset_assign(%s,%s,'2025-01-02T00:00:00Z')",(e,a))
+        resource_denied("F4-114-A07 directe klassekoppeling","INSERT INTO fabriek.equipment_class_assignment(equipment_id,equipment_class_id) VALUES (%s,%s)",(e,cls))
+        resource_denied("F4-114-A07 directe verwijdering historie","DELETE FROM fabriek.equipment_asset_assignment WHERE id=%s",(ass,))
+        con.execute("RESET ROLE")
+        check("F4-114-A08 klassekoppeling auditidentiteit",
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class_assignment' AND record_id=%s
+                     AND actor_user_id=%s AND actor_origin='personal' AND actie='INSERT'
+                     AND (nieuw->>'equipment_id')::uuid=%s AND (nieuw->>'equipment_class_id')::uuid=%s""",
+                  (link,actors["manager"],e,cls))==1)
+        check("F4-114-A08 assetaudit aanmaak en afsluiting",
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_asset_assignment' AND record_id=%s
+                     AND actor_user_id=%s AND actor_origin='personal'""",(ass,actors["manager"]))==2 and
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_asset_assignment' AND record_id=%s
+                     AND actie='UPDATE' AND oud->>'valid_until' IS NULL AND nieuw->>'valid_until' IS NOT NULL""",(ass,))==1)
+        check("F4-114-A04 historie behouden",
+              val("SELECT count(*) FROM equipment_asset_assignment WHERE physical_asset_id=%s",(a,))==2)
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("RESET ROLE")
+        for table,obj in (("equipment_hierarchy",site),("equipment",e),("physical_asset",a)):
+            check("F4-114-A08 persoonlijk auditbewijs "+table,
+                  val("""SELECT count(*) FROM config_log WHERE tabel=%s AND record_id=%s
+                         AND actor_user_id=%s AND actor_origin='personal'""",(table,obj,actors["manager"]))==2 and
+                  val("""SELECT count(*) FROM config_log WHERE tabel=%s AND record_id=%s
+                         AND actie='UPDATE' AND nieuw->>'name'='Correctie' AND nieuw->>'change_no'='1'""",(table,obj))==1)
+        check("F4-114-A03 locatie en ouder behouden",
+              val("SELECT parent_id FROM equipment_hierarchy WHERE id=%s",(site,))==h and
+              val("SELECT hierarchy_id FROM equipment WHERE id=%s",(e,))==site)
+        con.execute("SET LOCAL ROLE mes_app")
+        for name in ("scoped","maintenance","engineer"):
+            proof=val("SELECT session_proof FROM execution_session_login(%s,'test-f4-catalog',NULL)",("f4.catalog."+name,))
+            con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors[name]))
+            for label,query,params in (
+                ("hierarchy create","SELECT resource_hierarchy_create('NO','Geen','enterprise',NULL)",()),
+                ("equipment create","SELECT resource_equipment_create('NO','Geen',%s)",(site,)),
+                ("asset create","SELECT resource_asset_create('NO','Geen')",()),
+                ("hierarchy rename","SELECT resource_hierarchy_rename(%s,1,'Geen')",(site,)),
+                ("equipment rename","SELECT resource_equipment_rename(%s,1,'Geen')",(e,)),
+                ("asset rename","SELECT resource_asset_rename(%s,1,'Geen')",(a,)),
+                ("class assign","SELECT resource_class_assign(%s,%s)",(e,cls)),
+                ("asset assign","SELECT resource_asset_assign(%s,%s,now())",(e,a)),
+                ("asset close","SELECT resource_asset_close(%s,now())",(ass2,)),
+            ):
+                resource_denied("F4-114-A07 "+name+" "+label,query,params)
+        proof=val("SELECT session_proof FROM execution_session_login('f4.catalog.manager','test-f4-catalog',NULL)")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors["manager"]))
+        con.execute("RESET ROLE")
+        check("F4-114-A08 persoonlijk auditbewijs",
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class' AND record_id=%s
+                     AND actor_user_id=%s AND actor_origin='personal' AND gewijzigd_door='f4.catalog.manager'""",(cls,actors["manager"]))==2 and
+              val("""SELECT count(*) FROM config_log WHERE tabel='equipment_class' AND record_id=%s
+                     AND actie='UPDATE' AND oud->>'name'='Fictieve klasse' AND nieuw->>'name'='Nieuwe naam'""",(cls,))==1)
+        # 114.5d: expliciete mapping, geen toegang op toevallig gelijke codes.
+        con.execute("SET LOCAL ROLE mes_app")
+        catalog=val("SELECT resource_catalog_list()")
+        check("F4-114-A07 globale leesprojectie",catalog["global"] is True and any(str(x["id"])==str(e) for x in catalog["equipment"]))
+        resource_denied("F4-114-A07 catalogusbeheer geen securityprojectie","SELECT resource_scope_list()")
+        area=val("SELECT resource_hierarchy_create('LEGACY-AREA','Area','area',%s)",(site,))
+        scoped_e=val("SELECT resource_equipment_create('F4-SCOPED','Middel',%s)",(area,))
+        scoped_proof=val("SELECT session_proof FROM execution_session_login('f4.catalog.scoped','test-f4-catalog',NULL)")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(scoped_proof,actors["scoped"]))
+        resource_denied("F4-114-A07 code is geen mapping","SELECT resource_equipment_rename(%s,0,'Geen')",(scoped_e,))
+        resource_denied("F4-114-A07 directe scopemapping","INSERT INTO fabriek.resource_area_scope(area_code,hierarchy_id) VALUES ('LEGACY-AREA',%s)",(area,))
+        con.execute("RESET ROLE")
+        check("F4-114-A07 geen automatische mappinggrants",
+              val("SELECT count(*) FROM authorization_grant WHERE role_code='resource_scope_administrator'")==0)
+        check("F4-114-A07 scopehelper afgeschermd",
+              not val("SELECT has_function_privilege('mes_app','fabriek.resource_scope_actor()','EXECUTE')"))
+        con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('f4.catalog.mapper','pending',wachtwoord_hash('test-f4-catalog'))")
+        mapper=val("SELECT id FROM gebruiker WHERE gebruikersnaam='f4.catalog.mapper'")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_scope_administrator')",(mapper,))
+        con.execute("SET LOCAL ROLE mes_app")
+        resource_denied("F4-114-A07 scoped manager kan geen mapping maken","SELECT resource_area_scope_create('LEGACY-AREA',%s)",(area,))
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors["manager"]))
+        resource_denied("F4-114-A07 global manager kan geen mapping maken","SELECT resource_area_scope_create('LEGACY-AREA',%s)",(area,))
+        map_proof=val("SELECT session_proof FROM execution_session_login('f4.catalog.mapper','test-f4-catalog',NULL)")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(map_proof,mapper))
+        area_map=val("SELECT resource_area_scope_create('LEGACY-AREA',%s)",(area,))
+        mapping=val("SELECT resource_scope_list()")
+        check("F4-114-A07 beperkte securityprojectie",set(mapping)=={"areas","equipment","area_scopes","equipment_scopes"} and any(str(x["id"])==str(area_map) for x in mapping["area_scopes"]))
+        resource_denied("F4-114-A07 security geen catalogusprojectie","SELECT resource_catalog_list()")
+        resource_denied("F4-114-A07 mapper kan geen middel beheren","SELECT resource_equipment_rename(%s,0,'Geen')",(scoped_e,))
+        resource_denied("F4-114-A07 mapper geen directe mutatie","DELETE FROM fabriek.resource_area_scope WHERE id=%s",(area_map,))
+        resource_denied("F4-114-A07 mapping alleen naar area","SELECT resource_area_scope_create('BAD',%s)",(site,),"23503")
+        resource_denied("F4-114-A07 dubbele mapping","SELECT resource_area_scope_create('LEGACY-AREA',%s)",(area,),"23505")
+        con.execute("RESET ROLE")
+        check("F4-114-A08 persoonlijke mappingaudit",val("SELECT count(*) FROM config_log WHERE tabel='resource_area_scope' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(area_map,mapper))==1)
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(scoped_proof,actors["scoped"]))
+        con.execute("RESET ROLE")
+        con.execute("SET LOCAL ROLE mes_app")
+        check("F4-114-A07 expliciete gebiedsscope",val("SELECT resource_equipment_rename(%s,0,'Toegestaan')",(scoped_e,))==1)
+        scoped_catalog=val("SELECT resource_catalog_list()")
+        check("F4-114-A07 gebiedsprojectie geen ander middel",scoped_catalog["global"] is False and {str(x["id"]) for x in scoped_catalog["equipment"]}=={str(scoped_e)})
+        check("F4-114-A07 gebiedsprojectie geen vreemde assethistorie",scoped_catalog["assets"]==[] and scoped_catalog["asset_assignments"]==[])
+        resource_denied("F4-114-A07 directe leestabel","SELECT * FROM fabriek.equipment")
+        resource_denied("F4-114-A07 interne leeshelper","SELECT resource_catalog_visible(%s,NULL,%s)",(actors["manager"],e))
+        resource_denied("F4-114-A07 buiten gebied","SELECT resource_equipment_rename(%s,1,'Geen')",(e,))
+        resource_denied("F4-114-A07 klasse blijft globaal","SELECT resource_class_rename(%s,1,'Geen')",(cls,))
+        resource_denied("F4-114-A07 asset blijft globaal","SELECT resource_asset_rename(%s,1,'Geen')",(a,))
+        resource_denied("F4-114-A07 assetopening blijft globaal","SELECT resource_asset_assign(%s,%s,now())",(scoped_e,a))
+        con.execute("RESET ROLE")
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(map_proof,mapper))
+        equipment_map=val("SELECT resource_equipment_scope_create('EXPLICIT-E',%s)",(e,))
+        con.execute("RESET ROLE")
+        check("F4-114-A08 persoonlijke middelscopeaudit",val("SELECT count(*) FROM config_log WHERE tabel='resource_equipment_scope' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(equipment_map,mapper))==1)
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(scoped_proof,actors["scoped"]))
+        con.execute("RESET ROLE")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_catalog_manager','EXPLICIT-E')",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        check("F4-114-A07 expliciete middelscope",val("SELECT resource_equipment_rename(%s,1,'Middelscope')",(e,))==2)
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s AND equipment_code='EXPLICIT-E'",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        resource_denied("F4-114-A07 ingetrokken middelscope","SELECT resource_equipment_rename(%s,2,'Geen')",(e,))
+        con.execute("RESET ROLE")
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code,valid_from,valid_until) VALUES (%s,'resource_catalog_manager','EXPLICIT-E',now()-interval '2 days',now()-interval '1 day'),(%s,'resource_catalog_manager','EXPLICIT-E',now()+interval '1 day',NULL)",(actors["scoped"],actors["scoped"]))
+        con.execute("SET LOCAL ROLE mes_app")
+        resource_denied("F4-114-A07 verlopen en toekomstige scopes","SELECT resource_equipment_rename(%s,2,'Geen')",(e,))
+        con.execute("RESET ROLE")
+        check("F4-114-A07 beide rollen in centraal register",
+              val("""SELECT count(*) FROM authorization_role r JOIN authorization_role_permission rp ON rp.role_code=r.code
+                     JOIN authorization_permission p ON p.code=rp.permission_code AND p.domain=r.domain
+                     WHERE (r.code,r.domain,p.code) IN (('resource_catalog_manager','maintenance','resource.catalog.manage'),
+                       ('resource_scope_administrator','security','resource.scope.manage'))""")==2)
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager')",(mapper,))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(map_proof,mapper))
+        resource_denied("F4-114-A07 gemengde rollen geen mapping","SELECT resource_area_scope_create('NO',%s)",(area,))
+        resource_denied("F4-114-A07 gemengde rollen geen catalogus","SELECT resource_equipment_rename(%s,2,'Geen')",(e,))
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(mapper,))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(map_proof,mapper))
+        resource_denied("F4-114-A07 ingetrokken mappingrecht","SELECT resource_area_scope_create('NO',%s)",(area,))
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(proof,actors["manager"]))
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["manager"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        resource_denied("F4-114-A07 ingetrokken middelenbeheerrecht","SELECT resource_class_rename(%s,1,'Ingetrokken')",(cls,))
+        resource_denied("F4-114-A07 ingetrokken koppelingbeheer","SELECT resource_asset_close(%s,now())",(ass2,))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    print("\n#115.1 getypeerde middelenkenmerken")
+    from decimal import Decimal
+    for table in ("equipment_property_definition","equipment_capability","equipment_capability_revision"):
+        check("F4-115-A05 geen automatische mapping "+table,val("SELECT count(*) FROM "+table)==0)
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+            check("F4-115-A04 geen directe "+privilege+" "+table,
+                  not val("SELECT has_table_privilege('mes_app',%s,%s)",("fabriek."+table,privilege)))
+    con.execute("BEGIN")
+    try:
+        # Fictieve grootheden met dezelfde dimensie maar verschillende semantiek.
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (0,0,0,0,1,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-ABS','Temperatuur','absolute') RETURNING id",(dim,))
+        other_kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-DIFF','Verschil','difference') RETURNING id",(dim,))
+        unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-C','degC','Celsius') RETURNING id",(kind,))
+        other_unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-DC','deltaC','Verschil Celsius') RETURNING id",(other_kind,))
+        for name in ("manager","scoped","mapper","maintenance"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115'))",("f115."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115."+name,)) for name in ("manager","scoped","mapper","maintenance")}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager'),(%s,'resource_scope_administrator'),(%s,'maintenance_technician')",(actors["manager"],actors["mapper"],actors["maintenance"]))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','F115-GRANT')",(actors["scoped"],))
+        def deny115(label,query,params=(),state="42501"):
+            con.execute("SAVEPOINT f115_guard")
+            try:
+                faalt(label,query,params,sqlstate=state)
+            finally:
+                con.execute("ROLLBACK TO SAVEPOINT f115_guard")
+                con.execute("RELEASE SAVEPOINT f115_guard")
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-A04 geen persoonlijk bewijs","SELECT resource_property_create('F115-NO','Geen',%s,%s)",(kind,unit))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115',NULL)",("f115."+name,)) for name in actors}
+        def bind115(name):
+            con.execute("SELECT execution_bind_transaction(%s,%s)",(proofs[name],actors[name]))
+        bind115("manager")
+        ent=val("SELECT resource_hierarchy_create('F115-ENT','Enterprise','enterprise',NULL)")
+        site=val("SELECT resource_hierarchy_create('F115-SITE','Site','site',%s)",(ent,))
+        area=val("SELECT resource_hierarchy_create('F115-AREA','Area','area',%s)",(site,))
+        e=val("SELECT resource_equipment_create('F115-E','Middel',%s)",(area,))
+        outside=val("SELECT resource_equipment_create('F115-OUT','Ander',%s)",(site,))
+        prop=val("SELECT resource_property_create('F115-TEMP','Temperatuur',%s,%s)",(kind,unit))
+        deny115("F4-115-A02 afwijkende grootheidsemantiek","SELECT resource_property_create('F115-BAD','Fout',%s,%s)",(kind,other_unit),"23503")
+        deny115("F4-115-A03 dubbele definitiecode","SELECT resource_property_create('F115-TEMP','Dubbel',%s,%s)",(kind,unit),"23505")
+        create="SELECT resource_capability_create(%s,%s,%s::numeric,%s)"
+        revise="SELECT resource_capability_revise(%s,%s,%s::numeric,%s)"
+        for bad in ("NaN","Infinity","-Infinity"):
+            deny115("F4-115-A02 niet eindig "+bad,create,(e,prop,bad,"Test"),"23514")
+        deny115("F4-115-A02 lege reden",create,(e,prop,"1"," "),"23514")
+        con.execute("RESET ROLE")
+        check("F4-115-A03 geen lege identiteit na fout",val("SELECT count(*) FROM equipment_capability WHERE equipment_id=%s",(e,))==0)
+        con.execute("SET LOCAL ROLE mes_app")
+        cap=val(create,(e,prop,"9007199254740993.123456789","Exact"))
+        outside_cap=val(create,(outside,prop,"10","Fictief"))
+        deny115("F4-115-A03 dubbele capability",create,(e,prop,"1","Dubbel"),"23505")
+        bind115("scoped")
+        deny115("F4-115-A04 scope zonder mapping",revise,(cap,1,"0","Geen"))
+        deny115("F4-115-A04 definitie blijft globaal","SELECT resource_property_create('F115-NO','Geen',%s,%s)",(kind,unit))
+        bind115("maintenance")
+        deny115("F4-115-A04 maintenance zonder catalogusgrant",revise,(cap,1,"0","Geen"))
+        bind115("mapper")
+        deny115("F4-115-A04 security geen capabilitymutatie",revise,(cap,1,"0","Geen"))
+        con.execute("SELECT resource_area_scope_create('F115-GRANT',%s)",(area,))
+        bind115("scoped")
+        check("F4-115-A04 gebiedsgebonden revisie",val(revise,(cap,1,"-12.345","Correctie"))==2)
+        deny115("F4-115-A04 buiten gebied",revise,(outside_cap,1,"0","Geen"))
+        deny115("F4-115-A04 stale revisie",revise,(cap,1,"0","Verouderd"),"40001")
+        deny115("F4-115-A04 directe revisiemutatie","UPDATE fabriek.equipment_capability_revision SET value=1 WHERE capability_id=%s",(cap,))
+        con.execute("RESET ROLE")
+        check("F4-115-A01 vaste eenheid",one("SELECT quantity_kind_id,measurement_unit_id FROM equipment_property_definition WHERE id=%s",(prop,))==(kind,unit))
+        check("F4-115-A01 exacte waarden en historie",
+              con.execute("SELECT revision,value,created_by FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision",(cap,)).fetchall()==[(1,Decimal("9007199254740993.123456789"),actors["manager"]),(2,Decimal("-12.345"),actors["scoped"])])
+        check("F4-115-A04 persoonlijke revisieaudit",
+              val("""SELECT count(*) FROM config_log l JOIN equipment_capability_revision v ON v.id=l.record_id
+                     WHERE v.capability_id=%s AND l.tabel='equipment_capability_revision'
+                       AND l.actor_user_id=v.created_by AND l.actor_origin='personal'""",(cap,))==2)
+        for table,query,params in (
+            ("definitie","UPDATE equipment_property_definition SET name='Geen' WHERE id=%s",(prop,)),
+            ("capability","DELETE FROM equipment_capability WHERE id=%s",(cap,)),
+            ("revisie","DELETE FROM equipment_capability_revision WHERE capability_id=%s",(cap,)),
+        ):
+            deny115("F4-115-A03 onveranderlijke "+table,query,params,"55000")
+        deny115("F4-115-A03 revisiegat","INSERT INTO equipment_capability_revision(capability_id,revision,value,created_by,reason) VALUES (%s,4,0,%s,'Test')",(cap,actors["manager"]),"40001")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("scoped")
+        deny115("F4-115-A04 ingetrokken scope",revise,(cap,2,"0","Geen"))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    # F4-115-A04: echte concurrerende inserts op dezelfde capability.
+    # Eigenaarfixture in wegwerpdatabase; persoonlijke stale-controle hierboven.
+    print("\n#115.1 gelijktijdige capabilityrevisies")
+    dim=val("""INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)
+               VALUES (0,0,0,0,0,0,0) ON CONFLICT DO NOTHING RETURNING id""") if not val("""SELECT EXISTS(SELECT 1 FROM quantity_dimension WHERE
+               length_exp=0 AND mass_exp=0 AND time_exp=0 AND current_exp=0 AND temperature_exp=0 AND amount_exp=0 AND luminous_exp=0)""") else val("""SELECT id FROM quantity_dimension WHERE length_exp=0 AND mass_exp=0 AND time_exp=0 AND current_exp=0 AND temperature_exp=0 AND amount_exp=0 AND luminous_exp=0""")
+    kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-RACE-Q','Fictief','ratio') RETURNING id",(dim,))
+    unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-RACE-U','1','Fictief') RETURNING id",(kind,))
+    prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F115-RACE-P','Fictief',%s,%s) RETURNING id",(kind,unit))
+    actor=val("SELECT id FROM gebruiker WHERE gebruikersnaam='mes.engineer'")
+    ent=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F115-RACE-ENT','Fictief','enterprise') RETURNING id")
+    for outcome in ("commit","rollback"):
+        equipment=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-RACE-"+outcome,ent))
+        cap=val("INSERT INTO equipment_capability(equipment_id,property_definition_id) VALUES (%s,%s) RETURNING id",(equipment,prop))
+        insert_sql="INSERT INTO fabriek.equipment_capability_revision(capability_id,revision,value,created_by,reason) VALUES (%s,%s,%s,%s,'Fictief')"
+        con.execute(insert_sql,(cap,1,0,actor))
+        with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+            first.execute("SET LOCAL statement_timeout='20s'")
+            second.execute("SET LOCAL statement_timeout='20s'")
+            first.execute(insert_sql,(cap,2,11,actor))
+            pid=second.info.backend_pid
+            def contender115():
+                try:
+                    second.execute(insert_sql,(cap,2,22,actor))
+                    second.commit()
+                    return "committed"
+                except psycopg.Error as error:
+                    second.rollback()
+                    return error.sqlstate
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future=pool.submit(contender115)
+                blocked=False
+                try:
+                    deadline=time.monotonic()+10
+                    while time.monotonic()<deadline and not future.done():
+                        if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,pid)):
+                            blocked=True
+                            break
+                        time.sleep(0.02)
+                    check("F4-115-A04 tweede revisie wacht "+outcome,blocked)
+                finally:
+                    if outcome=="commit":
+                        first.commit()
+                    else:
+                        first.rollback()
+                result=future.result(timeout=25)
+            check("F4-115-A04 gelijktijdige uitkomst "+outcome,result==("40001" if outcome=="commit" else "committed"),str(result))
+        check("F4-115-A04 juiste winnaar en historie "+outcome,
+              con.execute("SELECT revision,value FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision",(cap,)).fetchall()==[(1,0),(2,11 if outcome=="commit" else 22)])
+
+
+    print("\n#115.2 capaciteit en technische geschiktheid")
+    check("F4-115-B05 geen automatische capaciteitsaanwijzing",val("SELECT count(*) FROM equipment_capacity")==0)
+    for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+        check("F4-115-B03 geen directe "+privilege,
+              not val("SELECT has_table_privilege('mes_app','fabriek.equipment_capacity',%s)",(privilege,)))
+    check("F4-115-B03 interne vergelijking afgesloten",
+          not val("SELECT has_function_privilege('mes_app','fabriek.equipment_suitability(uuid,uuid,uuid,uuid,text,numeric,boolean)','EXECUTE')"))
+    con.execute("BEGIN")
+    try:
+        # Hergebruik de fictieve, reeds gecommitteerde 115.1 eenhedencatalogus.
+        alt_unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-B-ALT','alt','Andere eenheid') RETURNING id",(kind,))
+        missing_prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F115-B-MISSING','Ontbreekt',%s,%s) RETURNING id",(kind,unit))
+        for name in ("manager","scoped","mapper","maintenance"):
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115b'))",("f115b."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115b."+name,)) for name in ("manager","scoped","mapper","maintenance")}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_catalog_manager'),(%s,'resource_scope_administrator'),(%s,'maintenance_technician')",(actors["manager"],actors["mapper"],actors["maintenance"]))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','F115-B-GRANT')",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        designate="SELECT resource_capacity_designate(%s,%s)"
+        deny115("F4-115-B03 geen persoonlijk bewijs",designate,(cap,2))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115b',NULL)",("f115b."+name,)) for name in actors}
+        bind115("manager")
+        site=val("SELECT resource_hierarchy_create('F115-B-SITE','Site','site',%s)",(ent,))
+        area=val("SELECT resource_hierarchy_create('F115-B-AREA','Area','area',%s)",(site,))
+        e=val("SELECT resource_equipment_create('F115-B-E','Middel',%s)",(area,))
+        outside=val("SELECT resource_equipment_create('F115-B-OUT','Ander',%s)",(site,))
+        cls=val("SELECT resource_class_create('F115-B-CLASS','Klasse')")
+        other_cls=val("SELECT resource_class_create('F115-B-OTHER','Andere klasse')")
+        con.execute("SELECT resource_class_assign(%s,%s)",(e,cls))
+        create="SELECT resource_capability_create(%s,%s,%s::numeric,%s)"
+        revise="SELECT resource_capability_revise(%s,%s,%s::numeric,%s)"
+        bcap=val(create,(e,prop,"9007199254740993.123456789","Exact"))
+        outcap=val(create,(outside,prop,"0","Nul"))
+        deny115("F4-115-B02 nul geen capaciteit",designate,(outcap,1),"23514")
+        con.execute("SELECT resource_capability_revise(%s,1,-1,'Negatief')",(outcap,))
+        deny115("F4-115-B02 negatief geen capaciteit",designate,(outcap,2),"23514")
+        deny115("F4-115-B02 onbekende capability", "SELECT resource_capacity_designate(gen_random_uuid(),1)")
+        bind115("scoped")
+        deny115("F4-115-B03 scope zonder mapping",designate,(bcap,1))
+        bind115("maintenance")
+        deny115("F4-115-B03 maintenance geen catalogusgrant",designate,(bcap,1))
+        bind115("mapper")
+        deny115("F4-115-B03 security geen aanwijzing",designate,(bcap,1))
+        con.execute("SELECT resource_area_scope_create('F115-B-GRANT',%s)",(area,))
+        bind115("scoped")
+        deny115("F4-115-B03 buiten gebied",designate,(outcap,2))
+        deny115("F4-115-B03 verouderde revisie",designate,(bcap,0),"40001")
+        con.execute("RESET ROLE")
+        compare="SELECT equipment_suitability(%s,%s,%s,%s,%s,%s::numeric,%s)"
+        def suitability(equipment,klass,property_id,unit_id,operator,limit,capacity=False):
+            return val(compare,(equipment,klass,property_id,unit_id,operator,limit,capacity))
+        check("F4-115-B04 ontbrekende aanwijzing onbekend",suitability(e,cls,prop,unit,"minimum","1",True)["property"]["reason"]=="missing_capacity_designation")
+        con.execute("SET LOCAL ROLE mes_app")
+        designation=val(designate,(bcap,1))
+        deny115("F4-115-B02 dubbele aanwijzing",designate,(bcap,1),"23505")
+        for bad in ("0","-1","NaN","Infinity","-Infinity"):
+            deny115("F4-115-B02 ongeldige capaciteitsrevisie "+bad,revise,(bcap,1,bad,"Fout"),"23514")
+        deny115("F4-115-B03 directe aanwijzing","INSERT INTO fabriek.equipment_capacity(capability_id) VALUES (%s)",(outcap,))
+        check("F4-115-B01 volgende positieve revisie",val(revise,(bcap,1,"9007199254740993.123456790","Nieuw"))==2)
+        con.execute("RESET ROLE")
+        result=suitability(e,cls,prop,unit,"minimum","9007199254740993.123456790",True)
+        check("F4-115-B01 actuele exacte capaciteit en revisie",result["status"]=="suitable" and result["property"]["actual_value"]=="9007199254740993.123456790" and result["property"]["revision_id"]==str(val("SELECT id FROM equipment_capability_revision WHERE capability_id=%s AND revision=2",(bcap,))))
+        for op,limit,status in (("minimum","9007199254740993.123456791","unsuitable"),("maximum","9007199254740993.123456790","suitable"),("maximum","9007199254740993.123456789","unsuitable"),("equal","9007199254740993.123456790","suitable"),("equal","9007199254740993.123456789","unsuitable")):
+            check("F4-115-B04 exacte grens "+op+" "+status,suitability(e,cls,prop,unit,op,limit)["status"]==status)
+        check("F4-115-B04 alleen klasse",val("SELECT equipment_suitability(%s,%s)",(e,cls))["status"]=="suitable")
+        check("F4-115-B04 ontbrekende capability",suitability(e,cls,missing_prop,unit,"minimum","1")["status"]=="unknown")
+        check("F4-115-B04 andere eenheid zelfde grootheid",suitability(e,cls,prop,alt_unit,"minimum","1")["property"]["reason"]=="unit_mismatch")
+        check("F4-115-B04 negatieve klasse prevaleert",suitability(e,other_cls,missing_prop,unit,"minimum","1")["status"]=="unsuitable")
+        check("F4-115-B04 onbekend middel",val("SELECT equipment_suitability(gen_random_uuid(),%s)",(cls,))["status"]=="unknown")
+        for op,limit,capacity in (("bad","1",False),("minimum","NaN",False),("maximum","1",True),("minimum","0",True)):
+            deny115("F4-115-B04 ongeldig criterium "+op+" "+limit,compare,(e,cls,prop,unit,op,limit,capacity),"22023")
+        check("F4-115-B03 persoonlijke aanwijzingsaudit",val("SELECT count(*) FROM config_log WHERE tabel='equipment_capacity' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(designation,actors["scoped"]))==1)
+        deny115("F4-115-B02 aanwijzing onveranderlijk","DELETE FROM equipment_capacity WHERE id=%s",(designation,),"55000")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("scoped")
+        deny115("F4-115-B03 ingetrokken scope",designate,(bcap,2))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    # Beide volgordes van de race, inclusief rollback van de eerste schrijver.
+    for designation_first in (True,False):
+        for outcome in ("commit","rollback"):
+            label=("aanwijzing-eerst" if designation_first else "revisie-eerst")+" "+outcome
+            equipment=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-B-RACE-"+label,ent))
+            race_cap=val("INSERT INTO equipment_capability(equipment_id,property_definition_id) VALUES (%s,%s) RETURNING id",(equipment,prop))
+            con.execute(insert_sql,(race_cap,1,10,actor))
+            designate_sql="INSERT INTO fabriek.equipment_capacity(capability_id) VALUES (%s)"
+            d=(designate_sql,(race_cap,))
+            v=(insert_sql,(race_cap,2,-1,actor))
+            first_cmd,second_cmd=(d,v) if designation_first else (v,d)
+            with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+                first.execute("SET LOCAL statement_timeout='20s'")
+                second.execute("SET LOCAL statement_timeout='20s'")
+                first.execute(*first_cmd)
+                def contender_b():
+                    try:
+                        second.execute(*second_cmd)
+                        second.commit()
+                        return "committed"
+                    except psycopg.Error as error:
+                        second.rollback()
+                        return error.sqlstate
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(contender_b)
+                    blocked=False
+                    try:
+                        deadline=time.monotonic()+10
+                        while time.monotonic()<deadline and not future.done():
+                            if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                                blocked=True
+                                break
+                            time.sleep(0.02)
+                        check("F4-115-B02 tweede schrijver wacht "+label,blocked)
+                    finally:
+                        if outcome=="commit":
+                            first.commit()
+                        else:
+                            first.rollback()
+                    result=future.result(timeout=25)
+                check("F4-115-B02 race-uitkomst "+label,result==("23514" if outcome=="commit" else "committed"),str(result))
+            expected_designation=designation_first==(outcome=="commit")
+            check("F4-115-B02 consistente eindtoestand "+label,
+                  val("SELECT EXISTS(SELECT 1 FROM equipment_capacity WHERE capability_id=%s)",(race_cap,))==expected_designation and
+                  val("SELECT value FROM equipment_capability_revision WHERE capability_id=%s ORDER BY revision DESC LIMIT 1",(race_cap,))==(10 if expected_designation else -1))
+    with psycopg.connect(DSN) as isolation:
+        isolation.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        try:
+            isolation.execute("INSERT INTO fabriek.equipment_capacity(capability_id) VALUES (%s)",(race_cap,))
+        except psycopg.Error as error:
+            check("F4-115-B02 hogere isolatie aanwijzing geweigerd",error.sqlstate=="25001",str(error))
+        else:
+            check("F4-115-B02 hogere isolatie aanwijzing geweigerd",False)
+        finally:
+            isolation.rollback()
+        isolation.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        try:
+            isolation.execute(insert_sql,(race_cap,3,1,actor))
+        except psycopg.Error as error:
+            check("F4-115-B02 hogere isolatie revisie geweigerd",error.sqlstate=="25001",str(error))
+        else:
+            check("F4-115-B02 hogere isolatie revisie geweigerd",False)
+        finally:
+            isolation.rollback()
+
+
+    print("\n#115.3 technische middelenstatus")
+    check("F4-115-C01 geen impliciete beginstatus",val("SELECT count(*) FROM equipment_status_history")==0)
+    for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+        check("F4-115-C03 geen directe "+privilege,
+              not val("SELECT has_table_privilege('mes_app','fabriek.equipment_status_history',%s)",(privilege,)))
+    check("F4-115-C03 persoonlijke functie beschikbaar",
+          val("SELECT has_function_privilege('mes_app','fabriek.resource_status_set(uuid,integer,text,text)','EXECUTE')"))
+    legacy_queries=("SELECT md5(coalesce(string_agg(to_jsonb(t)::text,'' ORDER BY id),'')) FROM stilstand t",
+                    "SELECT md5(coalesce(string_agg(to_jsonb(t)::text,'' ORDER BY id),'')) FROM recipe_release t",
+                    "SELECT md5(coalesce(string_agg(to_jsonb(t)::text,'' ORDER BY id),'')) FROM equipment_capacity t")
+    before=[val(q) for q in legacy_queries]
+    con.execute("BEGIN")
+    try:
+        site=val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES ('F115-C-SITE','Site','site',%s) RETURNING id",(ent,))
+        area=val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES ('F115-C-AREA','Area','area',%s) RETURNING id",(site,))
+        e=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-C-E','Middel',%s) RETURNING id",(area,))
+        outside=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-C-OUT','Ander',%s) RETURNING id",(site,))
+        names=("global","area","equipment","catalog","maintenance","security")
+        for name in names:
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115c'))",("f115c."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115c."+name,)) for name in names}
+        for name,role in (("global","resource_status_manager"),("catalog","resource_catalog_manager"),
+                          ("maintenance","maintenance_technician"),("security","resource_scope_administrator")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,%s)",(actors[name],role))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_status_manager','F115-C-GRANT')",(actors["area"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_manager','F115-C-EQ-GRANT')",(actors["equipment"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        status_sql="SELECT resource_status_set(%s,%s,%s,%s)"
+        deny115("F4-115-C03 ontbrekend persoonlijk bewijs",status_sql,(e,0,"blocked","Test"))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115c',NULL)",("f115c."+name,)) for name in names}
+        for name in ("catalog","maintenance","security","area","equipment"):
+            bind115(name)
+            deny115("F4-115-C03 onbevoegd of ongemapt "+name,status_sql,(e,0,"blocked","Test"))
+        bind115("security")
+        con.execute("SELECT resource_area_scope_create('F115-C-GRANT',%s)",(area,))
+        con.execute("SELECT resource_equipment_scope_create('F115-C-EQ-GRANT',%s)",(e,))
+        bind115("global")
+        deny115("F4-115-C03 onbekend middel","SELECT resource_status_set(gen_random_uuid(),0,'blocked','Test')")
+        for status,reason,state in (("unknown","Test","23514"),(None,"Test","23502"),("blocked","   ","23514"),("blocked",None,"23502")):
+            deny115("F4-115-C02 ongeldige invoer "+str((status,reason)),status_sql,(e,0,status,reason),state)
+        check("F4-115-C01 eerste expliciete vrijgave",val(status_sql,(outside,0,"available","Beoordeeld"))==1)
+        bind115("area")
+        deny115("F4-115-C03 buiten gebied",status_sql,(outside,1,"blocked","Test"))
+        check("F4-115-C01 eerste blokkade",val(status_sql,(e,0,"blocked","Onderhoud"))==1)
+        deny115("F4-115-C04 verouderde revisie",status_sql,(e,0,"available","Test"),"40001")
+        deny115("F4-115-C02 dubbele status",status_sql,(e,1,"blocked","Test"),"23514")
+        bind115("equipment")
+        deny115("F4-115-C03 buiten middel",status_sql,(outside,1,"blocked","Test"))
+        check("F4-115-C01 persoonlijke vrijgave",val(status_sql,(e,1,"available","Gecontroleerd"))==2)
+        deny115("F4-115-C03 directe mutatie","UPDATE fabriek.equipment_status_history SET reason='Geen' WHERE equipment_id=%s",(e,))
+        con.execute("RESET ROLE")
+        check("F4-115-C01 volledige historie",con.execute("SELECT revision,status,created_by FROM equipment_status_history WHERE equipment_id=%s ORDER BY revision",(e,)).fetchall()==[(1,"blocked",actors["area"]),(2,"available",actors["equipment"])])
+        check("F4-115-C03 persoonlijke audit",val("""SELECT count(*) FROM equipment_status_history h JOIN config_log l ON l.record_id=h.id
+            WHERE h.equipment_id=%s AND l.tabel='equipment_status_history' AND l.actor_origin='personal' AND l.actor_user_id=h.created_by""",(e,))==2)
+        deny115("F4-115-C02 historie niet wijzigbaar","UPDATE equipment_status_history SET reason='Geen' WHERE equipment_id=%s",(e,),"55000")
+        deny115("F4-115-C02 historie niet verwijderbaar","DELETE FROM equipment_status_history WHERE equipment_id=%s",(e,),"55000")
+        deny115("F4-115-C02 revisiegat","INSERT INTO equipment_status_history(equipment_id,revision,status,reason,created_by) VALUES (%s,4,'blocked','Test',%s)",(e,actors["global"]),"40001")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["equipment"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("equipment")
+        deny115("F4-115-C03 ingetrokken bevoegdheid",status_sql,(e,2,"blocked","Test"))
+        con.execute("RESET ROLE")
+        check("F4-115-C05 geen neveneffecten op stilstand, vrijgave en capaciteit",[val(q) for q in legacy_queries]==before)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    # Concurrerende eerste registratie en latere overgang; echte rijlock.
+    status_insert="INSERT INTO fabriek.equipment_status_history(equipment_id,revision,status,reason,created_by) VALUES (%s,%s,%s,%s,%s)"
+    for initial in (True,False):
+        for outcome in ("commit","rollback"):
+            label=("eerste" if initial else "overgang")+" "+outcome
+            equipment=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-C-RACE-"+label,ent))
+            revision=1 if initial else 2
+            if not initial:
+                con.execute(status_insert,(equipment,1,"blocked","Begin",actor))
+            first_status="blocked" if initial else "available"
+            second_status="available"
+            with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+                first.execute("SET LOCAL statement_timeout='20s'")
+                second.execute("SET LOCAL statement_timeout='20s'")
+                first.execute(status_insert,(equipment,revision,first_status,"Eerste",actor))
+                def contender_c():
+                    try:
+                        second.execute(status_insert,(equipment,revision,second_status,"Tweede",actor))
+                        second.commit()
+                        return "committed"
+                    except psycopg.Error as error:
+                        second.rollback()
+                        return error.sqlstate
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(contender_c)
+                    blocked=False
+                    try:
+                        deadline=time.monotonic()+10
+                        while time.monotonic()<deadline and not future.done():
+                            if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                                blocked=True
+                                break
+                            time.sleep(0.02)
+                        check("F4-115-C04 tweede schrijver wacht "+label,blocked)
+                    finally:
+                        if outcome=="commit":
+                            first.commit()
+                        else:
+                            first.rollback()
+                    result=future.result(timeout=25)
+                check("F4-115-C04 race-uitkomst "+label,result==("40001" if outcome=="commit" else "committed"),str(result))
+            expected=(revision,first_status if outcome=="commit" else second_status,"Eerste" if outcome=="commit" else "Tweede")
+            check("F4-115-C04 juiste historie "+label,one("SELECT revision,status,reason FROM equipment_status_history WHERE equipment_id=%s ORDER BY revision DESC LIMIT 1",(equipment,))==expected and val("SELECT count(*) FROM equipment_status_history WHERE equipment_id=%s",(equipment,))==revision)
+    # De eigenaarfixture kan geen tijd terugdateren; de guard overschrijft die.
+    e=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-C-TIME','Fictief',%s) RETURNING id",(ent,))
+    con.execute("INSERT INTO equipment_status_history(equipment_id,revision,status,reason,created_by,created_at) VALUES (%s,1,'blocked','Test',%s,'2000-01-01')",(e,actor))
+    check("F4-115-C02 serverdatum",val("SELECT created_at > '2000-01-02'::timestamptz AND created_at<=clock_timestamp() FROM equipment_status_history WHERE equipment_id=%s",(e,)))
+    with psycopg.connect(DSN) as isolation:
+        isolation.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        try:
+            isolation.execute(status_insert,(e,2,"available","Test",actor))
+        except psycopg.Error as error:
+            check("F4-115-C04 hogere isolatie geweigerd",error.sqlstate=="25001",str(error))
+        else:
+            check("F4-115-C04 hogere isolatie geweigerd",False)
+        finally:
+            isolation.rollback()
+
+
+    print("\n#115.4 werkstationkoppelingen")
+    check("F4-115-D01 geen automatische koppelingen",val("SELECT count(*) FROM equipment_workstation")==0)
+    for privilege in ("SELECT","INSERT","UPDATE","DELETE"):
+        check("F4-115-D03 geen directe "+privilege,
+              not val("SELECT has_table_privilege('mes_app','fabriek.equipment_workstation',%s)",(privilege,)))
+    for signature in ("resource_workstation_open(uuid,uuid,text)","resource_workstation_close(uuid,text)"):
+        check("F4-115-D03 persoonlijke functie "+signature,
+              val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+    con.execute("BEGIN")
+    try:
+        p1=val("INSERT INTO pc(naam) VALUES ('F115-D-PC1') RETURNING id")
+        p2=val("INSERT INTO pc(naam) VALUES ('F115-D-PC2') RETURNING id")
+        p3=val("INSERT INTO pc(naam,actief) VALUES ('F115-D-PC3',false) RETURNING id")
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-D-E1','Middel',%s) RETURNING id",(ent,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-D-E2','Middel',%s) RETURNING id",(ent,))
+        names=("manager","scoped","maintenance","status")
+        for name in names:
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115d'))",("f115d."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115d."+name,)) for name in names}
+        for name,role in (("manager","resource_catalog_manager"),("maintenance","maintenance_technician"),("status","resource_status_manager")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,%s)",(actors[name],role))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_catalog_manager','F115-D-AREA')",(actors["scoped"],))
+        before=con.execute("SELECT pc_id,processtap_id FROM pc_stap ORDER BY pc_id,processtap_id").fetchall()
+        before_binding=val("SELECT mag_invoeren_namens(%s,%s,%s)",(acc_a,op_a,pc1))
+        open_sql="SELECT resource_workstation_open(%s,%s,%s)"
+        close_sql="SELECT resource_workstation_close(%s,%s)"
+        con.execute("SET LOCAL ROLE mes_app")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-D03 geen persoonlijk bewijs",open_sql,(p1,e1,"Test"))
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115d',NULL)",("f115d."+name,)) for name in names}
+        for name in ("scoped","maintenance","status"):
+            bind115(name)
+            deny115("F4-115-D03 geen globale catalogusbevoegdheid "+name,open_sql,(p1,e1,"Test"))
+        bind115("manager")
+        deny115("F4-115-D02 inactieve pc",open_sql,(p3,e1,"Test"),"23514")
+        deny115("F4-115-D02 onbekende pc","SELECT resource_workstation_open(gen_random_uuid(),%s,'Test')",(e1,),"23503")
+        deny115("F4-115-D02 onbekend middel","SELECT resource_workstation_open(%s,gen_random_uuid(),'Test')",(p1,),"23503")
+        deny115("F4-115-D02 lege reden",open_sql,(p1,e1,"  "),"23514")
+        a=val(open_sql,(p1,e1,"Eerste"))
+        b=val(open_sql,(p1,e2,"Tweede middel"))
+        c=val(open_sql,(p2,e1,"Tweede pc"))
+        check("F4-115-D01 N:M verschillende koppelingen",len({a,b,c})==3)
+        deny115("F4-115-D02 dubbele actieve koppeling",open_sql,(p1,e1,"Dubbel"),"23505")
+        deny115("F4-115-D03 directe update","UPDATE equipment_workstation SET open_reason='Geen' WHERE id=%s",(a,))
+        deny115("F4-115-D02 lege afsluitreden",close_sql,(a,"  "),"23514")
+        for name in ("scoped","maintenance","status"):
+            bind115(name)
+            deny115("F4-115-D03 onbevoegd afsluiten "+name,close_sql,(a,"Geen"))
+        bind115("manager")
+        check("F4-115-D01 gecontroleerde afsluiting",val(close_sql,(a,"Afgesloten"))==a)
+        d=val(open_sql,(p1,e1,"Opnieuw"))
+        check("F4-115-D01 nieuwe identiteit na heropening",d!=a)
+        deny115("F4-115-D04 oude koppeling niet opnieuw afsluiten",close_sql,(a,"Verouderd"),"40001")
+        con.execute("RESET ROLE")
+        check("F4-115-D01 drie actieve en een historische koppeling",one("SELECT count(*),count(*) FILTER (WHERE closed_at IS NULL) FROM equipment_workstation WHERE pc_id IN (%s,%s)",(p1,p2))==(4,3))
+        check("F4-115-D03 persoonlijke openings- en afsluitactor",one("SELECT opened_by,closed_by,close_reason FROM equipment_workstation WHERE id=%s",(a,))==(actors["manager"],actors["manager"],"Afgesloten"))
+        check("F4-115-D03 vijf persoonlijke auditregels",val("SELECT count(*) FROM config_log WHERE tabel='equipment_workstation' AND record_id IN (%s,%s,%s,%s) AND actor_origin='personal' AND actor_user_id=%s",(a,b,c,d,actors["manager"]))==5)
+        deny115("F4-115-D02 historie niet verwijderen","DELETE FROM equipment_workstation WHERE id=%s",(a,),"55000")
+        deny115("F4-115-D02 identiteit niet wijzigen","UPDATE equipment_workstation SET equipment_id=%s,closed_at=clock_timestamp(),closed_by=%s,close_reason='Geen' WHERE id=%s",(e2,actors["manager"],d),"55000")
+        con.execute("UPDATE pc SET actief=false WHERE id=%s",(p1,))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("manager")
+        check("F4-115-D01 afsluiten na deactivering",val(close_sql,(d,"Pc inactief"))==d)
+        deny115("F4-115-D02 niet opnieuw koppelen aan inactieve pc",open_sql,(p1,e1,"Geen"),"23514")
+        con.execute("RESET ROLE")
+        con.execute("UPDATE authorization_grant SET revoked_at=now() WHERE user_id=%s",(actors["manager"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        bind115("manager")
+        deny115("F4-115-D03 ingetrokken grant openen",open_sql,(p2,e2,"Geen"))
+        deny115("F4-115-D03 ingetrokken grant sluiten",close_sql,(c,"Geen"))
+        con.execute("RESET ROLE")
+        check("F4-115-D05 bestaande stapselectie ongewijzigd",con.execute("SELECT pc_id,processtap_id FROM pc_stap ORDER BY pc_id,processtap_id").fetchall()==before)
+        check("F4-115-D05 bestaande persoonlijke pc-bevoegdheid ongewijzigd",val("SELECT mag_invoeren_namens(%s,%s,%s)",(acc_a,op_a,pc1))==before_binding)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    # Concurrerende eigenaarfixtures; persoonlijke autorisatie afzonderlijk hierboven.
+    ws_insert="INSERT INTO fabriek.equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES (%s,%s,%s,%s)"
+    for closing in (False,True):
+        for outcome in ("commit","rollback"):
+            label=("afsluiten" if closing else "openen")+" "+outcome
+            station=val("INSERT INTO pc(naam) VALUES (%s) RETURNING id",("F115-D-RACE-"+label,))
+            eq=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-D-RACE-"+label,ent))
+            if closing:
+                assignment=val(ws_insert+" RETURNING id",(station,eq,actor,"Begin"))
+                query="UPDATE fabriek.equipment_workstation SET closed_by=%s,closed_at=clock_timestamp(),close_reason=%s WHERE id=%s AND closed_at IS NULL RETURNING id"
+                args1=(actor,"Eerste",assignment)
+                args2=(actor,"Tweede",assignment)
+            else:
+                query=ws_insert+" RETURNING id"
+                args1=(station,eq,actor,"Eerste")
+                args2=(station,eq,actor,"Tweede")
+            with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+                first.execute("SET LOCAL statement_timeout='20s'")
+                second.execute("SET LOCAL statement_timeout='20s'")
+                if closing:
+                    first.execute("SELECT id FROM fabriek.pc WHERE id=%s FOR UPDATE",(station,))
+                first.execute(query,args1)
+                def contender_d():
+                    try:
+                        if closing:
+                            second.execute("SELECT id FROM fabriek.pc WHERE id=%s FOR UPDATE",(station,))
+                        result=second.execute(query,args2).fetchone()
+                        second.commit()
+                        return "committed" if result else "stale"
+                    except psycopg.Error as error:
+                        second.rollback()
+                        return error.sqlstate
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(contender_d)
+                    blocked=False
+                    try:
+                        deadline=time.monotonic()+10
+                        while time.monotonic()<deadline and not future.done():
+                            if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                                blocked=True
+                                break
+                            time.sleep(0.02)
+                        check("F4-115-D04 tweede schrijver wacht "+label,blocked)
+                    finally:
+                        if outcome=="commit":
+                            first.commit()
+                        else:
+                            first.rollback()
+                    result=future.result(timeout=25)
+                expected=("stale" if closing else "23505") if outcome=="commit" else "committed"
+                check("F4-115-D04 race-uitkomst "+label,result==expected,str(result))
+            winner="Eerste" if outcome=="commit" else "Tweede"
+            check("F4-115-D04 juiste eindhistorie "+label,
+                  one("SELECT count(*),max(close_reason) FROM equipment_workstation WHERE pc_id=%s",(station,))==(1,winner) if closing else
+                  one("SELECT count(*),max(open_reason) FROM equipment_workstation WHERE pc_id=%s",(station,))==(1,winner))
+
+
+    print("\n#115.5 middelgebonden stilstand")
+    for signature in ("resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text)","resource_downtime_close(uuid,text)"):
+        check("F4-115-E03 gecontroleerde persoonlijke functie "+signature,
+              val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+    check("F4-115-E01 bestaande registraties behouden NULL-context",
+          val("SELECT count(*) FROM stilstand WHERE equipment_id IS NOT NULL")==0)
+    con.execute("BEGIN")
+    try:
+        station=val("INSERT INTO pc(naam) VALUES ('F115-E-PC') RETURNING id")
+        other_pc=val("INSERT INTO pc(naam) VALUES ('F115-E-OTHER') RETURNING id")
+        step=val("SELECT id FROM processtap WHERE actief AND soort='proces' ORDER BY volgorde LIMIT 1")
+        other_step=val("SELECT id FROM processtap WHERE actief AND soort='proces' AND id<>%s ORDER BY volgorde LIMIT 1",(step,))
+        cause=val("SELECT id FROM stilstand_oorzaak WHERE actief AND categorie='storing' LIMIT 1")
+        con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s),(%s,%s)",(station,step,station,other_step))
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-E-E1','Fictief',%s) RETURNING id",(ent,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-E-E2','Fictief',%s) RETURNING id",(ent,))
+        e3=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-E-E3','Fictief',%s) RETURNING id",(ent,))
+        for eq in (e1,e2):
+            con.execute(ws_insert,(station,eq,actor,"Test"))
+        names=("operator","other","maintenance","scoped")
+        for name in names:
+            con.execute("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115e'))",("f115e."+name,))
+        actors={name:val("SELECT id FROM gebruiker WHERE gebruikersnaam=%s",("f115e."+name,)) for name in names}
+        operators={name:val("INSERT INTO operator(naam,gebruiker_id) VALUES (%s,%s) RETURNING id",("F115-E-"+name,actors[name])) for name in names}
+        con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator'),(%s,'operator'),(%s,'maintenance_technician')",(actors["operator"],actors["other"],actors["maintenance"]))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'operator','F115-E-AREA')",(actors["scoped"],))
+        con.execute("SET LOCAL ROLE mes_app")
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115e','F115-E-PC')",("f115e."+name,)) for name in names}
+        con.execute("RESET ROLE")
+        # Persoonlijke interface; eigenaarfixture voor directe controles.
+        open_sql="SELECT resource_downtime_open(%s,%s,%s,%s,%s,%s)"
+        close_sql="SELECT resource_downtime_close(%s,%s)"
+        a,b,c,legacy=[val("SELECT gen_random_uuid()") for _ in range(4)]
+        args=(a,station,step,e1,cause,"Test")
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-E03 geen persoonlijk bewijs",open_sql,args)
+        for name in ("maintenance","scoped"):
+            bind115(name)
+            deny115("F4-115-E03 onbevoegd "+name,open_sql,args)
+        bind115("operator")
+        check("F4-115-E03 sessiebewijs bevat juiste pc",val("SELECT execution_transaction_workstation(%s)",(station,))==station)
+        unbound=val("SELECT session_proof FROM execution_session_login('f115e.operator','fictief-f115e',NULL)")
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(unbound,actors["operator"]))
+        deny115("F4-115-E03 ongebonden bewijs",open_sql,args)
+        child=val("SELECT execution_session_workstation(%s,%s)",(unbound,other_pc))
+        check("F4-115-E03 nieuw bewijs bij pc-keuze",child!=unbound)
+        check("F4-115-E03 geldigheid niet verlengd",val("SELECT a.expires_at=b.expires_at FROM execution_session a,execution_session b WHERE a.proof_hash=public.digest(%s,'sha256') AND b.proof_hash=public.digest(%s,'sha256')",(unbound,child)))
+        deny115("F4-115-E03 origineel bewijs blijft ongebonden","SELECT execution_transaction_workstation(%s)",(other_pc,))
+        con.execute("SELECT execution_bind_transaction(%s,%s)",(child,actors["operator"]))
+        check("F4-115-E03 nieuw bewijs juiste pc",val("SELECT execution_transaction_workstation(%s)",(other_pc,))==other_pc)
+        deny115("F4-115-E03 verkeerde pc met nieuw bewijs",open_sql,args)
+        bind115("operator")
+        deny115("F4-115-E03 verkeerde pc",open_sql,(a,other_pc,step,e1,cause,"Test"))
+        deny115("F4-115-E03 geen actieve middelmapping",open_sql,(a,station,step,e3,cause,"Test"))
+        deny115("F4-115-E03 ontbrekende stapmapping",open_sql,(a,station,val("SELECT gen_random_uuid()"),e1,cause,"Test"))
+        con.execute("SET LOCAL ROLE mes_app")
+        deny115("F4-115-E03 geen directe middelinsert","INSERT INTO stilstand(id,processtap_id,oorzaak_id,gemeld_door,equipment_id) VALUES (%s,%s,%s,%s,%s)",(a,step,cause,actors["operator"],e1))
+        con.execute("RESET ROLE")
+        # Gebruik eigen fictieve stapcontext voor legacy naast middelstilstand;
+        # bestaande testdata kan al een open stapmelding hebben.
+        legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES ('F115-E-STEP','Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id")
+        con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s)",(station,legacy_step))
+        args=(a,station,legacy_step,e1,cause,"Test")
+        before_status=val("SELECT count(*) FROM equipment_status_history")
+        con.execute("INSERT INTO stilstand(id,processtap_id,oorzaak_id,gemeld_door) VALUES (%s,%s,%s,%s)",(legacy,legacy_step,cause,actors["operator"]))
+        check("F4-115-E01 eerste middel naast legacy",val(open_sql,args)==a)
+        check("F4-115-E02 tweede middel zelfde stap",val(open_sql,(b,station,legacy_step,e2,cause,"Ander"))==b)
+        check("F4-115-E04 identieke UUID herhaling",val(open_sql,args)==a)
+        deny115("F4-115-E04 afwijkende toelichting zelfde UUID",open_sql,(a,station,legacy_step,e1,cause,"Anders"),"23505")
+        deny115("F4-115-E04 afwijkend middel zelfde UUID",open_sql,(a,station,legacy_step,e2,cause,"Test"),"23505")
+        deny115("F4-115-E04 legacy UUID niet herbruikbaar",open_sql,(legacy,station,legacy_step,e1,cause,"Test"),"23505")
+        deny115("F4-115-E02 tweede open registratie zelfde middel andere stap",open_sql,(c,station,other_step,e1,cause,"Test"),"23505")
+        bind115("other")
+        deny115("F4-115-E04 andere actor zelfde UUID",open_sql,args,"23505")
+        bind115("operator")
+        check("F4-115-E05 precies een melding per middel",val("SELECT count(*) FROM melding WHERE bron_id IN (%s,%s)",(a,b))==2)
+        check("F4-115-E05 herkenbare middelcode",val("SELECT tekst LIKE '%%[middel F115-E-E1]' FROM melding WHERE bron_id=%s",(a,)))
+        check("F4-115-E03 persoonlijke openingsaudit",val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(a,actors["operator"]))==1)
+        deny115("F4-115-E02 middelcontext onveranderlijk","UPDATE stilstand SET equipment_id=%s WHERE id=%s",(e3,a),"55000")
+        con.execute("SET LOCAL ROLE mes_app")
+        deny115("F4-115-E03 geen directe middelafsluiting","UPDATE stilstand SET eind_op=clock_timestamp(),beeindigd_door=%s WHERE id=%s",(operators["operator"],a))
+        con.execute("RESET ROLE")
+        con.execute("UPDATE equipment_workstation SET closed_by=%s,closed_at=clock_timestamp(),close_reason='Ontkoppeld' WHERE pc_id=%s AND equipment_id=%s",(actor,station,e1))
+        check("F4-115-E03 afsluiten na ontkoppeling",val(close_sql,(a,"Hersteld"))==a)
+        check("F4-115-E04 identieke afsluitreplay",val(close_sql,(a,"Hersteld"))==a)
+        deny115("F4-115-E04 afwijkende afsluitreplay",close_sql,(a,"Anders"),"40001")
+        deny115("F4-115-E01 legacy niet via middelinterface",close_sql,(legacy,"Geen"),"P0002")
+        check("F4-115-E05 geen technische statuswijziging",val("SELECT count(*) FROM equipment_status_history")==before_status)
+        check("F4-115-E05 contexten apart",one("SELECT count(*) FILTER (WHERE equipment_id IS NULL),count(*) FILTER (WHERE equipment_id IS NOT NULL) FROM stilstand WHERE processtap_id=%s",(legacy_step,))==(1,2))
+        check("F4-115-E03 persoonlijke afsluitaudit",val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(a,actors["operator"]))==2)
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+
+    # Gecommitteerde fictieve fixtures voor twee onafhankelijke transacties.
+    # Eigenaarfixture met persoonlijk bewijs; app-interface afzonderlijk getest.
+    race_actor=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('f115e.race','pending',wachtwoord_hash('fictief-race')) RETURNING id")
+    race_operator=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-E-RACE',%s) RETURNING id",(race_actor,))
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(race_actor,))
+    race_pc=val("INSERT INTO pc(naam) VALUES ('F115-E-RACE-PC') RETURNING id")
+    race_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES ('F115-E-RACE-STEP','Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id")
+    con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s)",(race_pc,race_step))
+    race_cause=val("SELECT id FROM stilstand_oorzaak WHERE actief AND categorie='storing' LIMIT 1")
+    race_proof=val("SELECT session_proof FROM execution_session_login('f115e.race','fictief-race','F115-E-RACE-PC')")
+    race_actor2=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ('f115e.race2','pending',wachtwoord_hash('fictief-race2')) RETURNING id")
+    race_operator2=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-E-RACE2',%s) RETURNING id",(race_actor2,))
+    con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'operator')",(race_actor2,))
+    race_proof2=val("SELECT session_proof FROM execution_session_login('f115e.race2','fictief-race2','F115-E-RACE-PC')")
+    race_open="SELECT fabriek.resource_downtime_open(%s,%s,%s,%s,%s,%s)"
+    race_close="SELECT fabriek.resource_downtime_close(%s,%s)"
+
+    def bind_e(connection,other=False):
+        connection.execute("SET LOCAL statement_timeout='20s'")
+        connection.execute("SELECT fabriek.execution_bind_transaction(%s,%s)",
+                           (race_proof2,race_actor2) if other else (race_proof,race_actor))
+
+    def race_e(label,query1,args1,query2,args2,outcome,expected,other=False):
+        with psycopg.connect(DSN) as first, psycopg.connect(DSN) as second:
+            bind_e(first)
+            first.execute(query1,args1)
+            def contender_e():
+                try:
+                    # Same-user replay serializes at binding (0129).
+                    # Distinct users must reach the resource operation itself.
+                    bind_e(second,other)
+                    second.execute(query2,args2)
+                    second.commit()
+                    return "committed"
+                except psycopg.Error as error:
+                    second.rollback()
+                    return error.sqlstate
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future=pool.submit(contender_e)
+                blocked=False
+                try:
+                    deadline=time.monotonic()+10
+                    while time.monotonic()<deadline and not future.done():
+                        if val("SELECT %s=ANY(pg_blocking_pids(%s))",(first.info.backend_pid,second.info.backend_pid)):
+                            blocked=True
+                            break
+                        time.sleep(0.02)
+                    check("F4-115-E04 waargenomen lock "+label,blocked)
+                    if other:
+                        active_query=val("SELECT query FROM pg_stat_activity WHERE pid=%s",(second.info.backend_pid,))
+                        check("F4-115-E04 afzonderlijke actor bereikt middeloperatie "+label,
+                              blocked and query2.split("(")[0] in active_query)
+                finally:
+                    if outcome=="commit":
+                        first.commit()
+                    else:
+                        first.rollback()
+                result=future.result(timeout=25)
+            check("F4-115-E04 race-uitkomst "+label,result==expected,str(result))
+
+    for mode in ("replay","duplicate","close-same","close-different","close-other","legacy-collision","legacy-reverse"):
+        for outcome in ("commit","rollback"):
+            label=mode+"-"+outcome
+            eq=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES (%s,'Fictief',%s) RETURNING id",("F115-E-"+label,ent))
+            con.execute(ws_insert,(race_pc,eq,race_actor,"Race"))
+            rid=val("SELECT gen_random_uuid()")
+            rid2=val("SELECT gen_random_uuid()") if mode=="duplicate" else rid
+            args1=(rid,race_pc,race_step,eq,race_cause,"Test")
+            args2=(rid2,race_pc,race_step,eq,race_cause,"Test")
+            if mode.startswith("close-"):
+                with psycopg.connect(DSN) as setup:
+                    bind_e(setup)
+                    setup.execute(race_open,args1)
+                note2="Eerste" if mode=="close-same" else "Tweede"
+                race_e(label,race_close,(rid,"Eerste"),race_close,(rid,note2),outcome,
+                       "40001" if mode in ("close-different","close-other") and outcome=="commit" else "committed",
+                       other=mode=="close-other")
+                check("F4-115-E04 juiste afsluitnotitie "+label,
+                      val("SELECT eind_notitie FROM stilstand WHERE id=%s",(rid,))==("Eerste" if outcome=="commit" else note2))
+                closing_actor=race_actor2 if mode=="close-other" and outcome=="rollback" else race_actor
+                check("F4-115-E05 juiste afsluitende operator "+label,
+                      val("SELECT beeindigd_door FROM stilstand WHERE id=%s",(rid,))==
+                      (race_operator2 if closing_actor==race_actor2 else race_operator))
+                check("F4-115-E05 precies twee persoonlijke auditregels "+label,
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_origin='personal'",(rid,))==2 and
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor))==(2 if closing_actor==race_actor else 1) and
+                      val("SELECT count(*) FROM config_log WHERE tabel='stilstand' AND record_id=%s AND actor_user_id=%s AND actor_origin='personal'",(rid,race_actor2))==(0 if closing_actor==race_actor else 1))
+            elif mode in ("legacy-collision","legacy-reverse"):
+                # Beide volgordes: de oude insert neemt geen advisory lock; de PK beslist.
+                legacy_step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES (%s,'Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id",("F115-E-LEG-"+label,))
+                legacy_insert="INSERT INTO fabriek.stilstand(id,processtap_id,oorzaak_id,gemeld_door) VALUES (%s,%s,%s,%s)"
+                legacy_first=mode=="legacy-collision"
+                legacy_args=(rid,legacy_step,race_cause,race_actor if legacy_first else race_actor2)
+                first_cmd,second_cmd=((legacy_insert,legacy_args),(race_open,args2)) if legacy_first else ((race_open,args1),(legacy_insert,legacy_args))
+                race_e(label,*first_cmd,*second_cmd,outcome,
+                       "23505" if outcome=="commit" else "committed",other=True)
+                legacy_wins=legacy_first==(outcome=="commit")
+                check("F4-115-E04 winnende context en actor "+label,
+                      one("SELECT processtap_id,equipment_id,gemeld_door FROM stilstand WHERE id=%s",(rid,))==
+                      (legacy_step if legacy_wins else race_step,None if legacy_wins else eq,race_actor if outcome=="commit" else race_actor2))
+            else:
+                race_e(label,race_open,args1,race_open,args2,outcome,
+                       "23505" if mode=="duplicate" and outcome=="commit" else "committed",other=mode=="duplicate")
+                winner=rid if outcome=="commit" else rid2
+                check("F4-115-E04 juiste winnende ID "+label,
+                      one("SELECT count(*),count(*) FILTER (WHERE id=%s) FROM stilstand WHERE equipment_id=%s",(winner,eq))==(1,1))
+            check("F4-115-E05 geen dubbele storingmelding "+label,
+                  val("SELECT count(*) FROM melding WHERE bron_id IN (%s,%s)",(rid,rid2))==1)
+
+
+    print("\n#115.6 gescheiden middelenleesprojecties")
+    con.execute("BEGIN")
+    try:
+        # Eigen fixtures, uitsluitend fictieve gegevens en rollback.
+        root=val("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F115-F-ENT','Fictief','enterprise') RETURNING id")
+        site=val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES ('F115-F-SITE','Fictief','site',%s) RETURNING id",(root,))
+        area=val("INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES ('F115-F-AREA','Fictief','area',%s) RETURNING id",(site,))
+        e1=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-F-A','Fictief A',%s) RETURNING id",(area,))
+        e2=val("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-F-B','Fictief B',%s) RETURNING id",(site,))
+        dim=val("INSERT INTO quantity_dimension(length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp) VALUES (9,0,0,0,0,0,0) RETURNING id")
+        kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-F-Q','Fictief','ratio') RETURNING id",(dim,))
+        unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-F-U','uF','Fictief') RETURNING id",(kind,))
+        prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F115-F-P','Fictief',%s,%s) RETURNING id",(kind,unit))
+        names=("catalog","catalog_area","status","status_area","status_equipment","reader","reader_area","reader_equipment","mixed","mapper","operator","maintenance","none")
+        actors={}
+        for name in names:
+            actors[name]=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115f')) RETURNING id",("f115f."+name,))
+        for name,role in (("catalog","resource_catalog_manager"),("status","resource_status_manager"),("mapper","resource_scope_administrator"),("operator","operator"),("maintenance","maintenance_technician")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,%s)",(actors[name],role))
+        for name,role in (("catalog_area","resource_catalog_manager"),("status_area","resource_status_manager")):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,%s,'F115-F-GRANT')",(actors[name],role))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_manager','F115-F-EQ')",(actors["status_equipment"],))
+        for name in ("reader","mixed"):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_status_reader')",(actors[name],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_status_reader','F115-F-GRANT')",(actors["reader_area"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_reader','F115-F-EQ')",(actors["reader_equipment"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_manager','F115-F-EQ')",(actors["mixed"],))
+        op=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-F-OP',%s) RETURNING id",(actors["operator"],))
+        pc=val("INSERT INTO pc(naam) VALUES ('F115-F-PC') RETURNING id")
+        other_pc=val("INSERT INTO pc(naam) VALUES ('F115-F-OTHER') RETURNING id")
+        step=val("INSERT INTO processtap(code,naam,volgorde,niveau) VALUES ('F115-F-STEP','Fictief',(SELECT max(volgorde)+1 FROM processtap),'batch') RETURNING id")
+        con.execute("INSERT INTO pc_stap(pc_id,processtap_id) VALUES (%s,%s)",(pc,step))
+        cause=val("SELECT id FROM stilstand_oorzaak WHERE actief AND categorie='storing' LIMIT 1")
+        con.execute("SET LOCAL ROLE mes_app")
+        proofs={name:val("SELECT session_proof FROM execution_session_login(%s,'fictief-f115f',%s)",("f115f."+name,"F115-F-PC" if name=="operator" else None)) for name in names}
+        bind115("mapper")
+        con.execute("SELECT resource_area_scope_create('F115-F-GRANT',%s)",(area,))
+        con.execute("SELECT resource_equipment_scope_create('F115-F-EQ',%s)",(e1,))
+        bind115("catalog")
+        cap=val("SELECT resource_capability_create(%s,%s,%s::numeric,'Exact')",(e1,prop,"9007199254740993.123456789"))
+        con.execute("SELECT resource_capability_create(%s,%s,10,'Ander')",(e2,prop))
+        con.execute("SELECT resource_capacity_designate(%s,1)",(cap,))
+        assignment=val("SELECT resource_workstation_open(%s,%s,'Test')",(pc,e1))
+        closed=val("SELECT resource_workstation_open(%s,%s,'Test')",(pc,e2))
+        con.execute("SELECT resource_workstation_close(%s,'Ontkoppeld')",(closed,))
+        con.execute("SELECT resource_workstation_open(%s,%s,'Andere pc')",(other_pc,e2))
+        bind115("status")
+        con.execute("SELECT resource_status_set(%s,0,'blocked','Test')",(e1,))
+        con.execute("SELECT resource_status_set(%s,1,'available','Hersteld')",(e1,))
+        bind115("operator")
+        rid=val("SELECT gen_random_uuid()")
+        con.execute("SELECT resource_downtime_open(%s,%s,%s,%s,%s,'Test')",(rid,pc,step,e1,cause))
+        choices=val("SELECT resource_downtime_choices(%s,%s)",(pc,step))
+        check("F4-115-F04 alleen actieve middelen eigen pc",[(x["id"],x["open_downtime_id"]) for x in choices]==[(str(e1),str(rid))])
+        deny115("F4-115-F04 andere pc geweigerd","SELECT resource_downtime_choices(%s,%s)",(other_pc,step))
+        deny115("F4-115-F04 onbekende stap geweigerd","SELECT resource_downtime_choices(%s,gen_random_uuid())",(pc,))
+        check("F4-115-F05 operator ziet actuele middelstilstand",any(x["id"]==str(rid) for x in val("SELECT resource_downtime_list()")))
+        deny115("F4-115-F01 operator geen capabilitycatalogus","SELECT resource_capability_list()")
+        deny115("F4-115-F02 operator geen statusbeheerprojectie","SELECT resource_status_list()")
+        bind115("maintenance")
+        check("F4-115-F05 maintenance ziet actuele middelstilstand",any(x["id"]==str(rid) for x in val("SELECT resource_downtime_list()")))
+        deny115("F4-115-F04 onderhoud geen operatorkeuzelijst","SELECT resource_downtime_choices(%s,%s)",(pc,step))
+        bind115("catalog_area")
+        data=val("SELECT resource_capability_list()")
+        check("F4-115-F01 catalogus scope exact",[x["id"] for x in data["equipment"]]==[str(e1)])
+        check("F4-115-F01 exacte capaciteit als tekst",len(data["capabilities"])==1 and data["capabilities"][0]["value"]=="9007199254740993.123456789" and data["capabilities"][0]["capacity"] is True)
+        deny115("F4-115-F03 begrensd catalogusrecht geen werkstationlijst","SELECT resource_workstation_list()")
+        deny115("F4-115-F02 catalogus geen statuslijst","SELECT resource_status_list()")
+        bind115("catalog")
+        work=val("SELECT resource_workstation_list()")
+        check("F4-115-F03 historie en actieve koppeling",any(x["id"]==str(assignment) and x["closed_at"] is None for x in work["assignments"]) and any(x["id"]==str(closed) and x["close_reason"]=="Ontkoppeld" for x in work["assignments"]))
+        deny115("F4-115-F05 catalogus geen stilstandleesrecht","SELECT resource_downtime_list()")
+        for name in ("status_area","status_equipment"):
+            bind115(name)
+            statuses=val("SELECT resource_status_list()")
+            check("F4-115-F02 uitsluitend toegestane status "+name,len(statuses)==1 and statuses[0]["id"]==str(e1) and statuses[0]["revision"]==2 and statuses[0]["status"]=="available")
+            history=val("SELECT resource_status_history(%s)",(e1,))
+            check("F4-115-F02 historie en actor "+name,[x["revision"] for x in history]==[2,1] and all(x["created_by"]==str(actors["status"]) for x in history))
+            deny115("F4-115-F02 buiten-scope historie "+name,"SELECT resource_status_history(%s)",(e2,))
+            deny115("F4-115-F01 status geen catalogus "+name,"SELECT resource_capability_list()")
+        bind115("status")
+        unknown=next(x for x in val("SELECT resource_status_list()") if x["id"]==str(e2))
+        check("F4-115-F02 onbekend niet beschikbaar",unknown["status"]=="unknown" and unknown["revision"]==0 and unknown["reason"] is None)
+        for name in ("reader","reader_area","reader_equipment","mixed"):
+            bind115(name)
+            statuses=val("SELECT resource_status_list()")
+            check("F4-116-A01 menusignaal "+name,val("SELECT resource_status_access()") is True)
+            visible={x["id"]:x for x in statuses}
+            check("F4-116-A01 leesscope "+name,str(e1) in visible and (str(e2) in visible)==(name in ("reader","mixed")))
+            if name in ("reader_area","reader_equipment"):
+                check("F4-116-A01 uitsluitend begrensde rij "+name,len(statuses)==1)
+                deny115("F4-116-A01 buiten-scope historie "+name,"SELECT resource_status_history(%s)",(e2,))
+            check("F4-116-A02 mutatiesignaal "+name,all(x["can_manage"]==(name=="mixed" and x["id"]==str(e1)) for x in statuses))
+            check("F4-116-A01 historie "+name,[x["revision"] for x in val("SELECT resource_status_history(%s)",(e1,))]==[2,1])
+            if name!="mixed":
+                deny115("F4-116-A02 reader geen mutatie "+name,"SELECT resource_status_set(%s,2,'blocked','Test')",(e1,))
+            deny115("F4-116-A02 geen catalogus "+name,"SELECT resource_capability_list()")
+            deny115("F4-116-A02 geen stilstand "+name,"SELECT resource_downtime_list()")
+        bind115("mixed")
+        deny115("F4-116-A02 mixed geen mutatie buiten scope","SELECT resource_status_set(%s,0,'blocked','Test')",(e2,))
+        check("F4-116-A02 mixed mutatie binnen scope",val("SELECT resource_status_set(%s,2,'blocked','Test')",(e1,))==3)
+        bind115("none")
+        for query in ("resource_capability_list()","resource_status_list()","resource_workstation_list()","resource_downtime_list()"):
+            deny115("F4-115-F06 geen rechten "+query,"SELECT "+query)
+        con.execute("SELECT set_config('fabriek.execution_proof','',true)")
+        deny115("F4-115-F06 geen persoonlijk bewijs","SELECT resource_status_list()")
+        con.execute("RESET ROLE")
+        for signature in ("resource_capability_list()","resource_status_list()","resource_status_history(uuid)","resource_workstation_list()","resource_downtime_choices(uuid,uuid)","resource_downtime_list()"):
+            check("F4-115-F06 app functiegrant "+signature,val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+        check("F4-115-F06 interne helper afgesloten",not val("SELECT has_function_privilege('mes_app','fabriek.resource_status_visible(uuid,uuid)','EXECUTE')"))
+        check("F4-116-A02 interne mutatiescopehelper afgesloten",not val("SELECT has_function_privilege('mes_app','fabriek.resource_status_manage_visible(uuid,uuid)','EXECUTE')"))
+    finally:
+        con.execute("ROLLBACK")
+        con.execute("RESET ROLE")
+
+    print("\n#116.3 catalogusreferenties: schema- en definitiecontract")
+    # Inspect the installed database constraints, independent of application projections.
+    for table, constraint, typ in (
+        ("recipe_equipment_requirement","recipe_equipment_requirement_class_fk","f"),
+        ("recipe_equipment_requirement","recipe_equipment_requirement_capacity_ref_fk","f"),
+        ("recipe_equipment_requirement","recipe_equipment_requirement_capacity_ref_check","c"),
+        ("recipe_scaling_input","recipe_scaling_input_equipment_ref_fk","f"),
+        ("recipe_scaling_input","recipe_scaling_input_equipment_ref_check","c"),
+    ):
+        check("F4-116-C01 gevalideerde constraint "+constraint,
+              val("SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=%s::regclass AND conname=%s AND contype::text=%s AND convalidated)",("fabriek."+table,constraint,typ)))
+    check("F4-116-C02 klasse en code gezamenlijk geborgd",
+          val("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='recipe_equipment_requirement_class_fk' AND conrelid='fabriek.recipe_equipment_requirement'::regclass").startswith("FOREIGN KEY (equipment_class_id, equipment_class_code)"))
+    check("F4-116-C02 capaciteit en eenheid gezamenlijk geborgd",
+          val("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='recipe_equipment_requirement_capacity_ref_fk' AND conrelid='fabriek.recipe_equipment_requirement'::regclass").startswith("FOREIGN KEY (capacity_property_definition_id, capacity_unit_id)"))
+    check("F4-116-C02 schaalbron, code en eenheid gezamenlijk geborgd",
+          val("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='recipe_scaling_input_equipment_ref_fk' AND conrelid='fabriek.recipe_scaling_input'::regclass").startswith("FOREIGN KEY (equipment_property_definition_id, equipment_property, unit_id)"))
+    for signature in (
+        "recipe_save_equipment_requirement_linked(uuid,integer,uuid,uuid,text,uuid,text,integer,numeric,uuid)",
+        "recipe_save_scaling_input_linked(uuid,integer,uuid,uuid,text,uuid)",
+    ):
+        check("F4-116-C03 beperkte app-interface "+signature,
+              val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+    for table in ("recipe_equipment_requirement","recipe_scaling_input"):
+        check("F4-116-C03 geen directe app-mutatie "+table,
+              not any(one("SELECT has_table_privilege('mes_app',%s,'INSERT'),has_table_privilege('mes_app',%s,'UPDATE'),has_table_privilege('mes_app',%s,'DELETE')",("fabriek."+table,)*3)))
 
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")

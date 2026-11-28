@@ -53,3 +53,19 @@ test("technische en security-identiteiten zijn gescheiden", () => {
   assert.equal(permits({ ...subject, grants: [technical, security] }, approval, now), false);
   assert.equal(permits({ ...subject, grants: [technical, { ...security, revoked: true }] }, account, now), true);
 });
+
+test("middelenbeheer en scopemapping blijven gescheiden", () => {
+  const catalog: Grant = { ...grant, role: "resource_catalog_manager", domain: "maintenance", permissions: ["resource.catalog.manage"], scope: { area: "A" } };
+  const mapping: Grant = { ...grant, role: "resource_scope_administrator", domain: "security", permissions: ["resource.scope.manage"], scope: {} };
+  const manage: Activity = { permission: "resource.catalog.manage", domain: "maintenance", target: { area: "A" }, requiredQualifications: [], personal: true };
+  const map: Activity = { permission: "resource.scope.manage", domain: "security", target: {}, requiredQualifications: [], personal: true };
+  assert.equal(permits({ ...subject, grants: [catalog] }, manage, now), true);
+  assert.equal(permits({ ...subject, grants: [catalog] }, { ...manage, target: {} }, now), false);
+  assert.equal(permits({ ...subject, grants: [catalog] }, { ...manage, target: { area: "B" } }, now), false);
+  assert.equal(permits({ ...subject, grants: [catalog] }, map, now), false);
+  assert.equal(permits({ ...subject, grants: [mapping] }, map, now), true);
+  assert.equal(permits({ ...subject, grants: [mapping] }, manage, now), false);
+  for (const activity of [manage, map])
+    assert.equal(permits({ ...subject, grants: [catalog, mapping] }, activity, now), false);
+  assert.equal(permits({ ...subject, grants: [{ ...mapping, scope: { equipment: "E" } }] }, map, now), false);
+});

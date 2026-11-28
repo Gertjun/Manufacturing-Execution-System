@@ -193,6 +193,87 @@ function stilstandBlok(st: Stilstand, s: Stap, magMelden: boolean, opnieuw: () =
       : null);
 }
 
+// ---------- Middelstilstand: uitsluitend online, nooit via de wachtrij ----------
+interface MiddelKeuze { id:string; code:string; name:string; open_downtime_id:string|null }
+type MiddelMelding={id:string;stapcode:string;equipmentId:string;oorzaak:string;toelichting:string|null};
+// Alleen in geheugen, uitsluitend bij exact dezelfde persoonlijke sessie.
+let pendingMiddel:{token:string|null;body:MiddelMelding}|null=null;
+let middelVerzoekBezig=false;
+export async function middelstilstandBlok(s:Stap, opnieuw:()=>void, actueel:()=>boolean):Promise<Node|null>{
+  const token=sessie.token;
+  const geldig=()=>actueel()&&token===sessie.token&&sessie.geldig()&&heeftRecht("downtime.record");
+  if(!geldig()||s.soort!=="proces")return null;
+  if(pendingMiddel&&pendingMiddel.token!==token)pendingMiddel=null;
+  const pad="/stilstand/middelen";
+  const error=h("p",{class:"foutmelding",role:"alert"});
+  const section=h("section",{class:"plan"},h("h2",{},"Middelstilstand (online)"),
+    h("p",{class:"sub"},"Afzonderlijk van stapstilstand en technische vrijgave."),error);
+  const retry=()=>h("button",{class:"knop",onclick:opnieuw},"Vernieuwen");
+  async function send(body:MiddelMelding){
+    if(!geldig()||middelVerzoekBezig)return;
+    if(!navigator.onLine){error.textContent="Geen verbinding; niets in de offlinewachtrij geplaatst.";return;}
+    middelVerzoekBezig=true;
+    pendingMiddel={token,body};
+    try{
+      await stuur("POST",pad,body,{authorization:"Bearer "+token});
+      if(pendingMiddel?.body.id===body.id&&pendingMiddel.token===token)pendingMiddel=null;
+      if(geldig()){melding("Middelstilstand gemeld","ok");opnieuw();}
+    }catch(e){
+      // Bij een ontbrekend/ambigu antwoord kan de server al hebben opgeslagen.
+      // Hergebruik daarom exact dezelfde UUID en payload.
+      if(e instanceof ApiFout&&e.status>=400&&e.status<500&&pendingMiddel?.body.id===body.id&&pendingMiddel.token===token)pendingMiddel=null;
+      if(geldig()){
+        if(pendingMiddel?.body.id===body.id){melding("Uitkomst onzeker; probeer dezelfde melding opnieuw","fout");opnieuw();}
+        else error.textContent=(e as Error).message;
+      }
+    }finally{middelVerzoekBezig=false;}
+  }
+  if(pendingMiddel?.token===token){
+    const body=pendingMiddel.body;
+    section.append(h("p",{class:"sub"},"Een eerder verstuurde middelmelding heeft nog geen bevestigd antwoord (stap "+body.stapcode+")."),
+      h("button",{class:"knop knop-hoofd",onclick:()=>send(body)},"Zelfde melding opnieuw proberen"));
+    return section;
+  }
+  let choices:MiddelKeuze[];
+  try{
+    if(!navigator.onLine)throw new GeenVerbinding();
+    choices=await stuur<MiddelKeuze[]>("GET",pad+"/keuzes?stapcode="+encodeURIComponent(s.code),undefined,{authorization:"Bearer "+token});
+  }catch(e){
+    if(!geldig())return null;
+    error.textContent=(e as Error).message;
+    section.append(retry());return section;
+  }
+  if(!geldig())return null;
+  if(!choices.length)return null;
+  const list=h("ul",{class:"lijst"},choices.map(m=>h("li",{class:"rij"},
+    h("div",{},h("div",{class:"rij-hoofd"},m.code+" — "+m.name),
+      h("div",{class:"rij-info"},m.open_downtime_id?"Actieve middelstilstand":"Geen actieve middelstilstand geregistreerd")),
+    m.open_downtime_id?h("button",{class:"knop",onclick:async()=>{
+      if(!geldig())return;
+      const r=await vraag("Middelstilstand beëindigen",[{naam:"notitie",label:"Wat is er gedaan?",type:"tekstvak",optioneel:true,maxLengte:500}],"Beëindigen",m.name+" — dit is geen technische vrijgave.");
+      if(!r||!geldig())return;
+      if(!navigator.onLine){error.textContent="Geen verbinding; niets in de offlinewachtrij geplaatst.";return;}
+      try{
+        await stuur("POST",pad+"/"+m.open_downtime_id+"/einde",{notitie:r.notitie?.trim()||""},{authorization:"Bearer "+token});
+        if(geldig()){melding("Middelstilstand beëindigd","ok");opnieuw();}
+      }catch(e){if(geldig()){error.textContent=(e as Error).message+" — vernieuw om de actuele stand te controleren.";}}
+    }},"Beëindigen"):h("button",{class:"knop",onclick:async()=>{
+      if(!geldig()||pendingMiddel)return;
+      try{
+        const causes=await stuur<Oorzaak[]>("GET","/stilstand/oorzaken",undefined,{authorization:"Bearer "+token});
+        if(!geldig())return;
+        const r=await vraag("Middelstilstand melden",[
+          {naam:"oorzaak",label:"Oorzaak",opties:causes.map((o):[string,string]=>[o.code,o.naam])},
+          {naam:"toelichting",label:"Toelichting",optioneel:true,maxLengte:500}
+        ],"Melden",m.code+" — "+m.name);
+        if(!r||!geldig()||pendingMiddel)return;
+        await send({id:nieuwId(),stapcode:s.code,equipmentId:m.id,oorzaak:r.oorzaak,toelichting:r.toelichting?.trim()||null});
+      }catch(e){if(geldig())error.textContent=(e as Error).message;}
+    }},"Melden"))));
+  section.append(list,retry());
+  return section;
+}
+
 // ---------- Planning ----------
 interface PlanItem { soort: "batch" | "lot" | "voorstel"; nummer: string; volgorde: number; opmerking: string | null; status: "gepland" | "bezig" | "gedaan"; batches: string[] }
 interface Voorstel { nummer: number; opmerking: string | null; batches: { batchnummer: string }[] }
@@ -339,7 +420,14 @@ export async function stapScherm(code: string) {
   }
   // Afgerond, maar wacht nog op de metingen en de vrijgave van Kwaliteit (#64).
   const wachtKwaliteit = teKeuren.length ? [h("h2", {}, `Wacht op Kwaliteit (${teKeuren.length})`), keuringLijst(teKeuren, false)] : [];
-  toon(kop, stil ? stilstandBlok(stil, s, opVloer, opnieuw) : null, planBlok(plan), ...bezig, ...wachtKwaliteit, ...klaar);
+  // Middelstilstand mag nooit het laden van de bestaande stapregistraties blokkeren.
+  const middelContainer=h("div",{});
+  toon(kop, stil ? stilstandBlok(stil, s, opVloer, opnieuw) : null, middelContainer, planBlok(plan), ...bezig, ...wachtKwaliteit, ...klaar);
+  if(opVloer&&s.soort==="proces"){
+    void middelstilstandBlok(s,opnieuw,()=>actueel()&&middelContainer.isConnected).then(blok=>{
+      if(blok&&actueel()&&middelContainer.isConnected)middelContainer.replaceChildren(blok);
+    }).catch(()=>{if(actueel()&&middelContainer.isConnected)middelContainer.replaceChildren(h("p",{class:"sub"},"Middelstilstand niet beschikbaar."));});
+  }
 
   // Handscanner: een batch die bezig is openen, een batch die klaarstaat starten (of in de lot-stap aanvinken).
   zetScanActie(async (code) => {

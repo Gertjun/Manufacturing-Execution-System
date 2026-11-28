@@ -29,6 +29,8 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
         products: Type.Array(Type.Object({ permission: Type.String(), product: Type.String() })),
         personal: Type.Boolean(),
         linkedPerson: Type.Boolean(),
+        resourceCatalog: Type.Boolean(),
+        resourceStatus: Type.Boolean(),
       }) },
     },
   }, async (req, reply) => {
@@ -159,8 +161,13 @@ const routes: FastifyPluginAsyncTypebox = async (app) => {
       ) AS allowed`, [req.user.sub]);
       if (!recht?.allowed) throw new ApiFout(403, "Geen actuele MES-uitvoeringsbevoegdheid");
       const { sub, naam, rol } = req.user;
+      if (!req.user.sessionProof) throw new ApiFout(401, "Persoonlijke sessie vereist");
+      const [bound] = await inTransactie(app.db, naam, async tx =>
+        (await tx.query<{ proof: string }>("SELECT execution_session_workstation($1,$2) AS proof",
+          [req.user.sessionProof, rij.id])).rows);
+      if (!bound?.proof) throw new ApiFout(401, "Werkstationbewijs niet beschikbaar; log opnieuw in");
       const sessie: Sessie = { sub, naam, rol, sessionVersion: req.user.sessionVersion, pcId: rij.id,
-        ...(req.user.sessionProof ? { sessionProof: req.user.sessionProof } : {}),
+        sessionProof: bound.proof,
         ...(ac.operator_id ? { operatorId: ac.operator_id } : {}), ...(ac.gedeeld ? { gedeeld: true } : {}) };
       return {
         token: app.jwt.sign(sessie), rol,

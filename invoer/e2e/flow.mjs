@@ -301,6 +301,53 @@ try {
   const [stil2] = await q("SELECT x.eind_op, x.eind_notitie FROM fabriek.stilstand x JOIN fabriek.processtap s ON s.id = x.processtap_id WHERE s.code = 'PS4'");
   check("Stilstand beëindigd, met wat er is gedaan (#31)", stil2?.eind_op !== null && stil2.eind_notitie === "band opnieuw uitgelijnd", JSON.stringify(stil2));
 
+  console.log("\nF4-115-G: middelstilstand via het volledige operatorstapscherm");
+  const [resourceActor] = await q("SELECT id FROM gebruiker WHERE gebruikersnaam='operator.a'");
+  const [resourceStation] = await q("SELECT id FROM pc WHERE naam='PC-01'");
+  const [resourceHierarchy] = await q("INSERT INTO equipment_hierarchy(code,name,level) VALUES ('F115-FLOW-ENT','Fictief','enterprise') RETURNING id");
+  const [resourceEquipment] = await q("INSERT INTO equipment(code,name,hierarchy_id) VALUES ('F115-FLOW-E','Fictief testmiddel',$1) RETURNING id",[resourceHierarchy.id]);
+  // Demo PC-01 shows all steps without explicit pc_stap assignments.
+  // The resource API intentionally requires a real, explicit step assignment.
+  const [resourceStep] = await q("SELECT id FROM processtap WHERE code='PS4' AND actief AND soort='proces'");
+  await q("INSERT INTO pc_stap(pc_id,processtap_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",[resourceStation.id,resourceStep.id]);
+  await q("INSERT INTO equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES ($1,$2,$3,'Fictieve schermtest')",[resourceStation.id,resourceEquipment.id,resourceActor.id]);
+  // The preceding legacy close has already rendered PS4 with no linked equipment.
+  // Leave the route before returning so the SPA requests a fresh projection.
+  await page.getByRole("link",{name:"Stappen",exact:true}).click();
+  await page.getByRole("heading",{name:"Kies een stap",exact:true}).waitFor();
+  const resourceChoices=page.waitForResponse(r=>r.url().includes("/stilstand/middelen/keuzes?stapcode=PS4")&&r.request().method()==="GET");
+  await page.goto(`${BASIS}/invoer/#/stap/PS4`);
+  const choicesResponse=await resourceChoices;
+  const choicesBody=await choicesResponse.json();
+  if(choicesResponse.status()!==200||!Array.isArray(choicesBody)||!choicesBody.some(x=>x.id===resourceEquipment.id))
+    throw new Error("F4-115-G actuele middelkeuze: "+choicesResponse.status()+" "+JSON.stringify(choicesBody));
+  const resourceSection = page.locator("section").filter({has:page.getByRole("heading",{name:"Middelstilstand (online)",exact:true})});
+  const resourceRow = resourceSection.locator(".rij").filter({hasText:"F115-FLOW-E"});
+  await resourceRow.getByRole("button",{name:"Melden",exact:true}).waitFor();
+  check("F4-115-G stap- en middelbediening afzonderlijk",await page.getByRole("button",{name:"Stilstand melden",exact:true}).isVisible());
+  await resourceRow.getByRole("button",{name:"Melden",exact:true}).click();
+  await page.getByRole("dialog").getByLabel("Oorzaak").selectOption("STOR-MACH");
+  await page.getByRole("dialog").getByLabel(/Toelichting/).fill("Fictieve middelstoring");
+  const resourceOpen = page.waitForResponse(r=>r.url().endsWith("/stilstand/middelen")&&r.request().method()==="POST");
+  await page.getByRole("dialog").getByRole("button",{name:"Melden",exact:true}).click();
+  const resourceResponse = await resourceOpen;
+  check("F4-115-G echte API-opening",resourceResponse.status()===200);
+  const resourceRecord = await resourceResponse.json();
+  await resourceRow.getByRole("button",{name:"Beëindigen",exact:true}).waitFor();
+  const [resourceStored] = await q("SELECT equipment_id,gemeld_door,eind_op FROM stilstand WHERE id=$1",[resourceRecord.id]);
+  check("F4-115-G juiste middelcontext en actor",resourceStored?.equipment_id===resourceEquipment.id&&resourceStored?.gemeld_door===resourceActor.id&&resourceStored?.eind_op===null);
+  check("F4-115-G middelstoring blokkeert geen stapbediening",await page.getByRole("button",{name:"Stilstand melden",exact:true}).isVisible());
+  await resourceRow.getByRole("button",{name:"Beëindigen",exact:true}).click();
+  await page.getByRole("dialog").getByLabel("Wat is er gedaan?").fill("Fictief hersteld");
+  const resourceClose = page.waitForResponse(r=>r.url().endsWith("/stilstand/middelen/"+resourceRecord.id+"/einde")&&r.request().method()==="POST");
+  await page.getByRole("dialog").getByRole("button",{name:"Beëindigen",exact:true}).click();
+  check("F4-115-G echte API-afsluiting",(await resourceClose).status()===200);
+  await resourceRow.getByRole("button",{name:"Melden",exact:true}).waitFor();
+  const [resourceClosed] = await q("SELECT eind_op,eind_notitie FROM stilstand WHERE id=$1",[resourceRecord.id]);
+  check("F4-115-G afgesloten registratie met notitie",resourceClosed?.eind_op!=null&&resourceClosed.eind_notitie==="Fictief hersteld");
+  const [resourceStatus] = await q("SELECT count(*)::int AS n FROM equipment_status_history WHERE equipment_id=$1",[resourceEquipment.id]);
+  check("F4-115-G geen automatische technische vrijgave",resourceStatus.n===0);
+
   console.log("\nPloegoverdracht");
   await page.goto(`${BASIS}/invoer/#/overdracht`);
   await page.getByRole("heading", { name: /^Overdracht \w+dienst$/ }).waitFor();

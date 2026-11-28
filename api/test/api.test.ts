@@ -17,11 +17,11 @@ let db: Db; // de verbinding van de applicatie
 
 type Antwoord = { status: number; body: any };
 
-async function verzoek(methode: string, pad: string, token?: string, body?: unknown): Promise<Antwoord> {
+async function verzoek(methode: string, pad: string, token?: string, body?: unknown, extraHeaders: Record<string,string> = {}): Promise<Antwoord> {
   const r = await app.inject({
     method: methode as never,
     url: pad,
-    headers: token ? { authorization: `Bearer ${token}` } : {},
+    headers: { ...extraHeaders, ...(token ? { authorization: `Bearer ${token}` } : {}) },
     payload: body as never,
   });
   return { status: r.statusCode, body: r.body ? JSON.parse(r.body) : null };
@@ -1761,6 +1761,24 @@ describe("Offline wachtrij: moment en operator (D43)", () => {
     const r = await verzoek("POST", "/auth/pc", zonderPc, { pc: "PC-10" });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.operator.naam, "Operator A");
+    const payload = (token: string) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    const original = payload(zonderPc), bound = payload(r.body.token);
+    assert.notEqual(bound.sessionProof, original.sessionProof);
+    const context = async (proof: string) => (await beheerDb.query(
+      "SELECT s.pc_id,p.naam,s.expires_at FROM fabriek.execution_session s LEFT JOIN fabriek.pc p ON p.id=s.pc_id WHERE s.proof_hash=public.digest($1,'sha256')", [proof])).rows[0];
+    const oldContext = await context(original.sessionProof), newContext = await context(bound.sessionProof);
+    assert.equal(oldContext.pc_id, null);
+    assert.equal(newContext.pc_id, bound.pcId);
+    assert.equal(newContext.naam, "PC-10");
+    assert.deepEqual(newContext.expires_at, oldContext.expires_at);
+    const direct = payload(await login("operator.a","PC-01"));
+    assert.equal((await context(direct.sessionProof)).pc_id, direct.pcId);
+    const switched = await verzoek("POST","/auth/pc",r.body.token,{pc:"PC-01"});
+    assert.equal(switched.status,200);
+    const switchedPayload = payload(switched.body.token);
+    assert.equal((await context(switchedPayload.sessionProof)).naam,"PC-01");
+    assert.equal((await context(bound.sessionProof)).naam,"PC-10");
+    assert.deepEqual((await context(switchedPayload.sessionProof)).expires_at,oldContext.expires_at);
     assert.equal((await verzoek("POST", "/batches", r.body.token, { batchnummer: "B-2026-8030" })).status, 201);
     const [p] = (await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.inlogpoging WHERE gebruikersnaam = 'operator.a' AND pc = 'PC-10' AND uitkomst = 'gelukt'")).rows;
     assert.equal(p.n, voorPc.n, "werkstationbinding is geen wachtwoordlogin");
@@ -2192,6 +2210,68 @@ describe("#103/110 procedure-API", () => {
   });
 });
 
+describe("#114 middelenbeheer en scopemapping API", () => {
+  test("persoonlijke catalogus, scope, functiescheiding en intrekking", async () => {
+    const prefix="mes.resources.";
+    for (const [name,role,area] of [
+      ["manager","resource_catalog_manager",null],
+      ["scoped","resource_catalog_manager","API-AREA"],
+      ["mapper","resource_scope_administrator",null],
+    ] as const) {
+      await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'pending',fabriek.wachtwoord_hash('demo'))",[prefix+name]);
+      await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,area_code) SELECT id,$2,$3 FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[prefix+name,role,area]);
+    }
+    const manager=await login(prefix+"manager"), scoped=await login(prefix+"scoped"), mapper=await login(prefix+"mapper");
+    const operator=await login("mes.operator");
+    const get=async(path:string,token:string,status=200)=>{
+      const r=await verzoek("GET",path,token);assert.equal(r.status,status,JSON.stringify(r.body));return r.body;
+    };
+    const post=async(path:string,token:string,body:object,status=201)=>{
+      const r=await verzoek("POST",path,token,body);assert.equal(r.status,status,JSON.stringify(r.body));return r.body.id as string;
+    };
+    assert.equal((await verzoek("GET","/resources/")).status,401);
+    await get("/resources/",operator,403);
+    await get("/resources/",mapper,403);
+    await get("/resources/scopes",manager,403);
+    await get("/resources/",scoped,403);
+    assert.equal((await get("/auth/permissions",scoped)).resourceCatalog,false);
+    const root=await post("/resources/hierarchy",manager,{code:"API-ENT",name:"Enterprise",level:"enterprise",parent_id:null});
+    const site=await post("/resources/hierarchy",manager,{code:"API-SITE",name:"Site",level:"site",parent_id:root});
+    const area=await post("/resources/hierarchy",manager,{code:"API-AREA",name:"Area",level:"area",parent_id:site});
+    const other=await post("/resources/hierarchy",manager,{code:"API-OTHER",name:"Other area",level:"area",parent_id:site});
+    const e=await post("/resources/equipment",manager,{code:"API-E1",name:"Middel",hierarchy_id:area});
+    const e2=await post("/resources/equipment",manager,{code:"API-E2",name:"Ander middel",hierarchy_id:other});
+    await post("/resources/scopes/areas",manager,{area_code:"API-AREA",hierarchy_id:area},403);
+    await post("/resources/scopes/areas",mapper,{area_code:"API-AREA",hierarchy_id:area});
+    const p=await get("/auth/permissions",scoped);
+    assert.equal(p.resourceCatalog,true);
+    assert.ok(!p.global.includes("resource.catalog.manage"));
+    const c=await get("/resources/",scoped);
+    assert.equal(c.global,false);
+    assert.deepEqual(c.equipment.map((x:any)=>x.id),[e]);
+    assert.deepEqual(c.hierarchy.map((x:any)=>x.id),[area]);
+    const cls=await post("/resources/classes",manager,{code:"API-CLASS",name:"Klasse"});
+    await post("/resources/classes",scoped,{code:"API-DENIED",name:"Geen"},403);
+    await post("/resources/class-assignments",scoped,{equipment_id:e,equipment_class_id:cls});
+    await post("/resources/class-assignments",scoped,{equipment_id:e2,equipment_class_id:cls},403);
+    const asset=await post("/resources/assets",manager,{code:"API-ASSET",name:"Asset"});
+    const assignment=await post("/resources/asset-assignments",manager,{equipment_id:e,physical_asset_id:asset,valid_from:"2026-01-01T00:00:00Z"});
+    await post("/resources/asset-assignments",manager,{equipment_id:e2,physical_asset_id:asset,valid_from:"2026-01-02T00:00:00Z"},409);
+    await post("/resources/asset-assignments/"+assignment+"/close",scoped,{valid_until:"2026-01-02T00:00:00Z"},200);
+    await post("/resources/asset-assignments/"+assignment+"/close",scoped,{valid_until:"2026-01-03T00:00:00Z"},409);
+    const rename={expected_change_no:0,name:"Nieuwe naam"};
+    assert.equal((await verzoek("PATCH","/resources/equipment/"+e,scoped,rename)).status,200);
+    assert.equal((await verzoek("PATCH","/resources/equipment/"+e,scoped,rename)).status,409);
+    assert.equal((await verzoek("PATCH","/resources/equipment/"+e2,scoped,rename)).status,403);
+    await post("/resources/classes",manager,{code:"API-UNKNOWN",name:"Geen",actor_id:randomUUID()},400);
+    const security=await get("/resources/scopes",mapper);
+    assert.deepEqual(Object.keys(security).sort(),["area_scopes","areas","equipment","equipment_scopes"]);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam=$1)",[prefix+"scoped"]);
+    assert.equal((await get("/auth/permissions",scoped)).resourceCatalog,false);
+    await get("/resources/",scoped,403);
+  });
+});
+
 describe("#141 eenhedencatalogus en materiaal-eenheidsAPI", () => {
   test("exacte conversierevisies, persoonlijke scope en onveranderlijke materiaalversies", async () => {
     const engineer=await login("mes.engineer");
@@ -2387,6 +2467,39 @@ describe("#111 receptvereisten-API", () => {
     assert.equal(final.status,200,JSON.stringify(final.body));
     assert.equal(final.body.change_no,16);
     for(const key of ["equipment_requirements","personnel_requirements","instructions","specification_links","lot_rules","compatibility_rules"]) assert.deepEqual(final.body[key],[]);
+    // #116.3d.4: explicit catalog identities, trusted units and personal scope.
+    const {rows:[cls]}=await beheerDb.query("INSERT INTO fabriek.equipment_class(code,name) VALUES ('API-116-CLASS','Fictieve klasse') RETURNING id");
+    const {rows:[prop]}=await beheerDb.query("INSERT INTO fabriek.equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('API-116-CAP','Fictieve capaciteit',$1,$2) RETURNING id",[kind.id,unit.id]);
+    const refs=await verzoek("GET","/recipes/references/"+pa,scoped);
+    assert.equal(refs.status,200,JSON.stringify(refs.body));
+    assert.ok(refs.body.equipment_classes.some((x:any)=>x.id===cls.id&&x.code==="API-116-CLASS"));
+    assert.ok(refs.body.equipment_properties.some((x:any)=>x.id===prop.id&&x.measurement_unit_id===unit.id));
+    const linked=base+"/linked-equipment-requirements";
+    const payload={expected_change_no:16,procedural_element_id:root.body.id,code:"LINKED",equipment_class_id:cls.id,description:"Fictief",required_count:2,minimum_capacity:precise,capacity_property_definition_id:prop.id};
+    assert.equal((await verzoek("POST",linked,operator,payload)).status,403);
+    assert.equal((await verzoek("POST","/recipes/versions/"+other+"/requirements/linked-equipment-requirements",scoped,payload)).status,403);
+    assert.equal((await verzoek("POST",linked,scoped,{...payload,capacity_unit_id:unit.id})).status,400);
+    assert.equal((await verzoek("POST",linked,scoped,{...payload,equipment_class_id:randomUUID()})).status,422);
+    assert.equal((await verzoek("POST",linked,scoped,{...payload,capacity_property_definition_id:null})).status,422);
+    const created=await verzoek("POST",linked,scoped,payload);
+    assert.equal(created.status,201,JSON.stringify(created.body));
+    assert.equal(created.body.change_no,17);
+    const read=await verzoek("GET",base,scoped);
+    assert.equal(read.status,200,JSON.stringify(read.body));
+    const record=read.body.equipment_requirements.find((x:any)=>x.id===created.body.id);
+    assert.equal(record.equipment_class_id,cls.id);
+    assert.equal(record.equipment_class_code,"API-116-CLASS");
+    assert.equal(record.capacity_property_definition_id,prop.id);
+    assert.equal(record.capacity_unit_id,unit.id);
+    assert.equal(record.minimum_capacity,precise);
+    assert.equal((await verzoek("PATCH",linked+"/"+created.body.id,scoped,payload)).status,409);
+    const legacy={expected_change_no:17,procedural_element_id:root.body.id,code:"LINKED",equipment_class_code:"API-116-CLASS",description:"Fictief",required_count:2,minimum_capacity:precise,capacity_unit_id:unit.id};
+    assert.equal((await verzoek("PATCH",base+"/equipment-requirements/"+created.body.id,scoped,legacy)).status,422);
+    const revised=await verzoek("PATCH",linked+"/"+created.body.id,scoped,{...payload,expected_change_no:17,required_count:3});
+    assert.equal(revised.status,200,JSON.stringify(revised.body));
+    assert.equal(revised.body.change_no,18);
+    assert.equal((await verzoek("DELETE",base+"/equipment-requirements/"+created.body.id+"?expected_change_no=18",scoped)).status,200);
+
     await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
     assert.equal((await verzoek("GET",base,scoped)).status,403);
   });
@@ -2476,6 +2589,43 @@ describe("#141 schaalregel-API", () => {
     assert.equal(final.status,200,JSON.stringify(final.body));
     assert.equal(final.body.change_no,14);
     for(const key of ["rules","inputs","bindings","expressions"]) assert.deepEqual(final.body[key],[]);
+    // #116.3d.4b: explicit equipment source, derived unit and personal scope.
+    const {rows:[prop]}=await beheerDb.query("INSERT INTO fabriek.equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('API-116-SCALE','Fictieve schaalbron',$1,$2) RETURNING id",[kind.id,kg.id]);
+    const linkedRule=await add("rules",{...ruleBody,expected_change_no:14,code:"R-LINKED",rule_kind:"equipment_dependent"});
+    const linked=base+"/linked-equipment-inputs";
+    const payload={expected_change_no:15,rule_id:linkedRule.id,code:"LINKED",equipment_property_definition_id:prop.id};
+    assert.equal((await verzoek("POST",linked,operator,payload)).status,403);
+    assert.equal((await verzoek("POST","/recipes/versions/"+other+"/scaling/linked-equipment-inputs",scoped,payload)).status,403);
+    assert.equal((await verzoek("POST",linked,scoped,{...payload,unit_id:g.id})).status,400);
+    assert.equal((await verzoek("POST",linked,scoped,{...payload,equipment_property_definition_id:randomUUID()})).status,422);
+    const old=await add("inputs",{...inputBody,expected_change_no:15,rule_id:linkedRule.id,code:"LEGACY",source_kind:"equipment_property",equipment_property:"API-116-SCALE",constant_value:null});
+    const oldRead=await verzoek("GET",base,scoped);
+    assert.equal(oldRead.status,200,JSON.stringify(oldRead.body));
+    assert.equal(oldRead.body.inputs.find((x:any)=>x.id===old.id).equipment_property_definition_id,null);
+    const created=await verzoek("PATCH",linked+"/"+old.id,scoped,{...payload,expected_change_no:16});
+    assert.equal(created.status,200,JSON.stringify(created.body));
+    assert.equal(created.body.id,old.id);
+    assert.equal(created.body.change_no,17);
+    const read=await verzoek("GET",base,scoped);
+    assert.equal(read.status,200,JSON.stringify(read.body));
+    const record=read.body.inputs.find((x:any)=>x.id===old.id);
+    assert.equal(record.equipment_property_definition_id,prop.id);
+    assert.equal(record.equipment_property,"API-116-SCALE");
+    assert.equal(record.unit_id,kg.id);
+    assert.equal(record.conversion_version_id,null);
+    assert.equal(record.source_kind,"equipment_property");
+    assert.equal((await verzoek("PATCH",linked+"/"+old.id,scoped,{...payload,expected_change_no:16})).status,409);
+    assert.equal((await verzoek("PATCH",base+"/inputs/"+old.id,scoped,{...inputBody,expected_change_no:17,rule_id:linkedRule.id})).status,422);
+    const fresh=await verzoek("POST",linked,scoped,{...payload,expected_change_no:17,code:"SECOND"});
+    assert.equal(fresh.status,201,JSON.stringify(fresh.body));
+    assert.equal(fresh.body.change_no,18);
+    const validation=await verzoek("GET",prefix+"/release-validation",scoped);
+    assert.equal(validation.status,200,JSON.stringify(validation.body));
+    assert.ok(validation.body.blockers.some((x:any)=>x.code==="complex_scaling_unproven"&&x.record_id===linkedRule.id));
+    assert.equal((await verzoek("DELETE",base+"/inputs/"+fresh.body.id+"?expected_change_no=18",scoped)).status,200);
+    assert.equal((await verzoek("DELETE",base+"/inputs/"+old.id+"?expected_change_no=19",scoped)).status,200);
+    assert.equal((await verzoek("DELETE",base+"/rules/"+linkedRule.id+"?expected_change_no=20",scoped)).status,200);
+
     await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
     assert.equal((await verzoek("GET",base,scoped)).status,403);
   });
@@ -2691,5 +2841,225 @@ describe("#113.4c.1 beperkte referentiecatalogus", () => {
     assert.equal((await verzoek("GET",pad)).status,401);
     await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE id=$1",[grant.id]);
     assert.equal((await verzoek("GET",pad,token)).status,403);
+  });
+});
+
+
+describe("#115.5 middelstilstand online", () => {
+  test("F4-115-E01–E05: persoonlijke context, replay, scheiding en audit", async () => {
+    const {rows:[person]}=await beheerDb.query("SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam='operator.a'");
+    const {rows:[station]}=await beheerDb.query("INSERT INTO fabriek.pc(naam) VALUES ('F115-API-PC') RETURNING id");
+    const {rows:[step]}=await beheerDb.query("INSERT INTO fabriek.processtap(code,naam,volgorde,niveau) VALUES ('PS9155','Fictief',(SELECT max(volgorde)+1 FROM fabriek.processtap),'batch') RETURNING id");
+    await beheerDb.query("INSERT INTO fabriek.pc_stap(pc_id,processtap_id) VALUES ($1,$2)",[station.id,step.id]);
+    const {rows:[hierarchy]}=await beheerDb.query("INSERT INTO fabriek.equipment_hierarchy(code,name,level) VALUES ('F115-API-ENT','Fictief','enterprise') RETURNING id");
+    const {rows:equipment}=await beheerDb.query("INSERT INTO fabriek.equipment(code,name,hierarchy_id) SELECT code,'Fictief',$1 FROM unnest(ARRAY['F115-API-A','F115-API-B','F115-API-C']) AS t(code) RETURNING id,code",[hierarchy.id]);
+    const a=equipment.find(x=>x.code==="F115-API-A")!.id;
+    const b=equipment.find(x=>x.code==="F115-API-B")!.id;
+    const c=equipment.find(x=>x.code==="F115-API-C")!.id;
+    for(const id of [a,b]) await beheerDb.query("INSERT INTO fabriek.equipment_workstation(pc_id,equipment_id,opened_by,open_reason) VALUES ($1,$2,$3,'Test')",[station.id,id,person.id]);
+    const op=await login("operator.a","F115-API-PC");
+    const other=await login("operator.b","F115-API-PC");
+    const pl=await login("ploegleider1");
+    const path="/stilstand/middelen";
+    const close=(id:string)=>path+"/"+id+"/einde";
+    const body={id:randomUUID(),stapcode:"PS9155",equipmentId:a,oorzaak:"STOR-MACH",toelichting:"Fictieve storing"};
+    const second={...body,id:randomUUID(),equipmentId:b};
+    assert.equal((await verzoek("POST",path,undefined,body)).status,401);
+    assert.equal((await verzoek("POST",path,await login("kwaliteit1","F115-API-PC"),body)).status,403);
+    assert.equal((await verzoek("POST",path,await login("operator.a"),body)).status,400);
+    assert.equal((await verzoek("POST",path,await login("operator.a","PC-01"),body)).status,403);
+    assert.equal((await verzoek("POST",path,op,{...body,equipmentId:c})).status,403);
+    assert.equal((await verzoek("POST",path,op,{...body,stapcode:"PS1"})).status,403);
+    assert.equal((await verzoek("POST",path,op,{...body,oorzaak:"ONBEKEND"})).status,422);
+    for(const header of ["x-batchgui-moment","x-batchgui-verzonden"]){
+      const rejected=await verzoek("POST",path,op,body,{[header]:new Date().toISOString()});
+      assert.equal(rejected.status,400,JSON.stringify(rejected.body));
+    }
+    assert.equal((await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.stilstand WHERE id=$1",[body.id])).rows[0].n,0);
+    const legacy={id:randomUUID(),stapcode:body.stapcode,oorzaak:body.oorzaak,begin_op:new Date(Date.now()-60*60_000).toISOString()};
+    assert.equal((await verzoek("POST","/stilstand",op,legacy)).status,201);
+    const baseline=await verzoek("GET","/analyse/stilstand",pl);
+    assert.equal(baseline.status,200);
+    const before=(await beheerDb.query("SELECT count(*)::int AS n FROM fabriek.equipment_status_history")).rows[0].n;
+    const both=await Promise.all([verzoek("POST",path,op,body),verzoek("POST",path,op,body)]);
+    for(const r of both){assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body,{id:body.id});}
+    assert.deepEqual((await verzoek("POST",path,op,second)).body,{id:second.id});
+    assert.equal((await verzoek("POST",path,op,{...body,id:randomUUID()})).status,409);
+    assert.equal((await verzoek("POST",path,other,body)).status,409);
+    assert.equal((await verzoek("POST",path,op,{...body,toelichting:"Anders"})).status,409);
+    assert.equal((await verzoek("POST",path,op,{...body,id:legacy.id})).status,409);
+    assert.equal((await verzoek("POST","/stilstand",op,{...legacy,id:body.id})).status,409);
+    assert.equal((await verzoek("POST","/stilstand/"+body.id+"/einde",op,{})).status,404);
+    assert.equal((await verzoek("POST",close(legacy.id),op,{})).status,404);
+    const list=await verzoek("GET","/stilstand",op);
+    assert.equal(list.status,200);
+    assert.deepEqual(list.body.filter((x:any)=>x.stap===body.stapcode).map((x:any)=>x.id),[legacy.id]);
+    const display=await verzoek("GET","/stilstand",await login("scherm1"));
+    assert.equal(display.status,200);
+    assert.deepEqual(display.body.filter((x:any)=>x.stap===body.stapcode).map((x:any)=>x.id),[legacy.id]);
+    const analysis=await verzoek("GET","/analyse/stilstand",pl);
+    assert.equal(analysis.status,200);
+    assert.equal(analysis.body.per_stap.find((x:any)=>x.stap===body.stapcode).aantal,1);
+    assert.deepEqual(analysis.body.per_oorzaak.map((x:any)=>[x.oorzaak,x.aantal]).sort(),baseline.body.per_oorzaak.map((x:any)=>[x.oorzaak,x.aantal]).sort());
+    assert.ok(!analysis.body.lijst.some((x:any)=>x.id===body.id||x.id===second.id));
+    await beheerDb.query("UPDATE fabriek.equipment_workstation SET closed_by=$1,closed_at=clock_timestamp(),close_reason='Ontkoppeld' WHERE pc_id=$2 AND equipment_id=$3",[person.id,station.id,a]);
+    for(const header of ["x-batchgui-moment","x-batchgui-verzonden"]){
+      const rejected=await verzoek("POST",close(body.id),op,{notitie:"Hersteld"},{[header]:new Date().toISOString()});
+      assert.equal(rejected.status,400,JSON.stringify(rejected.body));
+    }
+    assert.equal((await beheerDb.query("SELECT eind_op FROM fabriek.stilstand WHERE id=$1",[body.id])).rows[0].eind_op,null);
+    const end=await Promise.all([verzoek("POST",close(body.id),op,{notitie:"Hersteld"}),verzoek("POST",close(body.id),op,{notitie:"Hersteld"})]);
+    for(const r of end){assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body,{id:body.id});}
+    assert.equal((await verzoek("POST",close(body.id),op,{notitie:"Anders"})).status,409);
+    assert.equal((await verzoek("POST",close(body.id),other,{notitie:"Hersteld"})).status,409);
+    assert.equal((await verzoek("POST",close(second.id),await login("kwaliteit1"),{})).status,403);
+    assert.equal((await verzoek("POST",close(randomUUID()),op,{})).status,404);
+    assert.equal((await verzoek("POST",close(second.id),op,{})).status,200);
+    assert.equal((await verzoek("POST","/stilstand/"+legacy.id+"/einde",op,{})).status,200);
+    const {rows:[evidence]}=await beheerDb.query("SELECT (SELECT count(*)::int FROM fabriek.stilstand WHERE id IN ($1,$2) AND eind_op IS NOT NULL AND equipment_id IS NOT NULL) AS records,(SELECT count(*)::int FROM fabriek.melding WHERE bron_id IN ($1,$2)) AS messages,(SELECT count(*)::int FROM fabriek.config_log WHERE tabel='stilstand' AND record_id IN ($1,$2) AND actor_origin='personal' AND actor_user_id=$3) AS audits,(SELECT count(*)::int FROM fabriek.equipment_status_history) AS statuses",[body.id,second.id,person.id]);
+    assert.deepEqual(evidence,{records:2,messages:2,audits:4,statuses:before});
+    // Closed intervals: compare the report with the actual step-only duration.
+    const {rows:[duration]}=await beheerDb.query(
+      "SELECT round((extract(epoch FROM (eind_op-begin_op))/60)::numeric,1)::float AS minutes FROM fabriek.stilstand WHERE id=$1",[legacy.id]);
+    const {rows:[overlap]}=await beheerDb.query(
+      "SELECT count(*)::int AS n FROM fabriek.stilstand m JOIN fabriek.stilstand s ON s.id=$1 WHERE m.id IN ($2,$3) AND m.begin_op<s.eind_op AND m.eind_op>s.begin_op",[legacy.id,body.id,second.id]);
+    assert.equal(overlap.n,2);
+    const closedAnalysis=await verzoek("GET","/analyse/stilstand",pl);
+    assert.equal(closedAnalysis.status,200);
+    const stepTotals=closedAnalysis.body.per_stap.find((x:any)=>x.stap===body.stapcode);
+    assert.equal(stepTotals.aantal,1);
+    assert.equal(stepTotals.storing,duration.minutes);
+    assert.equal(closedAnalysis.body.lijst.find((x:any)=>x.id===legacy.id).minuten,duration.minutes);
+    assert.ok(!closedAnalysis.body.lijst.some((x:any)=>x.id===body.id||x.id===second.id));
+  });
+});
+
+
+describe("#115.6 middelenprojecties en beheercontracten", () => {
+  test("F4-115-F01–F06: exacte decimalen, gescheiden rechten en werkstationkeuze", async () => {
+    const prefix="mes.resources.f115.";
+    const accounts=[
+      ["catalog","resource_catalog_manager",null],
+      ["scoped","resource_catalog_manager","API-AREA"],
+      ["status","resource_status_manager",null],
+      ["statusScoped","resource_status_manager","API-AREA"],
+      ["reader","resource_status_reader",null],
+      ["readerScoped","resource_status_reader","API-AREA"],
+      ["maintenance","maintenance_technician",null],
+    ] as const;
+    for(const [name,role,area] of accounts){
+      await beheerDb.query("INSERT INTO fabriek.gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES ($1,'pending',fabriek.wachtwoord_hash('demo'))",[prefix+name]);
+      await beheerDb.query("INSERT INTO fabriek.authorization_grant(user_id,role_code,area_code) SELECT id,$2,$3 FROM fabriek.gebruiker WHERE gebruikersnaam=$1",[prefix+name,role,area]);
+    }
+    const catalog=await login(prefix+"catalog"), scoped=await login(prefix+"scoped"), status=await login(prefix+"status"), statusScoped=await login(prefix+"statusScoped"), maintenance=await login(prefix+"maintenance");
+    const reader=await login(prefix+"reader"), readerScoped=await login(prefix+"readerScoped");
+    const op=await login("operator.a","F115-API-PC");
+    const display=await login("scherm1");
+    const get=async(path:string,token:string,status=200)=>{
+      const r=await verzoek("GET",path,token); assert.equal(r.status,status,JSON.stringify(r.body));return r.body;
+    };
+    const post=async(path:string,token:string,body:object,status=201)=>{
+      const r=await verzoek("POST",path,token,body); assert.equal(r.status,status,JSON.stringify(r.body));return r.body;
+    };
+    const perms=async(token:string)=>get("/auth/permissions",token);
+    assert.deepEqual([(await perms(catalog)).resourceCatalog,(await perms(catalog)).resourceStatus],[true,false]);
+    assert.deepEqual([(await perms(status)).resourceCatalog,(await perms(status)).resourceStatus],[false,true]);
+    assert.equal((await perms(statusScoped)).resourceStatus,true);
+    assert.equal((await perms(scoped)).resourceCatalog,true);
+    assert.equal((await perms(display)).resourceStatus,false);
+    assert.equal((await perms(op)).resourceStatus,false);
+    const {rows:equipment}=await beheerDb.query("SELECT id,code FROM fabriek.equipment WHERE code IN ('API-E1','API-E2','F115-API-B')");
+    const e=equipment.find(x=>x.code==="API-E1")!.id, outside=equipment.find(x=>x.code==="API-E2")!.id;
+    const linked=equipment.find(x=>x.code==="F115-API-B")!.id;
+    const {rows:[station]}=await beheerDb.query("SELECT id FROM fabriek.pc WHERE naam='F115-API-PC'");
+    const {rows:[dim]}=await beheerDb.query("SELECT id FROM fabriek.quantity_dimension WHERE (length_exp,mass_exp,time_exp,current_exp,temperature_exp,amount_exp,luminous_exp)=(0,1,0,0,0,0,0)");
+    const {rows:[kind]}=await beheerDb.query("INSERT INTO fabriek.quantity_kind(dimension_id,code,name,value_semantics) VALUES ($1,'F115-HTTP-MASS','Fictief','ratio') RETURNING id",[dim.id]);
+    const {rows:[unit]}=await beheerDb.query("INSERT INTO fabriek.measurement_unit(quantity_kind_id,code,symbol,name) VALUES ($1,'F115-HTTP-KG','kg','Fictief') RETURNING id",[kind.id]);
+    const references=await get("/resources/property-references",catalog);
+    assert.ok(references.quantity_kinds.some((x:any)=>x.id===kind.id));
+    assert.ok(references.units.some((x:any)=>x.id===unit.id&&x.quantity_kind_id===kind.id));
+    assert.deepEqual(Object.keys(references).sort(),["quantity_kinds","units"]);
+    await get("/resources/property-references",scoped,403);
+    await get("/resources/property-references",status,403);
+    await get("/resources/property-references",op,403);
+    const prop=(await post("/resources/properties",catalog,{code:"F115-HTTP-P",name:"Fictieve capaciteit",quantity_kind_id:kind.id,measurement_unit_id:unit.id})).id;
+    const base={equipment_id:e,property_definition_id:prop,value:"9007199254740993.123456789",reason:"Exact"};
+    for(const value of [9007199254740992,"1e3","NaN","Infinity","",null]){
+      await post("/resources/capabilities",catalog,{...base,value},400);
+    }
+    await post("/resources/capabilities",catalog,{...base,actor_id:randomUUID()},400);
+    await post("/resources/capabilities",status,base,403);
+    await post("/resources/capabilities",scoped,{...base,equipment_id:outside},403);
+    const cap=(await post("/resources/capabilities",scoped,base)).id;
+    await post("/resources/capabilities/"+cap+"/capacity",scoped,{expected_revision:1});
+    const caps=await get("/resources/capabilities",scoped);
+    assert.deepEqual(caps.equipment.map((x:any)=>x.id),[e]);
+    assert.equal(caps.capabilities.find((x:any)=>x.id===cap).value,base.value);
+    assert.equal(caps.capabilities.find((x:any)=>x.id===cap).capacity,true);
+    await post("/resources/capabilities/"+cap+"/revisions",scoped,{expected_revision:1,value:0,reason:"Geen"},400);
+    await post("/resources/capabilities/"+cap+"/revisions",scoped,{expected_revision:1,value:"0",reason:"Geen"},422);
+    const rev={expected_revision:1,value:"9007199254740993.123456790",reason:"Revisie"};
+    assert.equal((await post("/resources/capabilities/"+cap+"/revisions",scoped,rev,200)).revision,2);
+    await post("/resources/capabilities/"+cap+"/revisions",scoped,rev,409);
+    assert.equal((await get("/resources/capabilities",scoped)).capabilities.find((x:any)=>x.id===cap).value,rev.value);
+    await get("/resources/capabilities",status,403);
+    await get("/resources/statuses",catalog,403);
+    const unknown=(await get("/resources/statuses",status)).find((x:any)=>x.id===outside);
+    assert.equal(unknown.status,"unknown");assert.equal(unknown.revision,0);
+    const statusPath="/resources/equipment/"+e+"/status";
+    await post(statusPath,catalog,{expected_revision:0,status:"blocked",reason:"Geen"},403);
+    assert.equal((await post(statusPath,statusScoped,{expected_revision:0,status:"blocked",reason:"Test"},200)).revision,1);
+    await post(statusPath,statusScoped,{expected_revision:0,status:"available",reason:"Oud"},409);
+    await post("/resources/equipment/"+outside+"/status",statusScoped,{expected_revision:0,status:"blocked",reason:"Geen"},403);
+    assert.equal((await post(statusPath,statusScoped,{expected_revision:1,status:"available",reason:"Hersteld"},200)).revision,2);
+    const statuses=await get("/resources/statuses",statusScoped);
+    assert.deepEqual(statuses.map((x:any)=>x.id),[e]);
+    assert.equal(statuses[0].status,"available");
+    assert.equal(statuses[0].can_manage,true);
+    for(const token of [reader,readerScoped]){
+      assert.equal((await perms(token)).resourceStatus,true);
+      assert.equal((await perms(token)).resourceCatalog,false);
+      const visible=await get("/resources/statuses",token);
+      assert.ok(visible.some((x:any)=>x.id===e&&x.status==="available"));
+      assert.ok(visible.every((x:any)=>x.can_manage===false));
+      if(token===readerScoped)assert.deepEqual(visible.map((x:any)=>x.id),[e]);
+      else assert.ok(visible.some((x:any)=>x.id===outside));
+      assert.deepEqual((await get("/resources/equipment/"+e+"/status-history",token)).map((x:any)=>x.revision),[2,1]);
+      await post(statusPath,token,{expected_revision:2,status:"blocked",reason:"Geen mutatierecht"},403);
+      await get("/resources/capabilities",token,403);
+      await get("/stilstand/middelen",token,403);
+    }
+    await get("/resources/equipment/"+outside+"/status-history",readerScoped,403);
+    assert.equal((await get("/resources/statuses",statusScoped))[0].revision,2);
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam=$1)",[prefix+"readerScoped"]);
+    assert.equal((await perms(readerScoped)).resourceStatus,false);
+    await get("/resources/statuses",readerScoped,403);
+    await get("/resources/equipment/"+e+"/status-history",readerScoped,403);
+    const history=await get("/resources/equipment/"+e+"/status-history",statusScoped);
+    assert.deepEqual(history.map((x:any)=>x.revision),[2,1]);
+    assert.equal(history[0].created_by_name,prefix+"statusScoped");
+    await get("/resources/equipment/"+outside+"/status-history",statusScoped,403);
+    await get("/resources/workstations",scoped,403);
+    const assignment=(await post("/resources/workstation-assignments",catalog,{pc_id:station.id,equipment_id:e,reason:"Test"})).id;
+    assert.ok((await get("/resources/workstations",catalog)).assignments.some((x:any)=>x.id===assignment&&x.closed_at===null));
+    const choices="/stilstand/middelen/keuzes?stapcode=PS9155";
+    assert.deepEqual((await get(choices,op)).map((x:any)=>x.id).sort(),[e,linked].sort());
+    await get(choices,await login("operator.a","PC-01"),403);
+    await get(choices,maintenance,403);
+    await get("/stilstand/middelen",catalog,403);
+    await get("/stilstand/middelen",display,403);
+    const downtime={id:randomUUID(),stapcode:"PS9155",equipmentId:e,oorzaak:"STOR-MACH"};
+    await post("/stilstand/middelen",op,{...downtime,pcId:station.id},400);
+    await post("/stilstand/middelen",op,{...downtime,begin_op:"2020-01-01T00:00:00Z"},400);
+    await post("/stilstand/middelen",op,downtime,200);
+    assert.ok((await get("/stilstand/middelen",maintenance)).some((x:any)=>x.id===downtime.id));
+    assert.equal((await get(choices,op)).find((x:any)=>x.id===e).open_downtime_id,downtime.id);
+    await post("/resources/workstation-assignments/"+assignment+"/close",catalog,{reason:"Ontkoppeld"},200);
+    assert.deepEqual((await get(choices,op)).map((x:any)=>x.id),[linked]);
+    await post("/stilstand/middelen/"+downtime.id+"/einde",op,{},200);
+    assert.ok(!(await get("/stilstand/middelen",maintenance)).some((x:any)=>x.id===downtime.id));
+    await beheerDb.query("UPDATE fabriek.authorization_grant SET revoked_at=now() WHERE user_id=(SELECT id FROM fabriek.gebruiker WHERE gebruikersnaam=$1)",[prefix+"statusScoped"]);
+    assert.equal((await perms(statusScoped)).resourceStatus,false);
+    await get("/resources/statuses",statusScoped,403);
   });
 });

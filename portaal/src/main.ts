@@ -9,6 +9,9 @@ import * as productie from "./productie/schermen";
 import * as beheer from "./beheer/schermen";
 import * as planning from "./planning/schermen";
 import * as engineering from "./engineering/schermen";
+import { middelen } from "./maintenance/middelen";
+import { capaciteiten, middelenstatus, werkstationkoppelingen, middelstilstand } from "./maintenance/inzetbaarheid";
+import { scopemapping } from "./beheer/scopemapping";
 import { stopWandscherm } from "./wandscherm";
 import { volgExcelKnoppen } from "./excelplaats";
 import { volgStappenlijsten } from "./stappenkeuze";
@@ -266,6 +269,18 @@ async function route() {
     : p.id === "kwaliteit" && deel === "batch" ? "beoordelen" : deel;
   if (!zichtbaar.some(o => o.pad === alias)) return void (location.hash = "#/"+p.id);
   const a = arg ? decodeURIComponent(arg) : undefined;
+  if (p.id === "maintenance") {
+    await tekenMenu(p.id, deel);
+    if (!actueel()) return;
+    switch (deel) {
+      case "middelen": return middelen();
+      case "capaciteiten": return capaciteiten();
+      case "status": return middelenstatus();
+      case "werkstations": return werkstationkoppelingen();
+      case "middelstilstand": return middelstilstand();
+      default: return void (location.hash = "#/maintenance");
+    }
+  }
   if (p.id === "engineering") {
     await tekenMenu(p.id, deel);
     if (!actueel()) return;
@@ -281,6 +296,7 @@ async function route() {
       case "correcties": return productie.correcties();
       case "overdracht": return productie.overdracht(a);
       case "stilstand": return productie.stilstand();
+      case "middelstilstand": if (actueel()) return middelstilstand(); return;
       case "batch": return a ? kwaliteit.batch(a) : productie.werkvoorraad();
       case "lot": return a ? kwaliteit.lotpaspoort(a) : productie.werkvoorraad();
       default: return void (location.hash = "#/productie");
@@ -308,6 +324,7 @@ async function route() {
       case "stappen": return beheer.stappen(a);
       // Accounts en Operators zijn samen Medewerkers (#87); oude bladwijzers komen daar uit.
       case "accounts": return beheer.accounts();
+      case "scopemapping": if (actueel()) return scopemapping(); return;
       case "operators": return beheer.personeel();
       case "grondstoffen": return beheer.grondstoffen();
       case "ploegen": return beheer.ploegen();

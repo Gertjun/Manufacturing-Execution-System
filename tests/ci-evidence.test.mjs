@@ -75,10 +75,10 @@ test("onvolledige API-pagina wordt geweigerd",()=>{
  assert.deepEqual(completeList({total_count:1,jobs:[job]},"jobs"),[job]);
 });
 
-import {acceptanceProof} from "../tools/verifieer_acceptatie.mjs";
+import {acceptanceProof,diagramProof} from "../tools/verifieer_acceptatie.mjs";
 test("mergebewijs vereist beide suites en expliciet checkoutbewijs",()=>{
  const a={run,job:{...job,steps:[{name:"Geteste tree vastleggen",conclusion:"success"}]}};
- const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)"}};
+ const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)",steps:[...a.job.steps,{name:"Plaatje van de database bij (docs/DATABASE.md)",conclusion:"success"}]}};
  assert.equal(acceptanceProof([a,b]),true);
  assert.equal(acceptanceProof([a]),false);
  assert.equal(acceptanceProof([a,{...b,job:{...b.job,steps:[]}}]),false);
@@ -86,10 +86,41 @@ test("mergebewijs vereist beide suites en expliciet checkoutbewijs",()=>{
 });
 test("mergebewijs: recentere fout, herstart of ontbrekende tijd blokkeert oud groen",()=>{
  const a={run,job:{...job,steps:[{name:"Geteste tree vastleggen",conclusion:"success"}]}};
- const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)"}};
+ const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)",steps:[...a.job.steps,{name:"Plaatje van de database bij (docs/DATABASE.md)",conclusion:"success"}]}};
  const bad={run:{...run,id:2,conclusion:"failure"},job:{...b.job,...later,conclusion:"failure"}};
  assert.equal(acceptanceProof([a,b,bad]),false);
  assert.equal(acceptanceProof([a,b,{run:{...run,run_attempt:2},job:{...b.job,...later}}]),false);
  assert.equal(acceptanceProof([a,b,{run,job:{...b.job,started_at:null}}]),false);
  assert.equal(acceptanceProof([a,b,{...bad,job:{...bad.job,conclusion:"skipped"}}]),true);
+});
+
+test("acceptatie vereist werkelijk uitgevoerde schema-documentatievergelijking",()=>{
+ const a={run,job:{...job,steps:[{name:"Geteste tree vastleggen",conclusion:"success"}]}};
+ const b={run,job:{...a.job,name:"Volledige testsuite (Node.js 26)"}};
+ assert.equal(acceptanceProof([a,b]),false);
+ assert.equal(acceptanceProof([a,{...b,job:{...b.job,steps:[...b.job.steps,{name:"Plaatje van de database bij (docs/DATABASE.md)",conclusion:"skipped"}]}}]),false);
+});
+test("release-diagrambewijs vereist werkelijke checkout en vergelijking, latere fout blokkeert",()=>{
+ const d={run,job:{...job,name:"Diagrammen voor technische acceptatie",steps:[{name:"Geteste commit en roadmap-SVG vastleggen",conclusion:"success"},{name:"Genereer technische diagrammen en controleer gepubliceerde SVG’s",conclusion:"success"}]}};
+ assert.equal(diagramProof([d]),true);
+ assert.equal(diagramProof([]),false);
+ assert.equal(diagramProof([{...d,job:{...d.job,steps:d.job.steps.slice(0,1)}}]),false);
+ assert.equal(diagramProof([d,{run:{...run,id:2,conclusion:"failure"},job:{...d.job,...later,conclusion:"failure"}}]),false);
+});
+
+import {readFileSync} from "node:fs";
+test("D115: concept-PR stelt alleen afgeleide schema-documentatie uit",()=>{
+ const doc=readFileSync(new URL("../.github/workflows/documentatie.yml",import.meta.url),"utf8");
+ const ci=readFileSync(new URL("../.github/workflows/tests.yml",import.meta.url),"utf8");
+ const diagram=readFileSync(new URL("../.github/workflows/diagrammen.yml",import.meta.url),"utf8");
+ const release=readFileSync(new URL("../.github/workflows/release.yml",import.meta.url),"utf8");
+ assert.ok(doc.includes("DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}"));
+ assert.match(doc,/if schema and os\.environ\["DRAFT"\] == "true":[\s\S]*?schema = False/);
+ assert.ok(ci.includes("run: tests/test_schema_plaatje.sh"));
+ const baseline=ci.slice(ci.indexOf("  database-baseline:"),ci.indexOf("  laptop-security:"));
+ assert.ok(baseline.includes("run: tests/test_migraties.sh")&&baseline.includes("tests/test_regels.py")&&baseline.includes("tests/test_historische_upgrade.sh"));
+ assert.ok(!baseline.includes("tools/schema_plaatje.py")&&baseline.includes("npm run openapi"));
+ assert.ok(diagram.includes("github.event.label.name == 'schema-generatie'")&&diagram.includes("mes-schema-documentatie"));
+ assert.ok(diagram.includes("diff -r docs/diagrams/rendered /tmp/mes-diagrams")&&diagram.includes("tests/test_schema_plaatje.sh"));
+ assert.ok(release.includes('--require-diagrams'));
 });

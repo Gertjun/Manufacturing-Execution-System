@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management'), (138, 'resource_catalog_read'), (139, 'equipment_capability'), (140, 'equipment_capability_manage'), (141, 'equipment_capacity'), (142, 'equipment_capacity_manage'), (143, 'equipment_suitability'), (144, 'equipment_status_history'), (145, 'equipment_status_manage'), (146, 'equipment_workstation'), (147, 'equipment_workstation_manage'), (148, 'downtime_equipment_context'), (149, 'resource_downtime'), (150, 'execution_session_workstation'), (151, 'resource_read_projections'), (152, 'resource_workstation_downtime_projections'), (153, 'resource_property_references'), (154, 'resource_downtime_replay_guard'), (155, 'resource_status_read'), (156, 'recipe_equipment_class_reference'), (157, 'recipe_equipment_property_reference'), (158, 'recipe_equipment_release_validation'), (159, 'recipe_equipment_linked_mutations'), (160, 'recipe_equipment_reference_catalog');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -10063,5 +10063,2166 @@ BEGIN
     RETURN v_actor;
 END $$;
 REVOKE ALL ON FUNCTION execution_bind_transaction(text,uuid) FROM PUBLIC;
+
+-- Migratie 0130: intern middelenhiërarchiefundament (#114.2).
+SET search_path = fabriek, public;
+
+-- Stabiele functionele hiërarchieknooppunten; geen fysieke assetidentiteit.
+CREATE TABLE equipment_hierarchy (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE CHECK (code = btrim(code) AND code ~ '[^[:space:]]'),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]'),
+    level text NOT NULL CHECK (level IN ('enterprise','site','area','cell','unit')),
+    parent_id uuid,
+    parent_level text GENERATED ALWAYS AS (
+        CASE level WHEN 'site' THEN 'enterprise' WHEN 'area' THEN 'site'
+                   WHEN 'cell' THEN 'area' WHEN 'unit' THEN 'cell' END
+    ) STORED,
+    UNIQUE (id, level),
+    CHECK ((level = 'enterprise') = (parent_id IS NULL)),
+    FOREIGN KEY (parent_id, parent_level) REFERENCES equipment_hierarchy(id, level)
+);
+CREATE INDEX equipment_hierarchy_parent ON equipment_hierarchy(parent_id);
+
+-- Geen hernummering, verplaatsing of verwijdering buiten een toekomstig
+-- gecontroleerd lifecyclecontract; de eigenaar kan de naam corrigeren.
+CREATE FUNCTION equipment_hierarchy_identity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF TG_OP='DELETE' THEN
+        RAISE EXCEPTION 'Middelenhiërarchie mag niet worden verwijderd' USING ERRCODE='55000';
+    END IF;
+    IF (NEW.id,NEW.code,NEW.level,NEW.parent_id) IS DISTINCT FROM
+       (OLD.id,OLD.code,OLD.level,OLD.parent_id) THEN
+        RAISE EXCEPTION 'Middelenhiërarchie-identiteit en ouder zijn onveranderlijk' USING ERRCODE='55000';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_hierarchy_identity_guard
+    BEFORE UPDATE OR DELETE ON equipment_hierarchy
+    FOR EACH ROW EXECUTE FUNCTION equipment_hierarchy_identity_guard();
+
+-- Geen applicatie-interface of automatische historische mapping.
+-- De bestaande 0077/0078 ACL-allowlists kennen deze tabel geen rechten toe.
+REVOKE ALL ON equipment_hierarchy FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_hierarchy_identity_guard() FROM PUBLIC;
+
+-- Migratie 0131: intern middelen- en classificatiefundament (#114.3).
+SET search_path = fabriek, public;
+
+-- Permanente classificatie-identiteit; nog geen receptvrijgavebewijs.
+CREATE TABLE equipment_class (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE CHECK (code = btrim(code) AND code ~ '[^[:space:]]'),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]')
+);
+
+-- Functionele identiteit, los van de later toegewezen fysieke asset.
+CREATE TABLE equipment (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE CHECK (code = btrim(code) AND code ~ '[^[:space:]]'),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]'),
+    hierarchy_id uuid NOT NULL REFERENCES equipment_hierarchy(id)
+);
+CREATE INDEX equipment_hierarchy_id_idx ON equipment(hierarchy_id);
+
+-- N:M classificatie; wijziging en intrekking vereisen later een lifecyclecontract.
+CREATE TABLE equipment_class_assignment (
+    equipment_id uuid NOT NULL REFERENCES equipment(id),
+    equipment_class_id uuid NOT NULL REFERENCES equipment_class(id),
+    PRIMARY KEY (equipment_id, equipment_class_id)
+);
+CREATE INDEX equipment_class_assignment_class_idx ON equipment_class_assignment(equipment_class_id);
+
+CREATE FUNCTION equipment_catalog_identity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF TG_OP='DELETE' THEN
+        RAISE EXCEPTION 'Middel of klasse mag niet worden verwijderd' USING ERRCODE='55000';
+    END IF;
+    IF (NEW.id,NEW.code) IS DISTINCT FROM (OLD.id,OLD.code) THEN
+        RAISE EXCEPTION 'Middel- of klasse-identiteit is onveranderlijk' USING ERRCODE='55000';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_class_identity_guard
+    BEFORE UPDATE OR DELETE ON equipment_class
+    FOR EACH ROW EXECUTE FUNCTION equipment_catalog_identity_guard();
+CREATE TRIGGER equipment_identity_guard
+    BEFORE UPDATE OR DELETE ON equipment
+    FOR EACH ROW EXECUTE FUNCTION equipment_catalog_identity_guard();
+
+CREATE FUNCTION equipment_location_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF NEW.hierarchy_id IS DISTINCT FROM OLD.hierarchy_id THEN
+        RAISE EXCEPTION 'Middelenlocatie vereist gecontroleerde verplaatsing' USING ERRCODE='55000';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_location_guard BEFORE UPDATE ON equipment
+    FOR EACH ROW EXECUTE FUNCTION equipment_location_guard();
+
+CREATE FUNCTION equipment_class_assignment_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    RAISE EXCEPTION 'Klassekoppeling vereist gecontroleerde lifecycle' USING ERRCODE='55000';
+END $$;
+CREATE TRIGGER equipment_class_assignment_guard
+    BEFORE UPDATE OR DELETE ON equipment_class_assignment
+    FOR EACH ROW EXECUTE FUNCTION equipment_class_assignment_guard();
+
+-- Geen applicatie-interface of automatische historische mapping.
+-- De bestaande 0077/0078 ACL-allowlists kennen deze tabellen geen rechten toe.
+REVOKE ALL ON equipment_class, equipment, equipment_class_assignment FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_catalog_identity_guard(), equipment_location_guard(), equipment_class_assignment_guard() FROM PUBLIC;
+
+-- Migratie 0132: fysieke assets en historische middeltoewijzing (#114.4).
+SET search_path = fabriek, public;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+
+CREATE TABLE physical_asset (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE CHECK (code = btrim(code) AND code ~ '[^[:space:]]'),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]')
+);
+CREATE TRIGGER physical_asset_identity_guard
+    BEFORE UPDATE OR DELETE ON physical_asset
+    FOR EACH ROW EXECUTE FUNCTION equipment_catalog_identity_guard();
+
+-- Een asset kan op een gegeven moment maar aan één functioneel middel
+-- gekoppeld zijn. Een middel kan meerdere afzonderlijke assets bevatten.
+-- Halfopen intervallen: aansluitende toewijzingen zijn toegestaan.
+CREATE TABLE equipment_asset_assignment (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    equipment_id uuid NOT NULL REFERENCES equipment(id),
+    physical_asset_id uuid NOT NULL REFERENCES physical_asset(id),
+    valid_from timestamptz NOT NULL CHECK (isfinite(valid_from)),
+    valid_until timestamptz,
+    CHECK (valid_until IS NULL OR (isfinite(valid_until) AND valid_until > valid_from)),
+    EXCLUDE USING gist (
+        physical_asset_id WITH =,
+        tstzrange(valid_from,valid_until,'[)') WITH &&
+    )
+);
+CREATE INDEX equipment_asset_assignment_equipment_idx ON equipment_asset_assignment(equipment_id);
+
+CREATE FUNCTION equipment_asset_assignment_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF TG_OP='DELETE' THEN
+        RAISE EXCEPTION 'Assettoewijzing mag niet worden verwijderd' USING ERRCODE='55000';
+    END IF;
+    IF (NEW.id,NEW.equipment_id,NEW.physical_asset_id,NEW.valid_from)
+        IS DISTINCT FROM (OLD.id,OLD.equipment_id,OLD.physical_asset_id,OLD.valid_from)
+       OR OLD.valid_until IS NOT NULL OR NEW.valid_until IS NULL THEN
+        RAISE EXCEPTION 'Assettoewijzing mag uitsluitend eenmaal worden afgesloten' USING ERRCODE='55000';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_asset_assignment_guard
+    BEFORE UPDATE OR DELETE ON equipment_asset_assignment
+    FOR EACH ROW EXECUTE FUNCTION equipment_asset_assignment_guard();
+
+-- Alleen intern fundament; persoonlijke afsluitinterface en audit volgen.
+REVOKE ALL ON physical_asset, equipment_asset_assignment FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_asset_assignment_guard() FROM PUBLIC;
+
+-- Migratie 0133: expliciet persoonlijk catalogusbeheer (#114.5a).
+SET search_path = fabriek, public;
+INSERT INTO authorization_role(code,domain) VALUES ('resource_catalog_manager','maintenance');
+INSERT INTO authorization_permission(code,domain) VALUES ('resource.catalog.manage','maintenance');
+INSERT INTO authorization_role_permission(role_code,permission_code)
+VALUES ('resource_catalog_manager','resource.catalog.manage');
+
+-- Alleen expliciet globale grants; geen impliciete interpretatie van legacy-scopes.
+CREATE FUNCTION resource_catalog_actor() RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'resource.catalog.manage',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale middelenbeheerbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    RETURN actor;
+END $$;
+
+ALTER TABLE equipment_class ADD COLUMN change_no integer NOT NULL DEFAULT 0 CHECK (change_no >= 0);
+CREATE TRIGGER equipment_class_audit AFTER INSERT OR UPDATE ON equipment_class
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE FUNCTION resource_class_create(p_code text,p_name text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO equipment_class(code,name) VALUES (p_code,p_name) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_class_rename(p_id uuid,p_expected integer,p_name text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; result_no integer;
+BEGIN
+    PERFORM resource_catalog_actor();
+    SELECT change_no INTO current_no FROM equipment_class WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR current_no IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Equipmentklasse ontbreekt of is gewijzigd' USING ERRCODE='40001';
+    END IF;
+    UPDATE equipment_class SET name=p_name,change_no=current_no+1
+        WHERE id=p_id RETURNING change_no INTO result_no;
+    RETURN result_no;
+END $$;
+REVOKE ALL ON FUNCTION resource_catalog_actor(),resource_class_create(text,text),resource_class_rename(uuid,integer,text) FROM PUBLIC;
+
+-- Migratie 0134: persoonlijk beheer van hiërarchie, middelen en fysieke assets (#114.5b).
+SET search_path = fabriek, public;
+
+-- Identiteiten, ouders en locaties blijven onveranderlijk. Alleen expliciet globaal beheer.
+ALTER TABLE equipment_hierarchy ADD COLUMN change_no integer NOT NULL DEFAULT 0 CHECK (change_no >= 0);
+CREATE TRIGGER equipment_hierarchy_audit AFTER INSERT OR UPDATE ON equipment_hierarchy
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE FUNCTION resource_hierarchy_create(p_code text,p_name text,p_level text,p_parent uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES (p_code,p_name,p_level,p_parent) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_hierarchy_rename(p_id uuid,p_expected integer,p_name text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; result_no integer;
+BEGIN
+    PERFORM resource_catalog_actor();
+    SELECT change_no INTO current_no FROM equipment_hierarchy WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR current_no IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Catalogusobject ontbreekt of is gewijzigd' USING ERRCODE='40001';
+    END IF;
+    UPDATE equipment_hierarchy SET name=p_name,change_no=current_no+1
+        WHERE id=p_id RETURNING change_no INTO result_no;
+    RETURN result_no;
+END $$;
+
+ALTER TABLE equipment ADD COLUMN change_no integer NOT NULL DEFAULT 0 CHECK (change_no >= 0);
+CREATE TRIGGER equipment_audit AFTER INSERT OR UPDATE ON equipment
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE FUNCTION resource_equipment_create(p_code text,p_name text,p_hierarchy uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO equipment(code,name,hierarchy_id) VALUES (p_code,p_name,p_hierarchy) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_equipment_rename(p_id uuid,p_expected integer,p_name text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; result_no integer;
+BEGIN
+    PERFORM resource_catalog_actor();
+    SELECT change_no INTO current_no FROM equipment WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR current_no IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Catalogusobject ontbreekt of is gewijzigd' USING ERRCODE='40001';
+    END IF;
+    UPDATE equipment SET name=p_name,change_no=current_no+1
+        WHERE id=p_id RETURNING change_no INTO result_no;
+    RETURN result_no;
+END $$;
+
+ALTER TABLE physical_asset ADD COLUMN change_no integer NOT NULL DEFAULT 0 CHECK (change_no >= 0);
+CREATE TRIGGER physical_asset_audit AFTER INSERT OR UPDATE ON physical_asset
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE FUNCTION resource_asset_create(p_code text,p_name text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO physical_asset(code,name) VALUES (p_code,p_name) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_asset_rename(p_id uuid,p_expected integer,p_name text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; result_no integer;
+BEGIN
+    PERFORM resource_catalog_actor();
+    SELECT change_no INTO current_no FROM physical_asset WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR current_no IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Catalogusobject ontbreekt of is gewijzigd' USING ERRCODE='40001';
+    END IF;
+    UPDATE physical_asset SET name=p_name,change_no=current_no+1
+        WHERE id=p_id RETURNING change_no INTO result_no;
+    RETURN result_no;
+END $$;
+
+REVOKE ALL ON FUNCTION resource_hierarchy_create(text,text,text,uuid),
+    resource_hierarchy_rename(uuid,integer,text),
+    resource_equipment_create(text,text,uuid),
+    resource_equipment_rename(uuid,integer,text),
+    resource_asset_create(text,text),
+    resource_asset_rename(uuid,integer,text) FROM PUBLIC;
+
+-- Migratie 0135: persoonlijk beheer van klassekoppelingen en assettoewijzingen (#114.5c).
+SET search_path = fabriek, public;
+
+-- Permanente auditidentiteit naast de bestaande samengestelde primaire sleutel.
+ALTER TABLE equipment_class_assignment ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE;
+CREATE TRIGGER equipment_class_assignment_audit AFTER INSERT ON equipment_class_assignment
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER equipment_asset_assignment_audit AFTER INSERT OR UPDATE ON equipment_asset_assignment
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+CREATE FUNCTION resource_class_assign(p_equipment uuid,p_class uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO equipment_class_assignment(equipment_id,equipment_class_id)
+        VALUES (p_equipment,p_class) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_asset_assign(p_equipment uuid,p_asset uuid,p_from timestamptz) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO equipment_asset_assignment(equipment_id,physical_asset_id,valid_from)
+        VALUES (p_equipment,p_asset,p_from) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_asset_close(p_assignment uuid,p_until timestamptz) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    IF p_until IS NULL THEN
+        RAISE EXCEPTION 'Afsluitmoment is verplicht' USING ERRCODE='22004';
+    END IF;
+    UPDATE equipment_asset_assignment SET valid_until=p_until
+        WHERE id=p_assignment AND valid_until IS NULL RETURNING id INTO target;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Open assettoewijzing ontbreekt of is reeds afgesloten' USING ERRCODE='40001';
+    END IF;
+    RETURN target;
+END $$;
+
+REVOKE ALL ON FUNCTION resource_class_assign(uuid,uuid),
+    resource_asset_assign(uuid,uuid,timestamptz),
+    resource_asset_close(uuid,timestamptz) FROM PUBLIC;
+
+-- Migratie 0136: expliciete scopes voor middelenbeheer (#114.5d).
+SET search_path = fabriek, public;
+CREATE TABLE resource_area_scope (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    area_code text NOT NULL UNIQUE CHECK (area_code=btrim(area_code) AND area_code ~ '[^[:space:]]'),
+    hierarchy_id uuid NOT NULL UNIQUE,
+    hierarchy_level text GENERATED ALWAYS AS ('area'::text) STORED,
+    FOREIGN KEY (hierarchy_id,hierarchy_level) REFERENCES equipment_hierarchy(id,level)
+);
+CREATE TABLE resource_equipment_scope (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    equipment_code text NOT NULL UNIQUE CHECK (equipment_code=btrim(equipment_code) AND equipment_code ~ '[^[:space:]]'),
+    equipment_id uuid NOT NULL UNIQUE REFERENCES equipment(id)
+);
+REVOKE ALL ON resource_area_scope,resource_equipment_scope FROM PUBLIC;
+CREATE TRIGGER resource_area_scope_audit AFTER INSERT ON resource_area_scope
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER resource_equipment_scope_audit AFTER INSERT ON resource_equipment_scope
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE FUNCTION resource_scope_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    RAISE EXCEPTION 'Scopemapping is onveranderlijk; gecontroleerde lifecycle vereist' USING ERRCODE='55000';
+END $$;
+CREATE TRIGGER resource_area_scope_guard BEFORE UPDATE OR DELETE ON resource_area_scope
+    FOR EACH ROW EXECUTE FUNCTION resource_scope_guard();
+CREATE TRIGGER resource_equipment_scope_guard BEFORE UPDATE OR DELETE ON resource_equipment_scope
+    FOR EACH ROW EXECUTE FUNCTION resource_scope_guard();
+
+-- Context wordt uitsluitend uit de catalogus afgeleid. Geen productcontext.
+CREATE FUNCTION resource_scoped_actor(p_hierarchy uuid,p_equipment uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_hierarchy uuid; v_area text; v_equipment text;
+BEGIN
+    actor:=execution_transaction_actor();
+    IF p_equipment IS NOT NULL THEN
+        SELECT hierarchy_id INTO v_hierarchy FROM equipment WHERE id=p_equipment;
+        SELECT equipment_code INTO v_equipment FROM resource_equipment_scope WHERE equipment_id=p_equipment;
+    ELSE
+        v_hierarchy:=p_hierarchy;
+    END IF;
+    WITH RECURSIVE ancestors AS (
+        SELECT id,parent_id,level FROM equipment_hierarchy WHERE id=v_hierarchy
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN ancestors a ON h.id=a.parent_id
+    )
+    SELECT s.area_code INTO v_area FROM ancestors a JOIN resource_area_scope s ON s.hierarchy_id=a.id
+        WHERE a.level='area';
+    IF authorization_permits(actor,'resource.catalog.manage',v_area,NULL,v_equipment) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele middelenbeheerbevoegdheid voor deze scope' USING ERRCODE='42501';
+    END IF;
+    RETURN actor;
+END $$;
+REVOKE ALL ON FUNCTION resource_scope_guard(),resource_scoped_actor(uuid,uuid) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION resource_hierarchy_create(p_code text,p_name text,p_level text,p_parent uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_scoped_actor(p_parent,NULL);
+    INSERT INTO equipment_hierarchy(code,name,level,parent_id) VALUES (p_code,p_name,p_level,p_parent) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE OR REPLACE FUNCTION resource_hierarchy_rename(p_id uuid,p_expected integer,p_name text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; result_no integer;
+BEGIN
+    PERFORM resource_scoped_actor(p_id,NULL);
+    SELECT change_no INTO current_no FROM equipment_hierarchy WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR current_no IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Catalogusobject ontbreekt of is gewijzigd' USING ERRCODE='40001';
+    END IF;
+    UPDATE equipment_hierarchy SET name=p_name,change_no=current_no+1
+        WHERE id=p_id RETURNING change_no INTO result_no;
+    RETURN result_no;
+END $$;
+
+CREATE OR REPLACE FUNCTION resource_equipment_create(p_code text,p_name text,p_hierarchy uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_scoped_actor(p_hierarchy,NULL);
+    INSERT INTO equipment(code,name,hierarchy_id) VALUES (p_code,p_name,p_hierarchy) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE OR REPLACE FUNCTION resource_equipment_rename(p_id uuid,p_expected integer,p_name text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; result_no integer;
+BEGIN
+    PERFORM resource_scoped_actor(NULL,p_id);
+    SELECT change_no INTO current_no FROM equipment WHERE id=p_id FOR UPDATE;
+    IF NOT FOUND OR current_no IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Catalogusobject ontbreekt of is gewijzigd' USING ERRCODE='40001';
+    END IF;
+    UPDATE equipment SET name=p_name,change_no=current_no+1
+        WHERE id=p_id RETURNING change_no INTO result_no;
+    RETURN result_no;
+END $$;
+
+CREATE OR REPLACE FUNCTION resource_class_assign(p_equipment uuid,p_class uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_scoped_actor(NULL,p_equipment);
+    INSERT INTO equipment_class_assignment(equipment_id,equipment_class_id)
+        VALUES (p_equipment,p_class) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE OR REPLACE FUNCTION resource_asset_close(p_assignment uuid,p_until timestamptz) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_scoped_actor(NULL,(SELECT equipment_id FROM equipment_asset_assignment WHERE id=p_assignment));
+    IF p_until IS NULL THEN
+        RAISE EXCEPTION 'Afsluitmoment is verplicht' USING ERRCODE='22004';
+    END IF;
+    UPDATE equipment_asset_assignment SET valid_until=p_until
+        WHERE id=p_assignment AND valid_until IS NULL RETURNING id INTO target;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Open assettoewijzing ontbreekt of is reeds afgesloten' USING ERRCODE='40001';
+    END IF;
+    RETURN target;
+END $$;
+
+-- Migratie 0137: persoonlijk beheer van expliciete scopemappings (#114.5d).
+SET search_path = fabriek, public;
+-- Afzonderlijke security-permissie, geen automatische grants of uitbreiding bestaande rollen.
+INSERT INTO authorization_role(code,domain) VALUES ('resource_scope_administrator','security');
+INSERT INTO authorization_permission(code,domain) VALUES ('resource.scope.manage','security');
+INSERT INTO authorization_role_permission(role_code,permission_code)
+VALUES ('resource_scope_administrator','resource.scope.manage');
+
+CREATE FUNCTION resource_scope_actor() RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'resource.scope.manage',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen globale persoonlijke scopemappingbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    RETURN actor;
+END $$;
+
+CREATE FUNCTION resource_area_scope_create(p_code text,p_hierarchy uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_scope_actor();
+    INSERT INTO resource_area_scope(area_code,hierarchy_id) VALUES (p_code,p_hierarchy) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_equipment_scope_create(p_code text,p_equipment uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_scope_actor();
+    INSERT INTO resource_equipment_scope(equipment_code,equipment_id) VALUES (p_code,p_equipment) RETURNING id INTO target;
+    RETURN target;
+END $$;
+REVOKE ALL ON FUNCTION resource_scope_actor(),resource_area_scope_create(text,uuid),
+    resource_equipment_scope_create(text,uuid) FROM PUBLIC;
+
+-- Migratie 0138: persoonlijke beperkte leesinterface (#114.6a).
+SET search_path = fabriek, public;
+
+-- Dezelfde vertrouwde context als bij de mutaties. Interne helper, geen app-ACL.
+CREATE FUNCTION resource_catalog_visible(p_actor uuid,p_hierarchy uuid,p_equipment uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+    WITH RECURSIVE location AS (
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h
+        WHERE h.id=CASE WHEN p_equipment IS NULL THEN p_hierarchy
+                        ELSE (SELECT e.hierarchy_id FROM equipment e WHERE e.id=p_equipment) END
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN location l ON h.id=l.parent_id
+    )
+    SELECT authorization_permits(p_actor,'resource.catalog.manage',
+        (SELECT s.area_code FROM location l JOIN resource_area_scope s ON s.hierarchy_id=l.id WHERE l.level='area'),
+        NULL,
+        (SELECT s.equipment_code FROM resource_equipment_scope s WHERE s.equipment_id=p_equipment))
+$$;
+
+-- Expliciete projectie; geen directe tabeltoegang of client-scope.
+-- Voor begrensde beheerders alleen toegestane middelen en hun eigen historie.
+-- Globale klassen mogen als referentie worden gelezen, maar alleen wanneer
+-- ten minste één concrete cataloguscontext is toegestaan.
+CREATE FUNCTION resource_catalog_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_global boolean; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    v_global:=authorization_permits(actor,'resource.catalog.manage',NULL,NULL,NULL);
+    WITH visible_equipment AS MATERIALIZED (
+        SELECT e.id,e.code,e.name,e.hierarchy_id,e.change_no FROM equipment e
+        WHERE resource_catalog_visible(actor,NULL,e.id)
+    ), visible_hierarchy AS MATERIALIZED (
+        SELECT h.id,h.code,h.name,h.level,h.parent_id,h.change_no FROM equipment_hierarchy h
+        WHERE resource_catalog_visible(actor,h.id,NULL)
+    ), visible_assignments AS MATERIALIZED (
+        SELECT a.id,a.equipment_id,a.physical_asset_id,a.valid_from,a.valid_until
+        FROM equipment_asset_assignment a JOIN visible_equipment e ON e.id=a.equipment_id
+    )
+    SELECT jsonb_build_object(
+        'global',v_global,
+        'hierarchy',coalesce((SELECT jsonb_agg(to_jsonb(h) ORDER BY h.code) FROM visible_hierarchy h),'[]'::jsonb),
+        'equipment',coalesce((SELECT jsonb_agg(to_jsonb(e) ORDER BY e.code) FROM visible_equipment e),'[]'::jsonb),
+        'classes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',c.id,'code',c.code,'name',c.name,'change_no',c.change_no) ORDER BY c.code)
+            FROM equipment_class c WHERE v_global OR EXISTS (SELECT 1 FROM visible_equipment) OR EXISTS (SELECT 1 FROM visible_hierarchy)),'[]'::jsonb),
+        'class_assignments',coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'equipment_id',a.equipment_id,'equipment_class_id',a.equipment_class_id) ORDER BY a.id)
+            FROM equipment_class_assignment a JOIN visible_equipment e ON e.id=a.equipment_id),'[]'::jsonb),
+        'assets',coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'code',a.code,'name',a.name,'change_no',a.change_no) ORDER BY a.code)
+            FROM physical_asset a WHERE v_global OR EXISTS (SELECT 1 FROM visible_assignments x WHERE x.physical_asset_id=a.id)),'[]'::jsonb),
+        'asset_assignments',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY a.valid_from,a.id) FROM visible_assignments a),'[]'::jsonb)
+    ) INTO result;
+    IF NOT v_global AND jsonb_array_length(result->'hierarchy')=0 AND jsonb_array_length(result->'equipment')=0 THEN
+        RAISE EXCEPTION 'Geen actuele zichtbare middelenbeheercontext' USING ERRCODE='42501';
+    END IF;
+    RETURN result;
+END $$;
+
+-- Security mag alleen identifiers en namen lezen die voor mapping nodig zijn;
+-- geen classificatie, assethistorie of inhoudelijke mutatie.
+CREATE FUNCTION resource_scope_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    PERFORM resource_scope_actor();
+    RETURN jsonb_build_object(
+        'areas',coalesce((SELECT jsonb_agg(jsonb_build_object('id',h.id,'code',h.code,'name',h.name) ORDER BY h.code)
+            FROM equipment_hierarchy h WHERE h.level='area'),'[]'::jsonb),
+        'equipment',coalesce((SELECT jsonb_agg(jsonb_build_object('id',e.id,'code',e.code,'name',e.name,'hierarchy_id',e.hierarchy_id) ORDER BY e.code)
+            FROM equipment e),'[]'::jsonb),
+        'area_scopes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'area_code',s.area_code,'hierarchy_id',s.hierarchy_id) ORDER BY s.area_code)
+            FROM resource_area_scope s),'[]'::jsonb),
+        'equipment_scopes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'equipment_code',s.equipment_code,'equipment_id',s.equipment_id) ORDER BY s.equipment_code)
+            FROM resource_equipment_scope s),'[]'::jsonb)
+    );
+END $$;
+REVOKE ALL ON FUNCTION resource_catalog_visible(uuid,uuid,uuid),resource_catalog_list(),resource_scope_list() FROM PUBLIC;
+
+-- Migratie 0139: intern fundament voor getypeerde numerieke middelenkenmerken (#115.1).
+SET search_path = fabriek, public;
+
+CREATE TABLE equipment_property_definition (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code text NOT NULL UNIQUE CHECK (code = btrim(code) AND code ~ '[^[:space:]]' AND length(code)<=100),
+    name text NOT NULL CHECK (name ~ '[^[:space:]]' AND length(name)<=250),
+    quantity_kind_id uuid NOT NULL REFERENCES quantity_kind(id),
+    measurement_unit_id uuid NOT NULL,
+    FOREIGN KEY (quantity_kind_id,measurement_unit_id) REFERENCES measurement_unit(quantity_kind_id,id)
+);
+
+CREATE TABLE equipment_capability (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    equipment_id uuid NOT NULL REFERENCES equipment(id),
+    property_definition_id uuid NOT NULL REFERENCES equipment_property_definition(id),
+    UNIQUE (equipment_id,property_definition_id)
+);
+CREATE INDEX equipment_capability_property_idx ON equipment_capability(property_definition_id);
+
+CREATE TABLE equipment_capability_revision (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    capability_id uuid NOT NULL REFERENCES equipment_capability(id),
+    revision integer NOT NULL CHECK (revision>0),
+    value numeric NOT NULL CHECK (value NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
+    created_by uuid NOT NULL REFERENCES gebruiker(id),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp() CHECK (isfinite(created_at)),
+    reason text NOT NULL CHECK (reason ~ '[^[:space:]]' AND length(reason)<=2000),
+    UNIQUE (capability_id,revision)
+);
+
+-- Eerste slice: identiteit en historie append-only, ook voor de eigenaar.
+-- Naamcorrectie en persoonlijke actorbinding volgen in de beheerinterface.
+CREATE FUNCTION equipment_capability_immutable() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    RAISE EXCEPTION 'Middeleneigenschap of revisie is onveranderlijk' USING ERRCODE='55000';
+END $$;
+CREATE TRIGGER equipment_property_definition_immutable
+    BEFORE UPDATE OR DELETE ON equipment_property_definition
+    FOR EACH ROW EXECUTE FUNCTION equipment_capability_immutable();
+CREATE TRIGGER equipment_capability_immutable
+    BEFORE UPDATE OR DELETE ON equipment_capability
+    FOR EACH ROW EXECUTE FUNCTION equipment_capability_immutable();
+CREATE TRIGGER equipment_capability_revision_immutable
+    BEFORE UPDATE OR DELETE ON equipment_capability_revision
+    FOR EACH ROW EXECUTE FUNCTION equipment_capability_immutable();
+
+-- Volgorde en serialisatie per capability. De persoonlijke beheerfunctie
+-- controleert later bovendien de door de gebruiker verwachte vorige revisie.
+CREATE FUNCTION equipment_capability_revision_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE previous_revision integer;
+BEGIN
+    PERFORM id FROM equipment_capability WHERE id=NEW.capability_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekende capability' USING ERRCODE='23503';
+    END IF;
+    SELECT coalesce(max(revision),0) INTO previous_revision
+        FROM equipment_capability_revision WHERE capability_id=NEW.capability_id;
+    IF NEW.revision::bigint <> previous_revision::bigint+1 THEN
+        RAISE EXCEPTION 'Ongeldige of verouderde capabilityrevisie' USING ERRCODE='40001';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_capability_revision_guard
+    BEFORE INSERT ON equipment_capability_revision
+    FOR EACH ROW EXECUTE FUNCTION equipment_capability_revision_guard();
+
+REVOKE ALL ON equipment_property_definition,equipment_capability,equipment_capability_revision FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_capability_immutable(),equipment_capability_revision_guard() FROM PUBLIC;
+
+-- Migratie 0140: persoonlijk beheer van getypeerde middelenkenmerken (#115.1c).
+SET search_path = fabriek, public;
+
+CREATE TRIGGER equipment_property_definition_audit AFTER INSERT ON equipment_property_definition
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER equipment_capability_audit AFTER INSERT ON equipment_capability
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+CREATE TRIGGER equipment_capability_revision_audit AFTER INSERT ON equipment_capability_revision
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Eigenschapsdefinities zijn globale referentiegegevens.
+CREATE FUNCTION resource_property_create(p_code text,p_name text,p_kind uuid,p_unit uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE target uuid;
+BEGIN
+    PERFORM resource_catalog_actor();
+    INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id)
+        VALUES (p_code,p_name,p_kind,p_unit) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+-- Identiteit en eerste revisie in dezelfde transactie; geen lege capability
+-- via de applicatie. Een fout in de revisie draait ook de identiteit terug.
+CREATE FUNCTION resource_capability_create(p_equipment uuid,p_property uuid,p_value numeric,p_reason text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid;
+BEGIN
+    actor:=resource_scoped_actor(NULL,p_equipment);
+    INSERT INTO equipment_capability(equipment_id,property_definition_id)
+        VALUES (p_equipment,p_property) RETURNING id INTO target;
+    INSERT INTO equipment_capability_revision(capability_id,revision,value,created_by,reason)
+        VALUES (target,1,p_value,actor,p_reason);
+    RETURN target;
+END $$;
+
+-- Autoriseer op de onveranderlijke, serverzijdig afgeleide middelcontext.
+-- Onbekende doelen worden niet als globale scope behandeld.
+CREATE FUNCTION resource_capability_revise(p_capability uuid,p_expected integer,p_value numeric,p_reason text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_equipment uuid; previous_revision integer; next_revision integer;
+BEGIN
+    SELECT equipment_id INTO v_equipment FROM equipment_capability WHERE id=p_capability;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen actuele middelenbeheerbevoegdheid voor deze scope' USING ERRCODE='42501';
+    END IF;
+    actor:=resource_scoped_actor(NULL,v_equipment);
+    PERFORM id FROM equipment_capability WHERE id=p_capability FOR UPDATE;
+    SELECT coalesce(max(revision),0) INTO previous_revision
+        FROM equipment_capability_revision WHERE capability_id=p_capability;
+    IF previous_revision=0 OR previous_revision IS DISTINCT FROM p_expected OR previous_revision=2147483647 THEN
+        RAISE EXCEPTION 'Capability ontbreekt of revisie is verouderd' USING ERRCODE='40001';
+    END IF;
+    next_revision:=previous_revision+1;
+    INSERT INTO equipment_capability_revision(capability_id,revision,value,created_by,reason)
+        VALUES (p_capability,next_revision,p_value,actor,p_reason);
+    RETURN next_revision;
+END $$;
+
+REVOKE ALL ON FUNCTION resource_property_create(text,text,uuid,uuid),
+    resource_capability_create(uuid,uuid,numeric,text),
+    resource_capability_revise(uuid,integer,numeric,text) FROM PUBLIC;
+
+-- Migratie 0141: expliciete technische capaciteitsaanwijzing (#115.2b).
+SET search_path = fabriek, public;
+
+-- Geen tweede waarde of eenheid: beide volgen uit de capability.
+CREATE TABLE equipment_capacity (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    capability_id uuid NOT NULL UNIQUE REFERENCES equipment_capability(id)
+);
+
+CREATE FUNCTION equipment_capacity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_value numeric;
+BEGIN
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Capaciteitsaanwijzing vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment_capability WHERE id=NEW.capability_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekende capability' USING ERRCODE='23503';
+    END IF;
+    SELECT value INTO current_value FROM equipment_capability_revision
+        WHERE capability_id=NEW.capability_id ORDER BY revision DESC LIMIT 1;
+    IF NOT FOUND OR current_value<=0 OR current_value IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric) THEN
+        RAISE EXCEPTION 'Technische capaciteit vereist een positieve eindige actuele waarde' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_capacity_guard BEFORE INSERT ON equipment_capacity
+    FOR EACH ROW EXECUTE FUNCTION equipment_capacity_guard();
+CREATE TRIGGER equipment_capacity_immutable BEFORE UPDATE OR DELETE ON equipment_capacity
+    FOR EACH ROW EXECUTE FUNCTION equipment_capability_immutable();
+
+-- Gebruik dezelfde rijlock bij beide schrijfpaden. Read committed is nodig
+-- voor een verse snapshot na de lock; hogere isolatieniveaus zijn hier niet
+-- ondersteund omdat een aanwijzing anders buiten de snapshot kan vallen.
+CREATE OR REPLACE FUNCTION equipment_capability_revision_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE previous_revision integer;
+BEGIN
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Capabilityrevisie vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment_capability WHERE id=NEW.capability_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekende capability' USING ERRCODE='23503';
+    END IF;
+    SELECT coalesce(max(revision),0) INTO previous_revision
+        FROM equipment_capability_revision WHERE capability_id=NEW.capability_id;
+    IF NEW.revision::bigint <> previous_revision::bigint+1 THEN
+        RAISE EXCEPTION 'Ongeldige of verouderde capabilityrevisie' USING ERRCODE='40001';
+    END IF;
+    IF EXISTS (SELECT 1 FROM equipment_capacity WHERE capability_id=NEW.capability_id)
+       AND (NEW.value<=0 OR NEW.value IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)) THEN
+        RAISE EXCEPTION 'Technische capaciteit vereist een positieve eindige waarde' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+END $$;
+REVOKE ALL ON equipment_capacity FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_capacity_guard(),equipment_capability_revision_guard() FROM PUBLIC;
+
+-- Migratie 0142: persoonlijke technische capaciteitsaanwijzing (#115.2c).
+SET search_path = fabriek, public;
+
+CREATE TRIGGER equipment_capacity_audit AFTER INSERT ON equipment_capacity
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+
+-- Scope uit de onveranderlijke capability, geen door de client gekozen scope.
+-- Verlang de expliciet beoordeelde revisie, ook als de nieuwe waarde positief is.
+CREATE FUNCTION resource_capacity_designate(p_capability uuid,p_expected integer) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_equipment uuid; current_revision integer; target uuid;
+BEGIN
+    SELECT equipment_id INTO v_equipment FROM equipment_capability WHERE id=p_capability;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen actuele middelenbeheerbevoegdheid voor deze scope' USING ERRCODE='42501';
+    END IF;
+    PERFORM resource_scoped_actor(NULL,v_equipment);
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Capaciteitsaanwijzing vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment_capability WHERE id=p_capability FOR UPDATE;
+    SELECT max(revision) INTO current_revision
+        FROM equipment_capability_revision WHERE capability_id=p_capability;
+    IF current_revision IS NULL OR current_revision IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Capability ontbreekt of revisie is verouderd' USING ERRCODE='40001';
+    END IF;
+    INSERT INTO equipment_capacity(capability_id)
+        VALUES (p_capability) RETURNING id INTO target;
+    RETURN target;
+END $$;
+REVOKE ALL ON FUNCTION resource_capacity_designate(uuid,integer) FROM PUBLIC;
+
+-- Migratie 0143: interne technische geschiktheidsvergelijking (#115.2d).
+SET search_path = fabriek, public;
+
+-- Eén klasse en optioneel één expliciet numeriek criterium per vergelijking.
+-- Geen beschikbaarheids-, allocatie-, veiligheids- of vrijgavebesluit.
+CREATE FUNCTION equipment_suitability(
+    p_equipment uuid,p_class uuid,p_property uuid DEFAULT NULL,
+    p_unit uuid DEFAULT NULL,p_operator text DEFAULT NULL,
+    p_limit numeric DEFAULT NULL,p_capacity boolean DEFAULT false
+) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE
+    class_status text; property_status text; property_reason text;
+    result_status text; v_revision uuid; v_value numeric;
+    v_unit uuid; v_designated boolean; v_match boolean;
+BEGIN
+    IF p_equipment IS NULL OR p_class IS NULL OR p_capacity IS NULL
+       OR (p_property IS NULL AND (p_unit IS NOT NULL OR p_operator IS NOT NULL OR p_limit IS NOT NULL OR p_capacity))
+       OR (p_property IS NOT NULL AND (p_unit IS NULL OR p_operator IS NULL
+           OR p_operator NOT IN ('minimum','maximum','equal') OR p_limit IS NULL
+           OR p_limit IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+           OR (p_capacity AND (p_operator<>'minimum' OR p_limit<=0)))) THEN
+        RAISE EXCEPTION 'Ongeldig technisch geschiktheidscriterium' USING ERRCODE='22023';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM equipment WHERE id=p_equipment)
+       OR NOT EXISTS (SELECT 1 FROM equipment_class WHERE id=p_class) THEN
+        class_status:='unknown';
+    ELSIF EXISTS (SELECT 1 FROM equipment_class_assignment
+                  WHERE equipment_id=p_equipment AND equipment_class_id=p_class) THEN
+        class_status:='suitable';
+    ELSE
+        class_status:='unsuitable';
+    END IF;
+
+    IF p_property IS NOT NULL THEN
+        property_status:='unknown';
+        SELECT d.measurement_unit_id INTO v_unit FROM equipment_property_definition d WHERE d.id=p_property;
+        IF NOT FOUND THEN
+            property_reason:='unknown_property';
+        ELSIF v_unit IS DISTINCT FROM p_unit THEN
+            property_reason:='unit_mismatch';
+        ELSE
+            SELECT v.id,v.value,EXISTS(SELECT 1 FROM equipment_capacity x WHERE x.capability_id=c.id)
+                INTO v_revision,v_value,v_designated
+                FROM equipment_capability c
+                JOIN LATERAL (SELECT id,value FROM equipment_capability_revision
+                    WHERE capability_id=c.id ORDER BY revision DESC LIMIT 1) v ON true
+                WHERE c.equipment_id=p_equipment AND c.property_definition_id=p_property;
+            IF NOT FOUND THEN
+                property_reason:='missing_capability';
+            ELSIF p_capacity AND NOT v_designated THEN
+                property_reason:='missing_capacity_designation';
+            ELSE
+                v_match:=CASE p_operator WHEN 'minimum' THEN v_value>=p_limit
+                    WHEN 'maximum' THEN v_value<=p_limit ELSE v_value=p_limit END;
+                property_status:=CASE WHEN v_match THEN 'suitable' ELSE 'unsuitable' END;
+                property_reason:=CASE WHEN v_match THEN 'criterion_met' ELSE 'criterion_not_met' END;
+            END IF;
+        END IF;
+    END IF;
+
+    -- Een bewezen negatief criterium heeft voorrang op onbekende gegevens.
+    result_status:=CASE WHEN class_status='unsuitable' OR property_status='unsuitable' THEN 'unsuitable'
+        WHEN class_status='unknown' OR property_status='unknown' THEN 'unknown'
+        ELSE 'suitable' END;
+    RETURN jsonb_build_object('status',result_status,'equipment_id',p_equipment,
+        'class',jsonb_build_object('id',p_class,'status',class_status),
+        'property',CASE WHEN p_property IS NULL THEN NULL ELSE jsonb_build_object(
+            'id',p_property,'status',property_status,'reason',property_reason,
+            'required_unit_id',p_unit,'actual_unit_id',v_unit,'operator',p_operator,
+            'limit',p_limit::text,'capacity_required',p_capacity,
+            'revision_id',v_revision,'actual_value',v_value::text) END);
+END $$;
+
+REVOKE ALL ON FUNCTION equipment_suitability(uuid,uuid,uuid,uuid,text,numeric,boolean) FROM PUBLIC;
+
+-- Migratie 0144: interne technische middelenstatus (#115.3b).
+SET search_path = fabriek, public;
+
+CREATE TABLE equipment_status_history (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    equipment_id uuid NOT NULL REFERENCES equipment(id),
+    revision integer NOT NULL CHECK (revision>0),
+    status text NOT NULL CHECK (status IN ('blocked','available')),
+    reason text NOT NULL CHECK (reason ~ '[^[:space:]]' AND length(reason)<=2000),
+    created_by uuid NOT NULL REFERENCES gebruiker(id),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp() CHECK (isfinite(created_at)),
+    UNIQUE (equipment_id,revision)
+);
+
+-- Dezelfde middelrij serialiseert alle statusovergangen.
+CREATE FUNCTION equipment_status_history_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE previous_revision integer; previous_status text;
+BEGIN
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Middelenstatus vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment WHERE id=NEW.equipment_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekend middel' USING ERRCODE='23503';
+    END IF;
+    SELECT revision,status INTO previous_revision,previous_status
+        FROM equipment_status_history WHERE equipment_id=NEW.equipment_id
+        ORDER BY revision DESC LIMIT 1;
+    IF NEW.revision::bigint IS DISTINCT FROM coalesce(previous_revision,0)::bigint+1 THEN
+        RAISE EXCEPTION 'Ongeldige of verouderde statusrevisie' USING ERRCODE='40001';
+    END IF;
+    IF previous_status IS NOT NULL AND NEW.status=previous_status THEN
+        RAISE EXCEPTION 'Middelenstatus is al geregistreerd' USING ERRCODE='23514';
+    END IF;
+    NEW.created_at:=clock_timestamp();
+    RETURN NEW;
+END $$;
+CREATE FUNCTION equipment_status_history_immutable() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    RAISE EXCEPTION 'Middelenstatushistorie is onveranderlijk' USING ERRCODE='55000';
+END $$;
+CREATE TRIGGER equipment_status_history_guard BEFORE INSERT ON equipment_status_history
+    FOR EACH ROW EXECUTE FUNCTION equipment_status_history_guard();
+CREATE TRIGGER equipment_status_history_immutable BEFORE UPDATE OR DELETE ON equipment_status_history
+    FOR EACH ROW EXECUTE FUNCTION equipment_status_history_immutable();
+
+REVOKE ALL ON equipment_status_history FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_status_history_guard(),equipment_status_history_immutable() FROM PUBLIC;
+
+-- Migratie 0145: persoonlijke technische statusmutatie (#115.3c).
+SET search_path = fabriek, public;
+
+INSERT INTO authorization_role(code,domain) VALUES ('resource_status_manager','maintenance');
+INSERT INTO authorization_permission(code,domain) VALUES ('resource.status.manage','maintenance');
+INSERT INTO authorization_role_permission(role_code,permission_code)
+VALUES ('resource_status_manager','resource.status.manage');
+
+CREATE FUNCTION resource_status_set(p_equipment uuid,p_expected integer,p_status text,p_reason text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_hierarchy uuid; v_area text; v_equipment text;
+    previous_revision integer; next_revision integer;
+BEGIN
+    actor:=execution_transaction_actor();
+    SELECT hierarchy_id INTO v_hierarchy FROM equipment WHERE id=p_equipment;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen actuele statusbevoegdheid voor dit middel' USING ERRCODE='42501';
+    END IF;
+    SELECT equipment_code INTO v_equipment FROM resource_equipment_scope WHERE equipment_id=p_equipment;
+    WITH RECURSIVE ancestors AS (
+        SELECT id,parent_id,level FROM equipment_hierarchy WHERE id=v_hierarchy
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN ancestors a ON h.id=a.parent_id
+    )
+    SELECT s.area_code INTO v_area FROM ancestors a JOIN resource_area_scope s ON s.hierarchy_id=a.id
+        WHERE a.level='area';
+    IF authorization_permits(actor,'resource.status.manage',v_area,NULL,v_equipment) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele statusbevoegdheid voor dit middel' USING ERRCODE='42501';
+    END IF;
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Middelenstatus vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM equipment WHERE id=p_equipment FOR UPDATE;
+    -- Controleer het persoonlijke bewijs opnieuw na eventueel wachten op de lock.
+    IF execution_transaction_actor() IS DISTINCT FROM actor
+       OR authorization_permits(actor,'resource.status.manage',v_area,NULL,v_equipment) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele statusbevoegdheid voor dit middel' USING ERRCODE='42501';
+    END IF;
+    SELECT coalesce(max(revision),0) INTO previous_revision
+        FROM equipment_status_history WHERE equipment_id=p_equipment;
+    IF previous_revision IS DISTINCT FROM p_expected OR previous_revision=2147483647 THEN
+        RAISE EXCEPTION 'Middelenstatus is gewijzigd; herlaad de actuele revisie' USING ERRCODE='40001';
+    END IF;
+    next_revision:=previous_revision+1;
+    INSERT INTO equipment_status_history(equipment_id,revision,status,reason,created_by)
+        VALUES (p_equipment,next_revision,p_status,p_reason,actor);
+    RETURN next_revision;
+END $$;
+
+CREATE TRIGGER equipment_status_history_audit AFTER INSERT ON equipment_status_history
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+REVOKE ALL ON FUNCTION resource_status_set(uuid,integer,text,text) FROM PUBLIC;
+
+-- Migratie 0146: interne werkstation-middelenkoppeling (#115.4b).
+SET search_path = fabriek, public;
+
+CREATE TABLE equipment_workstation (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    pc_id uuid NOT NULL REFERENCES pc(id),
+    equipment_id uuid NOT NULL REFERENCES equipment(id),
+    opened_by uuid NOT NULL REFERENCES gebruiker(id),
+    opened_at timestamptz NOT NULL DEFAULT clock_timestamp() CHECK (isfinite(opened_at)),
+    open_reason text NOT NULL CHECK (open_reason ~ '[^[:space:]]' AND length(open_reason)<=2000),
+    closed_by uuid REFERENCES gebruiker(id),
+    closed_at timestamptz,
+    close_reason text,
+    CHECK (
+        (closed_by IS NULL AND closed_at IS NULL AND close_reason IS NULL)
+        OR (closed_by IS NOT NULL AND closed_at IS NOT NULL AND close_reason IS NOT NULL
+            AND isfinite(closed_at) AND closed_at>=opened_at
+            AND close_reason ~ '[^[:space:]]' AND length(close_reason)<=2000)
+    )
+);
+CREATE UNIQUE INDEX equipment_workstation_active_pair
+    ON equipment_workstation(pc_id,equipment_id) WHERE closed_at IS NULL;
+CREATE INDEX equipment_workstation_pc_history_idx ON equipment_workstation(pc_id,equipment_id,opened_at);
+CREATE INDEX equipment_workstation_equipment_idx ON equipment_workstation(equipment_id);
+
+CREATE FUNCTION equipment_workstation_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v_active boolean; v_latest_close timestamptz;
+BEGIN
+    IF TG_OP='DELETE' THEN
+        RAISE EXCEPTION 'Werkstationhistorie mag niet worden verwijderd' USING ERRCODE='55000';
+    END IF;
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Werkstationkoppeling vereist read committed' USING ERRCODE='25001';
+    END IF;
+    IF TG_OP='UPDATE' THEN
+        IF (NEW.id,NEW.pc_id,NEW.equipment_id,NEW.opened_by,NEW.opened_at,NEW.open_reason)
+            IS DISTINCT FROM (OLD.id,OLD.pc_id,OLD.equipment_id,OLD.opened_by,OLD.opened_at,OLD.open_reason)
+            OR OLD.closed_at IS NOT NULL OR NEW.closed_at IS NULL THEN
+            RAISE EXCEPTION 'Werkstationkoppeling mag uitsluitend eenmaal worden afgesloten' USING ERRCODE='55000';
+        END IF;
+    END IF;
+    SELECT actief INTO v_active FROM pc WHERE id=NEW.pc_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekend werkstation' USING ERRCODE='23503';
+    END IF;
+    IF TG_OP='INSERT' THEN
+        IF NOT v_active THEN
+            RAISE EXCEPTION 'Inactief werkstation kan niet worden gekoppeld' USING ERRCODE='23514';
+        END IF;
+        IF NEW.closed_by IS NOT NULL OR NEW.closed_at IS NOT NULL OR NEW.close_reason IS NOT NULL THEN
+            RAISE EXCEPTION 'Nieuwe werkstationkoppeling moet open zijn' USING ERRCODE='23514';
+        END IF;
+        NEW.opened_at:=clock_timestamp();
+        SELECT max(closed_at) INTO v_latest_close FROM equipment_workstation
+            WHERE pc_id=NEW.pc_id AND equipment_id=NEW.equipment_id;
+        IF v_latest_close IS NOT NULL AND NEW.opened_at<v_latest_close THEN
+            RAISE EXCEPTION 'Serverklok ligt voor laatste afsluiting' USING ERRCODE='23514';
+        END IF;
+    ELSE
+        NEW.closed_at:=clock_timestamp();
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER equipment_workstation_guard
+    BEFORE INSERT OR UPDATE OR DELETE ON equipment_workstation
+    FOR EACH ROW EXECUTE FUNCTION equipment_workstation_guard();
+
+REVOKE ALL ON equipment_workstation FROM PUBLIC;
+REVOKE ALL ON FUNCTION equipment_workstation_guard() FROM PUBLIC;
+
+-- Migratie 0147: persoonlijk beheer werkstationkoppelingen (#115.4c).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION resource_workstation_open(p_pc uuid,p_equipment uuid,p_reason text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; target uuid;
+BEGIN
+    actor:=resource_catalog_actor();
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Werkstationkoppeling vereist read committed' USING ERRCODE='25001';
+    END IF;
+    PERFORM id FROM pc WHERE id=p_pc FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onbekend werkstation' USING ERRCODE='23503';
+    END IF;
+    IF resource_catalog_actor() IS DISTINCT FROM actor THEN
+        RAISE EXCEPTION 'Persoonlijke bevoegdheid gewijzigd' USING ERRCODE='42501';
+    END IF;
+    INSERT INTO equipment_workstation(pc_id,equipment_id,opened_by,open_reason)
+        VALUES (p_pc,p_equipment,actor,p_reason) RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_workstation_close(p_assignment uuid,p_reason text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_pc uuid; target uuid;
+BEGIN
+    actor:=resource_catalog_actor();
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Werkstationkoppeling vereist read committed' USING ERRCODE='25001';
+    END IF;
+    SELECT pc_id INTO v_pc FROM equipment_workstation WHERE id=p_assignment AND closed_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Open werkstationkoppeling ontbreekt of is afgesloten' USING ERRCODE='40001';
+    END IF;
+    -- Zelfde lockvolgorde als bij openen: eerst pc, daarna koppeling.
+    PERFORM id FROM pc WHERE id=v_pc FOR UPDATE;
+    IF resource_catalog_actor() IS DISTINCT FROM actor THEN
+        RAISE EXCEPTION 'Persoonlijke bevoegdheid gewijzigd' USING ERRCODE='42501';
+    END IF;
+    UPDATE equipment_workstation SET closed_by=actor,closed_at=clock_timestamp(),close_reason=p_reason
+        WHERE id=p_assignment AND closed_at IS NULL RETURNING id INTO target;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Open werkstationkoppeling ontbreekt of is afgesloten' USING ERRCODE='40001';
+    END IF;
+    RETURN target;
+END $$;
+
+CREATE TRIGGER equipment_workstation_audit AFTER INSERT OR UPDATE ON equipment_workstation
+    FOR EACH ROW EXECUTE FUNCTION log_config();
+REVOKE ALL ON FUNCTION resource_workstation_open(uuid,uuid,text),
+    resource_workstation_close(uuid,text) FROM PUBLIC;
+
+-- Migratie 0148: optionele middelcontext voor bestaande stilstand (#115.5b).
+SET search_path = fabriek, public;
+
+-- Historische registraties behouden NULL; geen afgeleide of verzonnen mapping.
+ALTER TABLE stilstand ADD COLUMN equipment_id uuid REFERENCES equipment(id);
+CREATE INDEX stilstand_equipment_idx ON stilstand(equipment_id) WHERE equipment_id IS NOT NULL;
+
+-- Gefaseerde opening: ook interne schrijvers mogen nog geen middelcontext
+-- registreren totdat autorisatie, cardinaliteit en replay zijn uitgewerkt.
+ALTER TABLE stilstand ADD CONSTRAINT stilstand_equipment_pending CHECK (equipment_id IS NULL);
+
+CREATE FUNCTION stilstand_equipment_context_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF NEW.equipment_id IS DISTINCT FROM OLD.equipment_id THEN
+        RAISE EXCEPTION 'Middelcontext van stilstand is onveranderlijk' USING ERRCODE='55000';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stilstand_equipment_context_guard BEFORE UPDATE ON stilstand
+    FOR EACH ROW EXECUTE FUNCTION stilstand_equipment_context_guard();
+REVOKE ALL ON FUNCTION stilstand_equipment_context_guard() FROM PUBLIC;
+
+-- Bestaande unieke index, persoonscontrole, melding en afsluiting ongewijzigd.
+
+-- Migratie 0149: interne persoonlijke middelstilstand (#115.5e).
+SET search_path = fabriek, public;
+
+-- Legacy schrijvers blijven beperkt tot stapniveau; de eigenaarinterface
+-- hieronder valideert zelf de persoonlijke identiteit en bevoegdheid.
+CREATE FUNCTION stilstand_equipment_write_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    IF NEW.equipment_id IS NOT NULL
+       AND current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN
+        RAISE EXCEPTION 'Middelstilstand vereist de gecontroleerde interface' USING ERRCODE='42501';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER stilstand_equipment_write_guard BEFORE INSERT OR UPDATE ON stilstand
+    FOR EACH ROW EXECUTE FUNCTION stilstand_equipment_write_guard();
+REVOKE ALL ON FUNCTION stilstand_equipment_write_guard() FROM PUBLIC;
+
+DROP INDEX stilstand_een_lopend;
+CREATE UNIQUE INDEX stilstand_een_lopend ON stilstand(processtap_id)
+    WHERE eind_op IS NULL AND equipment_id IS NULL;
+CREATE UNIQUE INDEX stilstand_equipment_een_lopend ON stilstand(equipment_id)
+    WHERE eind_op IS NULL AND equipment_id IS NOT NULL;
+ALTER TABLE stilstand DROP CONSTRAINT stilstand_equipment_pending;
+
+CREATE FUNCTION resource_downtime_open(p_id uuid,p_pc uuid,p_step uuid,p_equipment uuid,p_reason uuid,p_note text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_operator uuid; existing stilstand%ROWTYPE; target uuid;
+    v_note text:=nullif(btrim(p_note),'');
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Middelstilstand vereist read committed' USING ERRCODE='25001';
+    END IF;
+    IF p_id IS NULL OR p_pc IS NULL OR p_step IS NULL OR p_equipment IS NULL OR p_reason IS NULL
+       OR length(v_note)>500 THEN
+        RAISE EXCEPTION 'Ongeldige middelstilstandcontext' USING ERRCODE='22023';
+    END IF;
+    SELECT id INTO v_operator FROM operator WHERE gebruiker_id=actor AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist' USING ERRCODE='42501';
+    END IF;
+    -- Serialiseer dezelfde clientidentiteit binnen deze interface.
+    PERFORM pg_advisory_xact_lock(hashtextextended('resource-downtime:'||p_id::text,0));
+    SELECT * INTO existing FROM stilstand WHERE id=p_id;
+    IF FOUND THEN
+        IF (existing.gemeld_door,existing.pc_id,existing.processtap_id,existing.equipment_id,existing.oorzaak_id,existing.toelichting)
+           IS DISTINCT FROM (actor,p_pc,p_step,p_equipment,p_reason,v_note) THEN
+            RAISE EXCEPTION 'Dit id hoort bij een andere stilstandmelding' USING ERRCODE='23505';
+        END IF;
+        RETURN p_id;
+    END IF;
+    -- p_pc is uitsluitend voor de toekomstige vertrouwde API-sessieadapter;
+    -- deze functie krijgt in 0149 bewust nog geen applicatie-EXECUTE.
+    PERFORM id FROM pc WHERE id=p_pc AND actief FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actief werkstation vereist' USING ERRCODE='42501';
+    END IF;
+    PERFORM 1 FROM pc_stap WHERE pc_id=p_pc AND processtap_id=p_step FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen expliciete werkstation-stapkoppeling' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM equipment_workstation
+        WHERE pc_id=p_pc AND equipment_id=p_equipment AND closed_at IS NULL FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen actieve werkstation-middelenkoppeling' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM processtap WHERE id=p_step AND actief AND soort='proces' FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve processtap vereist' USING ERRCODE='23514';
+    END IF;
+    PERFORM id FROM stilstand_oorzaak WHERE id=p_reason AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve stilstandoorzaak vereist' USING ERRCODE='23514';
+    END IF;
+    IF execution_transaction_actor() IS DISTINCT FROM actor
+       OR authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    INSERT INTO stilstand(id,processtap_id,oorzaak_id,toelichting,begin_op,pc_id,operator_id,gemeld_door,equipment_id)
+        VALUES (p_id,p_step,p_reason,v_note,clock_timestamp(),p_pc,v_operator,actor,p_equipment)
+        RETURNING id INTO target;
+    RETURN target;
+END $$;
+
+CREATE FUNCTION resource_downtime_close(p_id uuid,p_note text) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_operator uuid; existing stilstand%ROWTYPE;
+    v_note text:=nullif(btrim(p_note),'');
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Middelstilstand vereist read committed' USING ERRCODE='25001';
+    END IF;
+    IF length(v_note)>500 THEN
+        RAISE EXCEPTION 'Ongeldige eindnotitie' USING ERRCODE='22023';
+    END IF;
+    SELECT id INTO v_operator FROM operator WHERE gebruiker_id=actor AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist' USING ERRCODE='42501';
+    END IF;
+    SELECT * INTO existing FROM stilstand WHERE id=p_id AND equipment_id IS NOT NULL FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Middelstilstand ontbreekt' USING ERRCODE='P0002';
+    END IF;
+    IF execution_transaction_actor() IS DISTINCT FROM actor
+       OR authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF existing.eind_op IS NOT NULL THEN
+        IF existing.beeindigd_door IS DISTINCT FROM v_operator OR existing.eind_notitie IS DISTINCT FROM v_note THEN
+            RAISE EXCEPTION 'Middelstilstand is al anders afgesloten' USING ERRCODE='40001';
+        END IF;
+        RETURN p_id;
+    END IF;
+    UPDATE stilstand SET eind_op=greatest(clock_timestamp(),begin_op),beeindigd_door=v_operator,eind_notitie=v_note
+        WHERE id=p_id;
+    RETURN p_id;
+END $$;
+
+CREATE TRIGGER stilstand_equipment_audit AFTER INSERT OR UPDATE ON stilstand
+    FOR EACH ROW WHEN (NEW.equipment_id IS NOT NULL) EXECUTE FUNCTION log_config();
+
+CREATE OR REPLACE FUNCTION meld_stilstand() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v record; v_equipment text;
+BEGIN
+    SELECT s.code AS stap, s.naam AS stapnaam, o.naam AS oorzaak, o.categorie, pc.locatie AS hal
+      INTO v
+      FROM processtap s, stilstand_oorzaak o LEFT JOIN pc ON pc.id = NEW.pc_id
+     WHERE s.id = NEW.processtap_id AND o.id = NEW.oorzaak_id;
+    SELECT code INTO v_equipment FROM equipment WHERE id=NEW.equipment_id;
+    IF v.categorie = 'storing' THEN
+        INSERT INTO melding (soort, ernst, tekst, hal, voor_rollen, bron_id)
+        VALUES ('storing', 'kritiek', format('Stilstand %s %s: %s%s%s', v.stap, v.stapnaam, v.oorzaak,
+                coalesce(' (' || NEW.toelichting || ')', ''),coalesce(' [middel ' || v_equipment || ']', '')),
+                v.hal, ARRAY['ploegleider'], NEW.id);
+    END IF;
+    RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION meld_stilstand(),resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text),
+    resource_downtime_close(uuid,text) FROM PUBLIC;
+-- Geen EXECUTE voor mes_app totdat het vertrouwde API-contextcontract is afgerond.
+
+-- Migratie 0150: geregistreerde werkstationcontext in sessiebewijs (#115.5g1).
+SET search_path = fabriek, public;
+
+-- NULL bij bestaande sessies, wachtwoordwisseling en login zonder pc.
+-- Geen afleiding uit historische inlogpogingen of clientheaders.
+ALTER TABLE execution_session ADD COLUMN pc_id uuid REFERENCES pc(id) ON DELETE CASCADE;
+
+CREATE OR REPLACE FUNCTION execution_session_login(p_name text,p_password text,p_pc text)
+RETURNS TABLE(id uuid,rol text,gebruikersnaam text,wacht_seconden int,session_version bigint,ww boolean,session_proof text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE v record; v_proof text; v_now timestamptz:=clock_timestamp(); v_pc uuid;
+BEGIN
+    SELECT * INTO v FROM login_with_session(p_name,p_password,p_pc);
+    IF v.id IS NOT NULL AND NOT coalesce(v.ww,true) THEN
+        PERFORM 1 FROM gebruiker g WHERE g.id=v.id AND g.session_version=v.session_version
+            AND g.actief AND NOT g.gedeeld AND NOT g.wachtwoord_wijzigen AND g.rol<>'scherm' FOR SHARE;
+        IF FOUND THEN
+            v_proof:=encode(public.gen_random_bytes(32),'hex');
+            SELECT p.id INTO v_pc FROM pc p WHERE p.naam=p_pc AND p.actief;
+            INSERT INTO execution_session(proof_hash,user_id,session_version,issued_at,expires_at,pc_id)
+            VALUES(public.digest(v_proof,'sha256'),v.id,v.session_version,v_now,v_now+interval '12 hours',v_pc);
+        END IF;
+    END IF;
+    RETURN QUERY SELECT v.id,v.rol,v.gebruikersnaam,v.wacht_seconden,v.session_version,v.ww,v_proof;
+END $$;
+
+-- Nieuwe credential voor de gekozen actieve pc; originele credential en
+-- oorspronkelijke maximale geldigheid blijven onveranderd.
+-- De volgende slice koppelt dit aan /auth/pc; nog geen app-EXECUTE.
+CREATE FUNCTION execution_session_workstation(p_proof text,p_pc uuid) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_version bigint; v_expiry timestamptz; v_now timestamptz; v_new text;
+BEGIN
+    actor:=execution_session_actor(p_proof);
+    IF actor IS NULL OR p_pc IS NULL THEN
+        RAISE EXCEPTION 'Geldig persoonlijk werkstationbewijs vereist' USING ERRCODE='42501';
+    END IF;
+    PERFORM 1 FROM operator WHERE gebruiker_id=actor AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM pc WHERE id=p_pc AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actief geregistreerd werkstation vereist' USING ERRCODE='42501';
+    END IF;
+    SELECT session_version,expires_at INTO v_version,v_expiry FROM execution_session
+        WHERE proof_hash=public.digest(p_proof,'sha256') AND user_id=actor;
+    v_now:=clock_timestamp();
+    IF NOT FOUND OR v_expiry<=v_now OR execution_session_actor(p_proof) IS DISTINCT FROM actor THEN
+        RAISE EXCEPTION 'Persoonlijk sessiebewijs verlopen' USING ERRCODE='42501';
+    END IF;
+    v_new:=encode(public.gen_random_bytes(32),'hex');
+    INSERT INTO execution_session(proof_hash,user_id,session_version,issued_at,expires_at,pc_id)
+        VALUES(public.digest(v_new,'sha256'),actor,v_version,v_now,v_expiry,p_pc);
+    RETURN v_new;
+END $$;
+
+CREATE FUNCTION execution_transaction_workstation(p_expected uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_pc uuid; v_proof text:=current_setting('fabriek.execution_proof',true);
+BEGIN
+    actor:=execution_transaction_actor();
+    SELECT s.pc_id INTO v_pc FROM execution_session s JOIN pc p ON p.id=s.pc_id AND p.actief
+        WHERE s.proof_hash=public.digest(v_proof,'sha256') AND s.user_id=actor;
+    IF v_pc IS NULL OR v_pc IS DISTINCT FROM p_expected THEN
+        RAISE EXCEPTION 'Werkstation komt niet overeen met persoonlijk sessiebewijs' USING ERRCODE='42501';
+    END IF;
+    RETURN v_pc;
+END $$;
+REVOKE ALL ON FUNCTION execution_session_workstation(text,uuid),execution_transaction_workstation(uuid) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION resource_downtime_open(p_id uuid,p_pc uuid,p_step uuid,p_equipment uuid,p_reason uuid,p_note text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_operator uuid; existing stilstand%ROWTYPE; target uuid;
+    v_note text:=nullif(btrim(p_note),'');
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Middelstilstand vereist read committed' USING ERRCODE='25001';
+    END IF;
+    IF p_id IS NULL OR p_pc IS NULL OR p_step IS NULL OR p_equipment IS NULL OR p_reason IS NULL
+       OR length(v_note)>500 THEN
+        RAISE EXCEPTION 'Ongeldige middelstilstandcontext' USING ERRCODE='22023';
+    END IF;
+    PERFORM execution_transaction_workstation(p_pc);
+    SELECT id INTO v_operator FROM operator WHERE gebruiker_id=actor AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist' USING ERRCODE='42501';
+    END IF;
+    -- Serialiseer dezelfde clientidentiteit binnen deze interface.
+    PERFORM pg_advisory_xact_lock(hashtextextended('resource-downtime:'||p_id::text,0));
+    SELECT * INTO existing FROM stilstand WHERE id=p_id;
+    IF FOUND THEN
+        IF (existing.gemeld_door,existing.pc_id,existing.processtap_id,existing.equipment_id,existing.oorzaak_id,existing.toelichting)
+           IS DISTINCT FROM (actor,p_pc,p_step,p_equipment,p_reason,v_note) THEN
+            RAISE EXCEPTION 'Dit id hoort bij een andere stilstandmelding' USING ERRCODE='23505';
+        END IF;
+        RETURN p_id;
+    END IF;
+    -- De pc komt overeen met het persoonlijk sessiebewijs.
+    PERFORM id FROM pc WHERE id=p_pc AND actief FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actief werkstation vereist' USING ERRCODE='42501';
+    END IF;
+    PERFORM 1 FROM pc_stap WHERE pc_id=p_pc AND processtap_id=p_step FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen expliciete werkstation-stapkoppeling' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM equipment_workstation
+        WHERE pc_id=p_pc AND equipment_id=p_equipment AND closed_at IS NULL FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen actieve werkstation-middelenkoppeling' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM processtap WHERE id=p_step AND actief AND soort='proces' FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve processtap vereist' USING ERRCODE='23514';
+    END IF;
+    PERFORM id FROM stilstand_oorzaak WHERE id=p_reason AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve stilstandoorzaak vereist' USING ERRCODE='23514';
+    END IF;
+    IF execution_transaction_actor() IS DISTINCT FROM actor
+       OR authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    PERFORM execution_transaction_workstation(p_pc);
+    INSERT INTO stilstand(id,processtap_id,oorzaak_id,toelichting,begin_op,pc_id,operator_id,gemeld_door,equipment_id)
+        VALUES (p_id,p_step,p_reason,v_note,clock_timestamp(),p_pc,v_operator,actor,p_equipment)
+        RETURNING id INTO target;
+    RETURN target;
+END $$;
+REVOKE ALL ON FUNCTION resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text) FROM PUBLIC;
+
+-- Migratie 0151: gescheiden persoonlijke middelenleesprojecties (#115.6b).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION resource_capability_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; catalog jsonb; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    -- Hergebruik de bestaande catalogusautoriteit, inclusief lege globale context.
+    catalog:=resource_catalog_list();
+    WITH visible AS MATERIALIZED (
+        SELECT e.id FROM equipment e WHERE resource_catalog_visible(actor,NULL,e.id) IS TRUE
+    )
+    SELECT jsonb_build_object(
+        'global',catalog->'global',
+        'equipment',catalog->'equipment',
+        'properties',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',d.id,'code',d.code,'name',d.name,'quantity_kind_id',d.quantity_kind_id,
+            'measurement_unit_id',d.measurement_unit_id,'unit',u.symbol) ORDER BY d.code)
+            FROM equipment_property_definition d JOIN measurement_unit u ON u.id=d.measurement_unit_id),'[]'::jsonb),
+        'capabilities',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',c.id,'equipment_id',c.equipment_id,'property_definition_id',c.property_definition_id,
+            'revision',r.revision,'value',r.value::text,'reason',r.reason,'created_at',r.created_at,
+            'capacity',EXISTS(SELECT 1 FROM equipment_capacity x WHERE x.capability_id=c.id))
+            ORDER BY c.equipment_id,c.property_definition_id)
+            FROM equipment_capability c JOIN visible e ON e.id=c.equipment_id
+            LEFT JOIN LATERAL (SELECT revision,value,reason,created_at FROM equipment_capability_revision
+                WHERE capability_id=c.id ORDER BY revision DESC LIMIT 1) r ON true),'[]'::jsonb)
+    ) INTO result;
+    RETURN result;
+END $$;
+
+-- Interne helper: dezelfde vertrouwde context als resource_status_set,
+-- uitsluitend statusbeheerrecht; geen verbreding via catalogusrecht.
+CREATE FUNCTION resource_status_visible(p_actor uuid,p_equipment uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+    WITH RECURSIVE location AS (
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h
+            JOIN equipment e ON e.hierarchy_id=h.id WHERE e.id=p_equipment
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN location l ON h.id=l.parent_id
+    )
+    SELECT EXISTS(SELECT 1 FROM location) AND authorization_permits(p_actor,'resource.status.manage',
+        (SELECT s.area_code FROM location l JOIN resource_area_scope s ON s.hierarchy_id=l.id WHERE l.level='area'),
+        NULL,
+        (SELECT s.equipment_code FROM resource_equipment_scope s WHERE s.equipment_id=p_equipment))
+$$;
+
+CREATE FUNCTION resource_status_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_global boolean; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    v_global:=authorization_permits(actor,'resource.status.manage',NULL,NULL,NULL);
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+        'id',e.id,'code',e.code,'name',e.name,'status',coalesce(r.status,'unknown'),
+        'revision',coalesce(r.revision,0),'reason',r.reason,'created_at',r.created_at,
+        'created_by',r.created_by,'created_by_name',g.gebruikersnaam) ORDER BY e.code),'[]'::jsonb)
+    INTO result
+    FROM equipment e
+    LEFT JOIN LATERAL (SELECT status,revision,reason,created_at,created_by FROM equipment_status_history
+        WHERE equipment_id=e.id ORDER BY revision DESC LIMIT 1) r ON true
+    LEFT JOIN gebruiker g ON g.id=r.created_by
+    WHERE resource_status_visible(actor,e.id) IS TRUE;
+    IF NOT coalesce(v_global,false) AND jsonb_array_length(result)=0 THEN
+        RAISE EXCEPTION 'Geen actuele middelenstatuscontext' USING ERRCODE='42501';
+    END IF;
+    RETURN result;
+END $$;
+
+CREATE FUNCTION resource_status_history(p_equipment uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    IF resource_status_visible(actor,p_equipment) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele middelenstatuscontext' USING ERRCODE='42501';
+    END IF;
+    SELECT coalesce(jsonb_agg(jsonb_build_object('revision',r.revision,'status',r.status,'reason',r.reason,
+        'created_at',r.created_at,'created_by',r.created_by,'created_by_name',g.gebruikersnaam)
+        ORDER BY r.revision DESC),'[]'::jsonb)
+    INTO result FROM equipment_status_history r JOIN gebruiker g ON g.id=r.created_by
+        WHERE r.equipment_id=p_equipment;
+    RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION resource_capability_list(),resource_status_visible(uuid,uuid),
+    resource_status_list(),resource_status_history(uuid) FROM PUBLIC;
+
+-- Migratie 0152: persoonlijke werkstation- en stilstandprojecties (#115.6b2).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION resource_workstation_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    PERFORM resource_catalog_actor();
+    RETURN jsonb_build_object(
+        'workstations',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',p.id,'name',p.naam,'location',p.locatie,'active',p.actief) ORDER BY p.naam)
+            FROM pc p),'[]'::jsonb),
+        'equipment',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',e.id,'code',e.code,'name',e.name) ORDER BY e.code)
+            FROM equipment e),'[]'::jsonb),
+        'assignments',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',w.id,'pc_id',w.pc_id,'equipment_id',w.equipment_id,
+            'opened_at',w.opened_at,'opened_by',w.opened_by,'opened_by_name',g.gebruikersnaam,
+            'open_reason',w.open_reason,'closed_at',w.closed_at,'closed_by',w.closed_by,
+            'closed_by_name',c.gebruikersnaam,'close_reason',w.close_reason)
+            ORDER BY w.opened_at DESC,w.id)
+            FROM equipment_workstation w JOIN gebruiker g ON g.id=w.opened_by
+            LEFT JOIN gebruiker c ON c.id=w.closed_by),'[]'::jsonb)
+    );
+END $$;
+
+-- Alleen actuele middelen op het expliciete werkstation van deze sessie.
+-- Geen catalogusbeheerrecht of technische vrijgave afleiden uit de koppeling.
+CREATE FUNCTION resource_downtime_choices(p_pc uuid,p_step uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE
+       OR NOT EXISTS(SELECT 1 FROM operator WHERE gebruiker_id=actor AND actief) THEN
+        RAISE EXCEPTION 'Geen actuele persoonlijke stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    PERFORM execution_transaction_workstation(p_pc);
+    IF NOT EXISTS(SELECT 1 FROM pc_stap x JOIN processtap s ON s.id=x.processtap_id
+        WHERE x.pc_id=p_pc AND x.processtap_id=p_step AND s.actief AND s.soort='proces') THEN
+        RAISE EXCEPTION 'Geen actuele werkstation-stapcontext' USING ERRCODE='42501';
+    END IF;
+    SELECT coalesce(jsonb_agg(jsonb_build_object('id',e.id,'code',e.code,'name',e.name,
+        'open_downtime_id',d.id) ORDER BY e.code),'[]'::jsonb)
+    INTO result
+    FROM equipment_workstation w JOIN equipment e ON e.id=w.equipment_id
+    LEFT JOIN stilstand d ON d.equipment_id=e.id AND d.eind_op IS NULL
+    WHERE w.pc_id=p_pc AND w.closed_at IS NULL;
+    RETURN result;
+END $$;
+
+-- Persoonlijke globale leesrechten, geen display-identiteit of catalogusrecht.
+-- Actuele lijst, geen impliciete aggregatie van stap- en middelminuten.
+CREATE FUNCTION resource_downtime_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'downtime.read',NULL,NULL,NULL) IS NOT TRUE
+       AND authorization_permits(actor,'maintenance.downtime.read',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandleesbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+        'id',d.id,'equipment_id',e.id,'equipment_code',e.code,'equipment_name',e.name,
+        'step_code',s.code,'step_name',s.naam,'reason_code',o.code,'reason_name',o.naam,
+        'category',o.categorie,'note',d.toelichting,'started_at',d.begin_op,
+        'workstation',p.naam,'operator',op.naam) ORDER BY e.code,d.id),'[]'::jsonb)
+    INTO result
+    FROM stilstand d JOIN equipment e ON e.id=d.equipment_id
+    JOIN processtap s ON s.id=d.processtap_id JOIN stilstand_oorzaak o ON o.id=d.oorzaak_id
+    LEFT JOIN pc p ON p.id=d.pc_id LEFT JOIN operator op ON op.id=d.operator_id
+    WHERE d.eind_op IS NULL;
+    RETURN result;
+END $$;
+
+REVOKE ALL ON FUNCTION resource_workstation_list(),resource_downtime_choices(uuid,uuid),
+    resource_downtime_list() FROM PUBLIC;
+
+-- Migratie 0153: beperkte middelenreferenties (#115.6c2a).
+SET search_path = fabriek, public;
+
+CREATE FUNCTION resource_property_references() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+    PERFORM resource_catalog_actor();
+    RETURN jsonb_build_object(
+        'quantity_kinds',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',k.id,'code',k.code,'name',k.name,'value_semantics',k.value_semantics)
+            ORDER BY k.code) FROM quantity_kind k),'[]'::jsonb),
+        'units',coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'id',u.id,'quantity_kind_id',u.quantity_kind_id,'code',u.code,'symbol',u.symbol,'name',u.name)
+            ORDER BY u.code) FROM measurement_unit u),'[]'::jsonb)
+    );
+END $$;
+
+-- Alleen een menusignaal; elke lees- en schrijffunctie autoriseert opnieuw.
+CREATE FUNCTION resource_status_access() RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+    actor:=execution_transaction_actor();
+    RETURN coalesce(authorization_permits(actor,'resource.status.manage',NULL,NULL,NULL),false)
+        OR EXISTS(SELECT 1 FROM equipment e WHERE resource_status_visible(actor,e.id) IS TRUE);
+END $$;
+
+REVOKE ALL ON FUNCTION resource_property_references(),resource_status_access() FROM PUBLIC;
+
+-- Migratie 0154: hercontrole na wachten op middelstilstand-ID (#115.7a).
+SET search_path = fabriek, public;
+
+CREATE OR REPLACE FUNCTION resource_downtime_open(p_id uuid,p_pc uuid,p_step uuid,p_equipment uuid,p_reason uuid,p_note text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_operator uuid; existing stilstand%ROWTYPE; target uuid;
+    v_note text:=nullif(btrim(p_note),'');
+BEGIN
+    actor:=execution_transaction_actor();
+    IF authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'Middelstilstand vereist read committed' USING ERRCODE='25001';
+    END IF;
+    IF p_id IS NULL OR p_pc IS NULL OR p_step IS NULL OR p_equipment IS NULL OR p_reason IS NULL
+       OR length(v_note)>500 THEN
+        RAISE EXCEPTION 'Ongeldige middelstilstandcontext' USING ERRCODE='22023';
+    END IF;
+    PERFORM execution_transaction_workstation(p_pc);
+    SELECT id INTO v_operator FROM operator WHERE gebruiker_id=actor AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve persoonlijke operator vereist' USING ERRCODE='42501';
+    END IF;
+    -- Serialiseer dezelfde clientidentiteit binnen deze interface.
+    PERFORM pg_advisory_xact_lock(hashtextextended('resource-downtime:'||p_id::text,0));
+    -- Revalidate after the advisory lock, including the replay path.
+    IF execution_transaction_actor() IS DISTINCT FROM actor
+       OR authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    PERFORM execution_transaction_workstation(p_pc);
+    SELECT * INTO existing FROM stilstand WHERE id=p_id;
+    IF FOUND THEN
+        IF (existing.gemeld_door,existing.pc_id,existing.processtap_id,existing.equipment_id,existing.oorzaak_id,existing.toelichting)
+           IS DISTINCT FROM (actor,p_pc,p_step,p_equipment,p_reason,v_note) THEN
+            RAISE EXCEPTION 'Dit id hoort bij een andere stilstandmelding' USING ERRCODE='23505';
+        END IF;
+        RETURN p_id;
+    END IF;
+    -- De pc komt overeen met het persoonlijk sessiebewijs.
+    PERFORM id FROM pc WHERE id=p_pc AND actief FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actief werkstation vereist' USING ERRCODE='42501';
+    END IF;
+    PERFORM 1 FROM pc_stap WHERE pc_id=p_pc AND processtap_id=p_step FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen expliciete werkstation-stapkoppeling' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM equipment_workstation
+        WHERE pc_id=p_pc AND equipment_id=p_equipment AND closed_at IS NULL FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Geen actieve werkstation-middelenkoppeling' USING ERRCODE='42501';
+    END IF;
+    PERFORM id FROM processtap WHERE id=p_step AND actief AND soort='proces' FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve processtap vereist' USING ERRCODE='23514';
+    END IF;
+    PERFORM id FROM stilstand_oorzaak WHERE id=p_reason AND actief FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Actieve stilstandoorzaak vereist' USING ERRCODE='23514';
+    END IF;
+    IF execution_transaction_actor() IS DISTINCT FROM actor
+       OR authorization_permits(actor,'downtime.record',NULL,NULL,NULL) IS NOT TRUE THEN
+        RAISE EXCEPTION 'Geen actuele globale stilstandbevoegdheid' USING ERRCODE='42501';
+    END IF;
+    PERFORM execution_transaction_workstation(p_pc);
+    INSERT INTO stilstand(id,processtap_id,oorzaak_id,toelichting,begin_op,pc_id,operator_id,gemeld_door,equipment_id)
+        VALUES (p_id,p_step,p_reason,v_note,clock_timestamp(),p_pc,v_operator,actor,p_equipment)
+        RETURNING id INTO target;
+    RETURN target;
+END $$;
+REVOKE ALL ON FUNCTION resource_downtime_open(uuid,uuid,uuid,uuid,uuid,text) FROM PUBLIC;
+
+-- Migratie 0155: afzonderlijke persoonlijke statusinzage (#116.1).
+SET search_path = fabriek, public;
+
+INSERT INTO authorization_role(code,domain) VALUES ('resource_status_reader','maintenance');
+INSERT INTO authorization_permission(code,domain) VALUES ('resource.status.read','maintenance');
+INSERT INTO authorization_role_permission(role_code,permission_code) VALUES ('resource_status_reader','resource.status.read');
+
+CREATE FUNCTION resource_status_manage_visible(p_actor uuid,p_equipment uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+    WITH RECURSIVE location AS (
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h
+            JOIN equipment e ON e.hierarchy_id=h.id WHERE e.id=p_equipment
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN location l ON h.id=l.parent_id
+    )
+    SELECT EXISTS(SELECT 1 FROM location) AND authorization_permits(p_actor,'resource.status.manage',
+        (SELECT s.area_code FROM location l JOIN resource_area_scope s ON s.hierarchy_id=l.id WHERE l.level='area'),
+        NULL,
+        (SELECT s.equipment_code FROM resource_equipment_scope s WHERE s.equipment_id=p_equipment))
+$$;
+REVOKE ALL ON FUNCTION resource_status_manage_visible(uuid,uuid) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION resource_status_visible(p_actor uuid,p_equipment uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+    WITH RECURSIVE location AS (
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h
+            JOIN equipment e ON e.hierarchy_id=h.id WHERE e.id=p_equipment
+        UNION ALL
+        SELECT h.id,h.parent_id,h.level FROM equipment_hierarchy h JOIN location l ON h.id=l.parent_id
+    )
+    SELECT resource_status_manage_visible(p_actor,p_equipment) OR (EXISTS(SELECT 1 FROM location) AND authorization_permits(p_actor,'resource.status.read',
+        (SELECT s.area_code FROM location l JOIN resource_area_scope s ON s.hierarchy_id=l.id WHERE l.level='area'),
+        NULL,
+        (SELECT s.equipment_code FROM resource_equipment_scope s WHERE s.equipment_id=p_equipment)))
+$$;
+
+CREATE OR REPLACE FUNCTION resource_status_list() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid; v_global boolean; result jsonb;
+BEGIN
+    actor:=execution_transaction_actor();
+    v_global:=coalesce(authorization_permits(actor,'resource.status.manage',NULL,NULL,NULL),false) OR coalesce(authorization_permits(actor,'resource.status.read',NULL,NULL,NULL),false);
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+        'id',e.id,'code',e.code,'name',e.name,'status',coalesce(r.status,'unknown'),
+        'can_manage',coalesce(resource_status_manage_visible(actor,e.id),false),'revision',coalesce(r.revision,0),'reason',r.reason,'created_at',r.created_at,
+        'created_by',r.created_by,'created_by_name',g.gebruikersnaam) ORDER BY e.code),'[]'::jsonb)
+    INTO result
+    FROM equipment e
+    LEFT JOIN LATERAL (SELECT status,revision,reason,created_at,created_by FROM equipment_status_history
+        WHERE equipment_id=e.id ORDER BY revision DESC LIMIT 1) r ON true
+    LEFT JOIN gebruiker g ON g.id=r.created_by
+    WHERE resource_status_visible(actor,e.id) IS TRUE;
+    IF NOT coalesce(v_global,false) AND jsonb_array_length(result)=0 THEN
+        RAISE EXCEPTION 'Geen actuele middelenstatuscontext' USING ERRCODE='42501';
+    END IF;
+    RETURN result;
+END $$;
+
+CREATE OR REPLACE FUNCTION resource_status_access() RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+    actor:=execution_transaction_actor();
+    RETURN coalesce(authorization_permits(actor,'resource.status.manage',NULL,NULL,NULL),false)
+        OR coalesce(authorization_permits(actor,'resource.status.read',NULL,NULL,NULL),false)
+        OR EXISTS(SELECT 1 FROM equipment e WHERE resource_status_visible(actor,e.id) IS TRUE);
+END $$;
+
+-- Migratie 0156: expliciete middelklasse-identiteit in receptvereisten (#116.3a).
+SET search_path = fabriek, public;
+
+-- Geen backfill op basis van codes, geen wijziging van historische records.
+-- NULL betekent niet gekoppeld; de bestaande vrijgaveblokkade blijft actief.
+ALTER TABLE equipment_class ADD CONSTRAINT equipment_class_id_code_key UNIQUE (id,code);
+ALTER TABLE recipe_equipment_requirement ADD COLUMN equipment_class_id uuid;
+ALTER TABLE recipe_equipment_requirement ADD CONSTRAINT recipe_equipment_requirement_class_fk
+    FOREIGN KEY (equipment_class_id,equipment_class_code) REFERENCES equipment_class(id,code);
+CREATE INDEX recipe_equipment_requirement_class_idx ON recipe_equipment_requirement(equipment_class_id);
+
+-- Bestaande lifecycle- en audittriggers blijven van toepassing.
+-- Laat de nieuwe sleutel bij NULL weg uit historisch vergelijkings-/reviewbewijs,
+-- zodat oude snapshots exact gelijk blijven; expliciete koppelingen tellen wel mee.
+CREATE OR REPLACE FUNCTION recipe_comparison_rows(p_version uuid)
+RETURNS TABLE(area text, entity text, item_key text, content jsonb)
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT 'header'::text,'master_recipe_version'::text,'header'::text,jsonb_build_object('name',v.name,'description',v.description)
+ FROM master_recipe_version v WHERE v.id=p_version
+ UNION ALL
+ SELECT 'procedure'::text,'recipe_procedural_element'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','parent_id']) || jsonb_build_object('parent_code',(SELECT code FROM recipe_procedural_element WHERE id=x.parent_id)) FROM recipe_procedural_element x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'procedure'::text,'recipe_dependency'::text,(jsonb_build_array((SELECT code FROM recipe_procedural_element WHERE id=x.predecessor_id),(SELECT code FROM recipe_procedural_element WHERE id=x.successor_id))::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','predecessor_id','successor_id']) || jsonb_build_object('predecessor_code',(SELECT code FROM recipe_procedural_element WHERE id=x.predecessor_id),'successor_code',(SELECT code FROM recipe_procedural_element WHERE id=x.successor_id)) FROM recipe_dependency x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'parameters'::text,'recipe_parameter'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_parameter x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'parameters'::text,'recipe_parameter_limit'::text,(jsonb_build_array((SELECT code FROM recipe_parameter WHERE id=x.parameter_id),x.category)::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','parameter_id']) || jsonb_build_object('parameter_code',(SELECT code FROM recipe_parameter WHERE id=x.parameter_id)) FROM recipe_parameter_limit x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'formula'::text,'recipe_formula'::text,('reference')::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_formula x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'materials'::text,'recipe_material_requirement'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','formula_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_material_requirement x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'equipment'::text,'recipe_equipment_requirement'::text,(x.code)::text,((CASE WHEN x.equipment_class_id IS NULL THEN to_jsonb(x)-'equipment_class_id' ELSE to_jsonb(x) END)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_equipment_requirement x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'personnel'::text,'recipe_personnel_requirement'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_personnel_requirement x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'instructions'::text,'recipe_instruction'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_instruction x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'quality'::text,'recipe_specification_link'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','parameter_limit_id']) || jsonb_build_object('parameter_limit',(SELECT jsonb_build_array(p.code,l.category) FROM recipe_parameter_limit l JOIN recipe_parameter p ON p.id=l.parameter_id WHERE l.id=x.parameter_limit_id)) FROM recipe_specification_link x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'lot'::text,'recipe_lot_rule'::text,('norm')::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_lot_rule x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'lot'::text,'recipe_compatibility_rule'::text,(x.other_recipe_version_id::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_compatibility_rule x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_rule'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_scaling_rule x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_input'::text,(jsonb_build_array((SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id),x.code)::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','rule_id','parameter_id']) || jsonb_build_object('rule_code',(SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id),'parameter_code',(SELECT code FROM recipe_parameter WHERE id=x.parameter_id)) FROM recipe_scaling_input x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_binding'::text,(CASE WHEN x.parameter_limit_id IS NOT NULL THEN jsonb_build_array('parameter',(SELECT p.code FROM recipe_parameter_limit l JOIN recipe_parameter p ON p.id=l.parameter_id WHERE l.id=x.parameter_limit_id),(SELECT category FROM recipe_parameter_limit WHERE id=x.parameter_limit_id))::text ELSE jsonb_build_array('material',(SELECT code FROM recipe_material_requirement WHERE id=x.material_requirement_id))::text END)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','rule_id','parameter_limit_id','material_requirement_id']) || jsonb_build_object('rule_code',(SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id)) FROM recipe_scaling_binding x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_expression'::text,((SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id))::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','rule_id','tokens']) || jsonb_build_object('tokens',(SELECT jsonb_agg(CASE WHEN t.value->>'op'='input' THEN jsonb_build_object('op','input','code',(SELECT i.code FROM recipe_scaling_input i WHERE i.id=(t.value->>'id')::uuid AND i.rule_id=x.rule_id)) ELSE t.value END ORDER BY t.ordinality) FROM jsonb_array_elements(x.tokens) WITH ORDINALITY t(value,ordinality))) FROM recipe_scaling_expression x WHERE x.recipe_version_id=p_version
+$$;
+
+CREATE OR REPLACE FUNCTION recipe_review_snapshot(p_version uuid) RETURNS jsonb
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT jsonb_build_object('header',to_jsonb(v)-'lifecycle_status',
+ 'recipe_procedural_element',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_procedural_element x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_dependency',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_dependency x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_parameter',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_parameter x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_parameter_limit',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_parameter_limit x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_formula',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_formula x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_material_requirement',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_material_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_equipment_requirement',COALESCE((SELECT jsonb_agg((CASE WHEN x.equipment_class_id IS NULL THEN to_jsonb(x)-'equipment_class_id' ELSE to_jsonb(x) END) ORDER BY x.id) FROM recipe_equipment_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_personnel_requirement',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_personnel_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_instruction',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_instruction x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_specification_link',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_specification_link x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_lot_rule',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_lot_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_compatibility_rule',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_compatibility_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_rule',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_input',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_input x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_binding',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_binding x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_expression',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_expression x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_change_request',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_change_request x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_change_impact',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_change_impact x WHERE x.recipe_version_id=v.id),'[]'::jsonb)
+ ) FROM master_recipe_version v WHERE v.id=p_version
+$$;
+
+-- Geen nieuwe app-mutatiefunctie, grants of vrijgave in deze slice.
+
+-- Migratie 0157: expliciete getypeerde eigenschapsreferenties (#116.3b).
+SET search_path = fabriek, public;
+
+-- Een definitie is geen actuele capability, capaciteitsaanwijzing of toewijzing.
+-- Geen automatische mapping; oude concepten en reviewbewijs blijven intact.
+ALTER TABLE equipment_property_definition
+    ADD CONSTRAINT equipment_property_definition_id_unit_key UNIQUE (id,measurement_unit_id),
+    ADD CONSTRAINT equipment_property_definition_id_code_unit_key UNIQUE (id,code,measurement_unit_id);
+
+ALTER TABLE recipe_equipment_requirement ADD COLUMN capacity_property_definition_id uuid;
+ALTER TABLE recipe_equipment_requirement
+    ADD CONSTRAINT recipe_equipment_requirement_capacity_ref_check CHECK (
+        capacity_property_definition_id IS NULL OR
+        (equipment_class_id IS NOT NULL AND minimum_capacity IS NOT NULL AND capacity_unit_id IS NOT NULL)),
+    ADD CONSTRAINT recipe_equipment_requirement_capacity_ref_fk
+        FOREIGN KEY (capacity_property_definition_id,capacity_unit_id)
+        REFERENCES equipment_property_definition(id,measurement_unit_id);
+CREATE INDEX recipe_equipment_requirement_capacity_ref_idx ON recipe_equipment_requirement(capacity_property_definition_id);
+
+ALTER TABLE recipe_scaling_input ADD COLUMN equipment_property_definition_id uuid;
+ALTER TABLE recipe_scaling_input
+    ADD CONSTRAINT recipe_scaling_input_equipment_ref_check CHECK (
+        equipment_property_definition_id IS NULL OR
+        (source_kind='equipment_property' AND equipment_property IS NOT NULL AND conversion_version_id IS NULL)),
+    ADD CONSTRAINT recipe_scaling_input_equipment_ref_fk
+        FOREIGN KEY (equipment_property_definition_id,equipment_property,unit_id)
+        REFERENCES equipment_property_definition(id,code,measurement_unit_id);
+CREATE INDEX recipe_scaling_input_equipment_ref_idx ON recipe_scaling_input(equipment_property_definition_id);
+
+-- Eenheden zijn exact; geen impliciete conversie of keuze van een fysiek middel.
+-- De bestaande lifecycle-, audit- en schaalformuleguards blijven actief.
+-- Nieuwe NULL-velden niet opnemen in bestaand review-/vergelijkingsbewijs.
+CREATE OR REPLACE FUNCTION recipe_comparison_rows(p_version uuid)
+RETURNS TABLE(area text, entity text, item_key text, content jsonb)
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT 'header'::text,'master_recipe_version'::text,'header'::text,jsonb_build_object('name',v.name,'description',v.description)
+ FROM master_recipe_version v WHERE v.id=p_version
+ UNION ALL
+ SELECT 'procedure'::text,'recipe_procedural_element'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','parent_id']) || jsonb_build_object('parent_code',(SELECT code FROM recipe_procedural_element WHERE id=x.parent_id)) FROM recipe_procedural_element x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'procedure'::text,'recipe_dependency'::text,(jsonb_build_array((SELECT code FROM recipe_procedural_element WHERE id=x.predecessor_id),(SELECT code FROM recipe_procedural_element WHERE id=x.successor_id))::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','predecessor_id','successor_id']) || jsonb_build_object('predecessor_code',(SELECT code FROM recipe_procedural_element WHERE id=x.predecessor_id),'successor_code',(SELECT code FROM recipe_procedural_element WHERE id=x.successor_id)) FROM recipe_dependency x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'parameters'::text,'recipe_parameter'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_parameter x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'parameters'::text,'recipe_parameter_limit'::text,(jsonb_build_array((SELECT code FROM recipe_parameter WHERE id=x.parameter_id),x.category)::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','parameter_id']) || jsonb_build_object('parameter_code',(SELECT code FROM recipe_parameter WHERE id=x.parameter_id)) FROM recipe_parameter_limit x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'formula'::text,'recipe_formula'::text,('reference')::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_formula x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'materials'::text,'recipe_material_requirement'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','formula_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_material_requirement x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'equipment'::text,'recipe_equipment_requirement'::text,(x.code)::text,((CASE WHEN x.capacity_property_definition_id IS NULL THEN (CASE WHEN x.equipment_class_id IS NULL THEN to_jsonb(x)-'equipment_class_id' ELSE to_jsonb(x) END)-'capacity_property_definition_id' ELSE (CASE WHEN x.equipment_class_id IS NULL THEN to_jsonb(x)-'equipment_class_id' ELSE to_jsonb(x) END) END)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_equipment_requirement x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'personnel'::text,'recipe_personnel_requirement'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_personnel_requirement x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'instructions'::text,'recipe_instruction'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','procedural_element_id']) || jsonb_build_object('element_code',(SELECT code FROM recipe_procedural_element WHERE id=x.procedural_element_id)) FROM recipe_instruction x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'quality'::text,'recipe_specification_link'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','parameter_limit_id']) || jsonb_build_object('parameter_limit',(SELECT jsonb_build_array(p.code,l.category) FROM recipe_parameter_limit l JOIN recipe_parameter p ON p.id=l.parameter_id WHERE l.id=x.parameter_limit_id)) FROM recipe_specification_link x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'lot'::text,'recipe_lot_rule'::text,('norm')::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_lot_rule x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'lot'::text,'recipe_compatibility_rule'::text,(x.other_recipe_version_id::text)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_compatibility_rule x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_rule'::text,(x.code)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id']) FROM recipe_scaling_rule x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_input'::text,(jsonb_build_array((SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id),x.code)::text)::text,((CASE WHEN x.equipment_property_definition_id IS NULL THEN to_jsonb(x)-'equipment_property_definition_id' ELSE to_jsonb(x) END)-ARRAY['id','recipe_version_id','rule_id','parameter_id']) || jsonb_build_object('rule_code',(SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id),'parameter_code',(SELECT code FROM recipe_parameter WHERE id=x.parameter_id)) FROM recipe_scaling_input x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_binding'::text,(CASE WHEN x.parameter_limit_id IS NOT NULL THEN jsonb_build_array('parameter',(SELECT p.code FROM recipe_parameter_limit l JOIN recipe_parameter p ON p.id=l.parameter_id WHERE l.id=x.parameter_limit_id),(SELECT category FROM recipe_parameter_limit WHERE id=x.parameter_limit_id))::text ELSE jsonb_build_array('material',(SELECT code FROM recipe_material_requirement WHERE id=x.material_requirement_id))::text END)::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','rule_id','parameter_limit_id','material_requirement_id']) || jsonb_build_object('rule_code',(SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id)) FROM recipe_scaling_binding x WHERE x.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'scaling'::text,'recipe_scaling_expression'::text,((SELECT code FROM recipe_scaling_rule WHERE id=x.rule_id))::text,(to_jsonb(x)-ARRAY['id','recipe_version_id','rule_id','tokens']) || jsonb_build_object('tokens',(SELECT jsonb_agg(CASE WHEN t.value->>'op'='input' THEN jsonb_build_object('op','input','code',(SELECT i.code FROM recipe_scaling_input i WHERE i.id=(t.value->>'id')::uuid AND i.rule_id=x.rule_id)) ELSE t.value END ORDER BY t.ordinality) FROM jsonb_array_elements(x.tokens) WITH ORDINALITY t(value,ordinality))) FROM recipe_scaling_expression x WHERE x.recipe_version_id=p_version
+$$;
+
+CREATE OR REPLACE FUNCTION recipe_review_snapshot(p_version uuid) RETURNS jsonb
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT jsonb_build_object('header',to_jsonb(v)-'lifecycle_status',
+ 'recipe_procedural_element',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_procedural_element x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_dependency',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_dependency x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_parameter',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_parameter x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_parameter_limit',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_parameter_limit x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_formula',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_formula x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_material_requirement',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_material_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_equipment_requirement',COALESCE((SELECT jsonb_agg((CASE WHEN x.capacity_property_definition_id IS NULL THEN (CASE WHEN x.equipment_class_id IS NULL THEN to_jsonb(x)-'equipment_class_id' ELSE to_jsonb(x) END)-'capacity_property_definition_id' ELSE (CASE WHEN x.equipment_class_id IS NULL THEN to_jsonb(x)-'equipment_class_id' ELSE to_jsonb(x) END) END) ORDER BY x.id) FROM recipe_equipment_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_personnel_requirement',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_personnel_requirement x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_instruction',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_instruction x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_specification_link',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_specification_link x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_lot_rule',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_lot_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_compatibility_rule',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_compatibility_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_rule',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_rule x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_input',COALESCE((SELECT jsonb_agg((CASE WHEN x.equipment_property_definition_id IS NULL THEN to_jsonb(x)-'equipment_property_definition_id' ELSE to_jsonb(x) END) ORDER BY x.id) FROM recipe_scaling_input x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_binding',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_binding x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_scaling_expression',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_scaling_expression x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_change_request',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_change_request x WHERE x.recipe_version_id=v.id),'[]'::jsonb),
+ 'recipe_change_impact',COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM recipe_change_impact x WHERE x.recipe_version_id=v.id),'[]'::jsonb)
+ ) FROM master_recipe_version v WHERE v.id=p_version
+$$;
+
+-- Geen nieuwe app-grants; vrijgaveblokkades voor middelen en complexe schaling blijven actief.
+
+-- Migratie 0158: expliciete definitiegeldigheid middelenvereisten (#116.3c).
+SET search_path = fabriek, public;
+
+-- Definitiegeldigheid is geen bewijs van fysieke geschiktheid of beschikbaarheid.
+-- 0156/0157 dwingen de referentie, code en exacte eenheid af; de identiteit
+-- blijft stabiel. Geen actuele capaciteit, klassebezetting, status of stilstand
+-- opnemen in de formele receptvrijgave. Aantal blijft een definitiecriterium.
+-- Complexe schaalregels blijven integraal geblokkeerd tot fase 6.
+CREATE OR REPLACE FUNCTION recipe_release_blockers(p_version uuid)
+RETURNS TABLE(code text, record_id uuid, detail text)
+LANGUAGE sql STABLE SET search_path=pg_catalog,fabriek,pg_temp AS $$
+ SELECT 'missing_version'::text,p_version,'Onbekende receptversie'::text
+ WHERE NOT EXISTS (SELECT 1 FROM master_recipe_version WHERE id=p_version)
+ UNION ALL
+ SELECT 'missing_moc',p_version,'MOC-dossier ontbreekt'
+ WHERE NOT EXISTS (SELECT 1 FROM recipe_change_request WHERE recipe_version_id=p_version)
+ UNION ALL
+ SELECT 'missing_root',p_version,'Procedure-root ontbreekt'
+ WHERE NOT EXISTS (SELECT 1 FROM recipe_procedural_element WHERE recipe_version_id=p_version AND kind='procedure')
+ UNION ALL
+ SELECT 'empty_procedure_branch',x.id,'Procedure-element heeft geen onderliggend element'
+ FROM recipe_procedural_element x
+ WHERE x.recipe_version_id=p_version AND x.kind<>'phase'
+ AND NOT EXISTS (SELECT 1 FROM recipe_procedural_element c WHERE c.recipe_version_id=p_version AND c.parent_id=x.id)
+ UNION ALL
+ SELECT 'missing_formula',p_version,'Referentieformule ontbreekt'
+ WHERE NOT EXISTS (SELECT 1 FROM recipe_formula WHERE recipe_version_id=p_version)
+ UNION ALL
+ SELECT 'unmapped_formula_unit',f.id,'Referentie-eenheid niet expliciet gekoppeld'
+ FROM recipe_formula f WHERE f.recipe_version_id=p_version AND f.reference_unit_id IS NULL
+ UNION ALL
+ SELECT 'unmapped_material_unit',m.id,'Materiaaleenheid niet expliciet gekoppeld'
+ FROM recipe_material_requirement m JOIN material_definition_version v ON v.id=m.material_version_id
+ WHERE m.recipe_version_id=p_version AND (m.measurement_unit_id IS NULL OR v.measurement_unit_id IS DISTINCT FROM m.measurement_unit_id OR v.unit IS DISTINCT FROM m.unit)
+ UNION ALL
+ SELECT 'unmapped_parameter_unit',p.id,'Numerieke parametereenheid niet expliciet gekoppeld'
+ FROM recipe_parameter p WHERE p.recipe_version_id=p_version AND p.data_type IN ('decimal','integer')
+ AND p.measurement_unit_id IS NULL
+ UNION ALL
+ SELECT 'missing_lot_rule',p_version,'Expliciete lotnorm ontbreekt'
+ WHERE NOT EXISTS (SELECT 1 FROM recipe_lot_rule WHERE recipe_version_id=p_version)
+ UNION ALL
+ SELECT 'unverified_linear_parameter',l.id,'Lineaire schaling vereist bewezen ratio-eenheid en gehele-waardebeleid'
+ FROM recipe_parameter_limit l JOIN recipe_parameter p ON p.id=l.parameter_id
+ LEFT JOIN measurement_unit u ON u.id=p.measurement_unit_id LEFT JOIN quantity_kind k ON k.id=u.quantity_kind_id
+ WHERE l.recipe_version_id=p_version AND l.scaling='linear' AND (k.value_semantics IS DISTINCT FROM 'ratio' OR p.data_type='integer')
+ UNION ALL
+ SELECT 'unverified_linear_material',m.id,'Lineaire materiaalschaling vereist bewezen ratio-eenheid'
+ FROM recipe_material_requirement m LEFT JOIN measurement_unit u ON u.id=m.measurement_unit_id LEFT JOIN quantity_kind k ON k.id=u.quantity_kind_id
+ WHERE m.recipe_version_id=p_version AND m.scaling='linear' AND k.value_semantics IS DISTINCT FROM 'ratio'
+ UNION ALL
+ SELECT 'unverified_reference_scaling',f.id,'Referentiegrootte voor lineaire schaling vereist ratio-eenheid'
+ FROM recipe_formula f LEFT JOIN measurement_unit u ON u.id=f.reference_unit_id LEFT JOIN quantity_kind k ON k.id=u.quantity_kind_id
+ WHERE f.recipe_version_id=p_version AND k.value_semantics IS DISTINCT FROM 'ratio'
+ AND (EXISTS (SELECT 1 FROM recipe_material_requirement m WHERE m.recipe_version_id=p_version AND m.scaling='linear')
+ OR EXISTS (SELECT 1 FROM recipe_parameter_limit l WHERE l.recipe_version_id=p_version AND l.scaling='linear'))
+ UNION ALL
+ SELECT 'complex_scaling_unproven',r.id,'Complexe schaalregel nog niet aantoonbaar uitvoerbaar; geen fixed/linear fallback'
+ FROM recipe_scaling_rule r WHERE r.recipe_version_id=p_version
+ UNION ALL
+ SELECT 'equipment_class_unverified',e.id,'Middelklasse vereist een expliciete cataloguskoppeling'
+ FROM recipe_equipment_requirement e WHERE e.recipe_version_id=p_version
+ AND e.equipment_class_id IS NULL
+ UNION ALL
+ SELECT 'equipment_capacity_unverified',e.id,'Capaciteit vereist een expliciete eigenschapsdefinitie met dezelfde cataloguseenheid'
+ FROM recipe_equipment_requirement e WHERE e.recipe_version_id=p_version
+ AND e.minimum_capacity IS NOT NULL AND e.capacity_property_definition_id IS NULL
+ UNION ALL
+ SELECT 'qualification_changed',p.id,'Kwalificatiebetekenis wijkt af van vastgelegde eis'
+ FROM recipe_personnel_requirement p LEFT JOIN qualification q ON q.code=p.qualification_code
+ WHERE p.recipe_version_id=p_version AND q.description IS DISTINCT FROM p.qualification_description
+$$;
+
+-- Geen nieuwe statusovergang, mutatie-interface of app-grant.
+-- Bestaande formele vrijgavecontrole, MOC-snapshot, teller en audit blijven leidend.
+
+-- Migratie 0159: persoonlijke catalogusgebonden receptmutaties (#116.3d.1).
+SET search_path = fabriek, public;
+
+-- De oude interfaces blijven bruikbaar voor ongekoppelde concepten, maar
+-- mogen expliciete koppelingen niet stilzwijgend wijzigen of verliezen.
+CREATE OR REPLACE FUNCTION recipe_save_equipment_requirement(p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,p_equipment_class_code text,p_description text,p_required_count integer,p_minimum_capacity numeric,p_capacity_unit_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF EXISTS (SELECT 1 FROM recipe_equipment_requirement WHERE recipe_version_id=p_version AND id=p_id
+   AND (equipment_class_id IS NOT NULL OR capacity_property_definition_id IS NOT NULL)) THEN
+   RAISE EXCEPTION 'Gebruik de expliciete middelencataloguskoppeling' USING ERRCODE='23514';
+ END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,description,required_count,minimum_capacity,capacity_unit_id)
+   VALUES(p_version,p_procedural_element_id,p_code,p_equipment_class_code,p_description,p_required_count,p_minimum_capacity,p_capacity_unit_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_equipment_requirement SET procedural_element_id=p_procedural_element_id,code=p_code,equipment_class_code=p_equipment_class_code,description=p_description,required_count=p_required_count,minimum_capacity=p_minimum_capacity,capacity_unit_id=p_capacity_unit_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE OR REPLACE FUNCTION recipe_save_scaling_input(p_version uuid,p_expected integer,p_id uuid,p_rule_id uuid,p_code text,p_source_kind text,p_parameter_id uuid,p_equipment_property text,p_constant_value numeric,p_unit_id uuid,p_conversion_version_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF EXISTS (SELECT 1 FROM recipe_scaling_input WHERE recipe_version_id=p_version AND id=p_id
+   AND equipment_property_definition_id IS NOT NULL) THEN
+   RAISE EXCEPTION 'Gebruik de expliciete eigenschapskoppeling' USING ERRCODE='23514';
+ END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,parameter_id,equipment_property,constant_value,unit_id,conversion_version_id)
+   VALUES(p_version,p_rule_id,p_code,p_source_kind,p_parameter_id,p_equipment_property,p_constant_value,p_unit_id,p_conversion_version_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_scaling_input SET rule_id=p_rule_id,code=p_code,source_kind=p_source_kind,parameter_id=p_parameter_id,equipment_property=p_equipment_property,constant_value=p_constant_value,unit_id=p_unit_id,conversion_version_id=p_conversion_version_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende schaalregelinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_save_equipment_requirement_linked(
+ p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,
+ p_equipment_class_id uuid,p_description text,p_required_count integer,
+ p_minimum_capacity numeric,p_capacity_property_definition_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid; class_code text; capacity_unit uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ SELECT code INTO class_code FROM equipment_class WHERE id=p_equipment_class_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende middelklasse' USING ERRCODE='23503'; END IF;
+ IF (p_minimum_capacity IS NULL) IS DISTINCT FROM (p_capacity_property_definition_id IS NULL) THEN
+   RAISE EXCEPTION 'Minimumcapaciteit vereist een expliciete eigenschapsdefinitie' USING ERRCODE='23514';
+ END IF;
+ IF p_capacity_property_definition_id IS NOT NULL THEN
+   SELECT measurement_unit_id INTO capacity_unit FROM equipment_property_definition WHERE id=p_capacity_property_definition_id;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende capaciteitseigenschap' USING ERRCODE='23503'; END IF;
+ END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,
+     description,required_count,minimum_capacity,capacity_unit_id,equipment_class_id,capacity_property_definition_id)
+   VALUES(p_version,p_procedural_element_id,p_code,class_code,p_description,p_required_count,
+     p_minimum_capacity,capacity_unit,p_equipment_class_id,p_capacity_property_definition_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_equipment_requirement SET procedural_element_id=p_procedural_element_id,code=p_code,
+     equipment_class_code=class_code,description=p_description,required_count=p_required_count,
+     minimum_capacity=p_minimum_capacity,capacity_unit_id=capacity_unit,equipment_class_id=p_equipment_class_id,
+     capacity_property_definition_id=p_capacity_property_definition_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_save_scaling_input_linked(
+ p_version uuid,p_expected integer,p_id uuid,p_rule_id uuid,p_code text,
+ p_equipment_property_definition_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid; property_code text; property_unit uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ SELECT code,measurement_unit_id INTO property_code,property_unit
+   FROM equipment_property_definition WHERE id=p_equipment_property_definition_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende middeleneigenschap' USING ERRCODE='23503'; END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,equipment_property,
+     unit_id,equipment_property_definition_id)
+   VALUES(p_version,p_rule_id,p_code,'equipment_property',property_code,property_unit,p_equipment_property_definition_id)
+   RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_scaling_input SET rule_id=p_rule_id,code=p_code,source_kind='equipment_property',
+     parameter_id=NULL,equipment_property=property_code,constant_value=NULL,unit_id=property_unit,
+     conversion_version_id=NULL,equipment_property_definition_id=p_equipment_property_definition_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende schaalregelinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+REVOKE ALL ON FUNCTION recipe_save_equipment_requirement_linked(uuid,integer,uuid,uuid,text,uuid,text,integer,numeric,uuid),
+ recipe_save_scaling_input_linked(uuid,integer,uuid,uuid,text,uuid) FROM PUBLIC;
+
+-- Migratie 0160: beperkte middelencatalogusreferenties voor receptconcepten (#116.3d.2).
+SET search_path = fabriek, public;
+
+-- Bestaande persoonlijke productscope blijft vereist. Alleen definities,
+-- geen fysieke middelen, actuele waarden, statussen of beheerbevoegdheden.
+CREATE OR REPLACE FUNCTION recipe_reference_catalog(p_product uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+BEGIN
+ PERFORM recipe_draft_actor(p_product);
+ RETURN jsonb_build_object(
+   'materials', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+     'id',v.id,'material_code',d.code,'revision',v.revision,'name',v.name,
+     'unit',v.unit,'measurement_unit_id',v.measurement_unit_id)
+     ORDER BY d.code,v.revision DESC)
+     FROM material_definition_version v JOIN material_definition d ON d.id=v.material_definition_id),'[]'::jsonb),
+   'qualifications', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',q.code,'description',q.description)
+     ORDER BY q.code) FROM qualification q),'[]'::jsonb),
+   'equipment_classes', COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'code',c.code,'name',c.name)
+     ORDER BY c.code) FROM equipment_class c),'[]'::jsonb),
+   'equipment_properties', COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'code',p.code,'name',p.name,
+     'quantity_kind_id',p.quantity_kind_id,'measurement_unit_id',p.measurement_unit_id)
+     ORDER BY p.code) FROM equipment_property_definition p),'[]'::jsonb)
+ );
+END $$;
+REVOKE ALL ON FUNCTION recipe_reference_catalog(uuid) FROM PUBLIC;
 
 COMMIT;

@@ -49,8 +49,8 @@ def kort_type(t: str) -> str:
 
 # Expliciete semantische indeling D114; onbekende tabellen vereisen bewuste classificatie.
 DIAGRAM_KLASSEN = {
-    "structuur": set("activity_qualification authorization_permission authorization_role authorization_role_permission capaciteit_stap gebruiker grondstof instelling master_recipe master_recipe_version material_class material_definition material_definition_version measurement_unit operator pc pc_stap ploeg processtap product product_stap qualification quantity_dimension quantity_kind recipe_compatibility_rule recipe_dependency recipe_equipment_requirement recipe_formula recipe_instruction recipe_lot_rule recipe_material_requirement recipe_parameter recipe_parameter_limit recipe_personnel_requirement recipe_procedural_element recipe_scaling_binding recipe_scaling_expression recipe_scaling_input recipe_scaling_rule recipe_specification_link rooster rooster_ploeg specificatie specificatie_regel stap_grondstof stilstand_oorzaak unit_conversion unit_conversion_version veld veld_product".split()),
-    "uitvoering": set("authorization_decision authorization_grant authorization_personnel_link authorization_request authorization_revocation batch batch_besluit capaciteit_afwijking certificaat execution_session geweigerde_invoer grondstof_gebruik herbewerking invoerconflict keuring lot lot_voorstel lot_voorstel_batch melding melding_gelezen overdracht personnel_qualification qualification_issue qualification_revocation recipe_change_impact recipe_change_request recipe_release recipe_release_withdrawal recipe_review_decision recipe_review_round stapplanning stapregistratie stilstand terugmelding waarde".split()),
+    "structuur": set("activity_qualification equipment_hierarchy equipment equipment_class equipment_class_assignment equipment_property_definition equipment_capability equipment_capability_revision equipment_capacity equipment_workstation physical_asset equipment_asset_assignment resource_area_scope resource_equipment_scope authorization_permission authorization_role authorization_role_permission capaciteit_stap gebruiker grondstof instelling master_recipe master_recipe_version material_class material_definition material_definition_version measurement_unit operator pc pc_stap ploeg processtap product product_stap qualification quantity_dimension quantity_kind recipe_compatibility_rule recipe_dependency recipe_equipment_requirement recipe_formula recipe_instruction recipe_lot_rule recipe_material_requirement recipe_parameter recipe_parameter_limit recipe_personnel_requirement recipe_procedural_element recipe_scaling_binding recipe_scaling_expression recipe_scaling_input recipe_scaling_rule recipe_specification_link rooster rooster_ploeg specificatie specificatie_regel stap_grondstof stilstand_oorzaak unit_conversion unit_conversion_version veld veld_product".split()),
+    "uitvoering": set("equipment_status_history authorization_decision authorization_grant authorization_personnel_link authorization_request authorization_revocation batch batch_besluit capaciteit_afwijking certificaat execution_session geweigerde_invoer grondstof_gebruik herbewerking invoerconflict keuring lot lot_voorstel lot_voorstel_batch melding melding_gelezen overdracht personnel_qualification qualification_issue qualification_revocation recipe_change_impact recipe_change_request recipe_release recipe_release_withdrawal recipe_review_decision recipe_review_round stapplanning stapregistratie stilstand terugmelding waarde".split()),
     "ondersteuning": set("authorization_bootstrap authorization_channel_identity authorization_channel_identity_revocation authorization_legacy_snapshot authorization_recovery config_log inlogpoging onderhoud_log schema_versie".split()),
 }
 DIAGRAM_INIT = '%%{init: {"theme":"base","themeVariables":{"lineColor":"#6B7785","primaryTextColor":"#1B2430","fontFamily":"Arial, sans-serif"}}}%%'
@@ -82,6 +82,7 @@ def main() -> None:
         subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-d", url, "-f", str(SCHEMA)],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         with psycopg.connect(url) as c:
+            schema_versie = c.execute("SELECT max(nummer) FROM fabriek.schema_versie").fetchone()[0]
             tabellen = [r[0] for r in c.execute(
                 "SELECT relname FROM pg_class WHERE relnamespace = 'fabriek'::regnamespace AND relkind = 'r' ORDER BY relname")]
             kolommen = c.execute("""
@@ -116,7 +117,8 @@ def main() -> None:
          "> **Dit bestand:** een plaatje van de database, **automatisch gemaakt** uit `db/schema.sql` met",
          "> `tools/schema_plaatje.py` (#100, D84). Niet met de hand wijzigen: `tests/test_schema_plaatje.sh` faalt als het niet bij is.",
          "> Opnieuw maken: `python3 tools/schema_plaatje.py \"host=localhost user=postgres\"`.",
-         "> **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).", "",
+         "> **Niet hier:** de regels in de database en waarom → `db/schema.sql` en [`DECISIONS.md`](../DECISIONS.md).",
+         f"> **Momentopname schema {schema_versie:04d}:** tijdens conceptontwikkeling kan het actuele SQL-schema voorlopen; bij faseacceptatie en release wordt dit overzicht geverifieerd.", "",
          f"Schema `fabriek`: {len(tabellen)} tabellen en {len(verbanden)} verbanden.", "",
          "## Overzicht", "",
          "Een lijn loopt van de tabel waarnaar verwezen wordt naar de tabel met de verwijzing, met de kolom erbij. "
