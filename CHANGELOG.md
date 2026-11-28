@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3c: receptvrijgavevalidatie (0158) onderscheidt expliciet gekoppelde definities van onbewezen klasse-/capaciteitsvereisten; geen automatische vrijgave, geen actuele inzetbaarheidsclaim, complexe schaling blijft geblokkeerd. Runtimebewijs volgt.
+
 - #116.3b: interne getypeerde eigenschapsreferenties (0157) voor receptcapaciteit en schaalinvoer, exacte eenheden en broncode, geen automatische omzetting of vrijgave. Runtimebewijs volgt.
 
 - #116.3a: interne expliciete middelklassekoppeling voor receptvereisten (0156), zonder automatische omzetting of vrijgave; historische review- en vergelijkingsvorm bij ontbrekende koppeling behouden. Runtimebewijs volgt.
