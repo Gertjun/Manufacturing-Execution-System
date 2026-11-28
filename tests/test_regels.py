@@ -4214,6 +4214,33 @@ def main():
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
 
+    print("\n#116.3 catalogusreferenties: schema- en definitiecontract")
+    # Inspect the installed database constraints, independent of application projections.
+    for table, constraint, typ in (
+        ("recipe_equipment_requirement","recipe_equipment_requirement_class_fk","f"),
+        ("recipe_equipment_requirement","recipe_equipment_requirement_capacity_ref_fk","f"),
+        ("recipe_equipment_requirement","recipe_equipment_requirement_capacity_ref_check","c"),
+        ("recipe_scaling_input","recipe_scaling_input_equipment_ref_fk","f"),
+        ("recipe_scaling_input","recipe_scaling_input_equipment_ref_check","c"),
+    ):
+        check("F4-116-C01 gevalideerde constraint "+constraint,
+              val("SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=%s::regclass AND conname=%s AND contype::text=%s AND convalidated)",("fabriek."+table,constraint,typ)))
+    check("F4-116-C02 klasse en code gezamenlijk geborgd",
+          val("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='recipe_equipment_requirement_class_fk' AND conrelid='fabriek.recipe_equipment_requirement'::regclass").startswith("FOREIGN KEY (equipment_class_id, equipment_class_code)"))
+    check("F4-116-C02 capaciteit en eenheid gezamenlijk geborgd",
+          val("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='recipe_equipment_requirement_capacity_ref_fk' AND conrelid='fabriek.recipe_equipment_requirement'::regclass").startswith("FOREIGN KEY (capacity_property_definition_id, capacity_unit_id)"))
+    check("F4-116-C02 schaalbron, code en eenheid gezamenlijk geborgd",
+          val("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='recipe_scaling_input_equipment_ref_fk' AND conrelid='fabriek.recipe_scaling_input'::regclass").startswith("FOREIGN KEY (equipment_property_definition_id, equipment_property, unit_id)"))
+    for signature in (
+        "recipe_save_equipment_requirement_linked(uuid,integer,uuid,uuid,text,uuid,text,integer,numeric,uuid)",
+        "recipe_save_scaling_input_linked(uuid,integer,uuid,uuid,text,uuid)",
+    ):
+        check("F4-116-C03 beperkte app-interface "+signature,
+              val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
+    for table in ("recipe_equipment_requirement","recipe_scaling_input"):
+        check("F4-116-C03 geen directe app-mutatie "+table,
+              not any(one("SELECT has_table_privilege('mes_app',%s,'INSERT'),has_table_privilege('mes_app',%s,'UPDATE'),has_table_privilege('mes_app',%s,'DELETE')",("fabriek."+table,)*3)))
+
     fout = [r for r in resultaten if not r[1]]
     print(f"\n{len(resultaten) - len(fout)} van {len(resultaten)} controles geslaagd")
     sys.exit(1 if fout else 0)

@@ -7,6 +7,8 @@ Eén versienummer voor het hele platform (`MAJOR.MINOR.PATCH`, D88). Nog niet ui
 
 ## Unreleased
 
+- #116.3e: SQL-regressies voor gevalideerde catalogusconstraints en beperkte app-rechten toegevoegd; uitvoering en gedragsbewijs volgen.
+
 - #116.3d.4c: Chrome-regressie voor catalogusgebonden middelenvereisten en formele vrijgave toegevoegd; uitvoering volgt.
 
 - #116.3d.4b: API-regressies voor expliciete equipmentschaalbronnen en behoud van complexe-schalingsblokkade toegevoegd; uitvoering volgt.
