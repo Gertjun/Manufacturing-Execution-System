@@ -123,7 +123,7 @@ export const magReceptbeoordeling = () => heeftProductRecht("recipe.draft.manage
 
 export const magScopemapping = () => !!rechten()?.personal && heeftRecht("resource.scope.manage");
 export const magMiddelenbeheer = () => !!rechten()?.personal && (rechten()?.resourceCatalog === true || heeftRecht("resource.catalog.manage"));
-export const magMiddelenstatus = () => !!rechten()?.personal && (rechten()?.resourceStatus === true || heeftRecht("resource.status.manage"));
+export const magMiddelenstatus = () => !!rechten()?.personal && (rechten()?.resourceStatus === true || heeftRecht("resource.status.manage","resource.status.read"));
 export const magWerkstationbeheer = () => !!rechten()?.personal && heeftRecht("resource.catalog.manage");
 export const magMiddelstilstand = () => !!rechten()?.personal && heeftRecht("downtime.read","maintenance.downtime.read");
 export const PORTALEN: Portaal[] = [
