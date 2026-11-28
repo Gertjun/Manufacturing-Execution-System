@@ -963,6 +963,15 @@ BEGIN
  END IF;
 END $$;
 
+-- 0159: uitsluitend persoonlijke catalogusgebonden receptmutaties.
+DO $
+BEGIN
+ IF EXISTS (SELECT 1 FROM fabriek.schema_versie WHERE nummer=159) THEN
+   GRANT EXECUTE ON FUNCTION fabriek.recipe_save_equipment_requirement_linked(uuid,integer,uuid,uuid,text,uuid,text,integer,numeric,uuid),
+     fabriek.recipe_save_scaling_input_linked(uuid,integer,uuid,uuid,text,uuid) TO mes_app;
+ END IF;
+END $;
+
 -- D100: controleer de geïnstalleerde SECURITY DEFINER-interface, niet alleen broncode.
 -- Een afwijkende eigenaar wordt niet automatisch gewijzigd: IT moet dit beoordelen.
 DO $$

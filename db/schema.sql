@@ -6429,7 +6429,7 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION verwerk_batch_besluit(),beslis_keuring(uuid,text,text,uuid,text),maak_herbewerking(text,text,text,uuid,uuid),trek_herbewerking_in(uuid,text,uuid) FROM PUBLIC;
 
-INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management'), (138, 'resource_catalog_read'), (139, 'equipment_capability'), (140, 'equipment_capability_manage'), (141, 'equipment_capacity'), (142, 'equipment_capacity_manage'), (143, 'equipment_suitability'), (144, 'equipment_status_history'), (145, 'equipment_status_manage'), (146, 'equipment_workstation'), (147, 'equipment_workstation_manage'), (148, 'downtime_equipment_context'), (149, 'resource_downtime'), (150, 'execution_session_workstation'), (151, 'resource_read_projections'), (152, 'resource_workstation_downtime_projections'), (153, 'resource_property_references'), (154, 'resource_downtime_replay_guard'), (155, 'resource_status_read'), (156, 'recipe_equipment_class_reference'), (157, 'recipe_equipment_property_reference'), (158, 'recipe_equipment_release_validation');
+INSERT INTO schema_versie (nummer, naam) VALUES (1, 'basis'), (2, 'onderhoud'), (3, 'planning'), (4, 'wandscherm'), (5, 'grondstoffen'), (6, 'ploegoverdracht'), (7, 'meldingen'), (8, 'stilstand'), (9, 'capaciteit'), (10, 'certificaat'), (11, 'apparaattijd'), (12, 'tijdzone'), (13, 'inloggen'), (14, 'opruimen'), (15, 'decimalen'), (16, 'planningvolgorde'), (17, 'eigen_inlog'), (18, 'route_per_product'), (19, 'grenzen_per_product'), (20, 'capaciteit_per_stap'), (21, 'herbewerking'), (22, 'keuring'), (23, 'afgerond_door'), (24, 'nalevering'), (25, 'tijdelijk_wachtwoord'), (26, 'iets_melden'), (27, 'stilstand_notitie'), (28, 'pilotoverzicht'), (29, 'capaciteit_afwijking'), (30, 'capaciteit_route'), (31, 'keuringsstap'), (32, 'invoerconflict'), (33, 'ploegrooster'), (34, 'medewerker_ploeg'), (35, 'capaciteit_kg'), (36, 'authorization'), (37, 'personal_execution'), (38, 'authorization_approval'), (39, 'authorization_identity'), (40, 'credential_visibility'), (41, 'authorization_revocation'), (42, 'operator_identity_projection'), (43, 'mes_role_catalog'), (44, 'management_permissions'), (45, 'execution_permissions'), (46, 'execution_read_permissions'), (47, 'planning_permissions'), (48, 'operations_permissions'), (49, 'batch_lot_permissions'), (50, 'authentication_hardening'), (51, 'administrative_separation'), (52, 'legacy_role_guard'), (53, 'identity_reset_guard'), (54, 'controlled_bootstrap'), (55, 'controlled_recovery'), (56, 'session_version'), (57, 'recovery_readiness'), (58, 'personnel_separation'), (59, 'security_channel'), (60, 'security_identity_binding'), (61, 'security_binding_lifecycle'), (62, 'quality_confirmation'), (63, 'rework_order_required'), (64, 'rework_order_authorization'), (65, 'rework_execution_permission'), (66, 'execution_session_proof'), (67, 'execution_session_api'), (68, 'execution_transaction_identity'), (69, 'execution_measurement_identity'), (70, 'execution_conflict_identity'), (71, 'execution_paper_entry'), (72, 'execution_object_status'), (73, 'execution_legacy_batch_creation'), (74, 'execution_step_lifecycle'), (75, 'function_search_path_hardening'), (76, 'function_execute_allowlist'), (77, 'table_write_allowlist'), (78, 'table_read_allowlist'), (79, 'config_audit_write_guard'), (80, 'config_audit_actor'), (81, 'config_audit_identity'), (82, 'notification_authorization'), (83, 'configuration_authorization'), (84, 'operations_authorization'), (85, 'personnel_link'), (86, 'qualification_lifecycle'), (87, 'legacy_admin_retirement'), (88, 'inspection_permission_guards'), (89, 'correction_permission_guards'), (90, 'paper_entry_permissions'), (91, 'quality_rework_permissions'), (92, 'rework_search_path'), (93, 'security_channel_privileges'), (94, 'existing_identity_bootstrap'), (95, 'mes_demo_accounts'), (96, 'material_master'), (97, 'material_management'), (98, 'master_recipe'), (99, 'recipe_draft_edit'), (100, 'recipe_procedure'), (101, 'recipe_procedure_manage'), (102, 'recipe_parameters'), (103, 'recipe_formula'), (104, 'unit_catalog'), (105, 'recipe_scaling_rules'), (106, 'recipe_requirements'), (107, 'recipe_lot_rules'), (108, 'recipe_content_manage'), (109, 'recipe_requirements_manage'), (110, 'unit_catalog_manage'), (111, 'recipe_scaling_manage'), (112, 'recipe_scaling_expression'), (113, 'recipe_scaling_physical_validation'), (114, 'material_unit_mapping'), (115, 'recipe_lifecycle'), (116, 'recipe_change_request'), (117, 'recipe_comparison'), (118, 'recipe_review_matrix'), (119, 'recipe_review_round'), (120, 'recipe_review_workflow'), (121, 'recipe_release_validation'), (122, 'recipe_release_evidence'), (123, 'recipe_release_workflow'), (124, 'recipe_review_read'), (125, 'recipe_release_read'), (126, 'recipe_products'), (127, 'recipe_reference_catalog'), (128, 'recipe_review_history'), (129, 'personal_transaction_lock'), (130, 'equipment_hierarchy'), (131, 'equipment_catalog'), (132, 'physical_assets'), (133, 'resource_catalog_authorization'), (134, 'resource_catalog_objects'), (135, 'resource_catalog_assignments'), (136, 'resource_catalog_scopes'), (137, 'resource_scope_management'), (138, 'resource_catalog_read'), (139, 'equipment_capability'), (140, 'equipment_capability_manage'), (141, 'equipment_capacity'), (142, 'equipment_capacity_manage'), (143, 'equipment_suitability'), (144, 'equipment_status_history'), (145, 'equipment_status_manage'), (146, 'equipment_workstation'), (147, 'equipment_workstation_manage'), (148, 'downtime_equipment_context'), (149, 'resource_downtime'), (150, 'execution_session_workstation'), (151, 'resource_read_projections'), (152, 'resource_workstation_downtime_projections'), (153, 'resource_property_references'), (154, 'resource_downtime_replay_guard'), (155, 'resource_status_read'), (156, 'recipe_equipment_class_reference'), (157, 'recipe_equipment_property_reference'), (158, 'recipe_equipment_release_validation'), (159, 'recipe_equipment_linked_mutations');
 
 -- ---------------------------------------------------------------------
 -- Elke functie werkt in schema fabriek, ongeacht de instelling van wie hem aanroept.
@@ -12088,5 +12088,115 @@ $$;
 
 -- Geen nieuwe statusovergang, mutatie-interface of app-grant.
 -- Bestaande formele vrijgavecontrole, MOC-snapshot, teller en audit blijven leidend.
+
+-- Migratie 0159: persoonlijke catalogusgebonden receptmutaties (#116.3d.1).
+SET search_path = fabriek, public;
+
+-- De oude interfaces blijven bruikbaar voor ongekoppelde concepten, maar
+-- mogen expliciete koppelingen niet stilzwijgend wijzigen of verliezen.
+CREATE OR REPLACE FUNCTION recipe_save_equipment_requirement(p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,p_equipment_class_code text,p_description text,p_required_count integer,p_minimum_capacity numeric,p_capacity_unit_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF EXISTS (SELECT 1 FROM recipe_equipment_requirement WHERE recipe_version_id=p_version AND id=p_id
+   AND (equipment_class_id IS NOT NULL OR capacity_property_definition_id IS NOT NULL)) THEN
+   RAISE EXCEPTION 'Gebruik de expliciete middelencataloguskoppeling' USING ERRCODE='23514';
+ END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,description,required_count,minimum_capacity,capacity_unit_id)
+   VALUES(p_version,p_procedural_element_id,p_code,p_equipment_class_code,p_description,p_required_count,p_minimum_capacity,p_capacity_unit_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_equipment_requirement SET procedural_element_id=p_procedural_element_id,code=p_code,equipment_class_code=p_equipment_class_code,description=p_description,required_count=p_required_count,minimum_capacity=p_minimum_capacity,capacity_unit_id=p_capacity_unit_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE OR REPLACE FUNCTION recipe_save_scaling_input(p_version uuid,p_expected integer,p_id uuid,p_rule_id uuid,p_code text,p_source_kind text,p_parameter_id uuid,p_equipment_property text,p_constant_value numeric,p_unit_id uuid,p_conversion_version_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ IF EXISTS (SELECT 1 FROM recipe_scaling_input WHERE recipe_version_id=p_version AND id=p_id
+   AND equipment_property_definition_id IS NOT NULL) THEN
+   RAISE EXCEPTION 'Gebruik de expliciete eigenschapskoppeling' USING ERRCODE='23514';
+ END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,parameter_id,equipment_property,constant_value,unit_id,conversion_version_id)
+   VALUES(p_version,p_rule_id,p_code,p_source_kind,p_parameter_id,p_equipment_property,p_constant_value,p_unit_id,p_conversion_version_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_scaling_input SET rule_id=p_rule_id,code=p_code,source_kind=p_source_kind,parameter_id=p_parameter_id,equipment_property=p_equipment_property,constant_value=p_constant_value,unit_id=p_unit_id,conversion_version_id=p_conversion_version_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende schaalregelinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_save_equipment_requirement_linked(
+ p_version uuid,p_expected integer,p_id uuid,p_procedural_element_id uuid,p_code text,
+ p_equipment_class_id uuid,p_description text,p_required_count integer,
+ p_minimum_capacity numeric,p_capacity_property_definition_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid; class_code text; capacity_unit uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ SELECT code INTO class_code FROM equipment_class WHERE id=p_equipment_class_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende middelklasse' USING ERRCODE='23503'; END IF;
+ IF (p_minimum_capacity IS NULL) IS DISTINCT FROM (p_capacity_property_definition_id IS NULL) THEN
+   RAISE EXCEPTION 'Minimumcapaciteit vereist een expliciete eigenschapsdefinitie' USING ERRCODE='23514';
+ END IF;
+ IF p_capacity_property_definition_id IS NOT NULL THEN
+   SELECT measurement_unit_id INTO capacity_unit FROM equipment_property_definition WHERE id=p_capacity_property_definition_id;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende capaciteitseigenschap' USING ERRCODE='23503'; END IF;
+ END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_equipment_requirement(recipe_version_id,procedural_element_id,code,equipment_class_code,
+     description,required_count,minimum_capacity,capacity_unit_id,equipment_class_id,capacity_property_definition_id)
+   VALUES(p_version,p_procedural_element_id,p_code,class_code,p_description,p_required_count,
+     p_minimum_capacity,capacity_unit,p_equipment_class_id,p_capacity_property_definition_id) RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_equipment_requirement SET procedural_element_id=p_procedural_element_id,code=p_code,
+     equipment_class_code=class_code,description=p_description,required_count=p_required_count,
+     minimum_capacity=p_minimum_capacity,capacity_unit_id=capacity_unit,equipment_class_id=p_equipment_class_id,
+     capacity_property_definition_id=p_capacity_property_definition_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende receptinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+CREATE FUNCTION recipe_save_scaling_input_linked(
+ p_version uuid,p_expected integer,p_id uuid,p_rule_id uuid,p_code text,
+ p_equipment_property_definition_id uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,fabriek,pg_temp AS $$
+DECLARE current_no integer; target uuid; property_code text; property_unit uuid;
+BEGIN
+ current_no:=recipe_lock_draft(p_version,p_expected);
+ SELECT code,measurement_unit_id INTO property_code,property_unit
+   FROM equipment_property_definition WHERE id=p_equipment_property_definition_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende middeleneigenschap' USING ERRCODE='23503'; END IF;
+ IF p_id IS NULL THEN
+   INSERT INTO recipe_scaling_input(recipe_version_id,rule_id,code,source_kind,equipment_property,
+     unit_id,equipment_property_definition_id)
+   VALUES(p_version,p_rule_id,p_code,'equipment_property',property_code,property_unit,p_equipment_property_definition_id)
+   RETURNING id INTO target;
+ ELSE
+   UPDATE recipe_scaling_input SET rule_id=p_rule_id,code=p_code,source_kind='equipment_property',
+     parameter_id=NULL,equipment_property=property_code,constant_value=NULL,unit_id=property_unit,
+     conversion_version_id=NULL,equipment_property_definition_id=p_equipment_property_definition_id
+   WHERE recipe_version_id=p_version AND id=p_id RETURNING id INTO target;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Onbekende schaalregelinhoud binnen deze versie' USING ERRCODE='23503'; END IF;
+ END IF;
+ UPDATE master_recipe_version SET change_no=current_no+1 WHERE id=p_version;
+ RETURN jsonb_build_object('id',target,'change_no',current_no+1);
+END $$;
+
+REVOKE ALL ON FUNCTION recipe_save_equipment_requirement_linked(uuid,integer,uuid,uuid,text,uuid,text,integer,numeric,uuid),
+ recipe_save_scaling_input_linked(uuid,integer,uuid,uuid,text,uuid) FROM PUBLIC;
 
 COMMIT;
