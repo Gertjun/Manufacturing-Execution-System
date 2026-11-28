@@ -39,6 +39,7 @@ let capRequests=0,statusRequests=0,referenceRequests=0,capWrites=0,statusWrites=
 let statusCanManage=true;
 const stationFixture={workstations:[{id:"pc1",name:"PC-01",location:"Hal 1",active:true},{id:"pc2",name:"PC-02",location:null,active:false}],equipment:[resourceEquipment],assignments:[]};
 let stationReads=0,stationWrites=0,downtimeReads=0;
+let downtimeError=false;
 const downtimeFixture=[{id:"stop-1",equipment_id:resourceEquipment.id,equipment_code:resourceEquipment.code,equipment_name:resourceEquipment.name,step_code:"PS1",step_name:"Reactie",reason_code:"STOR-MACH",reason_name:"Machinestoring",category:"storing",note:"Fictieve storing",started_at:"2026-01-01T10:00:00Z",workstation:"PC-01",operator:"Fictieve operator"}];
 const scopeFixture = {areas:[resourceArea],equipment:[resourceEquipment],area_scopes:[],equipment_scopes:[]};
 const veld = { code:"S3.2", naam:"Fictieve temperatuur", eenheid:"°C", soort:"procesparameter", stap:"PS3", grens_min:60, grens_max:90, tolerantie:5, tolerantie_soort:"absoluut" };
@@ -105,6 +106,7 @@ try {
     }
     if(path==="/stilstand/middelen"){
       downtimeReads++;
+      if(downtimeError)return json({fout:"Geweigerd"},403);
       return projection.global.some(x=>["downtime.read","maintenance.downtime.read"].includes(x))?json(downtimeFixture):json({fout:"Geweigerd"},403);
     }
     if (path === "/resources/scopes") {
@@ -271,6 +273,7 @@ try {
   await page.getByRole("button",{name:"Historie ophalen"}).click();
   await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
   statusCanManage=false;
+  const noStatusDowntime=downtimeReads;
   projection={...personal(["resource.status.read"]),resourceStatus:true};
   await landing(["maintenance"]);
   await page.goto(origin+"/portaal/#/maintenance/status");
@@ -281,6 +284,29 @@ try {
   await page.locator("details table").getByRole("cell",{name:"Inspectie vereist",exact:true}).waitFor();
   assert.equal(statusWrites,1);
   console.log("OK F4-116: statuslezer ziet historie zonder mutatieformulier");
+  await page.getByRole("cell",{name:"Niet beschikbaar",exact:true}).waitFor();
+  assert.equal(downtimeReads,noStatusDowntime);
+  projection={...personal(["resource.status.read","maintenance.downtime.read"]),resourceStatus:true};
+  await landing(["maintenance"]);
+  await page.goto(origin+"/portaal/#/maintenance/status");
+  await page.getByRole("cell",{name:"Actieve melding",exact:true}).waitFor();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  assert.equal(await page.getByText("Status wijzigen",{exact:true}).count(),0);
+  const savedStops=downtimeFixture.splice(0);
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByRole("cell",{name:"Geen actieve melding",exact:true}).waitFor();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  downtimeFixture.push(...savedStops);
+  downtimeError=true;
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByRole("cell",{name:"Niet beschikbaar",exact:true}).waitFor();
+  await page.getByText("Operationele stilstand kon niet worden opgehaald.",{exact:false}).waitFor();
+  await page.getByRole("cell",{name:"Geblokkeerd",exact:true}).waitFor();
+  downtimeError=false;
+  await page.getByRole("button",{name:"Vernieuwen",exact:true}).click();
+  await page.getByRole("cell",{name:"Actieve melding",exact:true}).waitFor();
+  assert.equal(statusWrites,1);
+  console.log("OK F4-116.2: onafhankelijke status/stilstand, ontbrekend recht, fout en herstel");
   statusCanManage=true;
   projection=personal();
   await landing([]);
