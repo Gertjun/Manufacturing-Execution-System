@@ -4110,7 +4110,7 @@ def main():
         kind=val("INSERT INTO quantity_kind(dimension_id,code,name,value_semantics) VALUES (%s,'F115-F-Q','Fictief','ratio') RETURNING id",(dim,))
         unit=val("INSERT INTO measurement_unit(quantity_kind_id,code,symbol,name) VALUES (%s,'F115-F-U','uF','Fictief') RETURNING id",(kind,))
         prop=val("INSERT INTO equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('F115-F-P','Fictief',%s,%s) RETURNING id",(kind,unit))
-        names=("catalog","catalog_area","status","status_area","status_equipment","mapper","operator","maintenance","none")
+        names=("catalog","catalog_area","status","status_area","status_equipment","reader","reader_area","reader_equipment","mixed","mapper","operator","maintenance","none")
         actors={}
         for name in names:
             actors[name]=val("INSERT INTO gebruiker(gebruikersnaam,rol,wachtwoord_hash) VALUES (%s,'pending',wachtwoord_hash('fictief-f115f')) RETURNING id",("f115f."+name,))
@@ -4119,6 +4119,11 @@ def main():
         for name,role in (("catalog_area","resource_catalog_manager"),("status_area","resource_status_manager")):
             con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,%s,'F115-F-GRANT')",(actors[name],role))
         con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_manager','F115-F-EQ')",(actors["status_equipment"],))
+        for name in ("reader","mixed"):
+            con.execute("INSERT INTO authorization_grant(user_id,role_code) VALUES (%s,'resource_status_reader')",(actors[name],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,area_code) VALUES (%s,'resource_status_reader','F115-F-GRANT')",(actors["reader_area"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_reader','F115-F-EQ')",(actors["reader_equipment"],))
+        con.execute("INSERT INTO authorization_grant(user_id,role_code,equipment_code) VALUES (%s,'resource_status_manager','F115-F-EQ')",(actors["mixed"],))
         op=val("INSERT INTO operator(naam,gebruiker_id) VALUES ('F115-F-OP',%s) RETURNING id",(actors["operator"],))
         pc=val("INSERT INTO pc(naam) VALUES ('F115-F-PC') RETURNING id")
         other_pc=val("INSERT INTO pc(naam) VALUES ('F115-F-OTHER') RETURNING id")
@@ -4175,6 +4180,24 @@ def main():
         bind115("status")
         unknown=next(x for x in val("SELECT resource_status_list()") if x["id"]==str(e2))
         check("F4-115-F02 onbekend niet beschikbaar",unknown["status"]=="unknown" and unknown["revision"]==0 and unknown["reason"] is None)
+        for name in ("reader","reader_area","reader_equipment","mixed"):
+            bind115(name)
+            statuses=val("SELECT resource_status_list()")
+            check("F4-116-A01 menusignaal "+name,val("SELECT resource_status_access()") is True)
+            visible={x["id"]:x for x in statuses}
+            check("F4-116-A01 leesscope "+name,str(e1) in visible and (str(e2) in visible)==(name in ("reader","mixed")))
+            if name in ("reader_area","reader_equipment"):
+                check("F4-116-A01 uitsluitend begrensde rij "+name,len(statuses)==1)
+                deny115("F4-116-A01 buiten-scope historie "+name,"SELECT resource_status_history(%s)",(e2,))
+            check("F4-116-A02 mutatiesignaal "+name,all(x["can_manage"]==(name=="mixed" and x["id"]==str(e1)) for x in statuses))
+            check("F4-116-A01 historie "+name,[x["revision"] for x in val("SELECT resource_status_history(%s)",(e1,))]==[2,1])
+            if name!="mixed":
+                deny115("F4-116-A02 reader geen mutatie "+name,"SELECT resource_status_set(%s,2,'blocked','Test')",(e1,))
+            deny115("F4-116-A02 geen catalogus "+name,"SELECT resource_capability_list()")
+            deny115("F4-116-A02 geen stilstand "+name,"SELECT resource_downtime_list()")
+        bind115("mixed")
+        deny115("F4-116-A02 mixed geen mutatie buiten scope","SELECT resource_status_set(%s,0,'blocked','Test')",(e2,))
+        check("F4-116-A02 mixed mutatie binnen scope",val("SELECT resource_status_set(%s,2,'blocked','Test')",(e1,))==3)
         bind115("none")
         for query in ("resource_capability_list()","resource_status_list()","resource_workstation_list()","resource_downtime_list()"):
             deny115("F4-115-F06 geen rechten "+query,"SELECT "+query)
@@ -4184,6 +4207,7 @@ def main():
         for signature in ("resource_capability_list()","resource_status_list()","resource_status_history(uuid)","resource_workstation_list()","resource_downtime_choices(uuid,uuid)","resource_downtime_list()"):
             check("F4-115-F06 app functiegrant "+signature,val("SELECT has_function_privilege('mes_app',%s,'EXECUTE')",("fabriek."+signature,)))
         check("F4-115-F06 interne helper afgesloten",not val("SELECT has_function_privilege('mes_app','fabriek.resource_status_visible(uuid,uuid)','EXECUTE')"))
+        check("F4-116-A02 interne mutatiescopehelper afgesloten",not val("SELECT has_function_privilege('mes_app','fabriek.resource_status_manage_visible(uuid,uuid)','EXECUTE')"))
     finally:
         con.execute("ROLLBACK")
         con.execute("RESET ROLE")
