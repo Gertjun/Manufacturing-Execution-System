@@ -161,6 +161,45 @@ try {
     parent=element.id;
   }
   await editRecipe("/content/formulas",{reference_quantity:"1000.125",reference_unit:"kg",reference_unit_id:unit.id});
+  // #116.3d.4c: explicitly link a historical equipment requirement in the UI.
+  const {rows:[cls]}=await db.query("INSERT INTO fabriek.equipment_class(code,name) VALUES ('E2E-116-CLASS','Fictieve mengerklasse') RETURNING id");
+  const {rows:[prop]}=await db.query("INSERT INTO fabriek.equipment_property_definition(code,name,quantity_kind_id,measurement_unit_id) VALUES ('E2E-116-CAP','Fictieve capaciteit',$1,$2) RETURNING id",[quantity.id,unit.id]);
+  const legacyEq=await editRecipe("/requirements/equipment-requirements",{
+    procedural_element_id:parent,code:"E2E-116-EQ",equipment_class_code:"E2E-116-CLASS",
+    description:"Fictieve capaciteitseis",required_count:2,minimum_capacity:"1000.125",capacity_unit_id:unit.id
+  });
+  const unlinked=await request("GET",releaseBase+"/release-validation",engineer,null,200);
+  assert.ok(unlinked.blockers.some(b=>b.code==="equipment_class_unverified"&&b.record_id===legacyEq.id));
+  await login("mes.engineer");
+  await route("recepten","Master Recipes");
+  await page.getByLabel("Product",{exact:true}).selectOption(product.id);
+  const linkedRecipe=page.locator("section.blok").filter({has:page.getByRole("heading",{name:code,exact:true})});
+  await linkedRecipe.getByText(`Revisie 1 — ${releasedName} · Concept`,{exact:true}).click();
+  // Select the actual record summary, not an ancestor details container.
+  const eqSummary=linkedRecipe.locator("summary").filter({hasText:/^E2E-116-EQ — E2E-116-CLASS$/});
+  await eqSummary.click();
+  const eqDetails=eqSummary.locator("..");
+  await eqDetails.getByText("Historische, ongekoppelde middelklasse; expliciete koppeling vereist.",{exact:true}).waitFor();
+  await eqDetails.getByText("Equipmentvereiste wijzigen",{exact:true}).click();
+  const eqForm=eqDetails.locator("form");
+  assert.equal(await eqForm.getByLabel("Equipmentklasse",{exact:true}).inputValue(),"");
+  await eqForm.getByLabel("Equipmentklasse",{exact:true}).selectOption(cls.id);
+  await eqForm.getByLabel("Capaciteitseigenschap",{exact:true}).selectOption(prop.id);
+  await eqForm.getByText("Cataloguseenheid: kg",{exact:true}).waitFor();
+  const [eqResponse]=await Promise.all([
+    page.waitForResponse(r=>r.request().method()==="PATCH"&&new URL(r.url()).pathname===releaseBase+"/requirements/linked-equipment-requirements/"+legacyEq.id),
+    eqForm.getByRole("button",{name:"Opslaan",exact:true}).click()
+  ]);
+  assert.equal(eqResponse.status(),200,await eqResponse.text());
+  changeNo++;
+  const eqRead=await request("GET",releaseBase+"/requirements",engineer,null,200);
+  assert.equal(eqRead.change_no,changeNo);
+  assert.equal(eqRead.equipment_requirements[0].equipment_class_id,cls.id);
+  assert.equal(eqRead.equipment_requirements[0].capacity_property_definition_id,prop.id);
+  assert.equal(eqRead.equipment_requirements[0].minimum_capacity,"1000.125");
+  // Return to the independent review identity for the existing formal workflow.
+  await login("mes.eng.approver");
+
   await editRecipe("/requirements/lot-rules",{nominal_batch_count:6,deviation_approval_required:true});
   const releaseMoc=await editRecipe("/moc",{
     baseline_version_id:null,reason:"Fictieve receptwijziging",impact_description:"Fictieve impact"
